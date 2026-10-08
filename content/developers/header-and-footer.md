@@ -158,6 +158,48 @@ The page also sets `aria-expanded` on each of these triggers while its drawer is
 
 The menu drawer draws the menu's links with their sub-links, two levels deep; a menu by that name that does not exist falls back to the links inside the section's own `<nav>`. Only what the markup asks for is mounted, and the cart drawer is drawn once a page whoever asks for it.
 
+### A cart of your own
+
+The built-in cart drawer is a choice, not a requirement. Any section can add products to the cart from its own buttons and draw its own cart drawer, with its own layout and motion, on the site's one cart. The cart is kept in the visitor's browser under the shop and priced again from the database at checkout, so nothing written into the markup can change what anybody is charged.
+
+| Attribute | On | Does |
+| --- | --- | --- |
+| `data-storelib-add-to-cart` | a button | Adds the product whose id is its value. The line's title, price (as printed), picture, page and kind are read from `data-title`, `data-price`, `data-image`, `data-url` and `data-kind`; an option adds `data-variant-id` and `data-variant-name`; `data-quantity` for a shipped product. A digital product is always one. |
+| `data-storelib-cart-panel` | any element | The section's own cart drawer. The section's `data-storelib-cart` button and every add open it instead of the built-in drawer. The page sets `data-open="true"` or `"false"` for your CSS, `aria-hidden`, and `inert` while it is shut. Escape closes it. |
+| `data-storelib-cart-lines` | an element in the panel | Where the lines go. It holds one element marked `data-storelib-cart-line hidden`, the pattern, copied once per line. Not a `<template>` tag: that is the file's own delimiter. |
+| `data-line-title`, `data-line-variant`, `data-line-price`, `data-line-qty` | inside the pattern | The page writes the line's name, option, line total and quantity in, as text. |
+| `data-line-image`, `data-line-url` | an `<img>`, an `<a>` in the pattern | The line's picture and its product page. |
+| `data-line-inc`, `data-line-dec`, `data-line-remove` | buttons in the pattern | One more, one less (at one, it removes the line), remove. `data-line-inc` is disabled on a digital product. |
+| `data-storelib-cart-subtotal` | any element | The subtotal, as text. |
+| `data-storelib-cart-empty`, `data-storelib-cart-filled` | any element | Shown and hidden with the cart. |
+| `data-storelib-checkout` | a button | Straight to checkout, as the built-in drawer's Check out: a cart with something shipped goes to the physical checkout. In the builder it opens the cart page instead. |
+| `data-storelib-cart-close` | a button | Closes the panel. |
+
+```storelib
+{% for block in products %}
+  {% if block.settings.available %}
+  <button type="button" data-storelib-add-to-cart="{{ block.id }}" data-title="{{ block.settings.title }}" data-price="{{ block.settings.price }}" data-image="{{ block.settings.image }}" data-url="{{ block.settings.url }}" data-kind="{{ block.settings.kind }}">{{ settings.add_label }}</button>
+  {% endif %}
+{% endfor %}
+<button type="button" data-storelib-cart aria-label="Cart"><span data-storelib-cart-count></span></button>
+<aside class="bag" data-storelib-cart-panel aria-label="Cart">
+  <button type="button" data-storelib-cart-close aria-label="Close">Close</button>
+  <p data-storelib-cart-empty>{{ settings.empty_text }}</p>
+  <ul data-storelib-cart-lines>
+    <li class="bag__line" data-storelib-cart-line hidden><img data-line-image width="56" height="56" alt=""><a data-line-url><span data-line-title></span></a><span data-line-qty></span><span data-line-price></span><button type="button" data-line-dec aria-label="One less">-</button><button type="button" data-line-inc aria-label="One more">+</button><button type="button" data-line-remove>Remove</button></li>
+  </ul>
+  <div data-storelib-cart-filled><span data-storelib-cart-subtotal></span><button type="button" data-storelib-checkout>{{ settings.checkout_label }}</button></div>
+</aside>
+```
+
+```css
+.bag { position: fixed; inset: 0 0 0 auto; width: min(420px, 100%); transform: translateX(100%); transition: transform 300ms cubic-bezier(0.32, 0.72, 0, 1); }
+.bag[data-open="true"] { transform: none; }
+@media (prefers-reduced-motion: reduce) { .bag { transition: none; } }
+```
+
+`scripts/check-own-cart.mjs` presses every one of these in a browser on a section drawn by the real renderer.
+
 ## Above the header
 
 An announcement bar, or anything else that belongs above the header on every page, sits in the **header group**. Its schema says so, the way a Shopify theme does:

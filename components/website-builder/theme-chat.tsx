@@ -592,6 +592,7 @@ function ThemeChatPanel({
   onConnectAi,
   onOpenCodeEditor,
   onSourcesChanged,
+  onPageWritten,
   onSourceWritten,
   onWorkingChange,
   onRunFinished,
@@ -637,6 +638,8 @@ function ThemeChatPanel({
   onOpenCodeEditor?: (path: string) => void
   /** A section's code was rewritten during a run, so the theme's files are stale. */
   onSourcesChanged?: () => void
+  /** The run wrote another page of the site as a draft (build_page). */
+  onPageWritten?: (key: string, title: string) => void
   /**
    * A section file the run has just written and checked, so the canvas can
    * draw it at once instead of waiting for a reload. It is saved when the run
@@ -1566,6 +1569,9 @@ function ThemeChatPanel({
                 /* Checked already: drawn now, saved when the run ends. The step that wrote it changed its sections. */
                 if (typeof event.path === "string" && typeof event.source === "string") onSourceWritten?.(event.path, event.source)
                 for (const id of stepSections) changed.add(id)
+              } else if (type === "page") {
+                /* Another page of the site was written as a draft: the editor lists it, and loads it when it is opened. */
+                if (typeof event.key === "string") onPageWritten?.(event.key, typeof event.title === "string" ? event.title : event.key)
               } else if (type === "sources-changed") {
                 // The canvas is drawing the old source; the editor holds the files.
                 onSourcesChanged?.()
@@ -1656,7 +1662,7 @@ function ThemeChatPanel({
         if (changed.size > 0 && live.current.page === startedOn) onRunFinished?.([...changed])
       }
     },
-    [busy, writing, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
+    [busy, writing, installId, loadingHistory, onOp, onRunStart, onRunEnd, onSourcesChanged, onPageWritten, onSourceWritten, onWorkingChange, onRunFinished, patchExchange],
   )
 
   /**

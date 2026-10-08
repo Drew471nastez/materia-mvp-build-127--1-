@@ -1,0 +1,216 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Build a full digital product creator store selling templates, courses and downloads",
+  "site_type": "digital_commerce",
+  "working_title": "Atlas Studio",
+  "assumptions": [
+    "Sample only: names/media/copy are editable and not merchant-supplied data.",
+    "Never invent real products, prices, stock, reviews, integrations, client stories or service availability.",
+    "All dynamic data and actions must use verified Storelib APIs in implementation."
+  ],
+  "creative_direction": {
+    "label": "Digital studio editorial",
+    "palette": {
+      "bg": "#F6F6F2",
+      "type": "#1E2230",
+      "accent": "#6664ED"
+    },
+    "layout": "dense screenshots, bold grids and airy editorial copy",
+    "motion": "reduced-motion-aware context-specific transitions"
+  },
+  "global_components": {
+    "header": "custom AI-generated responsive navigation, bound to real menu/store logo when available",
+    "footer": "category-appropriate footer, privacy/contact and real internal links"
+  },
+  "project_notes": "Real downloadable file entitlements after purchase; no shipping for digital-only orders.",
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Home | Sample",
+      "goal": "Present creator and digital products",
+      "sections": [
+        {
+          "id": "home-hero",
+          "type": "hero",
+          "purpose": "Sell credible digital outcomes",
+          "layout": "full-height product collage"
+        },
+        {
+          "id": "home-categories",
+          "type": "categories",
+          "purpose": "Browse product kinds",
+          "layout": "editorial tabs"
+        },
+        {
+          "id": "home-featured",
+          "type": "featured",
+          "purpose": "List real digital offerings",
+          "layout": "visual product grid",
+          "binding": "catalog.featured"
+        },
+        {
+          "id": "home-creator",
+          "type": "creator",
+          "purpose": "Creator background and value",
+          "layout": "content-led profile"
+        },
+        {
+          "id": "home-faq",
+          "type": "faq",
+          "purpose": "Explain licenses/downloads",
+          "layout": "minimal questions"
+        },
+        {
+          "id": "home-cta",
+          "type": "cta",
+          "purpose": "Drive to catalog",
+          "layout": "clear final CTA",
+          "cta": {
+            "text": "Browse templates",
+            "destination": "/products"
+          }
+        }
+      ]
+    },
+    {
+      "id": "products",
+      "route": "/products",
+      "kind": "catalog",
+      "title": "Products | Sample",
+      "goal": "Allow browsing downloadable products",
+      "sections": [
+        {
+          "id": "products-intro",
+          "type": "intro",
+          "purpose": "Understand product inventory",
+          "layout": "catalog title/filter controls"
+        },
+        {
+          "id": "products-grid",
+          "type": "grid",
+          "purpose": "Real digital products and prices",
+          "layout": "mixed-card grid",
+          "binding": "catalog.products"
+        },
+        {
+          "id": "products-filters",
+          "type": "filters",
+          "purpose": "Only filters backend supports",
+          "layout": "format/license facets"
+        }
+      ]
+    },
+    {
+      "id": "product_template",
+      "route": "/products/:slug",
+      "kind": "product_template",
+      "title": "Product Template | Sample",
+      "goal": "Dynamically render template/product detail",
+      "sections": [
+        {
+          "id": "product_template-hero",
+          "type": "hero",
+          "purpose": "Accurate title, license and price",
+          "layout": "visual preview and purchase panel",
+          "binding": "product.current"
+        },
+        {
+          "id": "product_template-previews",
+          "type": "previews",
+          "purpose": "Real asset preview",
+          "layout": "image carousel or sample documents",
+          "binding": "product.current.gallery"
+        },
+        {
+          "id": "product_template-contents",
+          "type": "contents",
+          "purpose": "Expose actual deliverable metadata",
+          "layout": "included files/details"
+        },
+        {
+          "id": "product_template-faq",
+          "type": "faq",
+          "purpose": "Describe fulfillment without inventing",
+          "layout": "product-specific questions"
+        }
+      ]
+    },
+    {
+      "id": "courses",
+      "route": "/courses",
+      "kind": "catalog",
+      "title": "Courses | Sample",
+      "goal": "Browse courses",
+      "sections": [
+        {
+          "id": "courses-hero",
+          "type": "hero",
+          "purpose": "Introduce real courses",
+          "layout": "course featured card"
+        },
+        {
+          "id": "courses-grid",
+          "type": "grid",
+          "purpose": "Retrieve course data where supported",
+          "layout": "catalog of active courses"
+        },
+        {
+          "id": "courses-steps",
+          "type": "steps",
+          "purpose": "Explain course experience",
+          "layout": "learning journey layout"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "route": "/about",
+      "kind": "about",
+      "title": "About | Sample",
+      "goal": "Creator story",
+      "sections": [
+        {
+          "id": "about-hero",
+          "type": "hero",
+          "purpose": "Real biographical info",
+          "layout": "creator intro with photo"
+        },
+        {
+          "id": "about-timeline",
+          "type": "timeline",
+          "purpose": "Founder milestones only supplied",
+          "layout": "story arc"
+        },
+        {
+          "id": "about-products",
+          "type": "products",
+          "purpose": "Bridge toward offers",
+          "layout": "relevant product links"
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "route": "/contact",
+      "kind": "contact",
+      "title": "Contact | Sample",
+      "goal": "Legitimate support contact",
+      "sections": [
+        {
+          "id": "contact-hero",
+          "type": "hero",
+          "purpose": "Help reach merchant",
+          "layout": "support intro"
+        },
+        {
+          "id": "contact-form",
+          "type": "form",
+          "purpose": "Submit to existing backend",
+          "layout": "working form"
+        }
+      ]
+    }
+  ]
+}

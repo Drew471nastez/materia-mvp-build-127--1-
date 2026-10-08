@@ -1,0 +1,30 @@
+{
+  "$schema_note": "Proposal only; Storelib compiler and DB contract must be derived from real repo",
+  "version": "2.0",
+  "intent": "section_replace",
+  "scope": {
+    "pageId": "faq",
+    "sectionIds": [
+      "faq-main"
+    ]
+  },
+  "preserve": [
+    "FAQ question/answer content",
+    "dynamic bindings",
+    "site typography tokens outside section"
+  ],
+  "replace": [
+    "faq-main markup",
+    "FAQ layout/style",
+    "section setting definitions"
+  ],
+  "quality": {
+    "structuralCheck": true,
+    "visualCheck": true
+  },
+  "expected": {
+    "pageRoutesStable": true,
+    "storeDataUntouched": true,
+    "undoAvailable": true
+  }
+}

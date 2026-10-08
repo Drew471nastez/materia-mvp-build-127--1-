@@ -64,6 +64,21 @@ export interface Intent {
   wantsMotion: boolean
   /** Why, in a few words each: logged, never shown. */
   reasons: string[]
+  /**
+   * THE THING NAMED IS TO BE MADE AGAIN, NOT ADJUSTED: "completely redesign
+   * the FAQ", "make the FAQ totally different, much more modern", "remake the
+   * hero from scratch". A section built new (its own file, layout, controls),
+   * not the old one's settings moved. Absent on older callers: false.
+   */
+  rebuild?: boolean
+  /** A light touch asked for: "a bit", "slightly", "a little". The section and its content stay; its look moves. */
+  light?: boolean
+  /** A new page asked for: "add an About page", "build another landing page". Built with build_page, then linked. */
+  newPage?: boolean
+  /** What the creator said to leave alone: "keep the header", "don't touch the pricing". */
+  keep?: string[]
+  /** A value every page reads (the logo, the store name, the socials), to be changed once where it lives. */
+  global?: boolean
 }
 
 export interface IntentContext {
@@ -115,6 +130,7 @@ const PAGE = [
 
 /** One section, rethought. */
 const SECTION = [
+  /\b(?:make|turn|give)\b[^.?!]{0,30}\b(?:this|that|the|my)\b[^.?!]{0,25}\b(?:section|hero|banner|faq|pricing|gallery|footer|header|nav(?:igation)?|menu|events?|testimonials?|features?|part|one)\b[^.?!]{0,30}\b(?:completely|totally|entirely|something) (?:different|new|else)\b/i,
   /\b(?:redesign|rebuild|remake|revamp|rethink|redo|rework|reimagine)\b[^.?!]{0,30}\b(?:this|that|the|my)\b[^.?!]{0,25}\b(?:section|hero|header|banner|faq|pricing|gallery|footer|events?|testimonials?|features?|block|part)\b/i,
   /\b(?:make|turn)\b[^.?!]{0,30}\b(?:this|that|the|my)\b[^.?!]{0,25}\b(?:section|hero|banner|faq|pricing|gallery|events?( part)?|testimonials?|features?|part|one)\b[^.?!]{0,30}\b(?:better|premium|nicer|stunning|beautiful|more \w+|less \w+|pop|stand out|aggressive|bolder|cleaner|modern|professional|luxur\w+|editorial|interesting)\b/i,
   /\b(?:improve|upgrade|level up|polish)\b[^.?!]{0,20}\b(?:this|that|the)\b[^.?!]{0,20}\b(?:section|hero|part|one)\b/i,
@@ -139,6 +155,31 @@ const QUESTION_START = /^(?:what|why|how|who|where|when|which|can you|could you 
 const IMPERATIVE = /\b(make|change|add|remove|delete|hide|show|build|create|design|redesign|set|put|move|rewrite|write|fix|update|replace|turn|give)\b/i
 const FOLLOW_UP = /^(?:no[, ]|not that|i meant|only|just|undo|revert|go back|put (?:it|that) back|the previous|the old|that one|keep (?:it|that|the)|again|more|less|bigger|smaller|perfect|ok(?:ay)?[, ]|now )/i
 
+/* "Completely", "from scratch", "totally different", "much more modern": the named thing is made again. */
+const REBUILD = /\b(complete(?:ly)?|total(?:ly)?|entire(?:ly)?|fully|from scratch|brand new|whole new|all new|remake|rebuild|redo|re-?do|reimagine|start (?:over|again|fresh)|(?:much|way|a lot|far) more (?:modern|premium|clean|cleaner|minimal|editorial|luxur\w*|interactive|professional|beautiful|elegant|stylish)|something (?:completely |totally )?different|(?:completely |totally )?different (?:design|layout|look|style|section|one)|new (?:design|layout|version))\b/i
+const LIGHT = /\b(a (?:little|bit|touch|tad)|slightly|a little bit|just a bit|subtly|minor|small tweak|tweak)\b/i
+/* "Add an About page", "build another landing page", "I need a size guide page". Not "this page", which is the open one. */
+const NEW_PAGE = /\b(?:add|create|build|make|give me|set up|i (?:need|want)|we (?:need|want))\b[^.?!]{0,24}\b(?:an?|another|new|one more|a new|an extra|separate)\b[^.?!]{0,32}\bpages?\b/i
+/* "Keep the header", "leave the pricing alone", "don't touch checkout", "without changing the footer". */
+const KEEP = /\b(?:keep|leave|preserve|don'?t (?:touch|change|remove|move|edit)|do not (?:touch|change|remove|move|edit)|never (?:touch|change)|without (?:touching|changing|removing))\s+(?:the |my |our |all (?:the |my )?|every |any )?([a-z][a-z0-9 /&'-]{1,40}?)(?=\s*(?:[.,;!?]|$)|\s+(?:as (?:it is|is|they are)|the same|alone|unchanged|intact|exactly|and\b|but\b|while\b|though\b|please\b))/gi
+/* A value every page reads, asked to change everywhere at once. */
+const GLOBAL = /\b(?:logo|brand ?name|store ?name|shop ?name|site ?name|favicon|social (?:links?|icons?|media)|socials|currency)\b/i
+const EVERYWHERE = /\b(everywhere|across (?:the|my|our) (?:whole )?(?:site|website|store)|on (?:every|all) pages?|all (?:the )?pages|site.?wide|globally|in (?:the )?header and (?:the )?footer)\b/i
+
+/** What the creator said to leave alone, as short phrases. */
+export function keptPhrases(text: string): string[] {
+  const out: string[] = []
+  for (const m of text.matchAll(KEEP)) {
+    const phrase = m[1].replace(/\s+/g, " ").trim().replace(/\b(it|this|that|them|everything else|the rest|rest)$/i, "").trim()
+    if (phrase.length >= 3 && !/^(it|this|that|them|everything|going|in mind|up|on|doing)\b/i.test(phrase) && !out.includes(phrase)) out.push(phrase)
+  }
+  return out.slice(0, 6)
+}
+
+/* A section by what it is, and the site by any word for it: which one a "completely different" is about. */
+const NAMES_SECTION = /\b(section|hero|banner|faq|faqs|pricing|gallery|footer|header|nav(?:igation)?|navbar|menu|events?|testimonials?|reviews?|features?|newsletter|cta|call to action|about section|contact section|product grid|slider|carousel|countdown)\b/i
+const NAMES_SITE = /\b(web ?site|site|store ?front|online store|shop|everything|whole thing|entire thing|all (?:the )?pages|every page|brand)\b/i
+
 function hits(list: RegExp[], text: string): boolean {
   return list.some((re) => re.test(text))
 }
@@ -154,6 +195,8 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
     const big = kind === "PAGE_REDESIGN" || kind === "FULL_SITE_REDESIGN" || kind === "NEW_SITE_GENERATION"
     const extra = new Set(also.filter((k) => k !== kind))
     if (wantsMotion && kind !== "FUNCTIONAL_CHANGE" && kind !== "QUESTION") extra.add("FUNCTIONAL_CHANGE")
+    const keep = keptPhrases(text)
+    const rebuild = REBUILD.test(text) && !LIGHT.test(text) && kind !== "QUESTION"
     return {
       kind,
       also: [...extra],
@@ -163,6 +206,11 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
       followUp,
       wantsMotion,
       reasons,
+      rebuild,
+      light: LIGHT.test(text) && !rebuild,
+      newPage: kind !== "QUESTION" && kind !== "NEW_SITE_GENERATION" && kind !== "FULL_SITE_REDESIGN" && NEW_PAGE.test(text),
+      keep,
+      global: kind !== "QUESTION" && GLOBAL.test(text) && EVERYWHERE.test(text),
     }
   }
 
@@ -207,6 +255,15 @@ export function classifyIntent(prompt: string, ctx: IntentContext = {}): Intent 
     */
     reasons.push(body <= 1 ? "a site asked for on an empty page" : "a site asked for from a brief")
     return result(body <= 1 ? "NEW_SITE_GENERATION" : "FULL_SITE_REDESIGN", "site")
+  }
+  /*
+    "MAKE THE FAQ COMPLETELY DIFFERENT" NAMES ONE SECTION. "Completely different" is also how a new direction for the
+    whole site is said, and read that way it redesigned every page for a request about a FAQ. A section named, with no
+    word for the site, is that section rebuilt.
+  */
+  if (hits(FULL_SITE, text) && NAMES_SECTION.test(text) && !NAMES_SITE.test(text)) {
+    reasons.push("one named section, made again")
+    return result("SECTION_REDESIGN", "section", FUNCTION.test(text) ? ["FUNCTIONAL_CHANGE"] : [])
   }
   if (hits(FULL_SITE, text)) {
     reasons.push("a new direction for the whole site")
@@ -312,6 +369,26 @@ export function intentGuidance(intent: Intent): string {
     lines.push(
       "MOTION AND INTERACTION ARE A REQUIREMENT HERE, not decoration: build them for real in CSS (and a small script only where CSS cannot), with the theme's own entrance animation on (update_theme animations_enabled) and sections of your own for what no setting does: scroll reveals, staggered entrances, a marquee, images that scale or move on scroll, hover states that respond, a counter, a countdown, sticky storytelling. Every one stops under prefers-reduced-motion and none of them gets in the way of reading.",
     )
+  }
+  if (intent.rebuild && (intent.kind === "SECTION_REDESIGN" || intent.kind === "FUNCTIONAL_CHANGE" || intent.kind === "STYLE_CHANGE" || intent.kind === "LOCAL_EDIT")) {
+    lines.push(
+      "MADE AGAIN, NOT ADJUSTED. They asked for this to be rebuilt, so moving the old section's settings, colours or spacing is the failure here. Write a NEW section of your own with create_section: new markup, a new layout, its own CSS and motion, and a full set of controls (content, layout, style) so they can change it later without code. Put it where the old one is, carry over the real content (a FAQ's actual questions and answers, the names in the testimonials, the links), then remove the old one. Keep what it is for: a FAQ stays a FAQ.",
+    )
+  } else if (intent.light && intent.kind !== "QUESTION") {
+    lines.push("A LIGHT TOUCH was asked for. Keep the section, its structure and its content; move its look (settings, then CSS) only as far as the words ask.")
+  }
+  if (intent.newPage) {
+    lines.push(
+      "A NEW PAGE. It is not the open page: build it in one call with build_page (list_pages first to see what exists), every section filled with real content, then put it in the menu with edit_menu so visitors can reach it. Say its address in your reply.",
+    )
+  }
+  if (intent.global) {
+    lines.push(
+      "A VALUE EVERY PAGE READS. The logo, the store name, the socials and the currency live in the theme and the store: change them once (update_theme, or the store's own setting), never by typing them into each section. A section that hard codes one is fixed to read theme.logo / shop.name / shop.socials instead.",
+    )
+  }
+  if (intent.keep?.length) {
+    lines.push(`LEAVE ALONE, as they said: ${intent.keep.map((k) => `"${k}"`).join(", ")}. Do not change, move, hide or remove it, even inside a redesign.`)
   }
   if (intent.followUp) lines.push("This message follows your last change. Resolve \"this\", \"that\" and \"the previous one\" against it and the PROJECT STATE.")
   return lines.join("\n")

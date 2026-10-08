@@ -38,6 +38,7 @@ const SUITES = [
   "tests/agent-mcp.test.ts",
   "tests/agent-brain.test.ts",
   "tests/agent-intent.test.ts",
+  "tests/agent-site-pages.test.ts",
   "tests/site-media.test.ts",
   "tests/physical-separation.test.ts",
   "tests/section-integration.test.ts",

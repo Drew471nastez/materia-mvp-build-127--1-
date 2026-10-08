@@ -89,6 +89,8 @@ export function toolStepLabel(name: string, argumentsJson: string, names: StepNa
     case "read_storelib_docs": return "Reading the Storelib docs"
     case "remember": return "Noting that for later"
     case "read_menus": return "Reading the menus"
+    case "list_pages": return "Reading the site's pages"
+    case "build_page": return typeof args.title === "string" && args.title.trim() ? `Building the ${args.title.trim().slice(0, 40)} page` : typeof args.page === "string" && args.page.trim() ? `Building the ${args.page.trim().replace(/[-_]+/g, " ").slice(0, 40)} page` : "Building a page"
     case "edit_menu": return args.menu === "main-menu" || !args.menu ? "Changing the Main menu" : "Changing a menu"
     /* A tool added later and not named here still reads as words, never as snake_case. */
     default: return "Working on the page"

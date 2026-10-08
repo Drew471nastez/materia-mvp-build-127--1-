@@ -86,6 +86,8 @@ import { SET_COLOR_SCHEME_TOOL, setColorScheme } from "./scheme-edit"
 import { DESIGN_DEFAULTS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
 import { archetypeById, describeArchetype } from "@/lib/storelib-ai/archetypes"
 import { knowledgeBlock, topicsById } from "@/lib/storelib-ai/knowledge"
+import type { SitePageTools } from "./page-builder"
+import { describeArchetypePages, matchArchetypes } from "@/lib/storelib-ai/archetypes"
 import { OFFERED_FAMILIES } from "../font-link"
 import type {
   AgentProvider,
@@ -173,6 +175,13 @@ export type ThemeAgentEvent =
     }
   /** A section's source, the moment it is written. */
   | { type: "code"; path: string; source: string }
+  /**
+   * ANOTHER PAGE OF THE SITE WAS WRITTEN, as a draft (build_page,
+   * ./page-builder-server.ts). The editor adds it to its page list and marks
+   * the site as having unpublished changes; the page loads from the server
+   * when the creator opens it.
+   */
+  | { type: "page"; key: string; title: string; created: boolean }
   | { type: "message"; text: string }
   /** A section's source was rewritten: whoever is drawing it should reload. */
   | { type: "sources-changed" }
@@ -219,6 +228,8 @@ export interface ThemeAgentResult {
   visual?: { ran: number; findings: number; ms: number }
   /** Notes the creator wants kept on every website (remember, scope "everywhere"): the caller keeps them (lib/ai-memory). */
   remembered?: string[]
+  /** Other pages of the site written as drafts in this run (build_page). */
+  pages?: { key: string; title: string; created: boolean }[]
 }
 
 /** A finding from the browser check (./visual-check.ts), as the loop needs it. Kept here so the loop never imports a server-only module. */
@@ -278,7 +289,7 @@ ${builderAgentRules()}
 
 ${pageAgentReference()}`
 
-function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean } = {}): ToolSpec<string>[] {
+function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts: { memory?: boolean; everywhere?: boolean; pages?: boolean } = {}): ToolSpec<string>[] {
   return [
     {
       name: "read_section",
@@ -611,10 +622,68 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
       : []),
     /* The site's navigation: the Main menu the header shows (./menu-edits). */
     ...MENU_TOOLS,
+    /* The site's other pages (./page-builder-server.ts): after the menus, so the tools above keep their place in the cached prefix. */
+    ...(opts.pages ? PAGE_TOOLS : []),
     /* Last, so every tool above it keeps its place in the cached prefix. */
     ASK_TOOL,
   ]
 }
+
+/**
+ * A WHOLE SITE, NOT A HOME PAGE. Said beside the request when it asks for a
+ * site and the run can reach the other pages. The page set is the
+ * archetype's (lib/storelib-ai/archetypes.ts ARCHETYPE_PAGES), a starting
+ * point the brief overrides; the order is the one that keeps the site
+ * coherent: the open page first, because it sets the look the others follow.
+ */
+export function wholeSiteGuidance(archetype: string | null, openPage: string): string {
+  const pages = describeArchetypePages(archetype)
+  return [
+    "A WHOLE SITE IS ASKED FOR, so it is more than this page. The size follows the brief: a one page landing for a launch stays one page; a brand, a store or a business site gets the pages a real one has.",
+    `1. Finish the open page ("${openPage}") first. It sets the look (fonts, colour schemes, buttons, spacing) every other page follows.`,
+    "2. list_pages, then build_page for each page the site needs that is not the open one, one call per page, in the order a visitor would meet them. Each page gets the sections its purpose needs, every one filled with real content about this business: an About with the real story, a FAQ with real questions as blocks, a contact page with the form. Reuse the colour schemes and section styles of the open page so the site reads as one.",
+    `3. The store's own pages ("products", "product", "collections") draw the real catalogue: build sections around the product section, never a product, price or stock level typed in by hand.`,
+    "4. edit_menu so the header's menu reaches every page you made (and the footer's, for the policies and contact).",
+    "5. list_pages once more to check every page is there and filled. A page with only a header and footer is not done.",
+    pages,
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+/**
+ * THE SITE'S OTHER PAGES. The open page is changed with the tools above and
+ * streamed into the editor; every other page is built here in one call, as a
+ * draft, with its sections, their settings and their blocks.
+ */
+const PAGE_TOOLS: ToolSpec<string>[] = [
+  {
+    name: "list_pages",
+    description:
+      "List the site's pages: each one's key, address and sections, and which one is open in the editor. Read it before building a site of several pages, so you build the ones that are missing and keep the ones the creator made.",
+    parameters: { type: "object", properties: {}, required: [], additionalProperties: false },
+  },
+  {
+    name: "build_page",
+    description:
+      'Build or rebuild ONE page that is NOT the open page, as a draft, in one call: its sections in order, each with its settings and its blocks (blocks may hold blocks: a group\'s children). The site\'s header and footer are kept. Use it for every page a whole site needs beyond the open one: the shop ("products"), the product template ("product", built around its product section, which is kept), "collections", "about", "contact", a FAQ, a size guide, a lookbook, a landing page. Same section types and setting ids as add_section (read_section_type first for a type you have not used). Fill every section with real content the way you would on the open page: a FAQ with its questions as blocks, a story with real paragraphs, never a preset left as it came. A section type you wrote this run with create_section can be used here. Each call is checked, and refused with the reason if a type, setting or block is wrong: nothing is written then, so fix it and call again.',
+    parameters: {
+      type: "object",
+      properties: {
+        page: { type: "string", description: 'The page key: "about", "contact", "products", "product", "collections", "search", "404", an existing page of the creator\'s, or a new one ("faq", "size-guide", "lookbook"). Never the open page.' },
+        title: { type: "string", description: 'The page\'s name, for a new page ("Size guide"). "" to keep the name from the key.' },
+        replace: { type: "boolean", description: "true removes the page's current sections first (its essential store section stays); false adds after what is there." },
+        sectionsJson: {
+          type: "string",
+          description:
+            'A JSON ARRAY AS A STRING, the sections in order: [{"type":"hero_split","name":"Our story","settings":{...},"blocks":[{"type":"...","settings":{...},"blocks":[...]}]}]. Leave out header and footer.',
+        },
+      },
+      required: ["page", "title", "replace", "sectionsJson"],
+      additionalProperties: false,
+    },
+  },
+]
 
 /**
  * The closing sentence, from the work rather than from the model.
@@ -782,6 +851,12 @@ export interface ThemeAgentInput {
    * being left to invent one.
    */
   readStore?: () => Promise<StoreFacts | null>
+  /**
+   * THE SITE'S OTHER PAGES (./page-builder-server.ts): list them, and build
+   * one that is not open as a draft. Absent (a test, a locked edit), the run
+   * works on the open page only, as it always did.
+   */
+  pages?: SitePageTools
   /**
    * THE LAST FEW MESSAGES OF THIS CONVERSATION, oldest first, before this
    * request (./memory.ts). What makes "I meant the animation" and a tapped
@@ -970,6 +1045,8 @@ export async function* themeAgent(
   const notes: string[] = []
   /** The ones the creator wants on every website, for the caller to keep. */
   const remembered: string[] = []
+  /* Other pages written as drafts in this run (build_page): work, like an operation on the open page. */
+  const pagesWritten: { key: string; title: string; created: boolean }[] = []
   const everywhere = !!input.memory && Array.isArray(input.accountMemory)
   const t0 = Date.now()
   const trace = (kind: string, data: Record<string, unknown> = {}) => {
@@ -1171,6 +1248,10 @@ export async function* themeAgent(
         /* Right beside the request: what kind of request it is, and the plan it is built to. */
         intent ? intentGuidance(intent) : "",
         plan ? describeCreativePlan(plan, state, schemas, applied?.placed) : "",
+        /* A whole site is more than its home page: the pages it needs, built with build_page and linked (./page-builder-server.ts). */
+        intent && input.pages && !locked && (intent.kind === "NEW_SITE_GENERATION" || intent.kind === "FULL_SITE_REDESIGN")
+          ? wholeSiteGuidance(plan?.archetype ?? matchArchetypes(`${prompt}\n${store ? describeStore(store) : ""}`, 1)[0]?.id ?? null, page)
+          : "",
         plan && applied ? describeApplied(applied, plan, schemas) : "",
         `REQUEST\n${prompt}`,
       ]
@@ -1199,7 +1280,7 @@ export async function* themeAgent(
         model,
         system: SYSTEM_PROMPT,
         turns: [...turns],
-        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere }),
+        tools: toolSpecs(addable, schemas, !!input.code, { memory: !!input.memory, everywhere, pages: !!input.pages && !locked && !input.codeFocus }),
         /* A filled section is a lot of copy in one turn; cut off, it arrives half written. See `ambitious`. A new section file is more. */
         maxOutputTokens: bigIntent ? 24_000 : input.ambitious ? 16_000 : 8_000,
         cacheKey: input.cacheKey,
@@ -1465,6 +1546,58 @@ export async function* themeAgent(
             })
           }
           yield { type: "step", id: call.id, label: stepLabel, state: store ? "done" : "failed" }
+          continue
+        }
+
+        /*
+          THE SITE'S OTHER PAGES (./page-builder-server.ts). Server work, like
+          read_store, so handled here rather than in the synchronous executor.
+          A page written is streamed as a "page" event: the editor adds it to
+          its list, and loads it from the server when it is opened.
+        */
+        if (call.name === "list_pages" || call.name === "build_page") {
+          if (!input.pages || locked || input.codeFocus) {
+            results.push({ id: call.id, output: "Only the open page may change in this edit. Say in your reply that building other pages needs a request about the whole site." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          if (call.name === "list_pages") {
+            let listed: string
+            try {
+              listed = await input.pages.list()
+            } catch {
+              listed = "The site's pages could not be read just now. Work on the open page, and say so in your reply."
+            }
+            results.push({ id: call.id, output: listed })
+            yield { type: "step", id: call.id, label: stepLabel, state: "done" }
+            continue
+          }
+          let args: Record<string, unknown> = {}
+          try {
+            args = JSON.parse(call.argumentsJson || "{}") as Record<string, unknown>
+          } catch {
+            /* refused below as a page with no sections */
+          }
+          let sections: unknown = undefined
+          try {
+            sections = typeof args.sectionsJson === "string" ? JSON.parse(args.sectionsJson) : args.sections
+          } catch {
+            results.push({ id: call.id, output: "sectionsJson is not valid JSON. Send a JSON array as a string. Nothing was written." })
+            yield { type: "step", id: call.id, label: stepLabel, state: "failed" }
+            continue
+          }
+          const written = await input.pages.build({ page: args.page, title: args.title, replace: args.replace, sections }, schemas).catch(() => ({ ok: false as const, text: "The page could not be written just now. Nothing reached visitors. Say so in your reply." }))
+          results.push({ id: call.id, output: written.text })
+          if (written.ok && written.key) {
+            const page = { key: written.key, title: written.title ?? written.key, created: !!written.created }
+            const at = pagesWritten.findIndex((p) => p.key === page.key)
+            if (at >= 0) pagesWritten[at] = { ...page, created: pagesWritten[at].created || page.created }
+            else pagesWritten.push(page)
+            done.push(`${page.created ? "Made" : "Rebuilt"} the ${page.title} page`)
+            trace("page", { key: page.key, created: page.created })
+            yield { type: "page", ...page }
+          }
+          yield { type: "step", id: call.id, label: stepLabel, state: written.ok ? "done" : "failed" }
           continue
         }
 
@@ -1890,7 +2023,7 @@ export async function* themeAgent(
    */
   if (status !== "refused") {
     /* A section file it wrote and kept is work too: it is saved when the run ends (./code-journal). */
-    if (ops.length > 0 || wroteCode) {
+    if (ops.length > 0 || wroteCode || pagesWritten.length > 0) {
       // Work was done. Whatever stopped the loop, this edit happened.
       status = "succeeded"
       error = null
@@ -1961,14 +2094,14 @@ export async function* themeAgent(
    * sidebar uses. Not after a question (the question is the ending) and not
    * after a failure (the error is).
    */
-  if (status === "succeeded" && !asked && (ops.length > 0 || wroteCode)) {
+  if (status === "succeeded" && !asked && (ops.length > 0 || wroteCode || pagesWritten.length > 0)) {
     yield progress("done", PROGRESS_LABELS.done, {
       detail: firstSentence(message),
       sections: changedSections(state, input.state, touched, schemas),
     })
   }
 
-  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered }
+  return { status, message, error, usage, ops, wroteCode, asked, intent, plan, unresolved, visual, remembered, pages: pagesWritten }
 }
 
 /**

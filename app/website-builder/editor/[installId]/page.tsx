@@ -7595,6 +7595,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setAiOpen(false)
     rememberAskDockClosed(true)
   }, [])
+  /*
+    THE ASSISTANT BUILT ANOTHER PAGE (build_page): it is a draft on the server, so the site has unpublished changes and the
+    page belongs in the list. Its sections load from the server when it is opened, as every page's do.
+  */
+  const aiPageWritten = useCallback((key: string, title: string) => {
+    setUnpublished(true)
+    if (key === "home" || key in PAGE_META) return
+    setCustomPages((prev) => (prev.some((p) => p.key === key) ? prev : [...prev, { id: key, name: title || pageTitleFromKey(key), key: key as PageKey }]))
+  }, [])
   const reloadAiSources = useCallback(() => {
     void loadStorelibSources()
   }, [loadStorelibSources])
@@ -8458,6 +8467,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiSheet}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onPageWritten={aiPageWritten}
               onSourceWritten={aiSourceWritten}
               onWorkingChange={aiWorkingChange}
               onRunFinished={aiRunFinished}
@@ -9071,6 +9081,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               onClose={closeAiDock}
               onConnectAi={connectAiFromChat}
               onSourcesChanged={reloadAiSources}
+              onPageWritten={aiPageWritten}
               onSourceWritten={aiSourceWritten}
               onWorkingChange={aiWorkingChange}
               onRunFinished={aiRunFinished}

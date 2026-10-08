@@ -1,0 +1,154 @@
+{
+  "schema_version": "storelib-siteplan-v1",
+  "source_request": "Make me a clean place to sell digital guides and templates",
+  "site_type": "digital_creator_store",
+  "working_title": "Studio Atlas",
+  "assumptions": [
+    "Products, pricing and testimonials come from actual creator data",
+    "No physical shipping components",
+    "Community and course features only if enabled"
+  ],
+  "creative_direction": {
+    "label": "Calm editorial knowledge studio",
+    "palette": {
+      "ink": "#222521",
+      "paper": "#F8F8F3",
+      "accent": "#506B57"
+    },
+    "type": "restrained editorial serif with pragmatic sans",
+    "motion": "very subtle hover/focus feedback"
+  },
+  "global_components": {
+    "header": "brand plus Guides/Templates/About",
+    "footer": "support, legal, actual social links"
+  },
+  "pages": [
+    {
+      "id": "home",
+      "route": "/",
+      "kind": "home",
+      "title": "Studio Atlas — Guides & templates",
+      "sections": [
+        {
+          "id": "creator-hero",
+          "type": "editorial_hero",
+          "purpose": "Value proposition and primary next action",
+          "layout": "typography + artifact preview",
+          "headline": "Tools for work that matters",
+          "cta": {
+            "text": "Browse resources",
+            "destination": "/resources"
+          }
+        },
+        {
+          "id": "creator-featured",
+          "type": "product_grid",
+          "purpose": "Real featured creator products",
+          "layout": "clean magazine grid",
+          "headline": "Start with these",
+          "binding": "digital_products:featured"
+        },
+        {
+          "id": "creator-method",
+          "type": "value_statement",
+          "purpose": "What audience can learn",
+          "layout": "stacked editorial explanation",
+          "headline": "Less noise, better systems"
+        },
+        {
+          "id": "creator-preview",
+          "type": "resource_preview",
+          "purpose": "Preview one actual resource",
+          "layout": "real guide image / excerpt",
+          "binding": "digital_products:preview_if_available"
+        },
+        {
+          "id": "creator-end",
+          "type": "cta_band",
+          "purpose": "Bring visitors back to resources",
+          "layout": "narrow band",
+          "cta": {
+            "text": "Explore the library",
+            "destination": "/resources"
+          }
+        }
+      ]
+    },
+    {
+      "id": "resources",
+      "route": "/resources",
+      "kind": "catalog",
+      "title": "Resources — Studio Atlas",
+      "sections": [
+        {
+          "id": "res-intro",
+          "type": "catalog_intro",
+          "purpose": "Introduce digital catalog",
+          "layout": "simple editorial title",
+          "headline": "Guides & templates"
+        },
+        {
+          "id": "res-grid",
+          "type": "product_grid",
+          "purpose": "Display real digital products",
+          "layout": "two/three column grid",
+          "binding": "digital_products:catalog"
+        }
+      ]
+    },
+    {
+      "id": "detail",
+      "route": "/products/:slug",
+      "kind": "product_template",
+      "title": "Product — Studio Atlas",
+      "sections": [
+        {
+          "id": "d-main",
+          "type": "product_purchase",
+          "purpose": "Actual title, benefits, formats, live price and purchase state",
+          "layout": "artifact preview + details",
+          "binding": "digital_product:current"
+        },
+        {
+          "id": "d-includes",
+          "type": "product_information",
+          "purpose": "File format and included materials if known",
+          "layout": "content accordion",
+          "binding": "digital_product:contents"
+        },
+        {
+          "id": "d-related",
+          "type": "related_products",
+          "purpose": "Relevant other guides",
+          "layout": "small product rail",
+          "binding": "digital_products:related"
+        }
+      ]
+    },
+    {
+      "id": "about",
+      "route": "/about",
+      "kind": "about",
+      "title": "About — Studio Atlas",
+      "sections": [
+        {
+          "id": "c-about",
+          "type": "brand_intro",
+          "purpose": "Creator identity from verified profile",
+          "layout": "editorial profile hero",
+          "binding": "creator:profile"
+        },
+        {
+          "id": "c-next",
+          "type": "cta_band",
+          "purpose": "Return visitor to available products",
+          "layout": "typography band",
+          "cta": {
+            "text": "Browse resources",
+            "destination": "/resources"
+          }
+        }
+      ]
+    }
+  ]
+}
