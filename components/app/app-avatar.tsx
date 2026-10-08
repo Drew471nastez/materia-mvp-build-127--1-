@@ -2,6 +2,7 @@
 
 import type React from "react"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 import { cn } from "@/lib/utils"
 import { isOptimizableImage, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { toOriginalImageUrl } from "@/lib/storage/image-url"
@@ -228,6 +229,9 @@ export function AppAvatar({
   const url = src && !src.includes("placeholder.svg") ? toOriginalImageUrl(src) || null : null
   const [failed, setFailed] = useState<string | null>(null)
   const [loaded, setLoaded] = useState(() => !!url && shown.has(url))
+  /** In the page's HTML: the photo is shown as soon as the browser has it, over the mark, not hidden until the scripts run (lib/ui/drawn-by-server.ts). */
+  const fromServer = useDrawnByServer()
+  const [firstUrl] = useState(url)
   /** Whether it arrived after the first paint, which is when it fades. */
   const [fade, setFade] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
@@ -317,7 +321,7 @@ export function AppAvatar({
           }}
           onError={() => setFailed(url)}
           className="absolute inset-0 h-full w-full object-cover"
-          style={{ opacity: loaded ? 1 : 0, transition: fade ? "opacity 150ms ease-out" : undefined }}
+          style={{ opacity: loaded || (fromServer && url === firstUrl) ? 1 : 0, transition: fade ? "opacity 150ms ease-out" : undefined }}
         />
       ) : null}
     </span>
