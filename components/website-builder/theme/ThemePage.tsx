@@ -27,6 +27,7 @@
  * that knows about it.
  */
 
+import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
@@ -545,6 +546,14 @@ export function ThemePage({
         Not in the canvas, whose document is the editor's.
       */}
       {documentBackground ? <style dangerouslySetInnerHTML={documentBackground} /> : null}
+      {/*
+        Theme settings › Animations: the intro screen and the page
+        transition. A live page only, so never over the builder's canvas or
+        in the cover screenshot (which has no creator). See ./site-intro.
+      */}
+      {storefront?.creatorId && storefront.inEditor !== true ? (
+        <SiteIntro theme={theme} siteKey={storefront.installId ?? storefront.creatorId} />
+      ) : null}
       {/* The families the stylesheet above names. Without this they were
           names only: see lib/website-builder/font-link.ts. */}
       {fontHref && <link rel="stylesheet" href={fontHref} />}

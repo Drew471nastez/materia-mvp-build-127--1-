@@ -210,6 +210,16 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
   animation_style: { does: "How a section arrives: rising, fading, sliding or growing." },
   animation_duration: { does: "How long the arrival takes." },
   animation_stagger: { does: "The delay between items arriving in a row, such as cards." },
+  intro_enabled: { does: "A screen with the creator's mark that plays as a visitor opens the live site, then lifts away. A tap skips it. Never drawn in the builder." },
+  intro_video: { does: "A video for the intro, played muted. The site opens when it ends or after the intro's time, whichever is first plus a little grace." },
+  intro_image: { does: "A picture or GIF for the intro. Empty uses the logo from Logo and brand, or the store name in type." },
+  intro_background: { does: "The intro screen's colour." },
+  intro_style: { does: "How the mark arrives: growing in, fading in or rising. Lifting away slides the whole screen up as it leaves." },
+  intro_duration: { does: "How long the intro stays before the site shows." },
+  intro_size: { does: "The width of the mark on the intro screen, kept inside the screen on a phone." },
+  intro_repeat: { does: "Once per visit (a new tab or a return visit plays it again), or on every page load." },
+  page_transition: { does: "How one page of the site hands over to the next: the browser's own view transition between pages. A browser without it just loads the page. Visitors who ask for less motion get a plain change." },
+  page_transition_duration: { does: "How long the handover between pages takes." },
 
   pill_radius: { does: "How round the option buttons a product's variants are picked with are. Drawn on every `[data-variant-pill]` once set." },
   pill_border_width: { does: "The thickness of those buttons' outline." },
@@ -305,7 +315,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 const THEME_DRAWN_AS: Record<string, SpecimenControl> = {
   text: "text", textarea: "textarea", richtext: "richtext", number: "number", toggle: "toggle", checkbox: "toggle",
   select: "select", radio: "radio", range: "range", color: "color", font: "font", font_picker: "font", image: "image",
-  image_picker: "image", link: "url", url: "url", color_scheme: "color_scheme", css: "textarea",
+  image_picker: "image", video_picker: "video", link: "url", url: "url", color_scheme: "color_scheme", css: "textarea",
 }
 
 function fieldSpecimen(f: SchemaField): Specimen {

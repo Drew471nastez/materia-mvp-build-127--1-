@@ -136,7 +136,7 @@ const PILL =
 function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: SectionKey) => void }) {
   return (
     <nav aria-label="Settings" className="-mx-4 mt-4 sm:mx-0">
-      <div data-account-sections="" className="overflow-x-auto overscroll-x-contain px-4 py-0.5 scrollbar-hide sm:px-0">
+      <div data-account-sections="" className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
         <div className="flex w-max items-center gap-2">
           {SECTIONS.map((section) => {
             const on = section.key === active

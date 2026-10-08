@@ -135,7 +135,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
   return (
     <nav aria-label="Spaces" data-space-chips="" className="-mx-4 mb-3 flex items-center gap-2 pr-4 sm:mx-0 sm:pr-0">
       <div
-        className="min-w-0 flex-1 overflow-x-auto overscroll-x-contain scrollbar-hide [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
+        className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none scrollbar-hide touch-pan-x [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
         data-space-chips-track=""
         /*
           When it last moved, for followChosenChip: written on the element, so this stays a component with no hooks. Only where the

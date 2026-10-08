@@ -152,11 +152,11 @@
       ]
     },
     {
-      "type": "url",
+      "type": "video_url",
       "id": "embed_url",
-      "label": "Video address",
+      "label": "YouTube or Vimeo link",
       "default": "",
-      "info": "A YouTube, Vimeo, Spotify or SoundCloud address. Anything else is left blank."
+      "placeholder": "https://youtu.be/…"
     },
     {
       "type": "video_picker",

@@ -25,7 +25,7 @@ import { NotificationBell } from "@/components/notifications/notification-bell"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 
-import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check } from "lucide-react"
+import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, LifeBuoy, Store, Share2, ArrowRight, User as UserIcon, Compass, Globe, MoreHorizontal, Check, Bookmark, IdCard } from "lucide-react"
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
@@ -44,6 +44,7 @@ import { addRecent, cleanTerm, clearRecent, DEBOUNCE_MS as QUICK_DEBOUNCE_MS, qu
 import { HeaderSearchResults, SLIM_SCROLL, hasPanel, optionCount, optionId } from "@/components/platform/header-search-results"
 import { useCommunitiesEnabled } from "@/lib/platform/use-flags"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
+import { useCommunityContextMeta } from "@/lib/nav/community-context"
 import { profileShareUrl, shareProfile } from "@/lib/profile/share-profile"
 
 
@@ -1158,6 +1159,7 @@ export function PlatformHeaderClient({
   const [mobileProfileOpen, setMobileProfileOpen] = useState(false)
   /* The "..." sheet of the phone's profile bar, and what its Share profile row last did (see PROFILE BAR below). */
   const [profileBarOpen, setProfileBarOpen] = useState(false)
+  const [communityAccountOpen, setCommunityAccountOpen] = useState(false)
   const [shareNote, setShareNote] = useState<"copied" | "failed" | null>(null)
   /* Below 768px, where the header opens sheets rather than dropdowns. */
   const belowMd = useBelowMd()
@@ -1542,7 +1544,17 @@ export function PlatformHeaderClient({
     md:hidden the rest of the phone row uses, so a computer's bar is the bar
     it always was.
   */
-  const profileBar = showsProfileHeader(pathname)
+  const ctx = useCommunityContextMeta()
+  const profileInCommunity = !!ctx.slug && showsProfileHeader(pathname)
+  const profileBar = showsProfileHeader(pathname) && !ctx.slug
+  const navCurrent = ctx.id ? { kind: "community" as const, id: ctx.id } : { kind: "storelib" as const }
+  const communityAccountExtra = useMemo((): AccountExtraRow[] | undefined => {
+    if (!ctx.slug) return undefined
+    return [
+      { item: "saved", label: "Saved posts", icon: Bookmark, href: `/community/${ctx.slug}/saved` },
+      { item: "membership", label: "Membership", icon: IdCard, href: `/community/${ctx.slug}/membership` },
+    ]
+  }, [ctx.slug])
   useEffect(() => {
     if (!shareNote) return
     const t = window.setTimeout(() => setShareNote(null), 2200)
@@ -2102,15 +2114,26 @@ export function PlatformHeaderClient({
                   <span className={chrome.wordmark}>Storelib</span>
                 </Link>
                 <PlaceNavigator
-                  current={{ kind: "storelib" }}
+                  current={navCurrent}
                   onNavigate={(e, href) => onCanonicalNav(e, href)}
                   /* On a phone the slack runs left to the screen's edge and up and down, where a thumb undershoots; not right, where the logo is a target of its own. A computer's pointer needs none. */
                   className={cn("z-10 before:absolute before:-left-3 before:-top-2 before:-bottom-2 before:right-0 before:content-[''] md:before:content-none", chrome.navigator)}
                 />
-                <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
-                  <StorelibLogo size={HEADER_LOGO.phone} priority />
-                  <span className={chrome.wordmarkPhone}>Storelib</span>
-                </Link>
+                {profileInCommunity ? (
+                  <Link
+                    href={`/community/${ctx.slug}`}
+                    onClick={(e) => onCanonicalNav(e, `/community/${ctx.slug}`)}
+                    className="flex min-w-0 max-w-[46vw] shrink items-center gap-1.5 md:hidden"
+                    data-header-community-title=""
+                  >
+                    <span className={cn("truncate font-semibold", chrome.wordmarkPhone)}>{ctx.name ?? ctx.slug}</span>
+                  </Link>
+                ) : (
+                  <Link href={buyerLogoHref} onClick={(e) => onCanonicalNav(e, buyerLogoHref)} className="shrink-0 flex items-center gap-1.5 md:hidden" data-header-logo="phone">
+                    <StorelibLogo size={HEADER_LOGO.phone} priority />
+                    <span className={chrome.wordmarkPhone}>Storelib</span>
+                  </Link>
+                )}
               </div>
 
           {/* Desktop Search - Centered with Modal (10% larger) */}
@@ -2292,13 +2315,25 @@ export function PlatformHeaderClient({
 
 
               {/* The person's notifications: a full screen sheet on a phone. */}
-              {user ? <NotificationBell className={chrome.iconBtn} /> : null}
+              {user && !profileBar ? <NotificationBell className={chrome.iconBtn} /> : null}
 
               {/* Mobile Avatar or Sign In button — use h-[42px] w-[42px] wrapper for 44px tap target.
                   ROUND 11: 34px (it was 32) with Storelib's light depth, a hairline drawn as a 1px ring
                   in the shadow and a 1px soft drop under it, so the photo keeps its full circle (the old
                   border took a pixel off every side) and the circle sits on the bar rather than in it. */}
-              {user ? (
+              {user && profileInCommunity ? (
+                <button
+                  type="button"
+                  onClick={() => setCommunityAccountOpen(true)}
+                  aria-label="Your account"
+                  aria-haspopup="dialog"
+                  aria-expanded={communityAccountOpen}
+                  data-account-more=""
+                  className={cn("relative flex h-[42px] w-[42px] touch-manipulation items-center justify-center rounded-full transition-[background-color,scale] duration-150 active:scale-[0.94] cursor-pointer [-webkit-tap-highlight-color:transparent] before:absolute before:-inset-1 before:content-['']", chrome.iconBtn)}
+                >
+                  <MoreHorizontal className="h-[22px] w-[22px]" strokeWidth={2} aria-hidden />
+                </button>
+              ) : user ? (
                 <button
                   type="button"
                   onClick={() => setMobileProfileOpen(true)}
@@ -2589,6 +2624,22 @@ export function PlatformHeaderClient({
         onLanguage={() => setLanguageOpen(true)}
         onLogout={handleLogout}
       />
+      {profileInCommunity ? (
+        <AccountSheet
+          open={communityAccountOpen}
+          onClose={() => setCommunityAccountOpen(false)}
+          keepMounted={!!user && belowMd}
+          rows="community"
+          avatarUrl={avatarUrl}
+          name={displayName || ""}
+          username={profile?.username}
+          seller={hasCompletedSellerOnboarding}
+          link={headerLink}
+          onLanguage={() => setLanguageOpen(true)}
+          onLogout={handleLogout}
+          extra={communityAccountExtra}
+        />
+      ) : null}
 
       {/* Rendered outside both menus on purpose: each closes itself on the
           click that opens this, so it cannot be a child of either. */}
