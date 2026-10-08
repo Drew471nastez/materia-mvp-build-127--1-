@@ -90,11 +90,13 @@ export function prepareTabArrival(href: string): number | null {
 }
 
 /**
- * Profile and settings open at the top. The library keeps its own place
+ * Profile, settings and a community's feed open at the top. The library keeps its own place
  * (a tab remembers how far down a list was).
  */
 export function opensAtTop(path: string): boolean {
   if (path === "/account/library" || path.startsWith("/account/library/")) return false
+  /* A community's feed too (round 17, the owner: "Home from the profile should take me to the top of the feed, not lower"). */
+  if (/^\/community\/[^/]+\/?$/.test(path)) return true
   return path === "/account" || path.startsWith("/account/")
 }
 

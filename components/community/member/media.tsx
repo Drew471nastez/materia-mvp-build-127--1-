@@ -37,6 +37,7 @@
  * the member and the file; videos play from a short lived address, and only
  * once pressed.
  */
+import { useDrawnByServer } from "@/lib/ui/drawn-by-server"
 import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Play } from "lucide-react"
 import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
@@ -155,8 +156,10 @@ export function SoftImg({
   fetchPriority?: "high" | "low" | "auto"
 }) {
   const ref = useRef<HTMLImageElement>(null)
-  /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in. */
-  const [state, setState] = useState<"cached" | "wait" | "in">(() => (src && painted.has(src) ? "cached" : "wait"))
+  /* In the page's HTML: shown as soon as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server.ts). */
+  const fromServer = useDrawnByServer()
+  /* "cached": drawn at once; "wait": transparent until it loads; "in": fading in; "html": in the HTML, shown as it arrives. */
+  const [state, setState] = useState<"cached" | "wait" | "in" | "html">(() => (src && painted.has(src) ? "cached" : fromServer ? "html" : "wait"))
   const [prevSrc, setPrevSrc] = useState(src)
   if (src !== prevSrc) {
     setPrevSrc(src)
@@ -195,7 +198,7 @@ export function SoftImg({
           setState((s) => (s === "wait" ? "in" : s === "in" ? "in" : "cached"))
         }}
         onError={onError}
-        className={`${className} ${SDR} ${state === "cached" ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${shown ? "opacity-100" : "opacity-0"}`}
+        className={`${className} ${SDR} ${state === "cached" || state === "html" ? "" : "transition-opacity ease-out motion-reduce:transition-none"} ${shown ? "opacity-100" : "opacity-0"}`}
         style={state === "in" ? { transitionDuration: `${FADE_MS}ms` } : undefined}
         data-soft-img={state}
       />

@@ -437,7 +437,8 @@ function TabBar({
     if (!a || a.href !== pathname) return
     arrival.current = null
     if (a.y === null) return
-    if (a.y === 0) return scrollPageToTop({ smooth: true, frames: 10 })
+    /* At the top on the first frame of the new page, held while it grows: never a page that arrives part way down and then scrolls up (round 17). */
+    if (a.y === 0) return scrollPageToTop({ frames: 12 })
     return restoreTabScroll(a.y)
   }, [pathname])
 
@@ -483,7 +484,6 @@ function TabBar({
         className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"
         style={{
           boxShadow: BAR_SHADOW,
-          paddingBottom: "env(safe-area-inset-bottom, 0px)",
           /* Out of sight, and a little further so its shadow goes too. */
           translate: away ? "0 calc(100% + 12px)" : "0 0",
           transition: `translate 280ms ${EASE}`,
@@ -515,7 +515,14 @@ function TabBar({
           }}
           className="relative flex select-none"
           style={{
-            height: "var(--buyer-tabs-bar)",
+            /*
+              THE WHOLE WHITE BAR TAKES A TAP (round 17, the owner: "sometimes it does not register the touch"). The band
+              under the icons, over the home indicator, was the outer box's padding: a thumb landing low on an icon pressed
+              that band, which no tab owned, and the bar's own rescue refused it for being under the row. The band is the
+              row's own padding now, so a tap anywhere on the white below an icon is that icon's. The icons stay where they were.
+            */
+            height: "calc(var(--buyer-tabs-bar) + env(safe-area-inset-bottom, 0px))",
+            paddingBottom: "env(safe-area-inset-bottom, 0px)",
             /* The same on both sides, because the slide's arithmetic works
                in from both edges by the one number (useSlide's `pad`). */
             paddingLeft: "max(6px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px))",
