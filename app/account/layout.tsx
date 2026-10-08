@@ -9,6 +9,7 @@ import { ensureUsername } from "@/lib/profile/ensure-username"
 import { isBuyerHeaderLight } from "@/lib/platform/buyer-header-theme"
 import { isPlatformDomain, readWishlistCount } from "@/lib/platform/header-props"
 import { AccountCommunityChrome } from "@/components/account/account-community-chrome"
+import { ACCOUNT_COMMUNITY_HEADER_BOOT } from "@/lib/nav/account-community-header-boot"
 import { AccountHeaderSwitch } from "@/components/account/account-header-switch"
 import { ConditionalFooter } from "@/components/marketing/conditional-footer"
 import { BuyerTabBar } from "@/components/nav/buyer-tab-bar"
@@ -127,6 +128,7 @@ export default async function AccountLayout({ children }: { children: React.Reac
 
   const shell = (
     <div className="flex min-h-svh flex-col bg-[#fafafa]" data-page="account">
+      <script dangerouslySetInnerHTML={{ __html: ACCOUNT_COMMUNITY_HEADER_BOOT }} />
       {/* The same line the library and Explore carry, so leaving Profile for
           another tab says so when the next page is slow. */}
       <RouteLoadingBar />

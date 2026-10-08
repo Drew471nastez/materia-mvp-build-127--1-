@@ -5814,6 +5814,27 @@ html.pop-in-flight #platform-header-root {
   top: 0;
 }
 
+/*
+  Profile with a community context: the boot script hides Storelib's header
+  before paint and this bar holds its height until CommunityTopBar is ready
+  (components/account/account-community-chrome.tsx). Without it the header
+  arrives late and the cover jumps.
+*/
+html[data-account-community-pending] #platform-header-root,
+html[data-account-community-pending] .native-header-spacer {
+  display: none !important;
+}
+html[data-account-community-pending] [data-page="account"]::before {
+  content: "";
+  display: block;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  background: #fff;
+  border-bottom: 1px solid #e6e8ec;
+}
+
 /* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */
 html[data-ghost-tap-guard] #platform-header-root,
 html[data-ghost-tap-guard] [data-buyer-tab-bar] {

@@ -98,6 +98,7 @@ import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
 import { enterCommunityContext } from "@/lib/nav/community-context"
+import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
 import { InviteSheet } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
 import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
@@ -233,6 +234,9 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   useEffect(() => {
     enterCommunityContext(community.slug, { id: community.id, name: community.name })
   }, [community.slug, community.id, community.name])
+  useLayoutEffect(() => {
+    rememberCommunityChrome(community.slug, topBar)
+  }, [community.slug, topBar])
   /*
     A brand-new account lands here straight from signup. The platform header
     (the thing that usually writes who is signed in) is not on a community
