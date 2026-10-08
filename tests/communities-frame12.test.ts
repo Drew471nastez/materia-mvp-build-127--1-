@@ -194,7 +194,7 @@ console.log("\nICONS: the icon the admin sees")
   check("an emoji the admin typed, else the kind's", spaceGlyph("🏺", "feed") === "🏺" && spaceGlyph("megaphone", "announcements") === "📣" && spaceGlyph("messages-square", "feed") === "💬" && spaceGlyph(null, "chat") === "⚡" && spaceGlyph("", "resources") === "📚")
   check("the same four as the dashboard's", JSON.stringify(KIND_GLYPH) === JSON.stringify({ feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }) && /const KIND_ICON: Record<SpaceKind, string> = \{ feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" \}/.test(code("components/community/creator/spaces-section.tsx")))
   check("a word name is not an emoji", chosenEmoji("hand") === null && chosenEmoji("👋") === "👋")
-  check("every chip draws it; the chat's head too", /<span aria-hidden className="text-\[14px\] leading-none" data-space-glyph="">\{glyph\}<\/span>/.test(code("components/community/member/space-chips.tsx")) && /spaceGlyph\(icon, kind\)/.test(code("components/community/member/space-icon.tsx")))
+  check("every chip draws it; the chat's head too", /* Changed on purpose: the label sits above the gliding fill (chip-glider.tsx). */ /<span aria-hidden className="relative z-\[2\] text-\[14px\] leading-none" data-space-glyph="">\{glyph\}<\/span>/.test(code("components/community/member/space-chips.tsx")) && /spaceGlyph\(icon, kind\)/.test(code("components/community/member/space-icon.tsx")))
   check("a post's space carries its icon and kind for the card", /space: space \? \{ id: space\.id, slug: space\.slug, name: space\.name, icon: space\.icon, kind: space\.kind \} : null/.test(code("lib/communities/server/feed.ts")))
 }
 

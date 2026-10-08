@@ -426,7 +426,7 @@ async function main() {
     check("GET says the switch, the devices, every kind, the report email and whether they moderate", /NextResponse\.json\(\{ enabled, devices, kinds: kindStates\(choice\), emails: emailStates\(choice\), moderates,/.test(route))
     check("PATCH { push, email } changes only the person's own choice, rate limited like the switch", /if \(body\.push !== undefined \|\| body\.email !== undefined/.test(route) && /saveChoice\(db, userId, next\)/.test(route) && route.indexOf("rateLimit(") < route.indexOf("body.push !== undefined"))
     const page = read("components/account/account-settings.tsx")
-    check("a Notifications section between Privacy and Preferences", /\{ key: "privacy", label: "Privacy" \},\s*\{ key: "notifications", label: "Notifications" \},\s*\{ key: "preferences", label: "Preferences" \}/.test(page) && /section === "notifications" \? <NotificationSettings \/> : null/.test(page))
+    check("a Notifications section between Privacy and Preferences", /\{ key: "privacy", label: "Privacy" \},\s*\{ key: "notifications", label: "Notifications" \},\s*\{ key: "preferences", label: "Preferences" \}/.test(page) && /notifications: \(\) => <NotificationSettings \/>/.test(page))
     check("?section=notifications opens it", /SECTION_KEYS = \["profile", "account", "privacy", "notifications", "preferences"\]/.test(read("app/account/settings/page.tsx")))
     const settings = code("components/account/notification-settings.tsx")
     check("the kinds are live only while push is on, and save one at a time", /checked=\{live && s\.value\} disabled=\{!live\}/.test(settings) && /chain = run\.catch/.test(settings))

@@ -933,7 +933,7 @@ async function main() {
     /* Ask 11: extremely little depth on every pill, chip and button. */
     const ui = code("components/community/member/ui.ts")
     check("the depth tokens: a hairline and a one pixel soft shadow, never more", /export const DEPTH = "border border-\[#e3e5e9\] bg-white shadow-\[0_1px_1px_rgba\(16,24,40,0\.05\)\]"/.test(ui) && /export const DEPTH_INK = "border border-\[#1a1a2e\] bg-\[#1a1a2e\] shadow-\[0_1px_1\.5px_rgba\(16,24,40,0\.18\)\]"/.test(ui))
-    check("the buttons, the chips and the sort button wear them", /BTN_PRIMARY = `\$\{BTN\} h-10 \$\{DEPTH_INK\}/.test(ui) && /BTN_SECONDARY = `\$\{BTN\} h-10 \$\{DEPTH\} \$\{DEPTH_PRESS\}/.test(ui) && /* Round 11, ask 14: the chips a touch deeper than DEPTH (a two pixel soft shadow, the chosen one deeper still). */ /const CHIP_ON = "border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white shadow-\[0_1px_2px_rgba\(16,24,40,0\.2\)/.test(chips) && /const CHIP_OFF =\s*"border-\[#e1e4e8\] bg-white[^"]*shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /DEPTH,\s*DEPTH_PRESS,/.test(menu))
+    check("the buttons, the chips and the sort button wear them", /BTN_PRIMARY = `\$\{BTN\} h-10 \$\{DEPTH_INK\}/.test(ui) && /BTN_SECONDARY = `\$\{BTN\} h-10 \$\{DEPTH\} \$\{DEPTH_PRESS\}/.test(ui) && /* Round 11, ask 14: the chips a touch deeper than DEPTH (a two pixel soft shadow, the chosen one deeper still). */ /const CHIP_ON =\s*"border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white shadow-\[0_1px_2px_rgba\(16,24,40,0\.2\)/.test(chips) && /const CHIP_OFF =\s*"border-\[#e1e4e8\] bg-white[^"]*shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /DEPTH,\s*DEPTH_PRESS,/.test(menu))
   }
 
   /* ── Round 7: the account menu's facts from the server ───────────────── */

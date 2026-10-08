@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from "react"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
 import { opensAtTop } from "@/lib/navigation/tab-scroll"
+import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
 /**
@@ -16,7 +17,14 @@ import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
  * the flash and the jump the owner saw. Every other address keeps its own.
  */
 export function navFadeKey(pathname: string | null): string {
-  return showsLibraryTabs(pathname) ? "library-tabs" : pathname || ""
+  if (showsLibraryTabs(pathname)) return "library-tabs"
+  /*
+    THE PROFILE'S OWN PILLS ARE ONE PAGE TOO. Activity and Communities share the cover, the name and the pills, and keyed by the
+    address every pill press built all of it again and faded it in from blank: the cover blinked and the pills jumped. They share
+    a key now, so only what is under the pills changes, in place, and the window stays where it was.
+  */
+  if (showsProfileHeader(pathname)) return "profile"
+  return pathname || ""
 }
 
 /**
@@ -95,7 +103,7 @@ function useTopOnArrival(key: string) {
     return () => window.removeEventListener("popstate", onPop)
   }, [])
   useLayoutEffect(() => {
-    const atTop = opensAtTop(key)
+    const atTop = key === "profile" || opensAtTop(key)
     if (last.current === null) {
       last.current = key
       if (!traversal.current && atTop) return scrollWindowTop()

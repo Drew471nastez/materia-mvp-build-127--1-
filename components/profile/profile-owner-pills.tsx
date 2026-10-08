@@ -34,6 +34,7 @@ import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { PillGlider } from "@/components/ui/pill-glider"
 import { cn } from "@/lib/utils"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
@@ -74,7 +75,13 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
   return (
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
-        <div className="mx-auto flex w-max items-center gap-2">
+        <div className="group/pills relative mx-auto flex w-max items-center gap-2">
+          {/* One fill that glides to the chosen pill (components/ui/pill-glider.tsx), over the white pills and under the labels. */}
+          <PillGlider
+            active={active ?? "none"}
+            selector='[data-active="true"]'
+            className="border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]"
+          />
           {pills.map((p) => {
             const on = p.key === active
             return (
@@ -103,16 +110,15 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
                 style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
                 className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
               >
-                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+                {/* This pill's own fill, until the row's one gliding fill has measured (data-glide); then only the glider is drawn. */}
                 <span
                   aria-hidden
-                  style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
                   className={cn(
-                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
+                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] group-data-[glide]/pills:hidden",
                     on ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <span className="relative">{p.label}</span>
+                <span className="relative z-[2]">{p.label}</span>
               </Link>
             )
           })}

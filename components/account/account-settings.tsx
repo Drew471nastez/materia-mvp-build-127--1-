@@ -55,7 +55,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { BackControl } from "@/components/navigation/back-control"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
@@ -74,6 +74,7 @@ import { LanguageModal } from "@/components/platform/language-modal"
 import { SOUNDS_DETAIL, useSounds } from "@/components/community/member/heart"
 import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
+import { PillGlider } from "@/components/ui/pill-glider"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
 import { NotificationSettings } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
@@ -137,7 +138,9 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
   return (
     <nav aria-label="Settings" className="-mx-4 mt-4 sm:mx-0">
       <div data-account-sections="" className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
-        <div className="flex w-max items-center gap-2">
+        <div className="group/pills relative flex w-max items-center gap-2">
+          {/* One fill that glides to the chosen pill (components/ui/pill-glider.tsx). */}
+          <PillGlider active={active} selector='[data-active="true"]' className="border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]" />
           {SECTIONS.map((section) => {
             const on = section.key === active
             return (
@@ -151,19 +154,17 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
                 style={{ transitionDuration: `${PILL_FADE_MS}ms`, transitionTimingFunction: PILL_EASE }}
                 className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#6b7280] hover:text-[#1a1a2e]")}
               >
-                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+                {/* This pill's own fill until the row's gliding one has measured (data-glide). */}
                 <span
                   aria-hidden="true"
                   data-account-section-fill=""
-                  style={{ transitionDuration: `${PILL_FADE_MS}ms`, transitionTimingFunction: PILL_EASE }}
                   className={cn(
-                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8]",
+                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] group-data-[glide]/pills:hidden",
                     "shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]",
-                    "transition-[opacity,scale] motion-reduce:transition-none",
                     on ? "opacity-100" : "opacity-0",
                   )}
                 />
-                <span className="relative">{section.label}</span>
+                <span className="relative z-[2]">{section.label}</span>
               </button>
             )
           })}
@@ -177,7 +178,9 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
 function SectionList({ active, onPick }: { active: SectionKey; onPick: (key: SectionKey) => void }) {
   return (
     <nav aria-label="Settings" className="sticky top-24 hidden lg:block" data-account-section-list="">
-      <ul className="space-y-0.5">
+      <ul className="group/list relative space-y-0.5">
+        {/* The open section's fill glides down the list rather than blinking from row to row. */}
+        <PillGlider active={active} selector='[data-active="true"]' className="rounded-[10px] bg-[#eceef1]" />
         {SECTIONS.map((section) => {
           const on = section.key === active
           return (
@@ -190,10 +193,10 @@ function SectionList({ active, onPick }: { active: SectionKey; onPick: (key: Sec
                 data-active={on ? "true" : "false"}
                 className={cn(
                   "flex h-10 w-full cursor-pointer items-center rounded-[10px] px-3 text-left text-[14.5px] outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
-                  on ? "bg-[#eceef1] font-semibold text-[#1a1a2e]" : "font-medium text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]",
+                  on ? "bg-[#eceef1] font-semibold text-[#1a1a2e] group-data-[glide]/list:bg-transparent" : "font-medium text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]",
                 )}
               >
-                {section.label}
+                <span className="relative z-[2]">{section.label}</span>
               </button>
             </li>
           )
@@ -1105,38 +1108,42 @@ export function AccountSettings({
       <div className="min-w-0">
 
       {/*
-        ONE SECTION DISSOLVES INTO THE NEXT. It used to fade the arriving
-        section in from nothing while the one leaving was taken away in the
-        same frame, so the eye saw the old screen vanish and a new one
-        brighten into the gap: "not so direct, smooth clean". Now the one
-        leaving fades out first and the next fades in behind it
-        (SectionSwap), which is one dissolve rather than a cut and a fade.
+        THE SECTION YOU PICK IS SIMPLY THERE. It faded the one leaving out
+        and the next in (SectionSwap), and each was taken away and built
+        again, so a switch blinked, typed changes in Profile were lost on the
+        way to Account and back, and quick presses restarted the fade. Now a
+        section is built the first time it is opened and kept: switching
+        shows it at once, and coming back finds it as you left it, unsaved
+        changes and their Save bar included (KeptSections).
       */}
-      <SectionSwap section={section}>
-        {section === "profile" ? (
-          <ProfileSection
-            userId={userId}
-            name={name}
-            bio={bio ?? ""}
-            bioSupported={bioSupported !== false}
-            avatarUrl={avatarUrl ?? null}
-            username={username}
-            usernameEditable={usernameEditable}
-            cover={cover}
-            location={location}
-          />
-        ) : null}
-        {section === "account" ? (
-          <>
-            <EmailCard email={email} />
-            <PasswordCard email={email} hasPassword={hasPassword} via={via} />
-            <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
-          </>
-        ) : null}
-        {section === "privacy" ? <PrivacySection username={username} privacy={privacy} creator={creator} /> : null}
-        {section === "notifications" ? <NotificationSettings /> : null}
-        {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
-      </SectionSwap>
+      <KeptSections
+        section={section}
+        sections={{
+          profile: () => (
+            <ProfileSection
+              userId={userId}
+              name={name}
+              bio={bio ?? ""}
+              bioSupported={bioSupported !== false}
+              avatarUrl={avatarUrl ?? null}
+              username={username}
+              usernameEditable={usernameEditable}
+              cover={cover}
+              location={location}
+            />
+          ),
+          account: () => (
+            <>
+              <EmailCard email={email} />
+              <PasswordCard email={email} hasPassword={hasPassword} via={via} />
+              <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
+            </>
+          ),
+          privacy: () => <PrivacySection username={username} privacy={privacy} creator={creator} />,
+          notifications: () => <NotificationSettings />,
+          preferences: () => <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} />,
+        }}
+      />
       </div>
       </div>
     </div>
@@ -1145,76 +1152,25 @@ export function AccountSettings({
 
 /**
  * ===========================================================================
- *  THE SECTION LEAVING GOES BEFORE THE ONE ARRIVING COMES
+ *  EVERY SECTION OPENED IS KEPT
  * ===========================================================================
- * The pills answer the press at once, as they always did; only what is
- * under them takes these few frames. What is on screen is held and faded
- * to nothing over OUT_MS, then the section picked is put in and brought up
- * over IN_MS. The whole move is under a quarter of a second, and because
- * the two never overlap the page's height is never fought over by two
- * sections of different lengths, which is what a true cross fade would
- * cost here and what made the first attempt at this jump.
- *
- * Under reduced motion, and where a browser cannot animate, the section
- * simply changes: no wait, no fade.
+ * A section is built the first time it is picked and stays mounted after,
+ * hidden while another is open. So a switch is one frame with no fade and
+ * no blank, the page does not rebuild what it already had (Notifications
+ * does not read its settings again), and a half finished edit in Profile is
+ * still there, with its Save bar, after a look at Account.
  */
-const SWAP_OUT_MS = 100
-const SWAP_IN_MS = 150
-
-function SectionSwap({ section, children }: { section: SectionKey; children: React.ReactNode }) {
-  /* What is drawn: behind the pills' own state, so it lags by exactly one fade. */
-  const [drawn, setDrawn] = useState(section)
-  const [held, setHeld] = useState<React.ReactNode>(children)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const entered = useRef(false)
-
-  useEffect(() => {
-    if (section === drawn) {
-      setHeld(children)
-      return
-    }
-    const el = ref.current
-    const still = !el || typeof el.animate !== "function" || (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
-    if (still) {
-      setDrawn(section)
-      setHeld(children)
-      return
-    }
-    let done = false
-    const land = () => {
-      if (!done) {
-        done = true
-        setDrawn(section)
-        setHeld(children)
-      }
-    }
-    const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "both" })
-    out.onfinish = land
-    window.setTimeout(land, SWAP_OUT_MS + 160)
-    return () => {
-      out.cancel()
-    }
-  }, [section, children, drawn])
-
-  /* Brought up from nothing on the frame the new section is first painted. */
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || typeof el.animate !== "function") return
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      el.style.opacity = "1"
-      return
-    }
-    if (!entered.current) {
-      entered.current = true
-      el.style.opacity = "1"
-      return
-    }
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: "ease-out", fill: "both" })
-  }, [drawn])
-
+function KeptSections({ section, sections }: { section: SectionKey; sections: Record<SectionKey, () => React.ReactNode> }) {
+  const [seen, setSeen] = useState<SectionKey[]>(() => [section])
+  if (!seen.includes(section)) setSeen((s) => (s.includes(section) ? s : [...s, section]))
+  const order = SECTIONS.map((s) => s.key).filter((k) => seen.includes(k) || k === section)
   return (
-    <div ref={ref} data-account-panel={drawn} data-account-panel-swap="" className="mt-5 space-y-4 sm:space-y-5 lg:mt-0">
-      {held}
+    <div data-account-panel={section} data-account-panel-swap="" className="mt-5 lg:mt-0">
+      {order.map((key) => (
+        <div key={key} hidden={key !== section} data-account-panel-section={key} className="space-y-4 sm:space-y-5">
+          {sections[key]()}
+        </div>
+      ))}
     </div>
   )
 }

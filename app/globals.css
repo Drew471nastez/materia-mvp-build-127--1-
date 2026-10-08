@@ -5804,18 +5804,41 @@ html[data-ghost-tap-guard] [data-buyer-tab-bar] {
   pointer-events: none;
 }
 
-/* Desktop settings: reserve scrollbar width so section changes do not shift the page. */
-html:has([data-account-settings]) {
+/*
+ * THE ACCOUNT PAGES KEEP THEIR WIDTH. Settings' sections, the profile's pills
+ * and Settings itself are pages of different heights, and on a computer the
+ * window's scrollbar came and went between them, moving the whole page
+ * sideways by its width. The gutter is kept for every account page (the
+ * profile and its settings, and the settings layer), so a short section and a
+ * long one stand in the same place. A browser without scrollbar-gutter
+ * (Safari before 18.2) keeps the bar itself instead, and only where a
+ * scrollbar takes room at all (a mouse or trackpad): a phone's bar overlays
+ * and keeps nothing.
+ */
+html:has([data-account-settings]),
+html:has([data-page="account"]) {
   scrollbar-gutter: stable;
 }
+@supports not (scrollbar-gutter: stable) {
+  @media (pointer: fine) {
+    html:has([data-account-settings]),
+    html:has([data-page="account"]) {
+      overflow-y: scroll;
+    }
+  }
+}
 
-/* Pill rows scroll sideways only; vertical drift clips the fills (settings, profile, spaces). */
+/*
+ * Pill rows scroll sideways only; vertical drift clips the fills (settings, profile, spaces).
+ * The PAGE still scrolls when a thumb starts on a pill row: `pan-x` alone handed every vertical
+ * swipe that began on the row to nothing, so the page stuck under the pills.
+ */
 [data-account-sections],
 [data-profile-owner-pills] > div,
 [data-space-chips-track] {
   overflow-y: hidden !important;
   overscroll-behavior-y: none;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 
 /*
