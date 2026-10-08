@@ -21,6 +21,7 @@ import { ACCOUNT_GUTTER_LEFT, ACCOUNT_GUTTER_RIGHT } from "@/lib/account/account
 import { ACCOUNT_SAVE_BAR_Z } from "@/lib/account/settings-sheet"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { cn } from "@/lib/utils"
+import { ActivitySpinner } from "@/components/ui/activity-spinner"
 
 /** The phone tab bar's own curve (components/nav/buyer-tab-bar.tsx), so the two move together. */
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
@@ -249,10 +250,10 @@ export function SaveBar({
           data-account-save=""
           aria-busy={busy || undefined}
         >
-          <span className={busy ? "opacity-0" : undefined}>Save changes</span>
+          <span className={cn("transition-opacity duration-150 ease-out", busy && "opacity-0")}>Save changes</span>
           {busy ? (
-            <span className="absolute inset-0 grid place-items-center" aria-hidden="true">
-              <span className="save-changes-spin" />
+            <span className="save-changes-spin absolute inset-0 grid place-items-center" aria-hidden="true">
+              <ActivitySpinner size={20} label="Saving" className="text-white" />
             </span>
           ) : null}
         </button>
