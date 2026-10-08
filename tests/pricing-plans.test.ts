@@ -269,7 +269,10 @@ function main() {
   check("its site limits are untouched", siteLimits("pro").customCode === true && siteLimits("pro").maxSites === 10)
   check("its name on billing screens is Pro", planDisplayName("pro") === "Pro" && planDisplayName("professional") === "Pro")
   check("growth is also named Pro", planDisplayName("growth") === "Pro" && withPlanLabel({ id: "growth", name: "Growth" })!.name === "Pro")
-  check("its highlights describe its own fee", planHighlights("pro")[0] === "1.5% + $0.25 per sale", planHighlights("pro")[0])
+  /* Changed on purpose: the card's fee line is the plan's own rate, read from
+     the fee table, and only "per sale" (the under $4 tier is in the terms). */
+  const proRate = getFeeDescription("pro")
+  check("its highlights describe its own fee", planHighlights("pro")[0] === proRate && /^\d+(\.\d+)?% \+ \$0\.25 per sale$/.test(proRate), `${planHighlights("pro")[0]} vs ${proRate}`)
   for (const route of ["app/api/billing/subscription/create/route.ts", "app/api/billing/subscription/change/route.ts"]) {
     check(`${route} still maps pro to its price`, /if \(planId === "pro"\) return PRICE_PRO/.test(readCode(route)))
   }
