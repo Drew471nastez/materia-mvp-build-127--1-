@@ -98,6 +98,32 @@ export function opensAtTop(path: string): boolean {
  * for a short while until the document is tall enough, then stops. Returns
  * the cancel, for a press that moves on before it is done.
  */
+/** Put the window (and any account sheet scroll) at the top; repeat for a few frames so Next cannot restore mid-scroll. */
+export function scrollPageToTop(opts?: { smooth?: boolean; frames?: number }): () => void {
+  if (typeof window === "undefined") return () => {}
+  const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  const behavior = opts?.smooth && !reduce ? "smooth" : "auto"
+  const max = Math.max(1, opts?.frames ?? 4)
+  const apply = () => {
+    window.scrollTo({ top: 0, left: 0, behavior })
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    document.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo({ top: 0, behavior: "auto" })
+  }
+  apply()
+  let frame = 0
+  let id = 0
+  const tick = () => {
+    window.scrollTo(0, 0)
+    document.documentElement.scrollTop = 0
+    document.body.scrollTop = 0
+    frame++
+    if (frame < max) id = requestAnimationFrame(tick)
+  }
+  id = requestAnimationFrame(tick)
+  return () => cancelAnimationFrame(id)
+}
+
 export function restoreTabScroll(y: number, maxFrames = 30): () => void {
   if (typeof window === "undefined") return () => {}
   let frame = 0

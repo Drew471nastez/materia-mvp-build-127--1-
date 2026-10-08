@@ -207,7 +207,7 @@ export function SaveBar({
         docked
           ? "w-full overflow-hidden border-t border-[#e5e7eb] bg-white shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]"
           : "fixed inset-x-0 bottom-0 z-40 border-t border-[#e5e7eb] bg-white pt-3 shadow-[0_-4px_16px_-8px_rgba(16,24,40,0.12)]",
-        docked ? (shown ? "max-h-[240px] opacity-100 pt-3" : "max-h-0 border-transparent pt-0 opacity-0 shadow-none") : "pt-3",
+        docked ? (shown ? "max-h-[120px] opacity-100 pt-3" : "max-h-0 border-transparent pt-0 pb-0 opacity-0 shadow-none") : "pt-3",
         docked
           ? "pb-[calc(12px+env(safe-area-inset-bottom,0px))]"
           : "pb-[calc(12px+var(--buyer-tabs-room))] md:pb-[calc(12px+env(safe-area-inset-bottom,0px))]",

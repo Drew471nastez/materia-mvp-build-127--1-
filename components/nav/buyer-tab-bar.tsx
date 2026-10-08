@@ -425,7 +425,9 @@ function TabBar({
     arrival.current = null
     if (a.y === null) return
     if (a.y === 0) {
-      window.scrollTo(0, 0)
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+      window.scrollTo({ top: 0, left: 0, behavior: reduce ? "auto" : "smooth" })
+      requestAnimationFrame(() => window.scrollTo(0, 0))
       return
     }
     return restoreTabScroll(a.y)

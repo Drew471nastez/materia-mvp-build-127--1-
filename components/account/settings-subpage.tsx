@@ -15,6 +15,7 @@ import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
 import { BackControl } from "@/components/navigation/back-control"
 import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
+import { scrollPageToTop } from "@/lib/navigation/tab-scroll"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
@@ -136,7 +137,12 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
     html.setAttribute("data-app-sheet-up", "open")
     bodyOverflow.current = document.body.style.overflow
     document.body.style.overflow = "hidden"
-    if (!el || typeof el.animate !== "function") return
+    if (!el) return () => {
+      html.removeAttribute("data-app-sheet-up")
+      document.body.style.overflow = bodyOverflow.current
+    }
+    el.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo(0, 0)
+    if (typeof el.animate !== "function") return
     el.style.transform = "translate3d(100%, 0, 0)"
     requestAnimationFrame(() => {
       el.animate([{ transform: "translate3d(100%, 0, 0)" }, { transform: "translate3d(0, 0, 0)" }], {
@@ -155,12 +161,14 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
     if (closing.current || closed.current) return
     closing.current = true
     const el = panel.current
+    el?.querySelector<HTMLElement>("[data-settings-sheet-scroll]")?.scrollTo({ top: 0, behavior: "auto" })
     const finish = () => {
       if (closed.current) return
       closed.current = true
       document.documentElement.removeAttribute("data-app-sheet-up")
       document.body.style.overflow = bodyOverflow.current
       swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
+      scrollPageToTop({ smooth: true, frames: 5 })
       onClose()
     }
     if (!el || typeof el.animate !== "function") {
@@ -210,7 +218,7 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
           )}
         </div>
       </div>
-      <div data-sheet-save-dock="" className="shrink-0 pb-[env(safe-area-inset-bottom,0px)]" />
+      <div data-sheet-save-dock="" className="shrink-0" />
     </div>
   )
 }
