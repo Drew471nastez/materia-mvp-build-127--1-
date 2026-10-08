@@ -40,16 +40,19 @@ export default async function PreviewShopPage({ params, searchParams }: PageProp
 
   const { admin, creatorId, installId, preview, themeSettings } = await previewInstall(username, clean)
 
-  const { data: homeData } = await admin
+  /* The saved Products page when there is one, as the live shop does (products/page.tsx); else the shop drawn from home. */
+  const { data: pageRows } = await admin
     .from("store_theme_pages")
-    .select("sections, draft_sections")
+    .select("page_key, sections, draft_sections")
     .eq("install_id", installId)
-    .eq("page_key", "home")
-    .maybeSingle()
+    .in("page_key", ["home", "products"])
+  const rowOf = (key: string) => ((pageRows ?? []) as { page_key: string }[]).find((r) => r.page_key === key) ?? null
 
-  const home = sanitizeSections(pageSections<SectionInstance[]>(homeData as never, preview) ?? [])
+  const home = sanitizeSections(pageSections<SectionInstance[]>(rowOf("home") as never, preview) ?? [])
+  const stored = sanitizeSections(pageSections<SectionInstance[]>(rowOf("products") as never, preview) ?? [])
+  const arranged = stored.length > 0 ? stored : shopSections(home, themeSettings)
   const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
-  const { sections, data } = await dressPage(owner, shopSections(home, themeSettings), products, productCount, "page.products", "Shop", undefined, { cached: false })
+  const { sections, data } = await dressPage(owner, arranged, products, productCount, "page.products", "Shop", undefined, { cached: false })
   /* Filtered from the address, as the live shop page is (lib/products/catalog-filters.ts). */
   const { listed, filters } = catalogPage(products ?? [], (await searchParams?.catch(() => undefined)) ?? {}, "/products")
   const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", listed, { filters }, data)
