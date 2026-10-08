@@ -90,6 +90,10 @@ const BUILD = String.raw`(?:build|create|make|generate|design|set up|start|give 
 const NEW_SITE = [
   new RegExp(String.raw`\b${BUILD}\b[^.?!]{0,60}\b(?:an?|my|our|the)?\s*(?:new|complete|full|whole|entire|brand new|premium|modern|beautiful|professional|proper|real|stunning|[a-z]+)?[^.?!]{0,40}\b${SITE}\b[^.?!]{0,20}\b(?:for|about|selling|to sell|that sells)\b`, "i"),
   new RegExp(String.raw`\b${BUILD}\b[^.?!]{0,30}\b(?:an?|my|our|the)?\s*(?:new|complete|full|whole|entire|brand new)\s+(?:[a-z]+\s+){0,2}${WHOLE}\b`, "i"),
+  /* "make me a clothing brand website", "i want a skincare store", "give me an online shop for my candles" */
+  /\b(?:build|create|make|design|generate|give|set up|launch)\b(?: me| us)?\s+(?:an?|my own|our own|a whole|a full|a complete|a new)\b[^.?!]{0,50}\b(?:web ?site|site|online store|store ?front|e-?commerce (?:site|store)|store|shop)\b(?!\s*(?:section|page|button|link|heading|grid|block))/i,
+  /\b(?:i|we)\s+(?:want|need|would like)\b[^.?!]{0,12}\b(?:an?|my own|our own)\b[^.?!]{0,50}\b(?:web ?site|site|online store|store ?front|store|shop)\b(?!\s*(?:section|page|button|link|heading|grid|block))/i,
+  /\bturn\s+(?:this|it|my (?:web ?)?site|the (?:web ?)?site|my store|everything)\s+into\s+an?\b/i,
   /\b(from scratch|start (?:over|again|fresh)|scrap (?:it|this|everything)|throw (?:it|this|everything) (?:away|out)|brand new (?:web ?)?site|new website)\b/i,
 ]
 

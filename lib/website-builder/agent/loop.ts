@@ -80,6 +80,7 @@ import { intentGuidance, type Intent } from "./intent"
 import { PLANNER_SYSTEM, describeCreativePlan, extractJson, planForCreator, planTurn, readCreativePlan, archetypesFor, type CreativePlan } from "./creative-plan"
 import { BRIEF_KEY, briefOp, describeProject, readBrief, updateBrief } from "./project-state"
 import { THEME_FINDING, checkProject } from "./project-check"
+import { applyPlan, describeApplied, type PlanApplied } from "./plan-apply"
 import { SET_COLOR_SCHEME_TOOL, setColorScheme } from "./scheme-edit"
 import { DESIGN_DEFAULTS, describePatterns, patternById } from "@/lib/storelib-ai/patterns"
 import { archetypeById, describeArchetype } from "@/lib/storelib-ai/archetypes"
@@ -565,7 +566,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
     {
       name: "read_design_patterns",
       description:
-        "Read design knowledge: a pattern id (hero_immersive, marquee, event_spotlight, schedule, gallery, team, tickets, before_after, stats, venue, menu, cta_final...), a kind of site (nightlife, course, photographer, luxury_fashion, ecommerce, creator, coach, restaurant, saas, digital_products, music, community), \"defaults\", or \"\" for every pattern.",
+        "Read design knowledge: a pattern id (hero_immersive, marquee, event_spotlight, schedule, gallery, team, tickets, before_after, stats, venue, menu, cta_final...), a kind of site (nightlife, course, photographer, apparel, luxury_fashion, ecommerce, creator, coach, restaurant, saas, digital_products, music, community), \"defaults\", or \"\" for every pattern.",
       parameters: {
         type: "object",
         properties: { topic: { type: "string", description: "A pattern id, a kind of site, \"defaults\", or \"\"." } },
@@ -1066,6 +1067,32 @@ export async function* themeAgent(
       yield { type: "plan", text: planForCreator(plan, schemas) }
     }
   }
+
+  /**
+   * THE PLAN'S STRUCTURE, BUILT BY CODE (./plan-apply.ts): the palette on the
+   * built-in schemes, the fonts, the old sections removed, the planned ones
+   * added in order, the header and footer on the new colours. Streamed like
+   * any other change. The model is left the content, which is its job.
+   */
+  let applied: PlanApplied | null = null
+  if (plan && intent && bigIntent && !locked) {
+    applied = applyPlan({ plan, state, schemas, addable, intent, newId })
+    if (applied.ops.length) yield progress("writing", "Building the sections")
+    for (const { op, label } of applied.ops) {
+      state = applyOp(state, op, schemas)
+      ops.push(op)
+      done.push(label)
+      if (op.kind === "add_section") {
+        added.add(op.id)
+        touched.add(op.id)
+        if (op.settings) written.set(op.id, new Set(Object.keys(op.settings)))
+      } else if (op.kind === "update_section") {
+        touched.add(op.id)
+      }
+      yield { type: "op", op, label }
+    }
+    trace("plan-applied", { ops: applied.ops.length, placed: applied.placed, toWrite: applied.toWrite.map((w) => w.type), skipped: applied.skipped })
+  }
   /* Without a plan, a big request still gets the knowledge for its kind of business. */
   const fallbackKnowledge =
     bigIntent && !plan
@@ -1124,7 +1151,8 @@ export async function* themeAgent(
         fallbackKnowledge,
         /* Right beside the request: what kind of request it is, and the plan it is built to. */
         intent ? intentGuidance(intent) : "",
-        plan ? describeCreativePlan(plan, state, schemas) : "",
+        plan ? describeCreativePlan(plan, state, schemas, applied?.placed) : "",
+        plan && applied ? describeApplied(applied, plan, schemas) : "",
         `REQUEST\n${prompt}`,
       ]
         .filter(Boolean)
@@ -1581,6 +1609,8 @@ export async function* themeAgent(
               sources: sourcesNow,
               newId,
               lenient: (codeRefusals.get(codeType) ?? 0) >= QUALITY_REFUSALS,
+              /* A header or footer of its own replaces the site's on every page: only when the creator asked for one. */
+              allowChrome: CHROME_ASK.test(prompt) || history.some((m) => m.role === "user" && CHROME_ASK.test(m.content)),
             })
             if (created.ok === false) {
               if (created.reason === "quality") codeRefusals.set(codeType, (codeRefusals.get(codeType) ?? 0) + 1)
@@ -2141,6 +2171,9 @@ function compactSettings(settings: Record<string, unknown>): string {
  */
 const QUALITY_REFUSALS = 2
 
+/** A request that is about the header or footer itself. */
+const CHROME_ASK = /\b(header|footer|nav ?bar|navigation bar|menu bar|top bar|masthead)\b/i
+
 /** The tools that read or write a section's file. */
 const CODE_TOOLS = new Set(["read_section_code", "write_section_code", "edit_section_code", "copy_section_to_code", "create_section"])
 
@@ -2320,6 +2353,7 @@ async function createSection(
     sources: Record<string, string>
     newId: (type: string) => string
     lenient: boolean
+    allowChrome?: boolean
   },
 ): Promise<
   | { ok: true; path: string; source: string; op: Extract<ThemeOp, { kind: "add_section" }>; extra: ThemeOp[]; output: string }
@@ -2341,6 +2375,15 @@ async function createSection(
   const source = typeof args.source === "string" ? args.source : ""
   if (!source.trim()) return { ok: false, reason: "args", output: "Send the whole file in `source`." }
   const path = `sections/${type}.storelib`
+  /* Before anything else: a header or footer of its own replaces the site's on every page. */
+  const kind = kindOfSource(source, type)
+  if (kind && !ctx.allowChrome) {
+    return {
+      ok: false,
+      reason: "args",
+      output: `This file is a ${kind} ("kind": "${kind}", or named like one), and a ${kind} of your own replaces the site's on every page. The creator did not ask for that, so nothing was saved. Set up the built-in ${kind} instead (read_section on it, then update_section: its layout, colour scheme, logo, transparency), and write this section as an ordinary page section if it is one.`,
+    }
+  }
   const first = checkSectionSource({ path, type, source, before: null, instances: [], theme: ctx.state.settings, sources: ctx.sources, strict: true, lenient: ctx.lenient })
   if (first.ok === false) return { ok: false, reason: first.reason, output: `${first.feedback}\n\nNothing was saved. Fix exactly that and send create_section again.` }
 
@@ -2356,7 +2399,6 @@ async function createSection(
     built.settings = { ...built.settings, ...checked.settings }
     notes = checked.notes
   }
-  const kind = kindOfSource(source, type)
   if (kind) built.group = kind
   /* Drawn with the settings it will have on the page, so a value the template cannot handle is found now. */
   const drawn = checkSectionSource({ path, type, source, before: null, instances: [built], theme: ctx.state.settings, sources: ctx.sources, strict: false, lenient: true })

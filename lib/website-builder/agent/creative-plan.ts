@@ -188,7 +188,7 @@ export function planTurn(ctx: PlanContext): string {
 }
 
 function archetypeIds(): string {
-  return ["nightlife", "course", "photographer", "luxury_fashion", "ecommerce", "creator", "coach", "restaurant", "saas", "digital_products", "music", "community"].join(", ")
+  return ["nightlife", "course", "photographer", "apparel", "luxury_fashion", "ecommerce", "creator", "coach", "restaurant", "saas", "digital_products", "music", "community"].join(", ")
 }
 
 /* ── reading and checking it ──────────────────────────────────────────── */
@@ -342,9 +342,11 @@ export function plannedLabel(s: PlannedSection, schemas?: SchemaMap): string {
  * The plan as the implementation turns read it: a numbered build order with
  * every decision beside it. The run follows it top to bottom.
  */
-export function describeCreativePlan(plan: CreativePlan, state: ThemeState, schemas?: SchemaMap): string {
+export function describeCreativePlan(plan: CreativePlan, state: ThemeState, schemas?: SchemaMap, placed?: (string | null)[]): string {
   const lines = plan.sections.map((s, i) => {
-    const how = s.use.startsWith("keep:")
+    const how = placed?.[i] && !s.use.startsWith("keep:")
+      ? `ON THE PAGE as [${placed[i]}] (${s.use}): write its real content`
+      : s.use.startsWith("keep:")
       ? `KEEP [${s.use.slice(5)}] (${state.sections.find((x) => x.id === s.use.slice(5))?.type ?? "?"}) and bring it into the new design`
       : s.use.startsWith("new:")
         ? `WRITE a section of your own, type "${s.use.slice(4)}", with create_section`
@@ -367,7 +369,7 @@ export function describeCreativePlan(plan: CreativePlan, state: ThemeState, sche
     `Motion: ${plan.motion}${plan.interactions.length ? `. Interactions: ${plan.interactions.join("; ")}` : ""}`,
     `Header: ${plan.header || "set up the built-in header to match"}`,
     `SECTIONS, top to bottom (header first and footer last are fixed):\n${lines.join("\n")}`,
-    plan.remove.length
+    plan.remove.length && !placed
       ? `TAKE OFF THE PAGE: ${plan.remove.map((id) => `[${id}] ${state.sections.find((x) => x.id === id)?.type ?? ""}`).join(", ")}. remove_section for generic or preset sections; set_section_visibility hidden for anything with words the creator wrote.`
       : "",
     plan.corrections.length ? `Corrected when the plan was checked: ${plan.corrections.join("; ")}.` : "",

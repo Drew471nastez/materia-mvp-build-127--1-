@@ -332,4 +332,5 @@ export const DESIGN_DEFAULTS = `DEFAULTS FOR ANYTHING THE BRIEF DOES NOT SAY:
 - Colour: two or three schemes doing all the work, the accent saved for actions and key facts. Text at 4.5:1 or better.
 - Motion: entrances once, 200 to 600ms, opacity and translate; a marquee or a counter only where it adds pace or meaning; everything stops under reduced motion.
 - Phone: designed, not shrunk. Stack in reading order, keep the hero's action in the first screen, 44px tap targets, no sideways scroll.
+- Selling (what the best converting Shopify stores do): products and prices in the first two screens, the buy button always visible on a product, trust points (shipping, returns, secure checkout) near the price, real reviews close to the products, one clear path from campaign image to collection to product to cart, and nothing between a shopper and checkout.
 - Empty states: a section that needs a picture or a product the creator has not added yet shows a quiet placeholder in the editor and nothing broken on the live site.`
