@@ -113,3 +113,4 @@ Status:
 | section rendering API | none | N/A |
 | Theme Check | compiler errors with file and line | Had |
 | Shopify CLI, GitHub integration | GitHub sync, MCP, agent API | Had |
+| importing a theme ZIP | converted to .storelib, Liquid never run ([18-shopify-import.md](18-shopify-import.md)) | Built |

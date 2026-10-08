@@ -31,6 +31,7 @@ import * as React from "react"
 import { useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { backThen } from "@/lib/navigation/go-back"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 280
@@ -68,7 +69,8 @@ export function SettingsSheet({ children, label = "Settings" }: { children: Reac
         } catch {
           ours = false
         }
-        if (ours && window.history.length > 1) router.back()
+        /* Through the back watch, so a Back that goes nowhere still lands on the dashboard. */
+        if (ours && window.history.length > 1) backThen(() => router.push("/app"))
         else router.push("/app")
       }
       const el = panel.current

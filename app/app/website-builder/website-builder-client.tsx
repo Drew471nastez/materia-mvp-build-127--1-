@@ -1069,7 +1069,9 @@ export function WebsiteBuilderClient({
       (data) =>
         `Imported ${typeof data.name === "string" ? data.name : nameFromFile(file)}${typeof data.media === "string" && data.media && data.media !== "nothing" ? ` with ${data.media}` : ""}` +
         /* A second header or footer the package wrote as a section, left out so the site keeps its own. */
-        (Array.isArray(data.left_out) && data.left_out.length ? `. Its extra ${data.left_out.join(" and ")} section was left out; the site's own is used` : ""),
+        (Array.isArray(data.left_out) && data.left_out.length ? `. Its extra ${data.left_out.join(" and ")} section was left out; the site's own is used` : "") +
+        /* A Shopify theme: how many of its sections made it across (lib/storelib-theme/shopify/convert.ts). */
+        (typeof (data.shopify as { summary?: unknown } | undefined)?.summary === "string" ? `. ${(data.shopify as { summary: string }).summary}` : ""),
       "Could not import that file",
       () => void importZip(file),
     )

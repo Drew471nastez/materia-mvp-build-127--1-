@@ -27,7 +27,8 @@ import {
   ALLOWED_IMAGE_EXTENSIONS,
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
-import { readPackage } from "@/lib/storelib-theme"
+import { buildPackage, readPackage } from "@/lib/storelib-theme"
+import { SHOPIFY_LICENSE_NOTICE, conversionSummary, convertShopifyTheme, isShopifyTheme, type ConversionReport } from "@/lib/storelib-theme/shopify/convert"
 import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
 import { readEntryCapped } from "@/lib/storelib-theme/package"
@@ -187,6 +188,30 @@ export async function POST(req: Request) {
 
   /**
    * ===========================================================================
+   *  A SHOPIFY THEME, CONVERTED, THEN READ LIKE ANY PACKAGE
+   * ===========================================================================
+   * A ZIP with sections/*.liquid and no theme.json is a Shopify theme. Its
+   * Liquid is rewritten as text into .storelib files (lib/storelib-theme/
+   * shopify/convert.ts), never run, and the result is built into a package
+   * and handed to the branch below, so every check a package gets, this
+   * gets too. What was left out comes back in the answer as `shopify`.
+   */
+  let shopify: ConversionReport | null = null
+  if (isShopifyTheme(zip)) {
+    const converted = await convertShopifyTheme(zip, { reservedTypes: Object.keys(SECTION_SCHEMAS) })
+    if (converted.ok === false) return NextResponse.json({ error: converted.error }, { status: 400 })
+    shopify = converted.report
+    try {
+      buf = Buffer.from(await buildPackage(converted.pkg))
+      zip = await JSZip.loadAsync(buf)
+    } catch {
+      return NextResponse.json({ error: "This Shopify theme could not be converted" }, { status: 400 })
+    }
+  }
+  const shopifyAnswer = shopify ? { shopify: { ...shopify, summary: conversionSummary(shopify), license: SHOPIFY_LICENSE_NOTICE } } : {}
+
+  /**
+   * ===========================================================================
    *  A .storelib-theme PACKAGE
    * ===========================================================================
    * Read as a whole or not at all (docs/theme/11): the paths, theme.json,
@@ -201,7 +226,7 @@ export async function POST(req: Request) {
     const read = await readPackage(new Uint8Array(buf), { knownTypes: Object.keys(SECTION_SCHEMAS) })
     if (read.ok === false) {
       return NextResponse.json(
-        { error: read.errors[0]?.message ?? "This package is not valid", errors: read.errors },
+        { error: read.errors[0]?.message ?? "This package is not valid", errors: read.errors, ...shopifyAnswer },
         { status: 400 },
       )
     }
@@ -314,7 +339,8 @@ export async function POST(req: Request) {
     const rows = Object.entries(pkg.files)
       .filter(([path]) => path.endsWith(".storelib"))
       .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
-      .map(([path, content]) => ({ install_id: created.id, path, content }))
+      /* A converted Shopify section names its pictures by asset reference, written into the file itself. */
+      .map(([path, content]) => ({ install_id: created.id, path, content: shopify ? Object.entries(refToUrl).reduce((text, [ref, url]) => text.split(ref).join(url), content) : content }))
     const filled = await fillInstall(admin, created.id, settings, pages, rows)
     if (filled) return filled
 
@@ -347,6 +373,8 @@ export async function POST(req: Request) {
       media: describeMedia(imported),
       /** A section file that took the built-in header's or footer's own name, left out: lib/storelib-theme/package.ts. */
       left_out: [...new Set((read.warnings ?? []).map((w) => w.message.match(/ takes the built-in (header|footer)'s own name/)?.[1]).filter(Boolean))],
+      /** What a Shopify theme's conversion kept and left out, with the line to show and the license reminder. */
+      ...shopifyAnswer,
       ...first,
     })
   }
