@@ -98,6 +98,7 @@ import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
@@ -396,7 +397,9 @@ function TabBar({
          made Profile and Home feel stuck. The hairline still appears if the
          next page is actually slow. */
       startRouteLoading({ lineOnly: true })
-      router.push(href, { scroll: false })
+      /* In the app, a tab between the community and the account changes page in one piece (lib/nav/tab-swap.ts). */
+      const crosses = (tab.key === "home") !== !!communityOf(pathname)
+      if (!(crosses && swapTabPage(() => router.push(href, { scroll: false }), href))) router.push(href, { scroll: false })
     },
     onPress: (index) => {
       /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */

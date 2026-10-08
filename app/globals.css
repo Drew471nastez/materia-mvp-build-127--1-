@@ -4408,6 +4408,36 @@ html[data-page-swap]::view-transition-old(root) {
 html[data-page-swap]::view-transition-new(root) {
   animation: page-swap-in 200ms cubic-bezier(0.33, 1, 0.68, 1) both;
 }
+
+/* A TAB IN THE APP CHANGES PAGE IN ONE PIECE (lib/nav/tab-swap.ts, round 20). The page being left is held as a picture
+   until the next one is drawn, then the new page fades in over it in 180ms; the picture stays whole under it (no dip). The
+   tab bar is its own picture, the same on both sides, so it does not fade or move. */
+html[data-tab-swap]::view-transition-group(root) {
+  animation: none;
+}
+html[data-tab-swap]::view-transition-old(root) {
+  animation: none;
+  opacity: 1;
+}
+html[data-tab-swap]::view-transition-new(root) {
+  animation: page-swap-in 180ms cubic-bezier(0.33, 1, 0.68, 1) both;
+}
+html[data-tab-swap] [data-buyer-tab-bar] {
+  view-transition-name: buyer-tab-bar;
+}
+html[data-tab-swap]::view-transition-group(buyer-tab-bar),
+html[data-tab-swap]::view-transition-old(buyer-tab-bar),
+html[data-tab-swap]::view-transition-new(buyer-tab-bar) {
+  animation: none;
+}
+html[data-tab-swap]::view-transition-old(buyer-tab-bar) {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-tab-swap]::view-transition-new(root) {
+    animation: none;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   html[data-page-swap]::view-transition-new(root) {
     animation: none;
