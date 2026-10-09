@@ -16,12 +16,13 @@
  * missing until somebody removes it: it is still in the section's settings.
  */
 import * as React from "react"
-import { ArrowDown, ArrowUp, Plus, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, GripVertical, Plus, Search, X } from "lucide-react"
 
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { cn } from "@/lib/utils"
 import { useEditorFieldEnv, type PickerCollection } from "./context"
 import { ADD_BUTTON, ICON_BUTTON, NOTE, TEXT_BUTTON } from "./styles"
+import { useReorder } from "./use-reorder"
 
 const DEFAULT_LIMIT = 12
 
@@ -194,6 +195,8 @@ export function CollectionListControl({
     onChange(next)
   }
   const remove = (at: number) => onChange(chosen.filter((_, i) => i !== at))
+  /* Drag a row by its grip, with a mouse or a finger (use-reorder.ts); Up and Down stay for a keyboard. */
+  const { listRef, gripProps, rowStyle } = useReorder<HTMLUListElement>({ count: chosen.length, onMove: move })
   const add = (id: string) => {
     if (chosen.some((k) => k.toLowerCase() === id.toLowerCase()) || chosen.length >= max) return
     onChange([...chosen, id])
@@ -204,12 +207,16 @@ export function CollectionListControl({
   return (
     <div className="space-y-2" data-collection-list="">
       {chosen.length > 0 && (
-        <ul className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen collections, in order"}>
+        <ul ref={listRef} className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen collections, in order"}>
           {chosen.map((key, i) => {
             const c = byId.get(key.toLowerCase())
             const name = c?.title ?? "collection"
             return (
-              <li key={`${key}-${i}`}>
+              <li key={`${key}-${i}`} data-reorder-row="" style={rowStyle(i)} className="flex items-center gap-1">
+                <button type="button" aria-label={`Move ${name}`} title="Drag to move" className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
+                  <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
+                <div className="min-w-0 flex-1">
                 <Row c={c}>
                   <button type="button" className={ICON_BUTTON} aria-label={`Move ${name} up`} disabled={i === 0} onClick={() => move(i, i - 1)}>
                     <ArrowUp className="h-3.5 w-3.5" />
@@ -221,6 +228,7 @@ export function CollectionListControl({
                     <X className="h-3.5 w-3.5" />
                   </button>
                 </Row>
+                </div>
               </li>
             )
           })}
