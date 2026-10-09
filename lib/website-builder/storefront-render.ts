@@ -6,6 +6,7 @@ import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { StorefrontData } from "@/lib/storelib-theme/types"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
+import { LAYOUT_KEY, layoutStylesheet } from "@/lib/storelib-theme/theme-stylesheet"
 
 /**
  * ===========================================================================
@@ -162,5 +163,8 @@ export function renderWithSources(
       prerendered[section.id] = { html: out.html, css: out.css, script: out.script, capabilities: out.capabilities }
     }
   }
+  /* An imported theme's stylesheet for the whole page (layout/theme.storelib), drawn by ThemePage. */
+  const layout = layoutStylesheet(sources)
+  if (layout) prerendered[LAYOUT_KEY] = { html: "", css: layout }
   return prerendered
 }

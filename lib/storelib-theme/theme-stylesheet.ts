@@ -59,7 +59,7 @@ export const THEME_STYLESHEET_SCOPE = "[data-storelib-theme]"
  * Most characters read. The converter keeps 400,000 of a theme's CSS, and
  * scoping makes that longer; a value past this was not written by it.
  */
-export const THEME_STYLESHEET_LIMIT = 600_000
+export const THEME_STYLESHEET_LIMIT = 1_500_000
 
 const ROOT_LIKE = /^(html|body|:root)$/i
 const ROOT_PREFIX = /^(html|body|:root)((?:[.#[:][^\s>+~]*)?)(\s*[>+~]?\s*)/i
@@ -96,7 +96,8 @@ function scopeSelector(selector: string, scope: string): { selector: string; roo
   const s = selector.trim()
   if (!s) return { selector: s, root: false }
   if (s === scope || s.startsWith(`${scope} `) || s.startsWith(`${scope}.`) || s.startsWith(`${scope}:`) || s.startsWith(`${scope}[`) || s.startsWith(`${scope}>`)) {
-    return { selector: canvasOnce(s), root: s === scope }
+    /* The root itself, with a qualifier of its own (`.page-width-narrow`, `[dir=rtl]`) and nothing below it. */
+    return { selector: canvasOnce(s), root: !/[\s>+~]/.test(s.slice(scope.length)) }
   }
   if (ROOT_LIKE.test(s)) return { selector: scope, root: true }
   /* `html .x`, `body.page .x`, `:root[dir=rtl] .x`: the root, with its own qualifier, then the rest. */
@@ -110,6 +111,21 @@ function scopeSelector(selector: string, scope: string): { selector: string; roo
     return { selector: canvasOnce(`${scope}${qualifier}${joiner}${rest}`), root: false }
   }
   return { selector: canvasOnce(`${scope} ${s}`), root: false }
+}
+
+/**
+ * `.page-width-narrow .x`, where the theme put `page-width-narrow` on <body>:
+ * the class is the page root's (theme_root_class), so the selector starts at
+ * the root. Written as the root with that class, which scopeSelector keeps.
+ */
+function onRoot(selector: string, rootClasses: Set<string>, scope: string): string {
+  if (!rootClasses.size) return selector
+  const s = selector.trim()
+  const m = s.match(/^((?:\.[A-Za-z][\w-]*)+)(?=$|[\s>+~:\[])/)
+  if (!m) return selector
+  const classes = m[1].split(".").filter(Boolean)
+  if (!classes.every((c) => rootClasses.has(c))) return selector
+  return `${scope}${m[1]}${s.slice(m[1].length)}`
 }
 
 function insideRule(node: ChildNode): boolean {
@@ -161,12 +177,22 @@ export interface CompiledThemeStylesheet {
 const cache = new Map<string, CompiledThemeStylesheet>()
 const CACHE_SIZE = 16
 
+export interface CompileOptions {
+  /**
+   * The classes the theme put on its <body>, which Storelib puts on the page
+   * root (theme_root_class). A rule that starts with one of them is about the
+   * root itself: `.page-width-narrow { --page-margin: 16px }`.
+   */
+  rootClasses?: string[]
+}
+
 /** The stylesheet, safe to draw inside the page root. Never throws. */
-export function compileThemeStylesheet(input: unknown, scope = THEME_STYLESHEET_SCOPE): CompiledThemeStylesheet {
+export function compileThemeStylesheet(input: unknown, scope = THEME_STYLESHEET_SCOPE, opts: CompileOptions = {}): CompiledThemeStylesheet {
   if (typeof input !== "string" || !input.trim()) return { css: "", dropped: { atRules: 0, declarations: 0, rules: 0 }, failed: false }
   if (input.length > THEME_STYLESHEET_LIMIT) return { css: "", dropped: { atRules: 0, declarations: 0, rules: 0 }, failed: true }
   const source = input
-  const key = `${scope}\n${source}`
+  const rootClasses = new Set((opts.rootClasses ?? []).filter((c) => /^[A-Za-z][\w-]*$/.test(c)))
+  const key = `${scope}\n${[...rootClasses].join(" ")}\n${source}`
   const hit = cache.get(key)
   if (hit) return hit
 
@@ -210,7 +236,9 @@ export function compileThemeStylesheet(input: unknown, scope = THEME_STYLESHEET_
       return
     }
     const inQuery = insideContainerQuery(rule)
-    const scoped = rule.selectors.map((s) => scopeSelector(s, scope)).map((s) => (s.root && inQuery && s.selector === scope ? { selector: `${scope} > *`, root: true } : s))
+    const scoped = rule.selectors
+      .map((s) => scopeSelector(onRoot(s, rootClasses, scope), scope))
+      .map((s) => (s.root && inQuery && s.selector.startsWith(scope) && !/[\s>+~]/.test(s.selector.slice(scope.length)) ? { selector: `${s.selector} > *`, root: true } : s))
     const kept = scoped.map((s) => s.selector).filter(Boolean)
     if (!kept.length) {
       rule.remove()
@@ -253,6 +281,14 @@ export function compileThemeStylesheet(input: unknown, scope = THEME_STYLESHEET_
     if (!rule.nodes.length) rule.remove()
   })
 
+  /* Written tight: a theme's stylesheet is drawn into every page. */
+  root.walk((node) => {
+    node.raws.before = node.type === "decl" || node.type === "rule" || node.type === "atrule" ? "" : node.raws.before
+    if (node.type === "decl") node.raws.between = ":"
+    if (node.type === "rule") { node.raws.between = ""; node.raws.after = ""; node.raws.semicolon = false }
+    if (node.type === "atrule") { node.raws.between = ""; node.raws.after = ""; node.raws.afterName = node.params ? " " : "" }
+  })
+  root.raws.after = ""
   const css = root.toString().replace(/</g, "\\3c ")
   const out = { css, dropped, failed: false }
   remember(key, out)
@@ -271,4 +307,33 @@ function trimToRoot(rule: Rule, dropped: CompiledThemeStylesheet["dropped"]) {
 function remember(key: string, value: CompiledThemeStylesheet) {
   if (cache.size >= CACHE_SIZE) cache.delete(cache.keys().next().value as string)
   cache.set(key, value)
+}
+
+/* ── layout/theme.storelib: where a theme's whole page stylesheet lives ── */
+
+/**
+ * The install file that holds an imported theme's stylesheet, the one place
+ * a theme's rules for the whole page go (./storelib/css.ts). Stored with the
+ * section files, so it travels the same way to the builder, the preview and
+ * the live site, and is saved, versioned and exported like one.
+ */
+export const LAYOUT_PATH = "layout/theme.storelib"
+
+/** Where the layout's stylesheet is kept in a render's prerendered sections. Not a section id: those never start with @. */
+export const LAYOUT_KEY = "@layout"
+
+/** The file's text for a stylesheet. */
+export function layoutFile(css: string): string {
+  return `<style>\n${css}\n</style>\n`
+}
+
+/** A layout file's stylesheet, compiled to the page root. Empty when the theme has none. */
+export function layoutStylesheet(sources: Record<string, string> | undefined): string {
+  const text = sources?.[LAYOUT_PATH]
+  if (typeof text !== "string" || !text.trim()) return ""
+  const open = text.indexOf("<style")
+  const start = open < 0 ? -1 : text.indexOf(">", open)
+  const end = text.lastIndexOf("</style>")
+  if (start < 0 || end <= start) return ""
+  return compileThemeStylesheet(text.slice(start + 1, end)).css
 }

@@ -68,7 +68,7 @@ export interface CompileOptions {
  * now. That is a section with nothing typed into it yet, which is the normal
  * state of a section somebody just added.
  */
-const CONTEXT_ROOTS = new Set(["settings", "blocks", "products", "theme", "scheme", "page", "section", "forloop", "shop", "routes", "customer", "wishlist", "creator", "product", "collections"])
+const CONTEXT_ROOTS = new Set(["settings", "blocks", "products", "theme", "scheme", "page", "section", "forloop", "shop", "routes", "customer", "wishlist", "creator", "product", "collections", "closest"])
 const SECTION_KEYS = new Set(["id", "type", "settings", "blocks"])
 
 function checkReferences(
@@ -242,7 +242,8 @@ function compileSectionUnguarded(source: string, opts: CompileOptions = {}): Res
     const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: schema.value.type })
     if (scoped.ok === true) {
       css = scoped.value
-      if (css.includes("{{")) {
+      /* A value, or a tag (an if around a rule, an assign), makes it a template. */
+      if (css.includes("{{") || css.includes("{%")) {
         const t = compileTemplate(css, { file, line: src.style.line })
         if (t.ok === true) cssTemplate = t.value
         else errors.push(...t.errors.map((e) => ({ ...e, stage: "css" as const })))
@@ -391,7 +392,7 @@ function compileBlockUnguarded(source: string, opts: CompileOptions & { type: st
   let css = ""
   let cssTemplate: unknown
   if (src.style.text.trim()) {
-    const perInstance = src.style.text.includes("{{")
+    const perInstance = src.style.text.includes("{{") || src.style.text.includes("{%")
     const scoped = scopeCss(src.style.text, { file, line: src.style.line, type: `b-${opts.type}`, scope: blockScope(opts.type, perInstance) })
     if (scoped.ok === true) {
       css = scoped.value

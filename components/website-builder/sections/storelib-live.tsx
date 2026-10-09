@@ -14,6 +14,7 @@ import { themeWithHeaderLogo, type HeaderLogo } from "@/lib/website-builder/chro
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import type { RenderContext, StorefrontData } from "@/lib/storelib-theme/types"
 import { StorelibRenderProvider, type SectionRenderFn } from "./storelib-sources"
+import { layoutStylesheet } from "@/lib/storelib-theme/theme-stylesheet"
 import { wishlistObject, type StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import { catalogPage } from "@/lib/products/catalog-filters"
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
@@ -155,8 +156,10 @@ export function StorelibLiveProvider({
      context value on every render of the canvas, and every section that reads
      the context rendered again with it, past SectionRenderer's memo. */
   const pageValue = useMemo(() => ({ template }), [template])
+  /* The theme's whole page stylesheet, compiled once per change to its file: the same function the live site calls. */
+  const layoutCss = useMemo(() => layoutStylesheet(sources), [sources])
   return (
-    <StorelibRenderProvider render={render} page={pageValue}>
+    <StorelibRenderProvider render={render} page={pageValue} layoutCss={layoutCss}>
       {children}
     </StorelibRenderProvider>
   )

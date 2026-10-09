@@ -18,7 +18,7 @@ import { collectionBlock, resolveInstance, resolveSettings, themeTokens, type Re
 import { sectionTypography } from "./typography"
 import { cssForBlockInstance, cssForInstance } from "./storelib/css"
 import { guardSectionMarkup, guardStyleText } from "./storelib/raw-html"
-import { engineHtml, renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
+import { engineHtml, renderLocals, renderTemplate, stripDocumentMarkup, type CompiledTemplate } from "./storelib/template"
 import { applySettingMarks } from "./storelib/marks"
 import { MAX_BLOCK_DEPTH, type CompiledBlock, type CompiledSection, type ContentForRequest, type RenderContext, type SectionInstanceData, type StorefrontData } from "./types"
 import { SITE_ROUTES, shopObject, type StorefrontGlobals } from "./globals"
@@ -190,7 +190,7 @@ export function renderSection(input: RenderInput): Rendered {
    */
   const inEditor = input.page.in_editor === true
   const blockCss = new Map<string, string>()
-  const drawBlock = (node: ResolvedBlock, depth: number): string => {
+  const drawBlock = (node: ResolvedBlock, depth: number, closest: Record<string, unknown> | undefined): string => {
     if (depth > MAX_BLOCK_DEPTH) return ""
     const attrs = `data-block-id="${escapeAttr(node.id)}" data-block-type="${escapeAttr(node.type)}"`
     const cb = blockOf(node.type)
@@ -205,14 +205,17 @@ export function renderSection(input: RenderInput): Rendered {
       blocks: node.blocks,
       block: { id: node.id, type: node.type, settings: node.settings, blocks: node.blocks, storelib_attributes: engineHtml(attrs) },
       sectionScope: { settings, blocks },
-      contentFor: contentForOf(node, depth),
+      contentFor: contentForOf(node, depth, closest),
+      ...(closest ? { closest } : {}),
     }
-    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx, { marks: inEditor })
+    /* One store of assigned names for the block's markup and its stylesheet, drawn in that order. */
+    const blockLocals = renderLocals()
+    const inner = renderTemplate(cb.template as CompiledTemplate, blockCtx, { marks: inEditor, locals: blockLocals })
     if (cb.css) {
       if (cb.cssTemplate) {
         /* Per instance, and only for an id that cannot leave a selector. */
         if (SAFE_ID.test(node.id) && SAFE_ID.test(id)) {
-          blockCss.set(`${node.type}#${node.id}`, cssForBlockInstance(renderTemplate(cb.cssTemplate as CompiledTemplate, blockCtx, { mode: "css" }), id, node.id))
+          blockCss.set(`${node.type}#${node.id}`, cssForBlockInstance(renderTemplate(cb.cssTemplate as CompiledTemplate, blockCtx, { mode: "css", locals: blockLocals }), id, node.id))
         }
       } else if (!blockCss.has(node.type)) blockCss.set(node.type, cb.css)
     }
@@ -221,12 +224,14 @@ export function renderSection(input: RenderInput): Rendered {
     const cls = ["sl-block", ...String(cb.schema.class ?? "").split(/\s+/).filter(Boolean)].join(" ")
     return `<${tag} class="${escapeAttr(cls)}" ${attrs}>${inner}</${tag}>`
   }
-  const contentForOf = (owner: { blocks: ResolvedBlock[]; statics: Record<string, ResolvedBlock> }, depth: number) =>
+  const contentForOf = (owner: { blocks: ResolvedBlock[]; statics: Record<string, ResolvedBlock> }, depth: number, inherited?: Record<string, unknown>) =>
     (req: ContentForRequest): string => {
-      if (req.what === "blocks") return owner.blocks.map((b) => drawBlock(b, depth + 1)).join("")
+      /* What the blocks are about: what this request names, over what the owner was drawn for. */
+      const closest = req.closest ? { ...inherited, ...req.closest } : inherited
+      if (req.what === "blocks") return owner.blocks.map((b) => drawBlock(b, depth + 1, closest)).join("")
       const saved = owner.statics[req.id]
       if (saved?.hidden) return ""
-      if (saved && saved.type === req.type) return drawBlock(saved, depth + 1)
+      if (saved && saved.type === req.type) return drawBlock(saved, depth + 1, closest)
       /* Never edited yet: the block as its file describes it. */
       const cb = blockOf(req.type)
       const fresh: ResolvedBlock = {
@@ -237,7 +242,7 @@ export function renderSection(input: RenderInput): Rendered {
         statics: {},
       }
       if (cb) followSchemeColours(cb.schema.settings, fresh.settings, scheme)
-      return drawBlock(fresh, depth + 1)
+      return drawBlock(fresh, depth + 1, closest)
     }
   ctx.contentFor = contentForOf({ blocks, statics }, 0)
 
@@ -246,7 +251,9 @@ export function renderSection(input: RenderInput): Rendered {
      runs anything, however the template spelled it: storelib/raw-html.ts,
      guardSectionMarkup. */
   /* In the builder, each output of a setting names its element first: storelib/marks.ts. Before the guards, so they see the markup as it will be. */
-  const drawn = renderTemplate(compiled.template as CompiledTemplate, ctx, { marks: inEditor })
+  /* What the markup assigns, its stylesheet reads: the markup is drawn first, with the same store. */
+  const locals = renderLocals()
+  const drawn = renderTemplate(compiled.template as CompiledTemplate, ctx, { marks: inEditor, locals })
   const inner = guardSectionMarkup(stripDocumentMarkup(inEditor ? applySettingMarks(drawn) : drawn))
   const typo = sectionTypography(settings)
   const attrs = [
@@ -261,7 +268,7 @@ export function renderSection(input: RenderInput): Rendered {
   attrs.push(`style="${escapeAttr(styleAttr(rootStyle))}"`)
   const html = `<div ${attrs.join(" ")}>${inner}</div>`
   const sectionCss = compiled.css
-    ? cssForInstance(compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css" }) : compiled.css, id)
+    ? cssForInstance(compiled.cssTemplate ? renderTemplate(compiled.cssTemplate as CompiledTemplate, ctx, { mode: "css", locals }) : compiled.css, id)
     : ""
   const css = [sectionCss, ...blockCss.values()].filter(Boolean).join("\n")
   return {

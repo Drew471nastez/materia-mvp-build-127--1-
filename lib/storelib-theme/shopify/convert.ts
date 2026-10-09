@@ -31,7 +31,7 @@
  * NEVER THROWS. A file that cannot be read is a line in the report; a ZIP
  * that is far too large is a refusal with the number.
  */
-import { compileThemeStylesheet } from "../theme-stylesheet"
+import { LAYOUT_PATH, compileThemeStylesheet, layoutFile } from "../theme-stylesheet"
 import { StaticLiquid, liquidSettings, parseFont, resolveSettingReferences } from "./static-liquid"
 import JSZip from "jszip"
 import postcss, { type Rule } from "postcss"
@@ -353,16 +353,17 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     evaluated against the theme's own saved settings: the stylesheets it
     links, the CSS variables its snippets build from fonts and colour
     schemes, and the classes on its <body>. What comes out is plain CSS,
-    kept as the theme's stylesheet and drawn on every page (theme-css.ts
-    themeImportedCss); no Liquid runs on the site.
+    kept as layout/theme.storelib and drawn on every page
+    (theme-stylesheet.ts layoutStylesheet); no Liquid runs on the site.
   */
   const look = themeLook(src, schemaSettings, settingsData, report, assetLookup)
   files["config/settings.json"] = JSON.stringify({ shopify: carried.values, ...look.settings }, null, 2) + "\n"
+  if (look.layout) files[LAYOUT_PATH] = layoutFile(look.layout)
   if (src.text.has("config/settings_data.json")) {
     report.note("config/settings_data.json", `${carried.kept} theme setting${carried.kept === 1 ? "" : "s"} carried over for the sections that read them${look.settings.font_heading ? `; fonts ${[look.settings.font_heading, look.settings.font_body].filter(Boolean).join(" and ")} set in Theme settings › Typography` : ""}`)
   }
   for (const p of src.text.keys()) {
-    if (p === "layout/theme.liquid" && look.settings.theme_stylesheet) continue
+    if (p === "layout/theme.liquid" && look.layout) continue
     if (p.startsWith("layout/")) report.skip(p, `The page shell is Storelib's own; only the theme's styles were taken from it`)
   }
   const scripts = [...src.binary.keys(), ...src.text.keys()].filter((p) => /^assets\/.*\.(js|mjs|ts)$/.test(p)).length
@@ -478,8 +479,15 @@ function convertFile(text: string, job: FileJob): { source: string; settings: Se
     script: null,
     seen: new Set(),
     budget: { chars: SNIPPET_BUDGET },
+    unread: new Map(),
+    /* Gathered into layout/theme.storelib for the whole theme (gatheredStylesheets). */
+    stylesheetsGlobal: true,
   }
   let template = cleanMarkup(convertLiquid(text.replace(SCHEMA_TAG, ""), ctx), ctx)
+  if (ctx.unread?.size) {
+    const names = [...ctx.unread].sort((a, b) => b[1] - a[1]).map(([n]) => n)
+    note(`${names.length} name${names.length === 1 ? "" : "s"} it reads ${names.length === 1 ? "has" : "have"} no meaning in Storelib and ${names.length === 1 ? "is" : "are"} read as nothing: ${names.slice(0, 12).join(", ")}${names.length > 12 ? ", …" : ""}`)
+  }
 
   /* A theme block that prints its own attributes is not wrapped by the engine, as on Shopify. */
   if (job.mode === "block") {
@@ -672,19 +680,36 @@ function cleanMarkup(html: string, ctx: LiquidContext): string {
       out = out.replace(re, to)
     }
   }
+  /* An attribute rule, on the markup between template tags only: `assign onboarding = false` is not an onclick. */
+  const takeAttr = (re: RegExp, message: string, to = "") => {
+    let hit = false
+    out = out
+      .split(/(\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\})/)
+      .map((part, i) => {
+        if (i % 2 === 1) return part
+        re.lastIndex = 0
+        if (!re.test(part)) return part
+        hit = true
+        re.lastIndex = 0
+        return part.replace(re, to)
+      })
+      .join("")
+    if (hit) ctx.note(message)
+  }
   take(/<script\b[\s\S]*?<\/script\s*>/gi, `A <script> in the markup was removed: a Storelib section's markup holds no scripts`)
   take(/<script\b[^>]*>/gi, `A <script> in the markup was removed: a Storelib section's markup holds no scripts`)
   out = out.replace(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi, (_m, css: string) => {
-    if (!css.includes("{%")) ctx.styles.push({ css, dynamic: css.includes("{{") })
+    /* Tags inside it are masked for the scoper and run with the rest (storelib/css.ts). */
+    ctx.styles.push({ css, dynamic: css.includes("{{") || css.includes("{%") })
     return ""
   })
   take(/<\/?(?:link|meta|base)\b[^>]*>/gi, `<link>, <meta> and <base> tags were removed: they belong to the page, not a section`)
   take(/<iframe\b[\s\S]*?<\/iframe\s*>|<iframe\b[^>]*>/gi, `An <iframe> was removed: a Storelib section opens a frame only through the embed filter`)
   take(/<object\b[\s\S]*?<\/object\s*>|<embed\b[^>]*>/gi, `An <object> or <embed> was removed`)
-  take(/([\s/"'])on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `on…= attributes were removed: a section's behaviour goes in its <script> block`, "$1")
-  take(/([\s/"'])srcdoc\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `A srcdoc attribute was removed`, "$1")
-  take(/\s(?:v-[a-z-]+|@[a-z][\w.:-]*|:[a-z-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `Framework attributes (v-…, @…, :…) were removed`)
-  take(/javascript:[^"'\s>]*/gi, `A javascript: address was replaced with #`, "#")
+  takeAttr(/([\s/"'])on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `on…= attributes were removed: a section's behaviour goes in its <script> block`, "$1")
+  takeAttr(/([\s/"'])srcdoc\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `A srcdoc attribute was removed`, "$1")
+  takeAttr(/\s(?:v-[a-z-]+|@[a-z][\w.:-]*|:[a-z-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `Framework attributes (v-…, @…, :…) were removed`)
+  takeAttr(/javascript:[^"'\s>]*/gi, `A javascript: address was replaced with #`, "#")
   return out
 }
 
@@ -1102,11 +1127,31 @@ function instanceBlocks(
 // ── The theme's look ────────────────────────────────────────────────────────
 
 /** Most characters of theme stylesheet kept; a theme past it keeps the start and says so. */
-export const THEME_STYLESHEET_MAX = 400_000
+export const THEME_STYLESHEET_MAX = 1_200_000
 
-function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, settingsData: unknown, report: { note: (file: string, m: string) => void }, asset: LiquidContext["asset"]): { settings: Tree } {
-  const layout = src.text.get("layout/theme.liquid")
-  if (!layout) return { settings: {} }
+/**
+ * Every {% stylesheet %} in the theme, in one: Shopify puts them all into one
+ * styles.css drawn on every page, whether or not the section is on it, so a
+ * rule in one snippet may style what another file draws. Each once, in file
+ * order. They hold no Liquid; Shopify refuses one that does.
+ */
+function gatheredStylesheets(src: { text: Map<string, string> }): string {
+  const seen = new Set<string>()
+  const out: string[] = []
+  const paths = [...src.text.keys()].filter((p) => /^(sections|blocks|snippets)\/[^/]+\.liquid$/.test(p)).sort()
+  for (const p of paths) {
+    for (const m of (src.text.get(p) ?? "").matchAll(/\{%-?\s*stylesheet\s*-?%\}([\s\S]*?)\{%-?\s*endstylesheet\s*-?%\}/g)) {
+      const css = m[1].trim()
+      if (!css || seen.has(css) || css.includes("{{") || css.includes("{%")) continue
+      seen.add(css)
+      out.push(css)
+    }
+  }
+  return out.join("\n\n")
+}
+
+function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, settingsData: unknown, report: { note: (file: string, m: string) => void }, asset: LiquidContext["asset"]): { settings: Tree; layout: string } {
+  const layout = src.text.get("layout/theme.liquid") ?? ""
   const d = settingsData && typeof settingsData === "object" ? (settingsData as Tree) : {}
   let current = d.current
   if (typeof current === "string" && d.presets && typeof d.presets === "object") current = (d.presets as Tree)[current]
@@ -1129,13 +1174,14 @@ function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, 
     asset: (name) => { const a = asset(name); return a && a.kind === "image" ? a.ref : null },
   })
   let html = ""
-  try {
+  if (layout) try {
     html = evaluator.render(layout, { request: { design_mode: false, locale: { iso_code: "en", direction: "ltr" }, page_type: "index" }, content_for_header: "", content_for_layout: "", template: { name: "index" } })
   } catch {
-    report.note("layout/theme.liquid", "The theme's styles could not be worked out from its layout, so its sections draw with Storelib's theme instead")
-    return { settings: {} }
+    report.note("layout/theme.liquid", "The theme's styles could not be worked out from its layout, so only its {% stylesheet %} rules are drawn")
+    html = ""
   }
-  let css = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n\n")
+  const bodyClass = (html.match(/<body\b[^>]*\bclass="([^"]*)"/i)?.[1] ?? "").split(/\s+/).filter((c) => /^[A-Za-z][\w-]{0,60}$/.test(c)).slice(0, 12).join(" ")
+  let css = [...[...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1].trim()), gatheredStylesheets(src)].filter(Boolean).join("\n\n")
   if (css.length > THEME_STYLESHEET_MAX) {
     report.note("layout/theme.liquid", `The theme's stylesheet is ${Math.round(css.length / 1024)} KB; the first ${THEME_STYLESHEET_MAX / 1000} KB were kept`)
     /* At the end of a rule, so what is kept still reads as CSS. */
@@ -1143,16 +1189,14 @@ function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, 
   }
   /* Compiled to the page root here, so the report can say what was left out (../theme-stylesheet.ts). */
   if (css) {
-    const compiled = compileThemeStylesheet(css)
+    const compiled = compileThemeStylesheet(css, undefined, { rootClasses: bodyClass.split(" ").filter(Boolean) })
     if (compiled.failed) report.note("layout/theme.liquid", "The theme's stylesheet could not be read as CSS, so its sections draw with Storelib's theme instead")
     const { atRules, declarations, rules } = compiled.dropped
     if (atRules) report.note("layout/theme.liquid", `${atRules} @import, @font-face or similar rule${atRules === 1 ? " was" : "s were"} left out of the theme's stylesheet; its fonts load through Theme settings › Typography`)
     if (declarations || rules) report.note("layout/theme.liquid", `${declarations + rules} rule${declarations + rules === 1 ? "" : "s"} in the theme's stylesheet ${declarations + rules === 1 ? "was" : "were"} left out: page layout set on <body> or <html>, or an address that is not https`)
     css = compiled.css
   }
-  const bodyClass = (html.match(/<body\b[^>]*\bclass="([^"]*)"/i)?.[1] ?? "").split(/\s+/).filter((c) => /^[A-Za-z][\w-]{0,60}$/.test(c)).slice(0, 12).join(" ")
   const out: Tree = {}
-  if (css) out.theme_stylesheet = css
   if (bodyClass) out.theme_root_class = bodyClass
   /* The theme's fonts, as Storelib's typography loads them. */
   const font = (id: string) => { const f = parseFont(values[id]); return f && !f.system ? f.family : "" }
@@ -1163,8 +1207,8 @@ function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, 
   if (body) out.font_body = body
   if (accent) out.font_accent = accent
   if (evaluator.unknownFilters.size) report.note("layout/theme.liquid", `While working out the theme's styles, ${[...evaluator.unknownFilters].slice(0, 8).map((f) => `"${f}"`).join(", ")} had no meaning here and printed the value as it was`)
-  if (css) report.note("layout/theme.liquid", `The theme's stylesheet (${Math.round(css.length / 1024)} KB: its CSS variables, colour schemes and stylesheets) is drawn on every page`)
-  return { settings: out }
+  if (css) report.note("layout/theme.liquid", `The theme's stylesheet (${Math.round(css.length / 1024)} KB: its CSS variables, colour schemes, stylesheets and every {% stylesheet %}) is kept as layout/theme.storelib and drawn on every page`)
+  return { settings: out, layout: css }
 }
 
 // ── Theme settings ──────────────────────────────────────────────────────────

@@ -44,6 +44,7 @@ import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
+import { useStorelibContext } from "../sections/storelib-sources"
 import { useSiteMotion } from "./use-site-motion"
 import { splitGroups } from "@/lib/storelib-theme/section-groups"
 
@@ -475,10 +476,12 @@ export function ThemePage({
    */
   const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
   /* An imported theme's own stylesheet (a Shopify import's layout CSS), already compiled to this root. Null for every other theme. */
+  const { layoutCss } = useStorelibContext()
   const importedCss = useMemo(() => {
-    const css = themeImportedCss(theme)
+    /* layout/theme.storelib, through the section sources; a theme setting for an import made before that file existed. */
+    const css = (layoutCss && !layoutCss.includes("<") ? layoutCss : "") || themeImportedCss(theme)
     return css ? { __html: css } : null
-  }, [theme])
+  }, [theme, layoutCss])
   const rootClasses = themeRootClasses((theme as Record<string, unknown>).theme_root_class)
   /* Theme settings › Custom CSS, cleaned and scoped (lib/storelib-theme/custom-css.ts). Null when there is none. */
   const customCss = useMemo(() => {

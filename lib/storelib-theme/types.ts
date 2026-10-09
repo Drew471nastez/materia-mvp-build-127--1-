@@ -515,9 +515,19 @@ export interface RenderContext {
    * nothing.
    */
   contentFor?: (request: ContentForRequest) => string
+  /** Inside a theme block: the product or collection it was drawn for (ContentForRequest.closest). */
+  closest?: Record<string, unknown>
 }
 
-export type ContentForRequest = { what: "blocks" } | { what: "block"; type: string; id: string }
+export type ContentForRequest = ({ what: "blocks" } | { what: "block"; type: string; id: string }) & {
+  /**
+   * What the blocks drawn are about, Shopify's `closest`: `{% content_for
+   * "block", type: "_product-card", id: "card", closest.product: product %}`
+   * inside a loop draws the card for that product. Passed down to the
+   * blocks inside it until one is given another.
+   */
+  closest?: Record<string, unknown>
+}
 
 /**
  * The storefront's own facts, handed to a render by whoever has them. The

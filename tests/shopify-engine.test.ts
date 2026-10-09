@@ -62,5 +62,35 @@ is("break inside an inner loop leaves only that loop", `{% for a in (1..2) %}{% 
 is("break outside a loop does nothing", `a{% break %}b`, "ab")
 is("forloop.rindex", `{% for i in (1..3) %}{{ forloop.rindex }}{% endfor %}`, "321")
 
+console.log("\nNames a template keeps: assign and capture\n")
+is("assign, then read", `{% assign x = settings.t | upcase %}{{ x }}`, "HI", { t: "hi" })
+is("an assign inside a loop is seen after it", `{% assign n = 0 %}{% for i in (1..4) %}{% assign n = n | plus: i %}{% endfor %}{{ n }}`, "10")
+is("a capture is markup, its values escaped", `{% capture c %}<b>{{ settings.t }}</b>{% endcapture %}{{ c }}`, "<b>&lt;i&gt;</b>", { t: "<i>" })
+is("captured markup stays markup through strip and append", `{% capture c %} <i>a</i> {% endcapture %}{{ c | strip | append: settings.t }}`, "<i>a</i>&lt;x&gt;", { t: "<x>" })
+is("a string the template writes is markup when joined", `{% assign h = "<h3>" | append: settings.t | append: "</h3>" %}{{ h }}`, "<h3>Title</h3>", { t: "Title" })
+is("a capture of only spaces is blank to strip", `{% capture c %}   {% endcapture %}{% if (c | strip) %}full{% else %}blank{% endif %}`, "blank")
+check("assign cannot take a name the template reads", render(`{% assign settings = 1 %}`).startsWith("COMPILE"))
+
+console.log("\nComputed indexes, colour parts, prices\n")
+is("settings[key], with a Shopify id written with dashes", `{% for k in (settings.keys | split: ",") %}{{ settings[k] }};{% endfor %}`, "8;16;", { keys: "padding-top,padding_bottom", padding_top: 8, padding_bottom: 16 })
+is("a range end may hold parentheses", `{% for i in (1..(settings.n | plus: 1)) %}{{ i }}{% endfor %}`, "123", { n: 2 })
+is("a colour's parts", `{{ settings.c.rgb }} {{ settings.c.alpha }} {{ settings.c.red }}`, "255 136 0 1 255", { c: "#ff8800" })
+is("two prices compare as prices", `{% if settings.was > settings.now %}sale{% endif %}`, "sale", { was: "$60.00", now: "$48.00" })
+
+console.log("\nA Storelib product, read by Shopify's names\n")
+const card = { id: "p1", type: "product", settings: { title: "Shirt", price: "$48.00", compare_price: "$60.00", image: "https://x/a.png", images: ["https://x/a.png", "https://x/b.png"], url: "/products/shirt", slug: "shirt", available: true, variants: [{ id: "v1", name: "Small", price: "$48.00", available: true }, { id: "v2", name: "Large", price: "$52.00", available: false }] } }
+const withProduct = (src: string) => {
+  const t = compileTemplate(src)
+  if (t.ok === false) return `COMPILE: ${t.errors.map((e) => e.message).join("; ")}`
+  return renderTemplate(t.value, { settings: {}, blocks: [], theme: {}, page: {}, section: { id: "s", type: "t" }, scheme: {}, assets: {}, products: [card], closest: { product: card } } as unknown as RenderContext)
+}
+const pis = (label: string, src: string, want: string) => { const got = withProduct(src); check(label, got === want, { got, want }) }
+pis("title, handle and url", `{% for p in products %}{{ p.title }} {{ p.handle }} {{ p.url }}{% endfor %}`, "Shirt shirt /products/shirt")
+pis("featured_media prints as its address and has parts", `{% for p in products %}{{ p.featured_media }} {{ p.featured_media.alt }} {{ p.media.size }}{% endfor %}`, "https://x/a.png Shirt 2")
+pis("variants and the first available one", `{% for p in products %}{{ p.variants.size }} {{ p.selected_or_first_available_variant.title }} {{ p.price_varies }}{% endfor %}`, "2 Small true")
+pis("compare_at_price against price", `{% for p in products %}{% if p.compare_at_price > p.price %}sale{% endif %}{% endfor %}`, "sale")
+pis("Storelib's own spelling still reads", `{% for p in products %}{{ p.settings.title }}{% endfor %}`, "Shirt")
+pis("closest.product in a block", `{{ closest.product.title }}`, "Shirt")
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

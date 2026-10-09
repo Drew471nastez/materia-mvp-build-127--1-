@@ -187,7 +187,7 @@ async function shopifyZip(): Promise<JSZip> {
 
   const compiled = compileSection(src, { file: "sections/feature-list.storelib", expectType: "feature-list" })
   check("the main section compiles as a Storelib section", compiled.ok === true, compiled.ok === false ? compiled.errors.slice(0, 3) : undefined)
-  for (const path of Object.keys(pkg.files).filter((p) => p.endsWith(".storelib"))) {
+  for (const path of Object.keys(pkg.files).filter((p) => p.endsWith(".storelib") && !p.startsWith("layout/"))) {
     const c = path.startsWith("blocks/") ? compileBlock(pkg.files[path], { file: path, type: path.slice(7, -9) }) : compileSection(pkg.files[path], { file: path })
     check(`${path} compiles`, c.ok === true, c.ok === false ? c.errors[0] : undefined)
   }
@@ -203,10 +203,11 @@ async function shopifyZip(): Promise<JSZip> {
   check("image_url | image_tag is an <img> of the setting", src.includes(`<img src="{{ settings.image }}" alt="" loading="lazy">`))
   check("a hyphenated setting id is the same name with _", src.includes(`"id": "padding_top"`) && src.includes("{{ settings.padding_top }}px"))
   check("Shopify's own settings.x is the theme's, under theme.settings.shopify", src.includes("{% if theme.settings.shopify.show_badges %}"))
-  check("{% stylesheet %}, {% style %} and a stylesheet_tag'd asset all reach the <style> block", (() => {
+  check("{% style %} and a stylesheet_tag'd asset reach the section's <style> block", (() => {
     const style = src.split("<style>")[1] ?? ""
-    return style.includes(".feature { display: grid") && style.includes(".feature h2 { font-size: 28px; }") && style.includes("padding-top: {{ settings.padding_top }}px")
+    return style.includes(".feature h2 { font-size: 28px; }") && style.includes("padding-top: {{ settings.padding_top }}px")
   })())
+  check("{% stylesheet %} is in the theme's stylesheet for the whole page, as Shopify draws every one on every page", (pkg.files["layout/theme.storelib"] ?? "").includes(".feature{display:grid") && !(src.split("<style>")[1] ?? "").includes(".feature { display: grid"), (pkg.files["layout/theme.storelib"] ?? "").slice(0, 200))
   const asset = Object.entries(pkg.assets).find(([, a]) => a.filename === "logo.png")
   check("the picture a section points at is a package asset, referenced by hash", !!asset && src.includes(`{{ "asset://${asset[0]}" | asset }}`))
   check("a script nobody points at is not an asset", !Object.values(pkg.assets).some((a) => a.filename.endsWith(".js")))
@@ -216,14 +217,16 @@ async function shopifyZip(): Promise<JSZip> {
 
   console.log("\nNo Liquid survives, and nothing ran\n")
   const all = Object.values(pkg.files).join("\n")
-  for (const tag of ["render", "assign", "unless", "case", "when", "liquid", "increment", "comment", "raw", "schema", "javascript", "stylesheet", "style", "include", "capture"]) {
+  /* assign and capture are Storelib's own tags too (storelib/template.ts), kept where a value changes as the template runs. */
+  for (const tag of ["render", "unless", "case", "when", "liquid", "increment", "comment", "raw", "schema", "javascript", "stylesheet", "style", "include"]) {
     check(`no {% ${tag} %} in any converted file`, !new RegExp(`\\{%-?\\s*${tag}\\b`).test(all))
   }
   check("no shopify_attributes, no {{- or -%}", !/shopify_attributes|\{\{-|-%\}|\{%-/.test(all))
   check("no section.settings outside a visible_if", !all.split("\n").some((l) => l.includes("section.settings") && !l.includes("visible_if")))
   check("the <script> and the onclick are gone", !/<script|onclick/.test(src.split("<style>")[0]))
-  check("{% increment %} is text that was removed, not a counter: nothing counts", !/visits/.test(src))
-  check("names Storelib cannot read are read as nothing", !/cart|request|design_mode/.test(src.split("<style>")[0]) && src.includes("{% if null %}EDITOR ONLY{% endif %}"))
+  check("{% increment %} is a counter of its own, as in Liquid", src.includes("{{ count_visits | default: 0 }}{% assign count_visits = count_visits | default: 0 | plus: 1 %}"))
+  check("request.design_mode is the builder", src.includes("{% if page.in_editor %}EDITOR ONLY{% endif %}"))
+  check("names Storelib cannot read are read as nothing", !/cart|request|design_mode/.test(src.split("<style>")[0]))
   check("a comment does not reach the page", !src.includes("secret note"))
   check("raw's body is text, so its braces start nothing", src.includes("&#123;{ shown as text }}"))
   check("{% javascript %} that reaches for document is left out", !src.includes("<script>"))
@@ -239,7 +242,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("a filter Storelib lacks", said(F, /"payment_terms"/), report.notes.filter((n) => n.file === F).map((n) => n.message))
   check("the <script> tag", said(F, /A <script> in the markup was removed/))
   check("the onclick", said(F, /on…= attributes were removed/))
-  check("increment", said(F, /\{% increment %\} was removed/))
+  check("a name Storelib has no meaning for is listed", said(F, /read as nothing: .*cart/))
   check("the section's {% javascript %}", said(F, /\{% javascript %\} was left out/))
   check("the section with a dropped setting still converts", report.converted.includes("sections/blog-only.liquid") && said("sections/blog-only.liquid", /Setting "blog" \(blog\) was dropped/))
   const skipped = (file: string, re: RegExp) => report.skipped.some((s) => s.file === file && re.test(s.reason))
@@ -248,7 +251,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("the header is left out: the site has its own", skipped("sections/header.liquid", /draws its own header/))
   check("the header group is left out", skipped("sections/header-group.json", /groups are not imported/))
   check("a collection template has no Storelib page", skipped("templates/collection.json", /no collection template/))
-  check("the layout is not used", skipped("layout/theme.liquid", /page shell/))
+  check("the layout's styles are kept, and the layout is not reported as left out", !!pkg.files["layout/theme.storelib"] && !skipped("layout/theme.liquid", /page shell/))
   check("the theme's scripts are left out", skipped("assets/", /1 script was left out/))
   check("the summary line counts sections", conversionSummary(report) === "Converted 3 of 6 sections and 1 of 1 blocks from Shopify. 3 were left out.", conversionSummary(report))
   check("the license reminder says the importer is responsible", /right to use/.test(SHOPIFY_LICENSE_NOTICE) && !/—/.test(SHOPIFY_LICENSE_NOTICE))

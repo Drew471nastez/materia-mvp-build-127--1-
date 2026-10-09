@@ -44,6 +44,8 @@ export type SectionRenderFn = (
 interface StorelibContextValue {
   /** Already rendered, by section id. The published page's whole answer. */
   prerendered: Record<string, RenderedSection>
+  /** An imported theme's stylesheet for the whole page (layout/theme.storelib), compiled. Empty for every other theme. */
+  layoutCss?: string
   /** Renders one now. Present in the editor, absent on a published page. */
   render?: SectionRenderFn
   /**
@@ -72,7 +74,7 @@ export function StorelibSourcesProvider({
   children: ReactNode
 }) {
   const value = useMemo(
-    () => ({ prerendered, page: page ?? EMPTY.page }),
+    () => ({ prerendered, page: page ?? EMPTY.page, layoutCss: prerendered["@layout"]?.css ?? "" }),
     [prerendered, page],
   )
   return <StorelibContext.Provider value={value}>{children}</StorelibContext.Provider>
@@ -82,15 +84,17 @@ export function StorelibSourcesProvider({
 export function StorelibRenderProvider({
   render,
   page,
+  layoutCss,
   children,
 }: {
   render: SectionRenderFn
   page?: { template: string; [key: string]: unknown }
+  layoutCss?: string
   children: ReactNode
 }) {
   const value = useMemo(
-    () => ({ prerendered: EMPTY.prerendered, render, page: page ?? EMPTY.page }),
-    [render, page],
+    () => ({ prerendered: EMPTY.prerendered, render, page: page ?? EMPTY.page, layoutCss: layoutCss ?? "" }),
+    [render, page, layoutCss],
   )
   return <StorelibContext.Provider value={value}>{children}</StorelibContext.Provider>
 }

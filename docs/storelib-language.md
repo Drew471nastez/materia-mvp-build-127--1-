@@ -160,6 +160,44 @@ library.
 `{% for %}`'s `{% else %}` runs when the list is empty. `{% unless %}` does
 not exist; write `{% if not … %}`.
 
+```storelib
+{% assign total = 0 %}
+{% for block in blocks %}{% assign total = total | plus: block.settings.count %}{% endfor %}
+{{ total }}
+
+{% capture classes %}card {% if settings.wide %}card--wide{% endif %}{% endcapture %}
+<div class="{{ classes | strip }}">
+```
+
+`{% assign %}` and `{% capture %}` give a value a name for the rest of the
+template, as in Liquid: an assign inside a loop is seen after it, and a
+section's `<style>` reads what its markup assigned. A capture is markup and
+prints as it was built; `strip`, `append` and the other text filters keep it
+markup. The names `settings`, `blocks`, `block`, `section`, `page`, `theme`,
+`product`, `products`, `shop` and the others a template already reads cannot
+be assigned to.
+
+`settings[key]` reads a part worked out as the template runs, and a Shopify
+setting id written with dashes (`padding-block-start`) reads the Storelib one
+(`padding_block_start`). `(1..(settings.count | plus: 1))` is a range whose
+end holds a filter.
+
+A colour setting has its parts, as a Shopify colour does:
+`{{ settings.accent.rgb }}` is `255 136 0`, and `.red`, `.green`, `.blue`,
+`.alpha`, `.hue`, `.saturation` and `.lightness` are numbers. Two prices
+compare as prices: `{% if product.compare_at_price > product.price %}`.
+
+A theme block can be drawn for one product or collection:
+
+```storelib
+{% for product in settings.collection.products %}
+  {% content_for "block", type: "_product-card", id: "card", closest.product: product %}
+{% endfor %}
+```
+
+Inside the block, and every block inside it, `closest.product` is that
+product.
+
 ### Operators
 
 `==` `!=` `<` `<=` `>` `>=` `and` `or` `not` `contains`.
@@ -439,6 +477,20 @@ in the code editor as a draft for you to read. Nothing it writes is on a page
 or in front of a visitor until you put it there.
 
 `docs/theme/14-creating-a-section.md` walks through one from an empty file.
+
+## A product by Shopify's names
+
+A product reads by Storelib's names (`product.settings.title`) and by
+Shopify's, from the same fields: `title`, `handle`, `url`, `price`,
+`compare_at_price`, `price_min`, `price_max`, `price_varies`, `available`,
+`featured_image`, `featured_media`, `images`, `media`, `variants`,
+`selected_or_first_available_variant`, `first_available_variant`,
+`options`, `options_with_values` and `has_only_default_variant`. A picture
+prints as its address and has `src`, `alt`, `width`, `height`,
+`aspect_ratio` and `preview_image`. A collection has `title`, `handle`,
+`url`, `image`, `products` and `products_count`. A field Storelib has no
+equivalent for reads as Shopify's empty one: no `tags`, no `vendor`, no
+`metafields`.
 
 ## Shopify's filters
 

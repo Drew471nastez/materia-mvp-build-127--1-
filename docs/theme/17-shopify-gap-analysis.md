@@ -107,8 +107,12 @@ Status:
 | header and footer groups | one header and footer, drawn on every page | Had |
 | theme settings (settings_schema.json) | Theme settings groups | Had, plus Menus |
 | snippets, render | none | Left out: sections are self-contained |
-| assign, capture | none | Left out: `default` and block-shaped `products` cover the uses |
-| theme blocks, nested blocks | none | Left out: one level of blocks |
+| assign, capture, increment, cycle | the same tags | Built: a section's `<style>` reads what its markup assigned |
+| `settings[key]`, colour `.rgb`, ranges with filters | the same | Built |
+| `closest.product`, `closest.collection` | `content_for … closest.product:` | Built |
+| product, variant and media objects | Shopify's names on Storelib's product | Built |
+| styles.css from every `{% stylesheet %}` | `layout/theme.storelib`, compiled to the page root | Built |
+| theme blocks, nested blocks | theme blocks, eight levels | Had |
 | app blocks | none | N/A |
 | section rendering API | none | N/A |
 | Theme Check | compiler errors with file and line | Had |

@@ -80,6 +80,14 @@ export interface LiquidContext {
   seen: Set<string>
   /** Characters a file may still grow by through inlined snippets. */
   budget: { chars: number }
+  /** Names read that Storelib has no meaning for, read as nothing, with how often: for the report. */
+  unread?: Map<string, number>
+  /**
+   * Every file's {% stylesheet %} is in the theme's stylesheet for the whole
+   * page, as Shopify puts them all into one styles.css: the converter
+   * gathered them, so a file leaves its own out.
+   */
+  stylesheetsGlobal?: boolean
 }
 
 /** How deep `{% render %}` is followed: a card that renders a price that renders an icon. */
@@ -198,7 +206,10 @@ function lex(src: string): ETok[] | null {
 }
 
 /** A value: a literal, `blank`/`empty`, a path, or something Storelib cannot express (a range, a computed index). */
-type LValue = { k: "lit"; text: string } | { k: "blank" } | { k: "path"; segs: (string | number)[] } | { k: "range"; from: LValue; to: LValue } | { k: "bad" }
+/** A part of a path worked out as the template runs: the `key` of `settings[key]`. */
+interface DynSeg { dyn: LValue }
+type Seg = string | number | DynSeg
+type LValue = { k: "lit"; text: string } | { k: "blank" } | { k: "path"; segs: Seg[] } | { k: "range"; from: LValue; to: LValue } | { k: "bad" }
 interface LFilter { name: string; args: LValue[]; named: string[] }
 interface LExpr { head: LValue; filters: LFilter[] }
 
@@ -242,7 +253,7 @@ class Reader {
     if (t.v === "true" || t.v === "false") return { k: "lit", text: t.v }
     if (t.v === "nil" || t.v === "null") return { k: "lit", text: "null" }
     if (t.v === "blank" || t.v === "empty") return { k: "blank" }
-    const segs: (string | number)[] = [t.v]
+    const segs: Seg[] = [t.v]
     let bad = false
     for (;;) {
       if (this.is("p", ".")) {
@@ -258,10 +269,10 @@ class Reader {
           segs.push(k.t === "num" ? Number(k.v) : k.v)
           this.pos += 2
         } else {
-          /* A computed index, items[i]: there is no such lookup in Storelib. */
-          this.value()
-          if (this.is("p", "]")) this.pos++
-          bad = true
+          /* A computed index, settings[key] or items[i]: worked out as the template runs. */
+          const key = this.value()
+          if (key.k === "bad" || !this.is("p", "]")) bad = true
+          else { this.pos++; segs.push({ dyn: key }) }
         }
       } else break
     }
@@ -345,12 +356,18 @@ export function stringLiteral(v: string): string {
 const STORELIB_ID = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /** A path as Storelib writes one; null when a segment has no spelling there. */
-function writePath(segs: (string | number)[]): string | null {
+/** A part of a path ready to write: a name, an index, or a converted expression for `[…]`. */
+type PSeg = string | number | { expr: string }
+
+function writePath(segs: PSeg[]): string | null {
   const [first, ...rest] = segs
   if (typeof first !== "string" || !STORELIB_ID.test(first)) return null
   let out = first
   for (const s of rest) {
-    if (typeof s === "number") out += `[${s}]`
+    if (typeof s === "object") {
+      if (s.expr === "null") return null
+      out += `[${s.expr}]`
+    } else if (typeof s === "number") out += `[${s}]`
     else if (STORELIB_ID.test(s)) out += `.${s}`
     else if (!s.includes('"')) out += `["${s}"]`
     else if (!s.includes("'")) out += `['${s}']`
@@ -370,7 +387,14 @@ type Binding =
   | { kind: "chain"; expr: LExpr; scope: Scope }
   /* `capture x`: the converted markup it built, written in where x is printed. */
   | { kind: "captured"; text: string }
-  /* Assigned twice, or otherwise not one thing: read as nothing. */
+  /*
+    A name the converted template keeps as a name: `{% assign %}` or
+    `{% capture %}` written out for storelib/template.ts to run, because the
+    value changes as the template goes (assigned twice, or inside an if or a
+    loop). `name` is how it is spelled there.
+  */
+  | { kind: "var"; name: string; captured: boolean }
+  /* Not one thing that can be read: read as nothing. */
   | { kind: "none" }
 
 class Scope {
@@ -434,7 +458,25 @@ type Frame =
   | { k: "case"; subject: string | null; started: boolean; prev: string[] }
   | { k: "for"; end: "endfor" | "endtablerow"; outer: Scope; inElse: boolean }
   | { k: "capture"; prev: string[]; name: string | null; buf: string[]; scope: Scope }
+  /* A capture written out as one: its body goes straight to the output, between the tags. */
+  | { k: "capture-var"; name: string; varName: string; scope: Scope }
   | { k: "pass"; end: string }
+
+/** Names Storelib's template already reads, which a kept variable may not take (storelib/template.ts RESERVED_NAMES). */
+const RESERVED_VARS = new Set(["settings", "blocks", "block", "products", "collections", "theme", "scheme", "page", "section", "shop", "routes", "customer", "wishlist", "creator", "product", "forloop", "true", "false", "null", "nil", "empty", "blank"])
+
+/** Snippets drawn with render have names of their own; each is given a prefix so two never share one. */
+const SNIPPET_PREFIX = new WeakMap<LiquidContext, { n: number }>()
+
+/** How many times each name is assigned or captured in a file, read before it is converted. */
+function assignCounts(src: string): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const m of src.matchAll(/(?:\x7b%-?|\n)\s*(assign|capture)\s+['"]?([A-Za-z_][\w-]*)/g)) {
+    const n = m[2]
+    counts.set(n, (counts.get(n) ?? 0) + (m[1] === "capture" ? 2 : 1))
+  }
+  return counts
+}
 
 /** Tags with a body that is kept as it is, without the tag around it. */
 const PASS_THROUGH = new Set(["form", "paginate", "ifchanged"])
@@ -449,11 +491,18 @@ class Writer {
   private frames: Frame[] = []
   private dropped = new Set<string>()
   private guard = 0
+  /** Names assigned more than once, or captured, in this writer's source: kept as names from the first. */
+  private changing = new Set<string>()
 
-  /** `snippet` is the snippet this writer draws, or null for the file itself. */
-  constructor(private ctx: LiquidContext, private scope: Scope, private css: boolean, private depth: number, private snippet: string | null = null) {}
+  /**
+   * `snippet` is the snippet this writer draws, or null for the file itself.
+   * `prefix` is put before every name it keeps, so a snippet's own names do
+   * not meet the section's (`render` gives a snippet a scope of its own).
+   */
+  constructor(private ctx: LiquidContext, private scope: Scope, private css: boolean, private depth: number, private snippet: string | null = null, private prefix = "") {}
 
   run(src: string): string {
+    for (const [name, n] of assignCounts(src)) if (n > 1) this.changing.add(name)
     for (const t of tokenizeLiquid(src)) this.token(t)
     while (this.frames.length) this.close(this.frames.length - 1, true)
     return this.out.join("")
@@ -475,6 +524,7 @@ class Writer {
     if (name === "raw") return this.emit(safeText(body, this.css))
     if (name === "comment" || name === "doc" || name === "schema") return
     if (name === "stylesheet") {
+      if (this.ctx.stylesheetsGlobal) return
       /* A snippet drawn ten times adds its stylesheet once. */
       if (this.snippet !== null) {
         if (this.ctx.seen.has(this.snippet)) return
@@ -485,7 +535,7 @@ class Writer {
     }
     if (name === "style") {
       /* Liquid inside a <style> element: the same conversion, into the section's <style> block. */
-      const css = new Writer(this.ctx, this.scope, true, this.depth).run(body)
+      const css = new Writer(this.ctx, this.scope, true, this.depth, this.snippet, this.prefix).run(body)
       if (css.trim()) this.ctx.styles.push({ css, dynamic: true })
       return
     }
@@ -654,10 +704,26 @@ class Writer {
     if (v.k === "lit") return v.text
     if (v.k === "blank" || v.k === "bad") return "null"
     if (v.k === "range") return `(${this.value(v.from, scope)}..${this.value(v.to, scope)})`
-    return this.path(v.segs, scope, 0) ?? "null"
+    /* A part worked out as it runs is converted here, in the scope it was written in. */
+    const segs: PSeg[] = v.segs.map((x) => (typeof x === "object" ? { expr: this.value(x.dyn, scope) } : x))
+    const p = this.path(segs, scope, 0)
+    if (p === null && this.ctx.unread) {
+      /* Followed to what it was assigned from, so the report names the Shopify object and not a local name. */
+      const name = this.origin(segs, scope)
+      if (name) this.ctx.unread.set(name, (this.ctx.unread.get(name) ?? 0) + 1)
+    }
+    return p ?? "null"
   }
 
-  private path(segs: (string | number)[], scope: Scope, depth: number): string | null {
+  /** The name a path was read from, for the report: `closest.product.title`, `request.design_mode`. */
+  private origin(segs: PSeg[], scope: Scope, depth = 0): string | null {
+    const b = depth < 8 ? scope.lookup(String(segs[0])) : undefined
+    if (b?.kind === "value" && b.node.k === "path") return this.origin([...b.node.segs.filter((x): x is string | number => typeof x !== "object"), ...segs.slice(1)], b.scope, depth + 1)
+    if (b) return null
+    return segs.slice(0, 3).filter((x) => typeof x === "string").join(".") || null
+  }
+
+  private path(segs: PSeg[], scope: Scope, depth: number): string | null {
     if (depth > 12) return null
     const d = this.ctx.declared
     const root = String(segs[0])
@@ -665,13 +731,27 @@ class Writer {
     if (b) {
       /* In a condition, a captured value is whether it built anything. */
       if (b.kind === "captured") return segs.length === 1 && b.text.trim() !== "" ? "true" : null
-      if (b.kind === "none" || b.kind === "chain") return null
+      if (b.kind === "var") return writePath([b.name, ...segs.slice(1)])
+      /* `assign x = a | strip`, read in a condition or a loop: the filtered value, in parentheses. */
+      if (b.kind === "chain") {
+        const tail = segs.length === 2 && (segs[1] === "size" || segs[1] === "first" || segs[1] === "last") ? String(segs[1]) : null
+        if (segs.length > 1 && !tail) return null
+        const c = this.chain(b.expr, b.scope, depth + 1)
+        const inner = c.kind === "expr" ? [c.head, ...c.filters.filter((f) => f !== "raw")].join(" | ") : c.kind === "text" ? stringLiteral(c.text) : null
+        if (inner === null || inner === "null") return null
+        return tail ? `(${inner} | ${tail})` : inner.includes("|") ? `(${inner})` : inner
+      }
+      if (b.kind === "none") return null
       if (b.kind === "value") {
-        if (b.node.k === "path") return this.path([...b.node.segs, ...segs.slice(1)], b.scope, depth + 1)
+        if (b.node.k === "path") {
+          const head: PSeg[] = b.node.segs.map((x) => (typeof x === "object" ? { expr: this.value(x.dyn, b.scope) } : x))
+          return this.path([...head, ...segs.slice(1)], b.scope, depth + 1)
+        }
         return segs.length === 1 && b.node.k === "lit" ? b.node.text : null
       }
       /* A loop variable. Over the section's own blocks, a block setting must be one they declare. */
       if (segs[1] === "shopify_attributes") return null
+      if (segs[1] === "settings" && typeof segs[2] === "object") return writePath(segs)
       if (segs[1] === "settings" && typeof segs[2] === "string") {
         const id = segs[2].replace(/-/g, "_")
         if (b.blocks && !d.blockSettings.has(id)) return null
@@ -684,6 +764,8 @@ class Writer {
     if (root === "section") {
       if (segs[1] === "id" && segs.length === 2) return "section.id"
       if (d.mode !== "section") return null
+      if (segs[1] === "settings" && segs.length === 2) return "settings"
+      if (segs[1] === "settings" && typeof segs[2] === "object") return writePath(["settings", ...segs.slice(2)])
       if (segs[1] === "settings") {
         const id = typeof segs[2] === "string" ? segs[2].replace(/-/g, "_") : null
         if (id === null || !d.settings.has(id)) return null
@@ -696,7 +778,7 @@ class Writer {
     if (root === "settings") return segs.length > 1 ? writePath(["theme", "settings", "shopify", ...segs.slice(1)]) : null
     if (root === "block" && d.mode === "block") {
       if (segs[1] === "settings") {
-        if (segs[2] === undefined) return writePath(segs)
+        if (segs[2] === undefined || typeof segs[2] === "object") return writePath(segs)
         const id = String(segs[2]).replace(/-/g, "_")
         if (!d.settings.has(id)) return null
         return writePath(["block", "settings", id, ...segs.slice(3)])
@@ -707,6 +789,13 @@ class Writer {
     }
     /* What both have under the same name: the product on a product page, the shop, its addresses, the visitor. */
     if (root === "product" || root === "shop" || root === "routes" || root === "customer") return writePath(segs)
+    /* What a theme block was drawn for: content_for's closest.product and closest.collection. */
+    if (root === "closest" && (segs[1] === "product" || segs[1] === "collection")) return writePath(segs)
+    /* "Is the editor showing this": Storelib's builder. */
+    if (root === "request" && (segs[1] === "design_mode" || segs[1] === "visual_preview_mode") && segs.length === 2) return "page.in_editor"
+    if (root === "template" && segs[1] === "name" && segs.length === 2) return "page.template"
+    /* Every product the shop has: the products the page was handed. */
+    if (root === "collections" && segs[1] === "all" && segs[2] === "products") return writePath(["products", ...segs.slice(3)])
     return null
   }
 
@@ -727,7 +816,13 @@ class Writer {
     if (!c.op || !c.r) return this.value(c.l, scope)
     /* `x != blank` is "x has something in it", which in Storelib is x itself. */
     if (c.r.k === "blank" || c.l.k === "blank") {
-      const other = this.value(c.r.k === "blank" ? c.l : c.r, scope)
+      const side = c.r.k === "blank" ? c.l : c.r
+      let other = this.value(side, scope)
+      /* Captured markup that is only spaces and line breaks is blank to Liquid. */
+      if (side.k === "path" && side.segs.length === 1) {
+        const b = scope.lookup(String(side.segs[0]))
+        if (b?.kind === "var" && b.captured) other = `(${other} | strip)`
+      }
       if (c.op === "==") return `(not ${other})`
       if (c.op === "!=") return other
     }
@@ -774,6 +869,13 @@ class Writer {
           twice is still there. Captured twice, it is the second.
         */
         const v = rest.match(/^['"]?([A-Za-z_][\w-]*)['"]?/)?.[1] ?? null
+        /* Captured more than once, or where it may not run: kept as a capture Storelib runs. */
+        if (v && (this.changing.has(v) || this.controlled() || this.scope.frame.vars.get(v)?.kind === "var")) {
+          const varName = this.varName(v)
+          this.frames.push({ k: "capture-var", name: v, varName, scope: this.scope })
+          this.emit(`{% capture ${varName} %}`)
+          return
+        }
         const buf: string[] = []
         this.frames.push({ k: "capture", prev: this.sink, name: v, buf, scope: this.scope })
         this.sink = buf
@@ -793,11 +895,17 @@ class Writer {
       case "sections":
         this.ctx.note(`{% ${name} %} was removed: sections are placed on a page in the editor`)
         return
-      case "cycle":
       case "increment":
-      case "decrement":
-        this.ctx.note(`{% ${name} %} was removed: a Storelib template does not count`)
-        return
+      case "decrement": {
+        /* A counter of its own, apart from assigned names, as in Liquid: increment prints then adds, decrement takes away then prints. */
+        const v = rest.match(/^([A-Za-z_][\w-]*)/)?.[1]
+        if (!v) return
+        const c = `count_${this.varName(v)}`
+        if (name === "increment") return this.emit(`{{ ${c} | default: 0 }}{% assign ${c} = ${c} | default: 0 | plus: 1 %}`)
+        return this.emit(`{% assign ${c} = ${c} | default: 0 | minus: 1 %}{{ ${c} }}`)
+      }
+      case "cycle":
+        return this.cycle(rest)
       default:
         break
     }
@@ -901,22 +1009,72 @@ class Writer {
     this.emit(`{% for ${m[1]} in ${list}${params.length ? ` ${params.join(" ")}` : ""} %}`)
   }
 
+  /**
+   * ASSIGNED ONCE, READ AS WHAT IT IS; OTHERWISE KEPT AS A NAME.
+   * `assign heading = section.settings.heading`, made once and before any
+   * if or loop, is read as `settings.heading` wherever `heading` is: the
+   * builder can then tell which setting a heading shows. A name assigned
+   * again, or inside an if, a case or a loop, holds what the template
+   * worked out as it ran, so it is written out as `{% assign %}` and the
+   * template runs it.
+   */
   private assign(rest: string) {
     const m = rest.match(/^([A-Za-z_][\w-]*)\s*=\s*([\s\S]+)$/)
     if (!m) return
     const frame = this.scope.frame
     const had = frame.vars.get(m[1])
-    if (had) {
-      /* Assigned again: its value depends on which branch ran, which is decided on Shopify's server. */
-      frame.vars.set(m[1], { kind: "none" })
-      return
-    }
     const expr = parseChain(m[2])
-    if (!expr) {
-      frame.vars.set(m[1], { kind: "none" })
+    /* `assign name = name | default: 'gap'` reads what name was before it: worked out where it stands, not later. */
+    const selfRef = new RegExp(`(^|[^\\w.])${m[1].replace(/[^\w-]/g, "")}(?![\\w-])`).test(m[2])
+    const keep = this.changing.has(m[1]) || this.controlled() || had !== undefined || selfRef
+    if (!keep && expr) {
+      frame.vars.set(m[1], expr.filters.length ? { kind: "chain", expr, scope: this.scope } : { kind: "value", node: expr.head, scope: this.scope })
       return
     }
-    frame.vars.set(m[1], expr.filters.length ? { kind: "chain", expr, scope: this.scope } : { kind: "value", node: expr.head, scope: this.scope })
+    const varName = had?.kind === "var" ? had.name : this.varName(m[1])
+    const value = expr ? this.assignValue(this.chain(expr, this.scope)) : "null"
+    this.emit(`{% assign ${varName} = ${value} %}`)
+    frame.vars.set(m[1], { kind: "var", name: varName, captured: false })
+  }
+
+  /** Inside an if, a case, a loop or a capture: somewhere a tag may not run, or may run many times. */
+  private controlled(): boolean {
+    return this.scope.inFor || this.frames.some((f) => f.k !== "pass")
+  }
+
+  /** A Liquid name as a name Storelib's template may keep. */
+  private varName(name: string): string {
+    let n = name.replace(/[^A-Za-z0-9_]/g, "_")
+    if (RESERVED_VARS.has(n)) n = `v_${n}`
+    return `${this.prefix}${n}`
+  }
+
+  /** What a converted value is, as the right side of an assign. */
+  private assignValue(c: Conv): string {
+    if (c.kind === "drop" || c.kind === "img") return "null"
+    /* Text already written for the page (words from a locale, captured markup): kept as it is. */
+    if (c.kind === "text") return `${stringLiteral(c.text.replace(/[\r\n]+/g, " ").replace(/%\}/g, "% }"))} | raw`
+    return [c.head, ...c.filters].join(" | ")
+  }
+
+  /** {% cycle 'a', 'b' %}: each time it is reached, the next of its values. */
+  private cycle(rest: string) {
+    const body = rest.replace(/^(['"])[^'"]*\1\s*:\s*/, "")
+    const toks = lex(body) ?? []
+    const r = new Reader(toks)
+    const values: string[] = []
+    while (!r.done() && values.length < 20) {
+      values.push(this.value(r.value(), this.scope))
+      if (r.is("p", ",")) r.pos++
+      else break
+    }
+    if (!values.length) return
+    const key = `cycle_${this.prefix}${Math.abs([...rest].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) | 0, 7)).toString(36)}`
+    const at = `${key}_at`
+    const out = [`{% assign ${key} = ${key} | default: 0 %}{% assign ${at} = ${key} | modulo: ${values.length} %}`]
+    values.forEach((v, i) => out.push(`${i === 0 ? "{% if" : "{% elsif"} ${at} == ${i} %}{{ ${v} }}`))
+    out.push(`{% endif %}{% assign ${key} = ${key} | plus: 1 %}`)
+    this.emit(out.join(""))
   }
 
   private liquidTag(body: string) {
@@ -939,8 +1097,15 @@ class Writer {
     const m = rest.match(/^(['"])(blocks|block)\1([\s\S]*)$/)
     const d = this.ctx.declared
     if (!m) return
+    /* closest.product: product, closest.collection: …: what the blocks are drawn for, kept. */
+    let near = ""
+    for (const c of m[3].matchAll(/closest\.(product|collection)\s*:\s*([^,]+)/g)) {
+      const toks = lex(c[2].trim()) ?? []
+      const v = toks.length ? this.value(new Reader(toks).value(), this.scope) : "null"
+      near += `, closest.${c[1]}: ${v}`
+    }
     if (m[2] === "blocks") {
-      if (d.themeBlocks && !d.localBlocks) this.emit(`{% content_for "blocks" %}`)
+      if (d.themeBlocks && !d.localBlocks) this.emit(`{% content_for "blocks"${near} %}`)
       return
     }
     const type = m[3].match(/\btype\s*:\s*(['"])([^'"]+)\1/)?.[2]
@@ -949,8 +1114,8 @@ class Writer {
       this.ctx.note(`A {% content_for "block" %} without a literal type and id was removed`)
       return
     }
-    if (/,\s*(?!type\b|id\b)[\w.]+\s*:/.test(m[3])) this.ctx.note(`What a {% content_for "block" %} passed besides its type and id was removed`)
-    this.emit(`{% content_for "block", type: "${type}", id: "${id}" %}`)
+    if (/,\s*(?!type\b|id\b|closest\.)[\w.]+\s*:/.test(m[3])) this.ctx.note(`What a {% content_for "block" %} passed besides its type, id and closest was removed`)
+    this.emit(`{% content_for "block", type: "${type}", id: "${id}"${near} %}`)
   }
 
   /**
@@ -1010,7 +1175,13 @@ class Writer {
       child.vars.set(loop.item, { kind: "loop", blocks: loop.list === "blocks" })
       this.emit(`{% for ${loop.item} in ${loop.list} %}`)
     }
-    const writer = new Writer(this.ctx, child, this.css, this.depth + 1, snippetName)
+    let prefix = this.prefix
+    if (name === "render") {
+      const counter = SNIPPET_PREFIX.get(this.ctx) ?? { n: 0 }
+      SNIPPET_PREFIX.set(this.ctx, counter)
+      prefix = `s${++counter.n}_`
+    }
+    const writer = new Writer(this.ctx, child, this.css, this.depth + 1, snippetName, prefix)
     this.emit(writer.run(source))
     if (loop) this.emit(`{% endfor %}`)
   }
@@ -1020,7 +1191,7 @@ class Writer {
       (f.k === "if" && f.end === name) ||
       (f.k === "case" && name === "endcase") ||
       (f.k === "for" && f.end === name) ||
-      (f.k === "capture" && name === "endcapture") ||
+      ((f.k === "capture" || f.k === "capture-var") && name === "endcapture") ||
       (f.k === "pass" && f.end === name)
     for (let i = this.frames.length - 1; i >= 0; i--) {
       if (want(this.frames[i])) {
@@ -1050,6 +1221,10 @@ class Writer {
       case "capture":
         this.sink = f.prev
         if (f.name) f.scope.frame.vars.set(f.name, { kind: "captured", text: f.buf.join("") })
+        return
+      case "capture-var":
+        this.emit("{% endcapture %}")
+        f.scope.frame.vars.set(f.name, { kind: "var", name: f.varName, captured: true })
         return
       case "pass":
         return

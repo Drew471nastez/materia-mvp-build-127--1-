@@ -43,6 +43,7 @@ import { Linked, formatDatetime, parseVideoUrl, plainText, safeHref } from "../v
 import { mapEmbedSrc } from "@/lib/website-builder/map-embed"
 import { guardRawHtml, isScriptScheme } from "./raw-html"
 import { markFor, stripMarks } from "./marks"
+import { priceNumber, shopifyField } from "./shopify-objects"
 
 // ── AST ─────────────────────────────────────────────────────────────────────
 
@@ -54,12 +55,16 @@ export type Node =
   /* Liquid's {% break %} and {% continue %}: leave the loop, or go on to its next item. Outside a loop, nothing. */
   | { kind: "break"; line: number }
   | { kind: "continue"; line: number }
-  | { kind: "content_for"; what: "blocks"; line: number }
-  | { kind: "content_for"; what: "block"; type: string; id: string; line: number }
+  | { kind: "content_for"; what: "blocks"; line: number; closest?: Record<string, Expr> }
+  | { kind: "content_for"; what: "block"; type: string; id: string; line: number; closest?: Record<string, Expr> }
+  /* Liquid's {% assign x = … %} and {% capture x %}…{% endcapture %}: a name the rest of the template reads. */
+  | { kind: "assign"; name: string; expr: Expr; line: number }
+  | { kind: "capture"; name: string; body: Node[]; line: number }
 
 export type Expr =
   | { t: "lit"; v: string | number | boolean | null }
-  | { t: "path"; segs: string[] }
+  /* `keys` holds the parts worked out as the template runs: `settings[key]` is segs ["settings", ""] with keys { 1: key }. */
+  | { t: "path"; segs: string[]; keys?: Record<number, Expr> }
   | { t: "not"; e: Expr }
   | { t: "bin"; op: BinOp; l: Expr; r: Expr }
   | { t: "filter"; e: Expr; name: string; args: Expr[] }
@@ -177,7 +182,13 @@ class ExprParser {
   }
 
   parse(): Expr {
-    let e = this.or()
+    const e = this.filtered(this.or())
+    if (this.pos < this.toks.length) throw new TemplateError(`unexpected "${(this.peek() as { v: unknown }).v}" in expression`, this.line)
+    return e
+  }
+  /* `x | f: a, b | g`, at the end of an expression or inside parentheses: `(c | strip) and settings.on`. */
+  private filtered(start: Expr): Expr {
+    let e = start
     while (this.is("punct", "|")) {
       this.take()
       const name = this.take()
@@ -190,7 +201,6 @@ class ExprParser {
       }
       e = { t: "filter", e, name: name.v, args }
     }
-    if (this.pos < this.toks.length) throw new TemplateError(`unexpected "${(this.peek() as { v: unknown }).v}" in expression`, this.line)
     return e
   }
   private or(): Expr {
@@ -218,12 +228,13 @@ class ExprParser {
     const t = this.take()
     if (t.t === "num") return { t: "lit", v: t.v }
     if (t.t === "str") return { t: "lit", v: t.v }
-    if (t.t === "punct" && t.v === "(") { const e = this.or(); const c = this.take(); if (c.t !== "punct" || c.v !== ")") throw new TemplateError(`expected ")"`, this.line); return e }
+    if (t.t === "punct" && t.v === "(") { const e = this.filtered(this.or()); const c = this.take(); if (c.t !== "punct" || c.v !== ")") throw new TemplateError(`expected ")"`, this.line); return e }
     if (t.t === "id") {
       if (t.v === "true") return { t: "lit", v: true }
       if (t.v === "false") return { t: "lit", v: false }
       if (t.v === "null" || t.v === "nil" || t.v === "blank") return { t: "lit", v: null }
       const segs = [t.v]
+      const keys: Record<number, Expr> = {}
       for (;;) {
         if (this.is("punct", ".")) {
           this.take()
@@ -232,14 +243,20 @@ class ExprParser {
           segs.push(n.v)
         } else if (this.is("punct", "[")) {
           this.take()
-          const k = this.take()
-          if (k.t !== "num" && k.t !== "str") throw new TemplateError(`only a number or a string may index with []`, this.line)
-          segs.push(String(k.v))
+          const p = this.peek()
+          const literal = (p?.t === "num" || p?.t === "str") && this.toks[this.pos + 1]?.t === "punct" && (this.toks[this.pos + 1] as { v: unknown }).v === "]"
+          if (literal) {
+            segs.push(String(this.take().v))
+          } else {
+            /* items[i], settings[key]: the part is worked out as the template runs. */
+            keys[segs.length] = this.filtered(this.or())
+            segs.push("")
+          }
           const c = this.take()
           if (c.t !== "punct" || c.v !== "]") throw new TemplateError(`expected "]"`, this.line)
         } else break
       }
-      return { t: "path", segs }
+      return Object.keys(keys).length ? { t: "path", segs, keys } : { t: "path", segs }
     }
     throw new TemplateError(`unexpected "${(t as { v: unknown }).v}" in expression`, this.line)
   }
@@ -262,9 +279,30 @@ function loopParams(src: string, line: number): { list: Expr; params: { limit?: 
     if (kv && !params[kv[2] as "limit" | "offset"]) { params[kv[2] as "limit" | "offset"] = parseExpr(kv[3], line); rest = kv[1]; continue }
     break
   }
-  const range = rest.match(/^\(\s*([^()]+?)\s*\.\.\s*([^()]+?)\s*\)$/)
-  if (range) return { list: { t: "range", from: parseExpr(range[1], line), to: parseExpr(range[2], line) }, params }
+  const range = splitRange(rest)
+  if (range) return { list: { t: "range", from: parseExpr(range[0], line), to: parseExpr(range[1], line) }, params }
   return { list: parseExpr(rest, line), params }
+}
+
+/** `(a..b)` as its two ends, each of which may hold parentheses of its own: `(1..(total | divided_by: 2))`. */
+function splitRange(src: string): [string, string] | null {
+  if (!src.startsWith("(") || !src.endsWith(")")) return null
+  const inner = src.slice(1, -1)
+  let depth = 0
+  let quote = ""
+  for (let i = 0; i < inner.length; i++) {
+    const c = inner[i]
+    if (quote) { if (c === quote) quote = ""; continue }
+    if (c === '"' || c === "'") { quote = c; continue }
+    if (c === "(") depth++
+    else if (c === ")") { if (--depth < 0) return null }
+    else if (depth === 0 && c === "." && inner[i + 1] === "." && i > 0) {
+      const a = inner.slice(0, i).trim()
+      const b = inner.slice(i + 2).trim()
+      return a && b ? [a, b] : null
+    }
+  }
+  return null
 }
 
 /** The most numbers one range gives a loop, so `(1..100000)` cannot draw a hundred thousand of anything. */
@@ -461,8 +499,15 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
     }
   }
 
+  /*
+    The markup as a browser would see it, for the handler check: inside a tag
+    or an output only its quoted strings are kept, the same length, so
+    `{% assign onboarding = false %}` is a name and not an onclick, and
+    `{% assign x = ' onclick=…' %}` is still caught.
+  */
+  const markupView = src.replace(/\{[{%][\s\S]*?[}%]\}/g, (t) => t.replace(/("[^"\n]*"|'[^'\n]*')|[^\n]/g, (m, q: string | undefined) => q ?? " "))
   for (const [re, what] of opts.lenient ? FORBIDDEN_MARKUP : [...FORBIDDEN_MARKUP, ...DOCUMENT_MARKUP, ...DISGUISED_MARKUP]) {
-    const m = src.match(re)
+    const m = (re.source.startsWith("\\son") ? markupView : src).match(re)
     if (m && m.index !== undefined) {
       const line = lineAt(m.index)
       return err(`The template contains ${what}`, line)
@@ -537,6 +582,23 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
         nodes.push({ kind: word, line: t.line })
         continue
       }
+      if (word === "assign") {
+        const m = t.value.match(/^assign\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*([\s\S]+)$/)
+        if (!m) throw new TemplateError(`"{% ${t.value} %}" should read {% assign name = value %}`, t.line)
+        if (RESERVED_NAMES.has(m[1])) throw new TemplateError(`"${m[1]}" is a name the template already reads; assign to another name`, t.line)
+        nodes.push({ kind: "assign", name: m[1], expr: parseExpr(m[2], t.line), line: t.line })
+        continue
+      }
+      if (word === "capture") {
+        const m = t.value.match(/^capture\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/)
+        if (!m) throw new TemplateError(`"{% ${t.value} %}" should read {% capture name %}`, t.line)
+        if (RESERVED_NAMES.has(m[1])) throw new TemplateError(`"${m[1]}" is a name the template already reads; capture into another name`, t.line)
+        const body = parseBlock(["endcapture"])
+        if (!body.closer) throw new TemplateError(`{% capture %} on line ${t.line} is never closed with {% endcapture %}`, t.line)
+        i++
+        nodes.push({ kind: "capture", name: m[1], body: body.nodes, line: t.line })
+        continue
+      }
       throw new TemplateError(`unknown tag {% ${word} %}`, t.line)
     }
     return { nodes }
@@ -579,12 +641,21 @@ function parseContentFor(tag: string, line: number): Node {
   if (!head) {
     throw new TemplateError(`content_for takes "blocks", or "block" with a type and an id: {% content_for "block", type: "heading", id: "title" %}`, line)
   }
+  /* `closest.product: product` and `closest.collection: …`: what the blocks are drawn for. An expression each. */
+  const closest: Record<string, Expr> = {}
+  let tail = head[3].trim()
+  for (;;) {
+    const m = tail.match(/,\s*closest\.(product|collection)\s*:\s*([^,]+?)\s*(?=,|$)/)
+    if (!m || m.index === undefined) break
+    closest[m[1]] = parseExpr(m[2], line)
+    tail = (tail.slice(0, m.index) + tail.slice(m.index + m[0].length)).trim()
+  }
+  const near = Object.keys(closest).length ? { closest } : {}
   if (head[2] === "blocks") {
-    if (head[3].trim() !== "") throw new TemplateError(`{% content_for "blocks" %} takes nothing after "blocks"`, line)
-    return { kind: "content_for", what: "blocks", line }
+    if (tail !== "") throw new TemplateError(`{% content_for "blocks" %} takes nothing after "blocks" but closest.product or closest.collection`, line)
+    return { kind: "content_for", what: "blocks", line, ...near }
   }
   const args: Record<string, string> = {}
-  let tail = head[3].trim()
   while (tail) {
     const m = tail.match(/^,\s*([a-z_]+)\s*:\s*(["'])([^"']*)\2\s*/)
     if (!m) throw new TemplateError(`{% content_for "block" %} reads type: "…" and id: "…", each a word in quotes`, line)
@@ -594,7 +665,7 @@ function parseContentFor(tag: string, line: number): Node {
   }
   if (!args.type || !BLOCK_TYPE.test(args.type)) throw new TemplateError(`{% content_for "block" %} needs type: "…", the name of a file in blocks/`, line)
   if (!args.id || !BLOCK_ID.test(args.id)) throw new TemplateError(`{% content_for "block" %} needs id: "…", letters, digits, - and _`, line)
-  return { kind: "content_for", what: "block", type: args.type, id: args.id, line }
+  return { kind: "content_for", what: "block", type: args.type, id: args.id, line, ...near }
 }
 
 /** Every `content_for` in a template, in the order they appear. */
@@ -603,6 +674,7 @@ export function contentForRefs(tpl: CompiledTemplate): ({ what: "blocks"; line: 
   const walk = (nodes: Node[]) => {
     for (const n of nodes) {
       if (n.kind === "content_for") out.push(n.what === "blocks" ? { what: "blocks", line: n.line } : { what: "block", type: n.type, id: n.id, line: n.line })
+      else if (n.kind === "capture") walk(n.body)
       else if (n.kind === "if") { n.branches.forEach((b) => walk(b.body)); if (n.else) walk(n.else) }
       else if (n.kind === "for") { walk(n.body); if (n.else) walk(n.else) }
     }
@@ -617,6 +689,24 @@ export function contentForRefs(tpl: CompiledTemplate): ({ what: "blocks"; line: 
 class Safe {
   constructor(public readonly html: string) {}
 }
+
+/**
+ * Names a template already reads, which an assign or a capture may not take:
+ * `{% assign settings = … %}` would hide the section's own settings from
+ * everything after it.
+ */
+const RESERVED_NAMES = new Set(["settings", "blocks", "block", "products", "collections", "theme", "scheme", "page", "section", "shop", "routes", "customer", "wishlist", "creator", "product", "forloop", "true", "false", "null", "nil", "empty", "blank"])
+
+/**
+ * Where a render keeps what `assign` and `capture` wrote. A symbol key on the
+ * scope, because a loop's scope is a copy of the one around it and object
+ * spread copies symbol keys too: an assign inside a loop is seen after it,
+ * the way Liquid has it. A template cannot name a symbol, so cannot reach it.
+ */
+const LOCALS = Symbol("locals")
+/** At most this many names, and this many characters captured, in one render. */
+const MAX_LOCALS = 200
+const MAX_CAPTURE = 200_000
 
 /** Markup the engine built itself and a template may print as it is. Not reachable from a template. */
 export function engineHtml(html: string): unknown {
@@ -633,7 +723,7 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
     if (typeof cur === "function") return undefined
     /* A product picker that knows its product: the path reads the product. */
     if (cur instanceof Linked) {
-      cur = Object.prototype.hasOwnProperty.call(cur.fields, s) ? cur.fields[s] : undefined
+      cur = Object.prototype.hasOwnProperty.call(cur.fields, s) ? cur.fields[s] : shopifyField(cur, s)
       continue
     }
     if (Array.isArray(cur)) {
@@ -645,13 +735,28 @@ function lookup(scope: Record<string, unknown>, segs: string[]): unknown {
       continue
     }
     if (typeof cur === "object") {
-      cur = Object.prototype.hasOwnProperty.call(cur, s) ? (cur as Record<string, unknown>)[s] : undefined
+      /* A product or a collection also answers to Shopify's names for its fields: ./shopify-objects.ts. */
+      /* A Shopify setting id is written padding-block-start; Storelib keeps it as padding_block_start. */
+      const o = cur as Record<string, unknown>
+      cur = Object.prototype.hasOwnProperty.call(o, s) ? o[s] : s.includes("-") && Object.prototype.hasOwnProperty.call(o, s.replace(/-/g, "_")) ? o[s.replace(/-/g, "_")] : shopifyField(cur, s)
       continue
     }
     if (typeof cur === "string" && (s === "size" || s === "length")) { cur = cur.length; continue }
+    /* A colour setting has parts, as a Shopify colour does: `.rgb` is "255 136 0", `.alpha` 0 to 1. */
+    if (typeof cur === "string" && COLOR_PARTS.has(s)) {
+      const part = colorPart(cur, s)
+      if (part === undefined) return undefined
+      cur = part
+      continue
+    }
     return undefined
   }
   return typeof cur === "function" ? undefined : cur
+}
+
+function numeric(v: unknown): number {
+  const n = Number(v)
+  return typeof v === "string" && Number.isNaN(n) && /^\s*[$€£¥]/.test(v) ? priceNumber(v) : n
 }
 
 function truthy(v: unknown): boolean {
@@ -745,6 +850,24 @@ const FILTERS: Record<string, Filter> = {
    money, the colour filters, where, at_most and the rest), with Shopify's
    meaning, so a converted section prints what it printed there. Each is
    pure: a value in, a value out, nothing reached outside the render. */
+
+/** Filters that, given markup, give markup back: they trim, join or replace text and add no tags of their own. */
+const MARKUP_KEEPING = new Set(["strip", "lstrip", "rstrip", "strip_newlines", "append", "prepend", "replace", "replace_first", "remove", "remove_first", "upcase", "downcase", "capitalize", "default"])
+
+const COLOR_PARTS = new Set(["red", "green", "blue", "alpha", "rgb", "rgba", "hue", "saturation", "lightness"])
+
+function colorPart(v: string, part: string): string | number | undefined {
+  const c = hexToRgb(v)
+  if (!c) return undefined
+  if (part === "red") return c.r
+  if (part === "green") return c.g
+  if (part === "blue") return c.b
+  if (part === "alpha") return Math.round(c.a * 1000) / 1000
+  if (part === "rgb") return `${c.r} ${c.g} ${c.b}`
+  if (part === "rgba") return `${c.r} ${c.g} ${c.b} / ${Math.round(c.a * 1000) / 1000}`
+  const hsl = rgbToHsl(c)
+  return Math.round(part === "hue" ? hsl.h : part === "saturation" ? hsl.s : hsl.l)
+}
 
 function hexToRgb(v: unknown): { r: number; g: number; b: number; a: number } | null {
   const s = str(v).trim()
@@ -972,7 +1095,18 @@ export function conditionHolds(source: string, scope: Record<string, unknown>): 
 function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): unknown {
   switch (e.t) {
     case "lit": return e.v
-    case "path": return lookup(scope, e.segs)
+    case "path": {
+      if (e.keys) {
+        const segs = e.segs.map((seg, i) => (e.keys && e.keys[i] ? str(evaluate(e.keys[i], scope, ctx)) : seg))
+        return evaluate({ t: "path", segs }, scope, ctx)
+      }
+      const root = e.segs[0]
+      if (!Object.prototype.hasOwnProperty.call(scope, root)) {
+        const locals = (scope as { [LOCALS]?: Record<string, unknown> })[LOCALS]
+        if (locals && Object.prototype.hasOwnProperty.call(locals, root)) return lookup(locals, e.segs)
+      }
+      return lookup(scope, e.segs)
+    }
     case "not": return !truthy(evaluate(e.e, scope, ctx))
     case "bin": {
       if (e.op === "and") return truthy(evaluate(e.l, scope, ctx)) && truthy(evaluate(e.r, scope, ctx))
@@ -985,10 +1119,11 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
       switch (e.op) {
         case "==": return l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r))
         case "!=": return !(l === r || (l == null && r == null) || (typeof l !== "object" && typeof r !== "object" && String(l) === String(r)))
-        case "<": return Number(l) < Number(r)
-        case "<=": return Number(l) <= Number(r)
-        case ">": return Number(l) > Number(r)
-        case ">=": return Number(l) >= Number(r)
+        /* "$48.00" compares as 48, so two prices compare as prices. */
+        case "<": return numeric(l) < numeric(r)
+        case "<=": return numeric(l) <= numeric(r)
+        case ">": return numeric(l) > numeric(r)
+        case ">=": return numeric(l) >= numeric(r)
         case "contains": return Array.isArray(l) ? l.includes(r) : str(l).includes(str(r))
       }
       return false
@@ -996,7 +1131,21 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
     case "filter": {
       const f = FILTERS[e.name]
       if (!f) return evaluate(e.e, scope, ctx)
-      return f(evaluate(e.e, scope, ctx), e.args.map((a) => evaluate(a, scope, ctx)), ctx)
+      const input = evaluate(e.e, scope, ctx)
+      const args = e.args.map((a) => evaluate(a, scope, ctx))
+      /*
+        MARKUP STAYS MARKUP through the filters that only tidy or join text:
+        a capture built of escaped values and the theme's own tags, passed
+        through strip or append, is still that markup. What is joined to it
+        and was not markup already is escaped first.
+      */
+      /* A string written in the template itself is the author's markup, as the template around it is: `"<h3>" | append: title`. */
+      const authored = (x: Expr, v: unknown) => x.t === "lit" && typeof v === "string" && /<\/?[a-z]/i.test(v)
+      if ((input instanceof Safe || authored(e.e, input)) && MARKUP_KEEPING.has(e.name)) {
+        const out = f(input, args.map((a, i) => (a instanceof Safe || typeof a === "number" || e.args[i]?.t === "lit" ? a : escapeHtml(str(a)))), ctx)
+        return typeof out === "string" ? new Safe(out) : out
+      }
+      return f(input, args, ctx)
     }
     case "range": {
       const a = Math.trunc(Number(evaluate(e.from, scope, ctx)))
@@ -1027,6 +1176,19 @@ export interface RenderOptions {
    * element it lands in. Never on a published page. Ignored in "css" mode.
    */
   marks?: boolean
+  /**
+   * What `assign` and `capture` write, shared between renders of the same
+   * instance: render.ts draws a section's markup and then its stylesheet
+   * with one of these, so a value worked out in the markup is there for the
+   * <style> that reads it, as it is in a Shopify section. Absent, each
+   * render has its own.
+   */
+  locals?: Record<string, unknown>
+}
+
+/** A fresh store for RenderOptions.locals. */
+export function renderLocals(): Record<string, unknown> {
+  return Object.create(null) as Record<string, unknown>
 }
 
 /** The setting an output reads, when it reads one of the section's or a block's own. */
@@ -1105,6 +1267,15 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     wishlist: ctx.wishlist ?? null,
     creator: ctx.creator ?? {},
     product: ctx.product ?? null,
+    /* In a theme block: what it was drawn for (ContentForRequest.closest). */
+    closest: ctx.closest ?? {},
+  }
+  /* What assign and capture wrote, for the whole render (see LOCALS). */
+  const locals: Record<string, unknown> = opts.locals ?? Object.create(null)
+  ;(base as { [LOCALS]?: Record<string, unknown> })[LOCALS] = locals
+  const setLocal = (name: string, value: unknown) => {
+    if (!(name in locals) && Object.keys(locals).length >= MAX_LOCALS) return
+    locals[name] = value
   }
   /* How many loops the walk is inside: a {% break %} outside every loop does nothing, as in Liquid. */
   let loopDepth = 0
@@ -1167,10 +1338,23 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
         case "continue":
           if (loopDepth > 0) throw new LoopSignal(n.kind)
           break
+        case "assign":
+          setLocal(n.name, evaluate(n.expr, scope, ctx))
+          break
+        case "capture": {
+          /* The body is drawn as any other markup, escaped where it prints values, and kept as markup. */
+          const start = out.length
+          walk(n.body, scope)
+          const text = out.splice(start).join("").slice(0, MAX_CAPTURE)
+          setLocal(n.name, new Safe(marks ? stripMarks(text) : text))
+          break
+        }
         case "content_for": {
           /* Built by render.ts from blocks it has drawn and guarded; a stylesheet has no blocks. */
           if (css || !ctx.contentFor) break
-          out.push(n.what === "blocks" ? ctx.contentFor({ what: "blocks" }) : ctx.contentFor({ what: "block", type: n.type, id: n.id }))
+          const closest = n.closest ? Object.fromEntries(Object.entries(n.closest).map(([k, e]) => [k, evaluate(e, scope, ctx) ?? null])) : undefined
+          const near = closest ? { closest } : {}
+          out.push(n.what === "blocks" ? ctx.contentFor({ what: "blocks", ...near }) : ctx.contentFor({ what: "block", type: n.type, id: n.id, ...near }))
           break
         }
       }
@@ -1201,7 +1385,13 @@ export function pathRefs(tpl: CompiledTemplate): PathRef[] {
   const out: PathRef[] = []
   const expr = (e: Expr, line: number, bound: Map<string, string>) => {
     switch (e.t) {
-      case "path": out.push({ segs: e.segs, line, bound }); break
+      case "path": {
+        /* Up to the first part worked out as it runs: `settings[key]` is a read of settings. */
+        const cut = e.keys ? Math.min(...Object.keys(e.keys).map(Number)) : e.segs.length
+        out.push({ segs: e.segs.slice(0, cut), line, bound })
+        if (e.keys) Object.values(e.keys).forEach((k) => expr(k, line, bound))
+        break
+      }
       case "not": expr(e.e, line, bound); break
       case "bin": expr(e.l, line, bound); expr(e.r, line, bound); break
       case "filter": expr(e.e, line, bound); e.args.forEach((a) => expr(a, line, bound)); break
@@ -1211,6 +1401,9 @@ export function pathRefs(tpl: CompiledTemplate): PathRef[] {
   const walk = (nodes: Node[], bound: Map<string, string>) => {
     for (const n of nodes) {
       if (n.kind === "output") expr(n.expr, n.line, bound)
+      else if (n.kind === "content_for" && n.closest) Object.values(n.closest).forEach((e) => expr(e, n.line, bound))
+      else if (n.kind === "assign") expr(n.expr, n.line, bound)
+      else if (n.kind === "capture") walk(n.body, bound)
       else if (n.kind === "if") {
         n.branches.forEach((b) => { expr(b.cond, n.line, bound); walk(b.body, bound) })
         if (n.else) walk(n.else, bound)
@@ -1225,8 +1418,24 @@ export function pathRefs(tpl: CompiledTemplate): PathRef[] {
       }
     }
   }
-  walk(tpl.nodes, new Map())
+  /* A name assigned or captured anywhere is the template's own, read before or after (a loop goes round). */
+  walk(tpl.nodes, new Map([...assignedNames(tpl)].map((n) => [n, ""])))
   return out
+}
+
+/** Every name a template assigns or captures. */
+export function assignedNames(tpl: CompiledTemplate): Set<string> {
+  const names = new Set<string>()
+  const walk = (nodes: Node[]) => {
+    for (const n of nodes) {
+      if (n.kind === "assign") names.add(n.name)
+      else if (n.kind === "capture") { names.add(n.name); walk(n.body) }
+      else if (n.kind === "if") { n.branches.forEach((b) => walk(b.body)); if (n.else) walk(n.else) }
+      else if (n.kind === "for") { walk(n.body); if (n.else) walk(n.else) }
+    }
+  }
+  walk(tpl.nodes)
+  return names
 }
 
 /** Every path a template reads, for the AI and for "setting X is unused" warnings. */
@@ -1234,7 +1443,7 @@ export function pathsRead(tpl: CompiledTemplate): string[] {
   const seen = new Set<string>()
   const expr = (e: Expr) => {
     switch (e.t) {
-      case "path": seen.add(e.segs.join(".")); break
+      case "path": seen.add((e.keys ? e.segs.slice(0, Math.min(...Object.keys(e.keys).map(Number))) : e.segs).join(".")); break
       case "not": expr(e.e); break
       case "bin": expr(e.l); expr(e.r); break
       case "filter": expr(e.e); e.args.forEach(expr); break
@@ -1244,6 +1453,8 @@ export function pathsRead(tpl: CompiledTemplate): string[] {
   const walk = (nodes: Node[]) => {
     for (const n of nodes) {
       if (n.kind === "output") expr(n.expr)
+      else if (n.kind === "assign") expr(n.expr)
+      else if (n.kind === "capture") walk(n.body)
       else if (n.kind === "if") { n.branches.forEach((b) => { expr(b.cond); walk(b.body) }); if (n.else) walk(n.else) }
       else if (n.kind === "for") { expr(n.list); if (n.limit) expr(n.limit); if (n.offset) expr(n.offset); walk(n.body); if (n.else) walk(n.else) }
     }

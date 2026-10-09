@@ -15,7 +15,7 @@ import { compileSection } from "../lib/storelib-theme/storelib/compile"
 import { scopeCss } from "../lib/storelib-theme/storelib/css"
 import { cleanSvg, convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 import { LiquidColor, StaticLiquid, liquidSettings, parseColor, parseFont, resolveSettingReferences } from "../lib/storelib-theme/shopify/static-liquid"
-import { compileThemeStylesheet } from "../lib/storelib-theme/theme-stylesheet"
+import { LAYOUT_PATH, compileThemeStylesheet, layoutFile, layoutStylesheet } from "../lib/storelib-theme/theme-stylesheet"
 import { sanitizeThemeSettings } from "../lib/website-builder/sanitize-sections"
 import { themeImportedCss, themeRootClasses } from "../lib/website-builder/theme-css"
 
@@ -25,7 +25,8 @@ function check(label: string, ok: boolean, detail?: unknown) {
   if (ok) { passed++; console.log(`  ok    ${label}`) }
   else { failed++; console.log(`  FAIL  ${label}${detail !== undefined ? `\n        ${JSON.stringify(detail)}` : ""}`) }
 }
-const squash = (s: string) => s.replace(/\s+/g, " ").trim()
+/* CSS without the spaces it does not need, so a check reads the same however tightly the stylesheet is written. */
+const squash = (s: string) => s.replace(/\s+/g, " ").replace(/\s*([{};:,>()])\s*/g, "$1").replace(/;}/g, "}").trim()
 
 const S = "[data-storelib-theme]"
 
@@ -52,23 +53,23 @@ console.log("\nThe theme's stylesheet, compiled to the page root\n")
   `)
   const out = squash(css.css)
   check("it reads", !css.failed)
-  check("a plain rule answers to the page root", out.includes(`${S} .card { padding: 1rem;`))
-  check(":root is the page root, and keeps its variables", out.includes(`${S} { --gap: 8px; }`))
+  check("a plain rule answers to the page root", out.includes(squash(`${S} .card { padding: 1rem;`)))
+  check(":root is the page root, and keeps its variables", out.includes(squash(`${S} { --gap: 8px; }`)))
   check("but not page layout: display on :root is left out", !/--gap: 8px; display/.test(out))
-  check("body keeps colour and type, not its height or overflow", out.includes(`${S} { color: red; font-family: serif; }`) && !out.includes("overflow: hidden"))
-  check("html body .x is the root, then .x", out.includes(`${S} .page { margin: 0 }`))
-  check("a nested rule is left to its parent's scope", out.includes("& .title { font-weight: 700 }") && !out.includes(`${S} & .title`))
-  check("keyframe names stay as the theme wrote them", out.includes("@keyframes fade") && out.includes("animation: fade 1s"))
-  check("@import and @font-face are left out", !out.includes("@import") && !out.includes("@font-face"))
-  check("a javascript: address is left out, the rest of the rule stays", !out.includes("javascript") && out.includes(`${S} .a { color: blue; }`))
-  check("an http address is left out", !out.includes("insecure.example"))
-  check("an https address and a package asset stay", out.includes("https://cdn.example/x.png") && out.includes(`asset://${"a".repeat(64)}`))
-  check("nothing can close the <style> it is drawn in", !css.css.includes("<"))
-  check("a width query is a container query, so the phone preview is the phone", out.includes("@container (min-width: 750px)") && out.includes(`${S} .grid { display: grid }`))
-  check(":root inside a width query is set on its children, which answer it", out.includes(`${S} > * { --gap: 16px }`))
-  check("a query about anything else stays a media query", out.includes("@media (prefers-reduced-motion: reduce)"))
-  check("viewport units answer to the canvas", out.includes("calc(100 * var(--sl-vh, 1vh))"))
-  check(":modal opens in the canvas too", out.includes(":is(:modal, [data-sl-open])"))
+  check("body keeps colour and type, not its height or overflow", out.includes(squash(`${S} { color: red; font-family: serif; }`)) && !out.includes(squash("overflow: hidden")))
+  check("html body .x is the root, then .x", out.includes(squash(`${S} .page { margin: 0 }`)))
+  check("a nested rule is left to its parent's scope", out.includes(squash("& .title { font-weight: 700 }")) && !out.includes(squash(`${S} & .title`)))
+  check("keyframe names stay as the theme wrote them", out.includes(squash("@keyframes fade")) && out.includes(squash("animation: fade 1s")))
+  check("@import and @font-face are left out", !out.includes(squash("@import")) && !out.includes(squash("@font-face")))
+  check("a javascript: address is left out, the rest of the rule stays", !out.includes(squash("javascript")) && out.includes(squash(`${S} .a { color: blue; }`)))
+  check("an http address is left out", !out.includes(squash("insecure.example")))
+  check("an https address and a package asset stay", out.includes(squash("https://cdn.example/x.png")) && out.includes(squash(`asset://${"a".repeat(64)}`)))
+  check("nothing can close the <style> it is drawn in", !css.css.includes(squash("<")))
+  check("a width query is a container query, so the phone preview is the phone", out.includes(squash("@container (min-width: 750px)")) && out.includes(squash(`${S} .grid { display: grid }`)))
+  check(":root inside a width query is set on its children, which answer it", out.includes(squash(`${S} > * { --gap: 16px }`)))
+  check("a query about anything else stays a media query", out.includes(squash("@media (prefers-reduced-motion: reduce)")))
+  check("viewport units answer to the canvas", out.includes(squash("calc(100 * var(--sl-vh, 1vh))")))
+  check(":modal opens in the canvas too", out.includes(squash(":is(:modal, [data-sl-open])")))
   const again = compileThemeStylesheet(css.css)
   check("compiling twice gives the same text", again.css === css.css, squash(again.css).slice(0, 400))
   check("what was left out is counted", css.dropped.atRules >= 2 && css.dropped.declarations >= 3, css.dropped)
@@ -79,7 +80,7 @@ console.log("\nThe theme's stylesheet, compiled to the page root\n")
 console.log("\nKept honest wherever it is stored\n")
 {
   const stored = sanitizeThemeSettings({ theme_stylesheet: "body { color: red } .x { color: blue }", theme_root_class: "page-width-narrow bad\"class <x> ok-2", other: 1 })
-  check("a save compiles the stylesheet to the page root", squash(String(stored.theme_stylesheet)).includes(`${S} .x { color: blue }`))
+  check("a save compiles the stylesheet to the page root", squash(String(stored.theme_stylesheet)).includes(squash(`${S} .x { color: blue }`)))
   check("the body classes are plain class names", stored.theme_root_class === "page-width-narrow ok-2", stored.theme_root_class)
   check("other settings are untouched", stored.other === 1)
   check("a stylesheet that is not CSS is not stored", !("theme_stylesheet" in sanitizeThemeSettings({ theme_stylesheet: ".a { color: red" })))
@@ -199,17 +200,20 @@ async function theme(): Promise<JSZip> {
   check("it converts", r.ok === true, r.ok === false ? r.error : undefined)
   if (r.ok === false) { console.log(`\n${passed} passed, ${failed} failed\n`); process.exit(1) }
   const settings = JSON.parse(r.pkg.files["config/settings.json"] ?? "{}") as Record<string, unknown>
-  const css = squash(String(settings.theme_stylesheet ?? ""))
+  /* layout/theme.storelib: the theme's stylesheet for the whole page, read as the site reads it. */
+  const layout = r.pkg.files[LAYOUT_PATH] ?? ""
+  const css = squash(layoutStylesheet(r.pkg.files))
+  check("it is the file layout/theme.storelib, not a theme setting", layout.startsWith("<style>") && settings.theme_stylesheet === undefined)
   check("the layout's styles are kept as the theme's stylesheet", css.length > 0)
-  check("worked out from the saved settings, not the defaults", css.includes("--color-accent: #ff8800") && css.includes("--color-accent-rgb: 255 136 0") && css.includes("--radius: 10px"), css.slice(0, 300))
-  check("fonts are their family and weight", css.includes("--font-heading--family: Work Sans, sans-serif") && css.includes("--font-heading--weight: 600"))
-  check("colour schemes loop", css.includes(`${S} .color-scheme-1 { --color-background: #fefefe; }`))
-  check("the linked stylesheet is in it, at the page root", css.includes(`${S} .button {`))
-  check("its width query is a container query", css.includes("@container (min-width: 750px)"))
+  check("worked out from the saved settings, not the defaults", css.includes(squash("--color-accent: #ff8800")) && css.includes(squash("--color-accent-rgb: 255 136 0")) && css.includes(squash("--radius: 10px")), css.slice(0, 300))
+  check("fonts are their family and weight", css.includes(squash("--font-heading--family: Work Sans, sans-serif")) && css.includes(squash("--font-heading--weight: 600")))
+  check("colour schemes loop", css.includes(squash(`${S} .color-scheme-1 { --color-background: #fefefe; }`)))
+  check("the linked stylesheet is in it, at the page root", css.includes(squash(`${S} .button {`)))
+  check("its width query is a container query", css.includes(squash("@container (min-width: 750px)")))
   check("no Liquid is left in it", !/\{\{|\{%/.test(css))
   check("the body's classes are the page root's", settings.theme_root_class === "page-width-wide card-hover-lift", settings.theme_root_class)
   check("the heading font is Typography's", settings.font_heading === "Work Sans")
-  check("a stored stylesheet is already what a save would make it", sanitizeThemeSettings({ theme_stylesheet: settings.theme_stylesheet }).theme_stylesheet === settings.theme_stylesheet)
+  check("compiling it again changes nothing", layoutStylesheet({ [LAYOUT_PATH]: layoutFile(layoutStylesheet(r.pkg.files)) }) === layoutStylesheet(r.pkg.files))
 
   const src = r.pkg.files["sections/tiles.storelib"] ?? ""
   check("the section compiles", compileSection(src, { file: "sections/tiles.storelib" }).ok === true, compileSection(src, { file: "sections/tiles.storelib" }))
