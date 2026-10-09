@@ -7,6 +7,7 @@ import { checkSectionIntegration } from "@/lib/storelib-ai/integration"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { catalogPage } from "@/lib/products/catalog-filters"
+import { shopProducts } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -114,6 +115,49 @@ console.log("\nA long shop comes in pages\n")
   const one = renderStorelibSection({ id: "s", type: "product_grid", name: "g", settings: { source: "shop" }, blocks: [] } as unknown as SectionInstance, {} as ThemeSettingsValues, { template: "index" } as never, undefined, first.listed.slice(0, 4) as never, {} as never)
   check("  and none on a page that is not paged", one.ok === true && !/class="pager"/.test(one.html))
 }
+
+console.log("\nA shipped product's cards say which options are sold out\n")
+await (async () => {
+  const tables: Record<string, Record<string, unknown>[]> = {
+    products: [
+      { id: "tote", title: "Tote", slug: "tote", price_cents: 4800, compare_at_cents: null, thumbnail_url: null, status: "published", type: "physical", creator_id: "c1", inventory_count: null, track_inventory: true, continue_selling: false, created_at: "2026-10-01" },
+      { id: "cap", title: "Cap", slug: "cap", price_cents: 2000, compare_at_cents: null, thumbnail_url: null, status: "published", type: "physical", creator_id: "c1", inventory_count: null, track_inventory: true, continue_selling: false, created_at: "2026-09-01" },
+    ],
+    product_variants: [
+      { id: "tote-s", product_id: "tote", name: "Small", price_cents: 4800, position: 1, active: true, track_inventory: true, inventory_policy: "deny" },
+      { id: "tote-l", product_id: "tote", name: "Large", price_cents: 4800, position: 2, active: true, track_inventory: true, inventory_policy: "deny" },
+      { id: "cap-1", product_id: "cap", name: "One size", price_cents: 2000, position: 1, active: true, track_inventory: true, inventory_policy: "deny" },
+    ],
+    product_options: [],
+    inventory_locations: [{ id: "loc", creator_id: "c1", active: true, fulfills_orders: true }],
+    inventory_levels: [
+      { variant_id: "tote-s", location_id: "loc", available: 3 },
+      { variant_id: "tote-l", location_id: "loc", available: 0 },
+      { variant_id: "cap-1", location_id: "loc", available: 0 },
+    ],
+  }
+  const db = {
+    from(table: string) {
+      const filters: ((r: Record<string, unknown>) => boolean)[] = []
+      const q: Record<string, unknown> = {
+        select: () => q,
+        eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
+        in: (c: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[c])), q),
+        order: () => q,
+        limit: () => q,
+        then: (res: (v: unknown) => unknown) => res({ data: (tables[table] ?? []).filter((r) => filters.every((f) => f(r))), error: null }),
+      }
+      return q
+    },
+  }
+  const cards = await shopProducts(db as never, "c1")
+  const tote = cards.find((c) => c.id === "tote")
+  const cap = cards.find((c) => c.id === "cap")
+  check("an option with stock can be bought, with its own checkout", tote?.settings.variants.find((v) => v.id === "tote-s")?.available === true && /tote-s/.test(tote?.settings.variants.find((v) => v.id === "tote-s")?.checkout_url ?? ""), tote?.settings.variants)
+  check("an option sold out at every location says so, and has no checkout", tote?.settings.variants.find((v) => v.id === "tote-l")?.available === false && tote?.settings.variants.find((v) => v.id === "tote-l")?.checkout_url === "")
+  check("a product with one option left is still for sale", tote?.settings.available === true && tote?.settings.tag !== "Sold out")
+  check("a product sold out in every option is Sold out, with no checkout", cap?.settings.available === false && cap?.settings.tag === "Sold out" && cap?.settings.checkout_url === "", cap?.settings)
+})()
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

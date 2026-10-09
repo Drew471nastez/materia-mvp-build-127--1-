@@ -405,6 +405,68 @@ async function variantsInBatches(db: Db, ids: string[]): Promise<VariantRow[]> {
   return out
 }
 
+/**
+ * ===========================================================================
+ *  A SHIPPED PRODUCT'S STOCK, PER OPTION, ON ITS CARD
+ * ===========================================================================
+ * A physical product's stock is held per variant and per location
+ * (inventory_levels), and the buy box and the product page read it
+ * (lib/physical/storefront-stock.ts). The shop's cards read only the
+ * product's own count, so a tote sold out in every size still said In stock
+ * on the grid, and each option copied the product.
+ *
+ * Here, with the same rule as the buy box: a variant that tracks stock and
+ * does not keep selling is sold out when the locations that fulfil orders
+ * hold none of it. Each option says so on its own, and the product is sold
+ * out when every option is. A database without these tables, or a product
+ * with no live variants, keeps what the card already said.
+ */
+type StockRow = { id: string; product_id: string; name: string | null; active?: boolean | null; track_inventory?: boolean | null; inventory_policy?: string | null }
+
+async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], cards: ProductCard[]): Promise<ProductCard[]> {
+  const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+  if (physical.length === 0) return cards
+  const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+  const live: StockRow[] = []
+  for (let i = 0; i < physical.length; i += 80) {
+    const { data, error } = await any.from("product_variants").select("id, product_id, name, active, track_inventory, inventory_policy").in("product_id", physical.slice(i, i + 80))
+    if (error) return cards
+    for (const v of (data ?? []) as StockRow[]) if (v.active !== false && !/^Archived /.test(v.name ?? "")) live.push(v)
+  }
+  if (live.length === 0) return cards
+  const { data: locations, error: locError } = await any.from("inventory_locations").select("id").eq("creator_id", creatorId).eq("active", true).eq("fulfills_orders", true)
+  if (locError) return cards
+  const locIds = ((locations ?? []) as { id: string }[]).map((l) => l.id)
+  const held = new Map<string, number>()
+  if (locIds.length) {
+    for (let i = 0; i < live.length; i += 80) {
+      const { data, error } = await any.from("inventory_levels").select("variant_id, available").in("variant_id", live.slice(i, i + 80).map((v) => v.id)).in("location_id", locIds)
+      if (error) return cards
+      for (const l of (data ?? []) as { variant_id: string; available: number }[]) held.set(l.variant_id, (held.get(l.variant_id) ?? 0) + Math.max(0, l.available))
+    }
+  }
+  const { data: keep } = await any.from("products").select("id, continue_selling").in("id", physical)
+  const keepSelling = new Set(((keep ?? []) as { id: string; continue_selling?: boolean | null }[]).filter((p) => p.continue_selling === true).map((p) => p.id))
+  const rowOf = new Map(rows.map((r) => [r.id, r]))
+  const soldOutVariant = new Map<string, boolean>()
+  for (const v of live) {
+    const tracked = v.track_inventory ?? rowOf.get(v.product_id)?.track_inventory ?? true
+    const keeps = v.inventory_policy === "continue" || keepSelling.has(v.product_id)
+    soldOutVariant.set(v.id, tracked && !keeps && (held.get(v.id) ?? 0) <= 0)
+  }
+  return cards.map((card) => {
+    const mine = live.filter((v) => v.product_id === card.id)
+    if (mine.length === 0) return card
+    const variants = card.settings.variants.map((opt) => {
+      const out = soldOutVariant.get(opt.id)
+      if (out === undefined) return opt
+      return { ...opt, available: !out, checkout_url: out ? "" : checkoutUrl(card.id, opt.id) }
+    })
+    const available = mine.some((v) => soldOutVariant.get(v.id) === false)
+    return { ...card, settings: { ...card.settings, variants, available, tag: available ? card.settings.tag === "Sold out" ? "" : card.settings.tag : "Sold out", checkout_url: available ? checkoutUrl(card.id) : "" } }
+  })
+}
+
 async function optionsInBatches(db: Db, ids: string[]): Promise<OptionRow[]> {
   const out: OptionRow[] = []
   for (let i = 0; i < ids.length; i += 80) out.push(...(await productOptions(db, ids.slice(i, i + 80))))
@@ -430,7 +492,8 @@ async function readShop(db: Db, creatorId: string, n: number): Promise<ProductCa
     if (!rows) return []
     const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
     const [variants, options] = await Promise.all([variantsInBatches(db, rows.map((r) => r.id)), optionsInBatches(db, physical)])
-    return rows.map((r) => toCard(r, variants, options))
+    const cards = rows.map((r) => toCard(r, variants, options))
+    return await withPhysicalStock(db, creatorId, rows, cards).catch(() => cards)
   } catch {
     return []
   }
