@@ -126,10 +126,15 @@ right to use it. The import route says so once, in `shopify.license`.
 
 The theme's ZIP is held to the import's own limits first: 50 MB, and the
 upload check in `lib/security/uploads`, which runs before the ZIP is opened.
-That check refuses a theme package containing any `.js` file
-(`zip_blocked_entry`), and every theme Shopify ships has scripts in `assets/`.
-So today a Dawn or Horizon ZIP must have its `.js` files removed before it is
-imported; the converter never reads them either way. The converter then refuses a theme of more than 4000 files or one
+That check refuses a theme package containing a `.js` file
+(`zip_blocked_entry`), with one exception: in an archive whose own file list
+is a Shopify theme (`sections/*.liquid` beside `config/settings_schema.json`
+or `layout/theme.liquid`, and no `theme.json`), a `.js` directly inside
+`assets/` is let in (`shopifyThemeRoot` and `shopifyScriptEntry` in
+`lib/security/uploads/zip.ts`), and the admin log notes
+`zip_shopify_scripts_ignored`. Every theme Shopify ships keeps its scripts
+there, and the converter never reads or keeps them. A `.js` anywhere else,
+and every other blocked type, is still refused. The converter then refuses a theme of more than 4000 files or one
 that declares more than 200 MB unpacked, before reading any of it. One
 section grows by at most 400 KB of inlined snippets and 1 MB of the theme's
 CSS; past that, the rest is left out and said.

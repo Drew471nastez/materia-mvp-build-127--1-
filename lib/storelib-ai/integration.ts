@@ -277,7 +277,21 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
       /\{%-?\s*for\s+\w+\s+in\s+(products|page\.product|settings\.\w+)\b/.test(parsed.value.template.text) ||
       /\{\{[^}]*\b(products|page\.product|page\.collection)\b/.test(parsed.value.template.text) ||
       allSettings.some((st) => RESOURCE_TYPES.has(String(st.type)))
-    const productSection = /product|shop|collection|catalog/i.test(String(schema.category ?? "")) || /product/i.test(String((schema as { type?: unknown }).type ?? ""))
+    /*
+      WHAT A PRODUCT SECTION IS (round 21, the owner: "when I ask for a products section it must never code me placeholders
+      and text inputs to describe the products"). Its category or type says so; or it is named for products (Best sellers,
+      Shop the look, New arrivals) and its cards are a typed name and an uploaded picture, which is a product card drawn by
+      hand. A section merely named after a shop (a Store locator, opening hours) has no such cards and is left alone.
+    */
+    const NAMED_FOR_PRODUCTS = /\b(products?|shop|catalog(?:ue)?|best\s?sellers?|new\s?arrivals?|merch(?:andise)?|bestsellers)\b/i
+    const handCards = blockDefs.some((bl) => {
+      const st = ((bl as { settings?: SchemaSetting[] }).settings ?? []) as SchemaSetting[]
+      return st.some((x) => x.type === "image_picker") && st.some((x) => TYPED.has(String(x.type)) && /(?:^|_)(?:title|name|product)(?:_|$)/i.test(String(x.id ?? "")))
+    })
+    const productSection =
+      /product|shop|collection|catalog/i.test(String(schema.category ?? "")) ||
+      /product/i.test(String((schema as { type?: unknown }).type ?? "")) ||
+      (handCards && NAMED_FOR_PRODUCTS.test(`${String((schema as { type?: unknown }).type ?? "")} ${String(schema.name ?? "")}`.replace(/_/g, " ")))
     const MONEY = /(?:[$€£¥₹]\s?\d+(?:[.,]\d{1,2})?)|(?:\d+(?:[.,]\d{2})?\s?(?:USD|EUR|GBP|CAD|AUD)\b)/
     const priced = (st: SchemaSetting & { default?: unknown }) => /price|cost|amount/i.test(String(st.id ?? "")) && typeof st.default === "string" && MONEY.test(st.default)
     const typedPrice = (text.match(new RegExp(MONEY.source)) ?? [])[0]
@@ -324,6 +338,18 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     if (typedCard || typedSection) {
       const where = typedCard ? `the "${String((typedCard as { type?: string }).type)}" block's "${typedPriceSetting(typedCard.settings)?.id}"` : `"${typedSection?.id}"`
       err("integration-product-typed", `A product's price is a setting here (${where}), so it can be typed. A product's name, price, photos and stock are read from the shop: loop {% for block in products limit: settings.product_count %}, and let the sidebar choose which with a select "source": "shop", "collection" (a collection_picker, {% for block in settings.collection.products %}) or "chosen" (a product_list, {% for block in settings.chosen %}). One product is a product_picker, printed as settings.product.title and settings.product.price. Remove the price settings and their presets.`)
+    }
+    /*
+      A PRODUCT BLOCK HOLDS A PRODUCT. A block called a product whose name is typed and that has no product_picker is a
+      placeholder card: the creator would describe a product in boxes instead of choosing one of theirs.
+    */
+    const handProduct = blockDefs.find((bl) => {
+      if (!/^product/i.test(String((bl as { type?: unknown }).type ?? ""))) return false
+      const st = ((bl as { settings?: SchemaSetting[] }).settings ?? []) as SchemaSetting[]
+      return !st.some((x) => RESOURCE_TYPES.has(String(x.type))) && st.some((x) => TYPED.has(String(x.type)) && /(?:^|_)(?:title|name)(?:_|$)/i.test(String(x.id ?? "")))
+    })
+    if (handProduct) {
+      err("integration-products", `The ${String((handProduct as { type?: unknown }).type)} block describes a product in text boxes (a typed name, no product_picker), so it is a placeholder, not one of the shop's products. Give the block a product_picker ("id": "product") and print settings.product.title, settings.product.price, settings.product.image and settings.product.checkout_url from it; or loop the shop: {% for block in products limit: settings.product_count %}.`)
     }
     const fakeDefault = productBlocks.flatMap((bl) => (bl.settings ?? []) as (SchemaSetting & { default?: unknown })[]).find(priced)
     if (fakeDefault) {

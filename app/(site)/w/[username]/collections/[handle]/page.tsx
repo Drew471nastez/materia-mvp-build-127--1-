@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName, siteCatalogue } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { collectionSections } from "@/lib/website-builder/shop-page"
 import { catalogPage } from "@/lib/products/catalog-filters"
@@ -63,18 +63,20 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
     published products only).
   */
   const order = new Map(inIt.productIds.map((id, i) => [id, i]))
-  const have = new Set((products ?? []).map((p) => p.id))
+  const catalogue = await siteCatalogue(site.creatorId).catch(() => products ?? [])
+  const pool = catalogue.length ? catalogue : products ?? []
+  const have = new Set(pool.map((p) => p.id))
   const older = inIt.productIds.filter((id) => !have.has(id)).slice(0, MAX_PICKED_PRODUCTS)
   const extra = older.length ? await pickedProducts(createAdminClient() as never, site.creatorId, { ids: older, slugs: [] }) : []
-  const cards = [...(products ?? []).filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
+  const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
   const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection)
   const dressed = await dressPage(site, arranged, products, productCount, "collection", inIt.collection.title)
   const sections = dressed.sections
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
-  const { listed, filters } = catalogPage(cards, asked, `/collections/${handle}`)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters }, data)
+  const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`)
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "collection", listed, { filters, pagination }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "collection" }}>

@@ -6811,7 +6811,7 @@ snapshots:
 
   i18next-browser-languagedetector@8.2.1:
     dependencies:
-      '@babel/runtime': 7.28.6
+      '@babel/runtime': 7.29.10
 
   i18next@25.10.10(typescript@5.0.2):
     dependencies:

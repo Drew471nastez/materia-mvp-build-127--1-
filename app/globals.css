@@ -5897,6 +5897,11 @@ html[data-account-community-pending] [data-page="account"]::before {
   background: #fff;
   border-bottom: 1px solid #e6e8ec;
 }
+@media (min-width: 1024px) {
+  html[data-account-community-pending] [data-page="account"]::before {
+    height: calc(64px + env(safe-area-inset-top, 0px));
+  }
+}
 
 /* After a sliding settings sheet closes, iOS may echo the back tap onto the header menu (lib/navigation/swallow-ghost-taps.ts). */
 html[data-ghost-tap-guard] #platform-header-root,

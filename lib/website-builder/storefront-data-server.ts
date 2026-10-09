@@ -104,7 +104,7 @@ export async function pickedProducts(
       if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
       const results = await Promise.all(reads)
       if (results.some((r) => r.error)) continue
-      return await cardsFromRows(db, results.flatMap((r) => (r.data ?? []) as unknown as ProductRow[]))
+      return await cardsFromRows(db, results.flatMap((r) => (r.data ?? []) as unknown as ProductRow[]), creatorId)
     }
     return []
   } catch {

@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName, siteCatalogue } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { shopSections } from "@/lib/website-builder/shop-page"
 import { catalogPage } from "@/lib/products/catalog-filters"
@@ -72,8 +72,9 @@ export default async function SiteShopPage({ params, searchParams }: PageProps) 
      asked for, and every filter with its counts for the form
      (lib/products/catalog-filters.ts). Pickers above still name from the
      whole shop. */
-  const { listed, filters } = catalogPage(products ?? [], asked, "/products")
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", listed, { filters }, data)
+  const catalogue = await siteCatalogue(site.creatorId).catch(() => products ?? [])
+  const { listed, filters, pagination } = catalogPage(catalogue.length ? catalogue : products ?? [], asked, "/products")
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.products", listed, { filters, pagination }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

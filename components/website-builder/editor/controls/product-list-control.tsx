@@ -18,12 +18,13 @@
  * that silently disappears is a setting nobody can see.
  */
 import * as React from "react"
-import { ArrowDown, ArrowUp, Plus, Search, X } from "lucide-react"
+import { ArrowDown, ArrowUp, GripVertical, Plus, Search, X } from "lucide-react"
 
 import { FieldPopover, usePhoneLayout } from "@/components/website-builder/field-popover"
 import { cn } from "@/lib/utils"
 import { useEditorFieldEnv, type PickerProduct } from "./context"
 import { ADD_BUTTON, ICON_BUTTON, NOTE } from "./styles"
+import { useReorder } from "./use-reorder"
 
 const DEFAULT_LIMIT = 12
 
@@ -66,6 +67,8 @@ export function ProductListControl({
     onChange(next)
   }
   const remove = (at: number) => onChange(chosen.filter((_, i) => i !== at))
+  /* Drag a row by its grip, with a mouse or a finger (use-reorder.ts); Up and Down stay for a keyboard. */
+  const { listRef, gripProps, rowStyle } = useReorder<HTMLUListElement>({ count: chosen.length, onMove: move })
   const add = (id: string) => {
     if (chosen.includes(id) || chosen.length >= max) return
     onChange([...chosen, id])
@@ -80,11 +83,14 @@ export function ProductListControl({
   return (
     <div className="space-y-2" data-product-list="">
       {chosen.length > 0 && (
-        <ul className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen products, in order"}>
+        <ul ref={listRef} className="space-y-1.5" aria-label={label ? `${label}, in order` : "Chosen products, in order"}>
           {chosen.map((key, i) => {
             const p = find(key)
             return (
-              <li key={`${key}-${i}`} className="flex items-center gap-2 rounded-lg border border-border bg-background p-1.5 pr-1">
+              <li key={`${key}-${i}`} data-reorder-row="" style={rowStyle(i)} className="flex items-center gap-2 rounded-lg border border-border bg-background p-1.5 pr-1">
+                <button type="button" aria-label={`Move ${p?.title ?? "product"}`} title="Drag to move" className="flex h-9 w-5 shrink-0 cursor-grab items-center justify-center text-muted-foreground/70 hover:text-foreground active:cursor-grabbing" {...gripProps(i)}>
+                  <GripVertical className="h-3.5 w-3.5" strokeWidth={1.75} />
+                </button>
                 <Thumb product={p} />
                 <span className="min-w-0 flex-1">
                   <span className={cn("block truncate text-[13px] max-sm:text-[15px] font-medium", !p && "text-muted-foreground")}>

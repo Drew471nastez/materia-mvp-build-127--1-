@@ -191,7 +191,7 @@ export type ZipFindingCode =
   | "zip_nested_archives"
   | "zip_directory_unreadable"
 
-export type ZipNoteCode = "zip_encrypted" | "zip_nested_archive" | "zip_hidden_formatting" | "zip_directory_cut_short"
+export type ZipNoteCode = "zip_encrypted" | "zip_nested_archive" | "zip_hidden_formatting" | "zip_directory_cut_short" | "zip_shopify_scripts_ignored"
 
 export interface ZipReport {
   entries: number
@@ -214,6 +214,8 @@ export function checkZipDirectory(
   fileSize: number,
   limits: ArchiveLimits,
   blockedInside: ReadonlySet<string> = BLOCKED_IN_ARCHIVE,
+  /** An entry that is let through although its extension is blocked: only a Shopify theme's own scripts (shopifyScriptEntry). */
+  exempt?: (name: string, ext: string) => boolean,
 ): ZipReport {
   const report: ZipReport = { entries: dir.declaredEntries, totalUncompressed: 0, encrypted: 0, nestedArchives: 0, refusal: null, notes: [] }
   const refuse = (code: ZipFindingCode, detail: string) => {
@@ -238,7 +240,11 @@ export function checkZipDirectory(
     if (entry.isDirectory) continue
 
     const ext = extensionOf(entry.name)
-    if (blockedInside.has(ext)) refuse("zip_blocked_entry", `entry "${shown}" is a .${ext}`)
+    if (blockedInside.has(ext)) {
+      if (exempt?.(entry.name, ext)) {
+        if (!report.notes.some((n) => n.code === "zip_shopify_scripts_ignored")) report.notes.push({ code: "zip_shopify_scripts_ignored", detail: `a Shopify theme's scripts, e.g. "${shown}", let in and never read or kept` })
+      } else refuse("zip_blocked_entry", `entry "${shown}" is a .${ext}`)
+    }
     if (NESTED.has(ext)) report.nestedArchives++
 
     if (entry.uncompressedSize > limits.ratioFloorBytes) {
@@ -536,4 +542,45 @@ export async function verifyZipEntries(
     }
   }
   return out
+}
+
+/**
+ * ===========================================================================
+ *  A SHOPIFY THEME'S OWN SCRIPTS
+ * ===========================================================================
+ * Every theme Shopify ships (Dawn, Horizon) carries its JavaScript in
+ * assets/*.js, so refusing any archive with a .js inside refused every real
+ * Shopify theme before the converter (lib/storelib-theme/shopify/convert.ts)
+ * could see it. The converter never reads those files and nothing stores
+ * them: it takes sections, snippets, blocks, templates, locales and the
+ * pictures the sections name.
+ *
+ * So, and only for an archive whose own list says it is a Shopify theme
+ * (sections/*.liquid beside config/settings_schema.json or
+ * layout/theme.liquid, and no theme.json), a .js directly inside assets/ is
+ * let in. Any other blocked type, anywhere, is still refused, and so is a
+ * .js anywhere else in it.
+ */
+export function shopifyThemeRoot(names: readonly string[]): string | null {
+  const set = new Set(names.map((n) => n.replace(/\\/g, "/")))
+  const roots = new Set<string>([""])
+  for (const n of set) {
+    const m = n.match(/^([^/]+\/)sections\//)
+    if (m) roots.add(m[1])
+  }
+  for (const root of roots) {
+    if (set.has(`${root}theme.json`)) continue
+    const sections = [...set].some((n) => n.startsWith(`${root}sections/`) && n.endsWith(".liquid") && !n.slice(root.length + 9).includes("/"))
+    const shell = set.has(`${root}config/settings_schema.json`) || set.has(`${root}layout/theme.liquid`)
+    if (sections && shell) return root
+  }
+  return null
+}
+
+/** The test checkZipDirectory is handed for a Shopify theme: a .js straight inside its assets folder. */
+export function shopifyScriptEntry(root: string): (name: string, ext: string) => boolean {
+  return (name, ext) => {
+    const n = name.replace(/\\/g, "/")
+    return ext === "js" && n.startsWith(`${root}assets/`) && !n.slice(root.length + 7).includes("/")
+  }
 }

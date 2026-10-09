@@ -604,6 +604,8 @@ export interface StorefrontData {
     url?: string
     /** "What's included", one line each. */
     includes?: string[]
+    /** The product's custom fields by name, plain words. */
+    fields?: Record<string, string>
   } | null
   /** The collection the page is about, on a collection page only. */
   collection?: StorefrontCollection | null

@@ -50,6 +50,8 @@ import {
 } from "./policy"
 import {
   checkZipDirectory,
+  shopifyScriptEntry,
+  shopifyThemeRoot,
   readZipDirectory,
   verifyZipEntries,
   THEME_BLOCKED_INSIDE,
@@ -92,6 +94,7 @@ export type NoteCode =
   | "zip_directory_cut_short"
   | "zip_sizes_not_verified"
   | "zip_behind_another_format"
+  | "zip_shopify_scripts_ignored"
 
 export interface VerdictNote {
   code: NoteCode
@@ -399,7 +402,9 @@ export async function inspectUpload(input: InspectInput): Promise<UploadVerdict>
     if (first.detectedType !== "application/zip") {
       notes.push({ code: "zip_behind_another_format", detail: `read as ${first.detectedType ?? "an unknown format"}, and an archive at its end` })
     }
-    const report = checkZipDirectory(dir, input.size, limits, theme ? THEME_BLOCKED_INSIDE : undefined)
+    /* A Shopify theme's assets/*.js, and nothing else, may come in with it (zip.ts shopifyThemeRoot). */
+    const shopifyRoot = theme ? shopifyThemeRoot(dir.entries.map((e) => e.name)) : null
+    const report = checkZipDirectory(dir, input.size, limits, theme ? THEME_BLOCKED_INSIDE : undefined, shopifyRoot !== null ? shopifyScriptEntry(shopifyRoot) : undefined)
     const archive: ArchiveSummary = {
       inspected: true,
       entries: report.entries,

@@ -49,6 +49,7 @@ const FEATURE = `{%- liquid
   <div class="rte">{{ section.settings.text }}</div>
   <img src="{{ 'logo.png' | asset_url }}" alt="Logo">
   {{ section.settings.image | image_url: width: 800 | image_tag }}
+  {{ 'hero-apparel-1' | placeholder_svg_tag: 'hero__media' }}
   <ul>
   {%- for block in section.blocks -%}
     <li {{ block.shopify_attributes }}><a href="{{ block.settings.link }}">{{ block.settings.title | money }}</a></li>
@@ -117,6 +118,58 @@ const QUOTES = `<div class="quotes">{% content_for 'blocks' %}</div>
 {% endschema %}
 `
 
+const TEXT_SNIPPET = `{% liquid
+  assign block_settings = block.settings
+  assign plain_text = block_settings.text | strip_newlines | strip
+  assign element = 'div'
+  if block_settings.type_preset == 'rte'
+    assign element = 'rte-formatter'
+  endif
+%}
+{% capture attrs %}class="text-block {{ element }}"{% endcapture %}
+{% if plain_text != blank %}
+  <{{ element }} {{ attrs | strip }}>{{ block.settings.text }}</{{ element }}>
+{% endif %}
+`
+
+const TEXT_BLOCK = `{% render 'text', block: block %}
+{% schema %}
+{ "name": "Text", "tag": null, "settings": [
+  { "type": "richtext", "id": "text", "label": "Text" },
+  { "type": "select", "id": "type_preset", "label": "Preset", "default": "rte", "options": [{ "value": "rte", "label": "Rich" }, { "value": "h2", "label": "H2" }] }
+] }
+{% endschema %}
+`
+
+const RESOURCE_LIST = `{% liquid
+  assign settings = settings | default: empty
+  unless settings != empty
+    echo '<!-- Error: settings parameter required for resource-list snippet -->'
+    break
+  endunless
+  echo settings.layout_type
+%}
+<div class="resource-list"></div>
+`
+
+const SPOTLIGHT = `<div class="spot">{% content_for 'block', type: '_quote', id: 'static-quote' %}</div>
+{% schema %}
+{ "name": "Spotlight", "settings": [], "presets": [{ "name": "Spotlight", "blocks": {
+  "static-quote": { "type": "_quote", "static": true, "settings": { "text": "t:general.note" } }
+} }] }
+{% endschema %}
+`
+
+const PRODUCT_LIST = `<div class="section-resource-list">
+  {% render 'resource-list', settings: section.settings, content_type: 'products' %}
+</div>
+{% schema %}
+{ "name": "Featured collection", "settings": [
+  { "type": "select", "id": "layout_type", "label": "Layout", "default": "grid", "options": [{ "value": "grid", "label": "Grid" }] }
+], "presets": [{ "name": "Featured collection" }] }
+{% endschema %}
+`
+
 const QUOTE_BLOCK = `<blockquote class="quote" {{ block.shopify_attributes }}>{{ block.settings.text }}</blockquote>
 {% schema %}
 { "name": "Quote", "tag": null, "settings": [{ "type": "inline_richtext", "id": "text", "label": "Text", "default": "Great shop" }] }
@@ -139,6 +192,11 @@ async function shopifyZip(): Promise<JSZip> {
   zip.file("sections/header-group.json", JSON.stringify({ type: "header", name: "Header group", sections: {}, order: [] }))
   zip.file("blocks/_quote.liquid", QUOTE_BLOCK)
   zip.file("snippets/badge.liquid", `<span class="badge">{{ label }}</span>`)
+  zip.file("snippets/resource-list.liquid", RESOURCE_LIST)
+  zip.file("snippets/text.liquid", TEXT_SNIPPET)
+  zip.file("blocks/text.liquid", TEXT_BLOCK)
+  zip.file("sections/product-list.liquid", PRODUCT_LIST)
+  zip.file("sections/spotlight.liquid", SPOTLIGHT)
   zip.file("assets/logo.png", PNG)
   zip.file("assets/section-feature.css", `.feature h2 { font-size: 28px; }`)
   zip.file("assets/theme.js", `console.log("never read")`)
@@ -198,6 +256,13 @@ async function shopifyZip(): Promise<JSZip> {
   check("the t filter is the words from locales/en.default.json", src.includes(`<p class="note">Free returns within 30 days</p>`))
   check("case/when is an if/elsif chain, a when with two values is an or", src.includes(`{% if settings.layout == "grid" %}`) && src.includes(`{% elsif settings.layout == "list" or settings.layout == "rows" %}`) && src.includes("{% else %}<span>Other</span>"))
   check("a rendered snippet is written in place, its parameter read as what was passed", src.includes(`<span class="badge">{{ settings.heading }}</span>`))
+  const list = pkg.files["sections/product-list.storelib"] ?? ""
+  check("a snippet that requires settings still receives the object that was passed", list.includes("{% if not (true) %}") && list.includes("{{ settings.layout_type }}") && list.includes('class="resource-list"'), list.slice(0, 500))
+  const textBlock = pkg.files["blocks/text.storelib"] ?? ""
+  check("a text block prints its words, not an empty branch", textBlock.includes("block.settings.text") && textBlock.includes("<div") && textBlock.includes('class="text-block') && !textBlock.includes("{% if null %}") && !textBlock.includes("{% elsif null %}"), textBlock.slice(0, 700))
+  check("a placeholder image is a picture, not a hole", src.includes("<svg") && src.includes("hero__media"))
+  const spot = pkg.files["sections/spotlight.storelib"] ?? ""
+  check("a section that only places a static block still carries that block, with its words", /"static": true/.test(spot) && spot.includes("Free returns within 30 days") && spot.includes('content_for "block"'), spot.slice(0, 400))
   check("for block in section.blocks is for block in blocks", src.includes("{% for block in blocks %}"))
   check("richtext prints with raw, as Shopify printed it", src.includes("{{ settings.text | raw }}"))
   check("image_url | image_tag is an <img> of the setting", src.includes(`<img src="{{ settings.image }}" alt="" loading="lazy">`))
@@ -249,7 +314,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("a collection template has no Storelib page", skipped("templates/collection.json", /no collection template/))
   check("the layout is not used", skipped("layout/theme.liquid", /page shell/))
   check("the theme's scripts are left out", skipped("assets/", /1 script was left out/))
-  check("the summary line counts sections", conversionSummary(report) === "Converted 3 of 6 sections and 1 of 1 blocks from Shopify. 3 were left out.", conversionSummary(report))
+  check("the summary line counts sections", conversionSummary(report) === "Converted 5 of 8 sections and 2 of 2 blocks from Shopify. 3 were left out.", conversionSummary(report))
   check("the license reminder says the importer is responsible", /right to use/.test(SHOPIFY_LICENSE_NOTICE) && !/—/.test(SHOPIFY_LICENSE_NOTICE))
   check("no report line uses an em dash", ![...report.notes.map((n) => n.message), ...report.skipped.map((s) => s.reason)].some((m) => m.includes("—")))
 
@@ -262,7 +327,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("saved values are kept for settings that survived, under their Storelib id", main.settings?.heading === "Hello" && main.settings?.padding_top === 48)
   check("values for dropped settings and shopify:// addresses are not", !("blog" in (main.settings ?? {})) && !("image" in (main.settings ?? {})))
   check("blocks of a type the section declares are kept, in order", JSON.stringify(main.block_order) === JSON.stringify(["b1", "b2"]) && main.blocks?.b1?.settings?.title === "One")
-  check("a dynamic source value is not kept as text", !("title" in (main.blocks?.b2?.settings ?? {})))
+  check("a dynamic source that names a product becomes a readable stand-in, not the tag", main.blocks?.b2?.settings?.title === "Product" && !String(main.blocks?.b2?.settings?.title).includes("{{"))
   check("theme blocks in a section keep their values", home.sections.q?.blocks?.q1?.settings?.text === "Lovely")
   check("no collection page was made", !pkg.files["templates/collection.json"])
   const settings = JSON.parse(pkg.files["config/settings.json"] ?? "{}")
@@ -293,6 +358,27 @@ async function shopifyZip(): Promise<JSZip> {
   const nothing = await convertShopifyTheme(none)
   check("a theme where no section converts is refused, with the first reason", nothing.ok === false && /No section of this Shopify theme could be converted\. sections\/a\.liquid/.test(nothing.error))
 
-  console.log(`\n${passed} passed, ${failed} failed\n`)
+  
+console.log("\nA real Shopify download is let in at upload, and nothing else gets in with it\n")
+{
+  const { checkZipDirectory, shopifyThemeRoot, shopifyScriptEntry, THEME_BLOCKED_INSIDE } = await import("@/lib/security/uploads/zip")
+  const { ARCHIVE_LIMITS } = await import("@/lib/security/uploads/policy")
+  const dirOf = (names: string[]) => ({ declaredEntries: names.length, entries: names.map((name, i) => ({ name, isDirectory: false, encrypted: false, uncompressedSize: 10, compressedSize: 10, localOffset: i * 100 })) }) as never
+  const verdict = (names: string[]) => {
+    const root = shopifyThemeRoot(names)
+    return checkZipDirectory(dirOf(names), 1000, ARCHIVE_LIMITS.theme, THEME_BLOCKED_INSIDE, root !== null ? shopifyScriptEntry(root) : undefined)
+  }
+  const dawn = ["sections/header.liquid", "sections/main-product.liquid", "config/settings_schema.json", "layout/theme.liquid", "assets/global.js", "assets/cart.js", "assets/base.css"]
+  check("Dawn's assets/*.js no longer refuse the whole theme", verdict(dawn).refusal === null, verdict(dawn).refusal)
+  check("  and the admin log says scripts were let in and never kept", verdict(dawn).notes.some((n) => n.code === "zip_shopify_scripts_ignored"))
+  check("  in a theme zipped inside its own folder too", verdict(dawn.map((n) => `dawn-main/${n}`)).refusal === null)
+  check("a .js anywhere else in a Shopify theme is still refused", verdict([...dawn, "snippets/evil.js"]).refusal?.code === "zip_blocked_entry")
+  check("a .js deeper inside assets is still refused", verdict([...dawn, "assets/vendor/x.js"]).refusal?.code === "zip_blocked_entry")
+  check("any other blocked type in a Shopify theme is still refused", verdict([...dawn, "assets/run.exe"]).refusal?.code === "zip_blocked_entry")
+  check("a .js in a zip that is not a Shopify theme is still refused", verdict(["theme.json", "sections/a.storelib", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+  check("a zip that only pretends (sections but no Shopify shell) gets no exemption", verdict(["sections/a.liquid", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+}
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)
 })()

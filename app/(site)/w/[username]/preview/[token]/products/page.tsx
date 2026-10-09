@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { dressPage, ownerOf } from "@/lib/website-builder/published-site"
+import { dressPage, ownerOf, siteCatalogue } from "@/lib/website-builder/published-site"
 import { previewTokenFrom, pageSections } from "@/lib/website-builder/preview-link"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { shopSections } from "@/lib/website-builder/shop-page"
@@ -54,8 +54,9 @@ export default async function PreviewShopPage({ params, searchParams }: PageProp
   const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
   const { sections, data } = await dressPage(owner, arranged, products, productCount, "page.products", "Shop", undefined, { cached: false })
   /* Filtered from the address, as the live shop page is (lib/products/catalog-filters.ts). */
-  const { listed, filters } = catalogPage(products ?? [], (await searchParams?.catch(() => undefined)) ?? {}, "/products")
-  const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", listed, { filters }, data)
+  const catalogue = await siteCatalogue(creatorId, { cached: false }).catch(() => products ?? [])
+  const { listed, filters, pagination } = catalogPage(catalogue.length ? catalogue : products ?? [], (await searchParams?.catch(() => undefined)) ?? {}, "/products")
+  const prerendered = renderWithSources(owner.sources, sections, themeSettings, "page.products", listed, { filters, pagination }, data)
 
   return (
     <StorelibSourcesProvider prerendered={prerendered} page={{ template: "page.products" }}>

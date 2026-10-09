@@ -50,6 +50,7 @@
  * and checkout checks that address against the creator's own sites
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
+import { cleanCustomFields } from "@/lib/products/custom-fields"
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
@@ -88,6 +89,8 @@ export interface ProductCard {
     currency: string
     /** True when it costs nothing. */
     free: boolean
+    /** The product's custom fields by name, plain words (lib/products/custom-fields.ts): `{{ block.settings.fields.material }}`. */
+    fields?: Record<string, string>
     /** True when the buyer chooses the amount, from `price` up. */
     pay_what_you_want: boolean
     /** The main picture, or "". */
@@ -144,6 +147,8 @@ export interface ProductRow {
   status: string | null
   inventory_count?: number | null
   track_inventory?: boolean | null
+  /** Named plain values (SQL part 107), when the row was read with them. */
+  custom_fields?: unknown
   gallery_urls?: unknown
   type?: string | null
   pay_what_you_want?: boolean | null
@@ -255,6 +260,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       checkout_url: available ? checkoutUrl(row.id) : "",
       variants: options,
       category: typeof row.category === "string" ? row.category : "",
+      fields: cleanCustomFields(row.custom_fields),
       options: optionRows
         .filter((o) => o.product_id === row.id && typeof o.name === "string" && Array.isArray(o.values))
         .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
@@ -380,12 +386,108 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
 export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
 
 /** Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws. */
-export async function cardsFromRows(db: unknown, rows: ProductRow[]): Promise<ProductCard[]> {
+export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string): Promise<ProductCard[]> {
   if (rows.length === 0) return []
   const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
-  const [variants, options] = await Promise.all([productVariants(db as Db, rows.map((r) => r.id)), productOptions(db as Db, physical)])
-  return rows.map((r) => toCard(r, variants, options))
+  /* In batches, so a long shop does not ask for hundreds of ids in one address. */
+  const [variants, options] = await Promise.all([variantsInBatches(db as Db, rows.map((r) => r.id)), optionsInBatches(db as Db, physical)])
+  const cards = rows.map((r) => toCard(r, variants, options))
+  const stocked = creatorId ? await withPhysicalStock(db as Db, creatorId, rows, cards).catch(() => cards) : cards
+  return await withCustomFields(db as Db, stocked).catch(() => stocked)
 }
+
+async function variantsInBatches(db: Db, ids: string[]): Promise<VariantRow[]> {
+  const out: VariantRow[] = []
+  for (let i = 0; i < ids.length; i += 80) out.push(...(await productVariants(db, ids.slice(i, i + 80))))
+  return out
+}
+
+/**
+ * ===========================================================================
+ *  A SHIPPED PRODUCT'S STOCK, PER OPTION, ON ITS CARD
+ * ===========================================================================
+ * A physical product's stock is held per variant and per location
+ * (inventory_levels), and the buy box and the product page read it
+ * (lib/physical/storefront-stock.ts). The shop's cards read only the
+ * product's own count, so a tote sold out in every size still said In stock
+ * on the grid, and each option copied the product.
+ *
+ * Here, with the same rule as the buy box: a variant that tracks stock and
+ * does not keep selling is sold out when the locations that fulfil orders
+ * hold none of it. Each option says so on its own, and the product is sold
+ * out when every option is. A database without these tables, or a product
+ * with no live variants, keeps what the card already said.
+ */
+type StockRow = { id: string; product_id: string; name: string | null; active?: boolean | null; track_inventory?: boolean | null; inventory_policy?: string | null }
+
+async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], cards: ProductCard[]): Promise<ProductCard[]> {
+  const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+  if (physical.length === 0) return cards
+  const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+  const live: StockRow[] = []
+  for (let i = 0; i < physical.length; i += 80) {
+    const { data, error } = await any.from("product_variants").select("id, product_id, name, active, track_inventory, inventory_policy").in("product_id", physical.slice(i, i + 80))
+    if (error) return cards
+    for (const v of (data ?? []) as StockRow[]) if (v.active !== false && !/^Archived /.test(v.name ?? "")) live.push(v)
+  }
+  if (live.length === 0) return cards
+  const { data: locations, error: locError } = await any.from("inventory_locations").select("id").eq("creator_id", creatorId).eq("active", true).eq("fulfills_orders", true)
+  if (locError) return cards
+  const locIds = ((locations ?? []) as { id: string }[]).map((l) => l.id)
+  const held = new Map<string, number>()
+  if (locIds.length) {
+    for (let i = 0; i < live.length; i += 80) {
+      const { data, error } = await any.from("inventory_levels").select("variant_id, available").in("variant_id", live.slice(i, i + 80).map((v) => v.id)).in("location_id", locIds)
+      if (error) return cards
+      for (const l of (data ?? []) as { variant_id: string; available: number }[]) held.set(l.variant_id, (held.get(l.variant_id) ?? 0) + Math.max(0, l.available))
+    }
+  }
+  const { data: keep } = await any.from("products").select("id, continue_selling").eq("status", "published").in("id", physical)
+  const keepSelling = new Set(((keep ?? []) as { id: string; continue_selling?: boolean | null }[]).filter((p) => p.continue_selling === true).map((p) => p.id))
+  const rowOf = new Map(rows.map((r) => [r.id, r]))
+  const soldOutVariant = new Map<string, boolean>()
+  for (const v of live) {
+    const tracked = v.track_inventory ?? rowOf.get(v.product_id)?.track_inventory ?? true
+    const keeps = v.inventory_policy === "continue" || keepSelling.has(v.product_id)
+    soldOutVariant.set(v.id, tracked && !keeps && (held.get(v.id) ?? 0) <= 0)
+  }
+  return cards.map((card) => {
+    const mine = live.filter((v) => v.product_id === card.id)
+    if (mine.length === 0) return card
+    const variants = card.settings.variants.map((opt) => {
+      const out = soldOutVariant.get(opt.id)
+      if (out === undefined) return opt
+      return { ...opt, available: !out, checkout_url: out ? "" : checkoutUrl(card.id, opt.id) }
+    })
+    const available = mine.some((v) => soldOutVariant.get(v.id) === false)
+    return { ...card, settings: { ...card.settings, variants, available, tag: available ? card.settings.tag === "Sold out" ? "" : card.settings.tag : "Sold out", checkout_url: available ? checkoutUrl(card.id) : "" } }
+  })
+}
+
+/**
+ * Each card's custom fields (products.custom_fields, SQL part 107), read in a
+ * request of their own so a database without the column still lists its
+ * products; then every card has `fields`, empty when it has none.
+ */
+export async function withCustomFields(db: Db, cards: ProductCard[]): Promise<ProductCard[]> {
+  if (cards.length === 0) return cards
+  const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+  const byId = new Map<string, Record<string, string>>()
+  for (let i = 0; i < cards.length; i += 80) {
+    const { data, error } = await any.from("products").select("id, custom_fields").eq("status", "published").in("id", cards.slice(i, i + 80).map((c) => c.id))
+    if (error) return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: c.settings.fields ?? {} } }))
+    for (const r of (data ?? []) as { id: string; custom_fields?: unknown }[]) byId.set(r.id, cleanCustomFields(r.custom_fields))
+  }
+  return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: byId.get(c.id) ?? {} } }))
+}
+
+async function optionsInBatches(db: Db, ids: string[]): Promise<OptionRow[]> {
+  const out: OptionRow[] = []
+  for (let i = 0; i < ids.length; i += 80) out.push(...(await productOptions(db, ids.slice(i, i + 80))))
+  return out
+}
+
+
 
 /**
  * ONE CREATOR'S published products, newest first, with their options.
@@ -420,6 +522,18 @@ export async function catalogCards(db: Db, creatorId: string, limit = MAX_CATALO
   return readCards(db, creatorId, n, false)
 }
 
+/**
+ * The whole shop for its own listing pages (/products, /collections/<handle>,
+ * /search), newest first, up to MAX_CATALOGUE_PRODUCTS: what the pages of
+ * catalogPage are cut from. The sections everywhere else keep the newest 24.
+ * Variants are read in batches, so a long shop does not ask for 240 ids in
+ * one address.
+ */
+export const MAX_CATALOGUE_PRODUCTS = 240
+export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductCard[]> {
+  return readCards(db, creatorId, MAX_CATALOGUE_PRODUCTS, true)
+}
+
 async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean): Promise<ProductCard[]> {
   if (!creatorId) return []
   try {
@@ -437,7 +551,7 @@ async function readCards(db: Db, creatorId: string, n: number, listedOnly: boole
       break
     }
     if (!rows) return []
-    return await cardsFromRows(db, rows)
+    return await cardsFromRows(db, rows, creatorId)
   } catch {
     return []
   }
