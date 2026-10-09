@@ -54,6 +54,7 @@
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
+import { revealForReturn } from "./return-morph"
 
 const OPEN_MS = 420
 /** How long the open waits for the post's pictures to decode before it moves anyway. */
@@ -340,6 +341,12 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
     for (const el of [page, inner, scrim, top]) for (const x of el.getAnimations()) x.cancel()
     page.style.willChange = "translate, scale, opacity"
     inner.style.willChange = "translate, scale"
+    /*
+      THE CARD IN FULL VIEW FIRST (return-morph.ts). While the post still covers the screen whole, the feed under it is moved
+      by the least that puts the card clear of the header and the tab bar, so the post never flies over a bar and lands half
+      under it. Not after a swipe, when the feed already shows around the page.
+    */
+    if (dy <= 0) revealForReturn(origin?.())
     const card = cardBox(origin)
     let main: Animation
     if (card) {
@@ -553,7 +560,7 @@ export function PostFullscreen({ open, label, title, origin, onRequestClose, onS
         </div>
       </div>
       {/* THE TOP: a soft blur under the status bar once the post moves, and the way back. Beside the page, not in it, so the morph's scale never squeezes it; a swipe moves it with the page. */}
-      <div ref={topRef} className="pointer-events-none absolute inset-x-0 top-[var(--vv-top,0px)] z-[5] origin-top-left" style={{ height: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX + 18}px)` }}>
+      <div ref={topRef} data-post-fullscreen-top="" className="pointer-events-none absolute inset-x-0 top-[var(--vv-top,0px)] z-[5] origin-top-left" style={{ height: `calc(max(env(safe-area-inset-top, 0px), 12px) + ${BAR_PX + 18}px)` }}>
         <div
           ref={blurRef}
           aria-hidden

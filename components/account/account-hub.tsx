@@ -44,7 +44,7 @@
 
 import { personName } from "@/lib/profile/display-name"
 import { usePathname } from "next/navigation"
-import type { ReactNode } from "react"
+import { useLayoutEffect, useRef, type ReactNode } from "react"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { AccountAvatar } from "@/components/account/account-photo"
@@ -76,6 +76,20 @@ export function AccountHub({ identity, communities = false, children }: { identi
   const pathname = usePathname()
   const shown = useShellAvatar(identity.avatarUrl)
   const name = personName({ name: identity.name, username: identity.username })
+  /*
+    A PILL PRESS CHANGES THE PANEL, NOT THE PAGE. Activity and Communities share the cover, the avatar and the pills
+    (one key in account-nav-fade.tsx, so none of them is built again or plays its entrance), and the panel under the
+    pills cross fades in on its own: opacity only, on the compositor, never on the first paint.
+  */
+  const panelRef = useRef<HTMLDivElement>(null)
+  const lastPanel = useRef(pathname)
+  useLayoutEffect(() => {
+    if (lastPanel.current === pathname) return
+    lastPanel.current = pathname
+    const el = panelRef.current
+    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
+    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" })
+  }, [pathname])
 
   if (!showsProfileHeader(pathname)) return <AccountColumn>{children}</AccountColumn>
 
@@ -119,7 +133,7 @@ export function AccountHub({ identity, communities = false, children }: { identi
       />
       <AccountColumn top={false}>
         <ProfileOwnerPills communities={communities} creator={!!identity.creator} className="mt-3" />
-        <div className="mt-6 min-w-0 sm:mt-8" data-account-panel="">
+        <div ref={panelRef} className="mt-6 min-w-0 sm:mt-8" data-account-panel="">
           {children}
         </div>
       </AccountColumn>

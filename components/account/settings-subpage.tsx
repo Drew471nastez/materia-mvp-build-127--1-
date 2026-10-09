@@ -25,7 +25,8 @@ const CACHE_MS = 5 * 60_000
 
 export type SettingsSection = "profile" | "account" | "privacy" | "notifications" | "preferences"
 
-type Open = { section: SettingsSection; id: number; data: Loaded | null }
+/** `full`: the data is the whole settings read, not the copy made from the profile while it loads. */
+type Open = { section: SettingsSection; id: number; data: Loaded | null; full?: boolean }
 
 type Loaded = React.ComponentProps<typeof AccountSettings>
 
@@ -69,18 +70,20 @@ export function primeSettingsFromProfile(seed: {
     createdAt: base?.createdAt ?? new Date().toISOString(),
     hasPassword: base?.hasPassword ?? true,
     via: base?.via ?? "",
-    isSeller: false,
+    /* What only the full read knows is kept from it: a creator never sees, for a moment, the switches and the editable handle a buyer has. */
+    isSeller: base?.isSeller ?? false,
     newsletter: base?.newsletter ?? false,
     personalized: base?.personalized ?? true,
     username: seed.username || "",
-    usernameEditable: true,
+    usernameEditable: base?.usernameEditable ?? true,
     privacy: base?.privacy ?? { showActivity: true, showCommunities: true, supported: false },
-    creator: false,
+    creator: base?.creator ?? false,
     cover: { url: (seed.coverUrl || base?.cover?.url || "").trim() || null, supported: true },
     location: base?.location ?? { city: null, country: null, supported: false },
     initialSection: "profile",
   }
-  cached = { data, at: Date.now(), complete: cached?.complete ?? false }
+  /* A copy made from the profile is not the whole settings: the next open reads them again, so it is filled with the real ones. */
+  cached = { data, at: Date.now(), complete: false }
 }
 
 function peekCache(section: SettingsSection): Loaded | null {
@@ -103,13 +106,13 @@ export function warmSettings(section: SettingsSection = "profile") {
 export function openSettingsSubpage(section: SettingsSection = "profile") {
   const id = ++seq
   const data = peekCache(section)
-  const open: Open = { section, id, data }
+  const open: Open = { section, id, data, full: !!cached?.complete && !!data }
   if (listen) listen(open)
   else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: open }))
   if (cached?.complete && data) return
   void warmSettings(section).then((fresh) => {
     if (!fresh) return
-    const filled: Open = { section, id, data: { ...fresh, initialSection: section } }
+    const filled: Open = { section, id, data: { ...fresh, initialSection: section }, full: true }
     if (listen) listen(filled)
     else window.dispatchEvent(new CustomEvent("storelib:settings-subpage", { detail: filled }))
   })
@@ -130,7 +133,7 @@ async function loadOwnSettings(section: SettingsSection): Promise<Loaded | null>
   }
 }
 
-function SettingsLayer({ section, data, onClose }: { section: SettingsSection; data: Loaded | null; onClose: () => void }) {
+function SettingsLayer({ section, data, full = false, onClose }: { section: SettingsSection; data: Loaded | null; full?: boolean; onClose: () => void }) {
   const panel = useRef<HTMLDivElement>(null)
   const closing = useRef(false)
   const closed = useRef(false)
@@ -207,7 +210,8 @@ function SettingsLayer({ section, data, onClose }: { section: SettingsSection; d
       >
         <div className="px-4 pb-8 pt-3 sm:px-6" data-settings-sheet-body="">
           {data ? (
-            <AccountSettings {...data} initialSection={section} onBack={close} />
+            /* Built again once the full read lands: the fields copy their values in once, and a city typed into the seed's empty location would otherwise save the country as nothing. */
+            <AccountSettings key={full ? "full" : "seed"} {...data} initialSection={section} onBack={close} />
           ) : (
             <>
               <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />
@@ -253,5 +257,7 @@ export function SettingsSubpageHost() {
     }
   }, [])
   if (!open || typeof document === "undefined") return null
-  return createPortal(<SettingsLayer key={open.id} section={open.section} data={open.data} onClose={() => setOpen(null)} />, document.body)
+  /* Only this layer's own close: one reopened while the last was sliding out is a new layer, and the old one's timer must not take it away. */
+  const id = open.id
+  return createPortal(<SettingsLayer key={id} section={open.section} data={open.data} full={open.full} onClose={() => setOpen((cur) => (cur?.id === id ? null : cur))} />, document.body)
 }

@@ -173,6 +173,18 @@ export function SoftImg({
       setState("cached")
     }
   }, [src, eager])
+  /*
+    THE BLUR GOES ONCE THE PICTURE IS IN (round 24). A picture that faded in stayed "in" for the card's life, and the blurred
+    copy under it with it: after one scroll down the feed, 44 blurred boxes for 44 pictures, 32 of them under a picture
+    already drawn, each one re-rasterised (a 10px CSS blur of a box scaled to 110%) whenever its tile was painted, which on
+    iOS is the CPU. Measured at 4x CPU, raster over the same swipes went from 400 to 570ms to 220 to 260ms without them.
+    Once the fade has ended the picture counts as drawn: no blur under it, no transition on it.
+  */
+  useEffect(() => {
+    if (state !== "in") return
+    const t = window.setTimeout(() => setState((s) => (s === "in" ? "cached" : s)), FADE_MS + 40)
+    return () => window.clearTimeout(t)
+  }, [state])
   const shown = state !== "wait"
   return (
     <>
@@ -349,7 +361,12 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
  * first large on the left and two stacked on the right, the last saying how
  * many more. A GIF plays while it is on screen.
  */
-export function CardMedia({ media, className = "" }: { media: PostMedia[]; className?: string }) {
+/**
+ * `priority`: one of the first cards on the screen. Its pictures are asked for at once and first (eager, high), so landing on
+ * the feed shows them in one step rather than a grey box, then a blur, then the picture (round 24, measured: about ten grey
+ * frames on a client arrival, because the first screenful was lazy too).
+ */
+export function CardMedia({ media, className = "", priority = false }: { media: PostMedia[]; className?: string; priority?: boolean }) {
   const pics = cardPictures(media)
   if (!pics.length) return null
   const box = "relative overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)]"
@@ -358,7 +375,7 @@ export function CardMedia({ media, className = "" }: { media: PostMedia[]; class
     const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
     return (
       <div className={`${box} ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
-        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="(min-width: 640px) 600px, 100vw" display={640} />
+        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="(min-width: 640px) 600px, 100vw" display={640} priority={priority} />
         <span aria-hidden className={PICTURE_EDGE} />
       </div>
     )
@@ -370,7 +387,7 @@ export function CardMedia({ media, className = "" }: { media: PostMedia[]; class
     <div className={`${box} grid aspect-[2/1] grid-cols-2 gap-[3px] bg-white sm:aspect-[8/3] ${three ? "grid-rows-2" : ""} ${className}`} data-card-media={three ? "grid" : "pair"}>
       {shown.map((p, i) => (
         <div key={i} className={`relative min-h-0 overflow-hidden bg-[#f1f2f4] ${three && i === 0 ? "row-span-2" : ""}`} data-card-media-tile={p.kind}>
-          <CardPictureImg p={p} widths={three && i > 0 ? [256, 384, 640] : [256, 384, 640, 828]} sizes={three && i > 0 ? "(min-width: 640px) 300px, 50vw" : "(min-width: 640px) 360px, 50vw"} display={three && i > 0 ? 300 : 384} />
+          <CardPictureImg p={p} widths={three && i > 0 ? [256, 384, 640] : [256, 384, 640, 828]} sizes={three && i > 0 ? "(min-width: 640px) 300px, 50vw" : "(min-width: 640px) 360px, 50vw"} display={three && i > 0 ? 300 : 384} priority={priority} />
           {i === shown.length - 1 && more > 0 ? (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
               +{more}
@@ -383,13 +400,13 @@ export function CardMedia({ media, className = "" }: { media: PostMedia[]; class
   )
 }
 
-function CardPictureImg({ p, widths, sizes, display }: { p: CardPicture; widths: number[]; sizes: string; display: number }) {
+function CardPictureImg({ p, widths, sizes, display, priority = false }: { p: CardPicture; widths: number[]; sizes: string; display: number; priority?: boolean }) {
   const [failed, setFailed] = useState(false)
   const srcSet = p.local ? optimizedSrcSet(p.url, widths) : ""
   return (
     <>
       {failed ? null : p.kind === "gif" && p.motion ? (
-        <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" />
+        <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" eager={priority} />
       ) : (
         <SoftImg
           src={p.local ? optimizedImageUrl(p.url, display) : p.url}
@@ -399,6 +416,8 @@ function CardPictureImg({ p, widths, sizes, display }: { p: CardPicture; widths:
           referrerPolicy={p.local ? undefined : "no-referrer"}
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
+          eager={priority}
+          fetchPriority={priority ? "high" : undefined}
         />
       )}
       {p.kind === "video" ? (

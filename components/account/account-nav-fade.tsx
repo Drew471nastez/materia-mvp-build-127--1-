@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef } from "react"
 import { tabSwapInProgress } from "@/lib/nav/tab-swap"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
+import { showsProfileHeader } from "@/lib/profile/owner-pills"
 import { accountPinnedScroll, accountScrollPinPaused, opensAtTop, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 
@@ -17,7 +18,10 @@ import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
  * the flash and the jump the owner saw. Every other address keeps its own.
  */
 export function navFadeKey(pathname: string | null): string {
-  return showsLibraryTabs(pathname) ? "library-tabs" : pathname || ""
+  if (showsLibraryTabs(pathname)) return "library-tabs"
+  /* The profile's two pills (Activity, Communities) are one page under one header: a pill press changes the panel, never the cover, the avatar and the pills (components/account/account-hub.tsx). */
+  if (showsProfileHeader(pathname)) return "profile"
+  return pathname || ""
 }
 
 /**
@@ -108,7 +112,8 @@ function useTopOnArrival(key: string) {
     [],
   )
   useLayoutEffect(() => {
-    if (!opensAtTop(key)) {
+    /* The profile's pills share one key; arriving at it from another tab still opens at the top, as /account does. */
+    if (!opensAtTop(key === "profile" ? "/account" : key)) {
       lastAccountKey = key
       return
     }

@@ -213,11 +213,23 @@ export function SaveBar({
           : `translate ${SAVE_BAR_MS}ms ${EASE}, visibility 0s linear ${shown ? 0 : SAVE_BAR_MS}ms`,
         visibility: docked || shown ? "visible" : "hidden",
         pointerEvents: shown ? "auto" : "none",
-        paddingTop: docked ? (shown ? 8 : 0) : undefined,
-        paddingBottom: docked ? (shown ? "max(8px, env(safe-area-inset-bottom, 0px))" : 0) : undefined,
       }}
     >
-      <div className={cn("mx-auto flex w-full max-w-[960px] items-center gap-2", docked && "min-h-0 overflow-hidden")} style={{ paddingLeft: ACCOUNT_GUTTER_LEFT, paddingRight: ACCOUNT_GUTTER_RIGHT }} data-account-save-row="">
+      {/*
+        DOCKED, THE PADDING GROWS WITH THE ROW. It was on the bar itself and switched at once, so the bar jumped 8px and the
+        home indicator's room before its row started to open. Inside the track that opens (0fr to 1fr), it opens with it.
+      */}
+      <div className={cn(docked && "min-h-0 overflow-hidden")} data-account-save-track="">
+      <div
+        className="mx-auto flex w-full max-w-[960px] items-center gap-2"
+        style={{
+          paddingLeft: ACCOUNT_GUTTER_LEFT,
+          paddingRight: ACCOUNT_GUTTER_RIGHT,
+          paddingTop: docked ? 8 : undefined,
+          paddingBottom: docked ? "max(8px, env(safe-area-inset-bottom, 0px))" : undefined,
+        }}
+        data-account-save-row=""
+      >
         <p className="min-w-0 flex-1 text-[13px] leading-[1.4] text-[#6b7280]" aria-live="polite" data-account-save-note="">
           {error ? (
             <span role="alert" className="line-clamp-2 text-[#b42318]">
@@ -257,6 +269,7 @@ export function SaveBar({
             </span>
           ) : null}
         </button>
+      </div>
       </div>
     </div>,
     portalTarget,

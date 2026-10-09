@@ -43,6 +43,7 @@ const SUITES = [
   "tests/coded-chrome.test.ts",
   "tests/product-source.test.ts",
   "tests/editor-stability.test.ts",
+  "tests/community-mobile.test.ts",
   "tests/reference-diff.test.ts",
   "tests/ai-runs-admin.test.ts",
   "tests/site-media.test.ts",

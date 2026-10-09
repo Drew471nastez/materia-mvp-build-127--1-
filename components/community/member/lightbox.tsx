@@ -52,6 +52,7 @@ import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { EMBED_NAMES, embedPlayerSrc, type ViewerItem } from "@/lib/communities/post-media"
 import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
 import { ProviderMark } from "./media-providers"
+import { coverMorph, revealForReturn } from "./return-morph"
 /* The app's sheet arithmetic, so the slider is let go the way a sheet is (pure: no DOM, no React). */
 import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sample } from "@/components/website-builder/sheet-gestures"
 
@@ -90,6 +91,21 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
     if (!open || typeof window === "undefined") return
     const marker = `layer-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     let mine = true
+    /*
+      THE PAGE UNDER IT KEEPS WHERE IT IS NOW. With the browser's own scroll restoration on, stepping back over this entry
+      put the page back where it was when the layer opened: a post that closed into a card moved clear of the tab bar
+      (return-morph.ts revealForReturn) jumped back under it the moment it had landed. Manual while the layer is up, as the
+      composer and the library do, and put back once the step back has been made.
+    */
+    const restoration = window.history.scrollRestoration
+    window.history.scrollRestoration = "manual"
+    const putBack = () => window.setTimeout(() => {
+      try {
+        window.history.scrollRestoration = restoration
+      } catch {
+        /* A browser without it has nothing to put back. */
+      }
+    }, 400)
     try {
       window.history.pushState({ ...(window.history.state ?? {}), storelibLayer: marker }, "", url || window.location.href)
     } catch {
@@ -104,6 +120,7 @@ export function useHistoryLayer(open: boolean, onClose: () => void, url?: string
     window.addEventListener("popstate", onPop)
     return () => {
       window.removeEventListener("popstate", onPop)
+      putBack()
       /* Still open: the page left on its own (a route change). Stepping back here fights that navigation and lands on the post again. */
       if (openRef.current) return
       if (!mine) return
@@ -188,21 +205,6 @@ function onScreen(el: HTMLElement | null | undefined): DOMRect | null {
   const r = el.getBoundingClientRect()
   if (r.width < 4 || r.height < 4 || r.bottom < 0 || r.top > window.innerHeight || r.right < 0 || r.left > window.innerWidth) return null
   return r
-}
-
-/**
- * How a picture at `to` (where it is laid out) has to be moved, scaled and
- * cropped to cover `from` (a thumbnail, cropped to fill): the same picture,
- * drawn where and as the thumbnail is. The crop is in the picture's own
- * pixels, before the scale.
- */
-function coverFrom(from: DOMRect, to: DOMRect, radius: number): Pose & { clipPath: string } {
-  const s = Math.max(from.width / to.width, from.height / to.height)
-  const tx = from.left + from.width / 2 - (to.left + to.width / 2)
-  const ty = from.top + from.height / 2 - (to.top + to.height / 2)
-  const ix = Math.max(0, (to.width - from.width / s) / 2)
-  const iy = Math.max(0, (to.height - from.height / s) / 2)
-  return { ...pose(tx, ty, s), clipPath: `inset(${iy.toFixed(1)}px ${ix.toFixed(1)}px round ${(radius / s).toFixed(1)}px)` }
 }
 
 /**
@@ -313,8 +315,15 @@ export function Lightbox({
     const i = indexRef.current
     const el = media(i)
     const now = el?.getBoundingClientRect()
-    const target = zoomRef.current.s > 1 ? null : onScreen(originRef.current?.(i))
     const backFrom = Number(getComputedStyle(back).opacity)
+    /*
+      THE THUMBNAIL IN FULL VIEW FIRST (return-morph.ts). While the black still covers the screen whole, the page under it
+      is moved by the least that puts the thumbnail clear of the header and the tab bar, so the picture never lands half
+      under a bar. Not after a pull, when the page already shows.
+    */
+    const thumbEl = zoomRef.current.s > 1 ? null : originRef.current?.(i)
+    if (thumbEl && backFrom >= 0.98 && drag.current.y <= 0) revealForReturn(thumbEl)
+    const target = thumbEl ? onScreen(thumbEl) : null
     back.style.opacity = "0"
     back.animate([{ opacity: backFrom }, { opacity: 0 }], { duration: CLOSE_MS, easing: "ease-out" })
     if (chromeRef.current) chromeRef.current.style.opacity = "0"
@@ -325,15 +334,22 @@ export function Lightbox({
       done()
     }
     window.setTimeout(end, CLOSE_MS + 200)
-    if (el && now && now.width > 0 && target) {
+    if (el && now && now.width > 0 && target && rootRef.current) {
       /* Where it is laid out, without the pull's move: the way back starts from where it is seen. */
       put(stage, null)
       const laid = el.getBoundingClientRect()
-      const from = pose(now.left + now.width / 2 - (laid.left + laid.width / 2), now.top + now.height / 2 - (laid.top + laid.height / 2), now.width / laid.width)
-      const to = coverFrom(target, laid, 12)
+      const from = { dx: now.left + now.width / 2 - (laid.left + laid.width / 2), dy: now.top + now.height / 2 - (laid.top + laid.height / 2), s: now.width / laid.width }
+      if (el instanceof HTMLImageElement) {
+        /* A copy flies in a box that crops it, by translate and scale only: no clip-path repainted every frame on iOS. */
+        void coverMorph({ host: rootRef.current, img: el, thumb: target, laid, way: "out", ms: CLOSE_MS, easing: SHEET_CLOSE_EASE, from, fallback: thumbEl?.querySelector("img") ?? null }).then(end)
+        return
+      }
+      /* A video or a player: the whole box, uniformly, onto the thumbnail's middle, fading as it lands. */
+      const s = Math.min(target.width / laid.width, target.height / laid.height)
+      const to = pose(target.left + target.width / 2 - (laid.left + laid.width / 2), target.top + target.height / 2 - (laid.top + laid.height / 2), s)
       put(el, to)
-      el.style.clipPath = to.clipPath
-      el.animate([{ ...from, clipPath: "inset(0px 0px round 0px)" }, to], { duration: CLOSE_MS, easing: SHEET_CLOSE_EASE }).onfinish = end
+      el.style.opacity = "0"
+      el.animate([{ ...pose(from.dx, from.dy, from.s), opacity: 1 }, { ...to, opacity: 1, offset: 0.75 }, { ...to, opacity: 0 }], { duration: CLOSE_MS, easing: SHEET_CLOSE_EASE }).onfinish = end
       return
     }
     const fromP: Pose = { translate: stage.style.translate || IDENTITY.translate, scale: stage.style.scale || IDENTITY.scale }
@@ -357,9 +373,16 @@ export function Lightbox({
     chromeRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: OPEN_MS, easing: "ease-out" })
     const el = media(index)
     const laid = el?.getBoundingClientRect()
-    const from = onScreen(originRef.current?.(index))
-    if (el && laid && laid.width > 0 && laid.height > 0 && from) {
-      el.animate([coverFrom(from, laid, 12), { ...IDENTITY, clipPath: "inset(0px 0px round 0px)" }], { duration: OPEN_MS, easing: SHEET_EASE }).onfinish = opened
+    const thumbEl = originRef.current?.(index)
+    const from = onScreen(thumbEl)
+    if (el && laid && laid.width > 0 && laid.height > 0 && from && rootRef.current) {
+      if (el instanceof HTMLImageElement) {
+        /* Out of the thumbnail by translate and scale only (return-morph.ts), the thumbnail's own loaded picture flown while the large one arrives. */
+        void coverMorph({ host: rootRef.current, img: el, thumb: from, laid, way: "in", ms: OPEN_MS, easing: SHEET_EASE, fallback: thumbEl?.querySelector("img") ?? null }).then(opened)
+        return
+      }
+      const s = Math.min(from.width / laid.width, from.height / laid.height)
+      el.animate([{ ...pose(from.left + from.width / 2 - (laid.left + laid.width / 2), from.top + from.height / 2 - (laid.top + laid.height / 2), s), opacity: 0 }, { ...IDENTITY, opacity: 1, offset: 0.25 }, { ...IDENTITY, opacity: 1 }], { duration: OPEN_MS, easing: SHEET_EASE }).onfinish = opened
       return
     }
     stage.animate([{ opacity: 0, scale: "0.96" }, { opacity: 1, scale: "1" }], { duration: OPEN_MS - 60, easing: SHEET_EASE }).onfinish = opened

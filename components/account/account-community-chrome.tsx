@@ -14,7 +14,7 @@ import { useEffect, useLayoutEffect, useState, useSyncExternalStore } from "reac
 import { usePathname } from "next/navigation"
 import { CommunityTopBar } from "@/components/community/member/top-bar"
 import type { TopBarData } from "@/components/community/member/view-types"
-import { useCommunityContextMeta } from "@/lib/nav/community-context"
+import { endCommunityContext, useCommunityContextMeta } from "@/lib/nav/community-context"
 import {
   accountChromeReady,
   publishAccountChrome,
@@ -28,6 +28,13 @@ function clearPending() {
   document.documentElement.removeAttribute("data-account-community-pending")
 }
 
+const noop = () => () => {}
+
+/** False while React hydrates (the server's snapshot of the community context is empty), true after. */
+function useHydrated(): boolean {
+  return useSyncExternalStore(noop, () => true, () => false)
+}
+
 export function AccountCommunityChrome() {
   const pathname = usePathname()
   const ctx = useCommunityContextMeta()
@@ -38,9 +45,19 @@ export function AccountCommunityChrome() {
      earlier visit drew on the feed (a second header) and on the library (an
      empty band, hidden under Storelib's fixed header but still taking room). */
   const topBar = !active ? null : fresh && ctx.slug && fresh.community.slug === ctx.slug ? fresh : cached
+  const hydrated = useHydrated()
 
+  /*
+    THE WHITE BAR THAT WAITS FOR THE COMMUNITY'S, LET GO EVERY TIME IT SHOULD BE.
+    - Not before hydration: the first render reads the server's empty community context, and clearing then showed
+      Storelib's header for a frame on every full load of /account in a community, before the community's bar
+      replaced it.
+    - On every route change (pathname): Profile pressed and another tab pressed before /account arrived left the
+      flag on, and the next page drew with Storelib's header hidden.
+  */
   useLayoutEffect(() => {
     if (!active || !ctx.slug) {
+      if (!hydrated) return
       publishAccountChrome(null, null)
       clearPending()
       return
@@ -49,16 +66,28 @@ export function AccountCommunityChrome() {
       publishAccountChrome(ctx.slug, topBar)
       clearPending()
     }
-  }, [active, ctx.slug, topBar])
+  }, [active, ctx.slug, topBar, hydrated, pathname])
 
   useEffect(() => {
     if (!active || !ctx.slug) return
     let live = true
     const slug = ctx.slug
     void fetch(`/api/community/by-slug/${encodeURIComponent(slug)}/member-chrome`, { credentials: "same-origin" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        /* Not a member any more (left, removed, the community gone): the profile is Storelib's, and the context ends. */
+        if (r.status === 404 || r.status === 403) {
+          if (live) endCommunityContext()
+          return null
+        }
+        return r.ok ? r.json() : null
+      })
       .then((json: { topBar?: TopBarData } | null) => {
-        if (!live || !json?.topBar) return
+        if (!live) return
+        /* No bar to draw: the white band waiting for one goes, or it would stay for good. */
+        if (!json?.topBar) {
+          if (!readCommunityChrome(slug)) clearPending()
+          return
+        }
         rememberCommunityChrome(slug, json.topBar)
         setFresh(json.topBar)
         publishAccountChrome(slug, json.topBar)

@@ -168,6 +168,8 @@ export interface PostCardProps {
   /** The permalink: the whole text, no link on the title. */
   full?: boolean
   readOnly?: boolean
+  /** One of the first cards on the screen: its pictures are asked for at once, first, not when they scroll near. */
+  priority?: boolean
   /** Where the comment button goes; the permalink passes a function that focuses its box. */
   onComment?: () => void
   /** Open Edit post at once (the post page with ?edit=1, round 13); ignored unless the viewer may edit it. */
@@ -193,11 +195,19 @@ export const PHONE_ROW =
  * about half a second of main thread at 4x CPU before the first of them
  * showed (scripts/check-community-posts.mjs MOUNT). Three things now:
  *
- *   A CARD OFF SCREEN IS NOT LAID OUT OR PAINTED (content-visibility:
- *   auto). It keeps its place at the height it last had, remembered per
- *   post for this page's life (REMEMBERED below, measured by one shared
- *   ResizeObserver), so the page is as tall as it was and a scroll position
- *   comes back to the same post.
+ *   EVERY CARD IS LAID OUT, ON SCREEN OR NOT (round 24). It was skipped
+ *   while off screen (content-visibility: auto), kept at a remembered
+ *   height. That height was the card's border box handed to a property that
+ *   sizes the content box, so every skipped card was 32px too tall on a
+ *   phone (its padding and border counted twice): each card that came on
+ *   screen jumped, and Back landed a few hundred pixels off. Measured over
+ *   the same swipes at 4x CPU, the skipping also cost more than it saved:
+ *   style 405ms against 125, layout 220 against 80, raster 400 to 570
+ *   against 170, because every card coming near the screen was styled,
+ *   laid out and rasterised from nothing. The remembered height (REMEMBERED
+ *   below, the border box, measured by one shared ResizeObserver) still
+ *   sizes a card's placeholder for its first frame, which is what a border
+ *   box is right for.
  *
  *   THE FEED DRAWS A SCREENFUL FIRST (feed.tsx, FIRST_CARDS): the rest are
  *   placeholders of the same remembered height for one frame, then become
@@ -260,9 +270,9 @@ function whenLabel(iso: string): string {
   draws again only when its own post (or how it is shown) changes, and calls
   the feed's latest `update` through a ref.
 */
-export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment && a.autoEdit === b.autoEdit)
+export const PostCard = memo(PostCardView, (a, b) => a.post === b.post && a.slug === b.slug && a.viewer === b.viewer && a.full === b.full && a.readOnly === b.readOnly && a.onComment === b.onComment && a.autoEdit === b.autoEdit && a.priority === b.priority)
 
-function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment, autoEdit = false }: PostCardProps) {
+function PostCardView({ post, slug, viewer, update: given, full = false, readOnly = false, onComment, autoEdit = false, priority = false }: PostCardProps) {
   const latest = useRef(given)
   useEffect(() => {
     latest.current = given
@@ -559,8 +569,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     return (
       <article
         ref={cardRef}
-        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 [content-visibility:auto] sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)] ${post.pinned ? PINNED : ""}`}
-        style={{ containIntrinsicSize: `auto ${heightOf(post.id)}px` }}
+        className={`${CARD} ${PHONE_ROW} group/post cursor-pointer px-4 pb-2 pt-4 transition-[border-color,box-shadow] duration-150 sm:px-5 sm:pt-5 sm:hover:border-[#dfe2e6] sm:hover:shadow-[0_1px_3px_rgba(17,24,39,0.05)] ${post.pinned ? PINNED : ""}`}
         data-post={post.id}
         data-pinned={post.pinned ? "true" : undefined}
         onClick={editing ? undefined : openPost}
@@ -619,7 +628,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                 />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
-              <CardMedia media={media} className={several ? "mt-3" : "mt-3 sm:hidden"} />
+              <CardMedia media={media} priority={priority} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
             {several ? null : <PostThumb media={media} className="max-sm:hidden" />}
           </div>

@@ -22,6 +22,7 @@
  * draws it, and so does the feed while a list it has never read is on its
  * way (feed.tsx). Server safe: no hooks; the motion is CSS.
  */
+import { PageTitle } from "./headers"
 import { ActivitySpinner, SPINNER_SIZE } from "@/components/ui/activity-spinner"
 
 /** How long a wait goes unmarked: most places arrive before this. */
@@ -79,6 +80,23 @@ export function PlaceSpinner({ label = "Loading", compact = false }: { label?: s
       data-place-spinner={compact ? "list" : "page"}
     >
       <Spinner />
+    </div>
+  )
+}
+
+/**
+ * A PLACE ON ITS WAY, WITH ITS TITLE ALREADY THERE (round 24). The spinner on its own left the column empty for its first
+ * 240ms (it waits before it shows) and then drew only a spinner, so a place that was not read ahead opened on nothing; the
+ * title then arrived with the page and everything under it moved. The place's own title line, exactly as its page draws it
+ * (PageTitle), comes at once, the spinner under it after the wait, and when the page lands the title stays where it is and
+ * only what is under it fades in (shell-frame.tsx). A detail the page has and the loading screen cannot know (a count) keeps
+ * its line, so nothing moves.
+ */
+export function PlaceLoading({ title, detail = null, label }: { title: string; detail?: string | null; label?: string }) {
+  return (
+    <div data-place-loading="">
+      <PageTitle title={title} detail={detail} />
+      <PlaceSpinner label={label ?? `Loading ${title.toLowerCase()}`} />
     </div>
   )
 }

@@ -684,7 +684,7 @@ const FeedBody = memo(
               data-feed-list=""
             >
               {posts.map((p, i) =>
-                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} /> : <PostCardPlaceholder key={p.id} post={p} />,
+                i < firstCards || whole || onScreen.current.has(p.id) ? <PostCard key={p.id} post={p} slug={slug} viewer={viewer} update={update} readOnly={readOnly} priority={i < 2} /> : <PostCardPlaceholder key={p.id} post={p} />,
               )}
             </div>
           )}

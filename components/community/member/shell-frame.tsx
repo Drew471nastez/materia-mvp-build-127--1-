@@ -97,6 +97,8 @@ import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
+import { prefetchOnIdle } from "@/lib/nav/prefetch-policy"
+import { arrivedByBack } from "./return-scroll"
 import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
 import { InviteSheet } from "./invite-sheet"
@@ -392,15 +394,27 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     swaps it in on the next frame. The place on screen is not asked for again.
   */
   const hrefs = useMemo(() => [...entries.map((e) => e.href), `/community/${community.slug}/membership`], [entries, community.slug])
+  /*
+    AND AGAIN AS THE MEMBER MOVES (round 24). Read once per visit, a place's copy was gone after the router's five minutes, and
+    Leaderboard or Members then opened on an empty column and a spinner. Now every move reads the other places again through the
+    app's prefetch plan (lib/nav/prefetch-policy.ts): a place read within the last four minutes is not asked for twice, a lean or
+    Save-Data phone reads one, and the places a member opens most (Leaderboard, Members) come first.
+  */
+  const ordered = useMemo(() => {
+    const rank = (h: string) => (/\/leaderboard$/.test(h) ? 0 : /\/members$/.test(h) ? 1 : 2)
+    return [...hrefs].sort((a, b) => rank(a) - rank(b))
+  }, [hrefs])
+  useEffect(() => {
+    const here = (pathname || "").replace(/\/+$/, "")
+    return prefetchOnIdle(router, ordered.filter((h) => h !== here))
+  }, [ordered, router, pathname])
   useEffect(
     () =>
       whenIdle(() => {
-        const here = (pathRef.current || "").replace(/\/+$/, "")
-        for (const href of hrefs) if (href !== here) router.prefetch(href, { kind: FULL })
-        /* And what the search knows before a key is pressed (round 10), so its first results come at once. */
+        /* What the search knows before a key is pressed (round 10), so its first results come at once. */
         void preloadSearchIndex(community.id)
       }),
-    [hrefs, router, community.id],
+    [community.id],
   )
 
   /*
@@ -437,6 +451,40 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       document.removeEventListener("visibilitychange", onVisible)
     }
   }, [community.id, router])
+
+  /*
+    ONE LANDING, AND NONE ON BACK (round 24). A place that was not read ahead drew its loading screen (which lands) and then the
+    page (which landed again): two fades, the second over a title already on screen. And Back, which a native app answers by
+    putting the page back as it was, faded and rose like a new page. Watched as the page swaps in, before it is painted:
+    - reached by Back or Forward: no landing at all;
+    - in place of a loading screen: the title the loading screen already drew stays put, and only what is under it fades in.
+    Everything else lands as before (ARRIVE).
+  */
+  const bodyRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    /* A whole place's loading screen, not a list's spinner inside the feed. */
+    const PAGE_LOADING = '[data-place-loading], [data-place-spinner="page"]'
+    const body = bodyRef.current
+    if (!body || typeof MutationObserver === "undefined") return
+    const mo = new MutationObserver((records) => {
+      const fromLoading = records.some((r) => Array.from(r.removedNodes).some((n) => n instanceof Element && (n.matches(PAGE_LOADING) || !!n.querySelector(PAGE_LOADING))))
+      const back = arrivedByBack()
+      if (!fromLoading && !back) return
+      for (const r of records) {
+        for (const n of Array.from(r.addedNodes)) {
+          if (!(n instanceof HTMLElement) || n.matches(PAGE_LOADING)) continue
+          n.style.animation = "none"
+          if (back || typeof n.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) continue
+          for (const child of Array.from(n.children)) {
+            if (child.matches("[data-page-title]")) continue
+            ;(child as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
+          }
+        }
+      }
+    })
+    mo.observe(body, { childList: true, subtree: true })
+    return () => mo.disconnect()
+  }, [])
 
   const homeHref = `/community/${community.slug}`
   useEffect(
@@ -492,7 +540,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               ) : null}
             </aside>
             <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"}`} data-community-main="">
-              <div className={`${moved && !quietArrival ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
+              <div ref={bodyRef} className={`${moved && !quietArrival ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
                 <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
               </div>
             </div>

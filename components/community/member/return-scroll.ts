@@ -34,6 +34,90 @@ let poppedAt = -Infinity
 /* A layer closing (a post, the viewer) steps back too; the page under it never moved, so that is not a Back to restore (lib/nav/layer-back.ts). */
 if (typeof window !== "undefined") window.addEventListener("popstate", () => void (isLayerBack() || (poppedAt = performance.now())))
 
+/* The page a Back last landed on, and when: useReturnScroll uses up `poppedAt` before the frame watches the page swap in. */
+let backLanding: { path: string; at: number } | null = null
+
+/** Whether the page arriving now was reached by Back or Forward a moment ago: it is put back as it was, with no landing. */
+export function arrivedByBack(withinMs = 1500): boolean {
+  if (typeof performance === "undefined" || typeof window === "undefined") return false
+  if (performance.now() - poppedAt < withinMs) return true
+  return !!backLanding && backLanding.path === window.location.pathname && performance.now() - backLanding.at < withinMs
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════════
+   BACK LANDS ON THE SAME POST, NOT THE SAME NUMBER (round 24)
+  ═══════════════════════════════════════════════════════════════════════════
+  The window's scroll alone was put back, on the first frame, while the feed
+  under it was still settling (cards are drawn at an estimated height until
+  they are on screen, content-visibility): the posts moved 38px under a
+  page that had arrived where it was left. The post at the top of the
+  screen is noted with the scroll, and for the frames the feed takes to
+  settle it is kept exactly where it was, until a finger or a wheel moves.
+*/
+const ANCHOR_KEY = "storelib:community-anchor"
+type Anchor = { id: string; top: number }
+
+function anchorNow(): Anchor | null {
+  if (typeof document === "undefined") return null
+  const y = Math.min(window.innerHeight - 1, Math.max(0, (document.querySelector("[data-community-top]")?.getBoundingClientRect().bottom ?? 0) + 24))
+  const hit = document.elementFromPoint(Math.round(window.innerWidth / 2), Math.round(y))?.closest<HTMLElement>("[data-post]")
+  const id = hit?.getAttribute("data-post")
+  return hit && id ? { id, top: Math.round(hit.getBoundingClientRect().top) } : null
+}
+
+function writeAnchor(path: string, a: Anchor | null) {
+  try {
+    const raw = tabStorageGet(ANCHOR_KEY)
+    const all = (raw ? (JSON.parse(raw) as Record<string, Anchor>) : {}) ?? {}
+    delete all[path]
+    if (a) all[path] = a
+    const keys = Object.keys(all)
+    for (const k of keys.slice(0, Math.max(0, keys.length - KEPT))) delete all[k]
+    tabStorageSet(ANCHOR_KEY, JSON.stringify(all))
+  } catch {
+    /* No storage: the scroll alone is put back. */
+  }
+}
+
+function anchorFor(path: string): Anchor | null {
+  try {
+    const raw = tabStorageGet(ANCHOR_KEY)
+    const a = raw ? (JSON.parse(raw) as Record<string, Anchor>)[path] : null
+    return a && typeof a.id === "string" && Number.isFinite(a.top) ? a : null
+  } catch {
+    return null
+  }
+}
+
+/** For `frames` frames, keep the noted post where it was on screen (at `y` while it is not drawn yet), unless the person moves the page. */
+function holdAnchor(a: Anchor, y: number, frames = 30): () => void {
+  let n = 0
+  let id = 0
+  let over = false
+  const stop = () => {
+    over = true
+  }
+  window.addEventListener("touchstart", stop, { once: true, passive: true })
+  window.addEventListener("wheel", stop, { once: true, passive: true })
+  const step = () => {
+    if (over) return
+    const el = document.querySelector<HTMLElement>(`[data-post="${CSS.escape(a.id)}"]`)
+    if (el) {
+      const d = el.getBoundingClientRect().top - a.top
+      if (Math.abs(d) > 1) window.scrollTo(0, Math.max(0, window.scrollY + d))
+    } else if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
+    if (++n < frames) id = requestAnimationFrame(step)
+  }
+  step()
+  return () => {
+    over = true
+    cancelAnimationFrame(id)
+    window.removeEventListener("touchstart", stop)
+    window.removeEventListener("wheel", stop)
+  }
+}
+
 function readAll(): Record<string, number> {
   try {
     const raw = tabStorageGet(RETURN_SCROLL_KEY)
@@ -146,27 +230,54 @@ export function useSectionTop(pathname: string, slug: string) {
 export function useReturnScroll(pathname: string) {
   const pathRef = useRef(pathname)
   pathRef.current = pathname
+  /*
+    NOTED WHEN THE SCROLL RESTS, NOT ON EVERY FRAME (round 24). Each frame of a scroll wrote the place to session storage, and in
+    the app to local storage twice more: three synchronous reads, parses and writes of a forty-entry list per frame on
+    WKWebView, in the middle of the scroll. Now it is noted 150ms after the scroll rests, and at once when the place is about
+    to matter: a finger landing (a tap that leaves), Back, the tab going to the background, the frame going away.
+  */
   useEffect(() => {
-    let frame = 0
+    let timer = 0
+    const flush = () => {
+      window.clearTimeout(timer)
+      timer = 0
+      write(pathRef.current, window.scrollY)
+      writeAnchor(pathRef.current, window.scrollY > 0 ? anchorNow() : null)
+    }
     const onScroll = () => {
-      if (frame) return
-      frame = requestAnimationFrame(() => {
-        frame = 0
-        write(pathRef.current, window.scrollY)
-      })
+      window.clearTimeout(timer)
+      timer = window.setTimeout(flush, 150)
+    }
+    const soon = () => {
+      if (timer) flush()
+    }
+    const onHide = () => {
+      if (document.visibilityState === "hidden") soon()
     }
     window.addEventListener("scroll", onScroll, { passive: true })
+    window.addEventListener("pointerdown", soon, { capture: true, passive: true })
+    window.addEventListener("popstate", soon, { capture: true })
+    window.addEventListener("pagehide", soon)
+    document.addEventListener("visibilitychange", onHide)
     return () => {
+      soon()
       window.removeEventListener("scroll", onScroll)
-      cancelAnimationFrame(frame)
+      window.removeEventListener("pointerdown", soon, { capture: true })
+      window.removeEventListener("popstate", soon, { capture: true })
+      window.removeEventListener("pagehide", soon)
+      document.removeEventListener("visibilitychange", onHide)
     }
   }, [])
   /* Before the page is painted: a Back lands where it was left, never at the top first. */
   useLayoutEffect(() => {
     if (performance.now() - poppedAt > BACK_WINDOW_MS) return
     poppedAt = -Infinity
+    backLanding = { path: (pathname || "").split(/[?#]/)[0], at: performance.now() }
     const y = returnScrollFor(pathname)
     if (y === null) return
+    const anchor = anchorFor(pathname)
+    /* With a post noted, it leads: the number is only where to start, and where to stay while the post is not drawn yet. */
+    if (anchor) return holdAnchor(anchor, y)
     return restoreTabScroll(y, 60)
   }, [pathname])
 }
