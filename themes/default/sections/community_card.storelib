@@ -53,7 +53,7 @@
   color: var(--s-heading);
   letter-spacing: var(--section-heading-tracking, -0.01em);
   text-transform: var(--section-heading-transform, none);
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .cc__card { border: 1px solid var(--s-border); border-radius: calc(var(--s-radius) + 6px); overflow: hidden; }
 .cc__cover { display: block; aspect-ratio: 3 / 1; overflow: hidden; background: color-mix(in srgb, var(--s-text) 6%, transparent); }

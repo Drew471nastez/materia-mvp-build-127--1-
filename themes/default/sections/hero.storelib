@@ -120,7 +120,7 @@
 }
 .hero__heading {
   margin: 0;
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
   max-width: 48rem;
   font-size: 36px;
   font-weight: 700;

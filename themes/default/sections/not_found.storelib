@@ -69,12 +69,12 @@
   color: var(--s-heading);
   letter-spacing: var(--section-heading-tracking, -0.01em);
   text-transform: var(--section-heading-transform, none);
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .s__btn {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 13px 24px; font-size: 15px; font-weight: 600; text-decoration: none;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .s__btn--primary { background: var(--s-btn); color: var(--s-btn-text); border-color: var(--s-btn); }

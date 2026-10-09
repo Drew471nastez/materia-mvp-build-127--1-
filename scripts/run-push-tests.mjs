@@ -44,6 +44,8 @@ const SUITES = [
   "tests/product-source.test.ts",
   "tests/editor-stability.test.ts",
   "tests/community-mobile.test.ts",
+  "tests/live-settings.test.ts",
+  "tests/theme-freedom.test.ts",
   "tests/reference-diff.test.ts",
   "tests/ai-runs-admin.test.ts",
   "tests/site-media.test.ts",

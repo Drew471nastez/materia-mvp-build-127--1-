@@ -221,6 +221,8 @@ async function main() {
       { pattern: "hero_immersive", use: "new:bandidos_hero", content: "the party name huge" },
       { pattern: "marquee", use: "new:date_marquee" },
       { pattern: "event_spotlight", use: "new:next_party" },
+      /* Up to the cap with sections of the model's own, so the schedule is one over it. */
+      ...Array.from({ length: Math.max(0, MAX_NEW_SECTIONS - 3) }, (_, i) => ({ pattern: "marquee", use: `new:extra_strip_${i + 1}` })),
       { pattern: "schedule", use: "new:party_schedule" },
       { pattern: "gallery", use: "media_collage" },
       { pattern: "faq", use: "keep:faq-1" },
@@ -464,7 +466,8 @@ async function main() {
     check("every old section is gone, though the plan's remove list was empty", !types.includes("features_cards") && !types.includes("faq_accordion") && !types.includes("cta_simple"), types.join(","))
     check("the store's sections are on the page, in the plan's order", JSON.stringify(types) === JSON.stringify(["header", "hero_centered", "product_grid", "collections_grid", "text_image", "features_grid", "promo_newsletter", "footer"]), types.join(","))
     check("the hero is on the dark band the plan gave it, in the brand's own black", final.sections.find((x) => x.type === "hero_centered")?.settings.color_scheme === "dark" && (final.settings.color_schemes as Record<string, { background: string }>).dark.background === "#0a0a0a")
-    check("a header of its own is refused when nobody asked for one", !files["sections/brand_header.storelib"] && /did not ask for that/.test(toolOutputs(sent).join(" ")), toolOutputs(sent).join(" || ").slice(0, 600))
+    /* Round 25: a whole store is a header too ("code me a store" means everything), so a header of its own is not refused for being one; this one is refused for what is wrong with it, a header that does not show the site's menu. */
+    check("on a whole store build a header of its own passes the gate, and is held to the menu contract", !files["sections/brand_header.storelib"] && !/did not ask for that/.test(toolOutputs(sent).join(" ")) && /link_list/.test(toolOutputs(sent).join(" ")), toolOutputs(sent).join(" || ").slice(0, 600))
     check("the built-in header is still the one drawn, on the new colours", final.sections.some((x) => x.type === "header" && !x.hidden && x.settings.color_scheme === "white"))
     check("the new fonts are set", final.settings.font_heading === "Montserrat")
     check("and the chat shows the sections being built", events.some((e) => e.type === "progress" && e.label === "Building the sections"))

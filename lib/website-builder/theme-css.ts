@@ -146,7 +146,44 @@ export function themeVars(theme: ThemeSettingsValues): Record<string, string> {
 
     // ── Inputs, pills, cards, containers, media, pop-ups, badges ─────────────
     ...parityVars(t),
+    ...buttonSizeVars(t, buttonSize, typo),
   }
+}
+
+/**
+ * BUTTONS › SIZE AND THE BUTTON TEXT STYLE, ONCE CHOSEN. Every section's
+ * `.s__btn` drew itself at 13px by 24px and 15px whatever the theme said, so
+ * Buttons › Size and Typography › Button changed nothing on the page. Their
+ * values go out as `--sl-button-*` only when one of them was set, and the
+ * sections read `var(--sl-button-padding, 13px 24px)`: a site that never
+ * opened either keeps the buttons it has.
+ */
+function buttonSizeVars(t: Record<string, unknown>, size: { padding: string; size: string }, typo: ReturnType<typeof themeTypography>): Record<string, string> {
+  const out: Record<string, string> = {}
+  if (isSet(t, "button_size")) {
+    out["--sl-button-padding"] = size.padding
+    out["--sl-button-size"] = size.size
+  }
+  const own = t.typography_styles && typeof t.typography_styles === "object" ? (t.typography_styles as Record<string, unknown>).button : undefined
+  if (own && typeof own === "object") {
+    const b = own as Record<string, unknown>
+    if (b.size !== undefined) out["--sl-button-size"] = `${typo.styles.button.size.desktop}px`
+    if (b.line_height !== undefined) out["--sl-button-line-height"] = String(typo.styles.button.line_height)
+  }
+  /* Layout › Images and video › Corner radius, the same way: a section's own pictures (not its product cards, which Product cards rounds) take it once it was set, and the card radius they always had until then. */
+  if (isSet(t, "image_border_radius")) out["--sl-image-radius"] = `${num(t.image_border_radius, 8)}px`
+  /* Typography › Caption, the same way: the small label over a section's heading reads it once it was changed. */
+  const cap = t.typography_styles && typeof t.typography_styles === "object" ? (t.typography_styles as Record<string, unknown>).caption : undefined
+  if (cap && typeof cap === "object") {
+    const c = cap as Record<string, unknown>
+    const st = typo.styles.caption
+    if (c.size !== undefined) out["--sl-caption-size"] = `${st.size.desktop}px`
+    if (c.weight !== undefined) out["--sl-caption-weight"] = String(st.weight)
+    if (c.letter_spacing !== undefined) out["--sl-caption-tracking"] = `${st.letter_spacing}px`
+    if (c.transform !== undefined) out["--sl-caption-transform"] = st.transform
+    if (c.font !== undefined) out["--sl-caption-font"] = "var(--type-caption-font)"
+  }
+  return out
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -505,10 +542,23 @@ export function themeStylesheet(theme: ThemeSettingsValues): string {
    */
   if (buttonStyle === "ghost" || buttonStyle === "outline") {
     const unpainted = buttonSelector(root, (sel) => `${sel}:not([style*="background"])`)
+    const unpaintedHover = buttonSelector(root, (sel) => `${sel}:not([style*="background"]):hover`)
+    /*
+      THE LABEL IN THE BUTTON'S COLOUR. Only the fill was taken away, so the
+      label stayed the scheme's button TEXT colour, which is chosen to sit
+      on the fill: white on white on a light scheme, dark on dark on a dark
+      one, a button with nothing on it. An outlined or ghost button is
+      drawn in the colour its fill would have been (the scheme's --s-btn,
+      or the text colour where a section names none), and Outline fills on
+      hover the way a filled button looks at rest.
+    */
     rules.push(
       buttonStyle === "ghost"
-        ? `${unpainted}{background:transparent;}`
-        : `${unpainted}{background:transparent;border:1px solid currentColor;}`,
+        ? `${unpainted}{background:transparent;color:var(--s-btn,currentColor);border-color:transparent;}`
+        : `${unpainted}{background:transparent;color:var(--s-btn,currentColor);border:1px solid var(--s-btn,currentColor);}`,
+      buttonStyle === "ghost"
+        ? `${unpaintedHover}{background:color-mix(in srgb,var(--s-btn,currentColor) 10%,transparent);color:var(--s-btn,currentColor);}`
+        : `${unpaintedHover}{background:var(--s-btn,currentColor);color:var(--s-btn-text,#fff);border-color:var(--s-btn,currentColor);}`,
     )
   }
 

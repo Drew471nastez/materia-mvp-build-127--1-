@@ -26,6 +26,7 @@ import { sectionTokenAttrs, type SectionProps } from "./_shared"
 import { SECTION_COMPONENTS } from "./registry"
 import { StorelibSection } from "./StorelibSection"
 import { ownAnchor, sectionAnchor, SECTION_ANIMATIONS } from "@/lib/website-builder/section-anchors"
+import { useLiveSection } from "@/lib/website-builder/live-settings"
 
 /** A section's `animation` setting as the page reads it; "theme" and anything unknown are no attribute. */
 function sectionAnimationAttr(v: unknown): string | undefined {
@@ -172,7 +173,9 @@ export function renderSection(props: SectionProps) {
 }
 
 function SectionRendererInner(props: SectionProps) {
-  return renderSection(props) ?? null
+  /* A setting under a finger on a slider is drawn by this section alone, before the editor commits it (lib/website-builder/live-settings.ts). */
+  const section = useLiveSection(props.section)
+  return renderSection(section === props.section ? props : { ...props, section }) ?? null
 }
 
 // Memoize on prop equality. In the editor, hover/selection changes elsewhere

@@ -109,6 +109,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Themes",
   },
   {
+    slug: "building-a-store",
+    title: "Building a whole store",
+    nav: "Building a whole store",
+    summary: "Header, mega menu, product and collection pages, filters and cart, as sections.",
+    description:
+      "How to build every part of a Storelib store as your own sections: a header with a mega menu, drawers and sidebars, the product page, the collection page with filters and sorting, search and the cart. What a page knows, the page templates, and what stays the platform's: live data, checkout and safety.",
+    group: "Themes",
+  },
+  {
     slug: "sharing-themes",
     title: "Sharing themes",
     nav: "Sharing themes",

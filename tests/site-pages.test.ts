@@ -162,7 +162,8 @@ function main() {
        the wishlist (lib/website-builder/account-pages). */
     /* Twelve: the password page a website shows while it asks for one (lib/site-password), and the
        collections page, Shopify's list-collections (lib/website-builder/shop-page). */
-    check("and the twelve are the twelve", BUILT_IN_PAGE_KEYS.size === 12 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
+    /* Thirteen: the Collection page template (round 25), drawn for every /collections/<handle>. */
+    check("and the thirteen are the thirteen", BUILT_IN_PAGE_KEYS.size === 13 && ["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection"].every((k) => BUILT_IN_PAGE_KEYS.has(k)))
 
     check("delete calls the server", /handleDeletePage/.test(editor) && /method: "DELETE"/.test(editor))
     check("it leaves the page it is deleting first", /if \(currentPage === key\) await handlePageChange\("home"\)/.test(editor))

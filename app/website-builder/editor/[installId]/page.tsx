@@ -58,6 +58,8 @@ import { designSupport } from "@/lib/website-builder/design-support"
 import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
+import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
+import { deferLive, isLive, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -104,7 +106,7 @@ import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-build
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
 import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
-import { isStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
 import { LIMITS, MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import {
   WRITING_SECTION_ID,
@@ -4387,6 +4389,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     and the canvas drawing again. Now it is dropped here.
   */
   const updateSetting = (key: string, value: unknown) => {
+    /* A finger still on a slider or a colour: drawn now, committed once when it lifts (lib/website-builder/live-settings.ts). */
+    if (isLive()) {
+      setLiveThemeSetting(key, value)
+      deferLive(`theme:${key}`, () => updateSettingRef.current(key, value))
+      return
+    }
     if (sameSettingValue(settingsRef.current[key], value)) return
     debouncedPushUndo()
     setSettingsDraft(prev => ({ ...prev, [key]: value }))
@@ -4401,6 +4409,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     setIsDirty(true)
   }
+  const updateSettingRef = useRef(updateSetting)
+  updateSettingRef.current = updateSetting
 
   /* One function for the life of the editor, so the memoised canvas is not
      drawn again by every change anywhere else in the editor. */
@@ -4534,6 +4544,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   // Section settings change
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
+    if (isLive()) {
+      setLiveSectionSetting(sectionId, key, value)
+      deferLive(`section:${sectionId}:${key}`, () => updateSectionSettingLatest.current(sectionId, key, value))
+      return
+    }
     const current = sectionsRef.current.find(s => s.id === sectionId)
     if (current && sameSettingValue(current.settings?.[key], value)) return
     debouncedPushUndo()
@@ -4587,6 +4602,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const updateBlockSetting = (sectionId: string, blockKey: string, key: string, value: unknown, staticType?: string) => {
     const section = sectionsRef.current.find(s => s.id === sectionId)
     if (!section) return
+    /* A static block nobody has edited yet is created by its first commit, so it is not drawn live. */
+    if (isLive() && resolvePath(section.blocks, blockKey)) {
+      setLiveBlockSetting(sectionId, blockKey, key, value)
+      deferLive(`block:${sectionId}:${blockKey}:${key}`, () => updateBlockSettingLatest.current(sectionId, blockKey, key, value, staticType))
+      return
+    }
     const path = resolvePath(section.blocks, blockKey)
     if (!path) {
       if (!staticType) return
@@ -4610,6 +4631,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     ))
     setIsDirty(true)
   }
+
+  const updateSectionSettingLatest = useRef(updateSectionSetting)
+  updateSectionSettingLatest.current = updateSectionSetting
+  const updateBlockSettingLatest = useRef(updateBlockSetting)
+  updateBlockSettingLatest.current = updateBlockSetting
 
   const addBlock = (
     sectionId: string,
@@ -4846,7 +4872,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       id: `${type}-${Date.now()}`,
       type,
       name: schema.name,
-      settings: preset?.settings ?? {},
+      settings: newSectionSettings(type, preset?.settings, storelibSources),
       /* The preset's blocks as this section's own: new ids, so adding the same preset twice is two sets of blocks, not one shared. */
       blocks: freshBlocks(preset?.blocks, newBlockId),
       hidden: false,
@@ -5934,7 +5960,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const sitePages = useMemo<SwitcherPage[]>(
     () => [
       /* The collections page is listed while collections are on (physical commerce); off, the site has none to show. */
-      ...(Object.keys(PAGE_META) as PageKey[]).filter((k) => k !== "collections" || builderCollections !== null).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
+      ...(Object.keys(PAGE_META) as PageKey[]).filter((k) => (k !== "collections" && k !== "collection") || builderCollections !== null).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
       ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
     ],
     [customPages, builderCollections],
@@ -9555,6 +9581,20 @@ function SectionToolbar({
 }
 
 /**
+ * The theme's CSS variables written straight onto the canvas's theme root,
+ * for a theme setting under a finger (lib/website-builder/live-settings.ts
+ * useLiveTheme): a page width, a side padding or a corner radius moves on
+ * the next frame, before any section has rendered again.
+ */
+function patchCanvasThemeVars(theme: ThemeSettingsValues) {
+  const root = document.querySelector<HTMLElement>(`#wb-preview-root [${THEME_ROOT_ATTRIBUTE}]`)
+  if (!root) return
+  for (const [k, v] of Object.entries(themeVars(theme))) {
+    if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v)
+  }
+}
+
+/**
  * ===========================================================================
  *  THE CANVAS, AND WHY IT IS ITS OWN COMPONENT
  * ===========================================================================
@@ -9580,7 +9620,7 @@ function SectionToolbar({
  * section; they are given the id.
  */
 const EditorCanvasPage = memo(function EditorCanvasPage({
-  theme,
+  theme: committedTheme,
   sections,
   arrivedId,
   arrival,
@@ -9639,6 +9679,8 @@ const EditorCanvasPage = memo(function EditorCanvasPage({
   /** The shop's own facts, the same the live site draws with: lib/website-builder/storefront-data.ts. */
   storefrontData?: import("@/lib/storelib-theme/types").StorefrontData
 }) {
+  /* A theme setting under a finger is drawn here, without the editor rendering again (lib/website-builder/live-settings.ts). */
+  const theme = useLiveTheme(committedTheme, patchCanvasThemeVars)
   /**
    * The same navigate, already marked as coming from the site's navigation.
    * Memoised, because it is handed to every chrome section on every render

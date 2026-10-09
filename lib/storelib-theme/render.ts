@@ -136,8 +136,21 @@ export function renderSection(input: RenderInput): Rendered {
    * semantic names and the legacy ones.
    */
   const schemeSetting = compiled.schema.settings.find((s) => s.type === "color_scheme" || s.id === "color_scheme")
-  const colorSettings = schemeSetting && schemeSetting.id !== "color_scheme" ? { ...settings, color_scheme: settings[schemeSetting.id] } : settings
+  /*
+    A SECTION NOBODY GAVE A SCHEME TAKES THE THEME'S. Theme settings › Colors
+    › "Default for new sections" was read by nothing: every section's schema
+    says `"default": "white"`, and the schema's default filled the gap before
+    the theme could. The panel showed the theme's choice and the page drew
+    white. Now a scheme only counts when the section saved one, and the
+    template's own `settings.color_scheme` names the scheme it really got.
+  */
+  const savedScheme = schemeSetting ? (input.instance.settings as Record<string, unknown> | undefined)?.[schemeSetting.id] : undefined
+  const unsaved = schemeSetting && (savedScheme === undefined || savedScheme === null || savedScheme === "")
+  const colorSettings = schemeSetting
+    ? { ...settings, color_scheme: unsaved ? "" : settings[schemeSetting.id] }
+    : settings
   const colors = resolveSectionColors(input.theme, colorSettings)
+  if (schemeSetting && unsaved) settings[schemeSetting.id] = colors.key
   const scheme = { ...colors.legacy, ...colors.scheme } as Record<string, string>
   /* A colour setting still on `scheme.<name>` is that colour of THIS section's scheme: color-schemes.ts, followScheme. */
   followSchemeColours(compiled.schema.settings, settings, scheme)
@@ -174,6 +187,11 @@ export function renderSection(input: RenderInput): Rendered {
     creator: data.creator,
     product: data.product ?? null,
     collection: data.collection ?? null,
+    request: {
+      page_type: input.page.template,
+      path: typeof input.page.path === "string" ? input.page.path : "",
+      design_mode: input.page.in_editor === true,
+    },
   }
   /**
    * ═════════════════════════════════════════════════════════════════════════

@@ -16,6 +16,7 @@
 import type { SectionInstance, ThemeSettingsValues, ColorSchemeValues } from "@/lib/website-builder/types"
 import { hoverFill, resolveSectionColors, type ColorScheme } from "@/lib/storelib-theme/color-schemes"
 import { sectionTypography } from "@/lib/storelib-theme/typography"
+import { themeVars } from "@/lib/website-builder/theme-css"
 // `Zap` alone, and only as the fallback for a name no theme should be using.
 import { Zap } from "lucide-react"
 import { ICON_MAP } from "./icon-map"
@@ -401,12 +402,16 @@ export function schemeButton(
 
 // ── Button radius derived from theme-level button_style ─────
 
+/**
+ * The radius Buttons › Shape and Corner radius give a button: the theme's own
+ * `--theme-button-radius`, with the same value worked out here for a panel
+ * drawn outside the theme's root. This read `button_style` (which holds
+ * filled, outline or ghost, never a shape) and the CARDS' radius, and wrote
+ * it inline where it beat the stylesheet, so the product page's Add to cart
+ * and Buy now, the header's buttons and the search panel ignored Buttons.
+ */
 export function buttonRadiusStyle(theme: ThemeSettingsValues): CSSProperties {
-  const style = theme.button_style ?? "rounded"
-  const r = theme.border_radius ?? 8
-  if (style === "pill") return { borderRadius: "9999px" }
-  if (style === "square") return { borderRadius: "4px" }
-  return { borderRadius: `${r}px` }
+  return { borderRadius: `var(--theme-button-radius, ${themeVars(theme)["--theme-button-radius"]})` }
 }
 
 // ── SectionWrapper ──────────────────────────────────────────

@@ -277,7 +277,7 @@ function VariantPicker({ s, ctx }: { s: S; ctx: ProductCtx }) {
                   onClick={(e) => e.stopPropagation()}
                   aria-label={o.name}
                   className="w-full appearance-none border bg-transparent px-3.5 pr-10 text-[15px]"
-                  style={{ height: h + 4, borderColor: line, color: ink, borderRadius: ctx.radius }}
+                  style={{ height: h + 4, borderColor: line, color: ink, borderRadius: `var(--theme-input-radius, ${ctx.radius})` }}
                 >
                   {o.values.map((value) => (
                     <option key={value} value={value}>
@@ -351,7 +351,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
                 aria-pressed={chosen}
                 onClick={(e) => { e.stopPropagation(); ctx.setPwywInput((c / 100).toFixed(c % 100 ? 2 : 0)) }}
                 className="h-10 border px-4 text-[14px] font-medium tabular-nums"
-                style={{ borderRadius: ctx.radius, borderColor: chosen ? accent : ctx.palette.border, background: chosen ? accent : "transparent", color: chosen ? ctx.palette.background : ink }}
+                style={{ borderRadius: `var(--theme-pill-radius, ${ctx.radius})`, borderColor: chosen ? accent : ctx.palette.border, background: chosen ? accent : "transparent", color: chosen ? ctx.palette.background : ink }}
               >
                 {ctx.money(c)}
               </button>
@@ -372,7 +372,7 @@ function PayWhatYouWant({ s, ctx }: { s: S; ctx: ProductCtx }) {
           aria-invalid={ctx.pwywError ? true : undefined}
           aria-describedby="pwyw-help"
           className="h-12 w-full border bg-transparent pl-8 pr-3.5 text-[16px] tabular-nums outline-none"
-          style={{ borderRadius: ctx.radius, borderColor: ctx.pwywError ? "#dc2626" : ctx.palette.border, color: ink }}
+          style={{ borderRadius: `var(--theme-input-radius, ${ctx.radius})`, borderColor: ctx.pwywError ? "#dc2626" : ctx.palette.border, color: ink }}
         />
       </div>
       <p id="pwyw-help" className="text-[13px]" style={{ color: ctx.pwywError ? "#dc2626" : ctx.palette.text_muted ?? ctx.palette.paragraph }}>
@@ -390,7 +390,7 @@ function Quantity({ s, ctx }: { s: S; ctx: ProductCtx }) {
   return (
     <div className="flex items-center gap-3" data-quantity="">
       {str(s.label, "Quantity") ? <span className="text-[14px] font-medium" style={{ color: ink }}>{str(s.label, "Quantity")}</span> : null}
-      <div className="inline-flex items-center border" style={{ borderColor: ctx.palette.border, borderRadius: ctx.radius, height: h }}>
+      <div className="inline-flex items-center border" style={{ borderColor: ctx.palette.border, borderRadius: `var(--theme-input-radius, ${ctx.radius})`, height: h }}>
         <button type="button" aria-label="Fewer" disabled={q <= 1} onClick={(e) => { e.stopPropagation(); ctx.setQuantity(q - 1) }} className="grid h-full place-items-center disabled:opacity-35" style={{ width: h, color: ink }}>
           <Minus className="h-4 w-4" />
         </button>
@@ -647,7 +647,7 @@ function Files({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const show = Math.max(1, num(s.show, 4))
   const shown = all ? files : files.slice(0, show)
   return (
-    <div className="border p-4" style={{ borderColor: ctx.palette.border, borderRadius: ctx.radius }} data-files="">
+    <div className="border p-4" style={{ borderColor: ctx.palette.border, borderRadius: `var(--theme-radius, ${ctx.radius})` }} data-files="">
       {str(s.heading) ? <p className="m-0 mb-2 text-[14px] font-semibold" style={{ color: ctx.palette.heading }}>{str(s.heading)}</p> : null}
       <ul className="m-0 list-none space-y-1.5 p-0">
         {shown.map((f, i) => (

@@ -26,12 +26,13 @@
  *      footer). Shopify's `enabled_on.groups` is where a section may go
  *      (an announcement bar in the header group), not what it is.
  *   2. Its type or name is a header's or a footer's: "Header", "Site
- *      header", "Navbar", "Navigation bar", "Top bar", "Footer", with a
+ *      header", "Navbar", "Navigation bar", "Footer", with a
  *      version or a "section" on the end, or a brand and a dash in front
  *      ("Luca" then an em dash then "Header"). A "Page header" or a
  *      "Collection header" is a heading band on a page and is left alone.
  *   3. Its markup is one: the outermost element is <header> holding a
- *      <nav>, or <footer>, and its name says header, nav, menu or footer.
+ *      <nav>, or <footer>, and its name says header, nav or footer. A
+ *      <nav> called a menu is a menu (a mega menu, a sidebar's links).
  *
  * `sections/header.storelib` and `sections/footer.storelib` are always
  * refused: they would shadow the built-in sections every page's header and
@@ -42,12 +43,19 @@
 
 export type ChromeRole = "header" | "footer"
 
-const WORD_HEADER = String.raw`(?:header|navbar|nav[ _-]?bar|navigation(?:[ _-]?(?:bar|menu))?|menu[ _-]?bar|top[ _-]?bar|masthead)`
+/*
+  Only names that can mean nothing but the site's header. "Top bar", "Menu
+  bar" and "Navigation menu" were here, and a section a creator or the AI
+  wrote under one of them (an announcement strip, a mega menu, a sidebar's
+  menu) took the header's place and hid the real one. A section is free to
+  be any of those; one that IS the header says `"kind": "header"`.
+*/
+const WORD_HEADER = String.raw`(?:header|navbar|nav[ _-]?bar|navigation(?:[ _-]?bar)?|masthead)`
 const WORD_FOOTER = String.raw`(?:footer)`
 /** Words that may sit in front of a header's name without making it something else. */
 const LEADING = String.raw`(?:(?:site|main|global|custom|new|my|store|shop|sticky|mega|primary|storelib|website|universal|top)[ _-]+)*`
-/** And after it: "Header v2", "Header section", "Footer 01". */
-const TRAILING = String.raw`(?:[ _-]+(?:v?\d+|section|block|component|area|layout|bar|menu|nav))*`
+/** And after it: "Header v2", "Header section", "Footer 01". Not "menu": a Navigation menu is a menu. */
+const TRAILING = String.raw`(?:[ _-]+(?:v?\d+|section|block|component|area|layout|bar))*`
 
 const HEADER_NAME = new RegExp(`^${LEADING}${WORD_HEADER}${TRAILING}$`, "i")
 const FOOTER_NAME = new RegExp(`^${LEADING}${WORD_FOOTER}${TRAILING}$`, "i")
@@ -119,8 +127,8 @@ function roleFromMarkup(template: string | undefined, label: string): ChromeRole
   if (!template) return null
   const tag = outermostTag(template)
   const words = bareName(label).toLowerCase()
-  if (tag === "header" && /<\s*nav\b/i.test(template) && /\b(header|nav|navigation|menu|navbar)\b/.test(words)) return "header"
-  if (tag === "nav" && /\b(header|nav|navigation|menu|navbar)\b/.test(words)) return "header"
+  if (tag === "header" && /<\s*nav\b/i.test(template) && /\b(header|nav|navigation|navbar)\b/.test(words)) return "header"
+  if (tag === "nav" && /\b(header|navigation|navbar)\b/.test(words)) return "header"
   if (tag === "footer" && /\bfooter\b/.test(words)) return "footer"
   return null
 }

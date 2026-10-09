@@ -121,10 +121,12 @@ export function isUntouchedPlaceholder(section: SectionInstance): boolean {
 }
 
 /** The page with a product section on it, where the placeholder was or under the header. */
-export function withMainProduct(sections: SectionInstance[]): SectionInstance[] {
+export function withMainProduct(sections: SectionInstance[], ownProductSection?: (type: string) => boolean): SectionInstance[] {
   if (sections.some((s) => s.type === "product" && !s.hidden)) return sections
   /* A hidden product section was hidden on purpose. */
   if (sections.some((s) => s.type === "product")) return sections
+  /* A product page of the creator's own design draws the product itself: adding the built-in one under it drew it twice. */
+  if (ownProductSection && sections.some((s) => !s.hidden && s.type !== "header" && s.type !== "footer" && ownProductSection(s.type))) return sections
   const at = sections.findIndex(isUntouchedPlaceholder)
   if (at >= 0) return sections.map((s, i) => (i === at ? mainProductSection() : s))
   const header = sections.findIndex((s) => s.type === "header")

@@ -69,7 +69,7 @@
 .s__in--medium { max-width: 960px; }
 .s__in--wide { max-width: var(--theme-page-width, 1280px); }
 .s__in--full { max-width: none; }
-.s__eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.s__eyebrow { margin: 0 0 12px; font-family: var(--sl-caption-font); font-size: var(--sl-caption-size, 12px); font-weight: var(--sl-caption-weight, 600); letter-spacing: var(--sl-caption-tracking, 0.14em); text-transform: var(--sl-caption-transform, uppercase); color: var(--s-accent); }
 .s__h {
   margin: 0;
   /* The section's heading style: Heading 2 unless the section picked
@@ -80,14 +80,14 @@
   color: var(--s-heading);
   letter-spacing: var(--section-heading-tracking, -0.01em);
   text-transform: var(--section-heading-transform, none);
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .s__head { max-width: 44rem; }
 .s__head--center { margin-inline: auto; text-align: center; }
 .s__btn {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 13px 24px; font-size: 15px; font-weight: 600; text-decoration: none;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 .s__btn--primary:hover { background: var(--s-btn-hover); color: var(--s-btn-hover-text); border-color: var(--s-btn-hover); }
@@ -124,7 +124,7 @@
 .plan__price { margin: 14px 0 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; color: var(--s-heading); }
 .plan__amount {
   font-size: 36px; line-height: 1.1; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums;
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .plan__period { font-size: 14px; color: var(--s-para); }
 .plan__summary { margin: 12px 0 0; font-size: 15px; line-height: 1.55; color: var(--s-para); }

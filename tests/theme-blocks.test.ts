@@ -145,8 +145,13 @@ function main() {
   check("settings.x, section.settings.x and block.id all read", reads.ok === true, errorsOf(reads))
   const bare = compileBlock(blockFile(`<li>{{ block.settings.t }}</li>`, { name: "B", tag: null, settings: [{ type: "text", id: "t", label: "T" }] }), { type: "b" })
   check('"tag": null without storelib_attributes is refused', errorsOf(bare).some((m) => /storelib_attributes/.test(m)))
-  const badTag = compileBlock(blockFile(`<p></p>`, { name: "B", tag: "header", settings: [] }), { type: "b" })
-  check("a block cannot be wrapped in a header", errorsOf(badTag).some((m) => /cannot wrap a block/.test(m)))
+  const badTag = compileBlock(blockFile(`<p></p>`, { name: "B", tag: "script", settings: [] }), { type: "b" })
+  check("a block cannot be wrapped in a script", errorsOf(badTag).some((m) => /cannot wrap a block/.test(m)))
+  /* Round 25: a block can be the nav of a menu, the details of a filter group, the dialog of a drawer. */
+  for (const tag of ["nav", "header", "details", "dialog", "form"]) {
+    const ok = compileBlock(blockFile(`<p></p>`, { name: "B", tag, settings: [] }), { type: "b" })
+    check(`a block can be wrapped in a <${tag}>`, !errorsOf(ok).some((m) => /cannot wrap a block/.test(m)), errorsOf(ok))
+  }
   const localChild = compileBlock(blockFile(`<p></p>`, { name: "B", settings: [], blocks: [{ type: "x", name: "X", settings: [] }] }), { type: "b" })
   check("a theme block holds theme blocks only", errorsOf(localChild).some((m) => /a theme block holds theme blocks/.test(m)))
   check("compileThemeFile compiles blocks/ as a block", compileThemeFile(DEFAULT_THEME_SOURCES["blocks/text.storelib"], { file: "blocks/text.storelib" }).ok === true)

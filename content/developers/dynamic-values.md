@@ -19,6 +19,8 @@ A section's template prints values with `{{ }}` and decides what to draw with `{
 | `customer` | The signed-in visitor and their orders, on the account page. `null` everywhere else. |
 | `wishlist` | The visitor's saved products, on the account and Wishlist pages. `null` everywhere else. |
 | `creator` | The creator's public profile: `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar`. |
+| `collection` | On a collection's page (`/collections/<handle>`), that collection: `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`. In the builder's Collection page, the first collection stands in. `null` everywhere else. |
+| `request` | Where the page is, as Shopify's `request`: `request.page_type` (the template, as `page.template`), `request.path` when the route knows it, and `request.design_mode`, `true` in the builder's canvas. |
 | `product` | On a product page, the product it shows: `title`, `price`, `compare_price`, `description` (words), `description_html` (cleaned markup, printed with `raw`), `image`, `images`, `url`, `includes`, `id`. Empty everywhere else, so `{% if product %}` tells a section where it is. |
 | `forloop` | The loop being drawn: `index`, `index0`, `first`, `last`, `length`. |
 
@@ -126,7 +128,8 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | `page.product` | On a product page, the product it is about: the fields of a product in `products` and its description. Empty everywhere else. See [Selling](/developers/selling#the-product-page-pageproduct). |
 | `page.title` | The page's own title, such as `About`, on the creator's own pages. |
 | `page.breadcrumbs` | Where the page is, as a list of `{ label, url }`: Home, then Shop and the product on a product page, or the page's title. The last has no `url`. Empty on home. See [Selling](/developers/selling#breadcrumbs). |
-| `page.filters` | On the shop and search pages, the filter form: groups, values, counts and the sort. See [Selling](/developers/selling#filtering-the-shop). |
+| `page.filters` | On the shop, search and collection pages, the filter form: groups, values, counts and the sort. See [Selling](/developers/selling#filtering-the-shop). |
+| `page.pagination` | On the shop and collection pages, `pages`, `prev_url`, `next_url` and `links` (`number`, `url`, `current`). |
 
 `page.template` on each page:
 
@@ -134,6 +137,7 @@ The instance's blocks in order. Each is `{ id, type, settings }`, and each block
 | --- | --- | --- |
 | Home | `index` | `index` |
 | A product page | `product` | `page.product` |
+| A collection's page | `collection` | `collection` |
 | The shop | `page.products` | `page.products` |
 | Search results | `page.search` | `page.search` |
 | The 404 page | `page.404` | `page.404` |

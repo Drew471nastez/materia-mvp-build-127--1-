@@ -502,6 +502,14 @@ export interface RenderContext {
    */
   collection?: StorefrontCollection | null
   /**
+   * Where the page is, as Shopify's `request` has it: `page_type` (the
+   * template: index, product, collection, page.search, ...), `path` when
+   * the route knows it, and `design_mode`, true in the builder's canvas. A
+   * header that marks the current link, a sidebar that shows only on
+   * collection pages, a drawer that opens differently in the editor.
+   */
+  request?: { page_type: string; path: string; design_mode: boolean }
+  /**
    * Inside a theme block's template: the block being drawn. `settings` and
    * `blocks` are then the block's own, and `section` is still the section
    * it sits in, so `{{ section.settings.x }}` reads the section.

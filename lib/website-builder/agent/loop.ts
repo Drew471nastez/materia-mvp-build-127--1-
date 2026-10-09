@@ -257,7 +257,7 @@ Rules:
 - THE HEADER'S NAVIGATION IS THE MAIN MENU. Never add, change or remove nav_link blocks for this. LINKS IN A MENU ARE THE SITE'S MENU (Website settings, Navigation), as in Shopify. "Add a Pricing link", "rename Shop to Store", "move About", "take Blog out" mean read_menus, then edit_menu on the menu that header or footer shows (usually "main-menu"), one link per call. A header you write reads that menu with link_list. Do not type link_1_label pairs. Link a page by its path ("/pages/pricing").
 - DELETE MEANS DELETE. "Delete", "remove", "get rid of" mean remove_section (or remove_block), and they mean every one that matches: "delete the testimonials" removes every testimonials section on the page, "remove the empty blocks" removes each empty block. Hiding is for "hide", "for now", "until launch", "I don't want this here yet": set_section_visibility. Say what was removed by name.
 - WHEN A SECTION IS SELECTED, act on it. "Make this section better" means that section, and it is not a question — look at what it is, decide what is weak about it, and change it. A FAQ with five thin questions gets better questions and better answers; a hero with a generic headline gets a specific one; a pricing table with unnamed tiers gets named tiers.
-- THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: ask once, then copy_section_to_code and edit the copy.
+- THE SELECTED SECTION IS EDITED IN PLACE: its settings, blocks or own code, never a new section beside it. A built in one whose change needs code: copy_section_to_code and edit the copy.
 - MOST SECTIONS KEEP THEIR CONTENT IN BLOCKS, not in settings. A FAQ's questions, a pricing table's tiers, a testimonial's quotes, a gallery's images are all blocks. Changing a section's settings alone will not touch any of them, so if a request is about content, use the block tools. read_section lists the block types a section takes and the blocks it currently has. Some sections take theme blocks (heading, text, button, image, video, spacer, group): a group holds blocks of its own, so to build a row, add a group and then add blocks inside it with parentBlockId. A block inside another is addressed by its path, outer/inner. A block marked static is placed by the template: change it, never remove it.
 - NOT EVERY MESSAGE IS AN EDIT. A greeting or a question ("what can you do?", "why is my header dark?") gets an answer, not a guess: make no changes and reply in one to three plain sentences. Never apologise at length and never describe your tools.
 - ASK ONLY WHAT YOU CANNOT READ. When a missing fact would change what you build (which of several products, which page, brand colours the site does not have, a business fact that is nowhere on the page or in the store) call ask_creator with one short question and two to four choices taken from what you read. The run stops there; their answer is their next message, with this conversation shown above it. Never ask what the page, the theme, the store or the conversation already answers, and never about taste you can decide. If two honest readings would build different things, ask before any change; if one is clearly likelier, act on it.
@@ -265,8 +265,8 @@ Rules:
 - ALWAYS CHANGE SOMETHING VISIBLE when you are asked to change something, unless you asked a question. A run that reads a section and then replies without a single operation has not done what was asked. If a request is broad, decide what would genuinely improve the thing in front of you and do it.
 - STAY ON THE SUBJECT, but do the subject properly. "Change this heading to X" is one operation and stops there — do not restyle things nobody mentioned or "improve" copy that was not the subject. That is about SCOPE, not about effort, and it is not licence to do the smallest possible version of what WAS asked.
 - WHEN THE ASK IS TO BUILD, DESIGN OR MAKE SOMETHING GOOD, the standard is a section a designer would ship, and it takes ten to twenty operations. Adding the section is the first of them, not the job:
-    1. read_section_type first, so you know every control and block type before you start.
-    2. add_section.
+    1. A built-in type that draws what the design wants: read_section_type, then add_section. Anything else (its own layout or interaction, a product or collection page, filters, a cart drawer, a mega menu, a header): create_section. Your own section is normal, not a last resort.
+    2. Place it.
     3. Write ALL of its content. A section that takes blocks needs them FULL — a pricing table with three named tiers, each with its price, its feature list and its button; an FAQ with six real questions and real answers; testimonials with named people; a feature grid with every cell filled. Half-filled is the single most common way this comes out looking cheap.
     4. Set the controls that make it look designed: heading and subheading, the layout or style option, the columns, the padding, the colours that match this page.
     5. Read it back with read_section and ask yourself whether you would ship it. If a field is empty that should not be, fill it.
@@ -529,7 +529,7 @@ function toolSpecs(addable: string[], schemas?: SchemaMap, code?: boolean, opts:
           {
             name: "create_section",
             description:
-              "Write a NEW section of your own and put it on the page: a whole sections/<type>.storelib file (template, style, optional script, schema with presets) under a new lowercase type. Use it for what no built-in type draws well: an immersive hero, a marquee, an event poster with a countdown, a lineup, a schedule, a before and after slider, a header of your own (\"kind\": \"header\"). It is compiled, checked and drawn with its preset before it is kept; a refusal says what to fix. Give it real settings a creator would change (colour scheme, layout, spacing, the words, the pictures as image_picker) and a preset that arrives finished. Read one close built-in section first (read_section_code) and keep its setting ids for the same jobs.",
+              "Write a NEW section of your own and put it on the page: a whole sections/<type>.storelib file (template, style, optional script, schema with presets) under a new lowercase type. Use it whenever the design needs its own layout, look or interaction: an immersive hero, a product page laid out its own way, a collection page with its own filters and sorting, search results, a cart drawer, a mega menu, a sidebar, a lookbook, a schedule, a configurator, a header or footer of your own (\"kind\": \"header\" or \"footer\"). Products, collections, menus, the cart, search and checkout stay live: read them through the template (products, collections, collection, page.filters, page.pagination, link_list settings, data-storelib-cart, data-storelib-search, checkout_url), never type them. It is compiled, checked and drawn with its preset before it is kept; a refusal says what to fix. Give it real settings a creator would change (colour scheme, layout, spacing, the words, the pictures as image_picker) and a preset that arrives finished. Read one close built-in section first (read_section_code) and keep its setting ids for the same jobs.",
             parameters: {
               type: "object" as const,
               properties: {
@@ -2354,8 +2354,14 @@ function compactSettings(settings: Record<string, unknown>): string {
  */
 const QUALITY_REFUSALS = 2
 
-/** A request that is about the header or footer itself. */
-const CHROME_ASK = /\b(header|footer|nav ?bar|navigation bar|menu bar|top bar|masthead)\b/i
+/**
+ * A request that is about the header or footer itself, or about building a
+ * whole store or site, which includes them. "Code me an e-commerce store"
+ * is a header, a footer, a cart drawer and a menu as much as it is a hero:
+ * the gate is for a request about something else (a FAQ made better), where
+ * replacing the site's header would be a surprise.
+ */
+const CHROME_ASK = /\b(header|footer|nav ?bar|navigation|menu|mega ?menu|drawer|sidebar|masthead|top bar|cart|store|shop|website|site|theme|e-?commerce|redesign|rebuild|from scratch)\b/i
 
 /** The tools that read or write a section's file. */
 const CODE_TOOLS = new Set(["read_section_code", "write_section_code", "edit_section_code", "copy_section_to_code", "create_section"])

@@ -8,6 +8,7 @@ import { createPortal } from "react-dom"
 import { ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
+import { liveGesture } from "@/lib/website-builder/live-settings"
 
 // ── HSV ↔ HEX helpers ────────────────────────────────────────
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
@@ -100,7 +101,11 @@ export function ColorPickerPanel({
    * `onChange` rewrites a theme setting and repaints the canvas, and it was
    * being called once per `pointermove`. See use-frame-commit.ts.
    */
-  const { emit: send, flush } = useFrameCommit(onChange)
+  const { emit: send, flush: sendNow } = useFrameCommit(onChange)
+  /* A drag in the box or along the hue is drawn by the canvas alone and committed once on release (lib/website-builder/live-settings.ts). */
+  const [gesture] = useState(liveGesture)
+  const flush = useCallback(() => { sendNow(); gesture.end() }, [sendNow, gesture])
+  useEffect(() => () => gesture.end(), [gesture])
 
   /** The last colour WE sent, so its echo does not reset the picker. */
   const sent = useRef<string | null>(null)
@@ -178,7 +183,7 @@ export function ColorPickerPanel({
             ${pureHue}
           `,
         }}
-        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleSvPoint(e.clientX, e.clientY) }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); gesture.begin(); handleSvPoint(e.clientX, e.clientY) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleSvPoint(e.clientX, e.clientY) }}
         /* The last position of a drag is the one that matters, and it must
            not be left sitting in a frame that never runs because the picker
@@ -205,7 +210,7 @@ export function ColorPickerPanel({
         style={{
           background: "linear-gradient(to right, #ff0000 0%, #ffff00 17%, #00ff00 33%, #00ffff 50%, #0000ff 67%, #ff00ff 83%, #ff0000 100%)",
         }}
-        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); handleHuePoint(e.clientX) }}
+        onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); gesture.begin(); handleHuePoint(e.clientX) }}
         onPointerMove={(e) => { if (e.buttons === 1) handleHuePoint(e.clientX) }}
         onPointerUp={flush}
         onPointerCancel={flush}

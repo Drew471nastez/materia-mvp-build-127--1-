@@ -124,17 +124,19 @@ export function checkSectionQuality(source: string): QualityFinding[] {
    * stays on the desktop branch and the preview lies.
    */
   const widthMedia = [...css.matchAll(/@media[^{]*\((min|max)-width[^)]*\)/gi)]
+  /* A note, not a refusal: the compiler rewrites a width-only @media into the same @container (storelib/css-units.ts), so the section works either way. */
   if (widthMedia.length) {
     out.push({
       id: "media-query",
-      severity: "error",
+      severity: "warning",
       message: `This section uses @media (${widthMedia[0][1]}-width …) for its layout. A section is as wide as the column it is in, not as wide as the window, so that rule is wrong in the phone preview and in a narrow column. Use @container (min-width: …) instead, with container-type: inline-size on the outermost element.`,
     })
   }
+  /* Every section is drawn inside a box that is already a container (SectionRenderer's @container), so its queries match without one: a note. */
   if (/@container/i.test(css) && !/container-type\s*:/i.test(css)) {
     out.push({
       id: "container-type",
-      severity: "error",
+      severity: "warning",
       message: `There are @container rules but nothing declares container-type: inline-size, so none of them ever match. Put it on the section's outermost element.`,
     })
   }

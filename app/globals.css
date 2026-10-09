@@ -1061,6 +1061,14 @@ html.capacitor body {
   .wb-slim-scroll:hover {
     scrollbar-color: rgba(148, 163, 184, 0.45) transparent;
   }
+  /* scrollbar-color is inherited, so the hover above restyled everything in
+     the scroller: the whole sidebar, or the whole canvas, each time the
+     pointer crossed into one (Chromium's trace: 1,332 elements, 40ms at full
+     speed and 160ms on a slowed CPU, as a finger landed on a slider). Its
+     children keep the resting value, so only the scroller itself changes. */
+  .wb-slim-scroll > * {
+    scrollbar-color: transparent transparent;
+  }
 
   .wb-slim-scroll:hover::-webkit-scrollbar-thumb {
     background-color: rgba(100, 116, 139, 0.55);

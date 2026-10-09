@@ -2,7 +2,7 @@ import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/blo
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
-import { collectionsPageSections, notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
+import { collectionSections, collectionsPageSections, notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import { accountPageSections } from "@/lib/website-builder/account-pages"
 import type { ThemeSettingsValues } from "@/lib/website-builder/types"
 import { NextResponse } from "next/server"
@@ -129,7 +129,9 @@ export async function GET(req: Request, { params }: Params) {
             ? notFoundSections(homeSections)
             : pageKey === "collections"
               ? collectionsPageSections(homeSections)
-              : (accountPageSections(pageKey, homeSections) ?? [])
+              : pageKey === "collection"
+                ? collectionSections(homeSections, theme, { title: "Collection name", description: "" })
+                : (accountPageSections(pageKey, homeSections) ?? [])
     return NextResponse.json({ page: null, sections: sanitizeSections(generated), has_draft: false, generated: true })
   }
 

@@ -306,8 +306,18 @@ export function collectionSections(
   homeSections: SectionInstance[],
   theme: ThemeSettingsValues,
   collection: { title: string; description?: string | null },
+  /**
+   * The Collection page template as the creator (or Storelib AI) arranged
+   * it in the builder, page key "collection". Every collection is drawn
+   * with it, Shopify's collection template: a section of its own reads
+   * `collection` and `products`, and the shop's own grid, if it is still
+   * there, is titled for the collection being shown. Absent or empty, the
+   * shop page is the template, as before.
+   */
+  stored?: SectionInstance[] | null,
 ): SectionInstance[] {
-  return shopSections(homeSections, theme).map((s) =>
+  const base = stored && stored.length > 0 ? stored : shopSections(homeSections, theme)
+  return base.map((s) =>
     s.id === GRID_ID
       ? { ...s, settings: { ...s.settings, heading: collection.title, subheading: (collection.description ?? "").slice(0, 400) } }
       : s,

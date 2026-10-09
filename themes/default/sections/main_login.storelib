@@ -58,7 +58,7 @@
   color: var(--s-heading);
   letter-spacing: var(--section-heading-tracking, -0.01em);
   text-transform: var(--section-heading-transform, none);
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 12px 0 0; font-size: var(--section-text-size, 16px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); overflow-wrap: anywhere; }
 .login__email { color: var(--s-heading); font-weight: 600; }

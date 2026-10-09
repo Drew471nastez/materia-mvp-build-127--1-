@@ -12,6 +12,7 @@ A website is a set of pages, and a page is an ordered list of sections. Each pag
 | `contact` | `/contact` | The same. |
 | `products` | `/products` | The shop. Until it is edited, it is built from the home page's header and footer and a product grid. |
 | `search` | `/search?q=` | Search results over the newest 24 published products. Built the same way until it is edited. |
+| `collection` | `/collections/<handle>` | The **Collection page** template every collection is drawn with, Shopify's collection template. Until it is edited it is the shop page under the collection's name. Arranged in the builder, what was saved draws every collection: a section of your own reads `collection` for the one being shown and `products` for its products, filtered and sorted. |
 | `collections` | `/collections` | Every published collection, Shopify's list-collections page: the header and footer around a Collection list. Built the same way until it is edited. Every shop has one, whatever it sells. A collection's own page, `/collections/<handle>`, is the shop page under the collection's name: its published products in its order, with the shop's filters and sort. |
 | `404` | any address the site does not have | The page a visitor gets for a missing address: the header and footer around the Page not found section, with a search box and a few products. Built the same way until it is edited, and opened from the page switcher as **404 page**. |
 

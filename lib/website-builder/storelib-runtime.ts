@@ -48,6 +48,37 @@ export function sectionSource(type: string, overrides?: Record<string, string>):
   return overrides?.[path] ?? DEFAULT_THEME_SOURCES[path] ?? null
 }
 
+/**
+ * A new section's starting settings: its preset's, and, for a section whose
+ * title is the page's `<h1>` (a hero, a page's own title, search, 404), the
+ * Heading 1 text style. Every section's heading followed Heading 2 unless it
+ * chose otherwise, so Theme settings › Typography › Heading 1 reached none
+ * of the page titles the theme ships. Only for a section being added: a page
+ * already published keeps the size it has.
+ */
+export function newSectionSettings(type: string, preset: Record<string, unknown> | undefined, overrides?: Record<string, string>): Record<string, unknown> {
+  const settings = { ...(preset ?? {}) }
+  if (settings.heading_style !== undefined) return settings
+  const src = sectionSource(type, overrides)
+  const template = src?.match(/<template>([\s\S]*?)<\/template>/)?.[1] ?? ""
+  const first = template.match(/<h([1-6])[\s>]/)
+  if (first?.[1] === "1") settings.heading_style = "h1"
+  return settings
+}
+
+/**
+ * Whether a section of this type draws the page's product itself: its
+ * template reads `product` or `page.product` (a product page of the
+ * creator's own), as opposed to a grid that reads `products`.
+ */
+export function drawsTheProduct(type: string, overrides?: Record<string, string>): boolean {
+  if (type === "product") return true
+  const src = overrides?.[sectionSourcePath(type)]
+  if (!src) return false
+  const template = src.match(/<template>([\s\S]*?)<\/template>/)?.[1] ?? ""
+  return /\{\{-?\s*(?:page\.)?product\.|\{%-?\s*(?:if|unless|for)\b[^%]*\b(?:page\.)?product\b(?!s)/.test(template)
+}
+
 /** Whether this section type is rendered by the engine rather than a React renderer. */
 export function isStorelibSection(type: string, overrides?: Record<string, string>): boolean {
   return sectionSource(type, overrides) !== null
@@ -174,6 +205,17 @@ export function renderStorelibSection(
 ): StorelibRendered {
   const c = compiledSection(section.type, overrides)
   if (c.ok === false) return c
+  /*
+    THE COLLECTION A COLLECTION TEMPLATE IS ABOUT, IN THE BUILDER TOO. The
+    live route hands the page's collection as `collection`; the builder has
+    no handle in its address, so while it draws the Collection page template
+    the first of the creator's collections stands in, as the newest product
+    does on the Product page (withPageProduct below).
+  */
+  if (page.template === "collection" && page.in_editor === true && data && !data.collection) {
+    const first = Object.values(data.collections ?? {})[0]
+    if (first) data = { ...data, collection: first }
+  }
   const r = renderSection({
     compiled: c.value,
     id: section.id,

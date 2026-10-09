@@ -114,7 +114,7 @@ The section stores the scheme's **key** (`white`, `dark`, or a key the creator m
 3. Then the theme's `default_color_scheme`, which is also what a new section starts on.
 4. Then `white`.
 
-So a section can never end up with no colours, and deleting a scheme moves its sections rather than breaking them.
+So a section can never end up with no colours, and deleting a scheme moves its sections rather than breaking them. A section that never saved a scheme is on the theme's **Default for new sections**, whatever its schema's `default` says, and `settings.color_scheme` in its template names the scheme it really got.
 
 ### Every scheme colour
 
@@ -146,7 +146,7 @@ A button reads four colours from its scheme: its fill and text, and its fill and
 
 In a template the same four are `scheme.primary_btn_hover_bg`, `scheme.primary_btn_hover_text`, `scheme.secondary_btn_hover_bg` and `scheme.secondary_btn_hover_text`.
 
-Give every button the class `s__btn`, or `data-button` when it has to be something else. That is what puts it under the theme's **Buttons** settings: its shape, corner radius, weight, shadow and hover motion. A link that is not a button gets neither, and stays a link.
+Give every button the class `s__btn`, or `data-button` or `data-sl-button` when it has to be something else. That is what puts it under the theme's **Buttons** settings: its shape, corner radius, weight, shadow and hover motion. A link that is not a button gets neither, and stays a link. With Buttons › Style on **Outline** or **Ghost**, a button with no background of its own is drawn in the scheme's button colour (`--s-btn`), its label and border included, and Outline fills on hover.
 
 Five schemes are built in. Their keys are `white`, `light`, `dark`, `black` and `highlight`, shown to the creator as Light, Soft, Dark, Brand and Accent; a creator can rename them and add more. Renaming changes the name, never the key.
 
@@ -229,7 +229,7 @@ A section chooses a heading style and a body style, and the theme turns the choi
 
 ```css
 .hero__title {
-  font-family: var(--theme-font-heading), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading), ui-sans-serif, system-ui, sans-serif);
   font-size: var(--section-heading-size, 32px);
   line-height: var(--section-heading-line-height, 1.15);
   font-weight: var(--section-heading-weight, 700);
@@ -249,8 +249,22 @@ Name a font family inside a section only as a fallback after the theme's variabl
 | `--type-<style>-size`, `-font`, `-weight`, `-line-height`, `-tracking`, `-transform` | each text style, on the page root, `<style>` being `h1` to `h4`, `body-large`, `body`, `body-small`, `button` or `caption` |
 | `--section-heading-*` | the style the section's heading uses: its choice, or Heading 2 |
 | `--section-body-*` | the style its body uses: its choice, or Body |
-| `--section-text-*` | the body style, only once the section chose one, so `var(--section-text-size, 17px)` keeps your own size until then |
+| `--section-text-*` | the body style: the section's choice, or Body. Your fallback, `var(--section-text-size, 17px)`, is used only outside a themed page |
 | `--theme-font-heading`, `--theme-font-body`, `--theme-font-accent` | the three fonts |
+
+A new section whose first heading is an `<h1>` (a hero, a page's title, search, 404) starts on Heading 1.
+
+### Theme settings that reach a section once set
+
+These are written only after the creator changes the setting, so a section that reads them with a fallback keeps its own look until then:
+
+| Custom property | From | Read it as |
+| --- | --- | --- |
+| `--sl-button-padding`, `--sl-button-size`, `--sl-button-line-height` | Buttons › Size, Typography › Button | `padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height);` |
+| `--sl-caption-font`, `-size`, `-weight`, `-tracking`, `-transform` | Typography › Caption | the small label over a heading |
+| `--sl-image-radius` | Layout › Images and video › Corner radius | `border-radius: var(--sl-image-radius, var(--s-radius));` |
+
+A `var()` with no fallback, such as `line-height: var(--sl-button-line-height)`, inherits until the property is set.
 
 **Custom** stores the section's own style as `settings.custom_heading` or `settings.custom_body`, the same shape as a text style, sizes included: `{ "desktop": 48, "mobile": 32 }`.
 

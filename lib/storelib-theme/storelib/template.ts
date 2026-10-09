@@ -914,6 +914,9 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     wishlist: ctx.wishlist ?? null,
     creator: ctx.creator ?? {},
     product: ctx.product ?? null,
+    /* The page's own collection on /collections/<handle>, and where the page is (RenderContext). The collection was handed to the context and never reachable from a template until round 25. */
+    collection: ctx.collection ?? null,
+    request: ctx.request ?? { page_type: typeof ctx.page?.template === "string" ? ctx.page.template : "", path: "", design_mode: ctx.page?.in_editor === true },
   }
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {

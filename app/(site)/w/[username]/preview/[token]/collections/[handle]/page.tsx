@@ -56,6 +56,14 @@ export default async function PreviewCollectionPage({ params, searchParams }: Pa
     .eq("page_key", "home")
     .maybeSingle()
   const home = sanitizeSections(pageSections<SectionInstance[]>(homeData as never, preview) ?? [])
+  /* The Collection page template, as arranged in the builder: shop-page.ts collectionSections. */
+  const { data: templateData } = await admin
+    .from("store_theme_pages")
+    .select("sections, draft_sections")
+    .eq("install_id", installId)
+    .eq("page_key", "collection")
+    .maybeSingle()
+  const template = sanitizeSections(pageSections<SectionInstance[]>(templateData as never, preview) ?? [])
   const { owner, products, productCount } = await ownerOf(creatorId, installId, themeSettings)
 
   /* Every member, in the collection's order: the newest 24 the shop list holds, and the rest by id. */
@@ -67,7 +75,7 @@ export default async function PreviewCollectionPage({ params, searchParams }: Pa
   const extra = older.length ? await pickedProducts(admin as never, creatorId, { ids: older, slugs: [] }) : []
   const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
-  const arranged = collectionSections(home, themeSettings, inIt.collection)
+  const arranged = collectionSections(home, themeSettings, inIt.collection, template)
   const dressed = await dressPage(owner, arranged, products, productCount, "collection", inIt.collection.title, undefined, { cached: false })
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
   const { listed, filters, pagination } = catalogPage(cards, asked, `/collections/${handle}`)

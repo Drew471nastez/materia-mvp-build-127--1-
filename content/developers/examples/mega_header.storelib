@@ -1,0 +1,94 @@
+<template>
+<header class="mh" data-scheme="{{ settings.color_scheme }}" style="--mh-logo: {{ settings.logo_width }}px;">
+  <div class="mh__bar">
+    <button type="button" class="mh__burger" data-storelib-menu="{{ settings.menu.handle }}" data-storelib-menu-from="left" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+    <a class="mh__logo" href="{{ routes.root_url }}">{% if theme.logo.url %}<img src="{{ theme.logo.url }}" alt="{{ shop.name }}" width="{{ settings.logo_width }}">{% else %}{{ shop.name }}{% endif %}</a>
+    <nav class="mh__nav" aria-label="Main">
+      <ul class="mh__list">
+        {% for link in settings.menu.links %}
+          <li class="mh__item">
+            {% if link.links.size > 0 %}
+              <details class="mh__drop" name="{{ section.id }}-menu">
+                <summary class="mh__top">{{ link.title }}</summary>
+                <div class="mh__panel">
+                  <div class="mh__cols">
+                    {% for child in link.links %}
+                      <div class="mh__col">
+                        <a class="mh__head" href="{{ child.url | url }}">{{ child.title }}</a>
+                        {% for grandchild in child.links %}<a class="mh__sub" href="{{ grandchild.url | url }}">{{ grandchild.title }}</a>{% endfor %}
+                      </div>
+                    {% endfor %}
+                  </div>
+                  {% if settings.promo_image %}
+                    <a class="mh__promo" href="{{ settings.promo_url | default: '#' | url }}"><img src="{{ settings.promo_image | asset }}" alt="{{ settings.promo_text }}" loading="lazy">{% if settings.promo_text %}<span>{{ settings.promo_text }}</span>{% endif %}</a>
+                  {% endif %}
+                </div>
+              </details>
+            {% else %}
+              <a class="mh__top" href="{{ link.url | url }}">{{ link.title }}</a>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <div class="mh__tools">
+      <a class="mh__icon" href="{{ routes.search_url }}" data-storelib-search aria-label="Search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg></a>
+      <a class="mh__icon" href="{{ routes.account_url }}" aria-label="Account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></a>
+      <a class="mh__icon" href="{{ routes.cart_url }}" data-storelib-cart aria-label="Cart"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14l-1.5 12h-11z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span class="mh__count" data-storelib-cart-count></span></a>
+    </div>
+  </div>
+</header>
+</template>
+
+<style>
+.mh { container-type: inline-size; position: relative; z-index: 20; background: var(--scheme-background); color: var(--scheme-text); border-bottom: 1px solid var(--scheme-border); }
+.mh__bar { display: flex; align-items: center; gap: 16px; max-width: var(--theme-page-width, 1280px); margin: 0 auto; padding: 12px var(--theme-padding-x, 24px); }
+.mh__burger { display: inline-flex; flex-direction: column; gap: 4px; padding: 8px; background: none; border: 0; color: inherit; cursor: pointer; }
+.mh__burger span { display: block; width: 18px; height: 2px; background: currentColor; border-radius: 2px; }
+.mh__logo { display: inline-flex; align-items: center; color: var(--scheme-heading); font-weight: 700; font-size: 18px; text-decoration: none; }
+.mh__logo img { display: block; width: var(--mh-logo); height: auto; }
+.mh__nav { display: none; flex: 1; }
+.mh__list { display: flex; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.mh__top { display: inline-flex; align-items: center; padding: 8px 12px; color: inherit; font-size: 15px; font-weight: 500; text-decoration: none; border-radius: 8px; cursor: pointer; list-style: none; }
+.mh__top::-webkit-details-marker { display: none; }
+.mh__top:hover, .mh__drop[open] > .mh__top { background: var(--scheme-background-secondary); }
+.mh__panel { position: absolute; left: 0; right: 0; top: 100%; display: flex; gap: 32px; justify-content: space-between; padding: 28px max(var(--theme-padding-x, 24px), calc((100% - var(--theme-page-width, 1280px)) / 2)); background: var(--scheme-background); border-bottom: 1px solid var(--scheme-border); box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08); }
+.mh__cols { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 24px; flex: 1; }
+.mh__col { display: flex; flex-direction: column; gap: 8px; }
+.mh__head { color: var(--scheme-heading); font-weight: 600; text-decoration: none; }
+.mh__sub { color: var(--scheme-text-muted); font-size: 14px; text-decoration: none; }
+.mh__sub:hover, .mh__head:hover { color: var(--scheme-heading); text-decoration: underline; }
+.mh__promo { position: relative; display: block; width: 280px; flex: none; overflow: hidden; border-radius: var(--theme-image-radius, 8px); color: #fff; text-decoration: none; }
+.mh__promo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+.mh__promo span { position: absolute; left: 12px; bottom: 12px; font-weight: 600; text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5); }
+.mh__tools { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.mh__icon { position: relative; display: inline-flex; padding: 8px; color: inherit; }
+.mh__icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.mh__count { position: absolute; top: 2px; right: 0; min-width: 16px; height: 16px; padding: 0 4px; font-size: 11px; line-height: 16px; text-align: center; color: var(--scheme-button-primary-text); background: var(--scheme-button-primary); border-radius: 999px; }
+.mh__count[data-count="0"], .mh__count:empty { display: none; }
+@container (min-width: 900px) {
+  .mh__burger { display: none; }
+  .mh__nav { display: block; }
+}
+@media (prefers-reduced-motion: reduce) { .mh__top { transition: none; } }
+</style>
+
+<schema>
+{
+  "type": "mega_header",
+  "name": "Header with mega menu",
+  "kind": "header",
+  "category": "Header",
+  "settings": [
+    { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu", "info": "Links with links under them open as a panel. Edit them in Website settings, Navigation." },
+    { "type": "range", "id": "logo_width", "label": "Logo width", "default": 120, "min": 60, "max": 260, "step": 4, "unit": "px" },
+    { "type": "image_picker", "id": "promo_image", "label": "Picture in the panel" },
+    { "type": "text", "id": "promo_text", "label": "Picture caption", "default": "" },
+    { "type": "url", "id": "promo_url", "label": "Picture link" },
+    { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" }
+  ],
+  "presets": [{ "name": "Header with mega menu" }]
+}
+</schema>

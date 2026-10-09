@@ -381,7 +381,8 @@ section("Hero, the first real section")
     check("renders the heading escaped", out.html.includes(`Welcome &lt;3`))
     check(
       "and sets it in the theme's heading font, with something to fall back to",
-      /font-family: var\(--theme-font-heading, Georgia\), ui-sans-serif, system-ui, sans-serif/.test(out.css),
+      /* Round 25: through the heading's text style first (Typography › Heading's font role), then the theme's heading font. */
+      /font-family: var\(--section-heading-font, var\(--theme-font-heading, Georgia\), ui-sans-serif, system-ui, sans-serif\)/.test(out.css),
       out.css.slice(0, 200),
     )
     check("the button links where it was told", out.html.includes(`href="/shop"`) && out.html.includes(`>Go</a>`))

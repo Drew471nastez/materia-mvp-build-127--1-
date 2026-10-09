@@ -98,6 +98,8 @@ export function pageKeyFromSegment(segment: string): string | null {
  * written against.
  */
 export function templateForPage(pageKey: string): string {
+  /* The collection template is drawn as "collection" on /collections/<handle>, so the canvas says the same. */
+  if (pageKey === "collection") return "collection"
   return pageKey === "home" ? "index" : `page.${pageKey}`
 }
 
@@ -141,10 +143,10 @@ export const NOT_FOUND_PAGE_KEY = "404"
  * stored contact page is served as it is, and a site without one gets the
  * generated page instead of a 404.
  */
-export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections"])
+export const GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set(["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection"])
 
 /** The pages the theme ships with. Everything else is one a person made. */
-export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections"])
+export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product", "about", "contact", "products", "search", "404", "account", "login", "wishlist", "password", "collections", "collection"])
 
 /**
  * Where a page is served, when that is not `/<key>`: the sign in page is
@@ -152,6 +154,8 @@ export const BUILT_IN_PAGE_KEYS: ReadonlySet<string> = new Set(["home", "product
  */
 export function pagePath(key: string): string {
   if (key === "home") return "/"
+  /* The template every collection is drawn with has no address of its own; its nearest is the list of them. */
+  if (key === "collection") return "/collections"
   if (key === "login") return "/account/login"
   return `/${key}`
 }

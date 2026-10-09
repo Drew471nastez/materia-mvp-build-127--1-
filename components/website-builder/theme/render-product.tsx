@@ -37,6 +37,7 @@ import { getProductShareUrl } from "@/lib/url-helpers"
 import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
+import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
 
 /**
  * How this product is priced, read on its own so the product read above
@@ -307,11 +308,18 @@ export async function renderProduct(
      makes for the product it previews (lib/products/product-section-data.ts). */
   const productData = await productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true })
 
+  /* The site's owner and shop, read here because which sections the theme
+     has decides whether the built-in product section is added below. */
+  const cached = !previewToken
+  const { owner: shop, products, productCount } = await ownerOf(product.creator_id, install.id, themeSettings, { cached })
+
   /* A template saved before the presets carried a product section gets
      one, where the untouched "Product name" placeholder was, and a product
      section saved before it had blocks draws the blocks its old switches
-     describe: product-page.ts. */
-  const sections: SectionInstance[] = withMainProduct(rawSections).map(s =>
+     describe: product-page.ts. A page with a product section of the
+     creator's own (one that reads `product` or `page.product`) gets none:
+     it would draw the product twice. */
+  const sections: SectionInstance[] = withMainProduct(rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
     s.type === "product"
       ? { ...withProductBlocks(s), settings: { ...s.settings, _product_data: productData } }
       : s
@@ -345,8 +353,6 @@ export async function renderProduct(
    * the published site's shop when this is the live page, read directly for
    * a preview.
    */
-  const cached = !previewToken
-  const { owner: shop, products, productCount } = await ownerOf(product.creator_id, install.id, themeSettings, { cached })
   const facts = productFacts(product)
   const others = products.filter((p) => p.id !== product.id)
   const dressed = await dressPage(shop, page, products, productCount, "product", product.title ?? "Product", facts, { cached })

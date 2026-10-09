@@ -55,6 +55,7 @@ import { flushSync } from "react-dom"
 import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { useFrameCommit } from "./use-frame-commit"
+import { beginLive, endLive } from "@/lib/website-builder/live-settings"
 
 /** The glide from where the finger let go to the step it lands on. */
 const SETTLE_MS = 140
@@ -203,6 +204,8 @@ export function SliderNumberControl({
         pct: startPct, value: live.current.shown,
       }
       dragRef.current = d
+      /* What the drag sends is drawn by the section alone and committed once on release (lib/website-builder/live-settings.ts). */
+      beginLive()
       try { wrap.setPointerCapture(e.pointerId) } catch { /* a pointer already gone */ }
       root.setAttribute("data-dragging", "")
       thumbWrap.style.willChange = "translate"
@@ -223,6 +226,7 @@ export function SliderNumberControl({
       try { if (wrap.hasPointerCapture(e.pointerId)) wrap.releasePointerCapture(e.pointerId) } catch { /* already released */ }
       d.root.removeAttribute("data-dragging")
       live.current.flush()
+      endLive()
       /* Where the finger left the thumb and the fill, measured from the step they now rest on. */
       const travel = d.width - d.thumbW
       const restPct = pctOf(d.value)

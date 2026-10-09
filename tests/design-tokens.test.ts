@@ -251,7 +251,8 @@ section("Typography compiles to tokens at three widths")
   const typo = readFileSync(join(process.cwd(), "lib/storelib-theme/typography.ts"), "utf8")
   const themeCss = readFileSync(join(process.cwd(), "lib/website-builder/theme-css.ts"), "utf8")
   check("there is one definition of what a button is",
-    /const BUTTON_PARTS = \["button", '\[role="button"\]', "\.s__btn", "\[data-button\]"\]/.test(typo)
+    /* Round 25: and [data-sl-button], what the AI's reference tells it to mark a button with. */
+    /const BUTTON_PARTS = \["button", '\[role="button"\]', "\.s__btn", "\[data-button\]", "\[data-sl-button\]"\]/.test(typo)
       && /export function buttonSelector\(/.test(typo))
   check("the typography rule uses it",
     /\$\{buttonSelector\(root, \(sel\) => `:where\(\$\{sel\}\)`\)\}\{font-family:var\(--type-button-font\)/.test(typo))

@@ -193,7 +193,8 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
 
   /* ── typography ────────────────────────────────────────────────── */
   const fonts = declarations(css).filter((d) => d.prop === "font-family" || (d.prop === "font" && /[a-z]/i.test(d.value)))
-  const foreignFont = fonts.find((d) => !/var\(--theme-font|theme\.typography|inherit/.test(d.value))
+  /* A font read from the theme by any of its names (the font roles, a section's text style, a text style set in Theme settings) follows the theme. */
+  const foreignFont = fonts.find((d) => !/var\(--(?:theme-font|section-(?:heading|body)-font|type-[a-z0-9-]+-font|sl-[a-z-]+-font)|theme\.typography|inherit/.test(d.value))
   if (foreignFont) {
     note("integration-font", `"${foreignFont.prop}: ${foreignFont.value}" names a font. That is allowed. The theme's fonts are var(--theme-font-heading, {{ theme.typography.heading }}) and var(--theme-font-body, {{ theme.typography.body }}), if this section should follow them.`)
   }
@@ -255,9 +256,20 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     .map((t) => t.replace(/&[a-z#0-9]+;/gi, " ").trim())
     /* The label of an option the creator picked in one of the section's own selects is their choice, printed. */
     .filter((t) => !optionLabels.has(t.toLowerCase()))
-    .find((t) => (t.match(/[A-Za-zÀ-ɏ]{2,}/g) ?? []).length >= 2)
-  if (stranded) {
-    err("integration-text", `"${stranded.slice(0, 60)}" is typed into the markup, so the creator cannot change it. Make it a text setting (or a block setting for repeated items) and print it: {{ settings.heading }}.`)
+    .filter((t) => (t.match(/[A-Za-zÀ-ɏ]{2,}/g) ?? []).length >= 2)
+  /*
+    COPY IS THE CREATOR'S; AN INTERFACE'S OWN WORDS ARE NOT. A headline or a
+    paragraph typed into the markup is copy the creator cannot change, and
+    stays an error. A cart drawer's "Your cart is empty", a filter's "Clear
+    all", a menu's "Close menu" are the interface's words (Shopify themes
+    keep them in the template too), and refusing them refused every drawer,
+    filter panel and mega menu an agent wrote: they are noted, not refused.
+  */
+  const copy = stranded.find((t) => (t.match(/[A-Za-zÀ-ɏ]{2,}/g) ?? []).length >= 5)
+  if (copy) {
+    err("integration-text", `"${copy.slice(0, 60)}" is typed into the markup, so the creator cannot change it. Make it a text setting (or a block setting for repeated items) and print it: {{ settings.heading }}.`)
+  } else if (stranded.length > 0) {
+    note("integration-text", `"${stranded[0].slice(0, 60)}" is typed into the markup. Fine for an interface's own words (a button, an empty cart, a filter); a creator's copy is a text setting.`)
   }
 
   /* ── products come from the store, never from the section ──────── */

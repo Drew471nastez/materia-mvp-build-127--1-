@@ -268,7 +268,8 @@ async function main() {
       about 300 to a list main already measured at the old 6,000 once the
       cookie banner and the branded intro joined Theme settings.
     */
-    check("the first request stays inside its budget", tokens(first.system) <= 14_000 && tokens(JSON.stringify(first.tools)) <= 6_400 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
+    /* System 14,000 until round 25: the build recipe says when to write a section of its own, and the reference it carries quotes sections that read more of the theme (about 150 tokens). */
+    check("the first request stays inside its budget", tokens(first.system) <= 14_200 && tokens(JSON.stringify(first.tools)) <= 6_400 && tokens(turn.content) <= 2_000, `system ${tokens(first.system)}, tools ${tokens(JSON.stringify(first.tools))}, turn ${tokens(turn.content)}`)
     check("every request carries a cache breakpoint on its last block, so the transcript is read back cheaply", sent.every((r) => {
       const msgs = requestMessages(r.turns) as Array<{ content: unknown }>
       const last = msgs[msgs.length - 1].content as Array<{ cache_control?: unknown }>

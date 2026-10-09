@@ -694,7 +694,7 @@ export function themeGlobals(settings: Record<string, unknown>): Record<string, 
       card_shadow: str("card_shadow", "none"),
     },
     animation: {
-      enabled: bool("animations_enabled", true),
+      enabled: bool("animations_enabled", false),
       style: str("animation_style", "fade-up"),
       duration: num("animation_duration", 600),
       stagger: num("animation_stagger", 80),

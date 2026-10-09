@@ -173,9 +173,11 @@ async function main() {
     const writer = writerReference().length
     /* 23,000 until the framework said how to type a picture, a menu and a colour per element, and that the header is configured: 600 characters. */
     /* 23,600 until the control list gained collection_picker and collection_list (about 10 tokens). */
-    check(`the page assistant's reference stays under ~5.9k tokens (${Math.round(page / 4)})`, page <= 23_650, `${page} chars`)
+    /* 23,650 until the built-in section it quotes read the theme's heading font, button size and caption (round 25): about 90 tokens. */
+    check(`the page assistant's reference stays under ~6k tokens (${Math.round(page / 4)})`, page <= 24_100, `${page} chars`)
     /* 33,000 until the product reference drew a collection and products chosen in the sidebar, the way a shop theme does, beside the shop: two more card loops, about 300 tokens. */
-    check(`Code section's reference stays under ~8.5k tokens (${Math.round(writer / 4)})`, writer <= 34_000, `${writer} chars`)
+    /* 34,000 until the same round 25 change to the built-in sections it quotes: about 150 tokens. */
+    check(`Code section's reference stays under ~8.7k tokens (${Math.round(writer / 4)})`, writer <= 34_700, `${writer} chars`)
     check("the framework itself stays short", FRAMEWORK_REFERENCE.length <= 6_600 && QUALITY_CHECKLIST.length <= 1_400, `${FRAMEWORK_REFERENCE.length} / ${QUALITY_CHECKLIST.length}`)
   }
 

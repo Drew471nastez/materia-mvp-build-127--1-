@@ -32,6 +32,7 @@ import type { PointerEvent as ReactPointerEvent } from "react"
 import { Minus, Plus, RotateCw } from "lucide-react"
 import { ColorChip } from "./color-chip"
 import { useFrameCommit } from "./use-frame-commit"
+import { liveGesture } from "@/lib/website-builder/live-settings"
 
 export interface GradientStop {
   color: string
@@ -182,6 +183,9 @@ export function GradientEditor({
   const [selected, setSelected] = useState(0)
   const sent = useRef<string | null>(null)
   const { emit, flush } = useFrameCommit(onChange)
+  /* A stop dragged along the bar is drawn by the canvas alone and committed once on release (lib/website-builder/live-settings.ts). */
+  const [gesture] = useState(liveGesture)
+  useEffect(() => () => gesture.end(), [gesture])
 
   useEffect(() => {
     /* Our own value coming back is not a change. */
@@ -236,6 +240,7 @@ export function GradientEditor({
     setSelected(near)
     grabbed.current = near
     e.currentTarget.setPointerCapture(e.pointerId)
+    gesture.begin()
   }
 
   const onTrackMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -247,6 +252,7 @@ export function GradientEditor({
     if (grabbed.current === null) return
     grabbed.current = null
     flush()
+    gesture.end()
   }
 
   const turn = () => {

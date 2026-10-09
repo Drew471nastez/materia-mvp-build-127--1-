@@ -56,7 +56,7 @@ export const PAGE_GROUP_LABELS: Readonly<Record<PageGroupKey, string>> = {
 /** Which group a page is listed under, by its key. */
 export function pageGroupOf(key: string): PageGroupKey {
   if (key === "home") return "home"
-  if (key === "products" || key === "search" || key === "collections") return "shop"
+  if (key === "products" || key === "search" || key === "collections" || key === "collection") return "shop"
   if (key === "product") return "products"
   if (ACCOUNT_KEYS.includes(key)) return "accounts"
   if (key === "contact") return "contact"
@@ -75,6 +75,7 @@ export function pageGroupOf(key: string): PageGroupKey {
 const WITHIN: Readonly<Record<string, number>> = {
   products: 0,
   collections: 1,
+  collection: 1.5,
   search: 2,
   about: -1,
   ...Object.fromEntries(ACCOUNT_KEYS.map((k, i) => [k, i])),

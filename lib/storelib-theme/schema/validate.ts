@@ -476,7 +476,18 @@ function checkPresetBlocks(
   if (count > LIMITS.blocksPerSection) err(`${at}.blocks`, `${count} blocks; a section holds ${LIMITS.blocksPerSection}`)
 }
 
-const BLOCK_TAGS = new Set(["div", "section", "article", "aside", "figure", "li", "ul", "ol", "span", "blockquote", "p"])
+/*
+  What a block may be wrapped in. A name from this list, never the file's
+  own text, so nothing can be written into the tag. Round 25 added the
+  elements a header, a drawer, a mega menu, a filter panel or an accordion is
+  built from: a block can be the <nav> of a menu, a <details> of a filter
+  group, a <dialog> of a drawer, a <form> of a search.
+*/
+const BLOCK_TAGS = new Set([
+  "div", "section", "article", "aside", "figure", "li", "ul", "ol", "span", "blockquote", "p",
+  "nav", "header", "footer", "main", "details", "dialog", "form", "fieldset", "label", "dl", "dt", "dd", "figcaption",
+  "h1", "h2", "h3", "h4", "h5", "h6", "button", "menu", "address", "small", "strong", "em", "picture",
+])
 
 /**
  * ===========================================================================

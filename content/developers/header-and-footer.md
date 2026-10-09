@@ -219,8 +219,8 @@ A file is treated as a header or footer, for that placement, when any of these h
 
 1. Its schema says `"kind": "header"` or `"kind": "footer"`.
 2. Its schema says so in a key Storelib does not use: `"group": "header"` or `"footer"`. (`enabled_on` is where a section may go, not what it is: an announcement bar in the header group is not a header.)
-3. Its type or name is one: Header, Site header, Navbar, Navigation bar, Top bar, Footer, with a word like Main or Custom in front or a version after. A heading band called "Page header" or "Collection header" is not.
-4. Its markup is one: the outermost element is a `<header>` holding a `<nav>`, a `<nav>`, or a `<footer>`, and its name says header, nav, menu or footer.
+3. Its type or name is one: Header, Site header, Navbar, Navigation bar, Footer, with a word like Main or Custom in front or a version after. A heading band called "Page header" or "Collection header" is not, and neither is a Top bar, a Menu bar, a Navigation menu or a Mega menu: those are sections of their own, placed wherever they are put.
+4. Its markup is one: the outermost element is a `<header>` holding a `<nav>`, a `<nav>`, or a `<footer>`, and its name says header, navigation or footer. A `<nav>` named for a menu is a menu.
 
 Only `sections/header.storelib` and `sections/footer.storelib` are refused, because those names are the built-in sections. Save a header of your own as `sections/studio_header.storelib` (any other name) and set `"kind"`.
 

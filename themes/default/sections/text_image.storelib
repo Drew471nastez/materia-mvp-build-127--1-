@@ -27,7 +27,7 @@
 .s__in--medium { max-width: 960px; }
 .s__in--wide { max-width: var(--theme-page-width, 1280px); }
 .s__in--full { max-width: none; }
-.s__eyebrow { margin: 0 0 12px; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--s-accent); }
+.s__eyebrow { margin: 0 0 12px; font-family: var(--sl-caption-font); font-size: var(--sl-caption-size, 12px); font-weight: var(--sl-caption-weight, 600); letter-spacing: var(--sl-caption-tracking, 0.14em); text-transform: var(--sl-caption-transform, uppercase); color: var(--s-accent); }
 .s__h {
   margin: 0;
   /* The section's heading style: Heading 2 unless the section picked
@@ -40,7 +40,7 @@
   text-transform: var(--section-heading-transform, none);
   /* The theme's font when the page sets one, the token otherwise, and a real
      stack either way: a bare family name falls back to the browser's serif. */
-  font-family: var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--section-heading-font, var(--theme-font-heading, {{ theme.typography.heading }}), ui-sans-serif, system-ui, sans-serif);
 }
 .s__sub { margin: 14px 0 0; font-size: var(--section-text-size, 17px); line-height: var(--section-text-line-height, 1.6); color: var(--s-para); }
 .s__head { max-width: 44rem; }
@@ -49,7 +49,7 @@
 .s__head--center .s__btns { justify-content: center; }
 .s__btn {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 13px 24px; font-size: 15px; font-weight: 600; text-decoration: none;
+  padding: var(--sl-button-padding, 13px 24px); font-size: var(--sl-button-size, 15px); line-height: var(--sl-button-line-height); font-weight: var(--theme-button-weight, 600); text-decoration: none;
   border-radius: var(--s-radius); border: 1px solid transparent; transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 /* Each button's hover colours come from the scheme, after the section's own
@@ -75,12 +75,12 @@
 .rt ul, .rt ol { margin: 0 0 1em; padding-left: 1.35em; }
 .rt li { margin: 0.35em 0; }
 .rt blockquote { margin: 1.4em 0; padding-left: 18px; border-left: 3px solid var(--s-accent); color: var(--s-heading); font-size: 18px; }
-.rt img { max-width: 100%; height: auto; border-radius: var(--s-radius); }
+.rt img { max-width: 100%; height: auto; border-radius: var(--sl-image-radius, var(--s-radius)); }
 
 .rt__h { margin-bottom: 16px; }
 .ti__in { display: grid; gap: 36px; align-items: center; grid-template-columns: 1fr; }
 @container (min-width: 860px) { .ti__in { grid-template-columns: 1fr 1fr; gap: 56px; } .ti--right .ti__media { order: 2; } }
-.ti__media { margin: 0; overflow: hidden; border-radius: var(--s-radius); }
+.ti__media { margin: 0; overflow: hidden; border-radius: var(--sl-image-radius, var(--s-radius)); }
 .ti__media--square { border-radius: 0; }
 .ti__media--round { border-radius: 24px; }
 .ti__media img { display: block; width: 100%; object-fit: cover; aspect-ratio: 4 / 3; }

@@ -239,7 +239,8 @@ function main() {
     const t = themeTokens({ logo_url: "https://cdn.test/logo.png", logo_width: 40, brand_name: "Luca", social_linkedin: "https://linkedin.com/in/luca", button_style: "outline", animation_style: "fade-in" }) as Record<string, Record<string, unknown>>
     check("theme.logo", t.logo.url === "https://cdn.test/logo.png" && t.logo.width === 40 && t.logo.text === "Luca" && t.logo.mobile_url === "https://cdn.test/logo.png", t.logo)
     check("theme.buttons", t.buttons.style === "outline" && t.buttons.radius === 8, t.buttons)
-    check("theme.animation", t.animation.style === "fade-in" && t.animation.enabled === true, t.animation)
+    /* Round 25: off until switched on, which is what every page has always drawn (section-anchors.ts themeAnimation). */
+    check("theme.animation", t.animation.style === "fade-in" && t.animation.enabled === false && (themeTokens({ animations_enabled: true }) as Record<string, Record<string, unknown>>).animation.enabled === true, t.animation)
     check("theme.socials", Array.isArray(t.socials) && (t.socials as unknown as { key: string }[])[0]?.key === "linkedin", t.socials)
     /* The defaults are Theme settings' own. */
     const empty = themeTokens({}) as Record<string, Record<string, unknown>>

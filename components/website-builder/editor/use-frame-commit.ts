@@ -75,6 +75,7 @@ export function useFrameCommit<T>(onChange: (value: T) => void): {
   /** When the last commit went out, and what the frame around it cost. */
   const lastFlushAt = useRef(0)
   const lastCost = useRef(0)
+  const frameMs = useRef(Number.POSITIVE_INFINITY)
   /** Set for the one frame after a commit, which is the one that carries its work. */
   const measuring = useRef(false)
   /* Held in a ref so a parent that passes a fresh closure every render does
@@ -105,11 +106,17 @@ export function useFrameCommit<T>(onChange: (value: T) => void): {
       frame.current = 0
       const gap = lastTs.current ? ts - lastTs.current : 0
       lastTs.current = ts
-      /* The first frame after a commit is the one that did its work, so its
-         length is what that commit cost this device. */
+      /* The screen's own frame: the shortest gap seen (16.7ms at 60Hz, 8.3 at 120). */
+      if (gap > 4 && gap < 40) frameMs.current = Math.min(frameMs.current, gap)
+      /* The first frame after a commit is the one that did its work, so what
+         it ran over the screen's frame is what that commit cost this device.
+         The whole gap was counted before, and a gap is never less than a
+         frame: a canvas that drew in 2ms was still held for two frames,
+         and a drag drew every other value at best (round 25,
+         scripts/check-slider-latency.mjs). */
       if (measuring.current) {
         measuring.current = false
-        lastCost.current = gap
+        lastCost.current = Math.max(0, gap - (Number.isFinite(frameMs.current) ? frameMs.current : 16.7))
       }
       const waited = heldSince.current ? performance.now() - heldSince.current : 0
       const hold = Math.min(lastCost.current * COST_MULTIPLIER, MAX_HOLD_MS)

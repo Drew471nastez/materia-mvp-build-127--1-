@@ -370,9 +370,10 @@ function sectionVarBlock(role: "heading" | "body", from: string): string {
  * the theme ships against a deliberately loud button style and reads back
  * which elements took it.
  */
-const BUTTON_PARTS = ["button", '[role="button"]', ".s__btn", "[data-button]"]
+/* `[data-sl-button]` is what the Storelib AI's reference tells a section to mark its buttons with (lib/storelib-ai/reference.ts); without it here an agent's buttons took none of Buttons' settings. */
+const BUTTON_PARTS = ["button", '[role="button"]', ".s__btn", "[data-button]", "[data-sl-button]"]
 
-/** `${root} :where([data-section] button),…` for each of the four. */
+/** `${root} :where([data-section] button),…` for each of the parts. */
 export function buttonSelector(root: string, wrap: (sel: string) => string = (s) => s): string {
   return BUTTON_PARTS.map((part) => `${root} ${wrap(`[data-section] ${part}`)}`).join(",")
 }
@@ -386,8 +387,14 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
    * below (0,1,0), so a chosen style wins and an unchosen one inherits.
    */
   const carrying = (attr: string) => `${root} [data-section] [${attr}],${root} [${attr}] [data-section]`
-  // The default: a section's heading is its H2, its body is Body.
-  rules.push(`${sect}{${sectionVarBlock("heading", "type-h2")};${sectionVarBlock("body", "type-body")};}`)
+  /*
+    The default: a section's heading is its H2, its body is Body, and its
+    text (`--section-text-*`, what every template's paragraphs read) is
+    Body too. That last part used to be defined only once a section picked a
+    body style, so Typography › Body reached no section's text at all: each
+    kept the size its template wrote as a fallback (17px in most).
+  */
+  rules.push(`${sect}{${sectionVarBlock("heading", "type-h2")};${sectionVarBlock("body", "type-body")};${PROPS.map((p) => `--section-text-${p}:var(--section-body-${p})`).join(";")};}`)
   for (const key of ["h1", "h2", "h3", "h4"] as const) {
     rules.push(`${carrying(`data-heading-style="${key}"`)}{${sectionVarBlock("heading", `type-${key}`)};}`)
   }
@@ -422,10 +429,10 @@ export function typographyStylesheet(root: string, typo: ThemeTypography): strin
   }
   /**
    * A chosen body style lands on the section root, where unstyled text
-   * inherits it, and is republished as `--section-text-*`, which is only
-   * defined when a style was chosen, so a template can write
-   * `font-size: var(--section-text-size, 17px)` and keep its own size
-   * until somebody picks one.
+   * inherits it, and is republished as `--section-text-*`. Unchosen, the
+   * default rule above publishes Body under the same names, so a template's
+   * `font-size: var(--section-text-size, 17px)` is the theme's Body inside
+   * a themed page and its own 17px only outside one.
    */
   rules.push(`${carrying("data-body-style")}{font-family:var(--section-body-font);font-size:var(--section-body-size);line-height:var(--section-body-line-height);font-weight:var(--section-body-weight);letter-spacing:var(--section-body-tracking);${PROPS.map((p) => `--section-text-${p}:var(--section-body-${p})`).join(";")};}`)
   /* Buttons, not every link. See buttonSelector above for why that is not

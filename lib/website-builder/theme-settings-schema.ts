@@ -425,7 +425,8 @@ export const THEME_SETTINGS_GROUPS: ThemeSettingsGroup[] = [
     label: "Animations",
     icon: "sparkles",
     fields: [
-      { id: "animations_enabled", label: "Enable scroll animations", type: "toggle", default: true },
+      /* Off until switched on, which is what every page has always drawn (section-anchors.ts themeAnimation): the panel said on while nothing moved, and a section's Animation read "Same as theme (None)". */
+      { id: "animations_enabled", label: "Enable scroll animations", type: "toggle", default: false },
       {
         id: "animation_style",
         label: "Animation style",

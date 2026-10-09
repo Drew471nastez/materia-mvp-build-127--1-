@@ -101,7 +101,7 @@ async function main() {
     ["integration-link", "a link typed into the markup", (s) => s.replace("{{ settings.button_url | default: '#' | url }}", "https://example.com/buy")],
     ["integration-image", "a picture typed into the markup", (s) => s.replace('src="{{ settings.image | asset }}"', 'src="https://cdn.example.com/hero.jpg"')],
     ["integration-image-css", "a picture in the CSS", (s) => s.replace(".s { container-type", ".s { background-image: url(https://cdn.example.com/x.jpg); container-type")],
-    ["integration-text", "a heading typed into the markup", (s) => s.replace("{{ settings.heading }}</h2>", "Our amazing story</h2>")],
+    ["integration-text", "a heading typed into the markup", (s) => s.replace("{{ settings.heading }}</h2>", "Our amazing story since the very first day</h2>")],
     ["integration-responsive", "a fixed desktop width and no phone layout", (s) => s.replace(/@container[^\n]*\n/, "").replace(".s__in { padding", ".s__in { width: 1100px; padding")],
   ]
   for (const [id, what, mutate] of cases) {
@@ -111,6 +111,13 @@ async function main() {
   }
   const msg = checkSectionIntegration(cases.find((c) => c[0] === "integration-link")![2](NATIVE))[0]?.message ?? ""
   check("the refusal says the fix", /url setting/.test(msg) && /\| url/.test(msg))
+  {
+    /* Round 25: an interface's own words (an empty cart, a filter's Clear all) are noted, never refused; a creator's copy still is. */
+    const ui = checkSectionIntegration(NATIVE.replace("{{ settings.heading }}</h2>", "{{ settings.heading }}</h2><p>Your cart is empty</p>"))
+    check("an interface's own words are a note, not a refusal", ui.some((f) => f.id === "integration-text" && f.severity === "warning") && !ui.some((f) => f.id === "integration-text" && f.severity === "error"))
+    const copy = checkSectionIntegration(NATIVE.replace("{{ settings.heading }}</h2>", "Our amazing story since the very first day</h2>"))
+    check("a headline typed into the markup is still refused", copy.some((f) => f.id === "integration-text" && f.severity === "error"))
+  }
   check("editor-only prompts are not copy", ids(NATIVE).length === 0 && /Add a picture in the sidebar/.test(NATIVE))
   check("white text and a dark scrim over a picture are allowed", ids(NATIVE.replace("color: var(--s-heading); }", "color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,.4); }")).length === 0)
   check("a colour that is only a var() fallback is allowed", ids(NATIVE.replace("color: var(--s-heading); }", "color: var(--s-heading, color-mix(in srgb, var(--s-text) 90%, #000)); }")).length === 0)

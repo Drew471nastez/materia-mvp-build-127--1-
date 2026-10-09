@@ -144,17 +144,19 @@ async function main() {
       ).some((f) => f.id === "reduced-motion"),
     )
 
+    /* Round 25: noted, not refused, since the compiler rewrites it into the same container query. */
     check(
-      "a width media query is caught, because a section is as wide as its column",
-      idsOf(variant([["@container (min-width: 640px)", "@media (min-width: 640px)"]])).includes("media-query"),
+      "a width media query is noted, because a section is as wide as its column",
+      checkSectionQuality(variant([["@container (min-width: 640px)", "@media (min-width: 640px)"]])).some((f) => f.id === "media-query" && f.severity === "warning") &&
+        !idsOf(variant([["@container (min-width: 640px)", "@media (min-width: 640px)"]])).includes("media-query"),
     )
     check(
       "prefers-reduced-motion is not mistaken for a width query",
       !idsOf(GOOD).includes("media-query"),
     )
     check(
-      "@container with nothing to measure is caught",
-      idsOf(variant([["container-type: inline-size; ", ""]])).includes("container-type"),
+      "@container with no container-type is noted (every section is drawn in a container already)",
+      checkSectionQuality(variant([["container-type: inline-size; ", ""]])).some((f) => f.id === "container-type" && f.severity === "warning"),
     )
 
     check(

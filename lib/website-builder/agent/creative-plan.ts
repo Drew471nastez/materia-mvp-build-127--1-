@@ -37,7 +37,7 @@ import type { ThemeState } from "./operations"
 import type { Intent } from "./intent"
 
 /** Sections of its own a plan may ask for in one run. Each is a whole file the model writes and the compiler checks. */
-export const MAX_NEW_SECTIONS = 3
+export const MAX_NEW_SECTIONS = 6
 
 /** Sections a plan may have, header and footer apart. A page of twelve is two pages. */
 export const MAX_PLAN_SECTIONS = 12
@@ -92,8 +92,8 @@ Think like you were hired for this: who visits, what they came for, what the pag
 The current page is NOT a starting point unless the brief says to keep it. Keep a section only when it already does a job the new site needs and its content is real (the creator's own words, real products, real facts). Remove the rest. Do not keep a generic section because it exists.
 
 Rules for the plan:
-- Use the built-in section types where one fits the pattern; set them up well. Use a section of your own ("new:<type>") only for the few moments that make this site recognisable and that no built-in type can draw: an immersive hero, a marquee, an event poster, a lineup, a schedule, a before and after slider. At most ${MAX_NEW_SECTIONS}.
-- Never plan a header or footer section in the list: say in "header" how the built-in header should be set up (or, only when the brief clearly needs one, that a header of your own is written).
+- Each section is either a built-in type that already draws exactly what this design wants, set up well, or a section of your own ("new:<type>") written for this site. Write your own wherever the design asks for a layout, an interaction or a look the built-in types do not give: an immersive hero, a product page laid out its own way, a collection grid with its own filters and sorting, a lookbook, a schedule, a comparison, a configurator. A built-in type is never the reason a design is ordinary. At most ${MAX_NEW_SECTIONS} of your own in one run; the rest can follow in a later message.
+- The header and footer are not in the list. Say in "header" how the header should be: the built-in header set up, or a header of your own (written with "kind": "header") when the design wants its own layout, a mega menu, a drawer, a search panel or a cart drawer of its own. Either way its menus, logo, cart, search and account stay the site's live ones.
 - Fonts must come from this list: ${[...OFFERED_FAMILIES].join(", ")}.
 - Colours are hex values. Text on its background at 4.5:1 or better.
 - Vary the layouts down the page. Never two sections in a row with the same shape.

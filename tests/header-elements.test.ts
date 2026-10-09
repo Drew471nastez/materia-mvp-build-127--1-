@@ -191,7 +191,7 @@ function main() {
      contact (lib/website-builder/account-pages), named in one set. */
   /* And the collections page, Shopify's list-collections (lib/website-builder/shop-page). */
   check("the generated keys are named once",
-    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections"\]\)/.test(sitePages))
+    /GENERATED_PAGE_KEYS: ReadonlySet<string> = new Set\(\["products", "search", "404", "account", "login", "wishlist", "contact", "password", "collections", "collection"\]\)/.test(sitePages))
   check("and are built in, so they are not listed as pages somebody made",
     /BUILT_IN_PAGE_KEYS[^\n]*"products", "search"/.test(sitePages))
   check("the sections route generates them from the same builders the live site uses",
@@ -211,7 +211,7 @@ function main() {
   check("and both are in the page lists",
     /products: \{ label: "Shop"/.test(read("lib/website-builder/types.ts")) && /search: \{ label: "Search"/.test(read("lib/website-builder/types.ts")) &&
       /* The collections page is filtered out while collections are off; every other key is listed. */
-      /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)(\.filter\(\(k\) => k !== "collections" \|\| builderCollections !== null\))?\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
+      /\.\.\.\(Object\.keys\(PAGE_META\) as PageKey\[\]\)(\.filter\(\(k\) => \(k !== "collections" && k !== "collection"\) \|\| builderCollections !== null\))?\.map\(\(k\) => \(\{ key: k, name: PAGE_META\[k\]\.label, path: pagePath\(k\) \}\)\)/.test(editor) &&
       /<PageSwitcher\s*\n\s*pages=\{sitePages\}/.test(editor) && /pages=\{sitePages\}/.test(editor.slice(editor.indexOf("const renderPageBrowser"))))
   check("the live shop and search prefer what the creator saved",
     /site\.pages\.products/.test(read("app/(site)/w/[username]/products/page.tsx")) && /site\.pages\.search/.test(read("app/(site)/w/[username]/search/page.tsx")))

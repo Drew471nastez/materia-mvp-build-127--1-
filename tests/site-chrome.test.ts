@@ -69,11 +69,12 @@ async function main() {
   check("of every section the theme ships, only the header and the footer themselves", flagged.sort().join(",") === "footer,header", flagged)
   for (const [name, role] of [
     ["Header", "header"], ["Site header", "header"], ["LD 02 — Header", "header"], ["Navbar", "header"], ["navigation_bar", "header"],
-    ["Top bar", "header"], ["Custom Footer", "footer"], ["Footer v2", "footer"],
+    ["Custom Footer", "footer"], ["Footer v2", "footer"],
   ] as const) {
     check(`"${name}" is a ${role}`, chromeRoleOf({ schema: { name } }) === role)
   }
-  for (const name of ["Page header", "Collection header", "Announcement bar", "Hero", "Mega menu", "Page links"]) {
+  /* Round 25: a top strip, a menu bar and a mega menu are sections of their own, not the header in disguise. */
+  for (const name of ["Page header", "Collection header", "Announcement bar", "Hero", "Mega menu", "Page links", "Top bar", "Menu bar", "Navigation menu", "Mega menu bar"]) {
     check(`"${name}" is a section like any other`, chromeRoleOf({ schema: { name } }) === null)
   }
   check("a schema that says group: header is one", chromeRoleOf({ schema: { name: "Brand", group: "header" } }) === "header")
@@ -83,6 +84,8 @@ async function main() {
   check("and a section that declares kind is the creator's own, never refused", chromeRoleOf({ schema: { name: "Footer", kind: "footer" } }) === null)
   check("an outermost <header> holding a <nav> and named for it",
     chromeRoleOf({ schema: { name: "Brand nav" }, template: "<header><nav><a href='/'>a</a></nav></header>" }) === "header")
+  check("a <nav> named for a menu is a menu, not the header (a mega menu, a sidebar's links)",
+    chromeRoleOf({ schema: { name: "Mega menu" }, template: "<nav><ul><li><a href='/'>a</a></li></ul></nav>" }) === null && chromeRoleOf({ schema: { name: "Sidebar menu" }, template: "<nav><a href='/'>a</a></nav>" }) === null)
   check("but a <header> around a heading is a heading",
     chromeRoleOf({ schema: { name: "Intro" }, template: "<header class='x'><h1>Title</h1></header>" }) === null)
 
