@@ -274,6 +274,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     return null
   }
   const snippet = (name: string) => src.text.get(`snippets/${name}.liquid`) ?? null
+  const globalCss = globalStylesheet(src)
 
   const files: ThemeFiles = {}
   const reserved = new Set([...(opts.reservedTypes ?? []), "header", "footer"])
@@ -316,7 +317,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       report.skip(path, `"${base}" cannot be made into a section name`)
       continue
     }
-    const out = convertFile(text, { path, mode: "section", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: new Set(blockSchemas.keys()) })
+    const out = convertFile(text, { path, mode: "section", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: new Set(blockSchemas.keys()), globalCss })
     if (!out) continue
     files[`sections/${type}.storelib`] = out.source
     sectionTypes.set(base, { type, settings: out.settings, blocks: out.localBlocks })
@@ -405,6 +406,8 @@ interface FileJob {
   report: Report
   /** The theme block files that converted; null while converting those files themselves. */
   blockTypes: Set<string> | null
+  /** The theme's own stylesheet (assets/base.css and its tokens), for a section. A block inherits it from the section it is drawn in. */
+  globalCss?: string
 }
 
 const SCHEMA_TAG = /\{%-?\s*schema\s*-?%\}([\s\S]*?)\{%-?\s*endschema\s*-?%\}/
@@ -462,6 +465,13 @@ function convertFile(text: string, job: FileJob): { source: string; settings: Se
     else delete valid.tag
   }
 
+  /*
+    The theme's stylesheet is loaded by the layout, which is not imported
+    (the site draws its own page shell). Without it a section is an unstyled
+    shell: no type scale, no flex layout, no button, and a hero whose height
+    is an empty calc. It is carried with the section, scoped to that section.
+  */
+  if (job.mode === "section" && job.globalCss) ctx.styles.unshift({ css: job.globalCss, dynamic: false })
   let styles = usableCss(budgetCss(ctx.styles, note), job, note)
   let script = job.mode === "section" ? ctx.script : null
   const file = `${job.mode === "section" ? "sections" : "blocks"}/${job.type}.storelib`
@@ -835,12 +845,19 @@ function cleanPresets(list: Tree[], schema: Tree, job: FileJob, local: boolean):
     if (!p || typeof p !== "object") continue
     const preset: Tree = { ...p, name: job.tr(p.name, String(schema.name ?? "Preset")).slice(0, 80) }
     if (p.settings && typeof p.settings === "object") {
-      preset.settings = Object.fromEntries(Object.entries(p.settings as Tree).map(([k, v]) => [settingId(k), v] as [string, unknown]).filter(([k, v]) => ids.has(k) && !shopifyOnly(v)).map(([k, v]) => [k, typeof v === "string" && v.startsWith("t:") ? job.tr(v, "") : v]))
+      preset.settings = Object.fromEntries(Object.entries(p.settings as Tree).map(([k, v]) => [settingId(k), v] as [string, unknown]).filter(([k, v]) => ids.has(k) && !shopifyOnly(v)).map(([k, v]) => [k, translateSetting(v, job.tr)]))
     }
-    if ((schema.blocks as Tree[] | undefined)?.length) {
-      blocksOf(preset, true, 1)
-      dropShopifyValues(preset.blocks)
-    } else {
+    /*
+      A section that only places static blocks (`{% content_for "block" %}`,
+      Horizon's carousel, collection links) lists no blocks in its schema.
+      Dropping the preset's blocks there left the section with nothing to draw.
+      Static blocks stay; a block the section cannot hold still does not.
+    */
+    blocksOf(preset, true, 1)
+    const kept = preset.blocks
+    const any = Array.isArray(kept) ? kept.length > 0 : !!kept && typeof kept === "object" && Object.keys(kept as Tree).length > 0
+    if (any) dropShopifyValues(kept, job.tr)
+    else {
       delete preset.blocks
       delete preset.block_order
     }
@@ -849,13 +866,35 @@ function cleanPresets(list: Tree[], schema: Tree, job: FileJob, local: boolean):
   return out
 }
 
+/** `t:html_defaults.new_arrivals_h2` is the words in the locale file, including a key written inside a longer string. */
+function translateSetting(v: unknown, tr: (value: unknown, fallback: string) => string): unknown {
+  if (typeof v !== "string" || !v.includes("t:")) return v
+  if (v.startsWith("t:")) {
+    const words = tr(v, "")
+    return words || v
+  }
+  return v.replace(/\bt:([a-z0-9_.]+)/gi, (whole, key: string) => tr(`t:${key}`, "") || whole)
+}
+
 /** The preset's blocks, at every depth, without values that only mean something on Shopify. */
-function dropShopifyValues(blocks: unknown): void {
+function dropShopifyValues(blocks: unknown, tr: (value: unknown, fallback: string) => string): void {
   const list = Array.isArray(blocks) ? blocks : blocks && typeof blocks === "object" ? Object.values(blocks as Tree) : []
   for (const b of list as Tree[]) {
     if (!b || typeof b !== "object") continue
-    if (b.settings && typeof b.settings === "object") b.settings = Object.fromEntries(Object.entries(b.settings as Tree).filter(([, v]) => !shopifyOnly(v)))
-    dropShopifyValues(b.blocks)
+    if (b.settings && typeof b.settings === "object") {
+      const entries: [string, unknown][] = []
+      for (const [k, v] of Object.entries(b.settings as Tree)) {
+        if (typeof v === "string" && (v.includes("{{") || v.startsWith("shopify://"))) {
+          const softened = softenDynamic(v)
+          if (softened != null) entries.push([k, softened])
+          continue
+        }
+        if (shopifyOnly(v)) continue
+        entries.push([k, translateSetting(v, tr)])
+      }
+      b.settings = Object.fromEntries(entries)
+    }
+    dropShopifyValues(b.blocks, tr)
   }
 }
 
@@ -1022,18 +1061,208 @@ function convertTemplates(
  * dynamic source such as "{{ product.vendor }}", which here would print as
  * those characters.
  */
+/**
+ * What the layout would have put on every page, carried into each section.
+ * `body` and `html` rules are not: scoped, they would make the section itself
+ * `min-height: 100svh` and the library card a tall blank.
+ */
+const FALLBACK_TOKENS = `:root {
+  --section-height-small: 15rem;
+  --section-height-medium: 25rem;
+  --section-height-large: 35rem;
+  --color-foreground: #1a1a2e;
+  --color-foreground-rgb: 26 26 46;
+  --color-background: #ffffff;
+  --color-background-rgb: 255 255 255;
+  --color-border-rgb: 226 232 240;
+  --font-body--family: inherit;
+  --font-heading--family: inherit;
+  --font-subheading--family: inherit;
+  --font-accent--family: inherit;
+  --font-body--style: normal;
+  --font-body--weight: 400;
+  --font-heading--style: normal;
+  --font-heading--weight: 600;
+  --gap-scale: 1;
+  --layer-base: 0;
+  --layer-flat: 1;
+  --layer-raised: 2;
+  --layer-overlay: 16;
+  --opacity-10: 0.1;
+  --opacity-20: 0.2;
+  --opacity-40: 0.4;
+  --opacity-50: 0.5;
+  --opacity-70: 0.7;
+  --opacity-80: 0.8;
+  --font-size--xs: 0.75rem;
+  --font-size--sm: 0.875rem;
+  --font-size--md: 1rem;
+  --font-size--lg: 1.125rem;
+  --font-size--xl: 1.25rem;
+  --font-size--2xl: 1.5rem;
+  --font-size--3xl: 2rem;
+  --font-size--h1: 2.5rem;
+  --font-size--h2: 2rem;
+  --font-size--h3: 1.5rem;
+  --font-size--h4: 1.25rem;
+  --font-size--h5: 1.125rem;
+  --font-size--h6: 1rem;
+  --font-size--paragraph: 1rem;
+  --font-h1--size: var(--font-size--h1);
+  --font-h2--size: var(--font-size--h2);
+  --font-h3--size: var(--font-size--h3);
+  --font-h4--size: var(--font-size--h4);
+  --font-h5--size: var(--font-size--h5);
+  --font-h6--size: var(--font-size--h6);
+  --font-paragraph--size: var(--font-size--paragraph);
+  --font-h1--family: var(--font-heading--family);
+  --font-h2--family: var(--font-heading--family);
+  --font-h3--family: var(--font-heading--family);
+  --font-h4--family: var(--font-heading--family);
+  --font-h5--family: var(--font-heading--family);
+  --font-h6--family: var(--font-heading--family);
+  --font-paragraph--family: var(--font-body--family);
+  --font-h1--weight: 600;
+  --font-h2--weight: 600;
+  --font-h3--weight: 600;
+  --font-h4--weight: 600;
+  --font-h5--weight: 600;
+  --font-h6--weight: 600;
+  --font-paragraph--weight: 400;
+  --font-h1--line-height: 1.15;
+  --font-h2--line-height: 1.2;
+  --font-h3--line-height: 1.25;
+  --font-paragraph--line-height: 1.5;
+  --line-height--heading-normal: 1.25;
+  --line-height--body-normal: 1.5;
+  --color-primary-button-background: #1a1a2e;
+  --color-primary-button-text: #ffffff;
+  --color-primary-button-border: #1a1a2e;
+  --color-primary-button-hover-background: #000000;
+  --color-primary-button-hover-text: #ffffff;
+  --color-secondary-button-background: transparent;
+  --color-secondary-button-text: #1a1a2e;
+  --color-secondary-button-border: #1a1a2e;
+  --color-secondary-button-hover-background: #f3f4f6;
+  --color-secondary-button-hover-text: #1a1a2e;
+  --page-width: 1200px;
+  --page-margin: 20px;
+  --style-border-radius-buttons: 0px;
+}
+.hero__container { background: #e6e7eb; }
+.placeholder-svg { width: 100%; height: 100%; display: block; }
+.product-card, .card-gallery { min-height: 12rem; background: #f3f4f6; }
+`
+
+function globalStylesheet(src: SourceFiles): string {
+  const parts = [FALLBACK_TOKENS]
+  for (const name of ["theme-styles-variables", "css-variables", "color-palette"]) {
+    const text = src.text.get(`snippets/${name}.liquid`)
+    const css = text ? staticSnippetCss(text) : null
+    if (css) parts.push(css)
+  }
+  const base = src.text.get("assets/base.css")
+  if (base) {
+    const safe = sectionSafeCss(base)
+    if (safe) parts.push(safe)
+  }
+  return parts.join("\n")
+}
+
+/** `{% style %}` with the Liquid taken out, when what remains is still CSS. The font lines that only Shopify can fill are dropped. */
+function staticSnippetCss(source: string): string | null {
+  const chunks: string[] = []
+  const re = /\{%-?\s*(style|stylesheet)\s*-?%\}([\s\S]*?)\{%-?\s*end\1\s*-?%\}/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(source))) chunks.push(m[2])
+  if (!chunks.length) return null
+  let css = chunks.join("\n")
+  css = css.replace(/\{%-?\s*(?:comment|doc)[\s\S]*?end(?:comment|doc)\s*-?%\}/g, "")
+  css = css.replace(/\{%-?\s*liquid[\s\S]*?-?%\}/g, "")
+  css = css.replace(/\{%-?[\s\S]*?-?%\}/g, "")
+  css = css.replace(/\{\{[\s\S]*?\}\}/g, "")
+  css = css.replace(/^[ \t]*--[\w-]+\s*:\s*[,.\s]*;[ \t]*$/gm, "")
+  css = css.replace(/^[ \t]*[a-zA-Z-]+\s*:\s*;[ \t]*$/gm, "")
+  return parsedCss(css)
+}
+
+/** `html` and `body` rules restyle the page. On a section they would restyle the section. */
+function sectionSafeCss(css: string): string | null {
+  let root
+  try {
+    root = postcss.parse(css)
+  } catch {
+    return null
+  }
+  root.walkRules((rule) => {
+    const parent = rule.parent as { type?: string; name?: string } | undefined
+    if (parent?.type === "atrule" && /keyframes$/i.test(parent.name ?? "")) return
+    const selectors = rule.selectors.filter((s) => !/^(html|body)(\s|[:.#\[]|$)/i.test(s.trim()))
+    if (!selectors.length) rule.remove()
+    else rule.selectors = selectors
+  })
+  root.walkRules((rule) => {
+    if (!rule.nodes?.length) rule.remove()
+  })
+  root.walkAtRules((at) => {
+    if (!at.nodes?.length && at.name.toLowerCase() !== "import") at.remove()
+  })
+  return root.toString().trim() || null
+}
+
+function parsedCss(css: string): string | null {
+  try {
+    const root = postcss.parse(css)
+    root.walkRules((rule) => {
+      if (!rule.nodes?.length) rule.remove()
+    })
+    root.walkAtRules((at) => {
+      if (!at.nodes?.length) at.remove()
+    })
+    const out = root.toString().trim()
+    return out || null
+  } catch {
+    return null
+  }
+}
+
 function shopifyOnly(v: unknown): boolean {
   return typeof v === "string" && (v.startsWith("shopify://") || v.includes("{{"))
+}
+
+/**
+ * A heading whose only words are a Shopify source (`{{ closest.collection.title }}`)
+ * was dropped whole, so the section drew nothing. Those sources become words
+ * a visitor can read. A value that still has a tag we cannot fill is dropped.
+ */
+function softenDynamic(v: string): string | null {
+  const next = v
+    .replace(/\{\{\s*closest\.collection\.title\s*\}\}/g, "Featured collection")
+    .replace(/\{\{\s*collection\.title\s*\}\}/g, "Collection")
+    .replace(/\{\{\s*closest\.product\.title\s*\}\}/g, "Product")
+    .replace(/\{\{\s*product\.title\s*\}\}/g, "Product")
+    .replace(/\{\{\s*closest\.blog\.title\s*\}\}/g, "Journal")
+    .replace(/\{\{\s*blog\.title\s*\}\}/g, "Journal")
+    .replace(/\{\{\s*closest\.article\.title\s*\}\}/g, "Article")
+    .replace(/\{\{\s*article\.title\s*\}\}/g, "Article")
+  if (next.includes("{{") || next.startsWith("shopify://")) return null
+  return next
 }
 
 /** A section's or block's saved values: only settings it still has, each a value its control accepts. */
 function values(raw: unknown, defs: Setting[]): Tree {
   if (!raw || typeof raw !== "object") return {}
   const out: Tree = {}
-  for (const [key, v] of Object.entries(raw as Tree)) {
+  for (const [key, rawValue] of Object.entries(raw as Tree)) {
     const k = settingId(key)
     const def = defs.find((d) => d.id === k)
     if (!def || !holdsValue(def.type)) continue
+    let v = rawValue
+    if (typeof v === "string" && (v.includes("{{") || v.startsWith("shopify://"))) {
+      const softened = softenDynamic(v)
+      if (softened == null) continue
+      v = softened
+    }
     if (shopifyOnly(v)) continue
     const control = controlFor(def.type)
     if (!control || !control.schema.safeParse(v).success) continue

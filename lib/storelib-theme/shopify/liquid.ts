@@ -26,12 +26,13 @@
  *   {{ img | image_url | image_tag }}  <img src="{{ img }}" alt="">
  *
  * A NAME STORELIB CANNOT READ IS READ AS NOTHING. `request.design_mode`,
- * `cart.item_count`, a setting the import dropped, a variable built by a
- * capture: each becomes `null`, which is what Liquid itself gives for a name
- * it does not know. So `{% if request.design_mode %}` takes its else branch,
- * `{% unless cart %}` its body, and `{{ x | default: "Shop" }}` prints Shop,
- * exactly as an unknown name would have behaved on Shopify. Nothing is
- * guessed into existence.
+ * `cart.item_count`, a setting the import dropped: each becomes `null`, which
+ * is what Liquid itself gives for a name it does not know. So
+ * `{% if request.design_mode %}` takes its else branch, `{% unless cart %}`
+ * its body, and `{{ x | default: "Shop" }}` prints Shop, exactly as an
+ * unknown name would have behaved on Shopify. A `{% capture %}` is the markup
+ * it built, written where the name is printed. Nothing is guessed into
+ * existence.
  *
  * PURE. Text in, text out, and notes through the context. Never throws for
  * anything a file can contain: an expression it cannot read is read as
@@ -355,8 +356,10 @@ type Binding =
   | { kind: "value"; node: LValue; scope: Scope }
   /* `assign x = y | upcase`: usable where the whole of x is printed. */
   | { kind: "chain"; expr: LExpr; scope: Scope }
-  /* Assigned twice, captured, or otherwise not one thing: read as nothing. */
+  /* Assigned twice, or otherwise not one thing: read as nothing. */
   | { kind: "none" }
+  /* `{% capture %}`: the markup it built, inserted where the name is printed. */
+  | { kind: "markup"; html: string }
 
 class Scope {
   vars = new Map<string, Binding>()
@@ -386,7 +389,7 @@ const QUIET = new Set(["escape", "escape_once", "image_url", "img_url", "url_esc
 
 /** Filters that turn a value into markup or into a different thing altogether: the output goes with them. */
 const OUTPUT_GOES = new Set([
-  "stylesheet_tag", "script_tag", "preload_tag", "img_tag", "placeholder_svg_tag", "link_to", "link_to_tag", "link_to_type", "link_to_vendor",
+  "stylesheet_tag", "script_tag", "preload_tag", "img_tag", "link_to", "link_to_tag", "link_to_type", "link_to_vendor",
   "link_to_add_tag", "link_to_remove_tag", "payment_type_svg_tag", "payment_type_img_url", "payment_button", "payment_terms", "font_face", "font_url",
   "inline_asset_content", "time_tag", "highlight", "highlight_active_tag", "format_address", "default_pagination", "metafield_tag", "metafield_text",
   "external_video_tag", "external_video_url", "video_tag", "media_tag", "model_viewer_tag", "structured_data", "default_errors", "customer_login_link",
@@ -407,6 +410,17 @@ function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c] as string)
 }
 
+function unquoteLiteral(head: string): string | null {
+  if (head.length >= 2 && ((head.startsWith('"') && head.endsWith('"')) || (head.startsWith("'") && head.endsWith("'")))) return head.slice(1, -1)
+  return null
+}
+
+/** A picture the theme would have drawn from Shopify's placeholder set. A grey frame, so the slot is not a hole. */
+function placeholderSvg(cls: string): string {
+  const className = ["placeholder-svg", cls].filter(Boolean).join(" ")
+  return `<svg class="${className}" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 525 525" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="525" height="525" fill="#e4e5ea"/><circle cx="210" cy="190" r="36" fill="#c5c7ce"/><path d="M90 400l110-130 70 80 50-50 115 100H90z" fill="#c5c7ce"/></svg>`
+}
+
 /** Text from the file as text in Storelib's template: a stray `{{` or `{#` must not start anything. */
 function safeText(v: string, css: boolean): string {
   return css ? v.replace(/\{([{%#])/g, "{ $1") : v.replace(/\{([{%#])/g, "&#123;$1")
@@ -418,8 +432,8 @@ type Frame =
   | { k: "if"; end: "endif" | "endunless" }
   | { k: "case"; subject: string | null; started: boolean; prev: string[] }
   | { k: "for"; end: "endfor" | "endtablerow"; outer: Scope; inElse: boolean }
-  | { k: "capture"; prev: string[] }
-  | { k: "pass"; end: string }
+  | { k: "capture"; name: string | null; prev: string[]; buf: string[] }
+  | { k: "pass"; end: string; skipElse?: boolean; discarding?: boolean; prev?: string[] }
 
 /** Tags with a body that is kept as it is, without the tag around it. */
 const PASS_THROUGH = new Set(["form", "paginate", "ifchanged"])
@@ -507,6 +521,14 @@ class Writer {
     const h = expr.head
 
     if (h.k === "path") {
+      if (h.segs.length === 1) {
+        let bound = scope.lookup(String(h.segs[0]))
+        if (bound?.kind === "value" && bound.node.k === "path" && bound.node.segs.length === 1) {
+          const inner = bound.scope.lookup(String(bound.node.segs[0]))
+          if (inner?.kind === "markup") bound = inner
+        }
+        if (bound?.kind === "markup") return this.markupOut(bound.html, filters)
+      }
       const last = h.segs[h.segs.length - 1]
       if (last === "shopify_attributes") {
         if (this.ctx.declared.mode === "block" && h.segs[0] === "block" && h.segs.length === 2) return { kind: "expr", head: "block.storelib_attributes", filters: [] }
@@ -566,6 +588,20 @@ class Writer {
         if (head === "null") return { kind: "drop" }
         return { kind: "img", src: [head, ...out].join(" | ") }
       }
+      if (name === "placeholder_svg_tag") {
+        const cls = f.args[0] && f.args[0].k === "lit" ? unquote(f.args[0].text).replace(/[^A-Za-z0-9_ -]/g, "") : ""
+        return { kind: "text", text: placeholderSvg(cls) }
+      }
+      if (name === "append" || name === "prepend") {
+        const extra = this.foldedText(f.args[0], scope)
+        const base = unquoteLiteral(head)
+        if (extra !== null && base !== null) {
+          head = stringLiteral(name === "append" ? base + extra : extra + base)
+          continue
+        }
+        this.ctx.note(`The "${f.name}" filter was removed, so its value is printed as it is`)
+        continue
+      }
       if (OUTPUT_GOES.has(name)) {
         this.ctx.note(`Output using the "${name}" filter was removed: it writes Shopify markup Storelib has no part for`)
         return { kind: "drop" }
@@ -600,7 +636,46 @@ class Writer {
     if (!this.css && this.isMarkup(head) && !out.some((f) => TEXT_AFTER.has(f.split(":")[0]))) out.push("raw")
     /* A tag name held in a variable (`element = 'div'`) has to be the word, not {{ "div" }}, or the tag is not a tag. */
     if (!this.css && out.length === 0 && /^"[A-Za-z][\w-]*"$/.test(head)) return { kind: "text", text: head.slice(1, -1) }
+    /* `'<p>' | append: title | append: '</p>'` is the heading. Printed as a quoted string it would show the tags. */
+    if (!this.css && out.length === 0) {
+      const raw = unquoteLiteral(head)
+      if (raw && /<\/?[a-z]/i.test(raw)) return { kind: "text", text: raw }
+    }
     return { kind: "expr", head, filters: out }
+  }
+
+  /**
+   * A capture printed where a class or a style is written (`{{ attributes | strip }}`)
+   * still carries the `{% if %}` that built it. Inside a tag those tags are not
+   * attributes, and the element never gets its class, so the words have no size
+   * and no colour. The words of the attribute stay; the tags do not. Printed on
+   * its own (`{{ list_items }}`), the tags stay, because that is the section.
+   */
+  private markupOut(html: string, filters: LFilter[]): Conv {
+    let flat = false
+    for (const f of filters) {
+      if (f.name === "strip" || f.name === "strip_newlines" || f.name === "lstrip" || f.name === "rstrip") flat = true
+      else if (f.name === "escape" || f.name === "escape_once") return { kind: "text", text: escapeHtml(html) }
+    }
+    let out = html
+    if (flat) out = out.replace(/\{%[\s\S]*?%\}/g, "").replace(/\{\{[\s\S]*?\}\}/g, "").replace(/\s+/g, " ").trim()
+    return { kind: "text", text: out }
+  }
+
+  /** A literal, or a name that was assigned one, as the characters. Null when it is not known here. */
+  private foldedText(v: LValue | undefined, scope: Scope): string | null {
+    if (!v) return null
+    if (v.k === "lit") return unquote(v.text)
+    if (v.k !== "path" || v.segs.length !== 1) return null
+    const b = scope.lookup(String(v.segs[0]))
+    if (!b) return null
+    if (b.kind === "markup") return b.html
+    if (b.kind === "value" && b.node.k === "lit") return unquote(b.node.text)
+    if (b.kind === "chain") {
+      const inner = this.chain(b.expr, b.scope)
+      if (inner.kind === "text") return inner.text
+    }
+    return null
   }
 
   /** Does this printed path hold markup a setting cleaned on the way in? */
@@ -636,9 +711,19 @@ class Writer {
       if (b.kind === "chain") {
         const inner = this.chain(b.expr, b.scope, depth + 1)
         if (inner.kind === "expr") return inner.head
-        if (inner.kind === "text") return inner.text
+        /*
+          A capture printed in a condition (`{% if items.size %}`, `{% for i in items %}`)
+          is the markup, and writing that markup into the condition does not compile.
+          Printing it (`{{ items }}`) still inserts it. A short piece of text, a heading
+          built with append, is quoted so the condition can read it.
+        */
+        if (inner.kind === "text") {
+          if (/<[a-z!/]/i.test(inner.text)) return null
+          return stringLiteral(inner.text)
+        }
         return null
       }
+      if (b.kind === "markup") return null
       if (b.kind === "value") {
         if (b.node.k === "path") {
           /*
@@ -752,11 +837,10 @@ class Writer {
       case "assign":
         return this.assign(rest)
       case "capture": {
-        const v = rest.match(/^['"]?([A-Za-z_][\w-]*)['"]?/)?.[1]
-        if (v) this.scope.frame.vars.set(v, { kind: "none" })
-        this.ctx.note(`{% capture %} was removed; what it built is read as empty`)
-        this.frames.push({ k: "capture", prev: this.sink })
-        this.sink = this.discard
+        const v = rest.match(/^['"]?([A-Za-z_][\w-]*)['"]?/)?.[1] ?? null
+        const buf: string[] = []
+        this.frames.push({ k: "capture", name: v, prev: this.sink, buf })
+        this.sink = buf
         return
       }
       case "echo": {
@@ -821,6 +905,12 @@ class Writer {
       }
       return this.emit("{% else %}")
     }
+    /* A loop we drew once has no empty branch: the else would be a second copy. */
+    if (f.k === "pass" && f.skipElse && !f.discarding) {
+      f.discarding = true
+      f.prev = this.sink
+      this.sink = this.discard
+    }
   }
 
   private when(rest: string) {
@@ -859,9 +949,20 @@ class Writer {
     const r = new Reader(toks)
     const listValue = toks.length ? r.value() : ({ k: "bad" } as LValue)
     if (!r.done()) this.ctx.note(`A loop's limit, offset or reversed was removed: a Storelib loop goes through every item in order`)
-    if (listValue.k === "bad") this.ctx.note(`A loop over a range of numbers was removed: Storelib loops over lists`)
+    if (listValue.k === "bad") {
+      /* `(1..n)` is how a theme draws placeholder cards when there is no collection. One pass still shows a card; a loop over nothing showed a blank section. */
+      this.ctx.note(`A loop over a range of numbers is drawn once: Storelib loops over lists`)
+      this.frames.push({ k: "pass", end, skipElse: true })
+      return
+    }
     if (name === "tablerow") this.ctx.note(`{% tablerow %} is written as {% for %}; the table cells it made are not`)
     const list = this.value(listValue, outer)
+    if (list === "null") {
+      /* A list the theme would have filled from the shop (collections, articles) is not here. One pass still draws the card. */
+      this.ctx.note(`A loop over a list this theme does not have is drawn once`)
+      this.frames.push({ k: "pass", end, skipElse: true })
+      return
+    }
     this.frames.push({ k: "for", end, outer, inElse: false })
     const inner = new Scope(outer, true, outer.frame)
     inner.vars.set(m[1], { kind: "loop", blocks: list === "blocks" })
@@ -893,6 +994,15 @@ class Writer {
       if (same && had.kind !== "none") return
       /* A later literal (`element = 'rte-formatter'` after `element = 'div'`) depends on a branch. The first concrete value still draws; clearing it drew `<>`. */
       if (had.kind === "value" && had.node.k === "lit") return
+      /*
+        `'placeholders.collection_title' | t`, then `closest.collection.title`
+        in the other branch. The second name is nothing here, so the words
+        stay. A second name this theme can read still replaces it.
+      */
+      if (had.kind === "chain" && had.expr.head.k === "lit" && had.expr.filters.some((f) => f.name === "t")) {
+        const next = again && again.filters.length === 0 ? this.value(again.head, this.scope) : "null"
+        if (next === "null") return
+      }
       frame.vars.set(m[1], { kind: "none" })
       return
     }
@@ -1034,8 +1144,10 @@ class Writer {
         return this.emit("{% endfor %}")
       case "capture":
         this.sink = f.prev
+        if (f.name) this.scope.frame.vars.set(f.name, { kind: "markup", html: f.buf.join("") })
         return
       case "pass":
+        if (f.discarding && f.prev) this.sink = f.prev
         return
     }
   }
