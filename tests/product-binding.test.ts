@@ -50,6 +50,32 @@ console.log("\nA section that types its products in is sent back\n")
   check("a product array in the script is refused", productFindings(scripted).some((f) => /list of products of its own/.test(f.message)))
   const good = wrap(`<section>{% for block in products %}<a href="{{ block.settings.checkout_url | url }}">{{ block.settings.title }} {{ block.settings.price }}</a>{% endfor %}</section>`, base)
   check("a section that loops the store's products passes", productFindings(good).length === 0, productFindings(good))
+  /* Round 21: placeholder product cards (a typed name and an uploaded picture) are refused, wherever the section is filed. */
+  const looks = wrap(`<section>{% for block in blocks %}<img src="{{ block.settings.image }}"><p>{{ block.settings.title }}</p>{% endfor %}</section>`, {
+    type: "best_sellers", name: "Best sellers", category: "featured", settings: [],
+    blocks: [{ type: "card", name: "Card", settings: [{ type: "image_picker", id: "image", label: "Image" }, { type: "text", id: "title", label: "Title" }] }],
+  })
+  check("a section named for products whose cards are typed names and pictures is refused", productFindings(looks).some((f) => /never reads the store/.test(f.message)), productFindings(looks))
+  const handBlock = wrap(`<section>{% for block in blocks %}<p>{{ block.settings.name }}</p>{% endfor %}</section>`, {
+    type: "highlights", name: "Highlights", category: "content", settings: [],
+    blocks: [{ type: "product", name: "Product", settings: [{ type: "text", id: "name", label: "Product name" }, { type: "image_picker", id: "photo", label: "Photo" }] }],
+  })
+  check("a product block with a typed name and no product_picker is refused", productFindings(handBlock).some((f) => /placeholder/.test(f.message)), productFindings(handBlock))
+  const picked = wrap(`<section>{% for block in blocks %}<a href="{{ block.settings.product.checkout_url | url }}">{{ block.settings.product.title }}</a>{% endfor %}</section>`, {
+    type: "highlights", name: "Highlights", category: "content", settings: [],
+    blocks: [{ type: "product", name: "Product", settings: [{ type: "product_picker", id: "product", label: "Product" }, { type: "text", id: "title", label: "Name (optional)" }] }],
+  })
+  check("a product block that holds a product_picker (with an optional name over it) passes", productFindings(picked).length === 0, productFindings(picked))
+  const locator = wrap(`<section>{% for block in blocks %}<img src="{{ block.settings.image }}"><p>{{ block.settings.title }}</p>{% endfor %}</section>`, {
+    type: "store_locator", name: "Store locator", category: "content", settings: [],
+    blocks: [{ type: "place", name: "Place", settings: [{ type: "image_picker", id: "image", label: "Image" }, { type: "text", id: "title", label: "Title" }] }],
+  })
+  check("a store locator's place cards are not products, and pass", productFindings(locator).length === 0, productFindings(locator))
+  const team = wrap(`<section>{% for block in blocks %}<img src="{{ block.settings.image }}"><p>{{ block.settings.name }}</p>{% endfor %}</section>`, {
+    type: "team", name: "Our team", category: "content", settings: [],
+    blocks: [{ type: "member", name: "Member", settings: [{ type: "image_picker", id: "image", label: "Photo" }, { type: "text", id: "name", label: "Name" }] }],
+  })
+  check("a team section's people cards pass", productFindings(team).length === 0, productFindings(team))
   const plans = wrap(`<section>{% for block in blocks %}<p>{{ block.settings.price }}</p>{% endfor %}</section>`, { type: "plans", name: "Plans", category: "pricing", settings: [], blocks: [{ type: "tier", name: "Tier", settings: [{ type: "text", id: "price", label: "Price", default: "$19" }] }] })
   check("a pricing table's typed tiers are the creator's own, and pass", productFindings(plans).length === 0, productFindings(plans))
 }
@@ -95,6 +121,71 @@ console.log("\nA picker can mean this page's product or collection, and reads a 
   check("a collection picker reads a handle as well as an id", col.includes("Waxed tote"), col.slice(0, 300))
   const cur = draw("product_grid", { source: "collection", collection: "@current", show_price: true }, { catalog, collections: { c1: summer }, collection: summer }, "collection")
   check("on a collection page, a collection picker set to the current collection draws it", cur.includes("Waxed tote"), cur.slice(0, 300))
+}
+
+console.log("\nA custom product section keeps every photo through a layout change (round 21)\n")
+{
+  /*
+    The owner: "when the builder draws a section again after a sidebar change, product cards must keep their images; a
+    layout-only change must never give back cards with a title and a price but no picture". A section written the way
+    Storelib AI writes one (a source select, a collection picker, a product list, columns), drawn before and after a
+    layout-only change, from each source: every card has its product's photo, name and price both times.
+  */
+  const cards = [1, 2, 3].map((n) => ({
+    id: `p${n}`,
+    type: "product",
+    settings: { url: `/products/item-${n}`, slug: `item-${n}`, title: `Item ${n}`, price: `$${n}0.00`, image: `https://cdn.example/item-${n}.jpg`, images: [`https://cdn.example/item-${n}.jpg`], checkout_url: `/checkout?productId=p${n}`, available: true },
+  }))
+  const summer = { id: "c1", title: "Summer", handle: "summer", description: "", image: "", url: "/collections/summer", products_count: 3, products: cards }
+  const source = `<template>
+<section class="ai-grid" style="--cols: {{ settings.columns }}; --gap: {{ settings.gap }}px">
+  {% if section.settings.source == 'collection' %}{% for block in settings.collection.products limit: settings.product_count %}<a class="card" data-card="{{ block.settings.title }}" href="{{ block.settings.url | url }}"><img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600"><span class="t">{{ block.settings.title }}</span><span class="p">{{ block.settings.price }}</span></a>{% endfor %}
+  {% elsif section.settings.source == 'chosen' %}{% for block in settings.chosen limit: settings.product_count %}<a class="card" data-card="{{ block.settings.title }}" href="{{ block.settings.url | url }}"><img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600"><span class="t">{{ block.settings.title }}</span><span class="p">{{ block.settings.price }}</span></a>{% endfor %}
+  {% else %}{% for block in products limit: settings.product_count %}<a class="card" data-card="{{ block.settings.title }}" href="{{ block.settings.url | url }}"><img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600"><span class="t">{{ block.settings.title }}</span><span class="p">{{ block.settings.price }}</span></a>{% endfor %}{% endif %}
+</section>
+</template>
+<style>.ai-grid { display: grid; grid-template-columns: repeat(var(--cols), 1fr); gap: var(--gap) }</style>
+<schema>
+${JSON.stringify({
+  type: "ai_shop_grid", name: "Shop grid", category: "products",
+  settings: [
+    { type: "select", id: "source", label: "Products", default: "shop", options: [{ value: "shop", label: "Shop" }, { value: "collection", label: "Collection" }, { value: "chosen", label: "Chosen" }] },
+    { type: "collection_picker", id: "collection", label: "Collection", visible_if: "{{ section.settings.source == 'collection' }}" },
+    { type: "product_list", id: "chosen", label: "Products", limit: 12, visible_if: "{{ section.settings.source == 'chosen' }}" },
+    { type: "range", id: "product_count", label: "Count", min: 1, max: 12, default: 6 },
+    { type: "range", id: "columns", label: "Columns", min: 1, max: 5, default: 3 },
+    { type: "range", id: "gap", label: "Gap", min: 0, max: 40, default: 16 },
+  ],
+  presets: [{ name: "Shop grid", settings: { source: "shop" } }],
+})}
+</schema>
+`
+  check("the section passes the products check", productFindings(source).length === 0, productFindings(source))
+  const overrides = { "sections/ai_shop_grid.storelib": source }
+  const draw = (settings: Record<string, unknown>) => {
+    const r = renderStorelibSection(
+      { id: "s1", type: "ai_shop_grid", name: "Shop grid", settings, blocks: [] } as unknown as SectionInstance,
+      {} as ThemeSettingsValues,
+      { template: "index", in_editor: true },
+      overrides,
+      cards as never,
+      { catalog: cards, collections: { c1: summer } } as never,
+    )
+    return r.ok === true ? r.html : `ERROR ${JSON.stringify(r).slice(0, 300)}`
+  }
+  const cardsIn = (html: string) =>
+    [...html.matchAll(/<a class="card" data-card="([^"]*)"[^>]*>\s*<img src="([^"]*)"[\s\S]*?<span class="t">([^<]*)<\/span><span class="p">([^<]*)<\/span>/g)].map((m) => ({ title: m[3], image: m[2], price: m[4] }))
+  const whole = (list: ReturnType<typeof cardsIn>) => list.length === 3 && list.every((c, i) => c.image.includes(`item-${i + 1}.jpg`) && c.title === `Item ${i + 1}` && c.price === `$${i + 1}0.00`)
+  for (const [label, base] of [
+    ["the shop", { source: "shop", product_count: 6 }],
+    ["a collection", { source: "collection", collection: "summer", product_count: 6 }],
+    ["chosen products", { source: "chosen", chosen: ["/products/item-1", "/products/item-2", "/products/item-3"], product_count: 6 }],
+  ] as const) {
+    const before = cardsIn(draw({ ...base, columns: 3, gap: 16 }))
+    const after = cardsIn(draw({ ...base, columns: 4, gap: 24 }))
+    check(`from ${label}: every card has its photo, name and price`, whole(before), before.length ? before : draw({ ...base, columns: 3, gap: 16 }).slice(0, 900))
+    check(`from ${label}: and still does after a layout-only change`, whole(after) && JSON.stringify(after) === JSON.stringify(before), after)
+  }
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
