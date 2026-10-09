@@ -442,7 +442,7 @@ async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], 
       for (const l of (data ?? []) as { variant_id: string; available: number }[]) held.set(l.variant_id, (held.get(l.variant_id) ?? 0) + Math.max(0, l.available))
     }
   }
-  const { data: keep } = await any.from("products").select("id, continue_selling").in("id", physical)
+  const { data: keep } = await any.from("products").select("id, continue_selling").eq("status", "published").in("id", physical)
   const keepSelling = new Set(((keep ?? []) as { id: string; continue_selling?: boolean | null }[]).filter((p) => p.continue_selling === true).map((p) => p.id))
   const rowOf = new Map(rows.map((r) => [r.id, r]))
   const soldOutVariant = new Map<string, boolean>()
@@ -474,7 +474,7 @@ export async function withCustomFields(db: Db, cards: ProductCard[]): Promise<Pr
   const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
   const byId = new Map<string, Record<string, string>>()
   for (let i = 0; i < cards.length; i += 80) {
-    const { data, error } = await any.from("products").select("id, custom_fields").in("id", cards.slice(i, i + 80).map((c) => c.id))
+    const { data, error } = await any.from("products").select("id, custom_fields").eq("status", "published").in("id", cards.slice(i, i + 80).map((c) => c.id))
     if (error) return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: c.settings.fields ?? {} } }))
     for (const r of (data ?? []) as { id: string; custom_fields?: unknown }[]) byId.set(r.id, cleanCustomFields(r.custom_fields))
   }
