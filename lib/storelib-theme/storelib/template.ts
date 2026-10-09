@@ -51,6 +51,9 @@ export type Node =
   | { kind: "output"; expr: Expr; line: number }
   | { kind: "if"; branches: { cond: Expr; body: Node[] }[]; else?: Node[]; line: number }
   | { kind: "for"; item: string; list: Expr; body: Node[]; else?: Node[]; line: number; limit?: Expr; offset?: Expr; reversed?: boolean }
+  /* Liquid's {% break %} and {% continue %}: leave the loop, or go on to its next item. Outside a loop, nothing. */
+  | { kind: "break"; line: number }
+  | { kind: "continue"; line: number }
   | { kind: "content_for"; what: "blocks"; line: number }
   | { kind: "content_for"; what: "block"; type: string; id: string; line: number }
 
@@ -60,6 +63,8 @@ export type Expr =
   | { t: "not"; e: Expr }
   | { t: "bin"; op: BinOp; l: Expr; r: Expr }
   | { t: "filter"; e: Expr; name: string; args: Expr[] }
+  /* `(1..settings.count)`, Liquid's range: the whole numbers from one to the other, at most MAX_RANGE of them. */
+  | { t: "range"; from: Expr; to: Expr }
 
 type BinOp = "==" | "!=" | "<" | "<=" | ">" | ">=" | "and" | "or" | "contains"
 
@@ -257,8 +262,13 @@ function loopParams(src: string, line: number): { list: Expr; params: { limit?: 
     if (kv && !params[kv[2] as "limit" | "offset"]) { params[kv[2] as "limit" | "offset"] = parseExpr(kv[3], line); rest = kv[1]; continue }
     break
   }
+  const range = rest.match(/^\(\s*([^()]+?)\s*\.\.\s*([^()]+?)\s*\)$/)
+  if (range) return { list: { t: "range", from: parseExpr(range[1], line), to: parseExpr(range[2], line) }, params }
   return { list: parseExpr(rest, line), params }
 }
+
+/** The most numbers one range gives a loop, so `(1..100000)` cannot draw a hundred thousand of anything. */
+export const MAX_RANGE = 200
 
 function parseExpr(src: string, line: number): Expr {
   return new ExprParser(lexExpr(src, line), line).parse()
@@ -523,6 +533,10 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
         nodes.push(parseContentFor(t.value, t.line))
         continue
       }
+      if (word === "break" || word === "continue") {
+        nodes.push({ kind: word, line: t.line })
+        continue
+      }
       throw new TemplateError(`unknown tag {% ${word} %}`, t.line)
     }
     return { nodes }
@@ -726,6 +740,158 @@ const FILTERS: Record<string, Filter> = {
   },
 }
 
+/* ── Shopify's filters, as an imported theme writes them ────────────────────
+   The ones a real theme uses (Horizon and Dawn measured: split, modulo,
+   money, the colour filters, where, at_most and the rest), with Shopify's
+   meaning, so a converted section prints what it printed there. Each is
+   pure: a value in, a value out, nothing reached outside the render. */
+
+function hexToRgb(v: unknown): { r: number; g: number; b: number; a: number } | null {
+  const s = str(v).trim()
+  let m = s.match(/^#([0-9a-f]{3}|[0-9a-f]{6})([0-9a-f]{2})?$/i)
+  if (m) {
+    let h = m[1]
+    if (h.length === 3) h = h.split("").map((c) => c + c).join("")
+    const n = parseInt(h, 16)
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: m[2] ? parseInt(m[2], 16) / 255 : 1 }
+  }
+  m = s.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+))?\s*\)$/i)
+  if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] !== undefined ? +m[4] : 1 }
+  return null
+}
+
+function rgbToHsl({ r, g, b }: { r: number; g: number; b: number }): { h: number; s: number; l: number } {
+  const R = r / 255, G = g / 255, B = b / 255
+  const max = Math.max(R, G, B), min = Math.min(R, G, B)
+  const l = (max + min) / 2
+  if (max === min) return { h: 0, s: 0, l: l * 100 }
+  const d = max - min
+  const sat = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+  const h = max === R ? (G - B) / d + (G < B ? 6 : 0) : max === G ? (B - R) / d + 2 : (R - G) / d + 4
+  return { h: h * 60, s: sat * 100, l: l * 100 }
+}
+
+function hslToRgb(h: number, sat: number, l: number): { r: number; g: number; b: number } {
+  const S = sat / 100, L = l / 100
+  const k = (n: number) => (n + h / 30) % 12
+  const a = S * Math.min(L, 1 - L)
+  const f = (n: number) => L - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  return { r: Math.round(f(0) * 255), g: Math.round(f(8) * 255), b: Math.round(f(4) * 255) }
+}
+
+function colorOut(c: { r: number; g: number; b: number; a: number }): string {
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)))
+  if (c.a < 1) return `rgba(${clamp(c.r)}, ${clamp(c.g)}, ${clamp(c.b)}, ${Math.round(c.a * 1000) / 1000})`
+  return "#" + [c.r, c.g, c.b].map((n) => clamp(n).toString(16).padStart(2, "0")).join("")
+}
+
+function shiftLightness(v: unknown, by: number): string {
+  const c = hexToRgb(v)
+  if (!c) return str(v)
+  const hsl = rgbToHsl(c)
+  return colorOut({ ...hslToRgb(hsl.h, hsl.s, Math.max(0, Math.min(100, hsl.l + by))), a: c.a })
+}
+
+/** Shopify's `money` for a number of cents; a price already written as money ("$48.00") stays as it is. */
+function money(v: unknown, code: boolean): string {
+  if (typeof v === "string" && /[^\d.\s-]/.test(v)) return v
+  const cents = Number(v)
+  if (!Number.isFinite(cents)) return str(v)
+  const s = `$${(cents / 100).toFixed(2)}`
+  return code ? `${s} USD` : s
+}
+
+/** A short stable hash, for the ids a theme makes with md5: the same input, the same id. */
+function shortHash(s: string): string {
+  let h1 = 0x811c9dc5, h2 = 0x01000193
+  for (let i = 0; i < s.length; i++) {
+    h1 = Math.imul(h1 ^ s.charCodeAt(i), 16777619)
+    h2 = Math.imul(h2 + s.charCodeAt(i), 2246822519)
+  }
+  return ((h1 >>> 0).toString(16).padStart(8, "0") + (h2 >>> 0).toString(16).padStart(8, "0")).repeat(2)
+}
+
+const listOf = (v: unknown): unknown[] => (Array.isArray(v) ? v : v === undefined || v === null || v === "" ? [] : [v])
+const prop = (item: unknown, key: string): unknown => {
+  if (item instanceof Linked) return Object.prototype.hasOwnProperty.call(item.fields, key) ? item.fields[key] : undefined
+  if (item && typeof item === "object" && !BLOCKED_KEYS.has(key)) {
+    const o = item as Record<string, unknown>
+    if (Object.prototype.hasOwnProperty.call(o, key)) return o[key]
+    const settings = o.settings as Record<string, unknown> | undefined
+    if (settings && typeof settings === "object" && Object.prototype.hasOwnProperty.call(settings, key)) return settings[key]
+  }
+  return undefined
+}
+
+Object.assign(FILTERS, {
+  split: (v: unknown, [sep]: unknown[]) => { const s = str(v); const d = str(sep ?? " "); return (d === "" ? [...s] : s.split(d)).slice(0, 500) },
+  strip_newlines: (v: unknown) => str(v).replace(/\r?\n/g, ""),
+  lstrip: (v: unknown) => str(v).replace(/^\s+/, ""),
+  rstrip: (v: unknown) => str(v).replace(/\s+$/, ""),
+  remove: (v: unknown, [a]: unknown[]) => str(v).split(str(a)).join(""),
+  remove_first: (v: unknown, [a]: unknown[]) => str(v).replace(str(a), ""),
+  replace_first: (v: unknown, [a, b]: unknown[]) => str(v).replace(str(a), str(b)),
+  truncatewords: (v: unknown, [n, tail]: unknown[]) => { const w = str(v).split(/\s+/).filter(Boolean); const k = Math.max(1, Number(n ?? 15)); return w.length > k ? w.slice(0, k).join(" ") + str(tail ?? "…") : w.join(" ") },
+  url_encode: (v: unknown) => encodeURIComponent(str(v)),
+  url_escape: (v: unknown) => encodeURI(str(v)),
+  handleize: (v: unknown) => str(v).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+  handle: (v: unknown) => str(v).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""),
+  pluralize: (v: unknown, [one, many]: unknown[]) => (Number(v) === 1 ? str(one) : str(many)),
+  modulo: (v: unknown, [n]: unknown[]) => (Number(n) === 0 ? 0 : Number(v) % Number(n)),
+  at_most: (v: unknown, [n]: unknown[]) => Math.min(Number(v), Number(n)),
+  at_least: (v: unknown, [n]: unknown[]) => Math.max(Number(v), Number(n)),
+  ceil: (v: unknown) => Math.ceil(Number(v)),
+  floor: (v: unknown) => Math.floor(Number(v)),
+  abs: (v: unknown) => Math.abs(Number(v)),
+  money: (v: unknown) => money(v, false),
+  money_without_trailing_zeros: (v: unknown) => money(v, false).replace(/\.00(?=\D*$)/, ""),
+  money_with_currency: (v: unknown) => money(v, true),
+  money_without_currency: (v: unknown) => money(v, false).replace(/^\$/, ""),
+  color_lighten: (v: unknown, [n]: unknown[]) => shiftLightness(v, Number(n ?? 0)),
+  color_darken: (v: unknown, [n]: unknown[]) => shiftLightness(v, -Number(n ?? 0)),
+  /** color_modify: 'alpha' | 'red' | 'green' | 'blue' | 'hue' | 'saturation' | 'lightness', value. */
+  color_modify: (v: unknown, [what, n]: unknown[]) => {
+    const c = hexToRgb(v)
+    if (!c) return str(v)
+    const k = str(what)
+    const x = Number(n)
+    if (k === "alpha") return colorOut({ ...c, a: Math.max(0, Math.min(1, x)) })
+    if (k === "red" || k === "green" || k === "blue") return colorOut({ ...c, [k === "red" ? "r" : k === "green" ? "g" : "b"]: x })
+    const hsl = rgbToHsl(c)
+    const next = { ...hsl, [k === "hue" ? "h" : k === "saturation" ? "s" : "l"]: x }
+    return colorOut({ ...hslToRgb(next.h, next.s, next.l), a: c.a })
+  },
+  color_to_rgb: (v: unknown) => { const c = hexToRgb(v); return c ? (c.a < 1 ? `rgba(${c.r}, ${c.g}, ${c.b}, ${c.a})` : `rgb(${c.r}, ${c.g}, ${c.b})`) : str(v) },
+  color_to_hex: (v: unknown) => { const c = hexToRgb(v); return c ? colorOut({ ...c, a: 1 }) : str(v) },
+  color_to_hsl: (v: unknown) => { const c = hexToRgb(v); if (!c) return str(v); const h = rgbToHsl(c); return `hsl(${Math.round(h.h)}, ${Math.round(h.s)}%, ${Math.round(h.l)}%)` },
+  color_brightness: (v: unknown) => { const c = hexToRgb(v); return c ? Math.round((c.r * 299 + c.g * 587 + c.b * 114) / 1000) : 0 },
+  color_extract: (v: unknown, [k]: unknown[]) => { const c = hexToRgb(v); if (!c) return 0; const hsl = rgbToHsl(c); const m: Record<string, number> = { red: c.r, green: c.g, blue: c.b, alpha: c.a, hue: Math.round(hsl.h), saturation: Math.round(hsl.s), lightness: Math.round(hsl.l) }; return m[str(k)] ?? 0 },
+  md5: (v: unknown) => shortHash(str(v)),
+  sha1: (v: unknown) => shortHash(str(v)),
+  sha256: (v: unknown) => shortHash(str(v)),
+  uniq: (v: unknown) => [...new Set(listOf(v))],
+  compact: (v: unknown) => listOf(v).filter((x) => x !== null && x !== undefined && x !== ""),
+  reverse: (v: unknown) => (Array.isArray(v) ? [...v].reverse() : [...str(v)].reverse().join("")),
+  sort: (v: unknown, [key]: unknown[]) => [...listOf(v)].sort((a, b) => { const A = key ? prop(a, str(key)) : a; const B = key ? prop(b, str(key)) : b; return str(A) < str(B) ? -1 : str(A) > str(B) ? 1 : 0 }),
+  sort_natural: (v: unknown, [key]: unknown[]) => [...listOf(v)].sort((a, b) => str(key ? prop(a, str(key)) : a).localeCompare(str(key ? prop(b, str(key)) : b), undefined, { numeric: true, sensitivity: "base" })),
+  slice: (v: unknown, [from, len]: unknown[]) => { const f = Number(from ?? 0); const n = Number(len ?? 1); return Array.isArray(v) ? v.slice(f < 0 ? v.length + f : f, (f < 0 ? v.length + f : f) + n) : str(v).substr(f, n) },
+  concat: (v: unknown, [other]: unknown[]) => [...listOf(v), ...listOf(other)],
+  /** where: 'available' keeps the items whose field is true; where: 'type', 'shirt' keeps the ones whose field equals it. */
+  where: (v: unknown, [key, value]: unknown[]) => listOf(v).filter((x) => { const got = prop(x, str(key)); return value === undefined ? truthy(got) : str(got) === str(value) }),
+  find: (v: unknown, [key, value]: unknown[]) => listOf(v).find((x) => str(prop(x, str(key))) === str(value)),
+  find_index: (v: unknown, [key, value]: unknown[]) => listOf(v).findIndex((x) => str(prop(x, str(key))) === str(value)),
+  has: (v: unknown, [key, value]: unknown[]) => listOf(v).some((x) => (value === undefined ? truthy(prop(x, str(key))) : str(prop(x, str(key))) === str(value))),
+  reject: (v: unknown, [key, value]: unknown[]) => listOf(v).filter((x) => { const got = prop(x, str(key)); return value === undefined ? !truthy(got) : str(got) !== str(value) }),
+  /** map: 'title' takes one field from each item. A plain `map` with no field stays the address filter above. */
+  sum: (v: unknown, [key]: unknown[]) => listOf(v).reduce<number>((n, x) => n + (Number(key ? prop(x, str(key)) : x) || 0), 0),
+})
+
+/* `map` is the address filter here; with a field name and a list it is Shopify's map. */
+{
+  const mapAddress = FILTERS.map
+  FILTERS.map = (v, args, ctx) => (Array.isArray(v) && args.length > 0 ? v.map((x) => prop(x, str(args[0]))) : mapAddress(v, args, ctx))
+}
+
 export const FILTER_NAMES = Object.keys(FILTERS)
 
 /* ── conditions: `visible_if` ─────────────────────────────────────────── */
@@ -757,6 +923,7 @@ export function parseCondition(source: string): ParsedCondition {
           case "not": walk(e.e); break
           case "bin": walk(e.l); walk(e.r); break
           case "filter": walk(e.e); e.args.forEach(walk); break
+          case "range": walk(e.from); walk(e.to); break
         }
       }
       walk(expr)
@@ -818,7 +985,18 @@ function evaluate(e: Expr, scope: Record<string, unknown>, ctx: RenderContext): 
       if (!f) return evaluate(e.e, scope, ctx)
       return f(evaluate(e.e, scope, ctx), e.args.map((a) => evaluate(a, scope, ctx)), ctx)
     }
+    case "range": {
+      const a = Math.trunc(Number(evaluate(e.from, scope, ctx)))
+      const b = Math.trunc(Number(evaluate(e.to, scope, ctx)))
+      if (!Number.isFinite(a) || !Number.isFinite(b) || b < a) return []
+      return Array.from({ length: Math.min(MAX_RANGE, b - a + 1) }, (_, i) => a + i)
+    }
   }
+}
+
+/** Thrown inside a loop's body by {% break %} and {% continue %}, caught by the loop. Never escapes a render. */
+class LoopSignal {
+  constructor(public readonly kind: "break" | "continue") {}
 }
 
 export interface RenderOptions {
@@ -915,6 +1093,8 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
     creator: ctx.creator ?? {},
     product: ctx.product ?? null,
   }
+  /* How many loops the walk is inside: a {% break %} outside every loop does nothing, as in Liquid. */
+  let loopDepth = 0
   const walk = (nodes: Node[], scope: Record<string, unknown>) => {
     for (const n of nodes) {
       switch (n.kind) {
@@ -951,15 +1131,29 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
           }
           if (n.reversed) items = [...items].reverse()
           if (items.length === 0) { if (n.else) walk(n.else, scope); break }
-          items.forEach((item, idx) => {
-            walk(n.body, {
-              ...scope,
-              [n.item]: item,
-              forloop: { index: idx + 1, index0: idx, first: idx === 0, last: idx === items.length - 1, length: items.length },
-            })
-          })
+          loopDepth++
+          try {
+          for (let idx = 0; idx < items.length; idx++) {
+            try {
+              walk(n.body, {
+                ...scope,
+                [n.item]: items[idx],
+                forloop: { index: idx + 1, index0: idx, first: idx === 0, last: idx === items.length - 1, length: items.length, rindex: items.length - idx, rindex0: items.length - idx - 1 },
+              })
+            } catch (signal) {
+              if (!(signal instanceof LoopSignal)) throw signal
+              if (signal.kind === "break") break
+            }
+          }
+          } finally {
+            loopDepth--
+          }
           break
         }
+        case "break":
+        case "continue":
+          if (loopDepth > 0) throw new LoopSignal(n.kind)
+          break
         case "content_for": {
           /* Built by render.ts from blocks it has drawn and guarded; a stylesheet has no blocks. */
           if (css || !ctx.contentFor) break
@@ -998,6 +1192,7 @@ export function pathRefs(tpl: CompiledTemplate): PathRef[] {
       case "not": expr(e.e, line, bound); break
       case "bin": expr(e.l, line, bound); expr(e.r, line, bound); break
       case "filter": expr(e.e, line, bound); e.args.forEach((a) => expr(a, line, bound)); break
+      case "range": expr(e.from, line, bound); expr(e.to, line, bound); break
     }
   }
   const walk = (nodes: Node[], bound: Map<string, string>) => {
@@ -1030,6 +1225,7 @@ export function pathsRead(tpl: CompiledTemplate): string[] {
       case "not": expr(e.e); break
       case "bin": expr(e.l); expr(e.r); break
       case "filter": expr(e.e); e.args.forEach(expr); break
+      case "range": expr(e.from); expr(e.to); break
     }
   }
   const walk = (nodes: Node[]) => {

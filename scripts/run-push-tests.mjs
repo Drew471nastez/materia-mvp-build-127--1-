@@ -28,6 +28,7 @@ const SUITES = [
   "tests/integrations-settings-sheet.test.ts",
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
+  "tests/shopify-engine.test.ts",
   "tests/shopify-import.test.ts",
   "tests/admin-ops.test.ts",
   "tests/native-app-links-inapp.test.ts",

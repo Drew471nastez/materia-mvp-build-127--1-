@@ -439,3 +439,59 @@ in the code editor as a draft for you to read. Nothing it writes is on a page
 or in front of a visitor until you put it there.
 
 `docs/theme/14-creating-a-section.md` walks through one from an empty file.
+
+## Shopify's filters
+
+An imported Shopify theme, and any section, may use these with Shopify's meaning.
+
+| Filter | Use | Does |
+| --- | --- | --- |
+| `split` | `{{ settings.tags | split: "," }}` | Text cut into a list at each separator, for a loop. At most 500 pieces. |
+| `strip_newlines` | `{{ settings.text | strip_newlines }}` | The text with its line breaks taken out. |
+| `lstrip` | `{{ settings.name | lstrip }}` | Removes spaces from the start. |
+| `rstrip` | `{{ settings.name | rstrip }}` | Removes spaces from the end. |
+| `remove` | `{{ settings.title | remove: "New " }}` | Every copy of the argument taken out. |
+| `remove_first` | `{{ settings.title | remove_first: "New " }}` | The first copy of the argument taken out. |
+| `replace_first` | `{{ settings.title | replace_first: "a", "b" }}` | The first copy of the first argument replaced by the second. |
+| `truncatewords` | `{{ settings.text | truncatewords: 12 }}` | The first so many words, 15 unless given, then `…`. |
+| `url_encode` | `{{ settings.query | url_encode }}` | Made safe for one part of an address. |
+| `url_escape` | `{{ settings.path | url_escape }}` | Made safe for a whole address, its slashes kept. |
+| `handleize` | `{{ settings.title | handleize }}` | Lower case words joined by hyphens, as a Shopify handle: `Hello World!` is `hello-world`. |
+| `handle` | `{{ settings.title | handle }}` | The same as `handleize`. |
+| `pluralize` | `{{ count | pluralize: "item", "items" }}` | The first word for exactly one, the second for any other number. |
+| `modulo` | `{{ forloop.index | modulo: 2 }}` | What is left over after dividing by the argument. |
+| `at_most` | `{{ settings.columns | at_most: 4 }}` | The smaller of the value and the argument. |
+| `at_least` | `{{ settings.columns | at_least: 1 }}` | The larger of the value and the argument. |
+| `ceil` | `{{ settings.ratio | ceil }}` | Rounded up to a whole number. |
+| `floor` | `{{ settings.ratio | floor }}` | Rounded down to a whole number. |
+| `abs` | `{{ settings.offset | abs }}` | The number without its sign. |
+| `money` | `{{ 4800 | money }}` | A number of cents as a price, `$48.00`. A price already written as money is printed as it is. |
+| `money_without_trailing_zeros` | `{{ 4800 | money_without_trailing_zeros }}` | As `money`, without `.00`: `$48`. |
+| `money_with_currency` | `{{ 4800 | money_with_currency }}` | As `money`, with the currency code: `$48.00 USD`. |
+| `money_without_currency` | `{{ 4800 | money_without_currency }}` | As `money`, without the currency sign: `48.00`. |
+| `color_lighten` | `{{ settings.color | color_lighten: 10 }}` | The colour that many points lighter. |
+| `color_darken` | `{{ settings.color | color_darken: 10 }}` | The colour that many points darker. |
+| `color_modify` | `{{ settings.color | color_modify: "alpha", 0.5 }}` | One part of a colour set: `alpha`, `red`, `green`, `blue`, `hue`, `saturation` or `lightness`. |
+| `color_to_rgb` | `{{ settings.color | color_to_rgb }}` | The colour as `rgb(…)`, or `rgba(…)` when it is see-through. |
+| `color_to_hex` | `{{ settings.color | color_to_hex }}` | The colour as `#rrggbb`. |
+| `color_to_hsl` | `{{ settings.color | color_to_hsl }}` | The colour as `hsl(…)`. |
+| `color_brightness` | `{{ settings.color | color_brightness }}` | How bright the colour is, 0 to 255, for picking light or dark text over it. |
+| `color_extract` | `{{ settings.color | color_extract: "red" }}` | One part of a colour as a number: `red`, `green`, `blue`, `alpha`, `hue`, `saturation` or `lightness`. |
+| `md5` | `{{ block.id | md5 }}` | A short id that is the same for the same text, for an element id. Not a real MD5. |
+| `sha1` | `{{ block.id | sha1 }}` | The same as `md5`. |
+| `sha256` | `{{ block.id | sha256 }}` | The same as `md5`. |
+| `uniq` | `{{ settings.tags | uniq }}` | The list with each value once. |
+| `compact` | `{{ list | compact }}` | The list without its empty items. |
+| `reverse` | `{{ blocks | reverse }}` | The list, or the text, the other way round. |
+| `sort` | `{{ products | sort: "title" }}` | The list in order, by a field when given one. |
+| `sort_natural` | `{{ products | sort_natural: "title" }}` | As `sort`, ignoring case and reading numbers as numbers. |
+| `slice` | `{{ products | slice: 0, 4 }}` | The items, or characters, from the first number on, as many as the second (1 unless given). |
+| `concat` | `{{ settings.a | concat: settings.b }}` | Two lists as one. |
+| `where` | `{{ products | where: "available" }}` | The items whose field is true, or, given a second argument, equal to it. |
+| `find` | `{{ products | find: "slug", "tote" }}` | The first item whose field equals the argument. |
+| `find_index` | `{{ products | find_index: "slug", "tote" }}` | Where that item is in the list, from 0, or -1. |
+| `has` | `{{ products | has: "available" }}` | Whether any item's field is true, or equal to the argument. |
+| `reject` | `{{ products | reject: "available" }}` | The items `where` would leave out. |
+| `sum` | `{{ products | sum: "quantity" }}` | The numbers added up, from a field when given one. |
+
+Loops also take Liquid's ranges, `{% for i in (1..settings.count) %}` (at most 200 numbers), and `{% break %}` and `{% continue %}`.
