@@ -293,6 +293,27 @@ async function shopifyZip(): Promise<JSZip> {
   const nothing = await convertShopifyTheme(none)
   check("a theme where no section converts is refused, with the first reason", nothing.ok === false && /No section of this Shopify theme could be converted\. sections\/a\.liquid/.test(nothing.error))
 
-  console.log(`\n${passed} passed, ${failed} failed\n`)
+  
+console.log("\nA real Shopify download is let in at upload, and nothing else gets in with it\n")
+{
+  const { checkZipDirectory, shopifyThemeRoot, shopifyScriptEntry, THEME_BLOCKED_INSIDE } = await import("@/lib/security/uploads/zip")
+  const { ARCHIVE_LIMITS } = await import("@/lib/security/uploads/policy")
+  const dirOf = (names: string[]) => ({ declaredEntries: names.length, entries: names.map((name, i) => ({ name, isDirectory: false, encrypted: false, uncompressedSize: 10, compressedSize: 10, localOffset: i * 100 })) }) as never
+  const verdict = (names: string[]) => {
+    const root = shopifyThemeRoot(names)
+    return checkZipDirectory(dirOf(names), 1000, ARCHIVE_LIMITS.theme, THEME_BLOCKED_INSIDE, root !== null ? shopifyScriptEntry(root) : undefined)
+  }
+  const dawn = ["sections/header.liquid", "sections/main-product.liquid", "config/settings_schema.json", "layout/theme.liquid", "assets/global.js", "assets/cart.js", "assets/base.css"]
+  check("Dawn's assets/*.js no longer refuse the whole theme", verdict(dawn).refusal === null, verdict(dawn).refusal)
+  check("  and the admin log says scripts were let in and never kept", verdict(dawn).notes.some((n) => n.code === "zip_shopify_scripts_ignored"))
+  check("  in a theme zipped inside its own folder too", verdict(dawn.map((n) => `dawn-main/${n}`)).refusal === null)
+  check("a .js anywhere else in a Shopify theme is still refused", verdict([...dawn, "snippets/evil.js"]).refusal?.code === "zip_blocked_entry")
+  check("a .js deeper inside assets is still refused", verdict([...dawn, "assets/vendor/x.js"]).refusal?.code === "zip_blocked_entry")
+  check("any other blocked type in a Shopify theme is still refused", verdict([...dawn, "assets/run.exe"]).refusal?.code === "zip_blocked_entry")
+  check("a .js in a zip that is not a Shopify theme is still refused", verdict(["theme.json", "sections/a.storelib", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+  check("a zip that only pretends (sections but no Shopify shell) gets no exemption", verdict(["sections/a.liquid", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+}
+
+console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)
 })()
