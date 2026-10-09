@@ -137,7 +137,7 @@ export const MAX_SHOP_PRODUCTS = 24
 /** Pictures a card carries at most. A product page shows a gallery, not an archive. */
 const MAX_IMAGES = 12
 
-interface ProductRow {
+export interface ProductRow {
   id: string
   title: string | null
   slug: string | null
@@ -377,32 +377,23 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
 }
 
 /**
- * ONE CREATOR'S published products, newest first, with their options.
- *
- * `creator_id` is not optional and not a convenience: it is the whole of
- * what keeps one person's catalogue off another person's site. An empty
- * creator id returns nothing rather than everything, because a filter that
- * matches nobody is the safe reading of a missing filter.
- *
- * Never throws. A section that cannot reach the catalogue draws no products,
- * which is the same rule as a section whose file will not compile. A column
- * an older database does not have yet is asked for again without it, so the
- * cards lose a field rather than the page losing its products.
+ * Every column a card is made from, most first. A database that does not have
+ * a column yet answers with an error, and the next set is asked for, so the
+ * cards lose a field rather than the page losing its products. One list for
+ * the shop's newest products and for the ones a section picked, so a product
+ * reached either way is the same card: its gallery, its kind, its options.
  */
-export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_PRODUCTS): Promise<ProductCard[]> {
-  return readShop(db, creatorId, Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS)))
-}
+export const PRODUCT_COLUMN_SETS = [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL] as const
 
-/**
- * The whole shop for its own listing pages (/products, /collections/<handle>,
- * /search), newest first, up to MAX_CATALOGUE_PRODUCTS: what the pages of
- * catalogPage are cut from. The sections everywhere else keep the newest 24.
- * Variants are read in batches, so a long shop does not ask for 240 ids in
- * one address.
- */
-export const MAX_CATALOGUE_PRODUCTS = 240
-export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductCard[]> {
-  return readShop(db, creatorId, MAX_CATALOGUE_PRODUCTS)
+/** Rows to cards, with their options (variants) and a shipped product's Size and Colour. Never throws. */
+export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?: string): Promise<ProductCard[]> {
+  if (rows.length === 0) return []
+  const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
+  /* In batches, so a long shop does not ask for hundreds of ids in one address. */
+  const [variants, options] = await Promise.all([variantsInBatches(db as Db, rows.map((r) => r.id)), optionsInBatches(db as Db, physical)])
+  const cards = rows.map((r) => toCard(r, variants, options))
+  const stocked = creatorId ? await withPhysicalStock(db as Db, creatorId, rows, cards).catch(() => cards) : cards
+  return await withCustomFields(db as Db, stocked).catch(() => stocked)
 }
 
 async function variantsInBatches(db: Db, ids: string[]): Promise<VariantRow[]> {
@@ -496,11 +487,58 @@ async function optionsInBatches(db: Db, ids: string[]): Promise<OptionRow[]> {
   return out
 }
 
-async function readShop(db: Db, creatorId: string, n: number): Promise<ProductCard[]> {
+
+
+/**
+ * ONE CREATOR'S published products, newest first, with their options.
+ *
+ * `creator_id` is not optional and not a convenience: it is the whole of
+ * what keeps one person's catalogue off another person's site. An empty
+ * creator id returns nothing rather than everything, because a filter that
+ * matches nobody is the safe reading of a missing filter.
+ *
+ * Never throws. A section that cannot reach the catalogue draws no products,
+ * which is the same rule as a section whose file will not compile. A column
+ * an older database does not have yet is asked for again without it, so the
+ * cards lose a field rather than the page losing its products.
+ */
+export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_PRODUCTS): Promise<ProductCard[]> {
+  const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
+  return readCards(db, creatorId, n, true)
+}
+
+/** Most products the builder's pickers are offered, newest first. */
+export const MAX_CATALOG_PRODUCTS = 100
+
+/**
+ * EVERY published product a picker may name, as cards: what the builder's
+ * canvas resolves a product picker, a product list and a collection against.
+ * The shop's own list (`shopProducts`) leaves out a product that sells a
+ * community tier; a picker may still name one, as on the live page, where a
+ * picked product is read by id whatever it sells.
+ */
+export async function catalogCards(db: Db, creatorId: string, limit = MAX_CATALOG_PRODUCTS): Promise<ProductCard[]> {
+  const n = Math.max(1, Math.min(MAX_CATALOG_PRODUCTS, Math.floor(limit) || MAX_CATALOG_PRODUCTS))
+  return readCards(db, creatorId, n, false)
+}
+
+/**
+ * The whole shop for its own listing pages (/products, /collections/<handle>,
+ * /search), newest first, up to MAX_CATALOGUE_PRODUCTS: what the pages of
+ * catalogPage are cut from. The sections everywhere else keep the newest 24.
+ * Variants are read in batches, so a long shop does not ask for 240 ids in
+ * one address.
+ */
+export const MAX_CATALOGUE_PRODUCTS = 240
+export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductCard[]> {
+  return readCards(db, creatorId, MAX_CATALOGUE_PRODUCTS, true)
+}
+
+async function readCards(db: Db, creatorId: string, n: number, listedOnly: boolean): Promise<ProductCard[]> {
   if (!creatorId) return []
   try {
     let rows: ProductRow[] | null = null
-    for (const cols of [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
+    for (const cols of PRODUCT_COLUMN_SETS) {
       const { data, error } = await db
         .from("products")
         .select(cols)
@@ -509,15 +547,11 @@ async function readShop(db: Db, creatorId: string, n: number): Promise<ProductCa
         .order("created_at", { ascending: false })
         .limit(n)
       if (error) continue
-      rows = withoutCommunityProducts((data ?? []) as ProductRow[])
+      rows = listedOnly ? withoutCommunityProducts((data ?? []) as ProductRow[]) : ((data ?? []) as ProductRow[])
       break
     }
     if (!rows) return []
-    const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
-    const [variants, options] = await Promise.all([variantsInBatches(db, rows.map((r) => r.id)), optionsInBatches(db, physical)])
-    const cards = rows.map((r) => toCard(r, variants, options))
-    const stocked = await withPhysicalStock(db, creatorId, rows, cards).catch(() => cards)
-    return await withCustomFields(db, stocked).catch(() => stocked)
+    return await cardsFromRows(db, rows, creatorId)
   } catch {
     return []
   }

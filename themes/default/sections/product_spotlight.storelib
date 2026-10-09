@@ -7,18 +7,18 @@
     </div>
     <div class="spot__copy">
       {% if settings.eyebrow %}<p class="s__eyebrow">{{ settings.eyebrow }}</p>{% endif %}
-      {# The product chosen for the button fills the name and price; what is typed here overrides it. #}
-      {% if settings.heading or settings.button_url.title %}<h2 class="s__h">{{ settings.heading | default: settings.button_url.title }}</h2>{% endif %}
+      {# The product chosen fills the name and the price. A typed name overrides the name; a typed price shows only with no product chosen, because checkout charges the product's own. #}
+      {% if settings.heading or settings.button_url.title %}<h2 class="s__h">{{ settings.heading | default: settings.button_url.title }}</h2>{% elsif page.in_editor %}<p class="empty">Choose the product in the sidebar</p>{% endif %}
       {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
       {% if settings.price or settings.button_url.price %}
-        <p class="spot__price">{{ settings.price | default: settings.button_url.price }}{% if settings.compare_price %}<s class="card__was">{{ settings.compare_price }}</s>{% elsif settings.button_url.compare_price %}<s class="card__was">{{ settings.button_url.compare_price }}</s>{% endif %}</p>
+        <p class="spot__price">{{ settings.button_url.price | default: settings.price }}{% if settings.button_url.title %}{% if settings.button_url.compare_price %}<s class="card__was">{{ settings.button_url.compare_price }}</s>{% endif %}{% elsif settings.compare_price %}<s class="card__was">{{ settings.compare_price }}</s>{% endif %}</p>
       {% endif %}
       {% if blocks.size > 0 %}
         <ul class="spot__points">
           {% for block in blocks %}<li data-block-id="{{ block.id }}"><strong>{{ block.settings.label }}</strong>{% if block.settings.text %} {{ block.settings.text }}{% endif %}</li>{% endfor %}
         </ul>
       {% endif %}
-      {% if settings.button_text %}
+      {% if settings.button_text and settings.button_url %}
         <div class="s__btns"><a class="s__btn s__btn--primary" href="{{ settings.button_url.checkout_url | default: settings.button_url | default: '#' | url }}">{{ settings.button_text }}</a></div>
       {% endif %}
     </div>

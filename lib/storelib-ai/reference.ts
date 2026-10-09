@@ -71,7 +71,7 @@ MENUS: one link_list setting, default "main-menu", looped {% for link in setting
 
 HEADER AND FOOTER: design them freely, with "kind": "header" or "kind": "footer". Keep link_list, link.links, theme.logo and data-storelib-cart, data-storelib-search, data-storelib-menu live.
 
-PRODUCTS: {% for block in products %} holds the creator's published products, newest first: block.id, block.settings.title, .price and .compare_price (already formatted: print them, never compute), .image, .images, .url (its page on the site), .checkout_url (Storelib checkout; empty when it cannot be bought), .available, .tag, .variants, .category and .options. A section offers the shop's products with a source select (shop, or blocks the creator fills). A product page has page.product; its main product section is blocks. {% if products.size == 0 %} is the store with none.
+PRODUCTS are the shop's, never typed: {% for block in products %} is the published products, newest first: block.settings.title, .price and .compare_price (formatted, never computed), .image, .images, .url, .checkout_url, .available, .tag, .variants, .options. A "source" select picks which: "shop" (limit: settings.product_count), "collection" (collection_picker) or "chosen" (product_list); one product is a product_picker. A product page has page.product. {% if products.size == 0 %} is a store with none.
 
 RESPONSIVE: the builder measures the section, not the window, so container-type: inline-size and @container (min-width: 640px) are how a phone layout stays honest. The layout itself is the section's. Motion is the section's own; prefers-reduced-motion is a courtesy.
 
@@ -98,7 +98,7 @@ export const REFERENCE_SECTION_TYPES: readonly { type: string; teaches: string }
   },
   {
     type: "product_featured",
-    teaches: "the creator's real products: a source select between the shop and blocks, responsive columns read per width, prices printed as given, container queries",
+    teaches: "the creator's real products: a source select between the shop, a collection and products chosen in the sidebar, a product count, responsive columns read per width, prices printed as given, container queries",
   },
 ]
 
@@ -194,12 +194,50 @@ export function withReducedMotion(source: string): string {
   return source.replace(style[0], `${style[1]}${style[2].replace(/\s*$/, "")}\n${rule}\n${style[3]}`)
 }
 
+/**
+ * AND THE ONE BRANCH A BUILT-IN KEEPS THAT AN AGENT MAY NOT WRITE. The
+ * product sections still draw cards typed in the sidebar for a section made
+ * before the product pickers existed, so nothing a creator saved changes.
+ * The save gate refuses exactly that in an agent's file
+ * (lib/storelib-ai/integration.ts, integration-product-typed), so the copy
+ * in the prompt goes without it: the marked branch, the typed product block
+ * and the "by hand" option. What is left still compiles
+ * (tests/ai-reference.test.ts compiles it) and passes the agent's checks.
+ */
+export function withoutHandFilled(source: string): string {
+  if (!source.includes("HAND-FILLED")) return source
+  let out = source.replace(/\{% else %\}\{# HAND-FILLED[\s\S]*?\{# END HAND-FILLED #\}/g, "")
+  out = out.replace(/(<schema>)([\s\S]*?)(<\/schema>)/, (all, open: string, json: string, close: string) => {
+    try {
+      const d = JSON.parse(json) as { settings?: { id?: string; options?: { value?: string }[]; info?: string }[]; blocks?: unknown; max_blocks?: unknown }
+      for (const st of d.settings ?? []) {
+        if (st.id === "source" && Array.isArray(st.options)) {
+          st.options = st.options.filter((o) => o.value !== "picked")
+          ;(st as { default?: string }).default = "shop"
+          delete st.info
+        }
+      }
+      delete d.blocks
+      delete d.max_blocks
+      return `${open}\n${JSON.stringify(d, null, 2)}\n${close}`
+    } catch {
+      return all
+    }
+  })
+  return out
+}
+
+/** A built-in section exactly as a prompt carries it: no hand-filled branch, no comments, compact, and kind to reduced motion. */
+export function promptCopy(source: string): string {
+  return withReducedMotion(compactSection(withoutHandFilled(source)))
+}
+
 function referenceSections(types: readonly string[]): string {
   const shown = REFERENCE_SECTION_TYPES.filter(({ type }) => types.includes(type))
     .map(({ type, teaches }) => {
       const source = DEFAULT_THEME_SOURCES[`sections/${type}.storelib`]
       if (!source) return ""
-      return `sections/${type}.storelib, for ${teaches}:\n${withReducedMotion(compactSection(source))}`
+      return `sections/${type}.storelib, for ${teaches}:\n${promptCopy(source)}`
     })
     .filter(Boolean)
   return [

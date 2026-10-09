@@ -1,0 +1,72 @@
+<template>
+<section class="pg" data-scheme="{{ settings.color_scheme }}" style="--pg-cols-d: {{ settings.columns.desktop }}; --pg-cols-m: {{ settings.columns.mobile }}; --pg-gap: {{ settings.gap }}px; --pg-pt: {{ settings.padding_top }}px; --pg-pb: {{ settings.padding_bottom }}px; --pg-heading: {{ settings.heading_color }};">
+  {% if settings.heading %}<h2 class="pg__h">{{ settings.heading }}</h2>{% endif %}
+  {% if settings.source == 'collection' %}
+    {% if settings.collection.products.size > 0 %}
+    <ul class="pg__grid pg__grid--{{ settings.card_style }}">
+      {% for block in settings.collection.products %}
+      <li class="pg__card" data-card="product" data-block-id="{{ block.id }}">
+        <a class="pg__media" href="{{ block.settings.url | url }}" style="aspect-ratio: {{ settings.ratio }};">{% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600">{% endif %}</a>
+        <h3 class="pg__t">{{ block.settings.title }}</h3>
+        {% if settings.show_price %}<p class="pg__p">{{ block.settings.price }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% elsif page.in_editor %}<p class="pg__empty">Choose a collection in the sidebar</p>{% endif %}
+  {% elsif settings.source == 'chosen' %}
+    {% if settings.chosen.size > 0 %}
+    <ul class="pg__grid pg__grid--{{ settings.card_style }}">
+      {% for block in settings.chosen %}
+      <li class="pg__card" data-card="product" data-block-id="{{ block.id }}">
+        <a class="pg__media" href="{{ block.settings.url | url }}" style="aspect-ratio: {{ settings.ratio }};">{% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600">{% endif %}</a>
+        <h3 class="pg__t">{{ block.settings.title }}</h3>
+        {% if settings.show_price %}<p class="pg__p">{{ block.settings.price }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% elsif page.in_editor %}<p class="pg__empty">Choose products in the sidebar</p>{% endif %}
+  {% else %}
+    {% if products.size > 0 %}
+    <ul class="pg__grid pg__grid--{{ settings.card_style }}">
+      {% for block in products limit: settings.limit %}
+      <li class="pg__card" data-card="product" data-block-id="{{ block.id }}">
+        <a class="pg__media" href="{{ block.settings.url | url }}" style="aspect-ratio: {{ settings.ratio }};">{% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" width="600" height="600">{% endif %}</a>
+        <h3 class="pg__t">{{ block.settings.title }}</h3>
+        {% if settings.show_price %}<p class="pg__p">{{ block.settings.price }}</p>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% elsif page.in_editor %}<p class="pg__empty">Your published products appear here</p>{% endif %}
+  {% endif %}
+</section>
+</template>
+<style>
+.pg { container-type: inline-size; padding: var(--pg-pt) 24px var(--pg-pb); }
+.pg__h { margin: 0 0 24px; color: var(--pg-heading); }
+.pg__grid { display: grid; gap: var(--pg-gap); grid-template-columns: repeat(var(--pg-cols-m), minmax(0, 1fr)); list-style: none; margin: 0; padding: 0; }
+@container (min-width: 760px) { .pg__grid { grid-template-columns: repeat(var(--pg-cols-d), minmax(0, 1fr)); } }
+.pg__media { display: block; overflow: hidden; border-radius: 12px; background: #eee; }
+.pg__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.pg__grid--bordered .pg__card { border: 1px solid #ddd; padding: 8px; }
+</style>
+<schema>
+{ "language_version": 1, "type": "ai_product_grid", "name": "Product grid", "category": "products", "settings": [
+  { "type": "select", "id": "source", "label": "Products", "default": "shop", "options": [
+    { "label": "All products, newest first", "value": "shop" },
+    { "label": "A collection", "value": "collection" },
+    { "label": "Products I choose", "value": "chosen" } ] },
+  { "type": "collection_picker", "id": "collection", "label": "Collection", "visible_if": "{{ section.settings.source == 'collection' }}" },
+  { "type": "product_list", "id": "chosen", "label": "Products", "limit": 12, "visible_if": "{{ section.settings.source == 'chosen' }}" },
+  { "type": "range", "id": "limit", "label": "Products to show", "min": 2, "max": 24, "step": 1, "default": 6, "visible_if": "{{ section.settings.source == 'shop' }}" },
+  { "type": "text", "id": "heading", "label": "Heading", "default": "New in" },
+  { "type": "range", "id": "columns", "label": "Columns", "min": 1, "max": 6, "step": 1, "default": { "desktop": 3, "mobile": 2 }, "responsive": true },
+  { "type": "range", "id": "gap", "label": "Gap", "min": 0, "max": 48, "step": 4, "unit": "px", "default": 16 },
+  { "type": "select", "id": "ratio", "label": "Photo shape", "default": "1 / 1", "options": [ { "label": "Square", "value": "1 / 1" }, { "label": "Portrait", "value": "3 / 4" } ] },
+  { "type": "select", "id": "card_style", "label": "Card", "default": "plain", "options": [ { "label": "Plain", "value": "plain" }, { "label": "Bordered", "value": "bordered" } ] },
+  { "type": "checkbox", "id": "show_price", "label": "Show price", "default": true },
+  { "type": "color", "id": "heading_color", "label": "Heading", "default": "scheme.heading" },
+  { "type": "color_scheme", "id": "color_scheme", "label": "Colour scheme", "default": "white" },
+  { "type": "range", "id": "padding_top", "label": "Top padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 },
+  { "type": "range", "id": "padding_bottom", "label": "Bottom padding", "min": 0, "max": 160, "step": 4, "unit": "px", "default": 48 }
+], "presets": [{ "name": "Product grid" }] }
+</schema>

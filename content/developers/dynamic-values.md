@@ -362,6 +362,13 @@ Inside `{% for %}`, the innermost loop:
 
 Outside a loop, `forloop` is empty.
 
+A loop can take part of its list, as Shopify's does: `limit:` and `offset:` after the list, each a number or a setting, and `reversed`. The offset is taken first, then the limit, then the order is turned round, and `forloop` counts what is drawn.
+
+```storelib
+{% for block in products limit: settings.product_count %} … {% endfor %}
+{% for block in products offset: 1 limit: 3 reversed %} … {% endfor %}
+```
+
 ## How values compare
 
 - **Printing.** `{{ }}` escapes what it prints. `null`, `false` and a missing value print nothing. A list or an object prints as JSON text.

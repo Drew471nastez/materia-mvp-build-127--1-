@@ -8,14 +8,14 @@
         {% if settings.subheading %}<p class="s__sub">{{ settings.subheading }}</p>{% endif %}
       </div>
     {% endif %}
-    {# Two sources, one card. See sections/product_grid.storelib and the
-       "Drawing the shop" note in docs/storelib-language.md. #}
+    {# Four sources, one card: the shop, a collection, products chosen in the
+       sidebar, and cards picked one by one. See sections/product_grid.storelib. #}
     {% if settings.source == 'shop' %}
       {% if products.size == 0 %}
         {% if page.in_editor %}<p class="empty">Your published products appear here</p>{% endif %}
       {% else %}
         <div class="grid">
-          {% for block in products %}
+          {% for block in products limit: settings.product_count %}
           <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
             <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
               {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
@@ -33,7 +33,53 @@
           {% endfor %}
         </div>
       {% endif %}
-    {% else %}
+    {% elsif settings.source == 'collection' %}
+      {# One collection's products, in the collection's own order (Products › Collections). #}
+      {% if settings.collection.products.size > 0 %}
+        <div class="grid">
+          {% for block in settings.collection.products limit: settings.product_count %}
+          <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+            </div>
+            <div class="feat__body">
+              {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
+              <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
+              {% if block.settings.price %}
+                <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+              {% endif %}
+              {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% elsif page.in_editor %}<p class="empty">{% if settings.collection.title %}This collection has no published products yet{% else %}Choose a collection in the sidebar{% endif %}</p>
+      {% endif %}
+    {% elsif settings.source == 'chosen' %}
+      {# Real products, in the order they were chosen. One that is unpublished or deleted is left out. #}
+      {% if settings.chosen.size > 0 %}
+        <div class="grid">
+          {% for block in settings.chosen %}
+          <article class="card feat" data-card="product" data-block-id="{{ block.id }}">
+            <div class="card__media" data-card-media style="aspect-ratio: {{ settings.shape }};">
+              {% if block.settings.image %}<img src="{{ block.settings.image | asset }}" alt="{{ block.settings.title }}" loading="lazy" decoding="async">{% endif %}
+            </div>
+            <div class="feat__body">
+              {% if block.settings.tag %}<p class="feat__tag">{{ block.settings.tag }}</p>{% endif %}
+              <h3 class="card__title">{{ block.settings.title }}</h3>
+              {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
+              {% if block.settings.price %}
+                <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
+              {% endif %}
+              {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        </div>
+      {% elsif page.in_editor %}<p class="empty">Choose products in the sidebar</p>
+      {% endif %}
+    {% else %}{# HAND-FILLED: cards whose product is picked one by one, with words of their own; kept so a section made that way draws what it always drew. The copy an agent reads (lib/storelib-ai/reference.ts) has this branch taken out. #}
       {% if blocks.size == 0 %}
         {% if page.in_editor %}<p class="empty">Add products in the sidebar</p>{% endif %}
       {% else %}
@@ -49,7 +95,7 @@
               <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
               {% if block.settings.text %}<p class="card__text">{{ block.settings.text }}</p>{% endif %}
               {% if block.settings.price or block.settings.url.price %}
-                <p class="card__price">{{ block.settings.price | default: block.settings.url.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% elsif block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}</p>
+                <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
               {% endif %}
               {% if block.settings.url %}<a class="feat__go" href="{{ block.settings.url | url }}">{{ settings.link_text }}</a>{% endif %}
             </div>
@@ -60,7 +106,7 @@
           {% endfor %}
         </div>
       {% endif %}
-    {% endif %}
+    {# END HAND-FILLED #}{% endif %}
   </div>
 </section>
 </template>
@@ -149,18 +195,51 @@
       "type": "select",
       "id": "source",
       "label": "Products",
-      "info": "Your shop stays in step on its own. Picked shows the products you choose, in your order.",
+      "info": "Your shop, a collection and the products you choose stay in step on their own. Cards with your own words pick a product each and can add a line about it.",
       "default": "picked",
       "options": [
         {
-          "label": "The ones I pick",
-          "value": "picked"
+          "label": "All products, newest first",
+          "value": "shop"
         },
         {
-          "label": "My shop, newest first",
-          "value": "shop"
+          "label": "A collection",
+          "value": "collection"
+        },
+        {
+          "label": "Products I choose",
+          "value": "chosen"
+        },
+        {
+          "label": "Cards with my own words",
+          "value": "picked"
         }
       ]
+    },
+    {
+      "type": "product_list",
+      "id": "chosen",
+      "label": "Products to show",
+      "limit": 12,
+      "default": [],
+      "visible_if": "{{ section.settings.source == 'chosen' }}"
+    },
+    {
+      "type": "collection_picker",
+      "id": "collection",
+      "label": "Collection",
+      "info": "Its products in its own order, up to 12.",
+      "visible_if": "{{ section.settings.source == 'collection' }}"
+    },
+    {
+      "type": "range",
+      "id": "product_count",
+      "label": "Products to show",
+      "min": 1,
+      "max": 12,
+      "step": 1,
+      "default": 3,
+      "visible_if": "{{ section.settings.source == 'shop' or section.settings.source == 'collection' }}"
     },
     {
       "type": "header",
@@ -362,7 +441,9 @@
   "presets": [
     {
       "name": "Featured Products",
-      "settings": { "source": "shop" },
+      "settings": {
+        "source": "shop"
+      },
       "blocks": []
     }
   ]

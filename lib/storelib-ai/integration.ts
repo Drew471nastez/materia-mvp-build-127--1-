@@ -27,7 +27,18 @@ import { isImageInDisguise, numberedLinkPairs } from "@/lib/storelib-theme/schem
 import type { QualityFinding } from "./quality"
 
 type SchemaSetting = { id?: string; type?: string; label?: string; default?: unknown }
-type Schema = { category?: string; kind?: string; settings?: SchemaSetting[]; blocks?: { settings?: SchemaSetting[] }[] }
+type Schema = { type?: string; name?: string; category?: string; kind?: string; settings?: SchemaSetting[]; blocks?: { type?: string; name?: string; settings?: SchemaSetting[] }[]; presets?: { settings?: Record<string, unknown>; blocks?: { settings?: Record<string, unknown> }[] }[] }
+
+/* ── products ─────────────────────────────────────────────────────── */
+
+/** A section, or a block, about the shop's products: by its type, its name or its category. */
+const ABOUT_PRODUCTS = /product|catalog|merch|best.?sell|new.?(?:in|arrival|drop)|collection|shop.?(?:all|grid|the.?look)|featured.?(?:item|piece)/i
+/** Things with a price that are not the shop's products: a plan, a dish, a ticket, a class. Their prices are typed on purpose. */
+const PRICED_NOT_PRODUCTS = /pricing|plan|tier|menu|dish|food|drink|ticket|event|service|session|class|booking|rate|quote|package|fee/i
+/** A setting holding a price someone types: an id that says price, as words or a number. */
+const PRICE_ID = /(?:^|_)(?:price|prices|cost|amount|compare(?:_at)?(?:_price)?|was|was_price|sale_price|msrp)(?:_|$)/i
+const TYPED = new Set(["text", "textarea", "inline_richtext", "richtext", "number", "range"])
+
 
 /** Sections that are the page's frame rather than a band on it: no top and bottom padding of their own. */
 const FRAME = /^(header|footer|announcement|navigation|nav|bar|sticky)/i
@@ -266,7 +277,21 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
       /\{%-?\s*for\s+\w+\s+in\s+(products|page\.product|settings\.\w+)\b/.test(parsed.value.template.text) ||
       /\{\{[^}]*\b(products|page\.product|page\.collection)\b/.test(parsed.value.template.text) ||
       allSettings.some((st) => RESOURCE_TYPES.has(String(st.type)))
-    const productSection = /product|shop|collection|catalog/i.test(String(schema.category ?? "")) || /product/i.test(String((schema as { type?: unknown }).type ?? ""))
+    /*
+      WHAT A PRODUCT SECTION IS (round 21, the owner: "when I ask for a products section it must never code me placeholders
+      and text inputs to describe the products"). Its category or type says so; or it is named for products (Best sellers,
+      Shop the look, New arrivals) and its cards are a typed name and an uploaded picture, which is a product card drawn by
+      hand. A section merely named after a shop (a Store locator, opening hours) has no such cards and is left alone.
+    */
+    const NAMED_FOR_PRODUCTS = /\b(products?|shop|catalog(?:ue)?|best\s?sellers?|new\s?arrivals?|merch(?:andise)?|bestsellers)\b/i
+    const handCards = blockDefs.some((bl) => {
+      const st = ((bl as { settings?: SchemaSetting[] }).settings ?? []) as SchemaSetting[]
+      return st.some((x) => x.type === "image_picker") && st.some((x) => TYPED.has(String(x.type)) && /(?:^|_)(?:title|name|product)(?:_|$)/i.test(String(x.id ?? "")))
+    })
+    const productSection =
+      /product|shop|collection|catalog/i.test(String(schema.category ?? "")) ||
+      /product/i.test(String((schema as { type?: unknown }).type ?? "")) ||
+      (handCards && NAMED_FOR_PRODUCTS.test(`${String((schema as { type?: unknown }).type ?? "")} ${String(schema.name ?? "")}`.replace(/_/g, " ")))
     const MONEY = /(?:[$€£¥₹]\s?\d+(?:[.,]\d{1,2})?)|(?:\d+(?:[.,]\d{2})?\s?(?:USD|EUR|GBP|CAD|AUD)\b)/
     const priced = (st: SchemaSetting & { default?: unknown }) => /price|cost|amount/i.test(String(st.id ?? "")) && typeof st.default === "string" && MONEY.test(st.default)
     const typedPrice = (text.match(new RegExp(MONEY.source)) ?? [])[0]
@@ -275,9 +300,60 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     } else if (typedPrice && (productSection || productBlocks.length > 0)) {
       err("integration-products", `"${typedPrice}" is a price typed into the markup. Print the product's own: {{ block.settings.price }} from products, or {{ settings.product.price }} from a product_picker.`)
     }
+    /*
+      A PRICE IS NEVER A SETTING ON A PRODUCT. A card whose price can be typed
+      shows a number checkout does not charge the day the two disagree, and a
+      creator asked for products read from the shop, not boxes to describe
+      them in. A product block holds a product_picker; its price, was price
+      and stock are the product's. A plan, a dish or a ticket is priced by
+      hand on purpose and left alone (PRICED_NOT_PRODUCTS).
+    */
+    const sectionWords = `${schema.type ?? ""} ${schema.name ?? ""} ${schema.category ?? ""}`
+    const pricedByHand = PRICED_NOT_PRODUCTS.test(sectionWords)
+    /*
+      Unless it is only the fallback for a product chosen beside it: a product_picker in the same
+      settings, printed first, `{{ settings.product.price | default: settings.price }}`. Then the
+      shop's price is what shows whenever a product is chosen, which is how the built-in product
+      sections keep cards saved before the pickers existed.
+    */
+    const tpl = parsed.value.template.text
+    const esc = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    const fallbackOnly = (list: SchemaSetting[] | undefined, st: SchemaSetting) =>
+      (list ?? [])
+        .filter((x) => resolveControlType(String(x?.type ?? "")) === "product_picker" && x.id)
+        .some((picker) =>
+          String(st.id) === "price"
+            ? new RegExp(`settings\\.${esc(String(picker.id))}\\.price\\s*\\|\\s*default:\\s*(?:block\\.)?settings\\.price\\b`).test(tpl)
+            : /* a was price beside it: the product's own is read too */ new RegExp(`settings\\.${esc(String(picker.id))}\\.${esc(String(st.id))}\\b`).test(tpl),
+        )
+    const typedPriceSetting = (list: SchemaSetting[] | undefined) =>
+      (list ?? []).find((st) => PRICE_ID.test(String(st?.id ?? "")) && TYPED.has(resolveControlType(String(st?.type ?? "")) ?? "") && !fallbackOnly(list, st))
+    const typedCard = pricedByHand
+      ? undefined
+      : blockDefs.find((bl) => {
+          const words = `${(bl as { type?: string }).type ?? ""} ${(bl as { name?: string }).name ?? ""}`
+          return !!typedPriceSetting(bl.settings) && !PRICED_NOT_PRODUCTS.test(words) && (ABOUT_PRODUCTS.test(words) || productSection || /^(?:item|card)s?$/i.test(String((bl as { type?: string }).type ?? "")))
+        })
+    const typedSection = !pricedByHand && productSection ? typedPriceSetting(settings) : undefined
+    if (typedCard || typedSection) {
+      const where = typedCard ? `the "${String((typedCard as { type?: string }).type)}" block's "${typedPriceSetting(typedCard.settings)?.id}"` : `"${typedSection?.id}"`
+      err("integration-product-typed", `A product's price is a setting here (${where}), so it can be typed. A product's name, price, photos and stock are read from the shop: loop {% for block in products limit: settings.product_count %}, and let the sidebar choose which with a select "source": "shop", "collection" (a collection_picker, {% for block in settings.collection.products %}) or "chosen" (a product_list, {% for block in settings.chosen %}). One product is a product_picker, printed as settings.product.title and settings.product.price. Remove the price settings and their presets.`)
+    }
+    /*
+      A PRODUCT BLOCK HOLDS A PRODUCT. A block called a product whose name is typed and that has no product_picker is a
+      placeholder card: the creator would describe a product in boxes instead of choosing one of theirs.
+    */
+    const handProduct = blockDefs.find((bl) => {
+      if (!/^product/i.test(String((bl as { type?: unknown }).type ?? ""))) return false
+      const st = ((bl as { settings?: SchemaSetting[] }).settings ?? []) as SchemaSetting[]
+      return !st.some((x) => RESOURCE_TYPES.has(String(x.type))) && st.some((x) => TYPED.has(String(x.type)) && /(?:^|_)(?:title|name)(?:_|$)/i.test(String(x.id ?? "")))
+    })
+    if (handProduct) {
+      err("integration-products", `The ${String((handProduct as { type?: unknown }).type)} block describes a product in text boxes (a typed name, no product_picker), so it is a placeholder, not one of the shop's products. Give the block a product_picker ("id": "product") and print settings.product.title, settings.product.price, settings.product.image and settings.product.checkout_url from it; or loop the shop: {% for block in products limit: settings.product_count %}.`)
+    }
     const fakeDefault = productBlocks.flatMap((bl) => (bl.settings ?? []) as (SchemaSetting & { default?: unknown })[]).find(priced)
     if (fakeDefault) {
-      err("integration-products", `The ${String(fakeDefault.id)} setting defaults to "${String(fakeDefault.default)}", an invented price. Leave it empty and fall back to the chosen product's: give the block a product_picker and print {{ block.settings.price | default: block.settings.product.price }}.`)
+      err("integration-products", `The ${String(fakeDefault.id)} setting defaults to "${String(fakeDefault.default)}", an invented price. Remove it: the chosen product's own price is {{ block.settings.product.price }}.`)
     }
     const presets = Array.isArray((schema as { presets?: unknown }).presets) ? ((schema as { presets: { blocks?: { type?: string; settings?: Record<string, unknown> }[] }[] }).presets) : []
     const fakePreset = presets.flatMap((pr) => pr.blocks ?? []).find((b) => /product|item|card/i.test(String(b.type ?? "")) && Object.entries(b.settings ?? {}).some(([k, v]) => /price|cost|amount/i.test(k) && typeof v === "string" && MONEY.test(v)))
@@ -349,4 +425,4 @@ export function sectionAdvice(source: string): QualityFinding[] {
 }
 
 /** A short statement of the same rules, for a model to read before it writes. */
-export const INTEGRATION_CONTRACT = `LIVE VALUES, NOT A LOOK. A save refuses Storelib data typed in by hand: words, links and pictures are settings; a picture is an image_picker; a menu is one link_list with link.links; a header ("kind": "header") reads that menu; the logo is theme.logo or an image_picker; cart, search and menu are data-storelib-cart, data-storelib-search and data-storelib-menu (a section may draw its own cart with data-storelib-add-to-cart and data-storelib-cart-panel); account is routes.account_url; buy is checkout_url; products and prices come from products; email is data-storelib-form="subscribe". Colours, type, buttons, spacing, motion and logo size are the section's design, not a refusal.`
+export const INTEGRATION_CONTRACT = `LIVE VALUES, NOT A LOOK. A save refuses Storelib data typed in by hand: words, links and pictures are settings; a picture is an image_picker; a menu is one link_list with link.links; a header ("kind": "header") reads that menu; the logo is theme.logo or an image_picker; cart, search and menu are data-storelib-cart, data-storelib-search and data-storelib-menu (a section may draw its own cart with data-storelib-add-to-cart and data-storelib-cart-panel); account is routes.account_url; buy is checkout_url; products and prices come from products or a product picker, never typed; email is data-storelib-form="subscribe". Colours, type, buttons, spacing, motion and logo size are the section's design, not a refusal.`

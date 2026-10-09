@@ -151,13 +151,28 @@ export function StorelibSection({
     The server's markup and the first paint are still React's, unchanged.
   */
   const [htmlProp] = useState(() => ({ __html: html }))
+  /*
+    THE MARKUP THAT IS ON THE PAGE, which is not always `html`. Everything
+    below that writes onto the section's elements (the wishlist hearts, the
+    cart count, a coded header's own cart panel, its open drawers) has to
+    write onto the markup after it changed, not before. Keyed on `html`, it
+    did not: React runs a child's layout effects before its parent's, so
+    StorefrontHooks wrote the cart count and the cart's lines into the old
+    markup, this then applied the new markup over them, and a setting moved
+    in the sidebar emptied the header's cart and showed its empty and filled
+    states together. Set here, once the new markup is in, so they run again
+    against what is actually there.
+  */
+  const [onPage, setOnPage] = useState(html)
   useLayoutEffect(() => {
     if (!scriptRoot) return
     /* What this element holds: the first markup when React has just drawn it. */
     const holds = drawn.get(scriptRoot) ?? htmlProp.__html
-    if (holds === html) return
-    morphInto(scriptRoot, html)
-    drawn.set(scriptRoot, html)
+    if (holds !== html) {
+      morphInto(scriptRoot, html)
+      drawn.set(scriptRoot, html)
+    }
+    setOnPage(html)
   }, [scriptRoot, html, htmlProp])
   /*
     THE HEARTS SAY WHAT IS SAVED. A section draws each product's heart as
@@ -185,7 +200,7 @@ export function StorelibSection({
       if (on) shown++
     })
     scriptRoot.querySelectorAll<HTMLElement>("[data-storelib-wishlist-empty]").forEach((el) => { el.hidden = shown > 0 })
-  }, [scriptRoot, html, savedIds, savedReady])
+  }, [scriptRoot, onPage, savedIds, savedReady])
 
   /*
     THE SITE'S DRAWERS, ASKED FOR BY ATTRIBUTE. A header written as a
@@ -384,7 +399,7 @@ export function StorelibSection({
           trigger={drawerTrigger}
           section={section}
           theme={theme}
-          html={html}
+          html={onPage}
           scriptRoot={scriptRoot}
           inCanvas={!!(isEditing || insideEditor || inEditor)}
           onEditorNavigate={onEditorNavigate}

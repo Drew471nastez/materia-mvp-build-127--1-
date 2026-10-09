@@ -85,19 +85,25 @@ const TOPICS: Topic[] = [
     text: `A CART, ADD BUTTONS AND A CART DRAWER CAN BE THE SECTION'S OWN DESIGN, on the site's one cart (priced again on the server at checkout, so nothing typed can change a charge). ADD: <button type="button" data-storelib-add-to-cart="{{ block.id }}" data-title="{{ block.settings.title }}" data-price="{{ block.settings.price }}" data-image="{{ block.settings.image }}" data-url="{{ block.settings.url }}" data-kind="{{ block.settings.kind }}"> inside {% for block in products %}, behind {% if block.settings.available %}; for an option add data-variant-id="{{ variant.id }}" data-variant-name="{{ variant.name }}". OWN DRAWER: an element marked data-storelib-cart-panel (styled by its data-open="true|false"; it is inert while shut) opens on the section's data-storelib-cart button and on every add, instead of the built-in drawer. Inside it: a list marked data-storelib-cart-lines holding ONE element marked data-storelib-cart-line hidden (not a <template>, which is the file's own delimiter), copied per line, with data-line-title, data-line-variant, data-line-price, data-line-qty, img data-line-image, a data-line-url, and buttons data-line-inc, data-line-dec, data-line-remove; data-storelib-cart-subtotal; data-storelib-cart-empty and data-storelib-cart-filled (shown and hidden for you); a data-storelib-checkout button (straight to checkout, as the built-in drawer does) and a data-storelib-cart-close button. Escape closes it. Without a panel, data-storelib-cart opens the built-in drawer. Never a price, stock level or shipping cost typed by hand.`,
   },
   {
+    /*
+      PRODUCTS AND COLLECTIONS ARE READ FROM THE STORE, NEVER TYPED. "Make me
+      a product grid like a Shopify theme" was answered with blocks holding a
+      typed name, price and photo: products the shop does not have. The shop
+      is the source, as in a Shopify theme, and the sidebar chooses which.
+      The checker refuses the rest (lib/storelib-ai/integration.ts,
+      integration-products and integration-product-typed).
+    */
+    id: "store-binding",
+    triggers: /product|\bshop\b|\bstore\b|catalog|collection|merch|\bprices?\b|best ?sell|new ?(?:in|arrivals?|drops?)\b|featured|recommend|\bbuy\b|for sale|lookbook|apparel|cloth/i,
+    text: `PRODUCTS COME FROM THE STORE, NEVER FROM TYPING. Never write a product's name, price, photo or "Sold out" into markup, a default, a block or a preset, and never give a product a price setting. No text boxes or image_pickers to describe a product: a product block holds a product_picker.
+  WHICH PRODUCTS, chosen in the sidebar like a Shopify section: a select "source" with "shop" ({% for block in products limit: settings.product_count %}), "collection" (a collection_picker "collection": {% for block in settings.collection.products limit: settings.product_count %}) and "chosen" (a product_list "chosen", "limit": 12: {% for block in settings.chosen %}), each picker shown with "visible_if": "{{ section.settings.source == 'collection' }}"; default and preset "shop"; product_count a range. One product: a product_picker "product", printed as settings.product.title, .price, .compare_price, .image, .url, .checkout_url (on the product page set it to @current; page.product is there too). Several collections: a collection_list. On a collection page, collection is the page's own.
+  EVERY CARD reads block.settings.title, .price (formatted: print it, never compute), .compare_price, .image (| asset, with width, height and alt), .images, .url (| url), .tag ("Sold out" or ""), .available, .kind, .checkout_url, .variants (each id, name, price, available, checkout_url), .options and .fields (the product's custom fields by name: block.settings.fields.material). Add to cart is data-storelib-add-to-cart behind {% if block.settings.available %}. A card may change a word from its product, {{ block.settings.title | default: block.settings.product.title }}, never its price.
+  EMPTY: {% else %} in the loop with {% if page.in_editor %}<p>Your published products appear here</p>{% endif %}: nothing invented, nothing shown to a visitor. Filtering and sorting are the shop page's (page.filters), not a script's.`,
+  },
+  {
     id: "blocks",
     triggers: /block|repeat|item|entry|question|tier|testimonial|logo|slide|card|list|faq|accordion|gallery/i,
     text: `BLOCKS ONLY FOR A LIST THE CREATOR GROWS (questions, testimonials, slides, logos, tiers): declare the type, loop over \`blocks\`, data-block-id="{{ block.id }}" on each, preset 2 or 3, never question_1 / question_2. One of each thing (a hero, a banner, a call to action) is plain settings, NO blocks; no @theme blocks unless asked. Motion is the section's own CSS. A select with the id animation can follow or override the theme's entrance; it is optional.`,
-  },
-  {
-    /*
-      PRODUCTS AND COLLECTIONS, BOUND TO THE STORE. Every product section the
-      model writes reads the catalogue; the checker refuses the rest
-      (lib/storelib-ai/integration.ts, integration-products).
-    */
-    id: "store-binding",
-    triggers: /product|shop|store|catalog|collection|price|buy|cart|checkout|carousel|grid|featured|recommend|bestsell|merch|cloth|apparel|course|membership|download/i,
-    text: `PRODUCTS COME FROM THE STORE, NEVER FROM THE SECTION. The shop: {% for block in products %} with block.settings.title, price, compare_price, image, images, url, available, tag, checkout_url, fields (the product's custom fields by name: block.settings.fields.material) and variants (each with name, price, available, checkout_url). One product: a product_picker setting, printed as settings.product.title, .price, .image, .checkout_url (on the product page set it to @current for the page's own product, and page.product is there too). Several in the creator's order: a product_list setting, looped {% for block in settings.featured %} exactly like products. A collection: a collection_picker, with settings.collection.title, .url, .products_count and .products to loop; several: a collection_list. On a collection page, collection is the page's own. A buy button is the product's checkout_url (a variant's for one option); "Sold out" when available is false. Cards typed by the creator are optional overrides that fall back to the chosen product: {{ block.settings.title | default: block.settings.product.title }}. Defaults and presets never invent a product or a price; an empty product setting draws a short note only when page.in_editor. Filtering and sorting are the shop page's (page.filters), not a script's.`,
   },
   {
     /*

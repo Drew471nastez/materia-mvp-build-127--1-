@@ -7,6 +7,7 @@
  *   {{ expression }}                 output, HTML-escaped
  *   {% if … %} {% elsif … %} {% else %} {% endif %}
  *   {% for item in list %} … {% else %} {% endfor %}
+ *   {% for item in list limit: 4 offset: 1 reversed %}
  *   {% content_for "blocks" %}       this section's (or block's) theme blocks
  *   {% content_for "block", type: "heading", id: "title" %}
  *                                    one theme block the template places itself
@@ -49,7 +50,7 @@ export type Node =
   | { kind: "text"; value: string }
   | { kind: "output"; expr: Expr; line: number }
   | { kind: "if"; branches: { cond: Expr; body: Node[] }[]; else?: Node[]; line: number }
-  | { kind: "for"; item: string; list: Expr; body: Node[]; else?: Node[]; line: number }
+  | { kind: "for"; item: string; list: Expr; body: Node[]; else?: Node[]; line: number; limit?: Expr; offset?: Expr; reversed?: boolean }
   | { kind: "content_for"; what: "blocks"; line: number }
   | { kind: "content_for"; what: "block"; type: string; id: string; line: number }
 
@@ -237,6 +238,26 @@ class ExprParser {
     }
     throw new TemplateError(`unexpected "${(t as { v: unknown }).v}" in expression`, this.line)
   }
+}
+
+/**
+ * `{% for block in products limit: 4 %}`, as a shop theme writes it: the list,
+ * then `limit:` and `offset:` (a number or a setting) and `reversed`, in any
+ * order after it. Offset first, then the limit, then the order turned round,
+ * as Liquid does. "Show 4 products" is a range setting and one word here,
+ * not a template that has no way to stop.
+ */
+function loopParams(src: string, line: number): { list: Expr; params: { limit?: Expr; offset?: Expr; reversed?: boolean } } {
+  let rest = src.trim()
+  const params: { limit?: Expr; offset?: Expr; reversed?: boolean } = {}
+  for (;;) {
+    const rev = rest.match(/^(.*\S)\s+reversed$/)
+    if (rev && !params.reversed) { params.reversed = true; rest = rev[1]; continue }
+    const kv = rest.match(/^(.*\S)\s+(limit|offset)\s*:\s*([A-Za-z0-9_.]+)$/)
+    if (kv && !params[kv[2] as "limit" | "offset"]) { params[kv[2] as "limit" | "offset"] = parseExpr(kv[3], line); rest = kv[1]; continue }
+    break
+  }
+  return { list: parseExpr(rest, line), params }
 }
 
 function parseExpr(src: string, line: number): Expr {
@@ -494,7 +515,8 @@ export function compileTemplate(src: string, opts: { file?: string; line?: numbe
           elseBody = e.nodes
           i++
         }
-        nodes.push({ kind: "for", item: m[1], list: parseExpr(m[2], t.line), body: body.nodes, else: elseBody, line: t.line })
+        const loop = loopParams(m[2], t.line)
+        nodes.push({ kind: "for", item: m[1], list: loop.list, body: body.nodes, else: elseBody, line: t.line, ...loop.params })
         continue
       }
       if (word === "content_for") {
@@ -917,7 +939,17 @@ export function renderTemplate(tpl: CompiledTemplate, ctx: RenderContext, opts: 
         }
         case "for": {
           const list = evaluate(n.list, scope, ctx)
-          const items = Array.isArray(list) ? list : []
+          let items = Array.isArray(list) ? list : []
+          if (n.offset || n.limit) {
+            const count = (e: Expr | undefined, fallback: number) => {
+              if (!e) return fallback
+              const v = Number(evaluate(e, scope, ctx))
+              return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : fallback
+            }
+            const from = count(n.offset, 0)
+            items = items.slice(from, from + count(n.limit, items.length))
+          }
+          if (n.reversed) items = [...items].reverse()
           if (items.length === 0) { if (n.else) walk(n.else, scope); break }
           items.forEach((item, idx) => {
             walk(n.body, {
@@ -976,6 +1008,8 @@ export function pathRefs(tpl: CompiledTemplate): PathRef[] {
         if (n.else) walk(n.else, bound)
       } else if (n.kind === "for") {
         expr(n.list, n.line, bound)
+        if (n.limit) expr(n.limit, n.line, bound)
+        if (n.offset) expr(n.offset, n.line, bound)
         const inner = new Map(bound)
         inner.set(n.item, n.list.t === "path" ? n.list.segs.join(".") : "")
         walk(n.body, inner)
@@ -1002,7 +1036,7 @@ export function pathsRead(tpl: CompiledTemplate): string[] {
     for (const n of nodes) {
       if (n.kind === "output") expr(n.expr)
       else if (n.kind === "if") { n.branches.forEach((b) => { expr(b.cond); walk(b.body) }); if (n.else) walk(n.else) }
-      else if (n.kind === "for") { expr(n.list); walk(n.body); if (n.else) walk(n.else) }
+      else if (n.kind === "for") { expr(n.list); if (n.limit) expr(n.limit); if (n.offset) expr(n.offset); walk(n.body); if (n.else) walk(n.else) }
     }
   }
   walk(tpl.nodes)

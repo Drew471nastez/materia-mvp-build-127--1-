@@ -10,7 +10,8 @@
  *
  * NEVER A HIDDEN PICTURE. Nothing is hidden until this has started (the root
  * carries `data-sl-fade` only then), so without JavaScript every picture
- * shows as it loads. A picture already loaded is marked at once with no fade.
+ * shows as it loads. A picture already loaded is marked at once with no fade,
+ * and so is one whose mark something else took off while it stayed loaded.
  * One that fails is marked too, so the browser's own fallback shows. And
  * three seconds after a picture is on screen it is marked, whatever happened.
  *
@@ -63,15 +64,24 @@ export function installMediaFade(root: HTMLElement): () => void {
               if (n.hasAttribute("data-sl-media")) watch(n)
               scan(n)
             })
-            if (r.type === "attributes" && r.target instanceof HTMLElement && r.target.hasAttribute("data-sl-media")) {
-              /* A new address: it loads again, and is shown when it has. */
-              r.target.removeAttribute("data-sl-loaded")
-              watch(r.target)
+            if (r.type !== "attributes" || !(r.target instanceof HTMLElement) || !r.target.hasAttribute("data-sl-media")) continue
+            if (r.attributeName === "data-sl-loaded") {
+              /*
+                The mark taken off by something else: a section's markup
+                applied again, a script. Put back at once when the picture is
+                still loaded, before the frame is painted, so it never blinks
+                out; watched again when it is not.
+              */
+              if (!r.target.hasAttribute("data-sl-loaded")) watch(r.target)
+              continue
             }
+            /* A new address: it loads again, and is shown when it has. */
+            r.target.removeAttribute("data-sl-loaded")
+            watch(r.target)
           }
         })
       : null
-  mo?.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset"] })
+  mo?.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "srcset", "data-sl-loaded"] })
 
   /*
     The safety net, counted from when a picture is ON SCREEN: one four

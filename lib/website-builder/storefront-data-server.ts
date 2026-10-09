@@ -14,7 +14,7 @@
  */
 import "server-only"
 
-import { toCard, withCustomFields, type ProductCard } from "./shop-products"
+import { cardsFromRows, PRODUCT_COLUMN_SETS, type ProductCard, type ProductRow } from "./shop-products"
 import type { CreatorFacts } from "./storefront-data"
 
 /** The narrow shape these reads need, so a test can hand in a fake. */
@@ -22,7 +22,7 @@ type Row = Record<string, unknown>
 interface Query {
   eq: (col: string, val: string) => Query
   in: (col: string, vals: string[]) => Query
-  limit: (n: number) => PromiseLike<{ data: Row[] | null }>
+  limit: (n: number) => PromiseLike<{ data: Row[] | null; error?: unknown }>
   maybeSingle: () => PromiseLike<{ data: Row | null }>
 }
 interface CountQuery {
@@ -89,14 +89,24 @@ export async function pickedProducts(
   const ids = refs.ids.filter((i) => /^[0-9a-f-]{8,64}$/i.test(i)).slice(0, MAX_PICKED_PRODUCTS)
   const slugs = refs.slugs.filter((s) => /^[a-z0-9][a-z0-9-_.]{0,200}$/i.test(s)).slice(0, MAX_PICKED_PRODUCTS)
   if (ids.length === 0 && slugs.length === 0) return []
-  const cols = "id, title, slug, price_cents, compare_at_cents, thumbnail_url, status"
   try {
-    const reads: PromiseLike<{ data: Row[] | null }>[] = []
-    if (ids.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("id", ids).limit(MAX_PICKED_PRODUCTS))
-    if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
-    const results = await Promise.all(reads)
-    const cards = results.flatMap((r) => (r.data ?? []).map((row) => toCard(row as never)))
-    return await withCustomFields(db as never, cards).catch(() => cards)
+    /*
+      THE SAME CARD THE SHOP'S OWN LIST DRAWS. This read the six columns a
+      card needs to exist, so a product a section picked that was not among
+      the newest came without its gallery, its kind or its options: a grid of
+      chosen products lost its second pictures and its add buttons on the
+      live site and kept them in the builder. The full columns, falling back
+      as the shop's list does, and the options read the same way.
+    */
+    for (const cols of PRODUCT_COLUMN_SETS) {
+      const reads: PromiseLike<{ data: Row[] | null; error?: unknown }>[] = []
+      if (ids.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("id", ids).limit(MAX_PICKED_PRODUCTS))
+      if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
+      const results = await Promise.all(reads)
+      if (results.some((r) => r.error)) continue
+      return await cardsFromRows(db, results.flatMap((r) => (r.data ?? []) as unknown as ProductRow[]), creatorId)
+    }
+    return []
   } catch {
     return []
   }
