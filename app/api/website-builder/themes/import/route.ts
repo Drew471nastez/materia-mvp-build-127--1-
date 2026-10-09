@@ -300,9 +300,12 @@ export async function POST(req: Request) {
      * here, before a row exists: script, event handlers and javascript:
      * URLs are dropped rather than stored and dealt with later.
      */
-    const settings = sanitizeThemeSettings(
-      rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>,
-    )
+    const rawSettings = rewriteUrls(JSON.parse(pkg.files["config/settings.json"] ?? "{}"), refToUrl) as Record<string, unknown>
+    /* An imported theme's stylesheet names its pictures inside url(), not as a whole value. */
+    if (typeof rawSettings.theme_stylesheet === "string") {
+      rawSettings.theme_stylesheet = rawSettings.theme_stylesheet.replace(/asset:\/\/[0-9a-f]{64}/gi, (ref) => refToUrl[ref] ?? "")
+    }
+    const settings = sanitizeThemeSettings(rawSettings)
     /* The package's own section files say which of their settings are rich text. */
     const own = ownSectionFields(Object.entries(pkg.files).map(([path, content]) => ({ path, content })))
     /**

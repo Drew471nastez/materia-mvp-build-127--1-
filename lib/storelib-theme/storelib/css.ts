@@ -87,19 +87,32 @@ const EXPR = /\{\{[\s\S]*?\}\}/g
  * back undefined, and was left in the CSS as garbage the browser dropped.
  * A non-digit pad cannot be confused with the index.
  */
+/**
+ * And `{% … %}`, a tag between rules or inside a value (`{% if settings.dark %}`
+ * around a rule, as a Shopify theme's {% style %} writes it): to postcss a
+ * comment, `/*sl-t0__*\/`, which it keeps where it was; swapped back after.
+ */
+const TAG = /\{%[\s\S]*?%\}/g
+
 function maskExpressions(css: string): { masked: string; exprs: string[] } {
   const exprs: string[] = []
-  const masked = css.replace(EXPR, (m) => {
-    const token = `--sl-x${exprs.length}`
-    exprs.push(m)
-    // Same length wherever it lands, so postcss reports the real columns.
-    return token.padEnd(Math.max(m.length, token.length), "_")
-  })
+  const masked = css
+    .replace(TAG, (m) => {
+      const token = `/*sl-t${exprs.length}`
+      exprs.push(m)
+      return token.padEnd(Math.max(m.length - 2, token.length), "_") + "*/"
+    })
+    .replace(EXPR, (m) => {
+      const token = `--sl-x${exprs.length}`
+      exprs.push(m)
+      // Same length wherever it lands, so postcss reports the real columns.
+      return token.padEnd(Math.max(m.length, token.length), "_")
+    })
   return { masked, exprs }
 }
 
 function unmaskExpressions(css: string, exprs: string[]): string {
-  return css.replace(/--sl-x(\d+)_*/g, (m, i) => exprs[Number(i)] ?? m)
+  return css.replace(/\/\*sl-t(\d+)_*\*\//g, (m, i) => exprs[Number(i)] ?? m).replace(/--sl-x(\d+)_*/g, (m, i) => exprs[Number(i)] ?? m)
 }
 
 export function scopeCss(css: string, opts: ScopeOptions): Result<string> {

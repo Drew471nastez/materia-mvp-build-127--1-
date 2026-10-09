@@ -51,7 +51,7 @@ const FEATURE = `{%- liquid
   {{ section.settings.image | image_url: width: 800 | image_tag }}
   <ul>
   {%- for block in section.blocks -%}
-    <li {{ block.shopify_attributes }}><a href="{{ block.settings.link }}">{{ block.settings.title | money }}</a></li>
+    <li {{ block.shopify_attributes }}><a href="{{ block.settings.link }}">{{ block.settings.title | money }}{{ block.settings.title | payment_terms }}</a></li>
   {%- endfor -%}
   </ul>
   <button onclick="buy()">Buy</button>
@@ -235,7 +235,8 @@ async function shopifyZip(): Promise<JSZip> {
   check("a metaobject setting dropped, with the reason", said(F, /Setting "thing" \(metaobject\) was dropped/))
   check("app blocks dropped", said(F, /App blocks were dropped/))
   check("a snippet that is not there", said(F, /\{% render 'missing-snippet' %\} was removed: snippets\/missing-snippet\.liquid is not in the theme/))
-  check("a filter Storelib lacks", said(F, /The "money" filter was removed/))
+  check("a filter Storelib has, money, is kept", src.includes("{{ block.settings.title | money }}"))
+  check("a filter Storelib lacks", said(F, /"payment_terms"/), report.notes.filter((n) => n.file === F).map((n) => n.message))
   check("the <script> tag", said(F, /A <script> in the markup was removed/))
   check("the onclick", said(F, /on…= attributes were removed/))
   check("increment", said(F, /\{% increment %\} was removed/))

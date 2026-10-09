@@ -376,6 +376,27 @@ export function themeCustomCss(theme: ThemeSettingsValues): string {
   return cleanCustomCss(t.custom_css, `[${THEME_ROOT_ATTRIBUTE}]`).css
 }
 
+/**
+ * AN IMPORTED THEME'S OWN STYLESHEET, the setting `theme_stylesheet` a
+ * Shopify import writes: compiled to the page root on every save and read
+ * (lib/storelib-theme/theme-stylesheet.ts, through sanitizeThemeSettings),
+ * so here it is only drawn. A value holding `<` was not compiled, and is
+ * not drawn. Empty for every other theme.
+ */
+export function themeImportedCss(theme: ThemeSettingsValues): string {
+  const v = (theme as Record<string, unknown>).theme_stylesheet
+  return typeof v === "string" && v.length <= 600_000 && !v.includes("<") ? v : ""
+}
+
+/**
+ * The classes the imported theme put on its <body>, for the page root: some
+ * of its rules hang off them. Plain class names only, a dozen at most.
+ */
+export function themeRootClasses(value: unknown): string {
+  if (typeof value !== "string") return ""
+  return value.split(/\s+/).filter((c) => /^[A-Za-z][\w-]{0,60}$/.test(c)).slice(0, 12).join(" ")
+}
+
 /** What Add to cart does: "drawer", "page" or "notification". Shopify's Cart type. */
 export function themeCartType(theme: ThemeSettingsValues): "drawer" | "page" | "notification" {
   const t = theme as Record<string, unknown>

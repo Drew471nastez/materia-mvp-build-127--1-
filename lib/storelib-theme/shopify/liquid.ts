@@ -68,6 +68,8 @@ export interface LiquidContext {
   snippet: (name: string) => string | null
   /** A file in assets/, by its name: a picture's asset reference, a stylesheet's text, or a script. */
   asset: (name: string) => { kind: "image"; ref: string } | { kind: "css"; text: string } | { kind: "script" } | null
+  /** An SVG in assets/, cleaned (no script, no on…= handler, no outside reference), for `inline_asset_content`. */
+  inlineSvg?: (name: string) => string | null
   /** One line for the report. The caller removes repeats. */
   note: (message: string) => void
   /** CSS gathered on the way: `{% stylesheet %}`, `{% style %}`, inlined stylesheets. */
@@ -81,7 +83,7 @@ export interface LiquidContext {
 }
 
 /** How deep `{% render %}` is followed: a card that renders a price that renders an icon. */
-const MAX_SNIPPET_DEPTH = 4
+const MAX_SNIPPET_DEPTH = 8
 
 // ── Liquid's own tokens ─────────────────────────────────────────────────────
 
@@ -196,7 +198,7 @@ function lex(src: string): ETok[] | null {
 }
 
 /** A value: a literal, `blank`/`empty`, a path, or something Storelib cannot express (a range, a computed index). */
-type LValue = { k: "lit"; text: string } | { k: "blank" } | { k: "path"; segs: (string | number)[] } | { k: "bad" }
+type LValue = { k: "lit"; text: string } | { k: "blank" } | { k: "path"; segs: (string | number)[] } | { k: "range"; from: LValue; to: LValue } | { k: "bad" }
 interface LFilter { name: string; args: LValue[]; named: string[] }
 interface LExpr { head: LValue; filters: LFilter[] }
 
@@ -216,7 +218,18 @@ class Reader {
     if (t.t === "str") return { k: "lit", text: stringLiteral(t.v) }
     if (t.t === "num") return { k: "lit", text: t.v }
     if (t.t === "p" && t.v === "(") {
-      /* A range, (1..5): Storelib loops over lists only. */
+      /* A range, (1..5) or (1..section.settings.count): Storelib's loops take one. */
+      const at = this.pos
+      const from = this.value()
+      if (from.k !== "bad" && from.k !== "range" && this.is("p", "..")) {
+        this.pos++
+        const to = this.value()
+        if (to.k !== "bad" && to.k !== "range" && this.is("p", ")")) {
+          this.pos++
+          return { k: "range", from, to }
+        }
+      }
+      this.pos = at
       let depth = 1
       while (!this.done() && depth > 0) {
         const n = this.toks[this.pos++]
@@ -355,7 +368,9 @@ type Binding =
   | { kind: "value"; node: LValue; scope: Scope }
   /* `assign x = y | upcase`: usable where the whole of x is printed. */
   | { kind: "chain"; expr: LExpr; scope: Scope }
-  /* Assigned twice, captured, or otherwise not one thing: read as nothing. */
+  /* `capture x`: the converted markup it built, written in where x is printed. */
+  | { kind: "captured"; text: string }
+  /* Assigned twice, or otherwise not one thing: read as nothing. */
   | { kind: "none" }
 
 class Scope {
@@ -379,10 +394,10 @@ class Scope {
 const SAME_FILTERS = new Set(FILTER_NAMES.filter((f) => !["date", "raw", "url", "embed", "map", "asset", "lines", "alpha", "escape"].includes(f)))
 
 /** Shopify's spelling for one of those. */
-const RENAMED: Record<string, string> = { lstrip: "strip", rstrip: "strip", replace_first: "replace", replace_last: "replace" }
+const RENAMED: Record<string, string> = { replace_last: "replace" }
 
 /** Removed without a word: Storelib already does what they did (escaping), or the value is right as it is (an image's address). */
-const QUIET = new Set(["escape", "escape_once", "image_url", "img_url", "url_escape", "url_encode", "url_param_escape", "json_escape", "handleize", "handle"])
+const QUIET = new Set(["escape", "escape_once", "image_url", "img_url", "url_param_escape", "json_escape"])
 
 /** Filters that turn a value into markup or into a different thing altogether: the output goes with them. */
 const OUTPUT_GOES = new Set([
@@ -392,7 +407,7 @@ const OUTPUT_GOES = new Set([
   "external_video_tag", "external_video_url", "video_tag", "media_tag", "model_viewer_tag", "structured_data", "default_errors", "customer_login_link",
   "customer_logout_link", "customer_register_link", "login_button", "avatar", "currency_selector", "shopify_asset_url", "global_asset_url",
   "file_url", "file_img_url", "within", "url_for_type", "url_for_vendor", "sort_by", "item_count_for_variant", "line_items_for", "product_img_url",
-  "collection_img_url", "article_img_url", "image_tag_srcset", "font_modify", "color_modify", "brightness_difference", "color_contrast",
+  "collection_img_url", "article_img_url", "image_tag_srcset", "font_modify", "brightness_difference", "color_contrast",
 ])
 
 /** Settings whose value is markup that was cleaned on the way in: Shopify prints them as they are, Storelib with `raw`. */
@@ -418,7 +433,7 @@ type Frame =
   | { k: "if"; end: "endif" | "endunless" }
   | { k: "case"; subject: string | null; started: boolean; prev: string[] }
   | { k: "for"; end: "endfor" | "endtablerow"; outer: Scope; inElse: boolean }
-  | { k: "capture"; prev: string[] }
+  | { k: "capture"; prev: string[]; name: string | null; buf: string[]; scope: Scope }
   | { k: "pass"; end: string }
 
 /** Tags with a body that is kept as it is, without the tag around it. */
@@ -514,6 +529,12 @@ class Writer {
       }
       if (h.segs.length === 1) {
         const b = scope.lookup(String(h.segs[0]))
+        if (b?.kind === "captured") {
+          /* Filters that only tidy text are its own markup's business; anything else cannot apply to markup. */
+          const rest = filters.filter((f) => !["strip", "strip_newlines", "lstrip", "rstrip", "escape", "escape_once"].includes(f.name))
+          if (rest.length) this.ctx.note(`A captured value printed through ${rest.map((f) => `"${f.name}"`).join(", ")} was printed without ${rest.length === 1 ? "it" : "them"}: a filter cannot apply to markup`)
+          return { kind: "text", text: b.text }
+        }
         if (b?.kind === "chain") {
           const inner = this.chain(b.expr, b.scope, depth + 1)
           if (inner.kind !== "expr") return filters.length ? { kind: "drop" } : inner
@@ -535,6 +556,22 @@ class Writer {
       if (rest.length === 0) return { kind: "text", text: this.css ? words : markup ? words : escapeHtml(words) }
       head = stringLiteral(words.replace(/\{\{[\s\S]*?\}\}/g, ""))
       filters = rest
+    }
+
+    /* An icon the theme inlines from assets/: the SVG itself, cleaned, written into the markup. */
+    if (head === null && h.k === "lit" && filters[0]?.name === "inline_asset_content") {
+      const name = unquote(h.text)
+      const svg = !this.css && /\.svg$/i.test(name) ? this.ctx.inlineSvg?.(name) ?? null : null
+      if (svg === null) {
+        this.ctx.note(`assets/${name} could not be written in: only an SVG in the theme's assets is`)
+        return { kind: "drop" }
+      }
+      return { kind: "text", text: safeText(svg, false) }
+    }
+    /* Shopify's picture for "nothing chosen yet": in the editor a quiet frame of the same shape, for a visitor nothing. */
+    if (head === null && h.k === "lit" && filters[0]?.name === "placeholder_svg_tag" && !this.css) {
+      const cls = filters[0].args[0]?.k === "lit" ? unquote(filters[0].args[0].text).replace(/[^\w\s-]/g, "") : ""
+      return { kind: "text", text: `{% if page.in_editor %}<svg${cls ? ` class="${cls}"` : ""} viewBox="0 0 525 525" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="525" height="525" fill="currentColor" opacity="0.06"/></svg>{% endif %}` }
     }
 
     if (head === null && h.k === "lit" && filters[0]?.name === "asset_url") {
@@ -616,6 +653,7 @@ class Writer {
   private value(v: LValue, scope: Scope): string {
     if (v.k === "lit") return v.text
     if (v.k === "blank" || v.k === "bad") return "null"
+    if (v.k === "range") return `(${this.value(v.from, scope)}..${this.value(v.to, scope)})`
     return this.path(v.segs, scope, 0) ?? "null"
   }
 
@@ -625,6 +663,8 @@ class Writer {
     const root = String(segs[0])
     const b = scope.lookup(root)
     if (b) {
+      /* In a condition, a captured value is whether it built anything. */
+      if (b.kind === "captured") return segs.length === 1 && b.text.trim() !== "" ? "true" : null
       if (b.kind === "none" || b.kind === "chain") return null
       if (b.kind === "value") {
         if (b.node.k === "path") return this.path([...b.node.segs, ...segs.slice(1)], b.scope, depth + 1)
@@ -727,11 +767,16 @@ class Writer {
       case "assign":
         return this.assign(rest)
       case "capture": {
-        const v = rest.match(/^['"]?([A-Za-z_][\w-]*)['"]?/)?.[1]
-        if (v) this.scope.frame.vars.set(v, { kind: "none" })
-        this.ctx.note(`{% capture %} was removed; what it built is read as empty`)
-        this.frames.push({ k: "capture", prev: this.sink })
-        this.sink = this.discard
+        /*
+          WHAT IT BUILDS IS WRITTEN IN WHERE IT IS PRINTED. The body is
+          converted like any other markup into a buffer, and `{{ x }}` later
+          becomes that markup, so a class list or an icon built once and used
+          twice is still there. Captured twice, it is the second.
+        */
+        const v = rest.match(/^['"]?([A-Za-z_][\w-]*)['"]?/)?.[1] ?? null
+        const buf: string[] = []
+        this.frames.push({ k: "capture", prev: this.sink, name: v, buf, scope: this.scope })
+        this.sink = buf
         return
       }
       case "echo": {
@@ -763,10 +808,8 @@ class Writer {
       if (name === "paginate") this.ctx.note(`{% paginate %} was removed and what was inside it kept`)
       return
     }
-    if (QUIET_TAGS.has(name)) {
-      if (name === "break" || name === "continue") this.ctx.note(`{% ${name} %} was removed: a Storelib loop goes through every item`)
-      return
-    }
+    if (name === "break" || name === "continue") return this.emit(`{% ${name} %}`)
+    if (QUIET_TAGS.has(name)) return
     this.dropped.add(name)
     this.ctx.note(`{% ${name} %} was removed: Storelib has no such tag`)
   }
@@ -833,15 +876,29 @@ class Writer {
     const toks = lex(m[2]) ?? []
     const r = new Reader(toks)
     const listValue = toks.length ? r.value() : ({ k: "bad" } as LValue)
-    if (!r.done()) this.ctx.note(`A loop's limit, offset or reversed was removed: a Storelib loop goes through every item in order`)
-    if (listValue.k === "bad") this.ctx.note(`A loop over a range of numbers was removed: Storelib loops over lists`)
+    /* limit:, offset: and reversed, as Storelib's loop takes them: a number or a plain setting. */
+    const params: string[] = []
+    while (!r.done()) {
+      const t = r.peek()
+      if (t?.t === "id" && t.v === "reversed") { r.pos++; params.push("reversed"); continue }
+      if (t?.t === "id" && (t.v === "limit" || t.v === "offset") && r.toks[r.pos + 1]?.t === "p" && r.toks[r.pos + 1]?.v === ":") {
+        r.pos += 2
+        const v = this.value(r.value(), outer)
+        if (/^[A-Za-z0-9_.]+$/.test(v) && v !== "null") params.push(`${t.v}: ${v}`)
+        else this.ctx.note(`A loop's ${t.v} could not be read, so the loop goes through every item`)
+        continue
+      }
+      this.ctx.note(`Part of a loop could not be read ("${m[2].slice(0, 40)}"), so it goes through every item`)
+      break
+    }
+    if (listValue.k === "bad") this.ctx.note(`A loop over "${m[2].slice(0, 40)}" could not be read, so it shows nothing`)
     if (name === "tablerow") this.ctx.note(`{% tablerow %} is written as {% for %}; the table cells it made are not`)
     const list = this.value(listValue, outer)
     this.frames.push({ k: "for", end, outer, inElse: false })
     const inner = new Scope(outer, true, outer.frame)
     inner.vars.set(m[1], { kind: "loop", blocks: list === "blocks" })
     this.scope = inner
-    this.emit(`{% for ${m[1]} in ${list} %}`)
+    this.emit(`{% for ${m[1]} in ${list}${params.length ? ` ${params.join(" ")}` : ""} %}`)
   }
 
   private assign(rest: string) {
@@ -992,6 +1049,7 @@ class Writer {
         return this.emit("{% endfor %}")
       case "capture":
         this.sink = f.prev
+        if (f.name) f.scope.frame.vars.set(f.name, { kind: "captured", text: f.buf.join("") })
         return
       case "pass":
         return

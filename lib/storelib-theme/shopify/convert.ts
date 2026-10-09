@@ -31,6 +31,8 @@
  * NEVER THROWS. A file that cannot be read is a line in the report; a ZIP
  * that is far too large is a refusal with the number.
  */
+import { compileThemeStylesheet } from "../theme-stylesheet"
+import { StaticLiquid, liquidSettings, parseFont, resolveSettingReferences } from "./static-liquid"
 import JSZip from "jszip"
 import postcss, { type Rule } from "postcss"
 
@@ -115,7 +117,7 @@ const MAX_ENTRIES = LIMITS.filesPerPackage * 2
 /** Unpacked, as the archive declares it, before a byte is read. */
 const MAX_UNPACKED = LIMITS.packageBytes * 4
 /** How much one section may grow by through the snippets written into it. */
-const SNIPPET_BUDGET = 400 * 1024
+const SNIPPET_BUDGET = 1536 * 1024
 /** How much CSS one section may carry from the theme's stylesheets. */
 const CSS_BUDGET = 1024 * 1024
 /** Report lines per file, past which they are counted rather than listed. */
@@ -274,6 +276,16 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     return null
   }
   const snippet = (name: string) => src.text.get(`snippets/${name}.liquid`) ?? null
+  /* An icon the theme inlines (`'icon-caret.svg' | inline_asset_content`), cleaned once and kept. */
+  const svgCache = new Map<string, string | null>()
+  const inlineSvg = (name: string): string | null => {
+    const clean = name.replace(/^\/+/, "")
+    if (svgCache.has(clean)) return svgCache.get(clean) ?? null
+    const bytes = src.binary.get(`assets/${clean}`)
+    const out = bytes && bytes.byteLength <= 64 * 1024 ? cleanSvg(new TextDecoder().decode(bytes)) : null
+    svgCache.set(clean, out)
+    return out
+  }
 
   const files: ThemeFiles = {}
   const reserved = new Set([...(opts.reservedTypes ?? []), "header", "footer"])
@@ -288,7 +300,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       report.skip(path, `"${m[1]}" is not a name a Storelib block can have: lowercase letters, digits, - and _`)
       continue
     }
-    const out = convertFile(text, { path, mode: "block", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: null })
+    const out = convertFile(text, { path, mode: "block", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, inlineSvg, report, blockTypes: null })
     if (!out) continue
     files[`blocks/${type}.storelib`] = out.source
     blockSchemas.set(type, out.settings)
@@ -316,7 +328,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       report.skip(path, `"${base}" cannot be made into a section name`)
       continue
     }
-    const out = convertFile(text, { path, mode: "section", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: new Set(blockSchemas.keys()) })
+    const out = convertFile(text, { path, mode: "section", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, inlineSvg, report, blockTypes: new Set(blockSchemas.keys()) })
     if (!out) continue
     files[`sections/${type}.storelib`] = out.source
     sectionTypes.set(base, { type, settings: out.settings, blocks: out.localBlocks })
@@ -334,13 +346,24 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   /* ── theme settings ── */
   const schemaSettings = parseJson(src.text.get("config/settings_schema.json") ?? "")
   const info = Array.isArray(schemaSettings) ? (schemaSettings.find((g) => g && typeof g === "object" && (g as Tree).name === "theme_info") as Tree | undefined) : undefined
-  const carried = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
-  files["config/settings.json"] = JSON.stringify({ shopify: carried.values }, null, 2) + "\n"
+  const settingsData = parseJson(src.text.get("config/settings_data.json") ?? "")
+  const carried = themeValues(settingsData)
+  /*
+    THE THEME'S LOOK, WORKED OUT ONCE (./static-liquid.ts). The layout is
+    evaluated against the theme's own saved settings: the stylesheets it
+    links, the CSS variables its snippets build from fonts and colour
+    schemes, and the classes on its <body>. What comes out is plain CSS,
+    kept as the theme's stylesheet and drawn on every page (theme-css.ts
+    themeImportedCss); no Liquid runs on the site.
+  */
+  const look = themeLook(src, schemaSettings, settingsData, report, assetLookup)
+  files["config/settings.json"] = JSON.stringify({ shopify: carried.values, ...look.settings }, null, 2) + "\n"
   if (src.text.has("config/settings_data.json")) {
-    report.note("config/settings_data.json", `${carried.kept} theme setting${carried.kept === 1 ? "" : "s"} carried over for the sections that read them. Colours, fonts and colour schemes are not: set them in Theme settings`)
+    report.note("config/settings_data.json", `${carried.kept} theme setting${carried.kept === 1 ? "" : "s"} carried over for the sections that read them${look.settings.font_heading ? `; fonts ${[look.settings.font_heading, look.settings.font_body].filter(Boolean).join(" and ")} set in Theme settings › Typography` : ""}`)
   }
   for (const p of src.text.keys()) {
-    if (p.startsWith("layout/")) report.skip(p, `The page shell is Storelib's own; the theme's layout is not used`)
+    if (p === "layout/theme.liquid" && look.settings.theme_stylesheet) continue
+    if (p.startsWith("layout/")) report.skip(p, `The page shell is Storelib's own; only the theme's styles were taken from it`)
   }
   const scripts = [...src.binary.keys(), ...src.text.keys()].filter((p) => /^assets\/.*\.(js|mjs|ts)$/.test(p)).length
   if (scripts) report.skip("assets/", `${scripts} script${scripts === 1 ? " was" : "s were"} left out: a Shopify theme's scripts call Shopify's own storefront`)
@@ -402,6 +425,7 @@ interface FileJob {
   translate: (key: string) => string | null
   snippet: (name: string) => string | null
   asset: LiquidContext["asset"]
+  inlineSvg?: LiquidContext["inlineSvg"]
   report: Report
   /** The theme block files that converted; null while converting those files themselves. */
   blockTypes: Set<string> | null
@@ -448,6 +472,7 @@ function convertFile(text: string, job: FileJob): { source: string; settings: Se
     translate: job.translate,
     snippet: job.snippet,
     asset: job.asset,
+    inlineSvg: job.inlineSvg,
     note,
     styles: [],
     script: null,
@@ -1074,6 +1099,74 @@ function instanceBlocks(
   return { blocks: out, order: listed }
 }
 
+// ── The theme's look ────────────────────────────────────────────────────────
+
+/** Most characters of theme stylesheet kept; a theme past it keeps the start and says so. */
+export const THEME_STYLESHEET_MAX = 400_000
+
+function themeLook(src: { text: Map<string, string> }, schemaSettings: unknown, settingsData: unknown, report: { note: (file: string, m: string) => void }, asset: LiquidContext["asset"]): { settings: Tree } {
+  const layout = src.text.get("layout/theme.liquid")
+  if (!layout) return { settings: {} }
+  const d = settingsData && typeof settingsData === "object" ? (settingsData as Tree) : {}
+  let current = d.current
+  if (typeof current === "string" && d.presets && typeof d.presets === "object") current = (d.presets as Tree)[current]
+  const types = new Map<string, string>()
+  if (Array.isArray(schemaSettings)) {
+    for (const group of schemaSettings) for (const st of ((group as Tree)?.settings as Tree[] | undefined) ?? []) if (typeof st?.id === "string" && typeof st?.type === "string") types.set(st.id, st.type)
+  }
+  /* A setting the theme declares and the saved data leaves out is its default, as on Shopify. */
+  const values: Tree = {}
+  if (Array.isArray(schemaSettings)) {
+    for (const group of schemaSettings) for (const st of ((group as Tree)?.settings as Tree[] | undefined) ?? []) if (typeof st?.id === "string" && st.default !== undefined) values[st.id] = st.default
+  }
+  Object.assign(values, current && typeof current === "object" ? (current as Tree) : {})
+  const settings = liquidSettings(values, types)
+  resolveSettingReferences(settings, (name) => src.text.get(`snippets/${name}.liquid`) ?? null)
+  const evaluator = new StaticLiquid({
+    settings,
+    snippet: (name) => src.text.get(`snippets/${name}.liquid`) ?? null,
+    stylesheet: (name) => src.text.get(`assets/${name.replace(/^\/+/, "")}`) ?? null,
+    asset: (name) => { const a = asset(name); return a && a.kind === "image" ? a.ref : null },
+  })
+  let html = ""
+  try {
+    html = evaluator.render(layout, { request: { design_mode: false, locale: { iso_code: "en", direction: "ltr" }, page_type: "index" }, content_for_header: "", content_for_layout: "", template: { name: "index" } })
+  } catch {
+    report.note("layout/theme.liquid", "The theme's styles could not be worked out from its layout, so its sections draw with Storelib's theme instead")
+    return { settings: {} }
+  }
+  let css = [...html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)].map((m) => m[1].trim()).filter(Boolean).join("\n\n")
+  if (css.length > THEME_STYLESHEET_MAX) {
+    report.note("layout/theme.liquid", `The theme's stylesheet is ${Math.round(css.length / 1024)} KB; the first ${THEME_STYLESHEET_MAX / 1000} KB were kept`)
+    /* At the end of a rule, so what is kept still reads as CSS. */
+    css = css.slice(0, css.lastIndexOf("}", THEME_STYLESHEET_MAX) + 1)
+  }
+  /* Compiled to the page root here, so the report can say what was left out (../theme-stylesheet.ts). */
+  if (css) {
+    const compiled = compileThemeStylesheet(css)
+    if (compiled.failed) report.note("layout/theme.liquid", "The theme's stylesheet could not be read as CSS, so its sections draw with Storelib's theme instead")
+    const { atRules, declarations, rules } = compiled.dropped
+    if (atRules) report.note("layout/theme.liquid", `${atRules} @import, @font-face or similar rule${atRules === 1 ? " was" : "s were"} left out of the theme's stylesheet; its fonts load through Theme settings › Typography`)
+    if (declarations || rules) report.note("layout/theme.liquid", `${declarations + rules} rule${declarations + rules === 1 ? "" : "s"} in the theme's stylesheet ${declarations + rules === 1 ? "was" : "were"} left out: page layout set on <body> or <html>, or an address that is not https`)
+    css = compiled.css
+  }
+  const bodyClass = (html.match(/<body\b[^>]*\bclass="([^"]*)"/i)?.[1] ?? "").split(/\s+/).filter((c) => /^[A-Za-z][\w-]{0,60}$/.test(c)).slice(0, 12).join(" ")
+  const out: Tree = {}
+  if (css) out.theme_stylesheet = css
+  if (bodyClass) out.theme_root_class = bodyClass
+  /* The theme's fonts, as Storelib's typography loads them. */
+  const font = (id: string) => { const f = parseFont(values[id]); return f && !f.system ? f.family : "" }
+  const heading = font("type_heading_font") || font("heading_font")
+  const body = font("type_body_font") || font("body_font")
+  const accent = font("type_accent_font") || font("type_subheading_font")
+  if (heading) out.font_heading = heading
+  if (body) out.font_body = body
+  if (accent) out.font_accent = accent
+  if (evaluator.unknownFilters.size) report.note("layout/theme.liquid", `While working out the theme's styles, ${[...evaluator.unknownFilters].slice(0, 8).map((f) => `"${f}"`).join(", ")} had no meaning here and printed the value as it was`)
+  if (css) report.note("layout/theme.liquid", `The theme's stylesheet (${Math.round(css.length / 1024)} KB: its CSS variables, colour schemes and stylesheets) is drawn on every page`)
+  return { settings: out }
+}
+
 // ── Theme settings ──────────────────────────────────────────────────────────
 
 /**
@@ -1096,4 +1189,25 @@ function themeValues(data: unknown): { values: Tree; kept: number } {
     else if (typeof v === "string" && v.length <= 200 && !v.startsWith("shopify://") && !/[<>]/.test(v)) values[k] = v
   }
   return { values, kept: Object.keys(values).length }
+}
+
+/**
+ * An SVG icon as it may sit in a section's markup: the <svg> element and
+ * what draws, nothing that runs or reaches out. Scripts, foreignObject,
+ * on…= handlers, javascript: and outside href/xlink:href are taken out, and
+ * the prolog, comments and doctype go. Anything that is not an <svg> at its
+ * root is refused.
+ */
+export function cleanSvg(text: string): string | null {
+  let s = text.replace(/<\?xml[\s\S]*?\?>/g, "").replace(/<!DOCTYPE[\s\S]*?>/gi, "").replace(/<!--[\s\S]*?-->/g, "").trim()
+  if (!/^<svg[\s>]/i.test(s) || !/<\/svg>\s*$/i.test(s)) return null
+  s = s
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<script[^>]*\/>/gi, "")
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    .replace(/\s+on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
+    .replace(/\s+(?:xlink:)?href\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "")
+    .replace(/javascript:/gi, "")
+    .replace(/\s*\n\s*/g, " ")
+  return /<script|on[a-z]+\s*=|javascript:/i.test(s) ? null : s
 }

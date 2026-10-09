@@ -894,6 +894,19 @@ Object.assign(FILTERS, {
 
 export const FILTER_NAMES = Object.keys(FILTERS)
 
+/**
+ * One of the template language's filters, by name, for the import-time
+ * evaluator (lib/storelib-theme/shopify/static-liquid.ts), so a theme's
+ * settings-driven CSS is worked out with the same filters a section draws
+ * with. Null for a name the language does not have.
+ */
+export function liquidFilter(name: string): ((v: unknown, args: unknown[]) => unknown) | null {
+  const f = Object.prototype.hasOwnProperty.call(FILTERS, name) ? FILTERS[name] : undefined
+  if (!f) return null
+  const ctx = { settings: {}, blocks: [], theme: {}, page: { template: "index" }, section: { id: "", type: "" }, scheme: {}, assets: {} } as unknown as RenderContext
+  return (v, args) => f(v, args, ctx)
+}
+
 /* ── conditions: `visible_if` ─────────────────────────────────────────── */
 
 export type ParsedCondition = { ok: true; expr: Expr; paths: string[][] } | { ok: false; message: string }

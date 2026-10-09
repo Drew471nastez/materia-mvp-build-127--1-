@@ -39,7 +39,7 @@ import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, typ
 import { announcementMessages, announcementSeconds } from "@/lib/website-builder/announcement"
 import { cn } from "@/lib/utils"
 
-import { THEME_ROOT_ATTRIBUTE, themeCartType, themeCustomCss, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
+import { THEME_ROOT_ATTRIBUTE, themeCartType, themeCustomCss, themeImportedCss, themeRootClasses, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-link"
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -474,6 +474,12 @@ export function ThemePage({
    * every keystroke in the builder. See ../sections/stable-html.
    */
   const themeCss = useMemo(() => ({ __html: themeStylesheet(theme) }), [theme])
+  /* An imported theme's own stylesheet (a Shopify import's layout CSS), already compiled to this root. Null for every other theme. */
+  const importedCss = useMemo(() => {
+    const css = themeImportedCss(theme)
+    return css ? { __html: css } : null
+  }, [theme])
+  const rootClasses = themeRootClasses((theme as Record<string, unknown>).theme_root_class)
   /* Theme settings › Custom CSS, cleaned and scoped (lib/storelib-theme/custom-css.ts). Null when there is none. */
   const customCss = useMemo(() => {
     const css = themeCustomCss(theme)
@@ -520,7 +526,7 @@ export function ThemePage({
          so the document's own `lang` stands. */
       lang={siteLanguage(theme as Record<string, unknown>)}
       dir={siteDirection(theme as Record<string, unknown>)}
-      className={className}
+      className={cn(rootClasses || undefined, className)}
       /*
         A WIDTH CONTAINER, on the live page and in the canvas alike. The
         theme's tablet and phone sizes are container queries, and every body
@@ -539,6 +545,13 @@ export function ThemePage({
         rule would leak from one to the other.
       */}
       <style dangerouslySetInnerHTML={themeCss} />
+      {/*
+        AN IMPORTED THEME'S STYLESHEET, after Storelib's theme rules so its
+        own base styles win a tie, and before every section, so a section's
+        rules win over it as they do on Shopify. The same element in the
+        canvas, the preview and the live site.
+      */}
+      {importedCss ? <style data-storelib-theme-stylesheet="" dangerouslySetInnerHTML={importedCss} /> : null}
       {/*
         THE DOCUMENT IS THE PAGE'S COLOUR TOO, on the live site. Only the
         theme root was painted; <html> and <body> stayed white, so a phone's

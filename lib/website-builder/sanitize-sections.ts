@@ -17,6 +17,8 @@ import { schemaFromStorelib, themeBlockCatalog } from "./storelib-schemas"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
 import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { compileThemeStylesheet } from "@/lib/storelib-theme/theme-stylesheet"
+import { themeRootClasses } from "./theme-css"
 import type { SectionInstance, SectionSchema } from "./types"
 
 const cache = new Map<string, HtmlFieldMap>()
@@ -229,7 +231,27 @@ const THEME_HTML_SETTINGS: HtmlFieldMap = {
 
 export function sanitizeThemeSettings<T extends Record<string, unknown>>(settings: T | null | undefined): T {
   if (!settings) return {} as T
-  const cleaned = withMediaUrls(sanitizeSettings(settings, THEME_HTML_SETTINGS)) as T
+  let cleaned = withMediaUrls(sanitizeSettings(settings, THEME_HTML_SETTINGS)) as T
+  /*
+    AN IMPORTED THEME'S STYLESHEET, compiled to the page root every time it
+    is stored or read (lib/storelib-theme/theme-stylesheet.ts). Compiling is
+    idempotent and cached, so a stylesheet already compiled comes back as it
+    was, and one typed in by hand is held to the same rules.
+  */
+  if (cleaned.theme_stylesheet !== undefined || cleaned.theme_root_class !== undefined) {
+    const next: Record<string, unknown> = { ...cleaned }
+    if (next.theme_stylesheet !== undefined) {
+      const css = compileThemeStylesheet(next.theme_stylesheet).css
+      if (css) next.theme_stylesheet = css
+      else delete next.theme_stylesheet
+    }
+    if (next.theme_root_class !== undefined) {
+      const classes = themeRootClasses(next.theme_root_class)
+      if (classes) next.theme_root_class = classes
+      else delete next.theme_root_class
+    }
+    cleaned = next as T
+  }
   /*
     THE MENUS, TO THE SHAPE A SECTION READS: handles that are handles,
     titles cut to length, every address made safe, no more than three
