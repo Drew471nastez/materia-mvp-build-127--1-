@@ -45,6 +45,7 @@ import type { SectionInstance } from "@/lib/website-builder/types"
 import { STORELIB_DEFAULT_ID, THEME_REGISTRY, themeCatalogRow } from "@/lib/website-builder/theme-registry"
 
 import { DEFAULT_THEME_SOURCES } from "../../../../../themes/default/sources.generated"
+import { shopifyFilesFromZip, shopifyInstallFromFiles } from "@/lib/shopify-theme/from-zip"
 
 const BUCKET = "store-builder-images"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -222,6 +223,28 @@ export async function POST(req: Request) {
    * The builder's earlier `manifest.json` + `images/` exports fall through
    * to the code below, which is unchanged.
    */
+  const shopifyFiles = zip.file("theme.json") ? null : await shopifyFilesFromZip(zip)
+  if (shopifyFiles) {
+    const built = await shopifyInstallFromFiles(shopifyFiles)
+    const sortOrder = await firstSortOrder(admin, creator.id)
+    const made = await createInstall(admin, creator.id, {
+      theme_id: await catalogThemeId(admin, null),
+      name: built.name,
+      sort_order: sortOrder,
+    })
+    if (made instanceof NextResponse) return made
+    const rows = built.files.map((file) => ({ install_id: made.id, path: file.path, content: file.content }))
+    const filled = await fillInstall(admin, made.id, {}, [{ page_key: "home", sections: built.sections }], rows)
+    if (filled) return filled
+    const first = await coverForNewWebsite(
+      { installId: made.id, userId: user.id, creatorId: creator.id as string },
+      renderOrigin(req.url),
+      "import",
+      null,
+    )
+    return NextResponse.json({ ok: true, install_id: made.id, name: built.name, shopify: true, ...first })
+  }
+
   if (zip.file("theme.json")) {
     const read = await readPackage(new Uint8Array(buf), { knownTypes: Object.keys(SECTION_SCHEMAS) })
     if (read.ok === false) {
