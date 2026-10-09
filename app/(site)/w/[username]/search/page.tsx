@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
-import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
+import { dressPage, publishedShopByName, siteCatalogue } from "@/lib/website-builder/published-site"
 import { getMainDomain } from "@/lib/url-helpers"
 import { productMatchesQuery, searchSections } from "@/lib/website-builder/shop-page"
 import { catalogPage } from "@/lib/products/catalog-filters"
@@ -60,7 +60,10 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      goes back to Postgres would be a second round trip for a list that is
      already in hand. A shop is not big enough for that to be the wrong
      trade; if one ever is, this is the line to change. */
-  const matches = query ? (products ?? []).filter((p: any) => productMatchesQuery(p, query)) : (products ?? [])
+  /* The whole shop is searched, not only the newest 24 (siteCatalogue). */
+  const catalogue = await siteCatalogue(site.creatorId).catch(() => products ?? [])
+  const pool = catalogue.length ? catalogue : products ?? []
+  const matches = query ? pool.filter((p: any) => productMatchesQuery(p, query)) : pool
 
   /* The page the creator arranged, when they have; the generated one until
      then. Either way the query rides on the page object, so a saved search
@@ -74,10 +77,11 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
      belongs to this request, not to anything the creator arranged. */
   /* The filters narrow what the words found, and say how many each would
      leave. The words are matched above, description included, so not again. */
-  const { listed, filters } = catalogPage(matches, asked, "/search", { matchWords: false })
+  const { listed, filters, pagination } = catalogPage(matches, asked, "/search", { matchWords: false })
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.search", listed, {
     query,
     filters,
+    pagination,
   }, data)
 
   return (

@@ -46,7 +46,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
-import { shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
+import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
 import { withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
@@ -410,6 +410,18 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
     shop: { name: site.displayName },
   })
   return { kind: "site", site: { ...site, sections, prerendered } }
+}
+
+/**
+ * The whole shop for a listing page (/products, /collections/<handle>,
+ * /search), up to 240 products newest first, for catalogPage to cut into
+ * pages. Cached with the shop and cleared with it (creatorShopTag); a
+ * preview reads it directly. The sections on every other page keep the
+ * newest 24 from the site lookup.
+ */
+export async function siteCatalogue(creatorId: string, opts: { cached: boolean } = { cached: true }): Promise<ProductCard[]> {
+  const read = () => shopCatalogue(createAdminClient() as never, creatorId)
+  return opts.cached ? unstable_cache(read, ["shop-catalogue", creatorId], { tags: [creatorShopTag(creatorId)], revalidate: SHOP_TTL })() : read()
 }
 
 /**

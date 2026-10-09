@@ -6,6 +6,7 @@
 import { checkSectionIntegration } from "@/lib/storelib-ai/integration"
 import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { catalogPage } from "@/lib/products/catalog-filters"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -94,6 +95,24 @@ console.log("\nA picker can mean this page's product or collection, and reads a 
   check("a collection picker reads a handle as well as an id", col.includes("Waxed tote"), col.slice(0, 300))
   const cur = draw("product_grid", { source: "collection", collection: "@current", show_price: true }, { catalog, collections: { c1: summer }, collection: summer }, "collection")
   check("on a collection page, a collection picker set to the current collection draws it", cur.includes("Waxed tote"), cur.slice(0, 300))
+}
+
+console.log("\nA long shop comes in pages\n")
+{
+  const cards = Array.from({ length: 60 }, (_, i) => ({ id: `p${i}`, type: "product", settings: { title: `Item ${i + 1}`, price: "$10.00", price_cents: 1000, url: `/products/item-${i + 1}`, available: true, kind: "physical", options: [] } }))
+  const first = catalogPage(cards as never, {}, "/products")
+  check("the first page is 24 products, of 3 pages", first.listed.length === 24 && first.pagination.pages === 3 && first.pagination.page === 1, first.pagination)
+  check("  with a next page and no previous", first.pagination.next_url === "/products?page=2" && first.pagination.prev_url === "")
+  const last = catalogPage(cards as never, { page: "3", sort: "title-asc" }, "/products")
+  check("the last page holds the rest, and its links keep the sort", last.listed.length === 12 && /sort=title-asc/.test(last.pagination.prev_url) && last.pagination.next_url === "", last.pagination)
+  check("a page past the end is the last page, never an empty one", catalogPage(cards as never, { page: "99" }, "/products").pagination.page === 3)
+  check("nonsense is page 1", catalogPage(cards as never, { page: "x" }, "/products").pagination.page === 1)
+  check("a shop that fits is one page", catalogPage(cards.slice(0, 5) as never, {}, "/products").pagination.pages === 1)
+  const r = renderStorelibSection({ id: "s", type: "product_grid", name: "g", settings: { source: "shop" }, blocks: [] } as unknown as SectionInstance, {} as ThemeSettingsValues, { template: "page.products", pagination: first.pagination } as never, undefined, first.listed as never, {} as never)
+  const html = r.ok === true ? r.html : ""
+  check("the shop's grid draws the page links", /class="pager"/.test(html) && /href="\/products\?page=2"/.test(html) && /aria-current="page">1</.test(html), html.slice(-600))
+  const one = renderStorelibSection({ id: "s", type: "product_grid", name: "g", settings: { source: "shop" }, blocks: [] } as unknown as SectionInstance, {} as ThemeSettingsValues, { template: "index" } as never, undefined, first.listed.slice(0, 4) as never, {} as never)
+  check("  and none on a page that is not paged", one.ok === true && !/class="pager"/.test(one.html))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

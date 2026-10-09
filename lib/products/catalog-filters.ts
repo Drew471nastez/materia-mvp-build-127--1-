@@ -412,12 +412,63 @@ export function catalogPage<T extends FilterableCard>(
   cards: readonly T[],
   params: Params,
   path: string,
-  opts: { matchWords?: boolean } = {},
-): { query: CatalogQuery; listed: T[]; filters: CatalogFilters } {
+  opts: { matchWords?: boolean; perPage?: number } = {},
+): { query: CatalogQuery; listed: T[]; filters: CatalogFilters; pagination: CatalogPagination } {
   const query = parseCatalogQuery(params)
+  const all = applyCatalogQuery(cards, query, opts)
+  const pagination = paginate(all.length, params, path, query, opts.perPage)
   return {
     query,
-    listed: applyCatalogQuery(cards, query, opts),
+    listed: all.slice((pagination.page - 1) * pagination.per_page, pagination.page * pagination.per_page),
     filters: catalogFilters(cards, query, path, swatchColor, isColorOption, opts),
+    pagination,
+  }
+}
+
+/**
+ * ===========================================================================
+ *  PAGES OF A LONG SHOP
+ * ===========================================================================
+ * The shop and a collection used to stop at the first 24 products. Now the
+ * products that pass the filters are cut into pages of `per_page`, from
+ * `?page=` (a page past the end is the last one), and the template reads
+ * `page.pagination`: `page`, `pages`, `total`, and `prev_url` / `next_url`,
+ * which keep every filter and the sort, or "" at either end. `pages` is 1
+ * for a shop that fits on one page, so `{% if page.pagination.pages > 1 %}`
+ * draws nothing for it.
+ */
+export const CATALOG_PER_PAGE = 24
+
+export interface CatalogPagination {
+  page: number
+  pages: number
+  per_page: number
+  total: number
+  prev_url: string
+  next_url: string
+  /** Each page's number and address, for a numbered row; `current` on this one. */
+  links: { number: number; url: string; current: boolean }[]
+}
+
+function paginate(total: number, params: Params, path: string, query: CatalogQuery, perPage = CATALOG_PER_PAGE): CatalogPagination {
+  const per = Math.max(1, Math.min(96, Math.floor(perPage) || CATALOG_PER_PAGE))
+  const pages = Math.max(1, Math.ceil(total / per))
+  const asked = Number.parseInt(all(params, "page")[0] ?? "1", 10)
+  const page = Math.min(pages, Math.max(1, Number.isFinite(asked) ? asked : 1))
+  const base = serializeCatalogQuery(query)
+  const at = (n: number) => {
+    const qs = new URLSearchParams(base)
+    if (n > 1) qs.set("page", String(n))
+    const str = qs.toString()
+    return str ? `${path}?${str}` : path
+  }
+  return {
+    page,
+    pages,
+    per_page: per,
+    total,
+    prev_url: page > 1 ? at(page - 1) : "",
+    next_url: page < pages ? at(page + 1) : "",
+    links: Array.from({ length: Math.min(pages, 20) }, (_, i) => ({ number: i + 1, url: at(i + 1), current: i + 1 === page })),
   }
 }

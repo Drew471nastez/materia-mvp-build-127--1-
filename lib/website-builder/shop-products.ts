@@ -384,8 +384,35 @@ export async function productVariants(db: Db, productIds: string[]): Promise<Var
  * cards lose a field rather than the page losing its products.
  */
 export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_PRODUCTS): Promise<ProductCard[]> {
+  return readShop(db, creatorId, Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS)))
+}
+
+/**
+ * The whole shop for its own listing pages (/products, /collections/<handle>,
+ * /search), newest first, up to MAX_CATALOGUE_PRODUCTS: what the pages of
+ * catalogPage are cut from. The sections everywhere else keep the newest 24.
+ * Variants are read in batches, so a long shop does not ask for 240 ids in
+ * one address.
+ */
+export const MAX_CATALOGUE_PRODUCTS = 240
+export async function shopCatalogue(db: Db, creatorId: string): Promise<ProductCard[]> {
+  return readShop(db, creatorId, MAX_CATALOGUE_PRODUCTS)
+}
+
+async function variantsInBatches(db: Db, ids: string[]): Promise<VariantRow[]> {
+  const out: VariantRow[] = []
+  for (let i = 0; i < ids.length; i += 80) out.push(...(await productVariants(db, ids.slice(i, i + 80))))
+  return out
+}
+
+async function optionsInBatches(db: Db, ids: string[]): Promise<OptionRow[]> {
+  const out: OptionRow[] = []
+  for (let i = 0; i < ids.length; i += 80) out.push(...(await productOptions(db, ids.slice(i, i + 80))))
+  return out
+}
+
+async function readShop(db: Db, creatorId: string, n: number): Promise<ProductCard[]> {
   if (!creatorId) return []
-  const n = Math.max(1, Math.min(MAX_SHOP_PRODUCTS, Math.floor(limit) || MAX_SHOP_PRODUCTS))
   try {
     let rows: ProductRow[] | null = null
     for (const cols of [PRODUCT_COLUMNS_WITH_STOCK, PRODUCT_COLUMNS_WITH_CATEGORY, PRODUCT_COLUMNS_WITH_COMMUNITY, PRODUCT_COLUMNS, PRODUCT_COLUMNS_MINIMAL]) {
@@ -402,7 +429,7 @@ export async function shopProducts(db: Db, creatorId: string, limit = MAX_SHOP_P
     }
     if (!rows) return []
     const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
-    const [variants, options] = await Promise.all([productVariants(db, rows.map((r) => r.id)), productOptions(db, physical)])
+    const [variants, options] = await Promise.all([variantsInBatches(db, rows.map((r) => r.id)), optionsInBatches(db, physical)])
     return rows.map((r) => toCard(r, variants, options))
   } catch {
     return []
