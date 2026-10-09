@@ -954,8 +954,8 @@ async function main() {
     check("it waits ~240ms and fades in, so a quick place never shows it; a status for a screen reader", /export const WAIT_MS = 240/.test(spin) && /skeleton-reveal 200ms cubic-bezier\(0\.22, 1, 0\.36, 1\) \$\{WAIT_MS\}ms both/.test(spin) && /role="status"/.test(spin))
     const base = "app/(marketing)/community/[slug]"
     const loadings = ["", "/(member)/post/[postId]", "/(member)/learn", "/(member)/learn/[programId]", "/(member)/notifications", "/(member)/events", "/(member)/events/[eventId]", "/(member)/members", "/(member)/space/[space]", "/(member)/saved", "/(member)/leaderboard"].map((d) => `${base}${d}/loading.tsx`)
-    const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>/.test(read(f)) || /Skeleton/.test(read(f)))
-    check("every member page's loading screen is the spinner, none a skeleton (the community's home too)", bad.length === 0, bad)
+    const bad = loadings.filter((f) => !existsSync(f) || !/<PlaceSpinner label="[^"]+" \/>|<PlaceLoading title="[^"]+"/.test(read(f)) || /Skeleton/.test(read(f)))
+    check("every member page's loading screen is the spinner (round 24: under the page's title on some), none a skeleton (the community's home too)", bad.length === 0, bad)
     check("the old member skeletons are gone", !existsSync("components/community/member/skeletons.tsx"))
     check("a space's page, while it comes, keeps the row of spaces as it was (the pressed one chosen) over the spinner", /<SpaceChipsHeld \/>\s*<PlaceSpinner label="Loading the space" \/>/.test(read(`${base}/(member)/space/[space]/loading.tsx`)) && /rememberedSpaces\(slug\)/.test(code("components/community/member/space-chips-held.tsx")) && /if \(typeof window !== "undefined"\) drawn\.set\(slug, spaces\)/.test(code("components/community/member/space-chips.tsx")))
   }
