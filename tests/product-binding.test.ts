@@ -8,6 +8,7 @@ import { DEFAULT_THEME_SOURCES } from "@/themes/default/sources.generated"
 import { renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
 import { catalogPage } from "@/lib/products/catalog-filters"
 import { shopProducts } from "@/lib/website-builder/shop-products"
+import { cleanCustomFields, fieldKey } from "@/lib/products/custom-fields"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 let passed = 0
@@ -120,7 +121,7 @@ console.log("\nA shipped product's cards say which options are sold out\n")
 await (async () => {
   const tables: Record<string, Record<string, unknown>[]> = {
     products: [
-      { id: "tote", title: "Tote", slug: "tote", price_cents: 4800, compare_at_cents: null, thumbnail_url: null, status: "published", type: "physical", creator_id: "c1", inventory_count: null, track_inventory: true, continue_selling: false, created_at: "2026-10-01" },
+      { id: "tote", title: "Tote", slug: "tote", price_cents: 4800, compare_at_cents: null, thumbnail_url: null, status: "published", type: "physical", creator_id: "c1", inventory_count: null, track_inventory: true, continue_selling: false, created_at: "2026-10-01", custom_fields: { material: "Waxed canvas" } },
       { id: "cap", title: "Cap", slug: "cap", price_cents: 2000, compare_at_cents: null, thumbnail_url: null, status: "published", type: "physical", creator_id: "c1", inventory_count: null, track_inventory: true, continue_selling: false, created_at: "2026-09-01" },
     ],
     product_variants: [
@@ -156,8 +157,21 @@ await (async () => {
   check("an option with stock can be bought, with its own checkout", tote?.settings.variants.find((v) => v.id === "tote-s")?.available === true && /tote-s/.test(tote?.settings.variants.find((v) => v.id === "tote-s")?.checkout_url ?? ""), tote?.settings.variants)
   check("an option sold out at every location says so, and has no checkout", tote?.settings.variants.find((v) => v.id === "tote-l")?.available === false && tote?.settings.variants.find((v) => v.id === "tote-l")?.checkout_url === "")
   check("a product with one option left is still for sale", tote?.settings.available === true && tote?.settings.tag !== "Sold out")
+  check("a shop card carries the product's custom fields", tote?.settings.fields?.material === "Waxed canvas" && JSON.stringify(cap?.settings.fields) === "{}", tote?.settings.fields)
   check("a product sold out in every option is Sold out, with no checkout", cap?.settings.available === false && cap?.settings.tag === "Sold out" && cap?.settings.checkout_url === "", cap?.settings)
 })()
+
+console.log("\nCustom fields, by name, on every surface\n")
+{
+  check("a label becomes the name a template reads", fieldKey("Care instructions") === "care_instructions" && fieldKey("  Länge ") === "lange")
+  const clean = cleanCustomFields([{ key: "Material", value: " Waxed  cotton " }, { key: "material", value: "dup" }, { key: "Empty", value: "" }, { key: "constructor", value: "x" }, { key: "Note", value: "<b>bold</b>" }])
+  check("cleaned: first of each name kept, empty and unsafe names dropped", JSON.stringify(clean) === JSON.stringify({ material: "Waxed cotton", note: "<b>bold</b>" }), clean)
+  check("at most twenty", Object.keys(cleanCustomFields(Array.from({ length: 30 }, (_, i) => ({ key: `f${i}`, value: "v" })))).length === 20)
+  const src = `<template>\n<section>{% for block in products %}<p class="m">{{ block.settings.fields.material }}</p>{% endfor %}</section>\n</template>\n<schema>\n{"type":"fields_probe","name":"Probe","settings":[]}\n</schema>\n`
+  const r = renderStorelibSection({ id: "s", type: "fields_probe", name: "p", settings: {}, blocks: [] } as unknown as SectionInstance, {} as ThemeSettingsValues, { template: "index" }, { "sections/fields_probe.storelib": src } as never, [{ id: "a", type: "product", settings: { title: "A", fields: { material: "<b>Linen</b>" } } }] as never, {} as never)
+  const html = r.ok === true ? r.html : JSON.stringify(r)
+  check("a section prints a product's field, escaped", /<p class="m">&lt;b&gt;Linen&lt;\/b&gt;<\/p>/.test(html), html.slice(0, 300))
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

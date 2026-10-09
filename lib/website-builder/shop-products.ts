@@ -50,6 +50,7 @@
  * and checkout checks that address against the creator's own sites
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
+import { cleanCustomFields } from "@/lib/products/custom-fields"
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
@@ -88,6 +89,8 @@ export interface ProductCard {
     currency: string
     /** True when it costs nothing. */
     free: boolean
+    /** The product's custom fields by name, plain words (lib/products/custom-fields.ts): `{{ block.settings.fields.material }}`. */
+    fields?: Record<string, string>
     /** True when the buyer chooses the amount, from `price` up. */
     pay_what_you_want: boolean
     /** The main picture, or "". */
@@ -144,6 +147,8 @@ interface ProductRow {
   status: string | null
   inventory_count?: number | null
   track_inventory?: boolean | null
+  /** Named plain values (SQL part 107), when the row was read with them. */
+  custom_fields?: unknown
   gallery_urls?: unknown
   type?: string | null
   pay_what_you_want?: boolean | null
@@ -255,6 +260,7 @@ export function toCard(row: ProductRow, variants: VariantRow[] = [], optionRows:
       checkout_url: available ? checkoutUrl(row.id) : "",
       variants: options,
       category: typeof row.category === "string" ? row.category : "",
+      fields: cleanCustomFields(row.custom_fields),
       options: optionRows
         .filter((o) => o.product_id === row.id && typeof o.name === "string" && Array.isArray(o.values))
         .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
@@ -467,6 +473,23 @@ async function withPhysicalStock(db: Db, creatorId: string, rows: ProductRow[], 
   })
 }
 
+/**
+ * Each card's custom fields (products.custom_fields, SQL part 107), read in a
+ * request of their own so a database without the column still lists its
+ * products; then every card has `fields`, empty when it has none.
+ */
+export async function withCustomFields(db: Db, cards: ProductCard[]): Promise<ProductCard[]> {
+  if (cards.length === 0) return cards
+  const any = db as unknown as { from: (t: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
+  const byId = new Map<string, Record<string, string>>()
+  for (let i = 0; i < cards.length; i += 80) {
+    const { data, error } = await any.from("products").select("id, custom_fields").in("id", cards.slice(i, i + 80).map((c) => c.id))
+    if (error) return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: c.settings.fields ?? {} } }))
+    for (const r of (data ?? []) as { id: string; custom_fields?: unknown }[]) byId.set(r.id, cleanCustomFields(r.custom_fields))
+  }
+  return cards.map((c) => ({ ...c, settings: { ...c.settings, fields: byId.get(c.id) ?? {} } }))
+}
+
 async function optionsInBatches(db: Db, ids: string[]): Promise<OptionRow[]> {
   const out: OptionRow[] = []
   for (let i = 0; i < ids.length; i += 80) out.push(...(await productOptions(db, ids.slice(i, i + 80))))
@@ -493,7 +516,8 @@ async function readShop(db: Db, creatorId: string, n: number): Promise<ProductCa
     const physical = rows.filter((r) => r.type === "physical").map((r) => r.id)
     const [variants, options] = await Promise.all([variantsInBatches(db, rows.map((r) => r.id)), optionsInBatches(db, physical)])
     const cards = rows.map((r) => toCard(r, variants, options))
-    return await withPhysicalStock(db, creatorId, rows, cards).catch(() => cards)
+    const stocked = await withPhysicalStock(db, creatorId, rows, cards).catch(() => cards)
+    return await withCustomFields(db, stocked).catch(() => stocked)
   } catch {
     return []
   }

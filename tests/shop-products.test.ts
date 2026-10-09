@@ -115,7 +115,7 @@ async function main() {
      * product's own page already shows a visitor. Still nothing private.
      */
     const keys = Object.keys(c.settings).sort()
-    const API = ["available", "category", "checkout_url", "compare_price", "currency", "free", "image", "images", "kind", "options", "pay_what_you_want", "price", "slug", "tag", "title", "url", "variants"]
+    const API = ["available", "category", "checkout_url", "compare_price", "currency", "fields", "free", "image", "images", "kind", "options", "pay_what_you_want", "price", "slug", "tag", "title", "url", "variants"]
     check("a card carries exactly the documented product fields", JSON.stringify(keys) === JSON.stringify(API), keys.join(", "))
     check("and nothing private: no description, cost, files, buyer or creator", !keys.some((k) => /description|cost|file|buyer|creator|email|order/.test(k)))
     const selling = read("content/developers/selling.md")

@@ -15,6 +15,7 @@
  * PURE. No database, no request. The fetching lives in
  * storefront-data-server.ts, which is server only.
  */
+import { cleanCustomFields } from "@/lib/products/custom-fields"
 import { cleanMenus, type Menu, type MenuLink } from "@/lib/storelib-theme/values"
 import { SOURCE_TARGETS, fillSources, type DynamicContext } from "@/lib/storelib-theme/dynamic"
 import { resolveControlType } from "@/lib/storelib-theme/controls/registry"
@@ -217,6 +218,7 @@ export interface ProductRowLike {
   thumbnail_url?: string | null
   gallery_urls?: string[] | null
   whats_included?: string[] | null
+  custom_fields?: unknown
 }
 
 /**
@@ -242,6 +244,8 @@ export function productFacts(row: ProductRowLike | null | undefined): NonNullabl
     images: unique,
     url: row.slug ? `/products/${row.slug}` : "",
     includes: (row.whats_included ?? []).filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()),
+    /* Its custom fields by name, plain words: {{ product.fields.material }} (lib/products/custom-fields.ts). */
+    fields: cleanCustomFields(row.custom_fields),
   }
 }
 

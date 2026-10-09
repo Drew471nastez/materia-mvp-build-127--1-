@@ -64,6 +64,8 @@ import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
+import { CustomFieldsCard } from "./custom-fields-card"
+import { cleanCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
@@ -530,6 +532,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // FAQ state (3 defaults + unlimited custom)
   const [faqs, setFaqs] = useState<FAQItem[]>(initial.faqs)
+  /* Named details a website section prints as `fields.<name>` (lib/products/custom-fields.ts). */
+  const [customFields, setCustomFieldsRaw] = useState<CustomField[]>(initial.customFields)
+  const setCustomFields = useCallback((next: CustomField[]) => {
+    setCustomFieldsRaw(next)
+    setHasUnsavedChanges(true)
+  }, [])
   /* The FAQ card is folded to one line until it is opened or a question is added. */
   const [faqOpen, setFaqOpen] = useState(false)
 
@@ -945,6 +953,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         if (savedIds.size > 0) {
           setVariants(current => current.map(v => (savedIds.has(v.id) ? { ...v, id: savedIds.get(v.id)! } : v)))
         }
+      }
+
+      /*
+        CUSTOM FIELDS, in a request of their own: a database that has not run
+        part 107 has no column for them, and the product must still save.
+      */
+      if (finalProductId) {
+        const { error: fieldsError } = await supabase.from("products").update({ custom_fields: cleanCustomFields(customFields) }).eq("id", finalProductId)
+        if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
       }
 
       setHasUnsavedChanges(false)
@@ -2906,6 +2923,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   </button>
                 ) : null}
               </div>
+              <CustomFieldsCard fields={customFields} onChange={setCustomFields} cardClass={CARD} titleClass={CARD_TITLE} />
           </div>
 
           <div data-editor-side="" className="flex min-w-0 flex-col gap-3 sm:gap-4">

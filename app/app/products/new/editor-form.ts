@@ -14,6 +14,8 @@
  * Pure, so the same rows always make the same form, and a test can say so.
  */
 
+import { fieldRows, type CustomField } from "@/lib/products/custom-fields"
+
 export interface UploadedFile {
   id?: string
   file_name: string
@@ -129,6 +131,7 @@ export interface EditorProductRow {
   gallery_urls?: string[] | null
   whats_included?: unknown
   faqs?: unknown
+  custom_fields?: unknown
 }
 
 export interface EditorAssetRow {
@@ -253,6 +256,7 @@ export interface EditorForm {
   variants: ProductVariant[]
   whatsIncluded: string[]
   faqs: FAQItem[]
+  customFields: CustomField[]
 }
 
 export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "course" | "physical" = "digital"): EditorForm {
@@ -283,6 +287,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       variants: [],
       whatsIncluded: course ? COURSE_WHATS_INCLUDED : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
       faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
+      customFields: [],
     }
   }
   const { product, assets, variants } = loaded
@@ -327,6 +332,7 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
     variants: variantsOf(variants),
     whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : DEFAULT_WHATS_INCLUDED,
     faqs,
+    customFields: fieldRows(product.custom_fields),
   }
 }
 

@@ -181,6 +181,18 @@ A `product_list` setting is looped exactly like `products`: `{% for block in set
 
 A `collection_picker` reads as the collection: `settings.collection.title`, `.url`, `.products_count`, and `.products` to loop. A `collection_list` is several, `{% for block in settings.collections %}`. On `/collections/<handle>` the page's own collection is `collection` in every section, and a collection picker set to `@current` is that collection. Every member is on the page, not only the newest 24.
 
+### Custom fields
+
+A product can carry up to twenty named details the creator writes in the product editor's Custom fields card: Material, Care, Length, an ISBN. A section prints them by name, in lower case with underscores for spaces ("Care instructions" is `care_instructions`):
+
+```storelib
+{% if block.settings.fields.material %}<p>{{ block.settings.fields.material }}</p>{% endif %}
+{{ settings.product.fields.care_instructions }}
+{{ page.product.fields.isbn }}
+```
+
+They are plain words, never markup, and an empty one is absent. They need SQL part 107; until it has run, products save and show as before, with no fields.
+
 ### Typed values only override
 
 A card the creator fills in starts from its product and lets them override a word: `{{ block.settings.title | default: block.settings.product.title }}`. Defaults and presets never invent a product or a price. The section checker refuses a typed price, invented products in a default or a preset, and a product array in a script (`integration-products`), so the AI's sections follow this as well.

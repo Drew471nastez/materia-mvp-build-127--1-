@@ -14,7 +14,7 @@
  */
 import "server-only"
 
-import { toCard, type ProductCard } from "./shop-products"
+import { toCard, withCustomFields, type ProductCard } from "./shop-products"
 import type { CreatorFacts } from "./storefront-data"
 
 /** The narrow shape these reads need, so a test can hand in a fake. */
@@ -95,7 +95,8 @@ export async function pickedProducts(
     if (ids.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("id", ids).limit(MAX_PICKED_PRODUCTS))
     if (slugs.length) reads.push(db.from("products").select(cols).eq("creator_id", creatorId).eq("status", "published").in("slug", slugs).limit(MAX_PICKED_PRODUCTS))
     const results = await Promise.all(reads)
-    return results.flatMap((r) => (r.data ?? []).map((row) => toCard(row as never)))
+    const cards = results.flatMap((r) => (r.data ?? []).map((row) => toCard(row as never)))
+    return await withCustomFields(db as never, cards).catch(() => cards)
   } catch {
     return []
   }
