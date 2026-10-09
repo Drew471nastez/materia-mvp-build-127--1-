@@ -6,9 +6,9 @@
  * place feels the same as the feed, without nesting on pages that bring
  * their own (Membership).
  */
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef } from "react"
-import { PullToRefreshEvent, PULL_REFRESH_EVENT, RouterPullToRefresh, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { PullToRefresh, PULL_REFRESH_EVENT, dispatchPullRefresh, refreshRouterScope, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
 import { cancelAllPullToRefresh } from "@/hooks/use-pull-to-refresh"
 import {
   COMMUNITY_ABOUT_REFRESH_SCOPE,
@@ -49,8 +49,21 @@ export function communityPullUsesFeed(pathname: string | null, slug: string): bo
   return tail === "/" || tail === "/saved"
 }
 
+/*
+  ONE WRAPPER, THE SAME AT EVERY ADDRESS. This used to be a different element per address: the feed's event wrapper on the
+  home feed, a router wrapper (keyed by its scope) on a section, and no wrapper at all on a post or a space. A post opened over
+  the feed puts its own address up (/community/<slug>/post/<id>, lightbox.tsx useHistoryLayer), and the router hears that
+  address; the wrapper around the feed then went away, and React took the whole page under it down with it and drew it again:
+  the feed was built again from nothing, the card the post had grown from was a new card, and the opened post, which lives in
+  that card, was gone (measured in scripts/check-community-posts.mjs: the post screen vanished about 900ms after the tap at 4x
+  CPU, with no close and no Back). A space chip on a computer (/space/<slug> by pushState) rebuilt the feed the same way, and so
+  did every move between two sections. Now the wrapper is one element for the whole community, never keyed by address: the
+  address only says what a pull does there, and where there is none (a post, a space, Membership) the pull is turned off and
+  the page under it is left exactly as it is.
+*/
 export function CommunityPullRefresh({ slug, children }: { slug: string; children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const feed = communityPullUsesFeed(pathname, slug)
   const scope = feed ? COMMUNITY_FEED_REFRESH_SCOPE : communityPullRouterScope(pathname, slug)
 
@@ -58,16 +71,21 @@ export function CommunityPullRefresh({ slug, children }: { slug: string; childre
     cancelAllPullToRefresh()
   }, [pathname, scope])
 
-  if (feed) {
-    /* One spinner: nested feed pages must not wrap again (space/[space]/page.tsx). Round 17: its circle a few pixels higher in the gap (-2, was 4). */
-    return (
-      <PullToRefreshEvent key={`feed-${slug}`} scope={COMMUNITY_FEED_REFRESH_SCOPE} spinnerYOffset={-2}>
-        {children}
-      </PullToRefreshEvent>
-    )
-  }
-  if (!scope) return children
-  return <RouterPullToRefresh key={`${scope}-${slug}`} scope={scope}>{children}</RouterPullToRefresh>
+  /* Read when the pull is let go, so the handler stays the same function while the address moves. */
+  const now = useRef({ feed, scope })
+  now.current = { feed, scope }
+  const onRefresh = useCallback(() => {
+    const { feed: onFeed, scope: here } = now.current
+    if (onFeed) return dispatchPullRefresh(COMMUNITY_FEED_REFRESH_SCOPE)
+    if (here) return refreshRouterScope(router, here)
+  }, [router])
+
+  /* Round 17: on the feed the circle sits a few pixels higher in the gap (-2, was 4). A space's own page brings its own pull (space/[space]/page.tsx); this one is off there, so its ring is the only one. */
+  return (
+    <PullToRefresh key={slug} onRefresh={onRefresh} disabled={!scope} spinnerYOffset={feed ? -2 : 0}>
+      {children}
+    </PullToRefresh>
+  )
 }
 
 /** A client list on a tab page: run `refresh` when that tab is pulled (after router.refresh). */

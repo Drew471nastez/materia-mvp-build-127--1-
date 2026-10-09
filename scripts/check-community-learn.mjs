@@ -186,7 +186,8 @@ for (const [label, vp, phone] of VIEWPORTS) {
         cols: new Set(cards.map((r) => Math.round(r.left))).size,
         overlap,
         heights: cards.map((r) => Math.round(r.height)),
-        bars: [...document.querySelectorAll("[data-program-card] [role=progressbar] > div")].map((d) => d.style.width),
+        /* DRIFT: the bar is drawn by scale on the compositor now (learn-library.tsx), so its percentage is read from aria-valuenow. */
+        bars: [...document.querySelectorAll("[data-program-card] [role=progressbar]")].map((d) => `${d.getAttribute("aria-valuenow")}%`),
         locks: [...document.querySelectorAll("[data-lock-label], [data-lock-line]")].filter(shown).map((l) => l.textContent),
         draft: [...document.querySelectorAll("[data-program-card='p6'] [data-draft], [data-program-card='p6'] h2 span")].some((d) => shown(d) && /Draft/.test(d.textContent)),
         title: document.querySelector("#learn-title")?.textContent,
@@ -194,7 +195,8 @@ for (const [label, vp, phone] of VIEWPORTS) {
     })
     expect(g.title === "Learn", `${label}: the page is called Learn`, g.title)
     expect(g.n === 6 && g.overlap === 0, `${label}: six program cards, none overlapping`, { n: g.n, overlap: g.overlap })
-    expect(phone ? g.cols === 1 : g.cols === 3, `${label}: ${phone ? "one" : "three"} across`, g.cols)
+    /* DRIFT: two across at most on a computer now, in an 820px column (learn-library.tsx data-program-grid). */
+    expect(phone ? g.cols === 1 : g.cols === 2, `${label}: ${phone ? "one" : "two"} across`, g.cols)
     expect(new Set(g.heights.slice(0, phone ? 1 : 3)).size === 1, `${label}: cards in a row are the same height`, g.heights)
     expect(g.bars.join() === "58%,100%,0%", `${label}: progress bars are the members' real percentages`, g.bars)
     expect(g.locks.length === 3 && g.locks[0] === "$49" && g.locks[1] === "Level 3" && g.locks[2].startsWith("Opens on"), `${label}: locked programs say what opens them`, g.locks)

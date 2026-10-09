@@ -102,7 +102,8 @@ const BELL = `${PLAIN_ICON_BTN} [&_svg.lucide-bell]:h-6 [&_svg.lucide-bell]:w-6`
  * pixels in a 40px square (so no line blurs into two), in the bar's one
  * control with a little depth (DEPTH_ICON_BTN). Open, it sits pressed in.
  */
-const HAMBURGER = `${DEPTH_ICON_BTN} rounded-[10px] text-[#1a1a2e] hover:text-[#1a1a2e] aria-expanded:bg-[#eef0f2] aria-expanded:shadow-none [&_[data-navigator-lines]]:w-[18px] [&_[data-navigator-lines]]:gap-[4px]`
+/* `flex`, not the depth button's `inline-flex`: inline, the button sat on a line box inside the navigator's block wrapper, whose strut put it 2px under the row's centre (30 against 28 at 390) and its lines on half pixels. */
+const HAMBURGER = `${DEPTH_ICON_BTN} flex rounded-[10px] text-[#1a1a2e] hover:text-[#1a1a2e] aria-expanded:bg-[#eef0f2] aria-expanded:shadow-none [&_[data-navigator-lines]]:w-[18px] [&_[data-navigator-lines]]:gap-[4px]`
 
 export { CommunityMark }
 

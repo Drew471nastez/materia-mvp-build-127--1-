@@ -227,6 +227,13 @@ interface Options {
   axisFirst?: boolean
   /** Extra px added to the spokes' vertical position (Explore: a little lower). */
   spinnerYOffset?: number
+  /**
+   * False: a finger landing does not start a pull. Read when the finger lands,
+   * so a wrapper that stays mounted can turn its pull off for an address that
+   * has none (components/community/member/community-pull-refresh.tsx) instead
+   * of being taken out of the tree, which would take the page with it.
+   */
+  enabled?: boolean
 }
 
 const reducedMotion = () => {
@@ -276,10 +283,13 @@ export function usePullToRefresh(
     listenOn,
     axisFirst = false,
     spinnerYOffset = 0,
+    enabled = true,
   } = options
 
   const spinnerYOffsetRef = useRef(spinnerYOffset)
   spinnerYOffsetRef.current = spinnerYOffset
+  const enabledRef = useRef(enabled)
+  enabledRef.current = enabled
 
   /** The element that slides down. The caller attaches this. */
   const contentRef = useRef<HTMLDivElement | null>(null)
@@ -777,6 +787,7 @@ export function usePullToRefresh(
     }
 
     const onTouchStart = (e: TouchEvent) => {
+      if (!enabledRef.current) return
       /* Sheet overlays are children of the scroll container (iOS needs them to
          be, for position:fixed), so their touches bubble here. Not ours. */
       if ((e.target as Element | null)?.closest("[data-dashboard-sheet]")) return

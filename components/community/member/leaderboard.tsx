@@ -34,7 +34,7 @@ function periodLabel(p: Period): string {
 /** The period, as one small segmented control at every width (round 15: the select was too big for what it does). */
 function PeriodSwitch({ period, onChoose }: { period: Period; onChoose: (p: Period) => void }) {
   return (
-    <div className="inline-flex shrink-0 rounded-[9px] bg-[#eef0f2] p-0.5" role="tablist" aria-label="Time period" data-leaderboard-period-tabs="">
+    <div className="inline-flex shrink-0 rounded-[11px] bg-[#eef0f2] p-0.5 sm:rounded-[9px]" role="tablist" aria-label="Time period" data-leaderboard-period-tabs="">
       {PERIODS.map((p) => {
         const on = period === p.key
         return (
@@ -45,7 +45,7 @@ function PeriodSwitch({ period, onChoose }: { period: Period; onChoose: (p: Peri
             aria-selected={on}
             title={p.label}
             onClick={() => onChoose(p.key)}
-            className={`h-7 min-w-[44px] touch-manipulation rounded-[7px] px-2.5 text-[12.5px] font-semibold outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
+            className={`h-10 min-w-[48px] touch-manipulation rounded-[9px] px-3 sm:h-7 sm:min-w-[44px] sm:rounded-[7px] sm:px-2.5 text-[12.5px] font-semibold outline-none transition-[background-color,color,box-shadow] duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 ${on ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
           >
             {p.short}
           </button>

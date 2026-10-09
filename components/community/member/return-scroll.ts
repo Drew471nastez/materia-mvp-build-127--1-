@@ -31,8 +31,23 @@ export const BACK_WINDOW_MS = 4000
 const KEPT = 40
 
 let poppedAt = -Infinity
-/* A layer closing (a post, the viewer) steps back too; the page under it never moved, so that is not a Back to restore (lib/nav/layer-back.ts). */
-if (typeof window !== "undefined") window.addEventListener("popstate", () => void (isLayerBack() || (poppedAt = performance.now())))
+/*
+  A layer closing (a post, the viewer) steps back too; the page under it never moved, so that is not a Back to restore
+  (lib/nav/layer-back.ts). Nor is it an arrival: the address it steps back to is the page that was under the layer all along,
+  and useSectionTop below must leave it where it is (see A LAYER CLOSING IS NOT AN ARRIVAL).
+*/
+let layerBack: { path: string; at: number } | null = null
+const bare = (path: string) => (path || "").split(/[?#]/)[0].replace(/\/+$/, "")
+if (typeof window !== "undefined")
+  window.addEventListener("popstate", () => {
+    if (isLayerBack()) layerBack = { path: bare(window.location.pathname), at: performance.now() }
+    else poppedAt = performance.now()
+  })
+
+/** Whether `pathname` is the page a layer (a post opened over it, the viewer) has just closed back onto. */
+export function closedLayerOnto(pathname: string): boolean {
+  return !!layerBack && layerBack.path === bare(pathname) && performance.now() - layerBack.at <= BACK_WINDOW_MS
+}
 
 /* The page a Back last landed on, and when: useReturnScroll uses up `poppedAt` before the frame watches the page swap in. */
 let backLanding: { path: string; at: number } | null = null
@@ -200,6 +215,14 @@ export function useSectionTop(pathname: string, slug: string) {
     }
     if (!isCommunitySectionRoot(pathname, slug)) return
     if (performance.now() - poppedAt <= BACK_WINDOW_MS) return
+    /*
+      A LAYER CLOSING IS NOT AN ARRIVAL. A post opened over the feed puts its own address up and the router hears it; closing the
+      post steps back to the feed's address, which read here as landing on the feed from somewhere else, and the feed was
+      snapped to its top under the post as it went back into its card: the member lost their place in the feed on every close
+      (scripts/check-community-morph.mjs: scrolled 389px down before the open, 0 after the close, the post shrinking onto
+      where its card had been and the card then 389px lower).
+    */
+    if (closedLayerOnto(pathname)) return
     snapPageTop()
     let frames = 0
     let id = 0

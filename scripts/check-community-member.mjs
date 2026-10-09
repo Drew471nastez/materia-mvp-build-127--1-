@@ -301,7 +301,7 @@ export function createClient() {
       await sleep(150)
       await sleep(300)
       /* On a phone the closed line stays in the feed and the editor is a screen of its own over it. */
-      const opened = await p.evaluate(() => ({ state: document.querySelector("[data-composer=sheet]") ? "sheet" : document.querySelector("[data-composer=open]") ? "open" : "closed", focused: document.activeElement?.getAttribute("aria-label"), post: document.querySelector("[data-composer-post]")?.disabled }))
+      const opened = await p.evaluate(() => ({ state: document.querySelector("[data-composer=sheet]") ? "sheet" : document.querySelector("[data-composer=open]") ? "open" : "closed", focused: document.activeElement?.getAttribute("aria-label"), post: document.querySelector("[data-composer-post]")?.getAttribute("data-post-ready") !== "true" }))
       const mode = phone ? "sheet" : "open"
       expect(opened.state === mode && opened.focused === "Title" && opened.post === true, `pressed, it opens (${phone ? "a screen of its own" : "in place"}) with the title focused and Post off until it is ready`, opened)
       await p.type("[data-composer-title]", "Naming things")
@@ -310,7 +310,8 @@ export function createClient() {
       const live = await p.evaluate(() => ({
         mentions: [...document.querySelectorAll("[data-mention-list] [role=option]")].map((o) => o.textContent.trim()),
         card: document.querySelector("[data-composer] [data-link-card]")?.textContent || null,
-        post: document.querySelector("[data-composer-post]")?.disabled,
+        /* DRIFT: Post stays pressable and says what is missing (composer.tsx data-post-ready), so "off" is its ready flag. */
+        post: document.querySelector("[data-composer-post]")?.getAttribute("data-post-ready") !== "true",
       }))
       expect(live.mentions.length === 2 && live.mentions[0].includes("@priya"), "typing @ lists members with a username", live.mentions)
       expect(/naming things/i.test(live.card || "") && calls.some((c) => c.url.endsWith("/posts/link-preview")), "a link brings its card from the server", live.card)
@@ -321,10 +322,12 @@ export function createClient() {
       expect(text.endsWith("@priya "), "Enter puts the @username in the text", text.slice(-24))
       await p.click("[data-composer-space]")
       await sleep(350)
-      const space = await p.evaluateHandle(() => [...document.querySelectorAll("button, [role=menuitem]")].find((b) => b.closest('[role="menu"], [role="dialog"]') && b.textContent.trim() === "General"))
+      /* DRIFT: a space is named with its glyph now (round 12, space-glyph.ts): "💬General". Read as plain "General", nothing was picked and the "Post in" sheet stayed open over the toolbar. */
+      const space = await p.evaluateHandle(() => [...document.querySelectorAll("button, [role=menuitem]")].find((b) => b.closest('[role="menu"], [role="dialog"]') && /^\S{0,3}General$/.test(b.textContent.trim())))
       await space.asElement()?.click()
-      await sleep(350)
-      expect(await p.$eval("[data-composer-post]", (b) => !b.disabled), "with a space chosen, Post is on")
+      /* On a phone the choice is made as the "Post in" sheet finishes closing (components/ui ResponsiveActionMenu), so it is waited for rather than slept on. */
+      await p.waitForFunction(() => document.querySelector("[data-composer-post]")?.getAttribute("data-post-ready") === "true", { timeout: 1500 }).catch(() => {})
+      expect(await p.$eval("[data-composer-post]", (b) => b.getAttribute("data-post-ready") === "true"), "with a space chosen, Post is on")
       await p.click('[data-composer-tool="poll"]')
       await sleep(150)
       const poll = await p.evaluate(() => document.querySelectorAll("[data-composer-poll-editor] input[aria-label^='Choice']").length)

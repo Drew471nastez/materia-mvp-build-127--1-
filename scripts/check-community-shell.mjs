@@ -259,6 +259,8 @@ export const isNativePlatform = () => false
       let seen = 0
       for (const el of [bar, ...bar.querySelectorAll("*")]) {
         if (el.closest("[data-app-avatar]")) continue
+        /* DRIFT: round 12 made the notification bubbles round and red again, by the owner's choice; they are not the pills these checks hunt. */
+        if (el.matches("[data-count-badge], [data-bell-badge]")) continue
         if (el.closest("[data-place-navigator-panel], [data-notification-panel], [role=dialog], [role=menu], [data-action-list]")) continue
         if (!el.checkVisibility({ opacityProperty: true, visibilityProperty: true })) continue
         const r = el.getBoundingClientRect()
@@ -367,7 +369,8 @@ export const isNativePlatform = () => false
           switcher: !!document.querySelector("[data-community-switcher]"),
           chips: [...document.querySelectorAll("[data-space-chip]")].map((a) => a.textContent.trim()),
           chipOn: document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"),
-          chipAll: (() => { const a = document.querySelector('[data-space-chip="all"]'); return a ? getComputedStyle(a).backgroundColor : null })(),
+          /* DRIFT: the chosen chip's ink is its own fill layer now (space-chips.tsx data-chip-fill, eased by opacity), not the chip's background. */
+          chipAll: (() => { const a = document.querySelector('[data-space-chip="all"]'); const f = a?.querySelector("[data-chip-fill]"); return f && getComputedStyle(f).opacity === "1" ? getComputedStyle(f).backgroundColor : a ? getComputedStyle(a).backgroundColor : null })(),
           messages: document.querySelector("[data-community-messages-button] [data-count-badge]")?.textContent ?? null,
           bell: document.querySelector("[data-community-top] [data-notification-bell] [data-bell-badge]")?.textContent?.trim() ?? null,
           more: [...document.querySelectorAll("[data-community-top] [data-account-more]")].filter(vis).length,
@@ -401,7 +404,9 @@ export const isNativePlatform = () => false
       const geo = await barGeometry(p)
       const was = phone ? BEFORE.phone : BEFORE.desktop
       console.log(`        header height: ${was}px before round 4, ${phone ? 85 : 57}px in round 4, ${geo.height}px now (round 7)`)
-      expect(geo.height === (phone ? 97 : 65), `comfortable, not fat: ${phone ? "56 + 40 of tabs + the hairline" : "one 64px row + the hairline, the places in the left column"}`, { before: was, now: geo.height })
+      /* DRIFT: the tabs row has had a 2px top padding since it was pulled up under the bar (top-bar.tsx), so a phone's bar is 99. What must hold is that the frame's first-frame guess is the same number (shell-frame.tsx [--community-top:99px]), or the bar's measurement moves the page. */
+      const guess = await p.evaluate((phone) => { const m = (document.querySelector("[data-community-shell]")?.className || "").match(phone ? /(?:^|\s)\[--community-top:(\d+)px\]/ : /lg:\[--community-top:(\d+)px\]/); return m ? Number(m[1]) : null }, phone)
+      expect(geo.height === (phone ? 99 : 65) && guess === geo.height, `comfortable, not fat: ${phone ? "56 + 2 + 40 of tabs + the hairline" : "one 64px row + the hairline, the places in the left column"}, and the frame's first guess is that height`, { before: was, now: geo.height, guess })
       expect(geo.markSize === (phone ? 36 : 40), `the community's picture a bit bigger: ${phone ? 36 : 40}px (was ${phone ? 32 : 34})`, geo.markSize)
       expect(g.bellIcon === 24, "the bell a bit bigger: a 24px glyph (was 22)", g.bellIcon)
       if (!phone) expect(!g.tabsShown && !geo.tabs, "no row of tabs on a computer: the left column has the places", { shown: g.tabsShown })
@@ -443,13 +448,16 @@ export const isNativePlatform = () => false
       expect(g.messages === "2" && g.bell === "4" && g.more === 1 && g.myPicture === 0, "Messages and Storelib's bell with their counts, then a \"...\" (round 7: no picture of me in the bar)", { messages: g.messages, bell: g.bell, more: g.more, picture: g.myPicture })
       expect(phone ? !g.searchButton && !g.searchField : g.searchField && !g.searchButton && g.placeholder === "Search discussions, members, or content...", phone ? "round 9: no search icon in the bar on a phone (the tab bar's Search opens it)" : "the search field: Search discussions, members, or content..., and no search icon", { field: g.searchField, button: g.searchButton, placeholder: g.placeholder })
       expect(g.topVar === `${g.height}px`, "--community-top is the bar's measured height", { topVar: g.topVar, height: g.height })
-      expect(g.theme === "#ffffff", "the browser's bar is white to match", g.theme)
+      /* DRIFT: both community frames give the browser the PAGE's colour now (#f8f9fa, and #0e1014 for a dark community, community-theme.css --community-page), which is also the canvas a bounce shows; the shell-frame comment still says white. */
+      expect(g.theme === "#f8f9fa", "the browser's bar takes the page's colour", g.theme)
       expect(g.bg === "rgb(248, 249, 250)", "the page is #f8f9fa", g.bg)
       /* Round 7 changed these on purpose: the composer is one field until pressed, and a card names its space in its line. */
       expect(g.composer.state === "closed" && g.composer.buttons.length === 1 && /Share something/.test(g.composer.buttons[0]) && g.composer.actions === 0, "the composer: one \"Share something...\" field, no row of Photo / Video / Poll under it", g.composer)
-      expect(g.spaceName === "General" && /\/community\/clay-studio\/space\/general$/.test(g.spaceHref || "") && !g.saveOnCard, "a post: its space named in its line, linking to the space; Save is behind the card's dots", { space: g.spaceName, href: g.spaceHref, saveOnCard: g.saveOnCard })
+      /* DRIFT: a space is named with its glyph now (round 12, space-glyph.ts). */
+      expect(/^\S{0,3}General$/.test(g.spaceName || "") && /\/community\/clay-studio\/space\/general$/.test(g.spaceHref || "") && !g.saveOnCard, "a post: its space named in its line, linking to the space; Save is behind the card's dots", { space: g.spaceName, href: g.spaceHref, saveOnCard: g.saveOnCard })
+      /* DRIFT: the Classroom place is called Learn now (its address /learn); the rest of this probe says Learn where it said Classroom. */
       if (!phone) {
-        expect(g.places.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
+        expect(g.places.join() === "Community,Learn,Calendar,Members,Leaderboards,About" && g.placeOn === "Community", "the left column lists the places, Community marked", { places: g.places, on: g.placeOn })
         const L = g.placeLook
         /* Round 11, ask 19: the tiles are one quiet grey with the hand drawn icons; the open one's is white (with a hairline and a one pixel shadow). */
         expect(!!L && L.onBg !== L.offBg && L.h >= 44 && L.chevrons === 6 && L.lucide === 0 && new Set(L.tiles).size === 2 && L.tiles[0] === "rgb(255, 255, 255)" && L.tiles.slice(1).every((c) => c === L.tiles[1]) && L.tiles.every((c) => !/139, 92, 246|124, 58, 237/.test(c)), "each place: a quiet tile with its hand drawn icon (no lucide), a word and a Solar chevron; the open one white and shaded", L)
@@ -460,7 +468,7 @@ export const isNativePlatform = () => false
         expect(/Upcoming event/.test(g.upcoming || "") && /Live critique: trimming feet/.test(g.upcoming || "") && /128 going/.test(g.upcoming || "") && /View event/.test(g.upcoming || ""), "Upcoming event: the date, the title, the time, 128 going, View event", g.upcoming)
         expect(!!g.contributors && g.contributors.length === 3 && /^1 (PR )?Priya Raman 420$/.test(g.contributors[0]) && /^3 Leo Martins 287$/.test(g.contributors[2]), "Top contributors: rank, name and points", g.contributors)
       } else {
-        expect(g.tabs.join() === "Community,Classroom,Calendar,Members,Leaderboards,About" && g.current === "Community", "on a phone the places are the row of tabs, Community marked", g.tabs)
+        expect(g.tabs.join() === "Community,Learn,Calendar,Members,Leaderboards,About" && g.current === "Community", "on a phone the places are the row of tabs, Community marked", g.tabs)
         const t = g.tabLook
         expect(!!t && t.bg === "rgba(0, 0, 0, 0)" && t.border === "0px" && t.color === "rgb(26, 26, 46)" && t.offColor !== t.color, "the tabs are plain words, the chosen one ink", t)
         expect(!!t && t.line.h === 2 && t.line.w === t.line.tabW && t.line.opacity === "1" && t.offLine === "0" && t.line.bottom === t.barBottom - 1, "a 2px ink line under the chosen tab, on the bar's bottom edge", t?.line)
@@ -502,7 +510,8 @@ export const isNativePlatform = () => false
         return box ? { kind: box.getAttribute("data-place-navigator-panel"), text: box.innerText.replace(/\s+/g, " ").trim(), links: [...box.querySelectorAll("a")].map((a) => a.getAttribute("href")), current: box.querySelector("[data-current]")?.getAttribute("href") ?? null } : null
       })
       expect(!!sw && sw.kind === (phone ? "sheet" : "popover"), `the hamburger opens the navigator as a ${phone ? "sheet" : "popover"}`, sw?.kind)
-      expect(!!sw && /Your communities/.test(sw.text) && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore?type=communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
+      /* DRIFT: the navigator has no "Your communities" heading any more; its links are what matter. */
+      expect(!!sw && sw.links.join() === "/community/clay-studio,/community/night-runners,/community/film-photo-club,/explore?type=communities,/explore,/sell" && sw.current === "/community/clay-studio", "my communities (this one marked), Discover communities, Explore, Start creating", sw && { links: sw.links, current: sw.current })
       await shot(p, `${label}-navigator`)
       if (!phone) {
         const open = await pillsInBar(p)
@@ -710,7 +719,7 @@ export const isNativePlatform = () => false
         const { p, errors } = await open("classroom", "/community/clay-studio/classroom", vp)
         const c = await columns(p)
         const on = await p.evaluate(() => document.querySelector("[data-wall-places] [aria-current=page]")?.textContent?.trim())
-        expect(c.columns === "three" && on === "Classroom" && c.leftOrder.join() === "card,places" && c.rightOrder.join() === "event,contributors" && c.main.w === widths.both && c.main.x === c.left.right + 24, "the classroom: the same columns and the same side cards as the feed (nothing in the frame changes), Classroom marked", { c, on })
+        expect(c.columns === "three" && on === "Learn" && c.leftOrder.join() === "card,places" && c.rightOrder.join() === "event,contributors" && c.main.w === widths.both && c.main.x === c.left.right + 24, "the classroom: the same columns and the same side cards as the feed (nothing in the frame changes), Classroom marked", { c, on })
         await shot(p, `${label}-classroom`)
         expect(errors.length === 0, "no page errors", errors)
         await p.close()
@@ -801,7 +810,7 @@ export const isNativePlatform = () => false
                 last = now
                 if (ok() || now - t0 > 3000) {
                   po?.disconnect()
-                  resolve({ ms: Math.round(now - t0), done: ok(), frames, tasks, calls: window.__feedCalls.slice(calls0), path: location.pathname, key: document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") })
+                  resolve({ ms: Math.round(now - t0), done: ok(), frames, tasks, calls: window.__feedCalls.slice(calls0), path: location.pathname + location.search, key: document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") })
                 }
                 else requestAnimationFrame(tick)
               }
@@ -813,19 +822,25 @@ export const isNativePlatform = () => false
         )
       const how = phone ? "tap" : "click"
       const t = {}
-      /* Uncached: one ask, the old list stays on screen until Glaze lab's arrives. */
+      /*
+        DRIFT (feed.tsx, round 9 "EVERY SPACE'S FIRST PAGE, READ AHEAD AT ONCE", and round 15 "NO FADE"): every feed space's first
+        page is read as soon as the feed is on screen, on the next frame rather than when idle (so ?idle=0 no longer holds it
+        back), and a list that changes is simply there, with no fade. So the first press on a space is answered from memory: no
+        ask of its own, no spinner, opacity 1. A press that does find nothing is still one ask, with the old list kept meanwhile.
+        On a phone the address is ?space=<slug> on the home feed (feed.tsx THE ADDRESS FOLLOWS THE LIST); on a computer /space/<slug>.
+      */
+      const spaceAddress = (slug) => (phone ? `/community/clay-studio?space=${slug}` : `/community/clay-studio/space/${slug}`)
       t.uncached = await sw('[data-space-chip="glaze-lab"]', '!!document.querySelector(\'[data-post="p-glaze-1"]\') && !document.querySelector(\'[data-post="p-pinned"]\')', how)
-      expect(t.uncached.done && t.uncached.calls.length === 1 && /space=s-glaze/.test(t.uncached.calls[0]) && /sort=default/.test(t.uncached.calls[0]), "a space not seen yet: one ask for its first page (sort Default)", t.uncached.calls)
+      const readAhead = t.uncached.calls.length === 0
+      expect(t.uncached.done && (readAhead || (t.uncached.calls.length === 1 && /space=s-glaze/.test(t.uncached.calls[0]) && /sort=default/.test(t.uncached.calls[0]))), "a space pressed for the first time: its list was read ahead (no ask of its own), or one ask for its first page", t.uncached.calls)
       expect(t.uncached.frames.every((f) => (f.posts > 0 || f.spinner) && !f.skeleton && !f.empty), "while it comes, there is always the old list or the spinner (never empty, no skeleton)", t.uncached.frames.map((f) => (f.spinner ? "spin" : f.posts)))
       {
         const F = t.uncached.frames
-        const firstSpin = F.find((f) => f.spinner)
-        const lastOld = [...F].reverse().find((f) => f.posts > 0 && !f.spinner && f.at < (firstSpin?.at ?? 0))
-        expect(!!firstSpin && firstSpin.at >= 150 && !F.some((f) => f.at < 150 && f.spinner), "round 9: the old list stays for the first ~160ms, then a small spinner takes its place (no skeleton)", { firstSpin: firstSpin?.at, lastOld: lastOld?.at })
+        expect(readAhead ? !F.some((f) => f.spinner) && F.length <= 3 : !F.some((f) => f.at < 150 && f.spinner), readAhead ? "read ahead: on screen on the frame after the chip's, no spinner" : "the old list stays for the first ~160ms (no skeleton)", { frames: F.length, spin: F.filter((f) => f.spinner).length })
         const arrived = F.at(-1)
-        expect(arrived.posts > 0 && arrived.opacity !== null && arrived.opacity < 0.6, "the new list comes in from nothing after the spinner (an opacity ease, not a cut)", { opacity: arrived.opacity })
+        expect(arrived.posts > 0 && arrived.opacity === 1, "no fade: the new list is simply there (round 15)", { opacity: arrived.opacity })
       }
-      expect(t.uncached.path === "/community/clay-studio/space/glaze-lab", "the address follows: /space/glaze-lab", t.uncached.path)
+      expect(t.uncached.path === spaceAddress("glaze-lab"), `the address follows: ${spaceAddress("glaze-lab")}`, t.uncached.path)
       const chipNow = await p.evaluate(() => document.querySelector("[data-space-chip][aria-current=page]")?.getAttribute("data-space-chip"))
       expect(chipNow === "glaze-lab", "the chip is chosen at once", chipNow)
       /* Cached: back to All, no ask, on the next frame. */
@@ -841,10 +856,17 @@ export const isNativePlatform = () => false
       {
         const o = [t.cached, t.cachedAgain].map((x) => x.frames.at(-1).opacity)
         /* The frame the list is first sampled on can be a frame into its 200ms ease on a loaded machine; scripts/check-community-frame11.mjs reads every frame of it. */
-        expect(o.every((v) => v !== null && v >= 0.3) && o.some((v) => v < 1), "round 9: a cached list swaps in with a short crossfade (from about a third to full, never from nothing)", o)
+        /* DRIFT: round 15 took the crossfade out ("still a flash, a fade in between switching, which should not be", feed.tsx NO FADE). */
+        expect(o.every((v) => v === 1), "round 15: a cached list swaps in with no fade", o)
       }
-      /* A slow list: the spinner, alone in the middle column under the chips, thin and grey; then the list. */
-      {
+      /* A slow list: the spinner, alone in the middle column under the chips, thin and grey; then the list. Only for a list nobody read ahead. */
+      const annRead = await p.evaluate(() => window.__feedCalls.some((c) => /space=s-ann/.test(c) && /sort=default/.test(c)))
+      if (annRead) {
+        const quick = await sw('[data-space-chip="announcements"]', '!!document.querySelector(\'[data-community-feed="space:announcements"]\') && !document.querySelector(\'[data-feed-waiting]\')', how)
+        expect(quick.calls.length === 0 && !quick.frames.some((f) => f.spinner), "Announcements, read ahead: no spinner, no ask", { calls: quick.calls, spin: quick.frames.filter((f) => f.spinner).length })
+        await p.evaluate(() => document.querySelector('[data-space-chip="glaze-lab"]').click())
+        await sleep(300)
+      } else {
         await p.evaluate(() => { window.__feedLatency = 1500 })
         await p.evaluate((how) => { const el = document.querySelector('[data-space-chip="announcements"]'); if (how === "tap") el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, pointerType: "touch" })); el.click() }, how)
         /* Past the feed's wait (WAIT_MS) and the spinner's own fade in, with room for a slow machine. */
@@ -873,13 +895,15 @@ export const isNativePlatform = () => false
       else await p.hover('[data-space-chip="general"]')
       await sleep(400)
       const asked = await p.evaluate((n) => window.__feedCalls.slice(n), before)
-      expect(asked.length === 1 && /space=s-general/.test(asked[0]), phone ? "a finger landing on a chip asks for its list ahead" : "a pointer resting on a chip asks for its list ahead", asked)
+      /* Read ahead already (see DRIFT above), the press asks for nothing; otherwise it asks once. */
+      const generalRead = await p.evaluate((n) => window.__feedCalls.slice(0, n).some((c) => /space=s-general/.test(c) && /sort=default/.test(c)), before)
+      expect(generalRead ? asked.length === 0 : asked.length === 1 && /space=s-general/.test(asked[0]), phone ? "a finger landing on a chip asks for its list ahead (unless it has been read already)" : "a pointer resting on a chip asks for its list ahead (unless it has been read already)", { asked, generalRead })
       t.prefetched = await sw('[data-space-chip="general"]', '!!document.querySelector(\'[data-community-feed="space:general"]\') && !document.querySelector(\'[data-feed-waiting]\')')
       expect(t.prefetched.calls.length === 0 && t.prefetched.frames.length <= 3, "so the click shows it on the frame after the chip's, with no ask of its own", { ms: t.prefetched.ms, frames: t.prefetched.frames.length, calls: t.prefetched.calls })
       /* Back goes to the list before, at once. */
-      const back = await p.evaluate(() => new Promise((resolve) => { const t0 = performance.now(); let frames = 0; history.back(); const tick = () => { frames++; if (document.querySelector('[data-community-feed="space:glaze-lab"]') || performance.now() - t0 > 2000) resolve({ ms: Math.round(performance.now() - t0), frames, path: location.pathname, key: document.querySelector("[data-community-feed]")?.getAttribute("data-community-feed") }); else requestAnimationFrame(tick) }; requestAnimationFrame(tick) }))
+      const back = await p.evaluate(() => new Promise((resolve) => { const t0 = performance.now(); let frames = 0; history.back(); const tick = () => { frames++; if (document.querySelector('[data-community-feed="space:glaze-lab"]') || performance.now() - t0 > 2000) resolve({ ms: Math.round(performance.now() - t0), frames, path: location.pathname + location.search, key: document.querySelector("[data-community-feed]")?.getAttribute("data-community-feed") }); else requestAnimationFrame(tick) }; requestAnimationFrame(tick) }))
       /* Counted in frames (Back's popstate, the chips, then the list two frame callbacks later), not milliseconds on a shared machine. */
-      expect(back.path === "/community/clay-studio/space/glaze-lab" && back.key === "space:glaze-lab" && back.frames <= 4, "Back returns to the list before, from the cache", back)
+      expect(back.path === spaceAddress("glaze-lab") && back.key === "space:glaze-lab" && back.frames <= 4, "Back returns to the list before, from the cache", back)
       const long = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.frames.map((f) => f.dt))
       const tasks = [t.uncached, t.cached, t.cachedAgain, t.prefetched].flatMap((x) => x.tasks)
       if (process.env.FRAMES) console.log(JSON.stringify(Object.fromEntries(Object.entries(t).map(([k, v]) => [k, v.frames.map((f) => f.dt)]))))
@@ -931,7 +955,12 @@ export const isNativePlatform = () => false
       const closed = await p.evaluate(() => ({ menu: !!document.querySelector("[data-feed-sort-menu]"), focus: document.activeElement?.hasAttribute("data-feed-sort-button") }))
       expect(!closed.menu && closed.focus, "Escape closes it and gives the focus back to the button", closed)
       /* The sort holds across spaces: All in Top is a new list (one ask), Unread another. */
-      const allTop = await sw('[data-space-chip="all"]', '!document.querySelector("[data-feed-waiting]") && /\\|all\\|top$/.test(document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") || "")')
+      /*
+        DRIFT: a list on its way keeps the posts already on screen without saying it is waiting (feed.tsx, "A switch never clears
+        the feed into the spinner": data-feed-waiting is only for an empty screen), so the key alone arrives before the posts do.
+        Waited for until All's own posts are on screen.
+      */
+      const allTop = await sw('[data-space-chip="all"]', '/\\|all\\|top$/.test(document.querySelector("[data-feed-key]")?.getAttribute("data-feed-key") || "") && !!document.querySelector(\'[data-feed-list] [data-post="p-pinned"]\')')
       const order = await p.evaluate(() => [...document.querySelectorAll("[data-feed-list] [data-post]")].map((x) => x.getAttribute("data-post")))
       expect(allTop.calls.length === 1 && /sort=top/.test(allTop.calls[0]) && order.slice(0, 2).join() === "p-pinned,p-last", "the sort holds across spaces: All in Top, most liked first, the pinned post in its place", { calls: allTop.calls, order })
       await p.click("[data-feed-sort-button]")
@@ -1000,10 +1029,17 @@ export const isNativePlatform = () => false
         /* The first pages read ahead (a next page of the list on screen, cursor=, is the feed scrolling, not reading ahead). */
         spans: (window.__feedSpans || []).filter((x) => !/cursor=/.test(x.url)).map((x) => ({ url: x.url, start: Math.round(x.start), end: Math.round(x.end) })),
       }))
-      expect(ahead.places.sort().join() === ["/community/clay-studio/about", "/community/clay-studio/classroom", "/community/clay-studio/events", "/community/clay-studio/leaderboard", "/community/clay-studio/members"].join() && ahead.kinds.every((k) => k === "full"), "once idle, every other place is asked for in full, once each (5 asks), never the one on screen", ahead.places)
+      /*
+        DRIFT (shell-frame.tsx round 24, AND AGAIN AS THE MEMBER MOVES): the places are read through the app's prefetch plan
+        (lib/nav/prefetch-policy.ts), at most its idle budget at a time (4 on a normal device), Leaderboard and Members first,
+        and Classroom is Learn. So: the most opened places first, in full, each once, never the one on screen.
+      */
+      const placesAsked = ahead.places
+      expect(placesAsked.length >= 4 && new Set(placesAsked).size === placesAsked.length && placesAsked.slice(0, 2).sort().join() === "/community/clay-studio/leaderboard,/community/clay-studio/members" && !placesAsked.includes("/community/clay-studio") && ahead.kinds.every((k) => k === "full"), "once idle, the other places are asked for in full (Leaderboard and Members first), once each, never the one on screen", placesAsked)
       const spaces = ahead.spans.map((x) => (/space=([^&]+)/.exec(x.url) || [])[1] || "all")
       expect(spaces.join() === "s-general,s-ann,s-crit,s-glaze" && ahead.spans.every((x) => /sort=default/.test(x.url)), "and the first page of each feed space (4 asks: not All, which is on screen, not the chat space)", spaces)
-      expect(ahead.spans.every((x, i) => i === 0 || x.start >= ahead.spans[i - 1].end - 1), "one after another, never in a burst", ahead.spans)
+      /* DRIFT: feed.tsx reads every space's first page at once now ("AT ONCE ... and not one after another", round 9), a few at a time. */
+      expect(ahead.spans.length === 4, "all four read once each", ahead.spans.length)
       console.log(`        read ahead on idle: ${ahead.places.length} places (full), ${ahead.spans.length} spaces, one at a time`)
 
       await p.evaluate(() => {
@@ -1019,7 +1055,7 @@ export const isNativePlatform = () => false
           if (el.closest("[data-community-left], [data-community-right]")) return "side"
           return "other"
         }
-        const mo = new MutationObserver((list) => { for (const m of list) window.__muts.push({ where: where(m.target), type: m.type, attr: m.attributeName || null, tag: m.target.nodeType === 1 ? m.target.tagName : "#text" }) })
+        const mo = new MutationObserver((list) => { for (const m of list) window.__muts.push({ where: where(m.target), type: m.type, attr: m.attributeName || null, tag: m.target.nodeType === 1 ? m.target.tagName : "#text", card: m.target.nodeType === 1 ? (m.target.closest("[data-wall-contributors]") ? "contributors" : m.target.closest("[data-wall-card]") ? "community" : null) : null }) })
         for (const el of [q("[data-community-top]"), q("[data-community-left]"), q("[data-community-right]")]) if (el) mo.observe(el, { subtree: true, childList: true, attributes: true, characterData: true })
         window.__mo = mo
       })
@@ -1040,7 +1076,8 @@ export const isNativePlatform = () => false
                 const now = performance.now()
                 const body = document.querySelector("[data-community-body]")
                 const sp = body?.querySelector('[data-place-spinner="page"]')
-                const child = body?.firstElementChild
+                /* The page: inside the pull to refresh wrapper, which stays mounted for the whole visit (community-pull-refresh.tsx). */
+                const child = body?.querySelector(":scope > [data-pull-to-refresh] > [data-pull-content] > *") ?? body?.firstElementChild
                 const content = !!child && !sp
                 if (sp && !window.__spinBox && Number(getComputedStyle(sp).opacity) > 0.9) {
                   const s = sp.querySelector("svg")
@@ -1049,7 +1086,7 @@ export const isNativePlatform = () => false
                   const bar = document.querySelector("[data-community-top]").getBoundingClientRect()
                   window.__spinBox = { w: Number(s.getAttribute("width")), cx: Math.round(r.left + r.width / 2), mainCx: Math.round(main.left + main.width / 2), top: Math.round(r.top), barBottom: Math.round(bar.bottom), inMain: r.left >= main.left && r.right <= main.right }
                 }
-                frames.push({ at: Math.round(now - t0), dt: Math.round(now - last), spinner: sp ? Number(getComputedStyle(sp).opacity) : null, content, opacity: content ? Number(getComputedStyle(child).opacity) : null, skeleton: !!document.querySelector(".skeleton-deferred, [data-skeleton]"), mark: [...document.querySelectorAll("[data-community-nav][aria-current=page]")].map((x) => x.getAttribute("data-community-nav"))[0] ?? null })
+                frames.push({ at: Math.round(now - t0), dt: Math.round(now - last), spinner: sp ? Number(getComputedStyle(sp).opacity) : null, content, opacity: content ? Number(getComputedStyle(child).opacity) : null, under: content ? (() => { const u = [...child.children].find((c) => !c.matches("[data-page-title]")); return u ? Number(getComputedStyle(u).opacity) : null })() : null, skeleton: !!document.querySelector(".skeleton-deferred, [data-skeleton]"), mark: [...document.querySelectorAll("[data-community-nav][aria-current=page]")].map((x) => x.getAttribute("data-community-nav"))[0] ?? null })
                 last = now
                 const firstContent = frames.findIndex((f) => f.content)
                 if ((firstContent >= 0 && now - t0 - frames[firstContent].at > 480) || now - t0 > 5000) {
@@ -1062,7 +1099,7 @@ export const isNativePlatform = () => false
           name,
         )
       const report = []
-      for (const [name, path] of [["Members", "members"], ["Classroom", "classroom"], ["Calendar", "events"]]) {
+      for (const [name, path] of [["Members", "members"], ["Learn", "learn"], ["Calendar", "events"]]) {
         const r = await go(name)
         const F = r.frames
         const first = F.findIndex((f) => f.content)
@@ -1084,7 +1121,8 @@ export const isNativePlatform = () => false
         expect(F[0].mark === "Leaderboards" && F.every((f) => !f.skeleton) && first > 0, "a place not read ahead: marked at once, its loading screen in the middle, no skeleton", { mark: F[0].mark, first })
         expect(F.filter((f) => f.at < 140).every((f) => f.spinner === null || f.spinner < 0.05) && shown.length > 0 && shown[0].at >= 150, "the spinner shows only after a moment (~160ms), so a quick place never flashes it", { firstShown: shown[0]?.at, early: F.filter((f) => f.at < 140).map((f) => f.spinner) })
         expect(!!spinBox && spinBox.w === 26 && spinBox.inMain && Math.abs(spinBox.cx - spinBox.mainCx) <= 2 && spinBox.top > spinBox.barBottom, "the app's spinner (26px, round 12), centred in the middle column only, under the bar", spinBox)
-        expect(first > 0 && F[first].opacity < 1 && F.at(-1).opacity === 1, "then the page fades in where the spinner was", { opacity: F[first]?.opacity, last: F.at(-1).opacity })
+        /* DRIFT (shell-frame.tsx ONE LANDING, round 24): in place of a loading screen the page's title stays put and only what is under it fades in. */
+        expect(first > 0 && (F[first].opacity < 1 || (F[first].under ?? 1) < 1) && F.at(-1).opacity === 1 && (F.at(-1).under ?? 1) === 1, "then the page fades in where the spinner was (under its title)", { opacity: F[first]?.opacity, under: F[first]?.under, last: F.at(-1).opacity })
       }
       const home = await go("Community")
       {
@@ -1111,8 +1149,14 @@ export const isNativePlatform = () => false
       console.log(`        frame across 5 moves: renders ${JSON.stringify(frame.renders)}, mutations bar ${frame.bar.length}, side cards ${frame.side.length}, place marks ${frame.mark}`)
       const desk = !phone
       expect(Object.values(frame.same).every(Boolean), "the frame is the same nodes after five moves: the bar, its row, the card, the places, the right column, the tabs, the shell", frame.same)
-      expect((frame.renders.CommunityTopBarInner || 0) === 0 && (frame.renders.WallCommunityCardInner || 0) === 0 && (frame.renders.WallUpcomingInner || 0) === 0 && (frame.renders.WallContributorsCardInner || 0) === 0, "the bar and the side cards are never drawn again (render counts 0); only the places' list marks the new place", frame.renders)
-      expect(frame.bar.length === 0 && frame.side.length === 0 && (desk ? frame.mark > 0 : true), "nothing in the bar or the side cards changes; only the place mark moves", { bar: frame.bar.slice(0, 6), side: frame.side.slice(0, 6) })
+      /*
+        DRIFT: on the Leaderboard the right column steps its Top contributors card aside, since the page is that list
+        (shell-frame.tsx `contributors && !onLeaderboard`, data-leaderboard-page). One of the five moves is Leaderboards and one
+        leaves it, so that card is drawn again once and the right column's class and mark change; nothing else may.
+      */
+      const sideElse = frame.side.filter((m) => m.card !== "contributors" && !(m.tag === "ASIDE" && (m.attr === "class" || m.attr === "data-leaderboard-page")) && !(m.type === "childList" && m.tag === "DIV") && !(m.attr === "class" && m.tag === "DIV"))
+      expect((frame.renders.CommunityTopBarInner || 0) === 0 && (frame.renders.WallCommunityCardInner || 0) === 0 && (frame.renders.WallUpcomingInner || 0) === 0 && (frame.renders.WallContributorsCardInner || 0) <= 1, "the bar and the side cards are never drawn again (the contributors card once, back from the Leaderboard); only the places' list marks the new place", frame.renders)
+      expect(frame.bar.length === 0 && sideElse.length === 0 && (desk ? frame.mark > 0 : true), "nothing in the bar or the side cards changes but the Leaderboard's step aside; only the place mark moves", { bar: frame.bar.slice(0, 6), side: sideElse.slice(0, 6) })
       const allTasks = [cold, home].flatMap((x) => x.tasks)
       console.log(`        long tasks at 4x CPU while moving: ${allTasks.length ? allTasks.join(", ") + "ms" : "none"}`)
 
@@ -1380,7 +1424,7 @@ export const isNativePlatform = () => false
         }
       })
       expect(!!card && /Leo Martins/.test(card.text) && /@leom · Level 2 Regular/.test(card.text) && /Active 2h ago/.test(card.text) && /Weekend potter/.test(card.text) && /4 communities \(1 in common\)/.test(card.text) && /Owner of 1 community/.test(card.text), "the card: name, handle and level, Active 2h ago, bio, 4 communities (1 in common), Owner of 1 community", card?.text)
-      expect(!!card && card.level === "2" && card.profile === "/@leom" && card.buttons.join() === "Profile,Follow", "the level on the photo, and Profile and Follow (round 9: no Message)", card && { level: card.level, buttons: card.buttons })
+      expect(!!card && card.level === "2" && card.profile === "/@leom" && /^Profile,Follow(Following)?$/.test(card.buttons.join()), "the level on the photo, and Profile and Follow (round 9: no Message; the shared FollowButton holds both of its words so its width never changes)", card && { level: card.level, buttons: card.buttons })
       expect(!!card && card.box.y > at.y && card.box.b <= 900 && card.box.x >= 12, "the card sits under the name, inside the window", card?.box)
       expect(!!first && first.o < 0.9 && !!full && full.t - first.t <= 220 && frames.some((f) => f.tf !== "none" && f.o < 1) && new Set(frames.map((f) => f.box)).size === 1, "it fades and settles in within ~150ms, by opacity, scale and shift only, its box where it ends from the first frame", { first, full, n: frames.length, boxes: [...new Set(frames.map((f) => f.box))], mid: frames.slice(0, 5).map((f) => [f.t, f.o.toFixed(2)]) })
       await shot(p, `${label}-person-card`)
@@ -1406,7 +1450,7 @@ export const isNativePlatform = () => false
       await sleep(150)
       const followed = await p.evaluate(() => document.querySelector("[data-person-card-follow]")?.getAttribute("data-person-card-follow"))
       const tick = await p.evaluate(() => { const b = document.querySelector("[data-person-card-follow]"); const svg = b.querySelector("svg"); const r = b.getBoundingClientRect(); return { check: Math.round(svg?.getBoundingClientRect().width ?? 0), fits: b.scrollWidth <= Math.ceil(r.width) } })
-      expect(tick.check === 14 && tick.fits, "Following shows its check and fits its button", tick)
+      expect(tick.check >= 14 && tick.check <= 16 && tick.fits, "Following shows its check (16px in the shared FollowButton now) and fits its button", tick)
       await sleep(400)
       const follows = calls.filter((c) => c.url === "/api/follow" && c.method === "POST").length
       expect(followed === "following" && follows === 1, "Follow follows (one POST /api/follow, for the last press) and shows Following", { followed, follows })
@@ -1470,13 +1514,13 @@ export const isNativePlatform = () => false
   }
   /* ── 1024 and 768: two columns with the right cards under the left, and the tablet ─── */
   if (!process.env.ONLY) {
-    for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 65], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 97]]) {
+    for (const [label, vp, want] of [["laptop-1024", { width: 1024, height: 768, deviceScaleFactor: 1 }, 65], ["tablet-768", { width: 768, height: 1024, deviceScaleFactor: 1 }, 99]]) {
       console.log(`\n${label}`)
       const { p, errors } = await open("feed", "/community/clay-studio", vp)
       await shot(p, `${label}-feed`)
       await shot(p, `${label}-feed-full`, true)
       const geo = await barGeometry(p)
-      expect(geo.height === want, `the header is ${want}px (${want === 65 ? "one 64px row, the places in the left column" : "56 + 40 of tabs + the hairline"})`, geo.height)
+      expect(geo.height === want, `the header is ${want}px (${want === 65 ? "one 64px row, the places in the left column" : "56 + 2 + 40 of tabs + the hairline (the tabs row has a 2px top padding, top-bar.tsx)"})`, geo.height)
       expect(geo.trigger.x >= geo.nameRight, "the hamburger right of the name", geo)
       const pills = await pillsInBar(p)
       expect(pills.pills.length === 0, "nothing pill shaped", pills.pills)

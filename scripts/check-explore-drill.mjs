@@ -340,7 +340,15 @@ results.more = await cases(
   "design",
   "photography",
 )
-results.header = await cases(
+/*
+  DRIFT, NOT A REGRESSION: section 2 drove a category list in the header's phone menu sheet on /explore. That sheet is now
+  drawn on the marketing pages only (components/platform/platform-header-client.tsx isMarketingNavRoute) and holds the
+  account and sign up rows, no categories; on /explore the header's lines are the place navigator. Explore's categories
+  live in the More sheet (section 1), so section 2 runs only if a category sheet comes back to the header.
+*/
+const headerHasCategorySheet = false
+if (!headerHasCategorySheet) console.log("\n2. The header's menu sheet\n  skipped: /explore's header has no category sheet any more (see the note above)")
+else results.header = await cases(
   "2. The header's menu sheet",
   "header",
   "",
@@ -503,4 +511,4 @@ await browser.close()
 if (!process.env.KEEP) rmSync(stubs, { recursive: true, force: true })
 console.log(`\nScreenshots: ${shots}`)
 if (broken) fail(`${broken} check(s) failed.`)
-console.log("\nOne tap opens a category in both sheets, and the filters sheet's check and close measure as asked.")
+console.log("\nOne tap opens a category in the More sheet, and the filters sheet's check and close measure as asked.")

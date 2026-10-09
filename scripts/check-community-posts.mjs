@@ -92,6 +92,16 @@ const expect = (ok, what, got) => {
   if (!ok) broken++
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+/*
+  THE OPENED POST HAS ARRIVED. DRIFT: the computer's panel says so in data-post-overlay-phase; a phone's post is a full screen
+  page since round 19 (post-fullscreen.tsx), which has no phase attribute and puts its white ground up (opacity 1) the moment
+  the morph has arrived. Either one.
+*/
+const POST_SHOWN = () => {
+  const phase = document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase")
+  if (phase) return phase === "shown"
+  return document.querySelector("[data-post-fullscreen-ground]")?.style.opacity === "1"
+}
 /* SECTION=media,viewer,taps runs only those parts (and MESSAGES only without SECTION or with "messages"). */
 const want = (name) => !process.env.SECTION || process.env.SECTION.split(",").includes(name)
 const ORIGIN = "https://storelib.com"
@@ -650,7 +660,8 @@ try {
         })
         expect(sheetBox.top === 0 && sheetBox.h === 844, "the screen covers the phone", sheetBox)
       }
-      const disabled = () => p.$eval("[data-composer-post]", (b) => b.disabled)
+      /* DRIFT: Post stays pressable and says what is missing (composer.tsx PostButton: data-post-ready, "Post: add what's missing"), so "waits" is its ready flag, not the disabled attribute. */
+      const disabled = () => p.$eval("[data-composer-post]", (b) => b.getAttribute("data-post-ready") !== "true")
       expect(await disabled(), "Post waits while it is empty")
       await p.type("[data-composer-title]", "Testing every attachment")
       expect(await disabled(), "a title alone is not enough")
@@ -823,7 +834,7 @@ try {
           if (phone) await p.tap(target)
           else await p.click(target)
         },
-        () => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown",
+        POST_SHOWN,
         450,
         "[data-post-overlay]",
         280,
@@ -846,7 +857,8 @@ try {
       }
       const opened = await p.evaluate(() => ({ path: location.pathname, overlay: document.querySelector("[data-post-overlay]")?.getAttribute("data-post-overlay"), router: (window.__router ?? []).filter(([k]) => k === "push" || k === "link") }))
       expect(opened.overlay === (phone ? "phone" : "panel"), phone ? "a phone opens the post as a screen" : "a computer opens the post over the feed", opened.overlay)
-      expect(opened.path === "/community/studio-notes/post/p-video" && opened.router.length === 0, "the address is the post's own, with no page load", opened)
+      /* DRIFT: a post's address carries its title now, its id at the end (lib/communities/post-url.ts postPath): /post/<title>-pvideo. */
+      expect(/^\/community\/studio-notes\/post\/(?:[a-z0-9-]+-)?p-?video$/.test(opened.path) && opened.router.length === 0, "the address is the post's own, with no page load", opened)
       const runs = [opening]
       await sleep(300)
       expect(calls.some((c) => /\/posts\/p-video\/comments$/.test(c.url)), "the comments are read for the opened post")
@@ -865,7 +877,8 @@ try {
         async () => {
           if (phone) {
             /* A swipe down on the screen's bar. */
-            const bar = await p.$("[data-post-overlay-bar]")
+            /* DRIFT: a phone post is a full screen page since round 19 (post-fullscreen.tsx) with no grab bar; the swipe starts on the page itself. */
+            const bar = (await p.$("[data-post-overlay-bar]")) ?? (await p.$("[data-post-overlay-scroll]"))
             const b = await bar.boundingBox()
             const x = b.x + b.width / 2
             const y = b.y + b.height / 2
@@ -891,7 +904,7 @@ try {
       for (let i = 0; i < 2; i++) {
         await sleep(400)
         runs.push(
-          await frames(p, cdp, () => (phone ? p.tap(target) : p.click(target)), () => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", 450, "[data-post-overlay]", 280),
+          await frames(p, cdp, () => (phone ? p.tap(target) : p.click(target)), POST_SHOWN, 450, "[data-post-overlay]", 280),
         )
         await p.keyboard.press("Escape")
         await sleep(500)
@@ -1251,7 +1264,7 @@ try {
 
       /* Open the post; six saves there end where they started: not saved, and nothing said. */
       await p.click('[data-post="p-text"] [data-post-excerpt]')
-      await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 3000 }).catch(() => {})
+      await p.waitForFunction(POST_SHOWN, { timeout: 3000 }).catch(() => {})
       await sleep(500)
       const SAVE = "[data-post-overlay] [data-save]"
       await watch(SAVE, null)
@@ -1469,7 +1482,8 @@ try {
         expect(all.every((c) => c.band === "rgb(241, 242, 244)"), "the band is #f1f2f4", all.map((c) => c.band))
         expect(all.slice(1).every((c, i) => c.top === all[i].bottom), "the band is all there is between two posts (no gap)", all.map((c) => [c.top, c.bottom]))
         expect(rows.composer && rows.composer.x === 0 && rows.composer.w === 390 && rows.composer.bottom === all[0].top, "the composer above is a row the same way", rows.composer)
-        expect(rows.intro.shown && rows.intro.kind === "pair" && rows.intro.x === 16 && rows.intro.w === 358 && rows.intro.belowWords && rows.intro.radius === "12px" && rows.intro.lazy, "MEDIA under the words, the row's width inside its 16px padding, rounded 12px, lazy (two side by side)", rows.intro)
+        /* DRIFT: two pictures are the card's "grid" now, and the first screenful's pictures load eagerly (media.tsx `eager`), so neither "pair" nor lazy is asked. */
+        expect(rows.intro.shown && /^(pair|grid)$/.test(rows.intro.kind) && rows.intro.x === 16 && rows.intro.w === 358 && rows.intro.belowWords && rows.intro.radius === "12px", "MEDIA under the words, the row's width inside its 16px padding, rounded 12px (two side by side)", rows.intro)
         expect(rows.video.shown && rows.video.kind === "single" && Math.abs(rows.video.h - (rows.video.w * 9) / 16) <= 1.5, "one video by address: a 16:9 box", rows.video)
         expect(rows.link.shown && rows.text.shown === false, "a link's picture shows, a post with only words has nothing", { link: rows.link.shown, text: rows.text.shown })
         expect((rows.intro.thumb === null || rows.intro.thumb === "none") && rows.video.thumb === "none", "and no thumbnail on the right on a phone", [rows.intro.thumb, rows.video.thumb])
@@ -1527,7 +1541,8 @@ try {
       })
 
     /* ── SHEET: a phone's post is the app's draggable sheet ───────── */
-    if (want("sheet") && phone) {
+    /* DRIFT: round 19 replaced the phone's post sheet with a full screen page that grows out of its card (post-fullscreen.tsx); scripts/check-community-morph.mjs measures that open, close and swipe at five sizes. SHEET=1 still runs this. */
+    if (want("sheet") && phone && process.env.SHEET === "1") {
       const { p, errors } = await open("feed", "/community/studio-notes", vp)
       const cdp = await p.target().createCDPSession()
       const panelY = () => p.evaluate(() => {
@@ -1538,7 +1553,7 @@ try {
       })
       const openIt = async () => {
         await p.tap('[data-post="p-text"] [data-post-excerpt]')
-        await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+        await p.waitForFunction(POST_SHOWN, { timeout: 4000 }).catch(() => {})
         await sleep(250)
       }
       await openIt()
@@ -1586,7 +1601,7 @@ try {
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
       await openIt()
       const bar = await p.evaluate(() => {
-        const r = document.querySelector("[data-post-overlay-bar]").getBoundingClientRect()
+        const r = (document.querySelector("[data-post-overlay-bar]") ?? document.querySelector("[data-post-overlay-scroll]")).getBoundingClientRect()
         return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
       })
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
@@ -1713,7 +1728,7 @@ try {
         const tgt = '[data-post="p-gif-1"] [data-post-excerpt]'
         if (phone) await p.tap(tgt)
         else await p.click(tgt)
-        await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+        await p.waitForFunction(POST_SHOWN, { timeout: 4000 }).catch(() => {})
         await sleep(300)
         const mid = await where()
         if (way === "escape") await p.keyboard.press("Escape")
@@ -1722,7 +1737,7 @@ try {
         else if (way === "button") await p.tap("[data-post-overlay-close]")
         else if (way === "swipe") {
           const bar = await p.evaluate(() => {
-            const r = document.querySelector("[data-post-overlay-bar]").getBoundingClientRect()
+            const r = (document.querySelector("[data-post-overlay-bar]") ?? document.querySelector("[data-post-overlay-scroll]")).getBoundingClientRect()
             return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
           })
           await touchDrag(p, cdp, bar, { x: bar.x, y: bar.y + 160 }, { steps: 5, stepMs: 12 })
@@ -2188,7 +2203,7 @@ try {
       await p.click("[data-leave-go]").catch(() => {})
       await sleep(500)
       await p.tap('[data-post="p-text"] [data-post-excerpt]')
-      await p.waitForFunction(() => document.querySelector("[data-post-overlay-phase]")?.getAttribute("data-post-overlay-phase") === "shown", { timeout: 4000 }).catch(() => {})
+      await p.waitForFunction(POST_SHOWN, { timeout: 4000 }).catch(() => {})
       await p.waitForSelector("[data-post-overlay] [data-comment-box=comment] textarea", { timeout: 4000 }).catch(() => {})
       await p.tap("[data-post-overlay] [data-comment-box=comment] textarea")
       await keyboard(504)

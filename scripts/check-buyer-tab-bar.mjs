@@ -235,7 +235,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
     const after = await barState(p)
     const log = await p.evaluate(() => window.__router)
     expect(log.some(([k, h]) => k === "push" && h === "/account/library"), "the press opens the library", log)
-    expect(log.some(([k, h]) => k === "prefetch" && h === "/account/library"), "and asked for it the moment the finger landed", log.filter(([k]) => k === "prefetch"))
+    /*
+      DRIFT: the bar now reads every other tab's page WHOLE as soon as it is up (buyer-tab-bar.tsx, "The page you are about to
+      open, whole, as soon as this bar is up"), and lib/nav/prefetch-policy.ts prefetchHref does not ask again for a page read
+      whole moments ago. So the press finds Library already asked for (IDLE above); a second ask on the press is no longer
+      expected. What matters is that it was asked for whole before the finger lifted, at the bar's mount or at the press.
+    */
+    expect(warm.includes("/account/library") || log.some(([k, h]) => k === "prefetch" && h === "/account/library"), "and it was asked for before the finger lifted (whole, when the bar came up, or on the press)", { warm, press: log.filter(([k]) => k === "prefetch") })
 
     expect(after.current === 2 && after.inks[2] === 1 && after.inks[0] === 0 && alpha(after.lens.bg) === 0, "the page arrives, Library fills, and the glass is gone", { current: after.current, inks: after.inks, alpha: alpha(after.lens.bg) })
     await shotBar(p, "phone-rest-library.png")
@@ -337,17 +343,18 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       cards: [...document.querySelectorAll("[data-account-card]")].map((c) => c.getAttribute("data-account-card")),
       sideways: document.documentElement.scrollWidth - innerWidth,
       h1: document.querySelector("h1")?.textContent,
-      edit: !!document.querySelector("[data-account-edit]"),
-      purchases: document.querySelector("[data-account-purchases]")?.textContent ?? null,
-      facts: [...document.querySelectorAll("[data-account-fact]")].map((r) => r.getAttribute("data-account-fact")),
+      /*
+        DRIFT: /account was a card of purchases with rows under it when this was written. It is now the person's own profile
+        page (components/account/account-hub.tsx): the creator page's header with Edit profile on the cover, then the owner's
+        pills (lib/profile/owner-pills.ts). What is checked is that shape.
+      */
+      edit: !![...document.querySelectorAll("[data-account-hub] a, [data-account-hub] button")].find((el) => /Edit profile/.test(el.getAttribute("aria-label") || el.textContent || "")),
+      pills: [...document.querySelectorAll("[data-profile-owner-pill]")].map((x) => x.getAttribute("data-profile-owner-pill")),
       fields: document.querySelectorAll("[data-account-hub] input").length,
-      sell: !!document.querySelector('a[href="/sell"]'),
       smallTargets: [...document.querySelectorAll("[data-account-hub] button, [data-account-hub] a")].filter((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 40 }).map((el) => `${el.textContent.trim().slice(0, 20)} ${Math.round(el.getBoundingClientRect().height)}`),
     }))
-    expect(page.h1 === "Alex Morgan" && page.edit, "ACCOUNT: a profile, headed by the person, with Edit profile", { h1: page.h1, edit: page.edit })
-    expect(page.cards.join() === "library" && page.fields === 0, "one card: the newest purchases and what else they have; nothing to type", page)
-    /* Purchases is the card's own subline now, so the rows under it are the rest. */
-    expect(page.purchases === "4 purchases" && page.facts.join() === "courses,memberships,reviews,wishlist" && page.sell, "4 purchases, then courses, memberships, reviews, wishlist, and Become a seller", { purchases: page.purchases, facts: page.facts })
+    expect(page.h1 === "Alex Morgan" && page.edit, "ACCOUNT: the person's profile, headed by them, with Edit profile", { h1: page.h1, edit: page.edit })
+    expect(page.pills.includes("library") && page.pills.includes("settings") && page.fields === 0, "the owner's pills, Library and Settings among them; nothing to type", page.pills)
     expect(page.sideways <= 0, "nothing scrolls sideways at 390", page.sideways)
     expect(page.smallTargets.length === 0, "every control is a thumb's size", page.smallTargets)
     await p.screenshot({ path: join(shots, "account-390.png"), fullPage: true })
@@ -399,13 +406,13 @@ export default function Image({ src, alt, fill, sizes, priority, ...rest }) { re
       display: getComputedStyle(document.querySelector("[data-buyer-tab-bar]")).display,
       room: document.querySelector("[data-buyer-tabs-room]").getBoundingClientRect().height,
       h: getComputedStyle(document.documentElement).getPropertyValue("--buyer-tabs-h").trim(),
-      width: Math.round(document.querySelector("[data-probe-account-column]").getBoundingClientRect().width),
-      dashboard: !!document.querySelector('a[href="/app"]'),
+      /* DRIFT: the profile's column is components/account/account-column.tsx now (960px at most), not 720, and the
+         profile page has no Dashboard / Become a seller row (that is the header's navigator). */
+      width: Math.round(document.querySelector("[data-account-column]")?.getBoundingClientRect().width ?? -1),
       sideways: document.documentElement.scrollWidth - innerWidth,
     }))
     expect(d.display === "none" && d.room === 0 && d.h === "", "DESKTOP: no bar, no room left for one", d)
-    expect(d.width === 720 && d.sideways <= 0, "the profile is one 720px column", d.width)
-    expect(d.dashboard, "a seller gets Dashboard where a buyer gets Become a seller")
+    expect(d.width > 0 && d.width <= 960 && d.sideways <= 0, "the profile is one column, 960px at most", d.width)
     await p.screenshot({ path: join(shots, "account-1280.png"), fullPage: true })
     expect(errors.length === 0, "no errors on the page", errors)
     await p.close()

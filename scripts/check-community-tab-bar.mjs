@@ -13,9 +13,8 @@
  *             /community/<slug>; on the home itself it scrolls to the top
  *   SEARCH    a press on Search opens the community's own search screen
  *             with its field focused, and it finds the community's posts
- *   VISITOR   on the community's page for somebody not in it, the join bar
- *             stands on the tab bar (touching, not under it), and Search is
- *             the site's search (there is no community search to open)
+ *   VISITOR   on the community's page for somebody signed out there is no
+ *             tab bar (lib/nav/buyer-tabs.ts), and the join bar is the foot
  *   OUTSIDE   on /explore the bar is as it was: Home is /explore, and Search
  *             is the site's search even with a community's button mounted
  *   ROOM      the last thing on the page ends above the bar; a chat space's
@@ -247,24 +246,39 @@ export const isNativePlatform = () => false
     const { p, errors } = await open("/community/clay-studio/about?case=about-visitor", PHONE)
     const s = await bar(p)
     const jb = await p.evaluate(() => { const j = document.querySelector("[data-join-bar]"); if (!j) return null; const r = j.getBoundingClientRect(); const row = j.querySelector("[data-join-bar-row]").getBoundingClientRect(); return { top: Math.round(r.top), bottom: Math.round(r.bottom), rowBottom: Math.round(row.bottom), vh: innerHeight, pb: getComputedStyle(j).paddingBottom } })
-    expect(s && s.shown && s.labels[3] === "Log in", "the bar is there, Profile is Log in while signed out", s && s.labels)
-    /* Round 10 (63.webp): the join bar is one white surface down to the screen's foot, its button 12px above the tab bar, so no page shows between them. */
-    expect(jb && jb.bottom === jb.vh && Math.abs(jb.rowBottom + 12 - s.top) <= 1, "the join bar's button sits 12px above the tab bar and its white runs on under it to the foot", { jb, barTop: s && s.top })
+    /*
+      DRIFT, NOT A REGRESSION: this section used to expect the tab bar here, with the join bar standing on it. A later round
+      took the bar off a community's pages for somebody signed out ("visitors keep the join page clear", lib/nav/buyer-tabs.ts
+      buyerTabsBelongOn, pinned by tests/native-app-links.test.ts "signed-out visitors on a community see no tab bar"). So a
+      visitor gets no bar, and the join bar is the foot itself: its white to the screen's edge, its button 12px above it.
+    */
+    expect(!s || !s.shown, "no tab bar for somebody signed out; the join page stays clear", s && { shown: s.shown })
+    expect(jb && jb.bottom === jb.vh && jb.vh - jb.rowBottom === 12, "the join bar runs to the screen's foot, its button 12px above it", jb)
     await p.screenshot({ path: join(shots, "phone-community-visitor.png") })
-    await p.evaluate(() => { window.__router = [] })
-    await touchTap(p, s.slots[1].x, s.slots[1].y)
-    const which = await p.evaluate(() => ({ community: !!document.querySelector("[data-community-search-screen]"), site: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay") ?? null }))
-    expect(!which.community && which.site === "open", "Search, with no community search to open, is the site's search", which)
-    expect(errors.length === 0 && s.sideways <= 0, "no page error, nothing sideways", { errors, sideways: s.sideways })
+    const sideways = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+    expect(errors.length === 0 && sideways <= 0, "no page error, nothing sideways", { errors, sideways })
     await p.close()
   }
 
   /* ── OUTSIDE ───────────────────────────────────────────────────────── */
   console.log("\nphone 390, outside a community (/explore)")
   {
+    /*
+      DRIFT: the fixture draws the member frame on every address, and the frame now enters the community context itself
+      (shell-frame.tsx, so Home has the community's id and name too). In the product that frame only exists under
+      /community/<slug>. So Home with no community behind it is read on a page drawn without the member frame (the
+      visitor's frame enters nothing), and the page with the frame mounted checks round 12's rule: Home stays the
+      community's, and Search is still the site's.
+    */
+    {
+      const { p: q } = await open("/explore?case=about-visitor&signedin=1", PHONE)
+      const s0 = await bar(q)
+      expect(s0 && s0.shown && s0.hrefs[0] === "/explore" && s0.current === 0, "with no community behind it, Home is /explore, as before", s0 && { home: s0.hrefs[0], current: s0.current })
+      await q.close()
+    }
     const { p, errors } = await open("/explore?case=feed&signedin=1", PHONE)
     const s = await bar(p)
-    expect(s && s.shown && s.hrefs[0] === "/explore" && s.current === 0, "Home is /explore, as before", s && { home: s.hrefs[0], current: s.current })
+    expect(s && s.shown && s.hrefs[0] === "/community/clay-studio", "with a community entered, Home leads back to it from /explore (round 12)", s && { home: s.hrefs[0], current: s.current })
     await touchTap(p, s.slots[1].x, s.slots[1].y)
     const which = await p.evaluate(() => ({ community: !!document.querySelector("[data-community-search-screen]"), site: document.querySelector("[data-search-overlay]")?.getAttribute("data-search-overlay") ?? null }))
     expect(!which.community && which.site === "open", "Search is the site's search, even with a community's button on the page", which)
@@ -286,7 +300,8 @@ export const isNativePlatform = () => false
     }
     /* The navigator's Explore ends it: the next page's Home is Storelib's again. */
     await p.evaluate(() => sessionStorage.removeItem("storelib:community-context"))
-    await p.goto(`${ORIGIN}/account?case=feed&signedin=1`, { waitUntil: "load" })
+    /* Drawn without the member frame, which would enter the community again (see OUTSIDE). */
+    await p.goto(`${ORIGIN}/account?case=about-visitor&signedin=1`, { waitUntil: "load" })
     await sleep(700)
     const after = await bar(p)
     expect(after && after.hrefs[0] === "/explore", "once it has ended, Home is Explore again", after && { home: after.hrefs[0] })

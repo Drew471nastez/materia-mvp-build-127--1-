@@ -445,7 +445,7 @@ console.log("\n3. The filters")
   const afterFree = await p.evaluate(() => ({
     prices: [...document.querySelectorAll("main .grid.lg\\:grid-cols-3 > *")].map((c) => c.textContent.includes("Free")),
     badge: document.querySelector("[data-filters-button]").textContent.replace(/\D/g, ""),
-    clear: !!document.querySelector("[data-filter-clear]"),
+    clear: !!document.querySelector("[data-filter-clear][data-on]"),
     open: !!document.querySelector("[data-filters-panel]"),
   }))
   expect(tickAt === "true", "the choice is marked in the same tap", tickAt)
@@ -454,7 +454,8 @@ console.log("\n3. The filters")
   await p.screenshot({ path: join(shots, "filters-1280-free.png") })
   await p.click("[data-filter-clear]")
   await sleep(250)
-  expect(await p.evaluate(() => !document.querySelector("[data-filter-clear]")), "Clear all puts it back and goes away", Date.now() - t0)
+  /* DRIFT: Clear all is always in place now and fades in and out (explore-filters.tsx CLEAR ALL COMES AND GOES); data-on says whether it is showing. */
+  expect(await p.evaluate(() => !document.querySelector("[data-filter-clear][data-on]")), "Clear all puts it back and goes away", Date.now() - t0)
   await p.keyboard.press("Escape")
   await sleep(250)
   expect(await p.evaluate(() => !document.querySelector("[data-filters-panel]")), "Escape closes it")

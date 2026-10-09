@@ -38,7 +38,8 @@ import { useEffect } from "react"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 
 /** What arrives under the bar fades in (opacity only: a visitor never moves between places, so nothing rises). */
-const ARRIVE = "[&>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>*]:animate-none"
+/* The page inside the pull to refresh wrapper, which stays mounted for the visit (community-pull-refresh.tsx), so each page that arrives fades, not only the first. */
+const ARRIVE = "[&>[data-pull-to-refresh]>[data-pull-content]>*]:animate-[fade-in_200ms_cubic-bezier(0.32,0.72,0,1)] motion-reduce:[&>[data-pull-to-refresh]>[data-pull-content]>*]:animate-none"
 
 /** The member frame's own scrollbar room (shell-frame.tsx GUTTER), so the two frames centre on the same line. */
 const GUTTER = "@media (min-width:1024px){html{scrollbar-gutter:stable}}html{overscroll-behavior-y:none}"

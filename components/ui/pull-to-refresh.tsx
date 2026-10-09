@@ -76,6 +76,7 @@ export function PullToRefresh({
   className,
   fill = false,
   spinnerYOffset = 0,
+  disabled = false,
 }: {
   onRefresh: () => Promise<unknown> | void
   children: ReactNode
@@ -84,6 +85,8 @@ export function PullToRefresh({
   fill?: boolean
   /** Nudge the iOS spokes indicator down (px). */
   spinnerYOffset?: number
+  /** No pull here, with the wrapper and its children kept exactly as they are (see the hook's `enabled`). */
+  disabled?: boolean
 }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const scrollerRef = useRef<HTMLElement | null>(null)
@@ -97,7 +100,8 @@ export function PullToRefresh({
   useLayoutEffect(() => {
     const root = rootRef.current
     if (!root) return
-    const outer = root.parentElement?.closest("[data-pull-to-refresh]")
+    /* An outer wrapper whose pull is off for this address is not a second ring (community-pull-refresh.tsx). */
+    const outer = root.parentElement?.closest("[data-pull-to-refresh]:not([data-ptr-off])")
     setNestedPtr(!!outer && outer !== root)
   }, [])
 
@@ -123,6 +127,7 @@ export function PullToRefresh({
     /* Whatever is inside is somebody else's: a sideways row keeps its swipe without having to be named. */
     axisFirst: true,
     spinnerYOffset,
+    enabled: !disabled,
   })
 
   const pathname = usePathname()
@@ -141,7 +146,7 @@ export function PullToRefresh({
   }, [])
 
   return (
-    <div ref={rootRef} data-pull-to-refresh="" data-ptr-nested={nestedPtr ? "" : undefined} className={cn("relative", fill && "h-full", className)}>
+    <div ref={rootRef} data-pull-to-refresh="" data-ptr-nested={nestedPtr ? "" : undefined} data-ptr-off={disabled ? "" : undefined} className={cn("relative", fill && "h-full", className)}>
       {nestedPtr ? <div ref={indicatorRef} aria-hidden className="hidden" /> : <PullSpokes ref={indicatorRef} />}
       <div ref={contentRef} data-pull-content="" data-keep-transform="" className={fill ? "h-full" : undefined}>
         {children}
@@ -213,6 +218,17 @@ export function dispatchPullRefresh(scope: string): Promise<void> {
   )
 }
 
+/** RouterPullToRefresh's refresh: the server's copy of the page (router.refresh) and the scope's listeners, the ring waiting for both. */
+export function refreshRouterScope(router: { refresh: () => void }, scope: string): Promise<unknown> {
+  const server = new Promise<void>((resolve) => {
+    router.refresh()
+    /* One frame for the refresh to commit without overlapping stale UI under the pull's translate. */
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+    window.setTimeout(resolve, 6000)
+  })
+  return Promise.all([server, dispatchPullRefresh(scope)])
+}
+
 /** A page whose data a listener owns: the pull is the event, and the ring waits for the listener. */
 export function PullToRefreshEvent({
   scope,
@@ -259,15 +275,7 @@ export function RouterPullToRefresh({
   spinnerYOffset?: number
 }) {
   const router = useRouter()
-  const onRefresh = useCallback(() => {
-    const server = new Promise<void>((resolve) => {
-      router.refresh()
-      /* One frame for the refresh to commit without overlapping stale UI under a pull transform. */
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
-      window.setTimeout(resolve, 6000)
-    })
-    return Promise.all([server, dispatchPullRefresh(scope)])
-  }, [router, scope])
+  const onRefresh = useCallback(() => refreshRouterScope(router, scope), [router, scope])
   return (
     <PullToRefresh onRefresh={onRefresh} className={className} fill={fill} spinnerYOffset={spinnerYOffset}>
       {children}

@@ -161,7 +161,12 @@ const FULL = "full" as never
  * first move to another place (Classroom, Members...) every page that
  * arrives lands this way. A space switched in place is not a move.
  */
-export const ARRIVE = "[&>*]:animate-[community-place-in_260ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:[&>*]:animate-none"
+/*
+  THE PAGE, NOT ITS WRAPPER. The body holds the pull to refresh wrapper (community-pull-refresh.tsx), which is one element for
+  the whole visit now; the page is the child of its content box. Aimed at the body's own child, the landing ran once, the
+  first time the class was put on, and never again for the next place. Written out whole, so Tailwind finds it.
+*/
+export const ARRIVE = "[&>[data-pull-to-refresh]>[data-pull-content]>*]:animate-[community-place-in_260ms_cubic-bezier(0.22,1,0.36,1)] motion-reduce:[&>[data-pull-to-refresh]>[data-pull-content]>*]:animate-none"
 
 /** The landing's keyframes, printed with the frame (and the visitor's frame, public-frame.tsx), so no stylesheet has to carry them. */
 export const PLACE_KEYFRAMES = "@keyframes community-place-in{from{opacity:0;translate:0 6px}to{opacity:1;translate:0 0}}"
@@ -268,7 +273,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   /* A section tab lands at the top. Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
   useSectionTop(pathname || "", community.slug)
   useReturnScroll(pathname || "")
-  /* The bar is white, so the browser's bar and the phone's status bar are too. */
+  /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
   const appearance = community.appearance === "dark" ? "dark" : "light"
   useCommunityTheme(appearance)
   useLightChrome(true, appearance === "dark" ? "#0e1014" : "#f8f9fa")
@@ -501,7 +506,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   )
 
   return (
-    /* The header's real heights until it is measured (56 + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. */
+    /* The header's real heights until it is measured (56 + the tabs' 2px top padding + 40 of tabs + its hairline below 1024px, one 64px row + 1 from 1024px): no jump on the first frame. It said 97 after the tabs row gained its 2px (top-bar.tsx), so a chat's height and the sticky pills moved 2px when the bar was measured. */
     <PlaceContext.Provider value={place}>
       <style>{GUTTER + PLACE_KEYFRAMES}</style>
       <CommunityFixedFootWatch />
@@ -509,7 +514,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         data-community-shell=""
         data-community-theme={appearance}
         data-community-landing={landing ? "" : undefined}
-        className="min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:97px] lg:[--community-top:65px]"
+        className="min-h-svh bg-[#f8f9fa] text-[#1a1a2e] transition-[background-color,color] duration-300 motion-reduce:transition-none [--community-top:99px] lg:[--community-top:65px]"
       >
         <CommunityTopBar data={topBar} messages={canMessage ? messages : null} messagesOpen={!!chat} onMessages={onMessages} search={searchProp} menu={menu}>
           {tabs}

@@ -1603,7 +1603,7 @@ function PollEditor({ poll, onChange, onRemove }: { poll: PollDraft; onChange: (
                   role="radio"
                   aria-checked={poll.closesIn === d.value}
                   onClick={() => set({ closesIn: d.value })}
-                  className={`h-9 whitespace-nowrap rounded-full px-2.5 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:h-8 ${poll.closesIn === d.value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
+                  className={`h-10 whitespace-nowrap rounded-full px-2.5 text-[13px] font-medium outline-none transition-[background-color,color,box-shadow] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:h-8 ${poll.closesIn === d.value ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.1)]" : "text-[#6b7280] hover:text-[#1a1a2e]"}`}
                   data-poll-ends={d.value || "never"}
                 >
                   {d.label}
