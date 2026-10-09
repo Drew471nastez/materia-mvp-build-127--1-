@@ -117,6 +117,27 @@ const QUOTES = `<div class="quotes">{% content_for 'blocks' %}</div>
 {% endschema %}
 `
 
+const RESOURCE_LIST = `{% liquid
+  assign settings = settings | default: empty
+  unless settings != empty
+    echo '<!-- Error: settings parameter required for resource-list snippet -->'
+    break
+  endunless
+  echo settings.layout_type
+%}
+<div class="resource-list"></div>
+`
+
+const PRODUCT_LIST = `<div class="section-resource-list">
+  {% render 'resource-list', settings: section.settings, content_type: 'products' %}
+</div>
+{% schema %}
+{ "name": "Featured collection", "settings": [
+  { "type": "select", "id": "layout_type", "label": "Layout", "default": "grid", "options": [{ "value": "grid", "label": "Grid" }] }
+], "presets": [{ "name": "Featured collection" }] }
+{% endschema %}
+`
+
 const QUOTE_BLOCK = `<blockquote class="quote" {{ block.shopify_attributes }}>{{ block.settings.text }}</blockquote>
 {% schema %}
 { "name": "Quote", "tag": null, "settings": [{ "type": "inline_richtext", "id": "text", "label": "Text", "default": "Great shop" }] }
@@ -139,6 +160,8 @@ async function shopifyZip(): Promise<JSZip> {
   zip.file("sections/header-group.json", JSON.stringify({ type: "header", name: "Header group", sections: {}, order: [] }))
   zip.file("blocks/_quote.liquid", QUOTE_BLOCK)
   zip.file("snippets/badge.liquid", `<span class="badge">{{ label }}</span>`)
+  zip.file("snippets/resource-list.liquid", RESOURCE_LIST)
+  zip.file("sections/product-list.liquid", PRODUCT_LIST)
   zip.file("assets/logo.png", PNG)
   zip.file("assets/section-feature.css", `.feature h2 { font-size: 28px; }`)
   zip.file("assets/theme.js", `console.log("never read")`)
@@ -198,6 +221,8 @@ async function shopifyZip(): Promise<JSZip> {
   check("the t filter is the words from locales/en.default.json", src.includes(`<p class="note">Free returns within 30 days</p>`))
   check("case/when is an if/elsif chain, a when with two values is an or", src.includes(`{% if settings.layout == "grid" %}`) && src.includes(`{% elsif settings.layout == "list" or settings.layout == "rows" %}`) && src.includes("{% else %}<span>Other</span>"))
   check("a rendered snippet is written in place, its parameter read as what was passed", src.includes(`<span class="badge">{{ settings.heading }}</span>`))
+  const list = pkg.files["sections/product-list.storelib"] ?? ""
+  check("a snippet that requires settings still receives the object that was passed", list.includes("{% if not (true) %}") && list.includes("{{ settings.layout_type }}") && list.includes('class="resource-list"'), list.slice(0, 500))
   check("for block in section.blocks is for block in blocks", src.includes("{% for block in blocks %}"))
   check("richtext prints with raw, as Shopify printed it", src.includes("{{ settings.text | raw }}"))
   check("image_url | image_tag is an <img> of the setting", src.includes(`<img src="{{ settings.image }}" alt="" loading="lazy">`))
@@ -249,7 +274,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("a collection template has no Storelib page", skipped("templates/collection.json", /no collection template/))
   check("the layout is not used", skipped("layout/theme.liquid", /page shell/))
   check("the theme's scripts are left out", skipped("assets/", /1 script was left out/))
-  check("the summary line counts sections", conversionSummary(report) === "Converted 3 of 6 sections and 1 of 1 blocks from Shopify. 3 were left out.", conversionSummary(report))
+  check("the summary line counts sections", conversionSummary(report) === "Converted 4 of 7 sections and 1 of 1 blocks from Shopify. 3 were left out.", conversionSummary(report))
   check("the license reminder says the importer is responsible", /right to use/.test(SHOPIFY_LICENSE_NOTICE) && !/—/.test(SHOPIFY_LICENSE_NOTICE))
   check("no report line uses an em dash", ![...report.notes.map((n) => n.message), ...report.skipped.map((s) => s.reason)].some((m) => m.includes("—")))
 

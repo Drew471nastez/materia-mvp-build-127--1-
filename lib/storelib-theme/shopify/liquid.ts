@@ -627,7 +627,19 @@ class Writer {
     if (b) {
       if (b.kind === "none" || b.kind === "chain") return null
       if (b.kind === "value") {
-        if (b.node.k === "path") return this.path([...b.node.segs, ...segs.slice(1)], b.scope, depth + 1)
+        if (b.node.k === "path") {
+          /*
+            `settings` passed as `section.settings` is the object. Storelib
+            reads `settings.layout_type`, not the object, but
+            `settings != empty` only asks whether it was passed. A variable
+            assigned to one setting (`heading = section.settings.heading`)
+            is that setting, and is followed.
+          */
+          const bound = b.node.segs
+          const wholeSettings = bound.length === 2 && bound[0] === "section" && bound[1] === "settings"
+          if (wholeSettings && segs.length === 1) return "true"
+          return this.path([...bound, ...segs.slice(1)], b.scope, depth + 1)
+        }
         return segs.length === 1 && b.node.k === "lit" ? b.node.text : null
       }
       /* A loop variable. Over the section's own blocks, a block setting must be one they declare. */
@@ -850,7 +862,22 @@ class Writer {
     const frame = this.scope.frame
     const had = frame.vars.get(m[1])
     if (had) {
-      /* Assigned again: its value depends on which branch ran, which is decided on Shopify's server. */
+      /*
+        `assign settings = settings | default: empty` is how a snippet
+        accepts a parameter (Horizon's resource-list). That is not a second
+        value: wiping it made `settings` empty, so the snippet printed
+        "settings parameter required" and nothing else. A real second
+        assignment still cannot be known until the page renders, and is
+        read as empty, as before.
+      */
+      const again = parseChain(m[2])
+      const same =
+        again &&
+        again.head.k === "path" &&
+        again.head.segs.length === 1 &&
+        again.head.segs[0] === m[1] &&
+        again.filters.every((f) => f.name === "default")
+      if (same && had.kind !== "none") return
       frame.vars.set(m[1], { kind: "none" })
       return
     }
