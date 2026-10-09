@@ -598,6 +598,8 @@ class Writer {
 
     if (head === "null" && !out.some((f) => f.startsWith("default"))) return { kind: "drop" }
     if (!this.css && this.isMarkup(head) && !out.some((f) => TEXT_AFTER.has(f.split(":")[0]))) out.push("raw")
+    /* A tag name held in a variable (`element = 'div'`) has to be the word, not {{ "div" }}, or the tag is not a tag. */
+    if (!this.css && out.length === 0 && /^"[A-Za-z][\w-]*"$/.test(head)) return { kind: "text", text: head.slice(1, -1) }
     return { kind: "expr", head, filters: out }
   }
 
@@ -625,7 +627,18 @@ class Writer {
     const root = String(segs[0])
     const b = scope.lookup(root)
     if (b) {
-      if (b.kind === "none" || b.kind === "chain") return null
+      if (b.kind === "none") return null
+      /*
+        `assign plain = block.settings.text | strip` is one value. Reading
+        it later as nothing put the heading in `{% elsif null %}`, which
+        never runs, so a Horizon hero drew only the button.
+      */
+      if (b.kind === "chain") {
+        const inner = this.chain(b.expr, b.scope, depth + 1)
+        if (inner.kind === "expr") return inner.head
+        if (inner.kind === "text") return inner.text
+        return null
+      }
       if (b.kind === "value") {
         if (b.node.k === "path") {
           /*
@@ -878,6 +891,8 @@ class Writer {
         again.head.segs[0] === m[1] &&
         again.filters.every((f) => f.name === "default")
       if (same && had.kind !== "none") return
+      /* A later literal (`element = 'rte-formatter'` after `element = 'div'`) depends on a branch. The first concrete value still draws; clearing it drew `<>`. */
+      if (had.kind === "value" && had.node.k === "lit") return
       frame.vars.set(m[1], { kind: "none" })
       return
     }
