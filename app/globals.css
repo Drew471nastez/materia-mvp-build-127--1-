@@ -2873,13 +2873,16 @@ html.keyboard-open [data-page="library"] main {
 }
 
 /* Community member area: do not keep a full svh box under the keyboard (Safari
-   and Capacitor leave a blank band when min-height stays on the shell). */
-html.keyboard-open [data-community-shell] {
+   and Capacitor leave a blank band when min-height stays on the shell).
+   Not while a post is open over it (round 17, post-fullscreen.tsx marks it
+   data-post-over): the post covers it, and shortening it threw the feed's
+   scroll away under the post, so the close could not land on the card. */
+html.keyboard-open [data-community-shell]:not([data-post-over]) {
   min-height: var(--vv-h, 100dvh) !important;
   max-height: var(--vv-h, 100dvh);
   overflow: hidden;
 }
-html.keyboard-open [data-community-shell] [data-community-body] {
+html.keyboard-open [data-community-shell]:not([data-post-over]) [data-community-body] {
   min-height: 0 !important;
 }
 

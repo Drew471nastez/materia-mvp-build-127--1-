@@ -32,7 +32,7 @@ export function CreatorCard({ creator }: CreatorCardProps) {
   return (
     <SmartLink
       href={username ? getStoreUrl(username) : "#"}
-      className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-all duration-300 ease-out hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      className="group flex flex-col rounded-lg border border-border/60 bg-card p-6 transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none hover:border-border hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
     >
       <div className="flex items-start gap-4">
         {/* The shared avatar: the photo, else the initials, else a plain person. Never a "?". */}

@@ -67,6 +67,7 @@ import { NotificationsAsk } from "@/components/platform/notifications-ask"
 import { SWITCH_FIRST_PAINT_SCRIPT } from "@/lib/businesses/switch-screen"
 import { EXPLORE_SCROLL_BOOT_SCRIPT } from "@/lib/explore/explore-scroll-boot"
 import { ExploreMarketplaceRoot } from "@/components/platform/explore-marketplace-root"
+import { PerfBeacon } from "@/components/perf/perf-beacon"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 
 // Primary font — loaded eagerly with display swap for fast text rendering
@@ -287,6 +288,8 @@ export default function RootLayout({
             loading skeleton and the screen that replaces it are sized from the
             same number. See components/viewport-vars.tsx. */}
         <ViewportVars />
+        {/* Storelib's own speed, from one page load in five, for /admin/performance (lib/perf). */}
+        <PerfBeacon />
         <NativeCookieKillSwitch />
         <CapacitorBounceGuard />
         {/* The buyer's pages bounce at their ends again, and the bounce shows the page's own ground rather than white behind a dark bar (lib/ui/elastic-overscroll.ts). */}

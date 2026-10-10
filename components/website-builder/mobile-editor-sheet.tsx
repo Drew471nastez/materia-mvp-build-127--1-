@@ -30,7 +30,7 @@
 
 import { readPublishedKeyboardInset } from "@/lib/ui/keyboard-safe-sheet"
 import * as React from "react"
-import { createPortal } from "react-dom"
+import { createPortal, flushSync } from "react-dom"
 import { sheetBottomReserve } from "@/lib/website-builder/sheet-reserve"
 import { cn } from "@/lib/utils"
 import { hapticTap } from "@/lib/native-bridge"
@@ -481,6 +481,26 @@ type Props = {
    * compositor work. Never while a finger holds it: a dragged sheet is solid.
    */
   fadeOnMove?: boolean
+  /**
+   * The keyboard's height where the platform says nothing about it (an iOS
+   * app's web view): asked in place of the published floor, and in the focus
+   * itself, so the sheet has made its room before iOS decides whether to pan
+   * the page to the field. The community's composer hands in its decision
+   * table's number (components/community/member/keyboard-plan.ts); null keeps
+   * the floor; it must answer null whenever no field in the sheet has the
+   * focus. Without it, nothing changes.
+   */
+  keyboardRoom?: () => number | null
+  /**
+   * How the page behind an open sheet with no peek is held: "overflow" (the
+   * default) switches the document's overflow off and puts its scroll back;
+   * "scroll" only puts its scroll back, the frame anything moves it. iOS
+   * keeps a scroll view stuck for a moment after its overflow comes back,
+   * which a feed under a composer cannot have.
+   */
+  holdPage?: "overflow" | "scroll"
+  /** The sheet's own stacking order, over a layer that is not the builder's (the backdrop sits one under it). */
+  zIndex?: number
 }
 
 /**
@@ -517,7 +537,12 @@ export function MobileEditorSheet({
   moveMs = SNAP_DURATION_MS,
   keyboard: keyboardMode = "sheet",
   fadeOnMove = false,
+  keyboardRoom,
+  holdPage = "overflow",
+  zIndex,
 }: Props) {
+  const keyboardRoomRef = React.useRef(keyboardRoom)
+  keyboardRoomRef.current = keyboardRoom
   const composerKeys = keyboardMode === "composer"
   const sheetRef = React.useRef<HTMLDivElement>(null)
   /** The grab bar. A touch that starts here is a drag and needs no arbitration. */
@@ -797,7 +822,7 @@ export function MobileEditorSheet({
         : { inset: 0, top: 0, reported: false, zoomed: false }
       /* The published floor only where the platform said nothing at all, and
          never a toolbar or a pinch taken for a keyboard: see `keyboardFor`. */
-      const keyboard = keyboardFor(seen, readPublishedKeyboardInset())
+      const keyboard = keyboardFor(seen, keyboardRoomRef.current?.() ?? readPublishedKeyboardInset())
       const panned = seen.top
       setKeyboardInset(keyboard)
       setVisibleTop(panned)
@@ -1516,9 +1541,11 @@ export function MobileEditorSheet({
       bodyOverflow: body.style.overflow,
       bodyTouch: body.style.touchAction,
     }
-    root.style.overflow = "hidden"
-    body.style.overflow = "hidden"
-    body.style.touchAction = "none"
+    if (holdPage === "overflow") {
+      root.style.overflow = "hidden"
+      body.style.overflow = "hidden"
+      body.style.touchAction = "none"
+    }
     /**
      * `overflow: hidden` stops a finger scrolling the page. It does not stop
      * the browser: focusing a field near the bottom of a fixed sheet with a
@@ -1541,12 +1568,45 @@ export function MobileEditorSheet({
     return () => {
       window.removeEventListener("scroll", onScroll)
       if (frame) cancelAnimationFrame(frame)
-      root.style.overflow = prev.rootOverflow
-      body.style.overflow = prev.bodyOverflow
-      body.style.touchAction = prev.bodyTouch
+      if (holdPage === "overflow") {
+        root.style.overflow = prev.rootOverflow
+        body.style.overflow = prev.bodyOverflow
+        body.style.touchAction = prev.bodyTouch
+      }
       if (window.scrollY !== y) window.scrollTo(0, y)
     }
-  }, [open, peekHeight])
+  }, [open, peekHeight, holdPage])
+
+  /**
+   * THE ROOM, IN THE FOCUS ITSELF (keyboardRoom). Where the platform reports
+   * nothing, the sheet makes the keyboard's room the moment a field in it
+   * takes the focus, drawn before the focus returns, so the field is already
+   * above the keys when iOS looks for it and there is nothing to pan for.
+   * Only with a keyboardRoom, and only while it has a number.
+   */
+  React.useEffect(() => {
+    if (!open || !keyboardRoom) return
+    const onFocusIn = (e: FocusEvent) => {
+      const t = e.target as HTMLElement | null
+      if (!t || !sheetRef.current?.contains(t)) return
+      const types = t.isContentEditable || t.tagName === "TEXTAREA" || (t.tagName === "INPUT" && /^(text|search|url|tel|email|password|number)$/.test(((t as HTMLInputElement).type || "text").toLowerCase()))
+      if (!types) return
+      const room = keyboardRoomRef.current?.()
+      if (!room) return
+      flushSync(() => {
+        setKeyboardInset((k) => (k > 0 ? k : room))
+        setKeyboardHere(true)
+      })
+    }
+    /* The focus gone from the sheet: measured again (keyboardRoom answers null then, so the room goes with the keyboard). */
+    const onFocusOut = () => requestAnimationFrame(() => window.visualViewport?.dispatchEvent(new Event("resize")))
+    document.addEventListener("focusin", onFocusIn, true)
+    document.addEventListener("focusout", onFocusOut, true)
+    return () => {
+      document.removeEventListener("focusin", onFocusIn, true)
+      document.removeEventListener("focusout", onFocusOut, true)
+    }
+  }, [open, keyboardRoom])
 
   /**
    * The starting visibility, set ONCE. It used to be an inline style on the
@@ -2277,7 +2337,7 @@ export function MobileEditorSheet({
         onClick={() => onOpenChange(false)}
         className="fixed inset-0 bg-black/30"
         style={{
-          zIndex: layer === "raised" ? 70 : 40,
+          zIndex: zIndex !== undefined ? zIndex - 1 : layer === "raised" ? 70 : 40,
           opacity: renderOpacity,
           /**
            * WHAT YOU CAN SEE IS WHAT CAN TAKE THE TOUCH.
@@ -2321,7 +2381,7 @@ export function MobileEditorSheet({
            * on source order — neither of which is visible from here. A number
            * on the element is the one thing that cannot be quietly overridden.
            */
-          zIndex: layer === "raised" ? 80 : 50,
+          zIndex: zIndex ?? (layer === "raised" ? 80 : 50),
           height: `${height}px`,
           transform: `translateY(${renderY}px)`,
           transition: motion,

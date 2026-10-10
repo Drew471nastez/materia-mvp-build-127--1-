@@ -47,7 +47,7 @@ import * as ReactRuntime from "react"
 import { Component, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { addressFor, useCommunityNavigator, type GoOptions } from "@/lib/communities/client/navigator-context"
-import { atPlaceFor, isPostAddress, placeFromUrl, placeKey, screenKey, type Place } from "@/lib/communities/client/places"
+import { atPlaceFor, isPostAddress, onLayerEntry, placeFromUrl, placeKey, screenKey, type Place } from "@/lib/communities/client/places"
 import type { PlaceData } from "@/lib/communities/client/place-data"
 import type { PlaceData as HeldData } from "@/lib/communities/client/place-cache"
 import { keepAlive, loadPlaceData, placeMissing, placeStale, readPlace, readPlacesAhead, seedPlace, subscribePlaces, WAIT_SCREEN_MS } from "@/lib/communities/client/place-cache"
@@ -182,7 +182,12 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     when the post's address came, it stays at, on the open, while it is open and on every kind of close.
   */
   const heldAtPlace = useRef<boolean | null>(null)
-  const atPlace = atPlaceFor(pathname || "", search?.toString() ?? "", heldAtPlace.current ?? false)
+  /*
+    ROUND 17: ONLY THE OPENED POST'S OWN ENTRY HOLDS THE PLACE (places.ts onLayerEntry). When the router itself went to a post
+    (a comment notification, a short address no card holds), the routed slot is that post's page and is what shows.
+  */
+  const overLayer = typeof window !== "undefined" && onLayerEntry(window.history.state)
+  const atPlace = atPlaceFor(pathname || "", search?.toString() ?? "", heldAtPlace.current ?? false, overLayer)
   if (!isPostAddress(pathname)) heldAtPlace.current = atPlace
 
   /* Re-drawn when a place arrives in the cache. */
@@ -424,7 +429,14 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   }, [communityId, aheadList, shown.key])
 
   /* ── The middle ── */
-  const routedVisible = routedKey === null ? !atPlace : routedOwns(shown.key)
+  /*
+    THE ROUTER ON A POST'S PAGE (round 17). The post route seeds the shell's feed under its post (round 16), so its slot reads as
+    the feed place; at Notifications (or any place but the feed) that slot stayed hidden, and with it the post: a comment
+    notification or a post's short address changed the address and showed nothing. A post's address that is not the opened
+    post's own entry is the router's post page, and its slot is what shows.
+  */
+  const routerPost = isPostAddress(pathname) && !overLayer
+  const routedVisible = routerPost || (routedKey === null ? !atPlace : routedOwns(shown.key))
   const facts = useMemo<HostFactsValue>(() => ({ communityId, slug, chatSpaces: chat, renderProfile }), [communityId, slug, chat, renderProfile])
   const retry = useCallback(() => {
     const key = shown.key
@@ -448,7 +460,7 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
           .map((key) => {
             const k = kept.current.get(key)
             if (!k) return null
-            const visible = key === shown.key && (routedKey !== null || atPlace)
+            const visible = key === shown.key && (routedKey !== null || atPlace) && !routerPost
             const missing = !k.data && placeMissing(communityId, k.place)
             return (
               <Activity key={key} mode={visible ? "visible" : "hidden"}>

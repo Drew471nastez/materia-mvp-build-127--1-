@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * ===========================================================================
  *  LEARN
@@ -14,7 +16,8 @@
  * what will be here, and the people who run it get the one button that
  * fills it.
  *
- * No state, so it renders on the server.
+ * No state. A press on a card is noted (./learn-history.ts), so the
+ * program's arrow can go back to this shelf as it was left.
  */
 import Image from "next/image"
 import Link from "next/link"
@@ -24,6 +27,7 @@ import { PlaceEmpty } from "@/components/community/member/place-empty"
 import { PlaceIcon } from "@/components/community/member/place-icons"
 import { CARD_RAISED } from "@/components/community/member/ui"
 import { cn } from "@/lib/utils"
+import { noteProgramOpened } from "./learn-history"
 import { lessonsLabel, lockHint, opensOnLabel, type ProgramCard } from "./model"
 
 export function LearnLibrary({ programs, timeZone, manageHref = null }: { programs: ProgramCard[]; timeZone?: string; /** The builder, for somebody who may change it; null for everybody else. */ manageHref?: string | null }) {
@@ -85,6 +89,7 @@ function ProgramTile({ program: p, timeZone }: { program: ProgramCard; timeZone?
     <Link
       href={p.href}
       prefetch
+      onClick={noteProgramOpened}
       data-program-card={p.id}
       data-locked={lock ? (p.locked?.reason ?? "yes") : "no"}
       className={cn(

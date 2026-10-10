@@ -34,6 +34,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export function PostOpener({ communityId, slug, viewer, readOnly }: { communityId: string; slug: string; viewer: ViewerView; readOnly: boolean }) {
   const [post, setPost] = useState<FeedPostView | null>(null)
+  /* What was pressed (a profile's row, a notification): the post grows out of it and lands back on it (round 17). */
+  const from = useRef<HTMLElement | null>(null)
   /* The read on its way (one at a time: a second press while it comes is the same post or a change of mind, the last wins). */
   const asked = useRef(0)
   useEffect(
@@ -42,6 +44,7 @@ export function PostOpener({ communityId, slug, viewer, readOnly }: { communityI
         /* Only a whole id can be read; a short one (from an address) is left to the post's own page. */
         if (!UUID.test(req.postId)) return false
         const ticket = ++asked.current
+        from.current = req.from
         void readAheadComments(communityId, req.postId)
         void api<{ post: FeedPostView }>(`${apiBase(communityId)}/posts/${req.postId}`).then((r) => {
           if (ticket !== asked.current) return
@@ -71,6 +74,7 @@ export function PostOpener({ communityId, slug, viewer, readOnly }: { communityI
       readOnly={readOnly}
       update={update}
       onClose={close}
+      origin={() => (from.current?.isConnected ? from.current : null)}
       renderPost={(p, u, focus) => <PostCard post={p} slug={slug} viewer={viewer} update={u} full readOnly={readOnly} onComment={focus} />}
     />
   )

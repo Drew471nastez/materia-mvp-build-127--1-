@@ -1,3 +1,5 @@
+"use client"
+
 /**
  * ===========================================================================
  *  ONE PROGRAM, INSIDE THE COMMUNITY
@@ -9,18 +11,36 @@
  * shows what is inside it; one sold on its own has the price on its button,
  * and paying happens right here, in a sheet (./program-checkout.tsx).
  */
+import { useCallback } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, Lock } from "lucide-react"
 import { CoursePlayer } from "@/components/courses/course-player"
+import { useCommunityNavigator } from "@/lib/communities/client/navigator-context"
 import { PlaceIcon } from "@/components/community/member/place-icons"
 import { BTN_PRIMARY, BTN_SECONDARY } from "@/components/community/member/ui"
 import type { PlayerData } from "@/lib/courses/types"
 import { lessonsLabel, opensOnLabel, type ProgramCard } from "./model"
 import { BuyProgram } from "./program-checkout"
+import { cameFromLearn } from "./learn-history"
 
 export function ProgramPlayer({ data, learnHref }: { data: PlayerData; learnHref: string }) {
-  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" embedded />
+  const nav = useCommunityNavigator()
+  /*
+    THE ARROW GOES BACK THE WAY THE MEMBER CAME (round 18, ./learn-history.ts): the browser's Back when the step before is
+    Learn, so the shelf returns as it was left; otherwise Learn, through the community's navigator, never a page load.
+    Outside a community (a probe, a page with no frame) the link does what a link does.
+  */
+  const onBack = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (!nav.inCommunity || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      e.preventDefault()
+      if (cameFromLearn()) window.history.back()
+      else nav.go({ kind: "learn" })
+    },
+    [nav],
+  )
+  return <CoursePlayer data={data} backHref={learnHref} backLabel="Learn" embedded onBack={onBack} />
 }
 
 /** What is inside, for a program the member cannot open yet: each module with its lesson titles. */

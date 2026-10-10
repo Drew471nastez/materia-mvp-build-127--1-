@@ -328,7 +328,7 @@ async function main() {
   {
     const cover = code("components/profile/decoded-cover.tsx")
     const view = code("components/community/member/member-profile.tsx")
-    check("the band's height is fixed before anything loads", /h-\[124px\] bg-\[#eceef1\] sm:h-\[168px\]/.test(view))
+    check("the band's height is fixed before anything loads (taller since round 18)", /h-\[160px\] bg-\[#eceef1\] sm:h-\[208px\]/.test(view))
     check("the picture goes in only once decoded, and a picture decoded before is there on the first frame with no fade", /img\.decode\(\)\.then\(ok, ok\)/.test(cover) && /DECODED\.has\(src\) \? "now" : null/.test(cover) && /if \(!shown\) return null/.test(cover) && /shown !== "fade"/.test(cover))
   }
 
