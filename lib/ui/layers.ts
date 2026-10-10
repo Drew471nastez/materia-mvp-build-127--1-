@@ -196,6 +196,7 @@ const SWEEP_GRACE_MS = 250
  * page shown again from the back cache, and safe to call at any time.
  */
 export function sweepLayers(): void {
+  clearStaleVideoFullscreen()
   const now = Date.now()
   for (const [id, e] of [...entries]) {
     if (!e.el || now - e.at < SWEEP_GRACE_MS) continue
@@ -248,8 +249,33 @@ export function useLayer(kind: LayerKind, open = true, el?: { current: Element |
   }, [kind, open, el])
 }
 
+/*
+  THE SYSTEM VIDEO PLAYER'S CLASS. In the iPhone app, a video's own full
+  screen is iOS's player, and components/platform/native-chrome.tsx hides the
+  status band and the tab bar under it with `video-fullscreen` on <html>,
+  taken off by the player's end event. That event is sent to the video, and a
+  listener on the document only hears it while the video is still in the
+  document: a video whose card was taken away under the player (a feed that
+  refreshed, a post that closed) ends with nobody hearing it, and the tab bar
+  stayed hidden for the rest of the visit. While the player is up the page
+  takes no touches at all, so a finger on the page is proof it has gone.
+*/
+const VIDEO_FULLSCREEN = "video-fullscreen"
+function videoPlayerUp(): boolean {
+  for (const v of Array.from(document.querySelectorAll("video"))) {
+    if ((v as HTMLVideoElement & { webkitDisplayingFullscreen?: boolean }).webkitDisplayingFullscreen) return true
+  }
+  return !!document.fullscreenElement
+}
+export function clearStaleVideoFullscreen(): void {
+  if (!hasDom()) return
+  const html = document.documentElement
+  if (html.classList.contains(VIDEO_FULLSCREEN) && !videoPlayerUp()) html.classList.remove(VIDEO_FULLSCREEN)
+}
+
 /* The page came back from the back cache, or the browser went back: what was open when it left may not be any more. */
 if (typeof window !== "undefined") {
   window.addEventListener("pageshow", () => sweepLayers())
   window.addEventListener("popstate", () => window.setTimeout(sweepLayers, 0))
+  window.addEventListener("pointerdown", clearStaleVideoFullscreen, { capture: true, passive: true })
 }

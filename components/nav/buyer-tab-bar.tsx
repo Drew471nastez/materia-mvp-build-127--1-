@@ -100,6 +100,7 @@ import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
+import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -197,21 +198,71 @@ function isTyping(el: Element | null): boolean {
   if (el instanceof HTMLInputElement) return TYPED.test(el.type || "text") && !el.readOnly
   return el instanceof HTMLElement && el.isContentEditable
 }
-/** True while the software keyboard is up, as near as a page can know: a field that takes typing has the focus. */
+/**
+ * True while the software keyboard is up, as near as a page can know: a field
+ * that takes typing has the focus.
+ *
+ * A FIELD TAKEN AWAY WHILE IT HAS THE FOCUS SAYS NOTHING (round 15, the owner:
+ * "when I trigger the new post thing it hides the mobile navigation bar
+ * completely, and then I have to do something so that it appears again").
+ * The composer keeps the caret in its field through Cancel and Post, so the
+ * keyboard goes down with the screen; the screen is then taken out of the
+ * document with the field still focused. WebKit (every iPhone, Safari and the
+ * app alike) sends no focusout for that, by the letter of the spec, so this
+ * kept believing a keyboard was up and kept the bar slid out of sight until
+ * some other field was touched and let go. The same for a comment field in a
+ * post that was closed, and a search field whose screen went.
+ *
+ * So the answer is asked again whenever it could have changed without an
+ * event: while it says "typing", any change to the document (the field's
+ * screen leaving), the visible viewport resizing (the keyboard going down),
+ * the page being shown again, and any layer opening or closing
+ * (lib/ui/layers.ts). Asking is reading document.activeElement, which is
+ * <body> once the focused field has gone.
+ */
 function useTyping(): boolean {
   const [typing, setTyping] = useState(false)
   useEffect(() => {
-    const check = () => setTyping(isTyping(document.activeElement))
+    let raf = 0
+    let watching: MutationObserver | null = null
+    const watch = (on: boolean) => {
+      if (on && !watching && typeof MutationObserver === "function") {
+        watching = new MutationObserver(later)
+        watching.observe(document.body, { childList: true, subtree: true })
+      } else if (!on && watching) {
+        watching.disconnect()
+        watching = null
+      }
+    }
+    const check = () => {
+      raf = 0
+      const now = isTyping(document.activeElement)
+      watch(now)
+      setTyping(now)
+    }
     /* Out is asked a frame later: moving from one field to the next blurs
        the first before the second has the focus, and the bar must not bob
        up and down between them. */
-    const onOut = () => requestAnimationFrame(check)
+    const later = () => {
+      if (!raf) raf = requestAnimationFrame(check)
+    }
     check()
+    const vv = window.visualViewport
     document.addEventListener("focusin", check)
-    document.addEventListener("focusout", onOut)
+    document.addEventListener("focusout", later)
+    vv?.addEventListener("resize", later)
+    window.addEventListener("pageshow", later)
+    document.addEventListener("visibilitychange", later)
+    const stopLayers = subscribeLayers(later)
     return () => {
+      if (raf) cancelAnimationFrame(raf)
+      watch(false)
       document.removeEventListener("focusin", check)
-      document.removeEventListener("focusout", onOut)
+      document.removeEventListener("focusout", later)
+      vv?.removeEventListener("resize", later)
+      window.removeEventListener("pageshow", later)
+      document.removeEventListener("visibilitychange", later)
+      stopLayers()
     }
   }, [])
   return typing
@@ -455,7 +506,18 @@ function TabBar({
     the cookie banner lifts over it. "away" while a field has the focus,
     when the bar has slid out of sight and the buy bar may come back down.
   */
-  const away = typing
+  /*
+    A LAYER OVER THE BAR LEAVES IT WHERE IT IS (round 15, lib/ui/layers.ts).
+    The composer and the picture viewer cover the bar; a field in them has the
+    focus nearly all the time they are open, and the bar used to slide away
+    under them and then slide back up after they had gone, a beat late, or
+    not at all (A FIELD TAKEN AWAY..., above). Under a layer that covers it the
+    bar holds still, so it is simply there the moment the layer goes.
+  */
+  const layers = useTabBarLayers()
+  const away = typing && !layers.covered
+  /* A route change lets go of any layer left over (an element that left without its cleanup, a class the server printed). */
+  useEffect(() => sweepLayers(), [pathname])
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute("data-buyer-tabs", away ? "away" : "shown")
@@ -484,6 +546,9 @@ function TabBar({
 
       <div
         data-buyer-tab-bar={away ? "away" : "shown"}
+        /* Under a layer that covers it, out of reach of a screen reader and the keyboard's Tab too. */
+        aria-hidden={layers.covered || undefined}
+        inert={layers.covered || undefined}
         className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"
         style={{
           boxShadow: BAR_SHADOW,
