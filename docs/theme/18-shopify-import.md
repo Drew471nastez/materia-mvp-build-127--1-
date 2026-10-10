@@ -79,11 +79,39 @@ and scripts reach for, from the creator's own shop:
 | `/recommendations/products` | products like the one named |
 | `/contact` | a contact form to the creator's inbox; a newsletter form to Subscribers |
 
+A collection page and the search page carry `collection.filters` and
+`search.filters`, made from the products themselves: Availability, Price,
+one filter per option (Size, Colour…) and Product type, each value with how
+many products it would leave. The theme's own filter markup asks for
+`filter.v.availability`, `filter.v.price.gte`, `filter.v.option.<name>` and
+`filter.p.product_type`, and the list is filtered by them: values of one
+filter are OR'd, filters are AND'd, as on Shopify.
+
 Prices, options and pictures are the creator's products. A product's price
 reaches a theme in cents, as on Shopify, and `| money` writes it.
 `window.Shopify` and the storefront events module a theme imports
 (`@shopify/events`) are written by Storelib. Any other script or stylesheet
 from Shopify's servers is taken out of the page, and named in the report.
+
+### Where the theme's scripts run
+
+A theme's JavaScript is someone else's code, so it never runs where a
+Storelib session is:
+
+- On the website it runs on the creator's own address
+  (`<name>.storelib.com` or their domain). Session cookies are host only, so
+  that origin holds none, and the app refuses API requests from a published
+  site (`Sec-Fetch-Site: same-site`, or a write whose `Origin` is a site).
+- The handler lives at `/api/site-theme/site/<name>/…`, an address that
+  answers on every host. It draws nothing the proxy did not send it: the
+  proxy seals each rewrite with an HMAC of the name, the host and a 60
+  second expiry (`lib/storelib-theme/compat/site-seal.ts`), and an unsealed
+  request is a 404. The secret is `COMPAT_SITE_SECRET` when set (32
+  characters or more), otherwise derived from the service key.
+- The theme's files are served with `Content-Security-Policy: sandbox`, so an
+  HTML or SVG file in a theme runs nothing on storelib.com. The cover picture
+  is drawn under `sandbox allow-scripts`, an origin of its own.
+- In the builder it runs in a frame with no origin (below).
 
 ## The builder
 
@@ -101,6 +129,9 @@ Add block its own blocks.
 
 Theme settings are the theme's groups from `settings_schema.json`, its words
 from its locale, each setting with the builder's control for its type.
+Colour schemes (Dawn) show each scheme the theme saved, with every colour
+its definition names; a colour palette (Horizon) shows each of its colours,
+and the settings that name a palette colour follow it.
 
 ## The report
 

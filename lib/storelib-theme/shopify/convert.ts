@@ -411,7 +411,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     }
   }
 
-  files[`${COMPAT_PREFIX}config/settings_panel.json`] = JSON.stringify(settingsPanel(schemaSettings, tr, (m) => report.note("config/settings_schema.json", m)), null, 1)
+  files[`${COMPAT_PREFIX}config/settings_panel.json`] = JSON.stringify(settingsPanel(schemaSettings, values, tr, (m) => report.note("config/settings_schema.json", m)), null, 1)
 
   const name = (typeof info?.theme_name === "string" && info.theme_name.trim()) || opts.fallbackName || "Shopify theme"
   const version = typeof info?.theme_version === "string" && /^\d+(\.\d+){0,2}/.test(info.theme_version) ? info.theme_version : "1.0.0"
@@ -888,7 +888,10 @@ function noteShopifyValues(settings: Tree, report: Report, path: string): void {
  * `shopify` in the install's settings). A setting the builder has no control
  * for keeps its value and is named in the report.
  */
-function settingsPanel(schema: unknown, tr: (value: unknown, fallback: string) => string, note: (m: string) => void): { name: string; settings: Setting[] }[] {
+/** A colour scheme's setting in the panel: its value lives at shopify[group][scheme].settings[id], which the id spells out. */
+export const SCHEME_PATH = "::"
+
+function settingsPanel(schema: unknown, current: Record<string, unknown>, tr: (value: unknown, fallback: string) => string, note: (m: string) => void): { name: string; settings: Setting[] }[] {
   if (!Array.isArray(schema)) return []
   const job: FileJob = { path: "config/settings_schema.json", mode: "section", type: "settings", original: "settings", tr, blockTypes: new Set(), note }
   const out: { name: string; settings: Setting[] }[] = []
@@ -896,8 +899,41 @@ function settingsPanel(schema: unknown, tr: (value: unknown, fallback: string) =
     if (!g || typeof g !== "object" || g.name === "theme_info" || !Array.isArray(g.settings)) continue
     const settings: Setting[] = []
     ;(g.settings as Tree[]).forEach((raw, i) => {
-      if (raw && typeof raw === "object" && (raw.type === "color_scheme_group")) {
-        note(`The colour schemes are kept and drawn; the builder does not edit a colour scheme's colours yet, the code editor does (config/settings_data.json)`)
+      if (raw && typeof raw === "object" && raw.type === "color_scheme_group") {
+        /*
+          EACH SCHEME'S COLOURS, as the builder's colour controls: a heading
+          for the scheme, then every colour its definition names. Schemes are
+          the ones the theme's settings hold.
+        */
+        const group = String((raw as Tree).id ?? "color_schemes")
+        const schemes = current[group] && typeof current[group] === "object" ? Object.keys(current[group] as Tree) : []
+        const definition = Array.isArray((raw as Tree).definition) ? ((raw as Tree).definition as Tree[]) : []
+        schemes.forEach((scheme, n) => {
+          settings.push({ type: "header", id: `scheme_${n + 1}_hdr`, label: humanise(scheme) })
+          definition.forEach((d, j) => {
+            const clean = cleanSetting(d, i * 1000 + j, job)
+            if (!clean || clean.type === "header" || clean.type === "paragraph") return
+            clean.id = [group, scheme, "settings", String(d.id)].join(SCHEME_PATH)
+            delete clean.visible_if
+            settings.push(clean)
+          })
+        })
+        if (!schemes.length) note(`The colour schemes are drawn as the theme set them; it saved none to edit`)
+        return
+      }
+      if (raw && typeof raw === "object" && raw.type === "color_palette") {
+        /*
+          ONE PALETTE, EACH OF ITS COLOURS A CONTROL (Horizon). Other settings
+          name its colours ("{{ settings.color_palette.color2 }}"), so a change
+          here reaches them too.
+        */
+        const id = String((raw as Tree).id ?? "color_palette")
+        const saved = current[id] && typeof current[id] === "object" ? (current[id] as Tree) : null
+        const palette = saved ?? ((raw as Tree).default && typeof (raw as Tree).default === "object" ? ((raw as Tree).default as Tree) : {})
+        for (const [key, value] of Object.entries(palette)) {
+          const n = /^color(\d+)$/.exec(key)
+          settings.push({ type: "color", id: [id, key].join(SCHEME_PATH), label: n ? `Colour ${n[1]}` : humanise(key), default: typeof value === "string" ? value : "" })
+        }
         return
       }
       const clean = cleanSetting(raw, i, job)

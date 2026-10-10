@@ -14,6 +14,7 @@ import { supabaseOnePageLookup } from "@/lib/onepage/address-lookup"
 import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
+import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -399,7 +400,12 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   const to = request.nextUrl.clone()
   to.pathname = `/api/site-theme/site/${name}${pathname === "/" ? "" : pathname}`
   to.search = search
-  const r = NextResponse.rewrite(to, { request })
+  /* Sealed for this name on this host: the handler draws nothing it was not sent by this proxy (lib/storelib-theme/compat/site-seal.ts). */
+  const headers = new Headers(request.headers)
+  headers.delete(SITE_SEAL_HEADER)
+  const seal = await sealSite(name, siteHostOf(request.headers))
+  if (seal) headers.set(SITE_SEAL_HEADER, seal)
+  const r = NextResponse.rewrite(to, { request: { headers } })
   r.headers.set("Cache-Control", "private, no-store")
   r.headers.set("x-seller-subdomain", name)
   return r

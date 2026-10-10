@@ -176,6 +176,20 @@ async function run(zipPath: string) {
       }
       await page.screenshot({ path: `${OUT}/${name}-${label}-home.png` })
 
+      /* The collection's filters: drawn by the theme, applied by the site. Four of the eight shirts cost $60 or more. */
+      const shirtsOn = async (path: string) => {
+        await visit(path)
+        return page.evaluate(() => {
+          const main = document.querySelector("main, #MainContent") ?? document.body
+          return { shirts: new Set([...main.querySelectorAll<HTMLAnchorElement>("a[href*='/products/linen-shirt-']")].map((a) => new URL(a.href).pathname)).size, drawn: /Availability/i.test(main.textContent ?? "") && /Price/i.test(main.textContent ?? "") }
+        })
+      }
+      const all = await shirtsOn("/collections/all")
+      const dear = await shirtsOn("/collections/all?filter.v.price.gte=60")
+      check("the collection draws its filters", all.drawn, `${all.shirts} shirts`)
+      check("a price filter leaves the four shirts at $60 or more", all.shirts === 8 && dear.shirts === 4, `${all.shirts} then ${dear.shirts}`)
+      await page.screenshot({ path: `${OUT}/${name}-${label}-filtered.png` })
+
       /* A product, its options and the cart. */
       await visit("/products/linen-shirt-2")
       await page.screenshot({ path: `${OUT}/${name}-${label}-product.png` })

@@ -16,5 +16,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pass: s
   if (!installId) return new NextResponse("Not found", { status: 404 })
   const html = await compatDraftHome(installId)
   if (html === null) return new NextResponse("Not found", { status: 404 })
-  return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-Robots-Tag": "noindex" } })
+  /*
+    The theme's scripts run, for the picture to be the page as visitors see
+    it, and in a sandbox with no origin: this is storelib.com, and nothing a
+    theme carries may act in it.
+  */
+  return new NextResponse(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "private, no-store",
+      "X-Robots-Tag": "noindex",
+      "Content-Security-Policy": "sandbox allow-scripts",
+    },
+  })
 }

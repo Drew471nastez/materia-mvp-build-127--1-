@@ -6184,13 +6184,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const now = ((settingsRef.current as Record<string, unknown>).shopify ?? {}) as Record<string, unknown>
             updateSetting("shopify", { ...now, [id]: v })
           }}
-          renderField={(field, value, change) =>
-            field.type === "color" || field.type === "header" || field.type === "paragraph" ? (
-              <FieldEditor field={field} value={value} onChange={change} />
-            ) : (
-              <FieldEditor label={field.label} field={field} value={value} onChange={change} />
-            )
-          }
+          renderField={(field, value, change) => (
+            <FieldEditor label={fieldCarriesOwnLabel(field) ? undefined : field.label} field={field} value={value} onChange={change} />
+          )}
           back={(label, onBack) =>
             atTop && label === "Theme settings" ? (
               <div className="shrink-0 border-b border-border px-4 py-3">

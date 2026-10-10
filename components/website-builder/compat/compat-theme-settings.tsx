@@ -16,6 +16,24 @@ import { loadCompatFiles } from "./compat-canvas"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 
+/**
+ * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
+ * panel id spells that out with "::" (lib/storelib-theme/shopify/convert.ts,
+ * SCHEME_PATH). Any other id is a key of the theme's settings itself.
+ */
+const SEP = "::"
+function readAt(values: Record<string, unknown>, id: string): unknown {
+  let cur: unknown = values
+  for (const k of id.split(SEP)) cur = cur && typeof cur === "object" ? (cur as Record<string, unknown>)[k] : undefined
+  return cur
+}
+function writeAt(value: unknown, path: string[], v: unknown): Record<string, unknown> {
+  const base = value && typeof value === "object" ? { ...(value as Record<string, unknown>) } : {}
+  const [head, ...rest] = path
+  base[head] = rest.length ? writeAt(base[head], rest, v) : v
+  return base
+}
+
 interface Group {
   name: string
   settings: SchemaField[]
@@ -63,7 +81,13 @@ export function CompatThemeSettings({
         {back(group.name, () => onOpen(null))}
         <div data-sheet-scroll className="wb-slim-scroll flex-1 space-y-4 overflow-y-auto px-3.5 py-3.5">
           {visibleFields(group.settings, values).map((field) => (
-            <div key={field.id}>{renderField(field, values[field.id] ?? field.default, (v) => onChange(field.id, v))}</div>
+            <div key={field.id}>
+              {renderField(field, readAt(values, field.id) ?? field.default, (v) => {
+                if (!field.id.includes(SEP)) return onChange(field.id, v)
+                const [top, ...rest] = field.id.split(SEP)
+                onChange(top, writeAt(values[top], rest, v))
+              })}
+            </div>
           ))}
         </div>
       </div>

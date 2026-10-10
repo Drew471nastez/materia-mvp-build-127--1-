@@ -30,6 +30,7 @@ import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } 
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
+import { facet } from "./facets"
 
 type O = Record<string, unknown>
 
@@ -224,14 +225,18 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const own = site.collections.find((c) => c.handle === handle || c.id === handle)
     const c: CollectionLike | null = own ?? (handle === "all" ? { id: "all", title: "Products", handle: "all", url: "/collections/all", products: site.products, products_count: site.products.length } : null)
     if (!c) return null
-    const sorted = sortProducts(c.products ?? [], req.query.get("sort_by"))
-    return at("collection", { collection: { ...c, products: sorted }, title: c.title, catalog: { sortBy: req.query.get("sort_by") ?? "" } })
+    /* Filtered (availability, price, options, type), then sorted, as the theme's filter and sort controls ask. */
+    const { filters, products } = facet(c.products ?? [], req.query, path)
+    const sorted = sortProducts(products, req.query.get("sort_by"))
+    return at("collection", { collection: { ...c, products: sorted, products_count: sorted.length }, title: c.title, catalog: { filters, sortBy: req.query.get("sort_by") ?? "" } })
   }
 
   if (path === "/search") {
     const terms = (req.query.get("q") ?? "").trim().slice(0, 200)
-    const results = terms ? searchProducts(site.products, terms) : []
-    return at("search", { search: { terms, results, performed: !!terms }, title: terms ? `Search: ${terms}` : "Search" })
+    const found = terms ? searchProducts(site.products, terms) : []
+    const { filters, products } = facet(found, req.query, path)
+    const results = sortProducts(products, req.query.get("sort_by"))
+    return at("search", { search: { terms, results, performed: !!terms }, title: terms ? `Search: ${terms}` : "Search", catalog: { filters, sortBy: req.query.get("sort_by") ?? "" } })
   }
 
   if (path === "/cart") return at("cart", { title: "Your cart" })

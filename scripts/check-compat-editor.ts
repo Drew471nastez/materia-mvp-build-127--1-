@@ -152,7 +152,7 @@ async function main() {
     /* DEBUG=1: every scroll of the frame and every message it is sent, with the page's height at the time. */
     if (process.env.DEBUG) await frame.evaluate(() => { const log: string[] = []; (window as unknown as { __scrolls: string[] }).__scrolls = log; addEventListener("scroll", () => log.push(`${Math.round(scrollY)}@${Math.round(performance.now())} h=${document.documentElement.scrollHeight}`)); addEventListener("message", (e) => log.push(`message ${(e.data as { type?: string })?.type} y=${Math.round(scrollY)}`)) })
     const el = await page.$("[data-probe-field]")
-    await el!.click({ clickCount: 3 })
+    await el!.click()
     const typedAt = Date.now()
     await page.keyboard.down("Control"); await page.keyboard.press("a"); await page.keyboard.up("Control")
     await page.keyboard.type("Linen for summer", { delay: 20 })
@@ -186,6 +186,38 @@ async function main() {
       await sleep(500)
       const fields = await page.evaluate(() => document.querySelectorAll("[data-compat-theme-group] input, [data-compat-theme-group] select, [data-compat-theme-group] button[role='switch'], [data-compat-theme-group] [data-color-chip]").length)
       check(`"${groups[0]}" opens with its controls`, fields > 0, `${fields} controls`)
+    }
+    /* A colour scheme's colour, where the theme has schemes (Dawn): changed in the panel, drawn in the frame. */
+    const schemeGroup = (JSON.parse(files["shopify/config/settings_panel.json"] ?? "[]") as { name: string; settings: { id: string; type: string }[] }[]).find((g) => g.settings.some((x) => x.id.includes("::") && x.type === "color"))
+    if (schemeGroup) {
+      /* The panel's own Back, not the editor's: back to the list of groups. */
+      await page.evaluate(() => document.querySelector<HTMLElement>("[data-compat-theme-group] [data-panel-back] button")?.click())
+      await sleep(400)
+      await page.evaluate((name) => [...document.querySelectorAll<HTMLElement>("button")].find((b) => (b.textContent ?? "").trim() === name)?.click(), schemeGroup.name)
+      await sleep(500)
+      /* A colour is a row that opens its picker, which carries the hex box. */
+      const chip = await page.$("[data-compat-theme-group] button[aria-expanded]")
+      let typed = false
+      if (chip) {
+        await chip.click()
+        await sleep(400)
+        const hex = await page.evaluateHandle(() => [...document.querySelectorAll<HTMLInputElement>("[data-compat-theme-group] input[placeholder='#FFFFFF']")][0] ?? null)
+        const input = hex.asElement() as import("puppeteer-core").ElementHandle<HTMLInputElement> | null
+        if (input) {
+          await input.click()
+          await page.keyboard.down("Control"); await page.keyboard.press("a"); await page.keyboard.up("Control")
+          await page.keyboard.type("#123456")
+          await page.keyboard.press("Enter")
+          typed = true
+        }
+      }
+      let drawn = false
+      for (let i = 0; i < 40 && typed && !drawn; i++) {
+        await sleep(250)
+        const f = page.frames().find((x) => x !== page.mainFrame() && x.url() === "about:srcdoc")
+        drawn = !!f && (await f.evaluate(() => document.documentElement.outerHTML.includes("18,52,86") || document.documentElement.outerHTML.toLowerCase().includes("#123456")).catch(() => false))
+      }
+      check(`a colour scheme's colour changed in "${schemeGroup.name}" is drawn in the frame`, typed && drawn, typed ? "" : "no colour field to type in")
     }
     await page.screenshot({ path: "/tmp/compat-editor-theme.png" })
     await page.screenshot({ path: "/tmp/compat-editor.png" })

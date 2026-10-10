@@ -27,7 +27,19 @@ interface Params {
   params: Promise<{ installId: string; version: string; name: string[] }>
 }
 
-const cors = { "Access-Control-Allow-Origin": "*", "Cross-Origin-Resource-Policy": "cross-origin", "X-Content-Type-Options": "nosniff" }
+/*
+  NEVER A PAGE OF OURS. Opened straight in a tab, a theme's SVG is a
+  document, and one with a <script> in it would run on whichever host served
+  it, storelib.com included. A sandbox with no scripts makes every file here
+  inert as a page; a stylesheet, a script or a picture loaded by a page is
+  not affected, because a response's own policy only governs it as a page.
+*/
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Cross-Origin-Resource-Policy": "cross-origin",
+  "X-Content-Type-Options": "nosniff",
+  "Content-Security-Policy": "default-src 'none'; img-src * data:; style-src 'unsafe-inline'; font-src * data:; sandbox",
+}
 
 export async function GET(_req: Request, { params }: Params) {
   const { installId, version, name: parts } = await params

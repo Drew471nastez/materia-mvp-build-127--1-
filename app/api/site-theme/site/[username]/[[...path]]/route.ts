@@ -14,6 +14,7 @@ import { NextResponse } from "next/server"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { CART_COOKIE, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
+import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -64,7 +65,15 @@ async function bodyOf(req: Request): Promise<Record<string, unknown> | null> {
 async function handle(req: Request, { params }: Params): Promise<Response> {
   const { username, path = [] } = await params
   const url = new URL(req.url)
-  const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(",")[0].trim().toLowerCase()
+  const host = siteHostOf(req.headers)
+  /*
+    ONLY WHAT THE PROXY SENT. Straight at /api/site-theme/site/<name>, on
+    storelib.com or on another creator's host, a theme's scripts would run in
+    an origin that is not its own website's: a 404, before anything is read.
+  */
+  if (!(await siteSealed(req.headers.get(SITE_SEAL_HEADER), username, host))) {
+    return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+  }
 
   let segments = path
   let token: string | null = null

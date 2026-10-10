@@ -21,6 +21,8 @@ import { productObject } from "../lib/storelib-theme/compat/objects"
 import { withoutShopifyCdn, shopifyBootstrap, STANDARD_EVENTS_MODULE } from "../lib/storelib-theme/compat/shims"
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
 import { drawPage } from "../lib/storelib-theme/compat/page"
+import { facet } from "../lib/storelib-theme/compat/facets"
+import { sealSite, siteSealed } from "../lib/storelib-theme/compat/site-seal"
 import { answer, readCartCookie, writeCartCookie, variantForOptionValues, type SiteData } from "../lib/storelib-theme/compat/site"
 
 let passed = 0
@@ -141,6 +143,33 @@ console.log("\nThe page\n")
   check("a section the theme does not have is an error for that section, not the page", (missing.errors.x ?? []).length === 1 && missing.html.includes("<main>"))
 }
 
+console.log("\nFilters, from the products themselves\n")
+{
+  const shirts = [card(1), card(2), { ...card(3), settings: { ...card(3).settings, price: "$70.00", available: false, category: "Coats" } }]
+  const all = facet(shirts, new URLSearchParams(), "/collections/all")
+  const labels = all.filters.map((f) => f.label)
+  check("availability, price, each option and the product type", labels.join() === "Availability,Price,Size,Product type", labels)
+  const size = all.filters.find((f) => f.label === "Size") as { values: { value: string; count: number; url_to_add: string }[] }
+  check("each value says how many it would leave, and the address that adds it", size.values.map((v) => `${v.value}:${v.count}`).join() === "Small:3,Large:3" && size.values[1].url_to_add === "/collections/all?filter.v.option.size=Large")
+  check("in stock only", facet(shirts, new URLSearchParams("filter.v.availability=1"), "/c").products.length === 2)
+  check("a price range, in the shop's units", facet(shirts, new URLSearchParams("filter.v.price.gte=50"), "/c").products.map((p) => p.id).join() === "p3")
+  check("two filters together leave what both allow", facet(shirts, new URLSearchParams("filter.v.availability=1&filter.p.product_type=Coats"), "/c").products.length === 0)
+  const on = facet(shirts, new URLSearchParams("filter.p.product_type=Coats&page=2"), "/c").filters.find((f) => f.label === "Product type") as { active_values: { value: string; url_to_remove: string }[] }
+  check("an active value, with the address that takes it away, back to the first page", on.active_values[0]?.value === "Coats" && on.active_values[0].url_to_remove === "/c")
+}
+
+async function sealChecks() {
+  console.log("\nOnly the proxy sends a visitor to an imported theme's site\n")
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||= "test-service-role-key-for-the-seal-only"
+  const seal = await sealSite("maralind", "maralind.storelib.com")
+  check("a seal the proxy made is accepted for that name on that host", await siteSealed(seal, "maralind", "maralind.storelib.com"))
+  check("not on storelib.com, where the session is", !(await siteSealed(seal, "maralind", "storelib.com")))
+  check("not for another creator's name", !(await siteSealed(seal, "oskar", "maralind.storelib.com")))
+  check("not without one", !(await siteSealed(null, "maralind", "maralind.storelib.com")))
+  check("not once it is old", !(await siteSealed(await sealSite("maralind", "maralind.storelib.com", Date.now() - 120_000), "maralind", "maralind.storelib.com")))
+  check("not one made up", !(await siteSealed(`${(Date.now() + 30_000).toString(36)}.AAAA`, "maralind", "maralind.storelib.com")))
+}
+
 console.log("\nThe site's cart, as a theme's scripts call it\n")
 ;(async () => {
   const pages = {
@@ -183,6 +212,8 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   check("an address the site does not have is a 404", lost.status === 404)
   const checkout = await call("POST", "/cart", { checkout: "1" }, cart)
   check("checkout goes to Storelib's own basket checkout with the lines", String(checkout.body).includes("/api/checkout/cart") && String(checkout.body).includes('"productId":"p1"'))
+
+  await sealChecks()
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed > 0) process.exit(1)

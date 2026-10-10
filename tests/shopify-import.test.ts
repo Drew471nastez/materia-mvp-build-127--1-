@@ -181,8 +181,8 @@ const QUOTE_BLOCK = `<blockquote class="quote" {{ block.shopify_attributes }}>{{
 async function shopifyZip(): Promise<JSZip> {
   const zip = new JSZip()
   zip.file("layout/theme.liquid", "<html><body>{{ content_for_layout }}</body></html>")
-  zip.file("config/settings_schema.json", JSON.stringify([{ name: "theme_info", theme_name: "Test Shop Theme", theme_version: "2.1.0", theme_author: "Ada" }, { name: "Colors", settings: [] }]))
-  zip.file("config/settings_data.json", JSON.stringify({ current: { show_badges: true, page_width: 1200, color_schemes: { "scheme-1": {} }, logo: "shopify://shop_images/logo.png" } }))
+  zip.file("config/settings_schema.json", JSON.stringify([{ name: "theme_info", theme_name: "Test Shop Theme", theme_version: "2.1.0", theme_author: "Ada" }, { name: "Colors", settings: [{ type: "color_scheme_group", id: "color_schemes", definition: [{ type: "color", id: "background", label: "Background", default: "#FFFFFF" }, { type: "header", content: "Buttons" }] }, { type: "color_palette", id: "color_palette", default: { background: "#ffffff" } }] }]))
+  zip.file("config/settings_data.json", JSON.stringify({ current: { show_badges: true, page_width: 1200, color_schemes: { "scheme-1": { settings: { background: "#FAFAFA" } } }, color_palette: { background: "#ffffff", color1: "#333333" }, logo: "shopify://shop_images/logo.png" } }))
   zip.file("locales/en.default.json", JSON.stringify({ general: { note: "Free returns within 30 days" } }))
   zip.file("locales/en.default.schema.json", JSON.stringify({ sections: { feature: { name: "Feature list", heading: "Heading", content: "Content" } } }))
   zip.file("sections/feature-list.liquid", FEATURE)
@@ -274,6 +274,9 @@ async function shopifyZip(): Promise<JSZip> {
   check("the theme's settings are carried whole, objects included", settings.shopify.show_badges === true && settings.shopify.page_width === 1200 && typeof settings.shopify.color_schemes === "object")
   const panelGroups = JSON.parse(files["shopify/config/settings_panel.json"] ?? "[]") as { name: string }[]
   check("the theme settings panel is the theme's own groups", panelGroups.every((g) => g.name !== "theme_info"))
+  const colours = ((panelGroups as { name: string; settings: { id: string; type: string; label?: string }[] }[]).find((g) => g.name === "Colors")?.settings ?? [])
+  check("each colour scheme's colours are in the panel, under the scheme's name", colours.some((c) => c.type === "header" && c.label === "Scheme 1") && colours.some((c) => c.id === "color_schemes::scheme-1::settings::background" && c.type === "color"))
+  check("each colour of the palette is in the panel", colours.some((c) => c.id === "color_palette::background") && colours.some((c) => c.id === "color_palette::color1" && c.label === "Colour 1"))
 
   console.log("\nDrawn\n")
   const drawn = themeOfInstall(files, settings, { assetUrl: (n) => `/a/${n}`, assetText: (n) => files[`shopify/assets/${n}`] ?? null })
