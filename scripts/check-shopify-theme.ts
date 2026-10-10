@@ -30,6 +30,7 @@ import puppeteer from "puppeteer-core"
 import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
+import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
@@ -86,6 +87,11 @@ async function serve(zipPath: string) {
   if (!r.ok) throw new Error(r.error)
   console.log(`\n${r.theme.name}: ${conversionSummary(r.report)} ${Date.now() - t0} ms, ${r.report.notes.length} notes`)
   const files = r.theme.files
+  /* SETTINGS='{"cart_type":"drawer"}' runs the same checks with the theme's own settings changed, as a store owner would. */
+  if (process.env.SETTINGS) {
+    const values = (r.theme.settings as { shopify?: Record<string, unknown> }).shopify
+    if (values) Object.assign(values, JSON.parse(process.env.SETTINGS))
+  }
   const theme = themeOfInstall(files, r.theme.settings, {
     assetUrl: (n) => `/api/site-theme/assets/x/1/${encodeURIComponent(n)}`,
     assetText: (n) => files[`shopify/assets/${n}`] ?? null,
@@ -98,7 +104,7 @@ async function serve(zipPath: string) {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
     if (url.pathname.startsWith("/api/site-theme/assets/")) {
       const name = decodeURIComponent(url.pathname.split("/").pop() ?? "")
-      const a = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }))
+      const a = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
       if (!a) { res.writeHead(404); res.end(); return }
       res.writeHead(200, { "Content-Type": a.type, "Access-Control-Allow-Origin": "*" })
       res.end(a.body)
@@ -135,7 +141,9 @@ async function serve(zipPath: string) {
     const cookie = String(req.headers.cookie ?? "").match(new RegExp(`${CART_COOKIE}=([^;]*)`))?.[1]
     const { cart, note } = readCartCookie(cookie)
     const ajax = req.headers["x-requested-with"] === "XMLHttpRequest" || type.includes("json") || String(req.headers.accept ?? "").includes("application/json")
-    const out = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cart, note, ajax })
+    /* The page a script's request came from, as the site route reads it (app/api/site-theme/site route.ts refererPath). */
+    const referer = (() => { try { const u = new URL(String(req.headers.referer ?? "")); return `${u.pathname}${u.search}` } catch { return undefined } })()
+    const out = await answer(site, { method: req.method ?? "GET", path: url.pathname, query: url.searchParams, body, cart, note, ajax, referer })
     const headers: Record<string, string> = { ...(out.headers ?? {}), "Content-Type": out.type }
     if (out.cart) headers["Set-Cookie"] = `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "")}; Path=/; SameSite=Lax`
     res.writeHead(out.status, headers)
@@ -240,6 +248,7 @@ async function run(zipPath: string) {
       if (picked) check("choosing Large changes the price", priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
       else console.log("  --    this product template has no variant picker")
 
+      if (process.env.DEBUG_CART) page.on("response", async (r) => { if (/\/cart\/add/.test(r.url())) { const b = await r.text().catch(() => ""); console.log("ADD", r.status(), (r.request().postData() ?? "").replace(/\s+/g, " ").slice(0, 400), "=>", b.slice(0, 200), "sections:", Object.entries(JSON.parse(b).sections ?? {}).map(([k, v]) => `${k}:${String(v).length}:${/Linen shirt/.test(String(v))}`).join(" ")) } })
       const clicked = await page.evaluate(() => {
         const b = document.querySelector<HTMLButtonElement>("form[data-type='add-to-cart-form'] button[type='submit'], form[action='/cart/add'] button[name='add'], form[action='/cart/add'] button[type='submit']")
         if (!b) return false
@@ -258,6 +267,30 @@ async function run(zipPath: string) {
         return (shown?.textContent ?? "").trim()
       })
       check("the header's cart count says what the cart holds", bubble === String(added), `"${bubble}" for ${added}`)
+      /*
+        What the theme opens after an add, as on Shopify: its cart drawer, or
+        its notification, on screen with the product in it. A theme set not
+        to open anything on an add (Horizon's "Open the cart drawer" is off
+        by default) opens its drawer from the header's cart instead.
+      */
+      const findOpen = () => page.evaluate(() => {
+        const shown = (el: Element) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 40 && r.height > 40 && r.right > 0 && r.left < innerWidth && cs.visibility !== "hidden" && cs.display !== "none" && Number(cs.opacity) > 0.5 }
+        const panels = [...document.querySelectorAll("cart-drawer, cart-notification, cart-drawer-component dialog, #CartDrawer, .cart-drawer, .cart-notification, dialog[open]")]
+        const open = panels.find((el) => shown(el) && /Linen shirt/i.test((el as HTMLElement).innerText))
+        return { ok: !!open, what: open ? open.tagName.toLowerCase() + (open.id ? `#${open.id}` : "") : panels.map((el) => `${el.tagName.toLowerCase()}:${shown(el) ? `shown "${(el as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 90)}"` : "hidden"}`).join(",") || "none" }
+      })
+      let opened = await findOpen()
+      let how = "on the add"
+      if (!opened.ok) {
+        await page.evaluate(() => {
+          const icon = [...document.querySelectorAll<HTMLElement>("header cart-icon, header .header__icon--cart, header [ref='cartIcon'], header a[href='/cart'], header button[aria-controls*='cart' i], .header-actions__cart-icon, header [data-testid*='cart' i]")].find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+          ;(icon?.closest("button, a") as HTMLElement | null ?? icon)?.click()
+        })
+        await new Promise((r) => setTimeout(r, 1200))
+        opened = await findOpen()
+        how = "from the header's cart"
+      }
+      check(`the theme's cart drawer or notification opens with the product in it (${how})`, opened.ok, opened.what)
       await page.screenshot({ path: `${OUT}/${name}-${label}-added.png` })
 
       await visit("/cart")

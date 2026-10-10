@@ -18,6 +18,7 @@ import { ASSET_MAP_PATH, assetType, binaryOf } from "@/lib/storelib-theme/compat
 import { isOptimizableImage } from "@/lib/images/optimized-url"
 import { installFiles, compatThemeFor } from "@/lib/website-builder/compat-site"
 import { themeAsset } from "@/lib/storelib-theme/compat/site"
+import { compileScss } from "@/lib/storelib-theme/compat/scss"
 
 export const runtime = "nodejs"
 
@@ -95,7 +96,7 @@ export async function GET(_req: Request, { params }: Params) {
   const { data: settingsRow } = await admin.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
   const s = settingsRow as { settings?: unknown; draft_settings?: unknown } | null
   const theme = compatThemeFor(installId, version, files, (draft ? s?.draft_settings ?? s?.settings : s?.settings) ?? {})
-  const out = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }))
+  const out = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
   if (!out) return new NextResponse("Not found", { status: 404, headers: cors })
   return new NextResponse(typeof out.body === "string" ? out.body : new Blob([out.body as BlobPart]), { headers: { ...cors, "Content-Type": out.type, "Cache-Control": cache } })
 }

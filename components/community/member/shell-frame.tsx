@@ -92,13 +92,11 @@ import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
 import "../community-theme.css"
 import { MessagesPanel, MESSAGES_EVENT, useUnreadMessages } from "./messages"
-import { FULL_ON_HOVER, isEventDetailPath, isEventsListPath, isLearnLessonPath, isLearnLibraryPath, navEntries, sectionFromPath, tabFor, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
+import { FULL_ON_HOVER, navEntries, TABS_STILL_MS, tabsFollowTarget, type NavEntry, type TabKey } from "./nav"
 import { PersonCardLayer } from "./person-card"
 import { toast, Toasts } from "./toast"
 import { CommunityTopBar } from "./top-bar"
 import { whenIdle } from "./feed-cache"
-import { prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { arrivedByBack } from "./return-scroll"
 import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
 import { InviteSheet } from "./invite-sheet"
@@ -108,11 +106,19 @@ import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
-import { useReturnScroll, useSectionTop } from "./return-scroll"
+import { scrollKeyFor, useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
+import { CommunityNavigatorProvider, useCommunityNavigator, type CommunityNavigator, type NavigatorHooks } from "@/lib/communities/client/navigator-context"
+import { placeFromUrl, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
+import { quietRouterRefresh } from "@/lib/communities/client/resume"
+import { usePlaceScreens } from "./place-host"
+import { holdLeavingStill } from "@/lib/navigation/leaving-still"
+import { tabSwapInProgress } from "@/lib/nav/tab-swap"
+import type { MemberProfileData } from "@/lib/communities/member-profile-view"
+import { MemberProfilePlace } from "./place-views"
 
 /** Away this long (another app, a locked phone), the community reads itself again when it comes back (NOT EVERY TIME THE APP COMES BACK). */
 const AWAY_REFRESH_MS = 5 * 60_000
@@ -127,7 +133,10 @@ export interface ShellFrameProps {
   unreadMessages?: number | null
   /** The side columns' facts (lib/communities/server/wall.ts); null draws the page alone in the middle. */
   wall?: WallData | null
+  /** Kept for callers that still pass it; the place on screen is the navigator's now. */
   active?: ShellSection
+  /** The community's chat spaces' slugs: a chat space is a place of its own, every feed space is the feed (place-host.tsx). */
+  chatSpaces?: string[]
   children: React.ReactNode
 }
 
@@ -184,7 +193,7 @@ const LAND = "motion-safe:animate-[fade-in_260ms_cubic-bezier(0.22,1,0.36,1)_bot
  * the columns like any page (round 12: it no longer pads or centres itself, components/community/public/sales-page.tsx). Its ground is
  * see-through here.
  */
-const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&>[data-community-sales]]:bg-transparent"
+const ABOUT_BOX = "max-sm:-mx-4 max-sm:-mt-4 [&_[data-community-sales]]:bg-transparent"
 
 /** The scrollbar's room kept on every page of the frame, so a short page and a long one centre the frame on the same line. */
 const GUTTER = "@media (min-width:1024px){html{scrollbar-gutter:stable}}html{overscroll-behavior-y:none}"
@@ -229,10 +238,41 @@ export function usePresenceHeartbeat(communityId: string, userId: string | null)
   }, [communityId, userId])
 }
 
-export function ShellFrame({ community, viewer, topBar, unreadMessages = null, wall = null, active, children }: ShellFrameProps) {
+/*
+  ROUND 15: THE LAYOUT OWNS THE SCREEN. The frame is the community's navigator (lib/communities/client/navigator-context.tsx):
+  a move between places is history.pushState and the place host (place-host.tsx) draws the place from data, so the bar, the
+  row of places and the side columns are this one element for the whole visit and the middle changes under them. The place
+  the visit starts on is the address the server drew.
+*/
+const NO_CHAT: string[] = []
+
+export function ShellFrame(props: ShellFrameProps) {
+  const pathname = usePathname()
+  const search = useSearchParams()
+  const [initial] = useState<Place>(() => placeFromUrl(pathname || "", search?.toString() ?? "") ?? { kind: "feed" })
+  /* The navigator calls into the host through this, so the provider can sit above the frame that holds the host. */
+  const hooksRef = useRef<NavigatorHooks>({})
+  const hooks = useMemo<NavigatorHooks>(
+    () => ({
+      beforeGo: (from, to, opts) => hooksRef.current.beforeGo?.(from, to, opts),
+      prefetch: (p) => hooksRef.current.prefetch?.(p),
+      refresh: (p) => hooksRef.current.refresh?.(p) ?? Promise.resolve(),
+    }),
+    [],
+  )
+  const chatList = props.chatSpaces ?? NO_CHAT
+  const chat = useMemo(() => new Set(chatList.map((s) => s.toLowerCase())), [chatList])
+  return (
+    <CommunityNavigatorProvider slug={props.community.slug} initial={initial} hooks={hooks} chatSpaces={chat}>
+      <Frame {...props} chatSpaces={chatList} hooksRef={hooksRef} />
+    </CommunityNavigatorProvider>
+  )
+}
+
+function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, chatSpaces = NO_CHAT, hooksRef, children }: ShellFrameProps & { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
   const pathname = usePathname()
   const router = useRouter()
-  const current: ShellSection = active ?? sectionFromPath(pathname, community.slug)
+  const nav = useCommunityNavigator()
   const staff = !!viewer.can.manage_members
   const entries = useMemo(() => navEntries(community, staff), [community, staff])
   const [messages, refreshMessages] = useUnreadMessages(community.id, viewer.userId, unreadMessages)
@@ -271,8 +311,11 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     })
   }, [viewer.userId, viewer.signedIn, viewer.isCreatorAccount])
   /* A section tab lands at the top. Back from a creator's page (or any page outside) lands where the community was left (return-scroll.ts, round 12). */
-  useSectionTop(pathname || "", community.slug)
-  useReturnScroll(pathname || "")
+  /* Only for the arrival: moves inside the community keep and restore each place's scroll in the host (place-host.tsx). */
+  const firstPath = useRef(pathname || "").current
+  useSectionTop(firstPath, community.slug)
+  const searchNow = useSearchParams()
+  useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""), { onlyOnArrival: true })
   /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
   const appearance = community.appearance === "dark" ? "dark" : "light"
   useCommunityTheme(appearance)
@@ -348,44 +391,30 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   }, [dm, canMessage, viewer.userId])
 
   /*
-    THE PLACE MARKED AT ONCE. A click on a place marks it on the next frame, before its page has arrived (the frame stays, the page in
-    the middle swaps when it is ready); the address catching up clears the mark.
+    THE PLACE MARKED AT ONCE (round 15): the navigator's place changes on the tap itself, so the row and the left column mark
+    it on that frame, before the place's data has arrived. The columns follow the place actually in the middle (`shown`),
+    which changes on the same frame as the middle does.
   */
-  const [going, setGoing] = useState<{ key: TabKey; from: string | null } | null>(null)
-  if (going && going.from !== pathname) setGoing(null)
-  /* Stable for the whole visit (the address is read when it is called), so the places' context changes only with the mark. */
-  const pathRef = useRef(pathname)
-  pathRef.current = pathname
-  const goTo = useCallback((key: TabKey) => setGoing({ key, from: pathRef.current }), [])
-  const about = current === "about"
+  /* The profile place, drawn with the community and the viewer the frame already has. */
+  const profileCommunity = useMemo(() => ({ id: community.id, slug: community.slug, name: community.name }), [community.id, community.slug, community.name])
+  const profileViewer = useMemo(() => ({ userId: viewer.userId, signedIn: viewer.signedIn }), [viewer.userId, viewer.signedIn])
+  const renderProfile = useCallback((ref: string, data: unknown) => <MemberProfilePlace community={profileCommunity} viewer={profileViewer} profileRef={ref} data={data as MemberProfileData | null} />, [profileCommunity, profileViewer])
+  const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, children })
+  hooksRef.current = screens.hooks
+  const shown = screens.shown
+  const tab = placeTab(nav.place)
+  const about = shown.kind === "about"
   /** Lesson player: the middle column takes the right column's room (like About), so the video is not squeezed beside the curriculum. */
-  const wideCenter = about || isLearnLessonPath(pathname) || isLearnLibraryPath(pathname) || isEventsListPath(pathname) || isEventDetailPath(pathname)
-  /** A lesson is the whole page: no community card or places beside it, the player across every column. About from 1280px too: its own card on the right carries the cover and the way in, so the left one would be the same card twice (round 15). */
-  const lessonPage = isLearnLessonPath(pathname)
-  /*
-    INTO A LESSON AND BACK OUT, NO LANDING (round 15: "the back icon should take me back very smooth, with no fades"). The page
-    that arrives from or into a lesson is simply there; the fade stays for moving between the community's other places. Kept for
-    the whole time on that address, so the class never comes back later and starts the fade late.
-  */
-  const lastPath = useRef(pathname)
-  const quietPath = useRef<string | null>(null)
-  if (lastPath.current !== pathname) {
-    quietPath.current = isLearnLessonPath(lastPath.current) || lessonPage ? pathname : null
-    lastPath.current = pathname
-  }
-  const quietArrival = quietPath.current === pathname
-  const tab = going?.key ?? tabFor(current)
-  /* Moved to another place since the visit began: pages that arrive from now on land (ARRIVE). Set in the render that brings the new page. */
-  const firstTab = useRef(tabFor(current))
-  const [moved, setMoved] = useState(false)
-  if (!moved && tabFor(current) !== firstTab.current) setMoved(true)
-  const place = useMemo<PlaceState>(() => ({ tab, onGo: goTo }), [tab, goTo])
+  const lessonPage = shown.kind === "program"
+  const wideCenter = about || lessonPage || shown.kind === "learn" || shown.kind === "calendar" || shown.kind === "event"
+  const noGo = useCallback(() => {}, [])
+  const place = useMemo<PlaceState>(() => ({ tab, onGo: noGo }), [tab, noGo])
   const membersHref = entries.find((e) => e.key === "members")?.href ?? null
   /* The right column is the community's, the same on every place (round 9): the next event and who takes part. */
   const upcoming = wall?.upcoming ?? null
   const contributors = wall?.contributors ?? null
   const contributorsAll = contributors ? (contributors.basis === "points" ? (community.gamificationEnabled ? `/community/${community.slug}/leaderboard` : null) : membersHref) : null
-  const onLeaderboard = current === "leaderboard"
+  const onLeaderboard = shown.kind === "leaderboard"
 
   /* What the bar is handed, the same objects from place to place, so the memoised bar is not drawn again. */
   const onMessages = useCallback(() => setChat((c) => (c ? null : {})), [])
@@ -394,25 +423,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   const tabs = useMemo(() => <SectionTabs entries={entries} />, [entries])
 
   /*
-    EVERY PLACE, READ AHEAD ONCE THE FRAME IS IDLE (round 9). The frame stays mounted for the whole visit, so this runs once per
-    community: each place's page is asked for in full, and the router keeps it for five minutes, so a click on Classroom or Members
-    swaps it in on the next frame. The place on screen is not asked for again.
+    EVERY PLACE, READ AHEAD (round 15). The router's prefetch of every place's page (rounds 9 and 24) is gone: places are not
+    pages any more. The host reads each place's first screen as data once the first screen has painted and the phone is idle
+    (place-host.tsx), and a finger landing on a place's link reads that one at once (below).
   */
-  const hrefs = useMemo(() => [...entries.map((e) => e.href), `/community/${community.slug}/membership`], [entries, community.slug])
-  /*
-    AND AGAIN AS THE MEMBER MOVES (round 24). Read once per visit, a place's copy was gone after the router's five minutes, and
-    Leaderboard or Members then opened on an empty column and a spinner. Now every move reads the other places again through the
-    app's prefetch plan (lib/nav/prefetch-policy.ts): a place read within the last four minutes is not asked for twice, a lean or
-    Save-Data phone reads one, and the places a member opens most (Leaderboard, Members) come first.
-  */
-  const ordered = useMemo(() => {
-    const rank = (h: string) => (/\/leaderboard$/.test(h) ? 0 : /\/members$/.test(h) ? 1 : 2)
-    return [...hrefs].sort((a, b) => rank(a) - rank(b))
-  }, [hrefs])
-  useEffect(() => {
-    const here = (pathname || "").replace(/\/+$/, "")
-    return prefetchOnIdle(router, ordered.filter((h) => h !== here))
-  }, [ordered, router, pathname])
   useEffect(
     () =>
       whenIdle(() => {
@@ -439,7 +453,17 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     Now it is after five minutes away, and only once the page is idle, so the first frames back are the member's.
   */
   useEffect(() => {
-    const off = onCommunityUpdated(community.id, () => router.refresh())
+    /*
+      NEVER A WHITE PAGE ON THE WAY BACK (round 15). router.refresh() whose request fails falls back to a whole page load
+      (Next's refresh reducer: a failed fetch is an "external URL", location.replace, the app suspended meanwhile): on a
+      phone that just woke, before its connection is back, that was a white page that stayed white. quietRouterRefresh asks
+      only once the network answers (lib/communities/client/resume.ts), and the place on screen is read again as data.
+    */
+    const again = () => {
+      quietRouterRefresh(router)
+      void navRef.current.refresh()
+    }
+    const off = onCommunityUpdated(community.id, again)
     let hiddenAt = 0
     const idle = (run: () => void) => {
       const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
@@ -448,7 +472,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
     }
     const onVisible = () => {
       if (document.visibilityState === "hidden") hiddenAt = Date.now()
-      else if (hiddenAt && Date.now() - hiddenAt > AWAY_REFRESH_MS) idle(() => router.refresh())
+      else if (hiddenAt && Date.now() - hiddenAt > AWAY_REFRESH_MS) idle(again)
     }
     document.addEventListener("visibilitychange", onVisible)
     return () => {
@@ -458,37 +482,94 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
   }, [community.id, router])
 
   /*
-    ONE LANDING, AND NONE ON BACK (round 24). A place that was not read ahead drew its loading screen (which lands) and then the
-    page (which landed again): two fades, the second over a title already on screen. And Back, which a native app answers by
-    putting the page back as it was, faded and rose like a new page. Watched as the page swaps in, before it is painted:
-    - reached by Back or Forward: no landing at all;
-    - in place of a loading screen: the title the loading screen already drew stays put, and only what is under it fades in.
-    Everything else lands as before (ARRIVE).
+    ONE LANDING, AND NONE ON BACK (round 24, kept in round 15): the host animates a place the member moved to (rises 6px and
+    fades in, 180ms) and puts one reached by Back or Forward back with no motion (place-host.tsx). The watcher that did this
+    for router pages is gone with the router pages.
   */
-  const bodyRef = useRef<HTMLDivElement>(null)
+  const navRef = useRef<CommunityNavigator>(nav)
+  navRef.current = nav
+  const shownRef = useRef(shown)
+  shownRef.current = shown
+  const chatRef = useRef<ReadonlySet<string>>(new Set())
+  chatRef.current = useMemo(() => new Set(chatSpaces.map((c) => c.toLowerCase())), [chatSpaces])
+  const rootRef = useRef<HTMLDivElement>(null)
+  /*
+    A LINK TO A PLACE IN THIS COMMUNITY IS A MOVE, NOT A PAGE (round 15). Every link inside the frame (the row of places, the
+    left column, a space or event named in a post, the cards) and in its layers (the person card, the messages panel, which
+    are portalled out of it) is caught before Next's Link sees it, and becomes navigator.go: pushState, the place drawn from
+    data. Not caught: a modified click, a new tab, a download, another community, a post (its own opening), an address that is
+    not a place, the place already on screen (a lesson's ?lesson= link stays the player's), or a link marked data-native-nav.
+    A finger landing on (or a pointer resting over) such a link reads its place ahead.
+  */
   useEffect(() => {
-    /* A whole place's loading screen, not a list's spinner inside the feed. */
-    const PAGE_LOADING = '[data-place-loading], [data-place-spinner="page"]'
-    const body = bodyRef.current
-    if (!body || typeof MutationObserver === "undefined") return
-    const mo = new MutationObserver((records) => {
-      const fromLoading = records.some((r) => Array.from(r.removedNodes).some((n) => n instanceof Element && (n.matches(PAGE_LOADING) || !!n.querySelector(PAGE_LOADING))))
-      const back = arrivedByBack()
-      if (!fromLoading && !back) return
-      for (const r of records) {
-        for (const n of Array.from(r.addedNodes)) {
-          if (!(n instanceof HTMLElement) || n.matches(PAGE_LOADING)) continue
-          n.style.animation = "none"
-          if (back || typeof n.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) continue
-          for (const child of Array.from(n.children)) {
-            if (child.matches("[data-page-title]")) continue
-            ;(child as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" })
-          }
+    const anchor = (e: Event) => ((e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null) ?? null
+    const placeOf = (a: HTMLAnchorElement): Place | null => {
+      if ((a.target && a.target !== "_self") || a.hasAttribute("download") || a.dataset.nativeNav !== undefined) return null
+      let url: URL
+      try {
+        url = new URL(a.href, window.location.href)
+      } catch {
+        return null
+      }
+      if (url.origin !== window.location.origin || url.hash) return null
+      if ((slugFromPath(url.pathname) || "").toLowerCase() !== community.slug.toLowerCase()) return null
+      return placeFromUrl(url.pathname, url.search)
+    }
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = anchor(e)
+      /* Out to Explore (the community menu's row, any link there): the frame pops away as it goes (LEAVING, below). */
+      if (a && !a.target) {
+        try {
+          const to = new URL(a.href, window.location.href)
+          if (to.origin === window.location.origin && /^\/explore(\/|$)/.test(to.pathname)) leavingRef.current = "pop"
+        } catch {
+          /* Not an address: nothing to do. */
         }
       }
-    })
-    mo.observe(body, { childList: true, subtree: true })
-    return () => mo.disconnect()
+      const p = a ? placeOf(a) : null
+      if (!p) return
+      const onScreen = placeFromUrl(window.location.pathname, window.location.search)
+      if (onScreen && placeKey(onScreen) === placeKey(p)) return
+      /* The feed's own pills (and its sort menu's Saved) switch its list in place, with the fill gliding: theirs, not the shell's. */
+      if (slotKeyOf(p, chatRef.current) === "feed" && slotKeyOf(shownRef.current, chatRef.current) === "feed" && (e.target as Element | null)?.closest?.("[data-space-chips], [data-sort-menu]")) return
+      e.preventDefault()
+      navRef.current.go(p)
+    }
+    const onIntent = (e: Event) => {
+      const a = anchor(e)
+      const p = a ? placeOf(a) : null
+      if (p) navRef.current.prefetch(p)
+    }
+    document.addEventListener("click", onClick, true)
+    document.addEventListener("pointerdown", onIntent, { capture: true, passive: true })
+    rootRef.current?.addEventListener("mouseover", onIntent, { passive: true })
+    const root = rootRef.current
+    return () => {
+      document.removeEventListener("click", onClick, true)
+      document.removeEventListener("pointerdown", onIntent, true)
+      root?.removeEventListener("mouseover", onIntent)
+    }
+  }, [community.slug])
+
+  /*
+    ENTERING AND LEAVING LIKE A NATIVE PUSH AND POP (round 15, the owner: "from a community I click the hamburger, then
+    Explore: Explore appears too fast, too direct"). Arriving from outside (Explore, a card), the frame slides in from the
+    right and settles (300ms, translate and opacity on the compositor). Leaving for Explore, a copy of the frame as it stood
+    is laid over the page in the commit that takes it away and slides off to the right, under the tab bar, with Explore
+    already drawn beneath it (lib/navigation/leaving-still.ts: never a view transition, which would freeze the screen while
+    Explore loads). Neither under reduced motion, nor inside the app's own tab swap (it already moves the page).
+  */
+  const leavingRef = useRef<"pop" | null>(null)
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      el.animate([{ translate: "36px 0", opacity: 0.6 }, { translate: "0 0", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+    }
+    return () => {
+      if (leavingRef.current === "pop" && el) holdLeavingStill(el, 320, { motion: "pop", under: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const homeHref = `/community/${community.slug}`
@@ -511,6 +592,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
       <style>{GUTTER + PLACE_KEYFRAMES}</style>
       <CommunityFixedFootWatch />
       <div
+        ref={rootRef}
         data-community-shell=""
         data-community-theme={appearance}
         data-community-landing={landing ? "" : undefined}
@@ -527,7 +609,7 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
         <div className="mx-auto w-full max-w-[1360px] px-4 sm:px-6 lg:px-8">
           <div
             data-community-columns="three"
-            data-community-place={about ? "about" : isLearnLessonPath(pathname) ? "lesson" : isLearnLibraryPath(pathname) ? "learn" : isEventsListPath(pathname) ? "events" : isEventDetailPath(pathname) ? "event" : undefined}
+            data-community-place={about ? "about" : lessonPage ? "lesson" : shown.kind === "learn" ? "learn" : shown.kind === "calendar" ? "events" : shown.kind === "event" ? "event" : undefined}
             className="pb-16 pt-4 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:grid-rows-[auto_1fr] lg:items-start lg:gap-x-6 lg:pt-6 xl:grid-cols-[280px_minmax(0,1fr)_300px]"
           >
             {/* LEFT: the community card, and the places right under it (round 9). */}
@@ -545,8 +627,10 @@ export function ShellFrame({ community, viewer, topBar, unreadMessages = null, w
               ) : null}
             </aside>
             <div className={`min-w-0 lg:row-span-2 lg:row-start-1 ${lessonPage ? "lg:col-span-full lg:col-start-1" : about ? "lg:col-start-2 xl:col-span-full xl:col-start-1" : wideCenter ? "lg:col-start-2 xl:col-span-2" : "lg:col-start-2"}`} data-community-main="">
-              <div ref={bodyRef} className={`${moved && !quietArrival ? ARRIVE : ""} ${about ? ABOUT_BOX : ""}`} data-community-body="" data-community-moved={moved ? "" : undefined}>
-                <CommunityPullRefresh slug={community.slug}>{children}</CommunityPullRefresh>
+              <div className={about ? ABOUT_BOX : ""} data-community-body="">
+                <CommunityPullRefresh slug={community.slug} place={shown} off={shown.kind === "space" && chatSpaces.includes(shown.slug)} onRefresh={nav.refresh}>
+                  {screens.middle}
+                </CommunityPullRefresh>
               </div>
             </div>
           </div>

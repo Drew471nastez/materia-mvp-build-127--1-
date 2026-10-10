@@ -125,7 +125,7 @@ export function shopifyRoot(zip: JSZip): string | null {
   const names = Object.keys(zip.files)
   const candidates = new Set<string>([""])
   for (const n of names) {
-    const m = n.match(/^([^/]+\/)sections\//)
+    const m = n.match(/^([^/]+\/)(?:sections\/|layout\/theme\.liquid$)/)
     if (m) candidates.add(m[1])
   }
   for (const root of candidates) {
@@ -133,6 +133,15 @@ export function shopifyRoot(zip: JSZip): string | null {
     const hasSections = names.some((n) => n.startsWith(`${root}sections/`) && n.endsWith(".liquid") && !n.slice(root.length + 9).includes("/"))
     const hasShell = !!zip.file(`${root}config/settings_schema.json`) || !!zip.file(`${root}layout/theme.liquid`)
     if (hasSections && hasShell) return root
+    /*
+      A THEME WITH NO SECTIONS AT ALL. Shopify's newest themes (Skeleton)
+      compose the header and footer as blocks in the layout
+      (`{% block 'header' %}`) and each page as blocks in a Liquid template;
+      an older one (Timber) writes them into the layout as markup. A layout
+      and a home page template make it a theme.
+    */
+    const hasHome = !!zip.file(`${root}templates/index.liquid`) || !!zip.file(`${root}templates/index.json`)
+    if (zip.file(`${root}layout/theme.liquid`) && hasHome) return root
   }
   return null
 }
@@ -277,7 +286,7 @@ interface SourceFiles {
 
 async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<ConvertResult> {
   const root = shopifyRoot(zip)
-  if (root === null) return { ok: false, error: "This is not a Shopify theme: it needs sections/*.liquid and config/settings_schema.json or layout/theme.liquid" }
+  if (root === null) return { ok: false, error: "This is not a Shopify theme: it needs layout/theme.liquid and a home page (templates/index.json or templates/index.liquid)" }
 
   const entries = Object.values(zip.files).filter((f) => !f.dir && f.name.startsWith(root))
   if (entries.length > MAX_ENTRIES) return { ok: false, error: `This theme has ${entries.length} files; the most Storelib reads is ${MAX_ENTRIES}` }
@@ -343,7 +352,8 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     files[`${folder}/${type}.storelib`] = out
     report.converted.push(path)
   }
-  if (sectionTypes.size === 0) return { ok: false, error: "No section of this theme could be read" }
+  /* A theme drawn by its layout and Liquid templates alone (Skeleton, Timber) has no sections, and needs none. */
+  if (sectionTypes.size === 0 && !src.text.has("layout/theme.liquid")) return { ok: false, error: "No section of this theme could be read" }
   /* Each section's own name, in the theme's words, for the sections placed on its pages. */
   const names = new Map<string, string>()
   for (const type of sectionTypes.values()) {
@@ -407,10 +417,16 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     const v = themeValues(parseJson(src.text.get("config/settings_data.json") ?? "")).sections
     return v && typeof v === "object" ? (v as Record<string, Tree>) : {}
   })()
-  for (const { name, afterContent } of drawn.sections) {
+  for (const { name, afterContent, afterFooter } of drawn.sections) {
     const type = sectionTypes.get(name)
-    /* A popup, a phone tab bar or back to top is the Overlay group's, wherever the layout draws it; it still draws there, by its name. */
-    const part = type && (floatsOverPage(name) || floatsOverPage(type)) ? "overlay" : afterContent ? "footer" : "header"
+    /*
+      A popup, a phone tab bar or back to top is the Overlay group's, wherever
+      the layout draws it; so is a section the layout draws after its footer
+      group (Posturex's Custom Color Swatches), which Shopify's editor lists
+      below the overlay group, not in the footer. It still draws where the
+      tag stands, by its name.
+    */
+    const part = type && (floatsOverPage(name) || floatsOverPage(type) || afterFooter) ? "overlay" : afterContent ? "footer" : "header"
     if (!type || groups.header.some((x) => x.id === name) || groups.footer.some((x) => x.id === name) || groups.overlay.some((x) => x.id === name)) continue
     /* Already in the Overlay group from its group file (a phone tab bar both places draw): the group's is the one to edit. */
     if (part === "overlay" && groups.overlay.some((x) => x.type === type)) continue
@@ -574,9 +590,42 @@ function checkSyntax(text: string, note: (m: string) => void): void {
   }
 }
 
+/**
+ * THE OVERLAY GROUP OF A THEME IMPORTED BEFORE IT WAS READ. A theme whose
+ * layout draws its overlay group from a {% liquid %} block came in with an
+ * empty Overlay group: its phone tab bar, popups and back to top drew on the
+ * site (from the group file) but could not be edited. From the install's own
+ * files (the layout, the group files, the section files), the sections the
+ * import would make now, each remembering its group file. Empty when the
+ * layout draws no other group.
+ */
+export function overlayFromFiles(rows: Record<string, string>, renamed: Record<string, string> = {}): { slots: string[]; sections: ImportedSection[] } {
+  const out = { slots: [] as string[], sections: [] as ImportedSection[] }
+  const raw = rows["layout/theme.storelib"] ?? rows[`${COMPAT_PREFIX}layout/theme.liquid`] ?? ""
+  const layout = raw.includes("<template") ? splitCompatFile(raw).markup : raw
+  if (!layout) return out
+  const types = new Map<string, string>()
+  for (const path of Object.keys(rows)) {
+    const m = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+    if (m) types.set(m[1], m[1])
+  }
+  for (const [original, stored] of Object.entries(renamed)) if (types.has(stored)) types.set(original, stored)
+  const report = new Report()
+  for (const slot of layoutDraws(layout).groups) {
+    if (slot === "header-group" || slot === "footer-group") continue
+    const json = rows[`${COMPAT_PREFIX}sections/${slot}.json`]
+    if (!json) continue
+    const said = (parseJson(json) as Tree | undefined)?.type
+    if (said === "header" || said === "footer") continue
+    out.slots.push(slot)
+    out.sections.push(...groupList(json, "overlay", types, report, `sections/${slot}.json`).map((x) => ({ ...x, slot })))
+  }
+  return out
+}
+
 /** The section groups and the sections a layout draws, in order, read as tags whether written {% sections 'x' %} or as a line of {% liquid %}. */
-function layoutDraws(text: string): { groups: string[]; sections: { name: string; afterContent: boolean }[] } {
-  const out = { groups: [] as string[], sections: [] as { name: string; afterContent: boolean }[] }
+function layoutDraws(text: string): { groups: string[]; sections: { name: string; afterContent: boolean; afterFooter: boolean }[] } {
+  const out = { groups: [] as string[], sections: [] as { name: string; afterContent: boolean; afterFooter: boolean }[] }
   let toks: ReturnType<typeof lex> = []
   try {
     toks = lex(text, true)
@@ -585,13 +634,15 @@ function layoutDraws(text: string): { groups: string[]; sections: { name: string
   }
   const nameOf = (args: string) => args.trim().match(/^['"]([^'"]+)['"]/)?.[1] ?? null
   let afterContent = false
+  let afterFooter = false
   for (const t of toks) {
     if (t.kind === "output" && /^content_for_layout\b/.test(t.value)) afterContent = true
     if (t.kind !== "tag") continue
     const name = nameOf(t.args)
     if (!name) continue
     if (t.name === "sections" && !out.groups.includes(name)) out.groups.push(name)
-    if (t.name === "section" && !out.sections.some((x) => x.name === name)) out.sections.push({ name, afterContent })
+    if (t.name === "section" && !out.sections.some((x) => x.name === name)) out.sections.push({ name, afterContent, afterFooter })
+    if (t.name === "sections" && /footer/.test(name)) afterFooter = true
   }
   return out
 }

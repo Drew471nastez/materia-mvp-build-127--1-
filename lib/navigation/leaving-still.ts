@@ -109,7 +109,15 @@ function copyFor(el: HTMLElement): HTMLElement {
  * Does nothing under reduced motion, with nothing to copy, or while another
  * still is up. Returns a function that takes it away early.
  */
-export function holdLeavingStill(el: HTMLElement | null | undefined, ms = LEAVE_FADE_MS): () => void {
+export function holdLeavingStill(
+  el: HTMLElement | null | undefined,
+  ms = LEAVE_FADE_MS,
+  /**
+   * "fade" (the default) fades the copy off; "pop" slides it off to the right with a soft edge, a native pop (round 15:
+   * leaving a community for Explore). `under` puts the copy below the app's bars (the tab bar stays on top, still).
+   */
+  opts: { motion?: "fade" | "pop"; under?: boolean } = {},
+): () => void {
   const nothing = () => {}
   if (typeof document === "undefined" || typeof window === "undefined") return nothing
   if (!(el instanceof HTMLElement) || !el.isConnected) return nothing
@@ -123,7 +131,7 @@ export function holdLeavingStill(el: HTMLElement | null | undefined, ms = LEAVE_
   box.setAttribute("aria-hidden", "true")
   box.inert = true
   /* Over everything the buyer pages draw, taking no presses, painting nothing outside itself. */
-  box.style.cssText = "position:fixed;inset:0;z-index:2147483000;overflow:hidden;pointer-events:none;contain:layout paint style;will-change:opacity"
+  box.style.cssText = `position:fixed;inset:0;z-index:${opts.under ? 40 : 2147483000};overflow:hidden;pointer-events:none;contain:layout paint style;will-change:${opts.motion === "pop" ? "translate" : "opacity"}`
   const copy = copyFor(el)
   copy.style.cssText += `;position:absolute;left:${Math.round(r.left)}px;top:${Math.round(r.top)}px;width:${Math.round(r.width)}px;height:${Math.round(r.height)}px;margin:0`
   box.append(copy)
@@ -139,7 +147,11 @@ export function holdLeavingStill(el: HTMLElement | null | undefined, ms = LEAVE_
   }
   const cap = window.setTimeout(done, ms + STILL_CAP_MS)
   try {
-    const move = box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: LEAVE_FADE_EASE, fill: "forwards" })
+    if (opts.motion === "pop") copy.style.boxShadow = "-12px 0 32px -16px rgba(17,24,39,0.28)"
+    const move =
+      opts.motion === "pop"
+        ? box.animate([{ translate: "0 0" }, { translate: "100% 0" }], { duration: ms, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "forwards" })
+        : box.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: LEAVE_FADE_EASE, fill: "forwards" })
     move.finished.then(done, done)
   } catch {
     /* No Web Animations (a very old engine): the copy simply goes on the next task rather than fading. */

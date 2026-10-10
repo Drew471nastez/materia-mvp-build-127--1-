@@ -31,7 +31,8 @@ console.log("\nGOING BACK: clear of the bars, by translate and scale")
   const pf = read("components/community/member/post-fullscreen.tsx")
   check("the viewer's way in and way out fly a copy that crops (coverMorph), not a clip-path animation", /coverMorph\(\{ host: rootRef\.current, img: el, thumb: from, laid, way: "in"/.test(lb) && /coverMorph\(\{ host: rootRef\.current, img: el, thumb: target, laid, way: "out"/.test(lb) && !/clipPath: "inset/.test(lb))
   check("before the way out, the thumbnail is brought clear of the bars, only while the black covers the screen", /if \(thumbEl && backFrom >= 0\.98 && drag\.current\.y <= 0\) revealForReturn\(thumbEl\)/.test(lb))
-  check("and the opened post does the same for its card, only when not pulled", /if \(dy <= 0\) revealForReturn\(origin\?\.\(\)\)/.test(pf))
+  /* Round 15: the opened post is pushed in from the right and never lands on its card, so nothing is moved to meet it; the feed is put back where it was before the close moves. */
+  check("and the opened post puts the feed back where it was before its close moves, never moving it to meet a card", /feedRestore\(noted\.current, window\.scrollY\)/.test(pf) && !/revealForReturn/.test(pf))
   check("the page under a layer keeps where it was moved: scroll restoration is manual while the layer is up", /window\.history\.scrollRestoration = "manual"/.test(lb) && /putBack\(\)/.test(lb))
   const ease = bezier(0.32, 0.72, 0, 1)
   check("the morph's curve starts at 0, ends at 1 and only rises", ease(0) === 0 && ease(1) === 1 && [0.1, 0.3, 0.5, 0.7, 0.9].every((t, i, a) => i === 0 || ease(t) > ease(a[i - 1])))
@@ -41,8 +42,11 @@ console.log("\nGOING BACK: clear of the bars, by translate and scale")
 console.log("\nMOVING BETWEEN PLACES")
 {
   const sf = read("components/community/member/shell-frame.tsx")
-  check("the places are read ahead again on every move, through the app's plan, Leaderboard and Members first", /prefetchOnIdle\(router, ordered\.filter\(\(h\) => h !== here\)\)/.test(sf) && /\[ordered, router, pathname\]/.test(sf) && /leaderboard\$\/\.test\(h\) \? 0/.test(sf))
-  check("an arrival by Back does not land like a new page, and one after a loading screen lands once", /arrivedByBack\(\)/.test(sf) && /n\.style\.animation = "none"/.test(sf) && /child\.matches\("\[data-page-title\]"\)/.test(sf))
+  /* Round 15: places are data now, read ahead by the place host (place-host.tsx) through the place cache, on the same rules. */
+  const host = read("components/community/member/place-host.tsx")
+  const cache = read("lib/communities/client/place-cache.ts")
+  check("the places are read ahead again on every move, through the app's plan, Leaderboard and Members first", /void readPlacesAhead\(communityId, aheadList, \(\) => stopped\)/.test(host) && /\}, \[communityId, aheadList, shown\.key\]\)/.test(host) && /k === "leaderboard" \? 0 : k === "members" \? 1 : 2/.test(host) && /AHEAD_FRESH_MS = 4 \* 60_000/.test(cache) && /readAheadAllowed\(conn\)/.test(cache))
+  check("an arrival by Back does not land like a new page, and one after a loading screen lands once", /if \(how\.history\) return/.test(host) && /if \(child\.matches\("\[data-page-title\]"\)\) continue/.test(host))
   for (const [place, title] of [["leaderboard", "Leaderboard"], ["members", "Members"], ["membership", "Membership"], ["notifications", "Notifications"]] as const) {
     const f = `${MEMBER}/${place}/loading.tsx`
     check(`${place}: its loading screen draws its title at once, never an empty column`, existsSync(join(process.cwd(), f)) && new RegExp(`<PlaceLoading title="${title}"`).test(read(f)))

@@ -106,6 +106,7 @@ const SUITES = [
   "tests/native-scroll-guard.test.ts",
   "tests/app-mobile-nav.test.ts",
   "tests/buyer-tab-bar.test.ts",
+  "tests/nav-tabs15.test.ts",
   "tests/nav-feel.test.ts",
   "tests/app-nav-round10.test.ts",
   "tests/buyer-chrome.test.ts",
@@ -465,6 +466,7 @@ const SUITES = [
   "tests/communities-membership13.test.ts",
   "tests/communities-frame10.test.ts",
   "tests/communities-frame11.test.ts",
+  "tests/communities-feed15.test.ts",
   "tests/communities-frame12.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-frame13.test.ts",
@@ -473,6 +475,7 @@ const SUITES = [
   "tests/communities-safety2.test.ts",
   "tests/communities-posts12.test.ts",
   "tests/communities-posts13.test.ts",
+  "tests/communities-post15.test.ts",
   "tests/communities-feed-rank.test.ts",
   "tests/communities-admin13.test.ts",
   "tests/communities-events-admin.test.ts",
@@ -481,6 +484,7 @@ const SUITES = [
   "tests/communities-video13.test.ts",
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
+  "tests/communities-profiles15.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",
@@ -493,6 +497,7 @@ const SUITES = [
   "tests/native-shell.test.ts",
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
+  "tests/communities-shell15.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

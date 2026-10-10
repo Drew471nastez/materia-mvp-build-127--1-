@@ -377,7 +377,8 @@ section("Pages drawn over the whole shell")
   const layer = code("components/app/page-layer.tsx")
   check("the layer is the whole window, between the header and the pill, and pads itself under the status bar",
     /"fixed inset-0 z-\[52\] flex flex-col bg-\[#f8f9fa\]"/.test(layer) && /"pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer)
-      && /phoneOnly \? "has-phone-page-layer" : "has-page-layer"/.test(layer) && /html\.classList\.add\(name\)/.test(layer))
+      /* Round 15: the class is counted by lib/ui/layers.ts (one switch per layer left it wrong when two overlapped). */
+      && /openLayer\(phoneOnly \? "phone-page" : "page", \(\) => box\.current\)/.test(layer) && /"phone-page": \{ covers: true, barOver: false, htmlClass: "has-phone-page-layer" \}/.test(read("lib/ui/layers.ts")) && /page: \{ covers: true, barOver: false, htmlClass: "has-page-layer" \}/.test(read("lib/ui/layers.ts")))
   check("a phone only layer is the same layer below md and, from md, fills the shell's content area in the flow",
     /"flex h-full flex-col bg-\[#f8f9fa\] max-md:fixed max-md:inset-0 max-md:z-\[52\] max-md:h-auto"/.test(layer)
       && /data-page-layer-phone=\{phoneOnly \? "" : undefined\}/.test(layer) && /"max-md:pt-\[env\(safe-area-inset-top,0px\)\]"/.test(layer))

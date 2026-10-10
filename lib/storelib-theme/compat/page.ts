@@ -15,6 +15,7 @@ import { parseCompat } from "./parser"
 import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
+import { withShopifyModules } from "./shims"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -117,12 +118,20 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   /* The fonts the theme's settings name, from a public font library (font_face draws no rule of its own). */
   const fonts = theme.fontStylesheets(ctx).map((href) => `<link rel="stylesheet" href="${href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" data-storelib-font>`).join("")
   const head = `${fonts ? `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>${fonts}` : ""}<style data-storelib-bundle>${theme.stylesheetBundle()}</style>${opts.extraHead ?? ""}<style data-storelib-overrides>${overrideCss(theme.settingsValues)}</style>`
+  /*
+    `{% layout none %}`: the template is the whole answer, as an older
+    theme's ajax views are (`/cart?view=drawer`, `/search?view=json`). No
+    layout, no head, nothing added: a script reads it as markup or JSON.
+  */
+  const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : undefined
+  if (layout === "none" && opts.content === undefined) return { html: theme.finish(content), errors, ctx }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
-  let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail })
+  let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail, layout })
   /* A theme preloads its font files by font_url; a font library's address is a stylesheet, which the head above already loads. */
   html = html.replace(/<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*href=["']https:\/\/fonts\.googleapis\.com[^>]*>|<link\b[^>]*href=["']https:\/\/fonts\.googleapis\.com[^"']*["'][^>]*rel=["']?preload["']?[^>]*>/gi, "")
   if (!opts.scripts) html = withoutScripts(html)
+  else html = withShopifyModules(html)
   return { html, errors, ctx }
 }
 

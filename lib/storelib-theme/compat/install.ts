@@ -127,6 +127,8 @@ export function compatPageForHref(href: string, keys: readonly string[]): { key:
   else if (parts[0] === "collections") key = parts[1] ? has("collection") : has("collections")
   else if (parts[0] === "cart" && parts.length === 1) key = has("cart")
   else if (parts[0] === "search") key = has("search")
+  /* A theme's wishlist page is the visitor's own wishlist, Storelib's, unless the site has a page of that name. */
+  else if (parts[0] === "pages" && parts[1] === "wishlist") key = has("wishlist")
   else if (parts[0] === "pages" && parts[1]) key = has(parts[1]) ?? has("page")
   else if (parts[0] === "blogs" && parts[1]) key = parts[2] ? has("article") : has("blog")
   return key ? { key, ...(product ? { product } : {}) } : null

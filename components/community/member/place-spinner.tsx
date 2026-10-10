@@ -69,14 +69,14 @@ export const SPINNER_SPOKES = LINES
  * `compact` is the feed's: the height of a couple of posts, under the chips
  * and the composer.
  */
-export function PlaceSpinner({ label = "Loading", compact = false }: { label?: string; compact?: boolean }) {
+export function PlaceSpinner({ label = "Loading", compact = false, delay = WAIT_MS }: { label?: string; compact?: boolean; /** How long it waits before it shows. 0 where the wait already happened (the place host waits 250ms before it shows a place's waiting screen). */ delay?: number }) {
   return (
     <div
       role="status"
       aria-live="polite"
       aria-label={label}
       className={`flex w-full items-center justify-center ${compact ? "h-[220px]" : "min-h-[min(56vh,460px)]"}`}
-      style={{ animation: `skeleton-reveal 200ms cubic-bezier(0.22, 1, 0.36, 1) ${WAIT_MS}ms both` }}
+      style={delay > 0 ? { animation: `skeleton-reveal 200ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both` } : undefined}
       data-place-spinner={compact ? "list" : "page"}
     >
       <Spinner />
@@ -92,11 +92,11 @@ export function PlaceSpinner({ label = "Loading", compact = false }: { label?: s
  * only what is under it fades in (shell-frame.tsx). A detail the page has and the loading screen cannot know (a count) keeps
  * its line, so nothing moves.
  */
-export function PlaceLoading({ title, detail = null, label }: { title: string; detail?: string | null; label?: string }) {
+export function PlaceLoading({ title, detail = null, label, delay = WAIT_MS }: { title: string; detail?: string | null; label?: string; delay?: number }) {
   return (
     <div data-place-loading="">
       <PageTitle title={title} detail={detail} />
-      <PlaceSpinner label={label ?? `Loading ${title.toLowerCase()}`} />
+      <PlaceSpinner label={label ?? `Loading ${title.toLowerCase()}`} delay={delay} />
     </div>
   )
 }

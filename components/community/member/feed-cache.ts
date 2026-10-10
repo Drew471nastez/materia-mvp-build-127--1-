@@ -249,12 +249,33 @@ export function addPost(communityId: string, post: FeedPostView) {
  * fresh copy's facts; the cursor and the pages already read are kept. `added` is what the fresh copy has that the screen
  * does not (pinned posts aside), newest first, for FeedLive to bring in.
  */
-export function mergeQuiet(current: CachedView, fresh: CachedView): { view: CachedView; added: FeedPostView[] } {
+export function mergeQuiet(current: CachedView, fresh: CachedView): { view: CachedView; added: FeedPostView[]; changed: number } {
   const byId = new Map(fresh.posts.map((p) => [p.id, p]))
   const have = new Set(current.posts.map((p) => p.id))
-  const posts = current.posts.map((p) => byId.get(p.id) ?? p)
+  let changed = 0
+  /*
+    THE SAME FACTS, THE SAME OBJECT (round 15). A post the server says nothing new about keeps the very object on screen, so its
+    card (memoised on the post, post-card.tsx) is not drawn again at all and its pictures are never touched: a refresh costs
+    only the cards whose counts or words moved.
+  */
+  const posts = current.posts.map((p) => {
+    const next = byId.get(p.id)
+    if (!next || samePost(p, next)) return p
+    changed++
+    return next
+  })
   const added = fresh.posts.filter((p) => !have.has(p.id) && !p.pinned)
-  return { view: { ...current, posts, at: fresh.at }, added }
+  return { view: { ...current, posts: changed ? posts : current.posts, at: fresh.at }, added, changed }
+}
+
+/** Whether two copies of a post say the same thing (the server's JSON, so key order is the same). */
+export function samePost(a: FeedPostView, b: FeedPostView): boolean {
+  if (a === b) return true
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
 }
 
 /** For tests and probes: forget everything. */

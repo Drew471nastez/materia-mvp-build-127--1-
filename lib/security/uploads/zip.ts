@@ -567,7 +567,7 @@ export function shopifyThemeRoot(names: readonly string[]): string | null {
   const set = new Set(names.map((n) => n.replace(/\\/g, "/")))
   const roots = new Set<string>([""])
   for (const n of set) {
-    const m = n.match(/^([^/]+\/)sections\//)
+    const m = n.match(/^([^/]+\/)(?:sections\/|layout\/theme\.liquid$)/)
     if (m) roots.add(m[1])
   }
   for (const root of roots) {
@@ -575,6 +575,8 @@ export function shopifyThemeRoot(names: readonly string[]): string | null {
     const sections = [...set].some((n) => n.startsWith(`${root}sections/`) && n.endsWith(".liquid") && !n.slice(root.length + 9).includes("/"))
     const shell = set.has(`${root}config/settings_schema.json`) || set.has(`${root}layout/theme.liquid`)
     if (sections && shell) return root
+    /* A theme with no sections (Shopify's Skeleton, an older one like Timber): a layout and a home page, the same rule as the importer (lib/storelib-theme/shopify/convert.ts shopifyRoot). */
+    if (set.has(`${root}layout/theme.liquid`) && (set.has(`${root}templates/index.liquid`) || set.has(`${root}templates/index.json`))) return root
   }
   return null
 }

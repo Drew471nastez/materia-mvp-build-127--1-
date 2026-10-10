@@ -55,6 +55,8 @@ export interface CompatCanvasProps {
   onSelect: (sectionId: string, blockPath: string[]) => void
   /** A link pressed in the page: its address, and whether it is in the header or the footer. */
   onNavigate?: (href: string, chrome: boolean) => void
+  /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
+  siteUrl?: string
 }
 
 const loading = new Map<string, Promise<Record<string, string>>>()
@@ -144,7 +146,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       collections,
       menus,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
-      /* A product page and a collection page are drawn about the first of each, as Shopify's editor does. */
+      /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
       product: template === "product" ? sample : null,
       collection: template === "collection" ? firstCollection ?? { id: "all", title: "Products", handle: "all", url: "/collections/all", products, products_count: products.length } : null,
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
@@ -177,12 +179,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
-    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
+    let site = ""
+    try {
+      site = props.siteUrl ? new URL(props.siteUrl).origin : ""
+    } catch {
+      site = ""
+    }
+    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line. */
     return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
   }
 
-  type Slot = { n: number; key: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean }
+  /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
+  type Slot = { n: number; key: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; leaving?: boolean; entering?: boolean }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
@@ -202,7 +211,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     if (!compatTheme) return
     const list = sectionsRef.current
-    const html = draw(list)
+    /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
+    let html: string
+    try {
+      html = draw(list)
+    } catch (e) {
+      console.error("[compat-canvas] the page could not be drawn", e)
+      return
+    }
     const now = front()
     if (!now) { loadBehind(html, docKey, list); return }
     const next = docShape(html)
@@ -234,11 +250,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const list = sectionsRef.current
     const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== JSON.stringify(s))
     if (!changed.length) return
-    const ctx = pageContextFor(compatTheme, page, list)
+    let ctx: ReturnType<typeof pageContextFor>
+    try {
+      ctx = pageContextFor(compatTheme, page, list)
+    } catch (e) {
+      console.error("[compat-canvas] the page could not be read", e)
+      return
+    }
     for (const s of changed) {
       const at = list.indexOf(s)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
-      const { html } = drawSection(compatTheme, ctx, s, at, group)
+      let html: string
+      try {
+        html = drawSection(compatTheme, ctx, s, at, group).html
+      } catch (e) {
+        /* This section stays as it was drawn; the others still change. */
+        console.error("[compat-canvas] a section could not be drawn", e)
+        continue
+      }
       win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
       slot.drawnFrom.set(s.id, JSON.stringify(s))
       slot.shape.sections.set(s.id, html)
@@ -275,12 +304,35 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const inspecting = useRef(props.inspectorEnabled)
   inspecting.current = props.inspectorEnabled
   /* The page behind takes the front's place: drawn, its pictures in, and where the front was scrolled to. */
+  /*
+    ANOTHER PAGE CROSS-FADES IN. The same page drawn again (an edit it could
+    not take in place) swaps in one frame, as it always has, because nothing
+    about it should seem to move. A different page, opened from the page list
+    or a link in it, fades in over the one it replaces, which stays under it
+    for those 200ms rather than leaving a white frame between them.
+  */
+  const FADE_MS = 200
   const promote = (n: number) => {
     setSlots((prev) => {
       const at = prev.findIndex((x) => x.n === n)
-      return at <= 0 ? prev : prev.slice(at)
+      if (at <= 0) return prev
+      const next = prev[at]
+      const old = prev[0]
+      const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+      if (old.key === next.key || calm) return prev.slice(at)
+      next.entering = true
+      old.leaving = true
+      setTimeout(() => setSlots((now) => now.filter((x) => x !== old)), FADE_MS + 40)
+      return [next, old]
     })
   }
+  /* The page that came forward from another address fades in, once. */
+  useEffect(() => {
+    const slot = slots[0]
+    if (!slot?.entering) return
+    slot.entering = false
+    frames.current.get(slot.n)?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: "ease-out" })
+  }, [slots])
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
@@ -305,7 +357,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
       } else if (m.type === "reload") {
         /* The page could not take a change in place: drawn again, behind it. */
-        if (isFront && compatTheme) loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+        if (isFront && compatTheme) {
+          try {
+            loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+          } catch (e) {
+            console.error("[compat-canvas] the page could not be drawn", e)
+          }
+        }
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
         if (typeof n.href === "string") onNavigate.current?.(n.href, n.chrome === true)
@@ -337,11 +395,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
               title={`${compat?.theme ?? "Theme"} preview`}
               srcDoc={slot.html}
               sandbox="allow-scripts allow-forms allow-popups"
-              data-compat-frame={i === 0 ? "front" : "behind"}
+              data-compat-frame={i === 0 ? "front" : slot.leaving ? "leaving" : "behind"}
               aria-hidden={i === 0 ? undefined : true}
               tabIndex={i === 0 ? undefined : -1}
               className="absolute inset-0 block h-full w-full border-0 bg-white"
-              style={i === 0 ? undefined : { visibility: "hidden", pointerEvents: "none" }}
+              style={i === 0 ? { zIndex: 1 } : slot.leaving ? { zIndex: 0, pointerEvents: "none" } : { visibility: "hidden", pointerEvents: "none" }}
             />
           ))}
           {ghost && props.selectedSectionId === ghost.id && (

@@ -148,6 +148,60 @@ export function standardEventsUrl(): string {
   return `data:text/javascript;charset=utf-8,${encodeURIComponent(STANDARD_EVENTS_MODULE)}`
 }
 
+/**
+ * `@shopify/partial-rendering`, which Shopify's newest themes (Skeleton)
+ * import by that name: `partials.refresh(name)` draws the page again and
+ * swaps in the region `{% partial name %}` marked (data-shopify-partial).
+ */
+export const PARTIAL_RENDERING_MODULE = `
+async function refresh(name) {
+  const res = await fetch(location.href, { headers: { Accept: "text/html" }, credentials: "same-origin" });
+  if (!res.ok) throw new Error("The page could not be drawn again");
+  const doc = new DOMParser().parseFromString(await res.text(), "text/html");
+  const sel = '[data-shopify-partial="' + CSS.escape(String(name)) + '"]';
+  const fresh = doc.querySelector(sel);
+  const here = document.querySelector(sel);
+  if (fresh && here) here.replaceWith(document.importNode(fresh, true));
+}
+export const partials = { refresh };
+export default partials;
+`.trim()
+
+/** The modules a Shopify page can import by name, as Shopify's own import map gives them. */
+export function shopifyModules(): Record<string, string> {
+  return {
+    "@shopify/events": standardEventsUrl(),
+    "@shopify/partial-rendering": `data:text/javascript;charset=utf-8,${encodeURIComponent(PARTIAL_RENDERING_MODULE)}`,
+  }
+}
+
+/**
+ * THE MODULES SHOPIFY'S IMPORT MAP GIVES, IN THE PAGE'S FIRST IMPORT MAP. A
+ * theme script may import `@shopify/partial-rendering` by name, which only
+ * an import map can answer. A browser reads one import map (a second is
+ * ignored by many, and a theme like Horizon has its own), so ours are added
+ * to the theme's when it has one, never over a name the theme maps itself,
+ * and given their own map at the top of the head when it has none.
+ */
+export function withShopifyModules(html: string): string {
+  /* Every one, always: the import is usually in one of the theme's own script files, not in the page. */
+  const want = shopifyModules()
+  let merged = false
+  const out = html.replace(/<script\b[^>]*type=["']?importmap["']?[^>]*>([\s\S]*?)<\/script>/i, (tag, body: string) => {
+    try {
+      const map = JSON.parse(body) as { imports?: Record<string, string> }
+      map.imports = { ...want, ...(map.imports ?? {}) }
+      merged = true
+      return tag.replace(body, JSON.stringify(map).replace(/</g, "\\u003c"))
+    } catch {
+      return tag
+    }
+  })
+  if (merged) return out
+  const tag = `<script type="importmap">${JSON.stringify({ imports: want }).replace(/</g, "\\u003c")}</script>`
+  return /<head\b[^>]*>/i.test(out) ? out.replace(/<head\b[^>]*>/i, (m) => `${m}${tag}`) : `${tag}${out}`
+}
+
 export interface BootstrapInput {
   shopName: string
   host?: string

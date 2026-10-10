@@ -29,6 +29,10 @@ export type Node =
   | { k: "style"; body: Node[] }
   | { k: "verbatim"; name: string; body: string }
   | { k: "layout"; name: Expr }
+  /* `{% block 'header', tag: 'div' %}…{% endblock %}`: a theme block placed in a layout or template, what is between the tags its `content`. */
+  | { k: "block"; name: Expr; args: [string, Expr][]; body: Node[] }
+  /* `{% partial 'name' %}…{% endpartial %}`: a region a script can have drawn again (`@shopify/partial-rendering`). */
+  | { k: "partial"; name: Expr; body: Node[] }
   | { k: "unknown"; name: string; line: number }
 
 export interface Parsed {
@@ -48,6 +52,8 @@ const ENDS: Record<string, string[]> = {
   for: ["else", "endfor"],
   tablerow: ["endtablerow"],
   capture: ["endcapture"],
+  block: ["endblock"],
+  partial: ["endpartial"],
   form: ["endform"],
   paginate: ["endpaginate"],
   style: ["endstyle"],
@@ -239,6 +245,18 @@ class TreeBuilder {
           rest = w[4]
         }
         return { k: "render", name: parseOutput(m[1], line), args: parseNamedArgs(rest.replace(/^,/, ""), line), with: withPart, include: name === "include", line }
+      }
+      case "block": {
+        const m = args.match(/^("[^"]*"|'[^']*'|[A-Za-z_][\w.-]*)\s*,?\s*([\s\S]*)$/)
+        if (!m) throw new CompatSyntaxError(`{% block %} needs a block name`, line)
+        const body = this.block(ENDS.block)
+        this.expectEnd("endblock")
+        return { k: "block", name: parseOutput(m[1], line), args: parseNamedArgs(m[2], line), body }
+      }
+      case "partial": {
+        const body = this.block(ENDS.partial)
+        this.expectEnd("endpartial")
+        return { k: "partial", name: parseOutput(args.trim() || "''", line), body }
       }
       case "section":
         return { k: "section", name: args.replace(/^['"]|['"]$/g, "").trim() }

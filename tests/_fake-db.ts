@@ -88,6 +88,8 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
           return String(v ?? "") <= String(val)
         case "not.is":
           return !(val === null || val === "null" ? v === null || v === undefined : v === val)
+        case "not.in":
+          return !one("in", col, val, row)
         case "ilike":
         case "like": {
           /* PostgREST's ilike: case insensitive, % (or *) for any run of characters, _ for one, and a backslash makes the next one literal, as in Postgres. */
@@ -133,7 +135,7 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
         const inner = terms(group[2])
         return group[1] === "and" ? inner.every((t) => condition(t, row)) : inner.some((t) => condition(t, row))
       }
-      const m = /^([\w.]+?)\.(not\.is|eq|neq|in|is|gte|lte|gt|lt|ilike|like)\.(.*)$/s.exec(term)
+      const m = /^([\w.]+?)\.(not\.is|not\.in|eq|neq|in|is|gte|lte|gt|lt|ilike|like)\.(.*)$/s.exec(term)
       if (!m) return true
       return one(m[2], m[1], unquote(m[3]), row)
     }

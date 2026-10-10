@@ -7,6 +7,7 @@ import type { PrefetchKind } from "next/dist/client/components/router-reducer/ro
 import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab-list"
 import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
 import { useFirstTap } from "@/lib/navigation/first-tap"
+import { watchNavigation } from "@/lib/nav/stuck-navigation"
 
 /**
  * ===========================================================================
@@ -262,6 +263,8 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
                   onTap={() => {
                     press(tab.href)
                     router.push(tab.href, { scroll: false })
+                    /* Never a pill lit over a screen that never comes (lib/nav/stuck-navigation.ts). */
+                    watchNavigation(tab.href)
                   }}
                 />
               )

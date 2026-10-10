@@ -13,7 +13,8 @@ import { aboutExtras } from "@/lib/communities/server/about"
 import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { jsonLdScript } from "@/lib/seo/json-ld"
-import { CommunityFeedPage } from "@/components/community/member/feed-page"
+import { PlacePage } from "@/components/community/member/place-page"
+import { placeFromUrl } from "@/lib/communities/client/places"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityJsonLd, communityMetadata } from "@/components/community/public/seo"
 
@@ -95,7 +96,18 @@ export default async function CommunityPage({
       const gate = welcomeGate(`/community/${load.community.slug}`, { createdAt: user.created_at, meta: user.user_metadata as Record<string, unknown>, seller, intent: null })
       if (gate) redirect(gate)
     }
-    return <CommunityFeedPage slug={load.community.slug} />
+    /*
+      ROUND 15: THE HOME ADDRESS HOLDS THREE PLACES. The feed, a person's profile inside the community (?profile=<handle> or
+      ?profile=me, the owner's own address) and, on a phone, a space (?space=<slug>). The page seeds the shell with the one
+      the address names (components/community/member/place-page.tsx).
+    */
+    const search = new URLSearchParams()
+    for (const k of ["profile", "space"]) {
+      const v = query[k]
+      if (typeof v === "string") search.set(k, v)
+    }
+    const place = placeFromUrl(`/community/${load.community.slug}`, search.toString()) ?? { kind: "feed" as const }
+    return <PlacePage slug={load.community.slug} place={place} />
   }
 
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */

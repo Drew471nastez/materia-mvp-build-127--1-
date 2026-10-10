@@ -511,6 +511,7 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
+      placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
     }
@@ -651,6 +652,35 @@ export class CompatTheme {
   }
 
   /**
+   * `{% block 'header', tag: 'div' %}…{% endblock %}`: Shopify's newest
+   * themes (Skeleton) place their header, footer and each page's parts this
+   * way, in the layout and the templates, with no section around them. The
+   * block is drawn by blocks/<name>, from its schema's defaults or the
+   * values settings_data.json keeps for it by name, with the tag's own
+   * arguments as variables and what stood between the tags as `content`.
+   * A name the theme has no file for draws only that content.
+   */
+  private placedBlock(ctx: Ctx, name: string, args: O, content: string): string {
+    const path = this.fileFor("blocks", name)
+    const tree = path ? this.tree(path) : null
+    if (!tree) return content
+    const res = ctx.registers.res as Resources
+    const stored = (this.settingsValues.blocks as Record<string, O> | undefined)?.[name]
+    const instance: CompatBlockInstance = { id: name, type: name, settings: (stored?.settings as O | undefined) ?? {}, blocks: [] }
+    let holder: Ctx | null = null
+    const block = this.blockObject(instance, [], res, resolverFor(() => holder))
+    const c = ctx.child({ ...args, block, content })
+    holder = c
+    c.registers.block = block
+    try {
+      return renderTree(tree, c)
+    } catch (e) {
+      this.warnings.push(`blocks/${name}: ${(e as Error).message}`)
+      return content
+    }
+  }
+
+  /**
    * STORELIB'S OWN TEXT SECTION ON AN IMPORTED THEME'S PAGE. The refund,
    * privacy, terms and shipping pages every site is given hold their words
    * in a `rich_text` section, which an imported theme does not have, so the
@@ -691,7 +721,9 @@ export class CompatTheme {
     const page = ctx.registers.page as CompatPage
     const key = this.opts.chromeGroups?.[group] ?? group.replace(/-group$/, "")
     /* Another group the page holds (an overlay, an aside): its sections are the Overlay group's that name it. */
-    const own = key === "header" || key === "footer" ? page.groups?.[key] : this.opts.slots?.includes(group) ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
+    /* A group is the page's when the import said so (slots) or when the page holds its sections (an install whose Overlay group was filled in later). */
+    const isSlot = this.opts.slots?.includes(group) || (page.groups?.overlay ?? []).some((s) => s.slot === group)
+    const own = key === "header" || key === "footer" ? page.groups?.[key] : isSlot ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
     const list: CompatSectionInstance[] = own ?? groupSections(this.files[`sections/${group}.json`]).map((s) => ({ ...s, type: this.typeOf(s.type) }))
     return list.filter((s) => !s.disabled && !s.hidden).map((s, i) => this.renderSectionRaw(ctx, s, i, group).html).join("")
   }
@@ -699,8 +731,9 @@ export class CompatTheme {
   // ── The layout ──
 
   /** The whole document of a page: the layout, with the page's sections where it says. */
-  renderDocument(ctx: Ctx, content: string, head: { extraHead?: string; extraBodyEnd?: string } = {}): string {
-    const path = this.fileFor("layout", "theme")
+  renderDocument(ctx: Ctx, content: string, head: { extraHead?: string; extraBodyEnd?: string; layout?: string } = {}): string {
+    /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
+    const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
     if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content

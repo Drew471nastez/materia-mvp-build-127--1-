@@ -14,7 +14,7 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { isFollowing } from "@/lib/profile/follows"
 import { activityFor } from "@/lib/profile/activity-page"
 import { profileCommunities } from "@/lib/profile/profile-communities"
-import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
+import { cameFromElsewhere, communityBackTarget, refererPath } from "@/lib/profile/back"
 import { contributionsFor } from "@/lib/profile/contributions"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { MemberProfilePage } from "@/components/profile/member-profile-page"
@@ -24,7 +24,7 @@ export const dynamic = "force-dynamic"
 /* Where they are from, read once per request for the metadata and the page both. */
 const placeOf = cache((userId: string) => readProfileLocation(createAdminClient(), userId))
 
-type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ from?: string }> }
+type Props = { params: Promise<{ username: string }>; searchParams: Promise<{ from?: string; back?: string }> }
 
 async function resolveHandle(params: Props["params"]) {
   const { username } = await params
@@ -104,7 +104,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
     notFound()
   }
 
-  const [{ user }, { from }, head, communitiesOn] = await Promise.all([
+  const [{ user }, { from, back }, head, communitiesOn] = await Promise.all([
     currentUserForRequest(),
     searchParams,
     headers(),
@@ -135,7 +135,9 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
 
   /* Arrived from any other page of ours (not a reload of this one): the way back in the top bar. */
   const ownPaths = [`/@${handle}`, `/member/${handle}`, ...(profile.username ? [`/@${profile.username}`, `/member/${profile.username}`] : [])]
-  const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(head.get("referer"), head.get("host")), ownPaths)
+  /* Opened from their profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
+  const backTarget = communityBackTarget(back)
+  const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(head.get("referer"), head.get("host")), ownPaths)
 
   /* Who the page is about, for search, when it is in search at all (as generateMetadata decides); then the creator page's template without the products. */
   const indexable = !scoreSignup({ handle: profile.username }).blocked
@@ -151,6 +153,7 @@ export default async function MemberProfileRoute({ params, searchParams }: Props
           communities: { enabled: communitiesOn, owned: communities.owned, member: communities.member },
           shared,
           backShown,
+          backTarget,
           now: Date.now(),
           location: locationLine(place),
         }}

@@ -66,6 +66,17 @@ async function bodyOf(req: Request): Promise<Record<string, unknown> | null> {
   return null
 }
 
+/** The page a script's request came from, as a path on this site: only which of the site's own pages its sections are drawn about. */
+function refererPath(referer: string | null): string | undefined {
+  if (!referer) return undefined
+  try {
+    const u = new URL(referer)
+    return `${u.pathname}${u.search}`
+  } catch {
+    return undefined
+  }
+}
+
 async function handle(req: Request, { params }: Params): Promise<Response> {
   const { username, path = [] } = await params
   const url = new URL(req.url)
@@ -110,6 +121,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     cart,
     note,
     ajax: req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json"),
+    referer: refererPath(req.headers.get("referer")),
   })
   const headers = new Headers(out.headers ?? {})
   headers.set("Content-Type", out.type)

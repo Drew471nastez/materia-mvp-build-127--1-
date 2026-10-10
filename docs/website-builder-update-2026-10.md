@@ -129,6 +129,53 @@ The three files in `supabase/sql/all-in-three/` hold every part, 01 to 108:
 Run them in that order in the Supabase SQL editor. Each part is safe to run
 again.
 
+## Third round
+
+### Imported themes
+
+- **Picked products show.** A product picked in a section's sidebar
+  (Featured product and the like) is the product the canvas and the live
+  site draw, memberships included. It was saved as the product's address
+  and read only as an id, so the theme fell back to its "Example product
+  title".
+- **Cart drawers.** After an add to cart, the theme's drawer or notification
+  shows the new line, as on Shopify. Horizon's drawer said "Your cart is
+  empty" after every add, because its contents were drawn for the cart page.
+  Also supported now:
+  - `/cart?view=drawer` and other alternate templates that older themes
+    fetch for their drawers and quick views
+  - add-to-cart links (`/cart/add?id=…&quantity=…`)
+  - cart permalinks (`/cart/<variant>:<quantity>`), straight to checkout
+- **Headers in every kind of theme.**
+  - Shopify's newest themes (Skeleton) place the header and footer as
+    blocks in the layout and have no sections at all. They were refused at
+    import; they import and draw now, header first, on the live site and in
+    the builder.
+  - Older themes (Timber, Debut, Brooklyn and others) keep their stylesheet
+    as SCSS that Shopify compiled. It is compiled now, so they no longer
+    draw unstyled.
+- **Pages of an imported theme stay its own.** A page with no sections (one
+  the theme draws from a Liquid template) is no longer given Storelib's
+  header, footer and product section in the builder.
+
+### The builder
+
+- **Product pages.** Opening one product page after another always shows
+  the product opened, even when two products share a name. On an imported
+  theme the product page shows the product opened, not the shop's first.
+- **Page changes.** Another page fades in rather than replacing the last in
+  a single frame, on Storelib themes and imported ones.
+
+### Live sites
+
+- **Faster page changes.** A link is fetched while the pointer rests on it,
+  so the page is ready by the click. Cart, checkout and account links are
+  never fetched ahead.
+- **No flash between pages.** The page being left stays on screen until the
+  next one is drawn, then the two cross-fade in 160ms, so the header and
+  logo do not blink. Off for visitors who ask for less motion, and ignored by
+  browsers that do not support it.
+
 ## How it was checked
 
 - **Browser tests on Dawn and Horizon**
@@ -155,6 +202,17 @@ again.
   phone and computer widths (scroll, delay, close, remembered, fixed
   positions). All pass.
 - **Live site resilience.** `tests/site-resilience.test.ts`.
+- **Third round.**
+  - `scripts/check-product-switch.mjs`: product pages opened one after
+    another, including two with the same name.
+  - `scripts/check-live-navigation.ts`: fetched ahead, the view transition,
+    reduced motion.
+  - `scripts/check-shopify-theme.ts` now opens the cart drawer after an add
+    (Dawn as a notification and as a drawer, Horizon from the header and
+    opening on add), and was run on Shopify's Skeleton and Timber themes.
+  - `tests/compat-engine.test.ts` and `tests/shopify-import.test.ts` cover
+    picked products, `?view=`, cart links, `{% block %}`, `{% partial %}`
+    and SCSS.
 - **Unit tests.** `tests/editor-groups-saves.test.ts`,
   `tests/compat-engine.test.ts`, `tests/shopify-import.test.ts`,
   `tests/section-groups.test.ts` and the other related suites pass.

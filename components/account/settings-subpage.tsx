@@ -14,8 +14,9 @@ import { isNativeApp } from "@/lib/platform-utils"
 import { CLICK_ECHO_MS } from "@/lib/navigation/first-tap"
 import { ACCOUNT_SETTINGS_SHEET_Z } from "@/lib/account/settings-sheet"
 import { BackControl } from "@/components/navigation/back-control"
-import { swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
+import { recentPress, swallowGhostTaps } from "@/lib/navigation/swallow-ghost-taps"
 import { pauseAccountScrollPin } from "@/lib/navigation/tab-scroll"
+import { useLayer } from "@/lib/ui/layers"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 340
@@ -139,6 +140,8 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
   const closed = useRef(false)
   const scrollY = useRef(0)
   const [entered, setEntered] = useState(false)
+  /* Counted over the page (lib/ui/layers.ts): it covers the tab bar, which holds still under it and is there when it slides away. */
+  useLayer("screen", true, panel)
 
   useLayoutEffect(() => {
     const html = document.documentElement
@@ -168,6 +171,8 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
   const close = () => {
     if (closing.current || closed.current) return
     closing.current = true
+    /* Where the finger was that asked to close: the echo, if one comes, lands there and nowhere else (swallow-ghost-taps.ts). */
+    const pressedAt = recentPress()
     const y = scrollY.current
     if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
     pauseAccountScrollPin(OUT_MS + 1400, y)
@@ -177,7 +182,7 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
       closed.current = true
       document.documentElement.removeAttribute("data-app-sheet-up")
       if (Math.abs(window.scrollY - y) > 1) window.scrollTo(0, y)
-      swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80)
+      swallowGhostTaps(OUT_MS + CLICK_ECHO_MS + 80, pressedAt)
       onClose()
     }
     const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches

@@ -27,6 +27,7 @@ import { cartObject, productObject } from "./objects"
 import { OUTPUT, LFloat } from "./runtime"
 import type { CompatPage, CompatTheme } from "./theme"
 import { drawPage, drawSection, pageContextFor, pageParts, type StoredSection } from "./page"
+import { groupSections } from "./theme"
 import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
@@ -52,6 +53,8 @@ export interface SiteData {
   product?: (handle: string) => Promise<(CardLike & { descriptionHtml?: string }) | null>
   /** Scripts the page carries besides the theme's: the preview's banner. */
   extraBodyEnd?: string
+  /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
+  extraHead?: string
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -77,6 +80,8 @@ export interface SiteRequest {
   note?: string
   /** A script's request (JSON body, X-Requested-With, Accept: application/json): answered with JSON, as Shopify does, whatever the address ends in. */
   ajax?: boolean
+  /** The page the request came from (path and query, this site's own): what `sections` are drawn about when the request names no `sections_url`. */
+  referer?: string
 }
 
 export interface SiteResponse {
@@ -103,12 +108,31 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const method = req.method.toUpperCase()
 
   /* ── the cart ── */
+  /* A link that adds, as Shopify's do: /cart/add?id=<variant>&quantity=2 adds and opens the cart. */
+  if (method === "GET" && path === "/cart/add" && req.query.get("id")) {
+    const body: Record<string, unknown> = { id: req.query.get("id"), quantity: req.query.get("quantity") ?? "1" }
+    return await cartAction(site, { ...req, method: "POST", body }, "add", false)
+  }
+  /* A cart permalink, /cart/<variant>:<quantity>,<variant>:<quantity>: those lines, straight to checkout. */
+  const permalink = method === "GET" ? path.match(/^\/cart\/([^/]+:\d+(?:,[^/]+:\d+)*)$/) : null
+  if (permalink) {
+    const index = variantIndex(site)
+    const lines: CartEntry[] = []
+    for (const part of permalink[1].split(",").slice(0, MAX_LINES)) {
+      const [id, n] = part.split(":")
+      const hit = index.get(decodeURIComponent(id))
+      if (!hit || hit.card.settings.available === false) continue
+      const v = hit.variantId === hit.card.id ? null : hit.variantId
+      lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
+    }
+    return lines.length ? { ...checkoutHandoff(site, lines), cart: lines, note: req.note ?? "" } : redirect("/cart")
+  }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
     const [, action, ext] = cartRoute
     if (method === "GET" && !action) return json(cartJson(site, req.cart, req.note ?? ""))
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
-    return cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
+    return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
   if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart)
 
@@ -162,7 +186,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -237,6 +261,27 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
 }
 
 /**
+ * `?view=<name>`: the page drawn with its alternate template,
+ * `templates/<type>.<name>.liquid` or `.json`, as Shopify does. An older
+ * theme's cart drawer, quick view and live search fetch one of these
+ * (`/cart?view=drawer`, `/products/x?view=quick`, `/search?view=json`),
+ * usually written `{% layout none %}`. The page's header and footer stay;
+ * the template part is the alternate's. A view the theme does not have is
+ * the page as it is, as on Shopify.
+ */
+function viewOf(site: SiteData, req: SiteRequest, template: string, sections: StoredSection[]): { suffix: string; sections: StoredSection[] } | null {
+  const view = (req.query.get("view") ?? "").trim()
+  if (!view || !/^[a-z0-9_-]{1,40}$/i.test(view)) return null
+  const files = site.theme.files
+  const parts = pageParts(sections)
+  const around = (middle: StoredSection[]) => [...parts.header, ...middle, ...parts.footer, ...parts.overlay]
+  if (files[`templates/${template}.${view}.liquid`] !== undefined) return { suffix: view, sections: around([]) }
+  const json = files[`templates/${template}.${view}.json`]
+  if (json !== undefined) return { suffix: view, sections: around(groupSections(json).map((s) => ({ ...s, type: site.theme.typeOf(s.type) }) as unknown as StoredSection)) }
+  return null
+}
+
+/**
  * Sections for a page key, wearing the site's header, footer and overlay:
  * the home page's, as the builder draws every page (universal-chrome.ts,
  * withUniversalChrome). A page's own copy is used only where home has none
@@ -260,6 +305,8 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const sections = sectionsOf(site, key)
     if (!sections) return null
     const { template, suffix } = templateOfPage(key)
+    const alternate = viewOf(site, req, template, sections)
+    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra }), sections: alternate.sections, status }
     return { page: basePage(site, req, { template, suffix, path, ...extra }), sections, status }
   }
   if (path === "/" || path === "") return at("home", { title: site.shop.name })
@@ -334,7 +381,7 @@ async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse>
   const many = req.query.get("sections")
   if (one) return sectionsAnswer(site, page, sections, [one], false)
   if (many) return sectionsAnswer(site, page, sections, many.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5), true)
-  return html(drawPage(site.theme, page, sections, { scripts: true, extraBodyEnd: site.extraBodyEnd }).html, 404)
+  return html(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, 404)
 }
 
 /**
@@ -548,20 +595,34 @@ function itemsOf(body: O | null): { id: string; quantity: number; properties?: R
   return [{ id: String(id), quantity: Number(field(body, "quantity") ?? 1) || 1, properties: Object.keys(properties).length ? properties : props(field(body, "properties")) }]
 }
 
-function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string): Record<string, string | null> | undefined {
+/**
+ * THE SECTIONS AN ADD OR A CHANGE ASKS TO SEE AGAIN, drawn as they are on
+ * the page they are for, with the cart as it is now. Shopify draws them on
+ * `sections_url` when the request names one, and otherwise on the page the
+ * request came from. That matters: Horizon's cart drawer draws nothing on
+ * the cart page (`template.name != 'cart'`), so drawn about /cart it came
+ * back empty and the drawer said "Your cart is empty" after every add.
+ */
+async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], note: string): Promise<Record<string, string | null> | undefined> {
   const raw = field(req.body, "sections")
-  const ids = (Array.isArray(raw) ? raw.map(String) : typeof raw === "string" ? raw.split(",") : []).map((s) => s.trim()).filter(Boolean).slice(0, 5)
+  const ids = (Array.isArray(raw) ? raw.map(String).flatMap((x) => x.split(",")) : typeof raw === "string" ? raw.split(",") : []).map((s) => s.trim()).filter(Boolean).filter((x, i, all) => all.indexOf(x) === i).slice(0, 5)
   if (!ids.length) return undefined
-  const from = safeReturn(field(req.body, "sections_url")) ?? "/cart"
-  const after: SiteRequest = { ...req, cart, note, query: new URLSearchParams(from.split("?")[1] ?? "") }
-  const key = from.split("?")[0] === "/" ? "home" : from.split("?")[0] === "/cart" ? "cart" : null
-  const sections = sectionsOf(site, key ?? "cart") ?? sectionsOf(site, "home") ?? []
-  const page = basePage(site, after, { template: key === "home" ? "index" : "cart", path: from.split("?")[0] })
+  const from = safeReturn(field(req.body, "sections_url")) ?? safeReturn(req.referer) ?? "/cart"
+  const [path, search] = [from.split("?")[0] || "/", from.split("?")[1] ?? ""]
+  const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, query: new URLSearchParams(search) }
+  const route = await pageFor(site, decodePath(path), after).catch(() => null)
+  if (route && route.content === undefined) {
+    const r = sectionsAnswer(site, route.page, route.sections, ids, true)
+    return JSON.parse(String(r.body)) as Record<string, string | null>
+  }
+  const key = path === "/" ? "home" : "cart"
+  const sections = sectionsOf(site, key) ?? sectionsOf(site, "home") ?? []
+  const page = basePage(site, after, { template: key === "home" ? "index" : "cart", path })
   const r = sectionsAnswer(site, page, sections, ids, true)
   return JSON.parse(String(r.body)) as Record<string, string | null>
 }
 
-function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: boolean): SiteResponse {
+async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: boolean): Promise<SiteResponse> {
   const index = variantIndex(site)
   /* Copies: what was asked with is never changed under the caller. */
   let cart = req.cart.map((e) => ({ ...e }))
@@ -595,7 +656,7 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
-    const sections = sectionsFor(site, req, cart, note)
+    const sections = await sectionsFor(site, req, cart, note)
     const body: O = items.length > 1 || Array.isArray(field(req.body, "items")) ? { items: out } : { ...(out[0] ?? {}) }
     if (sections) body.sections = sections
     return json(body, 200, { cart, note })
@@ -640,7 +701,7 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
   }
   if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note })
   const body = cartJson(site, cart, note)
-  const sections = sectionsFor(site, req, cart, note)
+  const sections = await sectionsFor(site, req, cart, note)
   if (sections) body.sections = sections
   return json(body, 200, { cart, note })
 }
@@ -720,10 +781,20 @@ export function writeCartCookie(cart: CartEntry[], note: string): string {
  * drawn first when it is a `.liquid` asset (`theme.css.liquid` is served as
  * `theme.css`, with the theme's settings in it).
  */
-export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => import("./runtime").Ctx): { type: string; body: string | Uint8Array } | null {
+export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => import("./runtime").Ctx, opts: { scss?: (source: string) => string } = {}): { type: string; body: string | Uint8Array } | null {
   if (!/^[A-Za-z0-9_][A-Za-z0-9_.@-]*$/.test(name)) return null
   const type = assetType(name)
   if (!type) return null
+  /* `theme.scss.css`: an older theme's `theme.scss.liquid` (or `.scss`), its Liquid filled in and its SCSS compiled, as Shopify served it (./scss.ts). */
+  const scssName = name.match(/^(.+\.scss)\.css$/)?.[1]
+  if (scssName && opts.scss) {
+    const source = theme.files[`assets/${scssName}.liquid`] ?? theme.files[`assets/${scssName}`]
+    if (source !== undefined) {
+      let filled: string
+      try { filled = renderString(source, settingsCtx()) } catch { filled = source.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
+      return { type: "text/css; charset=utf-8", body: opts.scss(filled) }
+    }
+  }
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
 import { getAppNavigation } from "@/lib/ui/app-navigation"
+import { LAYER_ATTR, openLayer, sweepLayers } from "@/lib/ui/layers"
 
 /**
  * ===========================================================================
@@ -436,6 +437,8 @@ function copyFor(el: HTMLElement): HTMLElement {
   for (const node of [copy, ...Array.from(copy.querySelectorAll<HTMLElement>("[data-page-layer]"))]) {
     node.removeAttribute("data-page-layer")
     node.removeAttribute("data-page-layer-phone")
+    /* Nor does it hold the layer's class on <html> (lib/ui/layers.ts sweeps by this attribute). */
+    node.removeAttribute(LAYER_ATTR)
   }
   /* The pill is fixed over everything and stays live where it is; a copy of it would ride the move. */
   for (const node of Array.from(copy.querySelectorAll("[data-app-nav-pill]"))) node.remove()
@@ -1157,8 +1160,17 @@ export function PageLayer({
 
   useLayoutEffect(() => {
     const html = document.documentElement
-    const name = phoneOnly ? "has-phone-page-layer" : "has-page-layer"
-    html.classList.add(name)
+    /*
+      COUNTED, NOT SWITCHED (round 15, lib/ui/layers.ts). The class used to be
+      added here and removed in the cleanup, one switch per layer: two layers
+      overlapping (one leaving while the next arrives, an editor opened from
+      another) left it in whatever state the last one wrote, and a class the
+      server printed for a layer that never ran this effect stayed on for the
+      rest of the visit. The registry holds it on while any layer of the kind
+      is open, and a sweep takes off one that nothing stands for.
+    */
+    sweepLayers()
+    const release = openLayer(phoneOnly ? "phone-page" : "page", () => box.current)
     /* The commit a press was waiting for: this layer is on the screen. */
     releasePresses()
     /* React's move at this commit, or, where it cannot make one, ours on this box. */
@@ -1170,7 +1182,7 @@ export function PageLayer({
       })
     }
     return () => {
-      html.classList.remove(name)
+      release()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
       if (!dropAtCommit()) markReactMotion("leave")
@@ -1182,6 +1194,7 @@ export function PageLayer({
       ref={box}
       data-page-layer={pill ? "pill" : ""}
       data-page-layer-phone={phoneOnly ? "" : undefined}
+      {...{ [LAYER_ATTR]: phoneOnly ? "phone-page" : "page" }}
       className={cn(
         phoneOnly
           ? "flex h-full flex-col bg-[#f8f9fa] max-md:fixed max-md:inset-0 max-md:z-[52] max-md:h-auto"

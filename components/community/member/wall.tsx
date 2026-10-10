@@ -92,6 +92,8 @@ export function WallAddress({ slug }: { slug: string }) {
     <a
       href={path}
       onClick={copy}
+      /* A press copies the link; the shell's navigator leaves it alone (shell-frame.tsx, links to a place). */
+      data-native-nav=""
       title="Copy the link"
       aria-label={copied ? "Link copied" : `Copy the link, storelib.com${path}`}
       className="group/address -mx-1 flex h-6 min-w-0 items-center gap-1 rounded-md px-1 text-[13px] leading-5 text-[#8a8f98] outline-none transition-colors duration-150 hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
