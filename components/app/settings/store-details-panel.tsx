@@ -31,7 +31,7 @@ import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { callingCode } from "@/lib/account/phone"
 import { PhoneField } from "@/components/app/settings/phone-field"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, TextInput, api } from "@/components/physical/ui"
+import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, TextInput, api, peekGet } from "@/components/physical/ui"
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 
@@ -110,10 +110,11 @@ function Suggest({ code, onUse }: { code: string | null; onUse: (code: string) =
 
 export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email: string) => void }) {
   const physical = usePhysicalCommerceEnabled()
-  const [data, setData] = React.useState<Loaded | null>(null)
+  const [data, setData] = React.useState<Loaded | null>(() => peekGet<Loaded>("/api/store/settings"))
   const [loadError, setLoadError] = React.useState<string | null>(null)
-  const [locations, setLocations] = React.useState<Location[] | null>(null)
-  const [defaultLocation, setDefaultLocation] = React.useState<string>("")
+  const keptPhysical = peekGet<{ settings: { defaultLocationId: string | null }; locations: Location[] }>("/api/physical/settings")
+  const [locations, setLocations] = React.useState<Location[] | null>(() => keptPhysical?.locations ?? null)
+  const [defaultLocation, setDefaultLocation] = React.useState<string>(() => keptPhysical?.settings.defaultLocationId ?? "")
 
   React.useEffect(() => {
     void api<Loaded>("/api/store/settings").then((r) => (r.ok ? setData(r.data) : setLoadError(r.error)))

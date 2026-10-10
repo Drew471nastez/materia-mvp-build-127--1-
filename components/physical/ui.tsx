@@ -241,7 +241,65 @@ export function CountryPicker({ value, onChange, taken }: { value: string[]; onC
 }
 
 /** A JSON request to the physical API, answered as data or a sentence to show. */
-export async function api<T = Record<string, unknown>>(path: string, init?: { method?: string; body?: unknown }): Promise<{ ok: true; data: T } | { ok: false; error: string; data?: Record<string, unknown> }> {
+type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; data?: Record<string, unknown> }
+
+/*
+ * SETTINGS THAT ARE ALREADY THERE WHEN THE TAB OPENS. Settings fetches what
+ * its tabs read while the person is still on the first one (prefetchGet), so
+ * Taxes, Shipping or Channels draw at once from what came back (peekGet)
+ * instead of an empty pane that fills a beat later. Only addresses that were
+ * prefetched are kept; a write to one sends a fresh read after it, so a tab
+ * opened again shows what was saved.
+ */
+const kept = new Map<string, { at: number; result: Promise<ApiResult<unknown>>; data?: unknown }>()
+const KEEP_MS = 60_000
+
+function keep(path: string): Promise<ApiResult<unknown>> {
+  const entry: { at: number; result: Promise<ApiResult<unknown>>; data?: unknown } = { at: Date.now(), result: Promise.resolve({ ok: false, error: "" }) }
+  entry.result = request<unknown>(path).then((r) => {
+    if (r.ok) entry.data = r.data
+    else if (kept.get(path) === entry) kept.delete(path)
+    return r
+  })
+  kept.set(path, entry)
+  return entry.result
+}
+
+/** Fetch these now, quietly, for a tab that may open soon. */
+export function prefetchGet(paths: string[]): void {
+  for (const path of paths) {
+    const e = kept.get(path)
+    if (!e || Date.now() - e.at > KEEP_MS) void keep(path)
+  }
+}
+
+/** What a prefetch already brought back for this address, for a panel's first draw. */
+export function peekGet<T>(path: string): T | null {
+  const e = kept.get(path)
+  return e && e.data !== undefined && Date.now() - e.at <= KEEP_MS ? (e.data as T) : null
+}
+
+/** After a write, the kept reads it touches are read again: the same area (/api/store/taxes/...), and physical settings for any physical write. */
+function refreshAfterWrite(path: string): void {
+  const area = path.split("?")[0].split("/").slice(0, 4).join("/")
+  for (const key of kept.keys()) {
+    if (key.startsWith(area) || (path.startsWith("/api/physical/") && key.startsWith("/api/physical/settings"))) void keep(key)
+  }
+}
+
+export async function api<T = Record<string, unknown>>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
+  const method = init?.method ?? (init?.body ? "POST" : "GET")
+  if (method === "GET") {
+    const e = kept.get(path)
+    if (e && Date.now() - e.at <= KEEP_MS) return e.result as Promise<ApiResult<T>>
+    return request<T>(path)
+  }
+  const r = await request<T>(path, init)
+  if (r.ok && kept.size) refreshAfterWrite(path)
+  return r
+}
+
+async function request<T>(path: string, init?: { method?: string; body?: unknown }): Promise<ApiResult<T>> {
   try {
     const res = await fetch(path, {
       method: init?.method ?? (init?.body ? "POST" : "GET"),

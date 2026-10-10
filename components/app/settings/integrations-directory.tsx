@@ -22,7 +22,7 @@ import { useSearchParams } from "next/navigation"
 import { ArrowLeft, ExternalLink, Search, Check, Truck, Mail, Webhook, FileSpreadsheet, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
 import { CATEGORY_NAMES, CATEGORY_ORDER, STATUS_LABEL, searchIntegrations, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
@@ -74,15 +74,15 @@ export function Mark({ item, size = 44 }: { item: Pick<Integration, "logo" | "na
 export function IntegrationsDirectory() {
   const physical = usePhysicalCommerceEnabled()
   const all = React.useMemo(() => visibleIntegrations(physical), [physical])
-  const [tracking, setTracking] = React.useState<Tracking | null>(null)
-  const [trackingReady, setTrackingReady] = React.useState(true)
-  const [states, setStates] = React.useState<IntegrationState[] | null>(physical ? null : [])
+  const [tracking, setTracking] = React.useState<Tracking | null>(() => peekGet<{ tracking: Tracking }>("/api/store/integrations")?.tracking ?? null)
+  const [trackingReady, setTrackingReady] = React.useState(() => peekGet<{ ready: boolean }>("/api/store/integrations")?.ready ?? true)
+  const [states, setStates] = React.useState<IntegrationState[] | null>(() => (physical ? (peekGet<{ integrations: IntegrationState[] }>("/api/physical/integrations")?.integrations ?? null) : []))
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [overrides, setOverrides] = React.useState<CatalogOverride[]>([])
+  const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
   /* Where the list was scrolled when a card was opened, so Back lands there again. */
   const listScroll = React.useRef(0)
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])

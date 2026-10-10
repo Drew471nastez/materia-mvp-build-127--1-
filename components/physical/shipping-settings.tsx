@@ -35,7 +35,7 @@ import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
-import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money } from "./ui"
+import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
 
 interface Settings {
   fulfillmentModel: FulfillmentModel | null
@@ -179,7 +179,8 @@ function stopEnter(e: React.KeyboardEvent) {
 export type ShippingPart = "delivery" | "locations" | "returns"
 
 export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart }) {
-  const [data, setData] = React.useState<Data | null>(null)
+  /* Drawn at once from what Settings fetched while the person was on another tab (prefetchGet). */
+  const [data, setData] = React.useState<Data | null>(() => peekGet<Data>("/api/physical/settings"))
   const [error, setError] = React.useState<string | null>(null)
 
   const load = React.useCallback(async () => {
