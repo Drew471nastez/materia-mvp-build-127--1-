@@ -46,6 +46,18 @@ import { postEditHref, type ProfilePostView, type ProfilePostsPage } from "@/lib
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { cn } from "@/lib/utils"
 import { markPostFromAccount, takeAccountPostsStale } from "@/lib/profile/post-return"
+import { prefetchHref } from "@/lib/nav/prefetch-policy"
+
+/*
+  A POST OPENS FROM HERE WITHOUT WAITING ON THE SERVER (round 18, the owner: "when I click a post to see it, it takes too
+  much"). A row was a Link with the router's default read ahead, which for a community's post (a dynamic page under the
+  community's loading.tsx) is only that loading shape: the tap showed the community's skeleton and then waited for the
+  whole community and the post to be drawn on the server. Now the first rows on screen are read whole as they come into
+  view (lib/nav/prefetch-policy.ts decides whether this phone and network may), and any row the moment a finger lands on
+  it, so the tap lands on a page the router already has. Only the first READ_AHEAD_ROWS: a long list does not ask the
+  server for every post in it.
+*/
+export const READ_AHEAD_ROWS = 6
 
 /** The next page's address (app/api/account/posts/route.ts). */
 export const ACCOUNT_POSTS_API = "/api/account/posts"
@@ -79,9 +91,20 @@ function Thumb({ post }: { post: ProfilePostView }) {
   )
 }
 
-function Row({ post, now, onDelete }: { post: ProfilePostView; now: number; onDelete: (post: ProfilePostView, row: HTMLElement | null) => void }) {
+function Row({ post, now, index, onDelete }: { post: ProfilePostView; now: number; index: number; onDelete: (post: ProfilePostView, row: HTMLElement | null) => void }) {
   const router = useRouter()
   const row = useRef<HTMLLIElement | null>(null)
+  useEffect(() => {
+    const el = row.current
+    if (!el || index >= READ_AHEAD_ROWS || typeof IntersectionObserver === "undefined") return
+    const io = new IntersectionObserver((entries) => {
+      if (!entries.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      prefetchHref(router, post.href, "visible")
+    })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [router, post.href, index])
   const items: ActionMenuItem[] = []
   if (post.canEdit)
     items.push({
@@ -99,6 +122,8 @@ function Row({ post, now, onDelete }: { post: ProfilePostView; now: number; onDe
     <li ref={row} className="relative" data-account-post={post.id}>
       <Link
         href={post.href}
+        prefetch={false}
+        onPointerDown={() => prefetchHref(router, post.href, "press")}
         onClick={() => markPostFromAccount(post.id)}
         className={cn("-mx-2 flex items-start gap-3 rounded-xl px-2 py-3 outline-none transition-colors hover:bg-[#f7f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15", items.length ? "pr-11" : "")}
       >
@@ -231,8 +256,8 @@ export function AccountPosts({ initial, now }: { initial: ProfilePostsPage; now:
         </div>
       ) : (
         <ul className={cn(LIST, "px-4 sm:px-5")} aria-label="Your posts">
-          {posts.map((post) => (
-            <Row key={post.id} post={post} now={clock} onDelete={remove} />
+          {posts.map((post, i) => (
+            <Row key={post.id} post={post} now={clock} index={i} onDelete={remove} />
           ))}
         </ul>
       )}

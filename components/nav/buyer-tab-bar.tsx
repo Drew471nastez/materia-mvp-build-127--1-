@@ -107,6 +107,7 @@ import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } f
 import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
 import { warmAccountCover } from "@/components/account/cover-warm"
+import { keepFresh } from "@/components/nav/keep-fresh"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -331,13 +332,6 @@ function QueryWatch({ onChange, onProfile }: { onChange: (query: string) => void
 }
 
 /* ── The bar ─────────────────────────────────────────────────────────────── */
-
-/**
- * How often the other tabs' pages are read again while this one is on screen: just past the router's staleTimes (300s in
- * next.config.mjs), because a read ahead of a page the router still holds fresh is not made at all, so a pass any sooner
- * would do nothing and the page would then sit stale until the next. Past prefetchHref's own KEEP_MS too, so it reads.
- */
-export const TAB_KEEP_MS = 300_000 + 5_000
 
 /** Which bar last wrote data-buyer-tabs (ONE BAR HANDS THE ATTRIBUTE TO THE NEXT, below). */
 let tabsAttrTurn = 0
@@ -618,21 +612,15 @@ function TabBar({
       prefetched and kept"). The router keeps a page it read ahead for staleTimes (five minutes, next.config.mjs); past that
       a press asks the server again and waits for it, which is the slow switch after a while on one tab or after the app
       comes back from the background. So the other tabs' pages are read again as soon as they go stale while this page is on
-      screen, and at once when the page is shown again (prefetchHref itself never reads one twice inside KEEP_MS).
+      screen, and at once when the page is shown again (components/nav/keep-fresh.ts).
     */
-    const again = () => {
-      if (document.visibilityState !== "visible") return
+    const stop = keepFresh(() => {
       for (const href of hrefs) prefetchHref(router, href, "press")
       if (profileAhead) void warmAccountCover()
-    }
-    const keep = window.setInterval(again, TAB_KEEP_MS)
-    document.addEventListener("visibilitychange", again)
-    window.addEventListener("pageshow", again)
+    })
     return () => {
       window.clearTimeout(warm)
-      window.clearInterval(keep)
-      document.removeEventListener("visibilitychange", again)
-      window.removeEventListener("pageshow", again)
+      stop()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefetchKey, current, router, !!navHere, signedIn])

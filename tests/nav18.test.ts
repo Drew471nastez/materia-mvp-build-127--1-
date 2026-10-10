@@ -25,6 +25,7 @@
  */
 import { readCode, readSource } from "./_source"
 import { arrivedByTab, noteTabArrival } from "@/lib/nav/tab-swap"
+import { KEEP_FRESH_MS } from "@/components/nav/keep-fresh"
 
 let passed = 0
 let failed = 0
@@ -80,9 +81,10 @@ console.log("\nSPEED: Home and Profile, prefetched, kept and shown whole (item 2
   const bar = code("components/nav/buyer-tab-bar.tsx")
   const config = readSource("next.config.mjs")
   const stale = Number(/staleTimes:\s*\{[^}]*static:\s*(\d+)/.exec(config)?.[1] ?? NaN)
-  const keep = Number(/TAB_KEEP_MS = (\d[\d_]*) \+ ([\d_]+)/.exec(bar)?.slice(1).reduce((a, x) => a + Number(x.replace(/_/g, "")), 0) ?? NaN)
-  check("the other tabs are read again just after the router would hold them stale, never sooner (a sooner read is not made)", keep > stale * 1000 && keep - stale * 1000 <= 15_000, { keep, stale })
-  check("on an interval while the page is shown, and at once when it is shown again", /setInterval\(again, TAB_KEEP_MS\)/.test(bar) && /addEventListener\("visibilitychange", again\)/.test(bar) && /visibilityState !== "visible"/.test(bar) && /clearInterval\(keep\)/.test(bar))
+  const fresh = code("components/nav/keep-fresh.ts")
+  check("pages read ahead are read again just after the router would hold them stale, never sooner (a sooner read is not made)", KEEP_FRESH_MS > stale * 1000 && KEEP_FRESH_MS - stale * 1000 <= 15_000, { KEEP_FRESH_MS, stale })
+  check("on an interval while the page is shown, and at once when it is shown again", /setInterval\(again, KEEP_FRESH_MS\)/.test(fresh) && /addEventListener\("visibilitychange", again\)/.test(fresh) && /visibilityState !== "visible"/.test(fresh) && /clearInterval\(timer\)/.test(fresh))
+  check("the tab bar keeps the other tabs and the profile's cover fresh", /keepFresh\(\(\) => \{\s*for \(const href of hrefs\) prefetchHref\(router, href, "press"\)\s*if \(profileAhead\) void warmAccountCover\(\)/.test(bar))
   check("the bar's html attribute is handed from one bar to the next, not taken off and put back", /queueMicrotask\(\(\) => \{\s*if \(tabsAttrTurn === mine\)/.test(bar) && /getAttribute\("data-buyer-tabs"\) !== \(away \? "away" : "shown"\)/.test(bar))
   check("a press notes where it is going before it pushes", /noteTabArrival\(href\)[\s\S]{0,400}router\.push\(href/.test(bar))
   const frame = code("components/community/member/shell-frame.tsx")
@@ -100,6 +102,15 @@ console.log("\nSPEED: Home and Profile, prefetched, kept and shown whole (item 2
   check("the chosen pill is measured after the next paint, never inside the commit that draws the feed", /requestAnimationFrame\(\(\) => window\.setTimeout\(followChosenChip, 0, root, false\)\)/.test(chips))
 }
 
+console.log("\nPILLS AND POSTS: the account's pages and its posts are already read when pressed (item 4)")
+{
+  const pills = code("components/profile/profile-owner-pills.tsx")
+  const posts = code("components/account/account-posts.tsx")
+  check("the pills' pages are kept read while the profile is on screen", /keepFresh\(\(\) => \{\s*for \(const href of ahead\.split\(" "\)\) prefetchHref\(router, href, "idle"\)/.test(pills))
+  check("a post row is read whole as it comes into view, the first READ_AHEAD_ROWS only", /index >= READ_AHEAD_ROWS/.test(posts) && /prefetchHref\(router, post\.href, "visible"\)/.test(posts) && /READ_AHEAD_ROWS = 6/.test(posts))
+  check("and the moment a finger lands on it; the router's own partial read ahead is not made as well", /prefetch=\{false\}\s*onPointerDown=\{\(\) => prefetchHref\(router, post\.href, "press"\)\}/.test(posts))
+}
+
 console.log("\nCOPY")
 {
   const files = [
@@ -112,6 +123,9 @@ console.log("\nCOPY")
     "lib/nav/tab-swap.ts",
     "components/community/member/space-chips.tsx",
     "components/community/member/shell-frame.tsx",
+    "components/nav/keep-fresh.ts",
+    "components/account/account-posts.tsx",
+    "components/profile/profile-owner-pills.tsx",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")

@@ -59,6 +59,7 @@ import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/componen
 import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
+import { keepFresh } from "@/components/nav/keep-fresh"
 import { cn } from "@/lib/utils"
 import { PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 import type { OwnerPill as OwnerPillLink } from "@/lib/profile/owner-pills"
@@ -93,6 +94,18 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
   useEffect(() => {
     if (!ahead) return
     return prefetchOnIdle(router, ahead.split(" "))
+  }, [ahead, router])
+  /*
+    AND KEPT READ (round 18, the owner: "switching between the pills is not instant, it takes too much to load them"). A pill
+    pressed more than five minutes after the profile was opened found its page stale in the router and waited on the server.
+    The same pages are read again as they go stale while the profile is on screen, and when the app comes back
+    (components/nav/keep-fresh.ts), on the device's own plan (lib/nav/prefetch-policy.ts).
+  */
+  useEffect(() => {
+    if (!ahead) return
+    return keepFresh(() => {
+      for (const href of ahead.split(" ")) prefetchHref(router, href, "idle")
+    })
   }, [ahead, router])
 
   useEffect(() => {
