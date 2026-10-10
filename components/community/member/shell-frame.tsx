@@ -313,7 +313,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const firstPath = useRef(pathname || "").current
   useSectionTop(firstPath, community.slug)
   const searchNow = useSearchParams()
-  useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""))
+  useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""), { onlyOnArrival: true })
   /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
   const appearance = community.appearance === "dark" ? "dark" : "light"
   useCommunityTheme(appearance)
@@ -520,8 +520,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       if (!p) return
       const onScreen = placeFromUrl(window.location.pathname, window.location.search)
       if (onScreen && placeKey(onScreen) === placeKey(p)) return
-      /* All, a feed space and Saved while the feed is on screen: the feed's own pills switch its list in place. */
-      if (slotKeyOf(p, chatRef.current) === "feed" && slotKeyOf(shownRef.current, chatRef.current) === "feed" && (e.target as Element | null)?.closest?.("[data-place-host]")) return
+      /* The feed's own pills (and its sort menu's Saved) switch its list in place, with the fill gliding: theirs, not the shell's. */
+      if (slotKeyOf(p, chatRef.current) === "feed" && slotKeyOf(shownRef.current, chatRef.current) === "feed" && (e.target as Element | null)?.closest?.("[data-space-chips], [data-sort-menu]")) return
       e.preventDefault()
       navRef.current.go(p)
     }

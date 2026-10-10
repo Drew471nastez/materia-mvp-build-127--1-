@@ -174,7 +174,16 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   /* A routed place drawn again by a pull to refresh is taken over by a kept screen with the fresh data. */
   const [detached, setDetached] = useState<string | null>(null)
   useLayoutEffect(() => {
-    const seed = routedRef.current?.querySelector<HTMLElement>("[data-place-seed]")
+    const slot = routedRef.current
+    if (!slot) return
+    const seed = slot.querySelector<HTMLElement>("[data-place-seed]")
+    /*
+      NOT YET IS NOT "NOT A PLACE". While the router's page is still streaming (its Suspense not resolved, the server's
+      HTML still a template) the slot holds nothing of its own; reading that as a page that is not a place made the host
+      draw a second feed beside the one on its way (caught in a real Next build, round 15). Only a slot that holds
+      something, and no seed, is a page that is not a place.
+    */
+    if (!seed && !Array.from(slot.querySelectorAll("*")).some((el) => !/^(TEMPLATE|SCRIPT|STYLE|LINK|META|NOSCRIPT)$/.test(el.tagName))) return
     const k = seed?.dataset.placeSeed ?? null
     if (k !== routedKey) setRoutedKey(k)
   })
@@ -253,6 +262,20 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   const intent = useRef<{ scroll: "top" | "keep" | "auto"; history: boolean } | null>(null)
   const painted = useRef(false)
   const screenEls = useRef(new Map<string, HTMLElement>())
+  /*
+    THE SHELL PUTS SCROLL BACK, NOT THE BROWSER. With the browser's own restoration on, Back and Forward moved the window to
+    the entry's old place before the host had noted where the place being left was, so that place came back at the other's
+    scroll (caught in a real Next build: the feed returned 900px down, where Members had been). Manual while the community
+    is on screen, the browser's own again when it goes.
+  */
+  useEffect(() => {
+    const h = window.history
+    const was = h.scrollRestoration
+    h.scrollRestoration = "manual"
+    return () => {
+      h.scrollRestoration = was
+    }
+  }, [])
   useEffect(() => {
     const onScroll = () => scrolls.current.set(shownRef.current, window.scrollY)
     window.addEventListener("scroll", onScroll, { passive: true })

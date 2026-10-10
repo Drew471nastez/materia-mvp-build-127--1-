@@ -267,9 +267,16 @@ export function useSectionTop(pathname: string, slug: string) {
 }
 
 /** Notes the scroll of the community's pages, and puts a page reached by Back where it was left. */
-export function useReturnScroll(pathname: string) {
+export function useReturnScroll(pathname: string, opts: { onlyOnArrival?: boolean } = {}) {
   const pathRef = useRef(pathname)
   pathRef.current = pathname
+  /*
+    ROUND 15: MOVES INSIDE THE COMMUNITY ARE THE PLACE HOST'S (place-host.tsx keeps each place's scroll with it). With
+    onlyOnArrival this puts a page back only as the frame arrives (Back from a creator's page into the community); a Back
+    between two places no longer moves the window a second time, after the host already had (a real Next build caught the
+    feed coming back where Members had been).
+  */
+  const arrived = useRef(false)
   /*
     NOTED WHEN THE SCROLL RESTS, NOT ON EVERY FRAME (round 24). Each frame of a scroll wrote the place to session storage, and in
     the app to local storage twice more: three synchronous reads, parses and writes of a forty-entry list per frame on
@@ -310,6 +317,9 @@ export function useReturnScroll(pathname: string) {
   }, [])
   /* Before the page is painted: a Back lands where it was left, never at the top first. */
   useLayoutEffect(() => {
+    const first = !arrived.current
+    arrived.current = true
+    if (opts.onlyOnArrival && !first) return
     if (performance.now() - poppedAt > BACK_WINDOW_MS) return
     poppedAt = -Infinity
     backLanding = { path: (pathname || "").split(/[?#]/)[0], at: performance.now() }
