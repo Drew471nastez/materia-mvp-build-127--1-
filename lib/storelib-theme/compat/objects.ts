@@ -521,6 +521,23 @@ export interface DynamicResolver {
   text(src: string): string
 }
 
+/**
+ * THE SHOP'S OWN PRODUCTS WHERE NOTHING IS PICKED YET. A featured collection
+ * with no collection chosen, or a featured product with no product, draws
+ * Shopify's grey "Example product" cards; on a Storelib shop that has
+ * products, the section shows them instead (every product, or the first),
+ * so a theme's product sections are filled from the moment it is imported.
+ * Only the settings a section is built around (`collection`, `product`);
+ * an optional product elsewhere stays empty.
+ */
+function shopDefault(s: ShopifySetting, value: unknown, r: Resources): unknown {
+  const empty = value === undefined || value === null || value === ""
+  if (!empty || r.products.length === 0) return value
+  if (s.type === "collection" && s.id === "collection") return "all"
+  if (s.type === "product" && s.id === "product") return r.products[0].id
+  return value
+}
+
 /** A settings object: every declared setting, its stored value or its default, typed. */
 export function typedSettings(schema: ShopifySetting[], stored: Record<string, unknown> | undefined, r: Resources, dyn?: DynamicResolver): O {
   const out: O = {}
@@ -553,7 +570,7 @@ export function typedSettings(schema: ShopifySetting[], stored: Record<string, u
     const alt = s.id.replace(/-/g, "_")
     const key = has(s.id) ? s.id : has(alt) ? alt : null
     if (key) used.add(key)
-    put(s.id, s.type, key ? stored![key] : s.default)
+    put(s.id, s.type, shopDefault(s, key ? stored![key] : s.default, r))
   }
   /* A stored value with no setting declared for it (a theme setting a section reads by name) passes through. */
   for (const [k, v] of Object.entries(stored ?? {})) if (!(k in out) && !used.has(k)) put(k, "text", v)

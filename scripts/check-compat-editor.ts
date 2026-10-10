@@ -147,6 +147,16 @@ async function main() {
     }
     const outlined = await frame.evaluate((t) => !!document.getElementById(`shopify-section-${t.section}`)?.hasAttribute("data-sl-selected") && !!document.querySelector(`[data-block-id="${t.block}"]`)?.hasAttribute("data-sl-selected-block"), target)
     check("the section and the block are outlined in the frame", outlined)
+    await sleep(200)
+    const ring = await frame.evaluate((t) => {
+      const box = document.querySelector<HTMLElement>("[data-sl-box=section]")
+      const el = document.getElementById(`shopify-section-${t.section}`)
+      if (!box || !el) return null
+      const a = box.getBoundingClientRect(), b = el.getBoundingClientRect()
+      const top = Math.max(b.top, 0), bottom = Math.min(b.bottom, innerHeight)
+      return { off: Math.max(Math.abs(a.left - b.left), Math.abs(a.width - b.width), Math.abs(a.top - top), Math.abs(a.bottom - bottom)), last: document.body.lastElementChild === box || [...document.querySelectorAll("[data-sl-box]")].includes(document.body.lastElementChild as HTMLElement), z: getComputedStyle(box).zIndex }
+    }, target)
+    check("the selection is one unbroken ring over the section, above everything in it", !!ring && ring.off <= 2 && ring.z === "2147483646", JSON.stringify(ring))
     /* A mark on the page's own window: still there afterwards means the page was changed in place, not drawn again. */
     await frame.evaluate(() => { (window as unknown as { __probeMark: number }).__probeMark = 1 })
     const scrollBefore = await frame.evaluate(() => scrollY)
@@ -385,6 +395,50 @@ async function main() {
       const inPlace = !!f && (await f.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false))
       check("  and the page took the new colour in place", inPlace)
       check(`a colour scheme's colour changed in "${schemeGroup.name}" is drawn in the frame`, typed && drawn, typed ? "" : "no colour field to type in")
+    }
+    /* Hover and focus: Storelib's own group after the theme's, a button hover colour drawn in place. */
+    {
+      await page.evaluate(() => document.querySelector<HTMLElement>("[data-compat-theme-group] [data-panel-back] button")?.click())
+      await sleep(400)
+      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => (b.textContent ?? "").trim() === "Hover and focus")?.click())
+      await sleep(500)
+      const chip = await page.$("[data-compat-theme-group='Hover and focus'] button[aria-expanded]")
+      if (chip) {
+        await chip.click()
+        await sleep(300)
+        const hex = await page.$("[data-compat-theme-group='Hover and focus'] input[placeholder='#FFFFFF']")
+        await hex?.click()
+        await page.keyboard.down("Control"); await page.keyboard.press("a"); await page.keyboard.up("Control")
+        await page.keyboard.type("#654321")
+        await page.keyboard.press("Enter")
+      }
+      let rule = ""
+      for (let i = 0; i < 30 && !rule.includes("#654321"); i++) {
+        await sleep(200)
+        rule = await (await front())!.evaluate(() => document.querySelector("style[data-storelib-overrides]")?.textContent ?? "").catch(() => "")
+      }
+      const kept = await (await front())!.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false)
+      check("Hover and focus: a button hover colour reaches the page, in place", !!chip && rule.includes("background-color:#654321") && kept, rule.slice(0, 120))
+      const f = (await front())!
+      const btn = await f.evaluate(() => {
+        for (const b of document.querySelectorAll<HTMLElement>("main .button, main button[type=submit], .button")) {
+          if (b.classList.contains("button-unstyled")) continue
+          b.scrollIntoView({ block: "center" })
+          const r = b.getBoundingClientRect()
+          if (r.width < 20 || r.height < 10) continue
+          const x = r.left + r.width / 2, y = r.top + r.height / 2
+          if (document.elementFromPoint(x, y)?.closest(".button, button[type=submit]") === b) return { x, y }
+        }
+        return null
+      })
+      if (btn) {
+        await sleep(300)
+        const box = await (await page.$("[data-compat-frame='front']"))!.boundingBox()
+        await page.mouse.move(box!.x + btn.x, box!.y + btn.y)
+        await sleep(400)
+        const bg = await f.evaluate((p) => { const el = document.elementFromPoint(p.x, p.y)?.closest<HTMLElement>(".button, button[type=submit]"); return el ? getComputedStyle(el).backgroundColor : "none" }, btn)
+        check("  and a button under the pointer wears it", bg === "rgb(101, 67, 33)", bg)
+      }
     }
     await page.screenshot({ path: "/tmp/compat-editor-theme.png" })
     /* A save the route refuses: a banner in words with one thing to do, never the route's "Invalid body". */

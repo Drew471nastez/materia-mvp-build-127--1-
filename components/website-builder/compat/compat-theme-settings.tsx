@@ -15,6 +15,7 @@ import { ChevronRight } from "lucide-react"
 import { loadCompatFiles } from "./compat-canvas"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
+import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
 
 /**
  * A colour scheme's colour is kept at shopify[group][scheme].settings[id]; its
@@ -66,9 +67,10 @@ export function CompatThemeSettings({
       if (!live) return
       try {
         const parsed = JSON.parse(files["shopify/config/settings_panel.json"] ?? "[]") as Group[]
-        setGroups(Array.isArray(parsed) ? parsed : [])
+        /* The theme's own groups, then Storelib's Hover and focus (lib/storelib-theme/compat/overrides.ts). */
+        setGroups([...(Array.isArray(parsed) ? parsed : []), OVERRIDE_GROUP as unknown as Group])
       } catch {
-        setGroups([])
+        setGroups([OVERRIDE_GROUP as unknown as Group])
       }
     })
     return () => { live = false }

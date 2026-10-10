@@ -106,13 +106,17 @@ export function CompatPreviewProvider({
   return <CompatPreviewContext.Provider value={value}>{children}</CompatPreviewContext.Provider>
 }
 
-type PresetBlock = { type?: string; settings?: Record<string, unknown>; blocks?: PresetBlock[] }
+type PresetBlock = { id?: string; type?: string; static?: boolean; settings?: Record<string, unknown>; blocks?: PresetBlock[] }
 
 /** The preset's blocks, with ids of their own: the compat engine reads blocks by id. */
 function blocksOf(list: PresetBlock[] | undefined, path: string): StoredBlock[] {
   return (list ?? [])
     .filter((b) => typeof b?.type === "string")
-    .map((b, i) => ({ id: `${path}-${i}`, type: b.type as string, settings: b.settings ?? {}, blocks: blocksOf(b.blocks, `${path}-${i}`) }))
+    /* A static block keeps its id, which is how the section's {% content_for 'block', id: %} finds it (Horizon's carousel, its header). */
+    .map((b, i) => {
+      const id = typeof b.id === "string" && b.id ? b.id : `${path}-${i}`
+      return { id, type: b.type as string, settings: b.settings ?? {}, ...(b.static === true ? { static: true } : {}), blocks: blocksOf(b.blocks, id) }
+    })
 }
 
 /** The section a card shows: its preset's settings and blocks, as adding it would give. */
@@ -157,6 +161,8 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
   const [drawnHeight, setDrawnHeight] = useState<number | null>(null)
   /* A section with nothing to show until it is filled in (apps, custom code): its name instead of a blank card. */
   const [blank, setBlank] = useState(false)
+  /* Shown once it has been measured, faded in: never a white box that jumps to its height. */
+  const [shown, setShown] = useState(false)
 
   /* Built the first time it comes near the screen, then kept. */
   useEffect(() => {
@@ -196,6 +202,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     /* The body, not the document: the document is never shorter than the frame, so it could only grow. */
     const h = Math.ceil(doc.body.getBoundingClientRect().height)
     if (h > 0) setDrawnHeight(h)
+    setShown(true)
     const root = doc.querySelector<HTMLElement>(".shopify-section") ?? doc.body
     const shows = [...root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")].some((el) => {
       const r = el.getBoundingClientRect()
@@ -215,7 +222,6 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     >
       {srcDoc ? (
         <iframe
-          ref={frame}
           title={`${schema.name} preview`}
           srcDoc={srcDoc}
           sandbox="allow-same-origin"
@@ -229,8 +235,17 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
             /* Fonts and the first pictures land a moment later and change the height. */
             window.setTimeout(measure, 400)
           }}
+          /* Its markup is in before its pictures and fonts are: measured then too, so a slow font never holds the card back. */
+          ref={(el) => {
+            frame.current = el
+            if (el && !el.dataset.watched) {
+              el.dataset.watched = "1"
+              const early = () => { if (el.contentDocument?.readyState !== "loading" && el.contentDocument?.body) measure(); else window.setTimeout(early, 60) }
+              window.setTimeout(early, 60)
+            }
+          }}
           className="absolute left-0 top-0 origin-top-left border-0 bg-white"
-          style={{ width: renderWidth, height: Math.ceil(height / scale), transform: `scale(${scale})`, pointerEvents: "none" }}
+          style={{ width: renderWidth, height: Math.ceil(height / scale), transform: `scale(${scale})`, pointerEvents: "none", opacity: shown ? 1 : 0, transition: "opacity 220ms ease-out" }}
         />
       ) : null}
       {blank ? (

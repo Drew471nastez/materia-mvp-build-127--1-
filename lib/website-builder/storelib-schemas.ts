@@ -152,6 +152,8 @@ export function schemaFromStorelib(source: string, file: string): StorelibSchema
         const schema = editorSchema(valid.value)
         const statics = isCompatSource(source) ? compatStatics(splitCompatFile(source).markup) : staticsIn(parsed.value.template.text, file)
         if (statics.length) schema.statics = statics
+        /* From an imported theme: each placed section's own name comes first in the sidebar (section-name.ts). */
+        if (isCompatSource(source)) schema.imported = true
         result = { ok: true, schema }
       }
     }
