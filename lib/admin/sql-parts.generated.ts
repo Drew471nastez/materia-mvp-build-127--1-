@@ -107,4 +107,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "111", file: "111_sales_channel_kinds.sql", sha256: "ee72c9fa10eaab15a95d7dda664d605d3403375a3fb369a0d87dc72fcd714093" },
   { part: "112", file: "112_integrations.sql", sha256: "7371730a1431d3fd321261788577261fcfbc1e75b39fbb014af7f94f5d27454c" },
   { part: "113", file: "113_store_activity.sql", sha256: "3f4c7382ea663baef64d141a1060394cdfd4124cfd038f38a7c33e16e5e78737" },
+  { part: "114", file: "114_support_tickets.sql", sha256: "dd723d67773fc6094ceb88aa9ea056471da61665414930060e74f4f5cfbb54c7" },
 ]

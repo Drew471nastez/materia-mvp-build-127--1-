@@ -1768,6 +1768,16 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       Get help
                     </button>
                   </a>
+                  {/* A request to Storelib, answered by a person (app/app/support, lib/support). */}
+                  <SmartLink href="/app/support" className="flex items-center justify-between p-4 hover:bg-[#f9fafb] transition-colors" data-settings-support="">
+                    <div className="flex items-center gap-3">
+                      <Mail className="h-5 w-5 text-[#6b7280]" />
+                      <span className="text-[14px] text-[#374151]">Contact Storelib support</span>
+                    </div>
+                    <span className="px-3 py-1.5 text-[13px] font-medium border border-[#e5e7eb] rounded-lg hover:bg-[#f3f4f6] transition-colors">
+                      Open a request
+                    </span>
+                  </SmartLink>
                 </div>
               </div>
 

@@ -170,9 +170,10 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
 }
 
 /**
- * THE WAY TO A PERSON. There is no support form behind Storelib, so this is
- * the address that is actually read, with what to put in the message so the
- * first reply can be an answer rather than a question.
+ * THE WAY TO A PERSON. A store opens a request in its dashboard (/app/support,
+ * answered from /admin/resolution); anyone else, or anyone who'd rather,
+ * emails the address that is actually read, with what to put in the message
+ * so the first reply can be an answer rather than a question.
  */
 export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { compact?: boolean; frame?: string }) {
   if (compact) {
@@ -182,7 +183,11 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { co
         <a href={`mailto:${SUPPORT_EMAIL}`} className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
           {SUPPORT_EMAIL}
         </a>{" "}
-        with your username, and for an order the buyer&apos;s email address.
+        with your username, and for an order the buyer&apos;s email address. Selling on Storelib?{" "}
+        <a href="/app/support" className="font-medium text-[#1a1a2e] underline decoration-[#1a1a2e]/30 underline-offset-2 hover:decoration-[#1a1a2e]">
+          Open a request
+        </a>{" "}
+        from your dashboard.
       </p>
     )
   }
@@ -194,15 +199,23 @@ export function ContactSupport({ compact = false, frame = HELP_CONTAINER }: { co
             Still need help?
           </h2>
           <p className="mt-1 max-w-[56ch] text-[14px] leading-relaxed text-[#6b7280]">
-            Email us with your username, and for an order the buyer&apos;s email address, so we can look it up.
+            Selling on Storelib? Open a request from your dashboard and we&apos;ll reply there. Or email us with your username, and for an order the buyer&apos;s email address, so we can look it up.
           </p>
         </div>
-        <a
-          href={`mailto:${SUPPORT_EMAIL}`}
-          className="inline-flex h-11 shrink-0 items-center justify-center self-start rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a44] sm:self-auto"
-        >
-          {SUPPORT_EMAIL}
-        </a>
+        <div className="flex flex-wrap gap-2 self-start sm:self-auto">
+          <a
+            href="/app/support"
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl bg-[#1a1a2e] px-5 text-[14px] font-medium text-white transition-colors hover:bg-[#2a2a44]"
+          >
+            Open a request
+          </a>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            className="inline-flex h-11 shrink-0 items-center justify-center rounded-xl border border-[#e5e7eb] bg-white px-5 text-[14px] font-medium text-[#1a1a2e] transition-colors hover:bg-[#f8f9fa]"
+          >
+            {SUPPORT_EMAIL}
+          </a>
+        </div>
       </div>
     </section>
   )
