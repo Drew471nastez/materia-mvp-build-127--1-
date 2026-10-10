@@ -20,9 +20,10 @@
  *   The account page               /account
  *   The wishlist                   /wishlist (a platform route of its own)
  *   Inside a community             /community/<slug>/..., community aware:
- *                                  Home is the community's home and Search
- *                                  its own search (communityTabs below);
- *                                  Library and Profile are the same
+ *                                  Home is the community's home, Search
+ *                                  its own search, Create post in
+ *                                  Library's place and Profile your
+ *                                  profile in it (communityTabs below)
  *   A product or creator page      never. It is somebody's shop, and the
  *                                  page's own buy bar already stands at the
  *                                  foot of it; a second bar under that is
@@ -35,6 +36,8 @@
  * sellers, with its own calls to action, and the native app never shows it.
  */
 
+import { placeHref } from "@/lib/communities/client/places"
+
 /** The four tabs, in the order the owner asked for. */
 export const BUYER_TABS = [
   { key: "home", label: "Home", href: "/explore" },
@@ -44,12 +47,14 @@ export const BUYER_TABS = [
 ] as const
 
 /** Tab bar rows when Discover is off: Library and Profile only. */
-export function buyerTabsForMarketplace(exploreMarketplaceEnabled: boolean) {
+export function buyerTabsForMarketplace(exploreMarketplaceEnabled: boolean): BuyerTab[] {
   if (exploreMarketplaceEnabled) return [...BUYER_TABS]
   return BUYER_TABS.filter((t) => t.key === "library" || t.key === "profile")
 }
 
-export type BuyerTabKey = (typeof BUYER_TABS)[number]["key"]
+/** A tab's key: the four above, and Create post, which stands in Library's place inside a community. */
+export type BuyerTabKey = (typeof BUYER_TABS)[number]["key"] | "compose"
+export type BuyerTab = { key: BuyerTabKey; label: string; href: string }
 
 /** Where a signed out person's Profile tab goes: sign in, then their account. */
 export const SIGNED_OUT_PROFILE_HREF = "/login?next=%2Faccount"
@@ -76,9 +81,31 @@ export function communityOf(pathname: string): string | null {
   return m && COMMUNITY_SLUG.test(m[1]) ? m[1] : null
 }
 
-/** The four tabs inside a community: its home, its search, then the library and the account as anywhere. */
-export function communityTabs(slug: string) {
-  return BUYER_TABS.map((t) => (t.key === "home" ? { ...t, href: `/community/${slug}` } : t))
+/** A person's own profile inside a community: the community's address with ?profile=me (lib/communities/client/places.ts). */
+export function communityProfileHref(slug: string): string {
+  return placeHref(slug, { kind: "profile", ref: "me" })
+}
+
+/**
+ * ROUND 15, THE OWNER: "when someone is inside of a community the navigation
+ * bottom bar doesn't have the library icon there. Inside of a community,
+ * replace Library with Create post." So inside a community the four are its
+ * home (the community's feed), its search, Create post (the composer, asked
+ * for through lib/communities/client/compose-intent.ts) and Profile, which is
+ * the person's own profile inside this community rather than the account.
+ *
+ * OUTSIDE ONE, WITH A COMMUNITY KEPT AS HOME (the context, below), only Home
+ * is the community's: Library and Profile are the site's again, because the
+ * page you are on is the site's.
+ */
+export function communityTabs(slug: string, inside = true): BuyerTab[] {
+  return BUYER_TABS.map((t): BuyerTab => {
+    if (t.key === "home") return { ...t, href: `/community/${slug}` }
+    if (!inside) return t
+    if (t.key === "library") return { key: "compose", label: "Create post", href: `/community/${slug}` }
+    if (t.key === "profile") return { ...t, href: communityProfileHref(slug) }
+    return t
+  })
 }
 
 /**
@@ -90,11 +117,12 @@ export function communityTabs(slug: string) {
  * navigator's Explore, Discover communities or Dashboard ends it. Only Home
  * changes; Search outside a community is the site's.
  */
-export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true, homeCommunity: string | null = null) {
+export function buyerTabsAt(pathname: string, exploreMarketplaceEnabled = true, homeCommunity: string | null = null): BuyerTab[] {
+  const inside = communityOf(pathname)
+  if (inside) return communityTabs(inside, true)
   /* With Discover off the bar outside a community is Library and Profile alone (no Home to keep), so the context waits for inside. */
   const kept = exploreMarketplaceEnabled && homeCommunity && COMMUNITY_SLUG.test(homeCommunity) ? homeCommunity : null
-  const slug = communityOf(pathname) ?? kept
-  return slug ? communityTabs(slug) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
+  return kept ? communityTabs(kept, false) : buyerTabsForMarketplace(exploreMarketplaceEnabled)
 }
 
 /** The search screen's own address. A static route under /explore, so no new root word is taken from creators' handles. */
@@ -173,11 +201,16 @@ export function buyerTabsBelongOn(
  */
 export function buyerTabFor(
   pathname: string,
-  where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean; homeCommunity?: string | null } = {},
+  where: { query?: boolean; sellerSurface?: boolean; exploreMarketplaceEnabled?: boolean; homeCommunity?: string | null; profile?: string | null } = {},
 ): number {
   const exploreOn = where.exploreMarketplaceEnabled !== false
-  /* Every page of a community is that community's Home, the way a product reached from Explore is still Home. */
-  if (communityOf(pathname)) return 0
+  /*
+    Every page of a community is that community's Home, the way a product
+    reached from Explore is still Home; except your own profile in it
+    (?profile=me), which is the Profile tab's. Create post is never lit: it
+    opens a screen over the page, it is not a page.
+  */
+  if (communityOf(pathname)) return where.profile === "me" ? 3 : 0
   /* While Home is a community's (the context), Explore's own pages are not Home: nothing is lit there but Search's results. */
   if (where.homeCommunity && exploreOn && under(pathname, "/explore") && !under(pathname, SEARCH_HREF) && !where.query) return -1
   /* And a creator's page reached from there is not the community's Home either. */
