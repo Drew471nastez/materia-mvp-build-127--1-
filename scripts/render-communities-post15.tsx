@@ -20,6 +20,7 @@ import { PostCard } from "@/components/community/member/post-card"
 import { Composer } from "@/components/community/member/composer"
 import { ViewportVars } from "@/components/viewport-vars"
 import { allowedActions } from "@/lib/communities/permissions"
+import { requestCompose } from "@/lib/communities/client/compose-intent"
 import type { FeedPostView, Role, ViewerView } from "@/lib/communities/types"
 
 const NOW = Date.now()
@@ -139,6 +140,8 @@ function Feed() {
   )
 }
 
+/* The tab bar's Create post, as the probe presses it (lib/communities/client/compose-intent.ts). */
+;(window as unknown as { __compose?: typeof requestCompose }).__compose = requestCompose
 document.documentElement.setAttribute("data-buyer-tabs", "shown")
 const lift = document.createElement("style")
 /* As the tab bar worker's stylesheet does for an opened post (lib/ui/layers.ts: data-tabs-over on <html>). */

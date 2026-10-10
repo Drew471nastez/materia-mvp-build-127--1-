@@ -386,6 +386,90 @@ export const isNativePlatform = () => false
     await p.close()
   }
 
+  /* ── THE COMPOSER: from the field, and from the tab bar's Create post ── */
+  if (process.env.COMPOSE !== "0") {
+    const s = await session(false)
+    const { p, cdp } = s
+    const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y, radiusX: 4, radiusY: 4, force: 1 }] })
+    const tap = async (x, y) => {
+      await touch("touchStart", x, y)
+      await sleep(40)
+      await touch("touchEnd", x, y)
+    }
+    /* Each frame: where the screen is, whether the tab bar is covered by the registry, and whether it is on screen. */
+    const watch = () =>
+      p.evaluate(() => {
+        window.__c = []
+        window.__crun = true
+        window.__long = []
+        try {
+          window.__lo?.disconnect()
+          window.__lo = new PerformanceObserver((l) => window.__long.push(...l.getEntries().map((e) => Math.round(e.duration))))
+          window.__lo.observe({ type: "longtask" })
+        } catch {}
+        const tick = (t) => {
+          const sheet = document.querySelector('[data-composer="sheet"]')
+          const bar = document.querySelector("[data-buyer-tab-bar]")
+          const tb = sheet?.querySelector("[data-composer-toolbar]")
+          window.__c.push({ t: Math.round(t), tbH: tb ? Math.round(tb.getBoundingClientRect().height) : null, sheetY: sheet ? Math.round(sheet.getBoundingClientRect().top) : null, covered: document.documentElement.hasAttribute("data-tabs-covered"), barTop: bar ? Math.round(bar.getBoundingClientRect().top) : null })
+          if (window.__crun) requestAnimationFrame(tick)
+        }
+        requestAnimationFrame(tick)
+      })
+    const unwatch = async () => {
+      const r = await p.evaluate(() => ((window.__crun = false), { c: window.__c, long: window.__long }))
+      r.c.long = r.long
+      return r.c
+    }
+    const field = await p.evaluate(() => {
+      window.scrollTo(0, 0)
+      const r = document.querySelector("[data-composer-open]").getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    await sleep(300)
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+    const report = (name, c) => {
+      const firstMoved = c.findIndex((f) => f.sheetY !== null)
+      let longest = 0
+      for (let i = 1; i < c.length; i++) longest = Math.max(longest, c[i].t - c[i - 1].t)
+      const tapToScreen = firstMoved > 0 ? c[firstMoved].t - c[0].t : null
+      const long = c.long ?? []
+      console.log(`  ${name}: the screen's first frame ${tapToScreen}ms after the tap's frame, longest frame ${longest}ms, long tasks ${JSON.stringify(long)}`)
+      return { tapToScreen, longest, longTasks: long }
+    }
+    await watch()
+    const composeSeq = await record(s, "compose-open", () => tap(field.x, field.y), 1200)
+    const opened = await unwatch()
+    await sheet(composeSeq, `${LABEL}-compose-open.png`)
+    summary["compose-open"] = report("compose-open", opened)
+    const ys = opened.filter((f) => f.sheetY !== null).map((f) => f.sheetY)
+    expect(ys.length > 4 && ys[0] > 300 && ys.at(-1) === 0, "COMPOSE: the screen rises from the foot to the top over several frames", ys.filter((_, i) => i % 3 === 0))
+    expect(opened.filter((f) => f.sheetY !== null).every((f) => f.covered), "and the tab bar is counted as covered on every frame it is up", null)
+    const tbs = [...new Set(opened.filter((f) => f.tbH !== null).map((f) => f.tbH))]
+    expect(tbs.length === 1, "and its toolbar is one height from its first frame (nothing moves as the fields come in)", tbs)
+    await sleep(300)
+    const cancel = await p.evaluate(() => {
+      const r = document.querySelector('[data-composer="sheet"] [data-composer-cancel]').getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    await watch()
+    await tap(cancel.x, cancel.y)
+    await sleep(1200)
+    const closed = await unwatch()
+    const gone = closed.findIndex((f) => f.sheetY === null)
+    expect(gone > 0 && closed.slice(gone).every((f) => !f.covered && f.barTop !== null && f.barTop < 844), "and once it has gone, the tab bar is uncovered and on screen", { gone, last: closed.at(-1) })
+    /* Create post from the tab bar: the composer on screen answers. */
+    await watch()
+    const took = await p.evaluate(() => window.__compose())
+    await sleep(1200)
+    const asked = await unwatch()
+    summary["compose-request"] = report("compose-request", asked)
+    expect(took === true && asked.some((f) => f.sheetY === 0), "CREATE POST: requestCompose() opens the composer on screen", { took })
+    await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    expect(!s.errors.length, "no page errors in the composer", s.errors.slice(0, 2))
+    await p.close()
+  }
+
   /* ── THE APP (iOS): the edge swipe ── */
   if (process.env.EDGE !== "0") {
     const s = await session(true)

@@ -208,5 +208,16 @@ console.log("\nSOURCE: the push")
   check("a comment's face keeps its room from the first frame", /data-comment-face=""/.test(cm) && /\$\{small \? "h-7 w-7" : "h-8 w-8"\}`\} data-person-link/.test(cm))
 }
 
+console.log("\nSOURCE: the composer")
+{
+  const c = read("components/community/member/composer.tsx")
+  check("its phone screen is a counted 'composer' layer for exactly as long as it is drawn", /useLayer\("composer", sheet, sheetRef\)/.test(c))
+  check("it answers Create post (requestCompose), never as Edit post, and in the space asked for", /useComposeRequests\(\(req\) => \{\s*if \(editing \|\| leaving\.current\) return false/.test(c) && /spaces\.find\(\(s\) => s\.slug === req\.spaceSlug\)/.test(c))
+  check("the tap draws the screen's frame; its fields are drawn on the next frame, while it slides", /fill = requestAnimationFrame\(\(\) => setFilled\(true\)\)/.test(c) && /\{filled \? \(/.test(c))
+  check("the toolbar's room is kept while the fields are on their way", /\{filled \? tools : <div className="h-10" aria-hidden \/>\}/.test(c))
+  check("a nudge for a missing space or poll looks on the phone's screen too", /\(sheetRef\.current \?\? cardRef\.current\)\?\.querySelector<HTMLButtonElement>\("button\[data-composer-space\]"\)/.test(c))
+  check("the spaces it is handed carry their slug (feed.tsx)", /slug: s\.slug, kind: s\.kind/.test(read("components/community/member/feed.tsx")))
+}
+
 console.log(`\n  ${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
