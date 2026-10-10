@@ -228,6 +228,7 @@ try {
     for (const RADIUS of [1, 6]) {
     console.log(`\nTAPS on and between the space pills, a finger ${RADIUS * 2}px across, 390x844, CPU 4x [${LABEL}]`)
     const { p, cdp, errors } = await open(PHONE)
+    await p.screenshot({ path: join(shots, `${LABEL}-open-390.png`) })
     await p.evaluate(() => {
       window.__ev = []
       for (const type of ["pointerdown", "pointerup", "pointercancel", "click"]) document.addEventListener(type, (e) => window.__ev.push(`${type}@${e.target.closest?.("[data-space-chip]")?.getAttribute("data-space-chip") ?? e.target.tagName}`), true)
