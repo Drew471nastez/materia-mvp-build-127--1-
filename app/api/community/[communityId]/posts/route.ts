@@ -7,7 +7,6 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, checkPostInput, createPost, feedSort, listFeed, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { announcePost } from "@/lib/communities/server/realtime"
 import { HELD_MESSAGE, isHeld } from "@/lib/communities/server/safety"
-import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -22,7 +21,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
  * Pinned posts come with the first page only. Spaces the member may not see
  * are never in it (lib/communities/server/feed.ts).
  */
-async function handleGET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
@@ -46,7 +45,7 @@ async function handleGET(request: Request, { params }: Params) {
  * Once answered, the members with the community open hear of it by id
  * (lib/communities/server/realtime.ts) and read it through GET above.
  */
-async function handlePOST(request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
@@ -69,7 +68,3 @@ async function handlePOST(request: Request, { params }: Params) {
   after(() => announcePost(communityId, { id: post.id, spaceId: post.space?.id ?? null, authorId: post.author?.id ?? null }))
   return NextResponse.json({ post }, { status: 201, headers: NO_STORE })
 }
-
-/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
-export const GET = timed("community", "/api/community/:id/posts", handleGET)
-export const POST = timed("community", "/api/community/:id/posts", handlePOST)
