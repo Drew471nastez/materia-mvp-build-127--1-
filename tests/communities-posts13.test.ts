@@ -124,7 +124,7 @@ async function main() {
   check("Save sends PATCH with the space (when moved) and the poll (null to take it off)", /method: "PATCH"/.test(composer) && /spaceId !== \(was\?\.space\?\.id \?\? null\) \? \{ spaceId \}/.test(composer) && /was\?\.poll \? \{ poll: null \}/.test(composer))
   check("Save is a spinner, then a check (\"Save\" on the button), then the editor folds and the post is handed back", /label=\{actionLabel\}/.test(composer) && /const actionLabel = editing \? "Save" : "Post"/.test(composer) && /editDone\.current = \(\) => edit\.onSaved\(saved\)/.test(composer))
   check("an edit is never written to the draft store, and never restores one", /if \(!open \|\| editing\) return/.test(composer) && /if \(editing\) return\s*const d = readDraft\(key\)/.test(composer))
-  check("on a phone Edit post opens over an opened post", /editing \? "z-\[135\]" : "z-\[125\]"/.test(composer))
+  check("on a phone Edit post opens over an opened post", /zIndex=\{editing \? 135 : 125\}/.test(composer))
   check("the attachment tray has its own slot for worker V", /THE ATTACHMENT TRAY SLOT/.test(read(`${M}/composer.tsx`)))
   check("?edit=1 on the post page opens Edit post for its author only, and leaves the address", /if \(url\.searchParams\.get\("edit"\) !== "1"\) return/.test(page) && /window\.history\.replaceState\(window\.history\.state, ""/.test(page) && /if \(wantsEdit\(post, readOnly, visitor\)\) setAutoEdit\(true\)/.test(page) && /if \(autoEdit && own && !readOnly\) setEditing\(true\)/.test(card))
   check("the post page back is a wide ReturnLink pill with first-tap and prefetch", /data-post-page-back=""/.test(page) && /<ReturnLink/.test(page) && /useFirstTap/.test(page) && /router\.prefetch\(href, \{ kind: "full" \}/.test(page) && /h-11/.test(page))

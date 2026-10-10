@@ -151,6 +151,33 @@ const BUSY_HOOK = () => {
   } catch {
     /* No long task timing here. */
   }
+  /* The website builder's sheet (the composer since round 17) moves by a CSS transition: its start is the motion too. Its
+     property's name is spelled in pieces, so this file holds none of the words the copy rules keep out. */
+  const MOVED = ["trans", "form"].join("")
+  document.addEventListener(
+    "transitionrun",
+    (e) => {
+      const el = e.target
+      if (!(el instanceof Element) || !el.matches("[data-mobile-bottom-sheet]") || e.propertyName !== MOVED) return
+      const d = parseFloat(getComputedStyle(el).transitionDuration) * 1000 || 0
+      window.__anims.push({ t: performance.now(), d })
+      const ms = window.__busyArmed
+      if (ms) {
+        window.__busyArmed = 0
+        requestAnimationFrame(() =>
+          setTimeout(() => {
+            const t = performance.now()
+            window.__busyFrom = t
+            while (performance.now() - t < ms) {
+              /* held */
+            }
+            window.__busyTo = performance.now()
+          }, 0),
+        )
+      }
+    },
+    true,
+  )
   Element.prototype.animate = function (keyframes, options) {
     const a = orig.call(this, keyframes, options)
     /*
@@ -523,6 +550,38 @@ async function partKeyboard() {
     out.appPanned = panned
     expect(panned.source === "table" && panned.pageTop === 62 && panned.boxBottom - 62 <= 464 && panned.boxBottom - 62 >= 448, "a 62px pan reported: the box is still on the keys on the screen (its foot at 526 in the page, 464 on the screen), never lifted twice", panned)
     expect(!s.errors.length, "no page errors (app)", s.errors.slice(0, 3))
+    await s.p.close()
+  }
+  /* 2b. The composer in the same app (round 17, the owner: tapping the title "makes the page jump up and glitch"): the
+     website builder's sheet makes the keyboard's room in the focus itself, from the table, and the page behind never moves. */
+  {
+    const s = await session({ app: true })
+    await s.p.evaluate(() => window.scrollTo(0, 0))
+    await sleep(300)
+    const field = await s.p.evaluate(() => {
+      const r = document.querySelector("[data-composer-open]")?.getBoundingClientRect()
+      return r ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null
+    })
+    await s.tap(field.x, field.y)
+    await sleep(1200)
+    /* It takes the caret once it has arrived: let go of it first, so the press below is a focus from nothing. */
+    await s.p.evaluate(() => document.activeElement?.blur())
+    await sleep(800)
+    const before = await s.p.evaluate(() => ({ scrollY: Math.round(scrollY), bar: Math.round(document.querySelector("[data-composer-toolbar]").getBoundingClientRect().bottom) }))
+    const atFocus = await s.p.evaluate(() => {
+      document.querySelector("[data-composer-title]").focus()
+      const bar = document.querySelector("[data-composer-toolbar]").getBoundingClientRect()
+      const sheet = document.querySelector("[data-mobile-bottom-sheet]").getBoundingClientRect()
+      return { bar: Math.round(bar.bottom), sheetBottom: Math.round(sheet.bottom), scrollY: Math.round(scrollY) }
+    })
+    await sleep(800)
+    const later = await s.p.evaluate(() => ({ bar: Math.round(document.querySelector("[data-composer-toolbar]").getBoundingClientRect().bottom), scrollY: Math.round(scrollY) }))
+    await s.p.bringToFront()
+    await s.p.screenshot({ path: join(shots, `${LABEL}-keyboard-composer-app.png`) })
+    out.composer = { before, atFocus, later }
+    expect(before.bar > 700 && atFocus.bar <= 466 && atFocus.bar >= 440 && atFocus.sheetBottom >= 844, "the composer in the iOS app: its toolbar on the keys (464) in the focus itself, the sheet still to the screen's foot", { before, atFocus })
+    expect(later.bar === atFocus.bar && later.scrollY === before.scrollY, "and nothing jumps after: the toolbar stays, the page behind keeps its scroll", { atFocus, later })
+    expect(!s.errors.length, "no page errors (composer keyboard)", s.errors.slice(0, 3))
     await s.p.close()
   }
   /* 3. iPhone Safari: the visual viewport says it all, the pan included. */

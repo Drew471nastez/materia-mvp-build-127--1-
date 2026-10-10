@@ -205,11 +205,12 @@ console.log("\nKEYBOARD: the comment box on the keys (images/76.jpg)")
 console.log("\nCOMPOSER: the same sheet, up and down")
 {
   const c = read("components/community/member/composer.tsx")
-  check("it rises and goes on the page sheet", /void st\.run\(0, 1, SHEET_UP_MS\)/.test(c) && /void st\.run\(from, 0, SHEET_DOWN_MS, \{ hold: true \}\)/.test(c))
-  check("on the way down its inside is frozen where it stood before the caret is let go (nothing jumps as the keyboard goes)", c.indexOf('vis.setAttribute("data-frozen", "")') > 0 && c.indexOf('vis.setAttribute("data-frozen", "")') < c.indexOf("active.blur()") && /if \(frozen\(\)\) return/.test(c))
-  check("the feed is put back under it before it moves", c.indexOf("feedRestore(notedScroll.current") < c.indexOf("void st.run(from, 0"))
-  check("the document's overflow is never switched off (iOS restyled the page in the close's last frame)", !/html\.style\.overflow = "hidden"/.test(c) && /html\.style\.overscrollBehavior = "none"/.test(c))
-  check("the sheet's dim is let go of at the move's last frame (round 17: the community itself never moves)", /const end = \(\) => \{\s*leaving\.current = false[\s\S]{0,140}sheetStageRef\.current\?\.release\(\)/.test(c) && /sheetStage\(el, editing \? null : sheetBackdropRef\.current\)/.test(c))
+  /* ROUND 17, the owner: the composer comes up as the website builder's sheet does on a phone (mobile-editor-sheet.tsx). */
+  check("it rises and goes on the website builder's sheet", /<MobileEditorSheet\s+open=\{sheetUp\}/.test(c) && /setSheetUp\(false\)\s*window\.setTimeout\(finish, sheetMoveMs\(\) \+ 40\)/.test(c))
+  check("the keyboard goes down with it: the caret is let go as it starts down", c.indexOf("active.blur()") > 0 && c.indexOf("active.blur()") < c.indexOf("setSheetUp(false)\n      window.setTimeout(finish"))
+  check("the feed is put back under it before it moves", c.indexOf("feedRestore(notedScroll.current") > 0 && c.indexOf("feedRestore(notedScroll.current") < c.indexOf("setSheetUp(false)\n      window.setTimeout(finish"))
+  check("the document's overflow is never switched off (iOS restyled the page in the close's last frame): the sheet holds the page by its scroll", !/html\.style\.overflow = "hidden"/.test(c) && /html\.style\.overscrollBehavior = "none"/.test(c) && /holdPage="scroll"/.test(c))
+  check("nothing behind it scales, rounds or darkens at its edges (round 17: the owner's \"black thing shaped into the edges\")", !/communityFrame|SheetBackdrop|sheetStage/.test(c))
   check("the tab bar's layer is kept (counted while the screen is up)", /useLayer\("composer", sheet, sheetRef\)/.test(c))
 }
 

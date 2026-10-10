@@ -41,21 +41,34 @@
  * the eased progress, so the same easing on all four keeps them in step to
  * the pixel on every frame.
  *
- * THE STYLE IS ONE CONSTANT. POST_MOTION picks "container" (the default),
- * "sheet" (rises from the foot), "push" (in from the right) or "fade", all
- * on the same engine, so another feel is a one line change.
+ * THE STYLE IS ONE CONSTANT. POST_MOTION picks "rise" (the default: a
+ * short rise and fade), "container" (the morph above), "sheet" (up from the
+ * foot), "push" (in from the right) or "fade", all on the same engine, so
+ * another feel is a one line change.
  *
  * Pure: no DOM, no React, so tests/communities-post17.test.ts holds every
  * number and rule here as written.
  */
 
-/** The four styles, one engine. */
-export type PostMotionStyle = "container" | "sheet" | "push" | "fade"
+/** The styles, one engine. */
+export type PostMotionStyle = "rise" | "container" | "sheet" | "push" | "fade"
 
-/** THE STYLE, for every post opened on a phone. Change this one word to change the feel. */
-export const POST_MOTION: PostMotionStyle = "container"
+/**
+ * THE STYLE, for every post opened on a phone. Change this one word to change the feel.
+ *
+ * "rise" (the default, the owner's direction after round 17's first build: "simple, subtle and minimal", "not so complex
+ * that it glitches", never lagging on the iOS app or Android): the post fades in while it rises a short way, the feed
+ * behind untouched, no scrim; the close is the same in reverse, a little quicker. The container morph below is kept, on
+ * the same engine, for a one word change back.
+ */
+export const POST_MOTION: PostMotionStyle = "rise"
 
-/** Open: long enough to read as a move out of the card, short enough to never wait for. */
+/** The rise: this far, this long, on an ease out. */
+export const RISE_PX = 14
+export const RISE_OPEN_MS = 220
+export const RISE_CLOSE_MS = 180
+
+/** The container's open: long enough to read as a move out of the card, short enough to never wait for. */
 export const OPEN_MS = 300
 /** Close: a little quicker than the open, as iOS does. */
 export const CLOSE_MS = 250
@@ -107,11 +120,23 @@ export function usableOrigin(r: Rect | null, s: Screen): boolean {
   return r.top < s.height && r.top + r.height > 0 && r.left < s.width && r.left + r.width > 0
 }
 
-/** The style a move takes: the chosen one, or the fade when the container has no card to grow from or land on. */
+/** The style a move takes: the chosen one, or the rise when the container has no card to grow from or land on. */
 export function styleFor(chosen: PostMotionStyle, origin: Rect | null, s: Screen, reduced: boolean): PostMotionStyle | "reduced" {
   if (reduced) return "reduced"
-  if (chosen === "container" && !usableOrigin(origin, s)) return "fade"
+  if (chosen === "container" && !usableOrigin(origin, s)) return "rise"
   return chosen
+}
+
+/** How long a style's open or close takes. */
+export function msFor(style: PostMotionStyle | "reduced", way: "open" | "close"): number {
+  if (style === "reduced") return REDUCED_MS
+  if (style === "rise" || style === "fade") return way === "open" ? RISE_OPEN_MS : RISE_CLOSE_MS
+  return way === "open" ? OPEN_MS : CLOSE_MS
+}
+
+/** The scrim a style draws over the community: none for the quiet styles (the post itself covers the feed), a light one for the moving ones. */
+export function scrimFor(style: PostMotionStyle | "reduced"): number {
+  return style === "container" || style === "sheet" || style === "push" ? SCRIM : 0
 }
 
 /* ── THE CONTAINER: FOUR CLIPS ─────────────────────────────────────────── */
@@ -206,6 +231,28 @@ export function fadeInKeyframes(): Keyframe[] {
   ]
 }
 
+/**
+ * THE RISE'S FADE IS SHORT. While the post is between clear and solid the feed shows through it, two pictures at two
+ * places (the ghost the owner turned down in round 14). So the post is solid by RISE_SOLID_AT of the open while the rise
+ * carries on, and gone by RISE_GONE_AT of the close: a few frames of see-through, not the whole move.
+ */
+export const RISE_SOLID_AT = 0.5
+export const RISE_GONE_AT = 0.6
+export function riseInKeyframes(): Keyframe[] {
+  return [
+    { opacity: GONE, offset: 0, easing: "cubic-bezier(0.2, 0, 0, 1)" },
+    { opacity: 1, offset: RISE_SOLID_AT },
+    { opacity: 1, offset: 1 },
+  ]
+}
+export function riseOutKeyframes(): Keyframe[] {
+  return [
+    { opacity: 1, offset: 0, easing: "cubic-bezier(0.3, 0, 1, 1)" },
+    { opacity: GONE, offset: RISE_GONE_AT },
+    { opacity: GONE, offset: 1 },
+  ]
+}
+
 /** Whether an opacity can show on a screen at all (8 bits a channel: under half a level of 255 rounds away). */
 export function shows(opacity: number): boolean {
   return opacity * 255 >= 0.5
@@ -228,8 +275,10 @@ export function awayFor(style: PostMotionStyle | "reduced", s: Screen): { transl
       return { translate: `0px ${s.height}px`, opacity: 1 }
     case "push":
       return { translate: `${s.width}px 0px`, opacity: 1 }
+    case "rise":
+      return { translate: `0px ${RISE_PX}px`, opacity: GONE }
     case "fade":
-      return { translate: "0px 14px", opacity: GONE }
+      return { translate: "0px 0px", opacity: GONE }
     case "reduced":
       return { translate: "0px 0px", opacity: GONE }
     default:

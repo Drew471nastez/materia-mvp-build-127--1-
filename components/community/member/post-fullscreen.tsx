@@ -185,16 +185,16 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   const noted = useRef<number | null>(null)
   /*
     THE CLOSE STARTS IN THE PRESS ITSELF (round 17). Back, Escape, a pull or the edge swipe let go start the move here, in the
-    event, and ask the parent to close once its first frame is drawn: waiting for the parent's render first left the post
-    still under a finger that had let go for 150ms at 4x CPU (scripts/check-communities-post17.mjs PART=pull). A close from outside (the browser's
+    event, and tell the parent once the move is over: waiting for the parent's render first left the post still under a
+    finger that had let go for 150ms at 4x CPU (scripts/check-communities-post17.mjs PART=pull), and a render a frame into
+    the close still landed in it. A close from outside (the browser's
     Back) comes through the `open` effect below.
   */
   const request = (trigger: CloseTrigger) => {
     if (closing.current) return
     how.current ??= trigger
-    beginClose(trigger)
-    /* After the move's first frame is on the screen: the parent's render then runs beside the compositor's move, not before it. */
-    requestAnimationFrame(() => window.setTimeout(() => done.current.onRequestClose(), 0))
+    /* The parent hears of it once the move is over (beginClose's end): its render then lands after the move, not in it. */
+    beginClose(trigger, true)
   }
   /* Settled: nothing moving, so the top's blur may come on. */
   const settle = (on: boolean) => layerRef.current?.toggleAttribute("data-settled", on)
@@ -261,7 +261,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       shown()
       return
     }
-    void st.open({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), ms: OPEN_MS, prepare: done.current.prepare }).then(shown)
+    void st.open({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), prepare: done.current.prepare }).then(shown)
     /* A page in the background draws no frames: it has still arrived. */
     const t = window.setTimeout(shown, OPEN_MS + 700)
     return () => window.clearTimeout(t)
@@ -276,7 +276,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
 
   /* ── OUT ── post-morph.ts morphCloseSteps, in order. */
   const closeTimer = useRef(0)
-  function beginClose(trigger: CloseTrigger) {
+  function beginClose(trigger: CloseTrigger, ours = false) {
     if (closing.current) return
     closing.current = true
     const layer = layerRef.current
@@ -287,6 +287,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       gone = true
       window.clearTimeout(closeTimer.current)
       if (layer) layer.style.visibility = "hidden"
+      if (ours) done.current.onRequestClose()
       done.current.onGone()
     }
     /* BLUR: the keyboard goes down with the post, not after it. */
@@ -303,7 +304,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     }
     /* BLUR-OFF, then the one move (MEASURE-CARD and CLONE-CARD are the stage's, after the feed is in place). */
     settle(false)
-    void st.close({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), ms: CLOSE_MS }).then(end)
+    void st.close({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced() }).then(end)
     /* A tab in the background draws no frames: it still goes. */
     closeTimer.current = window.setTimeout(end, CLOSE_MS + 600)
   }
@@ -524,11 +525,11 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-black" style={{ opacity: 0 }} data-post-scrim="" />
       {/* What a finger moves, and what the sheet, push and fade styles move. */}
       <div ref={liftRef} className="absolute inset-0" data-post-lift="">
-        {/* THE CONTAINER: four clips, each setting two of its edges and rounding one corner (post-morph.ts), white while it moves. */}
+        {/* THE CONTAINER: four clips, each setting two of its edges and rounding one corner (post-morph.ts), white while the container moves. */}
         <div ref={clip0} className={CLIP} data-clip={CLIPS[0]}>
           <div ref={clip1} className={CLIP} data-clip={CLIPS[1]}>
             <div ref={clip2} className={CLIP} data-clip={CLIPS[2]}>
-              <div ref={clip3} className={`${CLIP} [[data-moving]_&]:bg-white`} data-clip={CLIPS[3]}>
+              <div ref={clip3} className={`${CLIP} [[data-morph]_&]:bg-white`} data-clip={CLIPS[3]}>
                 <div
                   ref={pageRef}
                   role="dialog"

@@ -157,3 +157,21 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active])
 }
+
+/**
+ * THE KEYBOARD'S HEIGHT FOR A SHEET THAT MAKES ITS OWN ROOM (the composer, on the website builder's sheet, round 17). The
+ * decision table's number where the platform says nothing: in the iOS app, the plugin's height when this build has it, else
+ * the iPhone's keyboard for this screen (post-motion.ts iosKeyboardFor); null everywhere else (Safari and Android report the
+ * keyboard themselves, and the sheet reads that) and whenever `within` has no field being typed in.
+ */
+export function appKeyboardRoom(within: Element | null): number | null {
+  if (typeof window === "undefined") return null
+  const env = currentKeyboardEnv()
+  if (env !== "ios-app" && env !== "ios-app-plugin") return null
+  const active = document.activeElement
+  if (!takesKeyboard(active) || !within?.contains(active)) return null
+  const native = nativeKeyboardHeight()
+  if (env === "ios-app-plugin" && native > 0) return native
+  const probe = document.querySelector<HTMLElement>("[data-viewport-probe]")
+  return iosKeyboardFor(window.innerWidth, layoutHeight(probe))
+}

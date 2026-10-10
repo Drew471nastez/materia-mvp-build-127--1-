@@ -27,7 +27,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { atPlaceFor, onLayerEntry } from "@/lib/communities/client/places"
-import { CLIPS, CLOSE_MS, EASE, FADE_SPLIT, GONE, OPEN_MS, POST_MOTION, PREPARE_CAP_MS, SCRIM, awayFor, clipOffsets, fadeAt, fadeInKeyframes, fadeOutKeyframes, followFor, followTop, lerpRect, morphCloseSteps, screenRect, shows, styleFor, usableOrigin, visibleOf, type Rect } from "@/components/community/member/post-morph"
+import { CLIPS, CLOSE_MS, EASE, FADE_SPLIT, GONE, OPEN_MS, POST_MOTION, PREPARE_CAP_MS, RISE_PX, SCRIM, awayFor, msFor, riseInKeyframes, riseOutKeyframes, scrimFor, clipOffsets, fadeAt, fadeInKeyframes, fadeOutKeyframes, followFor, followTop, lerpRect, morphCloseSteps, screenRect, shows, styleFor, usableOrigin, visibleOf, type Rect } from "@/components/community/member/post-morph"
 import { boxFootOnScreen, footCss, keyboardEnv, keyboardPlan, type KeyboardFacts } from "@/components/community/member/keyboard-plan"
 import { iosKeyboardFor } from "@/components/community/member/post-motion"
 
@@ -91,8 +91,11 @@ console.log("\nMORPH: the container, the fade through, the style")
   check("GONE cannot show (under half a level of 255) but is not 0 (so it is rastered before the move)", GONE > 0 && !shows(GONE) && shows(1 / 255))
   check("about 300ms to open and 250ms to close, on an iOS like ease out", OPEN_MS >= 260 && OPEN_MS <= 340 && CLOSE_MS >= 220 && CLOSE_MS <= 280 && CLOSE_MS < OPEN_MS && /^cubic-bezier\(/.test(EASE))
   check("a light scrim, prepared for at most about 100ms", SCRIM > 0 && SCRIM <= 0.2 && PREPARE_CAP_MS <= 120)
-  check("THE STYLE is one constant, the container by default, and the others are the same engine", POST_MOTION === "container" && awayFor("sheet", screen).translate === "0px 844px" && awayFor("push", screen).translate === "390px 0px" && awayFor("fade", screen).opacity === GONE)
-  check("no card to grow from (gone, hidden, off the screen): the plain fade; reduced motion: the fade too", styleFor("container", null, screen, false) === "fade" && styleFor("container", { left: 0, top: 900, width: 390, height: 300 }, screen, false) === "fade" && styleFor("container", { left: 0, top: 0, width: 0, height: 0 }, screen, false) === "fade" && styleFor("container", card, screen, true) === "reduced" && styleFor("container", card, screen, false) === "container")
+  /* The owner's direction after the first build: simple, subtle, minimal. The rise is the default; the morph a one word change. */
+  check("THE STYLE is one constant, the quiet rise by default, and the others (the container among them) are the same engine", POST_MOTION === "rise" && awayFor("rise", screen).translate === `0px ${RISE_PX}px` && awayFor("rise", screen).opacity === GONE && awayFor("sheet", screen).translate === "0px 844px" && awayFor("push", screen).translate === "390px 0px" && awayFor("fade", screen).opacity === GONE)
+  check("THE RISE: 12 to 16px, about 200 to 240ms open on an ease out, the close a little quicker, no scrim, the feed untouched", RISE_PX >= 12 && RISE_PX <= 16 && msFor("rise", "open") >= 200 && msFor("rise", "open") <= 240 && msFor("rise", "close") < msFor("rise", "open") && scrimFor("rise") === 0 && scrimFor("container") > 0)
+  check("the rise's see-through is short: solid by half the open, gone by 60% of the close", riseInKeyframes()[1].opacity === 1 && (riseInKeyframes()[1].offset ?? 1) <= 0.5 && riseOutKeyframes()[1].opacity === GONE && (riseOutKeyframes()[1].offset ?? 1) <= 0.6)
+  check("no card to grow from (gone, hidden, off the screen): the rise; reduced motion: a plain fade", styleFor("container", null, screen, false) === "rise" && styleFor("container", { left: 0, top: 900, width: 390, height: 300 }, screen, false) === "rise" && styleFor("container", { left: 0, top: 0, width: 0, height: 0 }, screen, false) === "rise" && styleFor("container", card, screen, true) === "reduced" && styleFor("container", card, screen, false) === "container" && styleFor("rise", card, screen, false) === "rise")
   check("a card only partly on the screen is still grown from", usableOrigin({ left: 0, top: 700, width: 390, height: 400 }, screen))
   const steps2 = morphCloseSteps(false)
   const i = (x: string) => steps2.indexOf(x as never)
@@ -131,8 +134,10 @@ console.log("\nENGINE: on the compositor, nothing behind it moving, prepared fir
   check("on a phone the address moves once the post has arrived (the router's render was landing in the open)", /const \[historyReady, setHistoryReady\] = useState\(!phone\)/.test(ov) && /useHistoryLayer\(history && historyReady, close, postPath\(slug, given\), open\)/.test(ov))
   check("the comments are drawn with the post, before it moves, and read ahead as its preparation", /const \[drawComments, setDrawComments\] = useState\(phone\)/.test(ov) && /readAheadComments\(given\.communityId, given\.id\)/.test(ov) && /prepare=\{prepare\}/.test(ov))
   check("never drawn while the page hydrates (a shared link's page)", /useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(ov) && /if \(!client\) return null/.test(ov))
-  const sheet = read("components/community/member/page-sheet-stage.tsx")
-  check("the composer's sheet: the sheet's translate and the dim only, nothing behind it", !/scale|communityFrame|data-sheet-band|data-sheet-corner/.test(sheet.slice(sheet.indexOf("export function sheetStage"))) && /sheet\.animate\(\[\{ translate: sheetY\(from\) \}/.test(sheet))
+  const composer = read("components/community/member/composer.tsx")
+  check("the composer is the website builder's sheet: no community scale, no rounded community, no dark edge", /<MobileEditorSheet/.test(composer) && !/communityFrame|SheetBackdrop|sheetStage|RECEDE_SCALE/.test(composer) && !/communityFrame|data-sheet-band/.test(read("components/community/member/post-stage.ts")))
+  check("the container's white is drawn only for the container move (the rise fades over the feed, never over a white screen)", /\[\[data-morph\]_&\]:bg-white/.test(pf) && /layer\.toggleAttribute\("data-morph", on && morph\)/.test(stage))
+  check("the rise fades the page and moves the lift by translate only (an opacity on the lift stopped the move at 4x CPU)", /run\(lift, \[\{ translate: away\.translate \}, \{ translate: "0px 0px" \}\]/.test(stage) && /style === "rise" \? riseInKeyframes\(\)/.test(stage))
   /*
     THE BUSY LOOP (scripts/check-communities-post17.mjs PART=frames, 390x844, 4x CPU, a 150ms busy loop as the move starts,
     the compositor's own frames). Measured on round 16's engine and on this one; the longest gap between two frames while it
@@ -201,9 +206,9 @@ console.log("\nKEYBOARD: the decision table (keyboard-plan.ts)")
 
 console.log("\nCOPY: this round's files")
 {
-  const files = ["components/community/member/post-morph.ts", "components/community/member/post-stage.ts", "components/community/member/post-fullscreen.tsx", "components/community/member/keyboard-plan.ts", "components/community/member/visible-box.ts", "components/community/member/page-sheet-stage.tsx", "components/community/member/native-keyboard.ts", "components/community/member/post-overlay.tsx", "components/community/member/post-opener.tsx", "scripts/check-communities-post17.mjs", "scripts/render-communities-post17.tsx"]
+  const files = ["components/community/member/post-morph.ts", "components/community/member/post-stage.ts", "components/community/member/post-fullscreen.tsx", "components/community/member/keyboard-plan.ts", "components/community/member/visible-box.ts", "components/community/member/native-keyboard.ts", "components/community/member/post-overlay.tsx", "components/community/member/post-opener.tsx", "scripts/check-communities-post17.mjs", "scripts/render-communities-post17.tsx"]
   /* Spelled in pieces, so this file does not hold them itself. */
-  const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
+  const banned = new RegExp(["\\u2014", "un" + "lock", "ele" + "vate", "seam" + "less", "power" + "ful", "effort" + "less", "super" + "charge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
   const bad = files.filter((f) => banned.test(read(f)))
   check("no em dash and no banned word in this round's files", bad.length === 0, bad)
   const client = ["components/community/member/post-stage.ts", "components/community/member/post-fullscreen.tsx", "components/community/member/visible-box.ts", "components/community/member/keyboard-plan.ts", "components/community/member/post-morph.ts"]

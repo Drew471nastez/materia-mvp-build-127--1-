@@ -1585,8 +1585,9 @@ check(
    */
   // Inline, not a class: a utility class can be merged away by `cn`, or tie
   // with another of the same specificity and lose on source order.
-  /zIndex: layer === "raised" \? 80 : 50/.test(sheetSrc) &&
-    /zIndex: layer === "raised" \? 70 : 40/.test(sheetSrc) &&
+  /* Round 17: an optional zIndex (the community's composer, over an opened post) wins where it is given. */
+  /zIndex: (zIndex \?\? \()?layer === "raised" \? 80 : 50/.test(sheetSrc) &&
+    /zIndex: (zIndex !== undefined \? zIndex - 1 : )?layer === "raised" \? 70 : 40/.test(sheetSrc) &&
     // The menu is the shared sheet, which is portalled to the body at 200:
     // above the raised layer, whatever the order in the tree.
     /<BottomSheet isOpen=\{sheetOpen\}/.test(menu) &&
@@ -1683,7 +1684,7 @@ check(
    * and the header at z-50 still lost to the persistent peek at z-50 later in
    * the tree. No number fixes that from inside; the sheet has to leave.
    */
-  /import \{ createPortal \} from "react-dom"/.test(sheetSrc) &&
+  /import \{ createPortal(, flushSync)? \} from "react-dom"/.test(sheetSrc) &&
     /return createPortal\(\s*<>/.test(sheetSrc) &&
     /<\/>,\s*document\.body,\s*\)/.test(sheetSrc),
 )

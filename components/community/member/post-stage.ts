@@ -27,7 +27,7 @@
  * `will-change` is on the moving parts only while they move, and comes off
  * when they stop.
  */
-import { CLIPS, CLIP_CORNER, EASE, FADE_SPLIT, GONE, PREPARE_CAP_MS, REDUCED_MS, SCRIM, SPRING_BACK_MS, awayFor, clipOffsets, fadeInKeyframes, fadeOutKeyframes, followFor, screenRect, styleFor, type PostMotionStyle, type Rect, type Screen } from "./post-morph"
+import { CLIPS, CLIP_CORNER, EASE, FADE_SPLIT, GONE, PREPARE_CAP_MS, SCRIM, SPRING_BACK_MS, awayFor, clipOffsets, fadeInKeyframes, fadeOutKeyframes, followFor, riseInKeyframes, riseOutKeyframes, msFor, screenRect, scrimFor, styleFor, type PostMotionStyle, type Rect, type Screen } from "./post-morph"
 
 export interface PostStageParts {
   layer: HTMLElement
@@ -40,10 +40,10 @@ export interface PostStageParts {
 }
 
 export interface PostStage {
-  /** In: from the card (container) or from the style's own place. Resolves once it has arrived. `prepare` is waited for first, at most PREPARE_CAP_MS. */
-  open(o: { style: PostMotionStyle; origin: HTMLElement | null; reduced: boolean; ms: number; prepare?: () => Promise<unknown> }): Promise<void>
+  /** In: from the card (container) or from the style's own place, over msFor(style). Resolves once it has arrived. `prepare` is waited for first, at most PREPARE_CAP_MS. */
+  open(o: { style: PostMotionStyle; origin: HTMLElement | null; reduced: boolean; prepare?: () => Promise<unknown> }): Promise<void>
   /** Out: into the card (container) or to the style's own place, from wherever a finger left it. Resolves on the frame after it lands, with the layer hidden. */
-  close(o: { style: PostMotionStyle; origin: HTMLElement | null; reduced: boolean; ms: number }): Promise<void>
+  close(o: { style: PostMotionStyle; origin: HTMLElement | null; reduced: boolean }): Promise<void>
   /** A finger has it: `dx` across, `offset` down. */
   follow(dx: number, offset: number): void
   /** Let go short of closing: back to rest. */
@@ -136,12 +136,16 @@ export function postStage(parts: PostStageParts): PostStage {
   const { layer, scrim, lift, clips, cloneHost, page } = parts
   let live: Animation[] = []
   let clone: HTMLElement | null = null
+  /* The scrim at rest for the style the post opened with (none for the quiet ones). */
+  let restScrim = 0
   const screen = (): Screen => ({ width: layer.clientWidth || window.innerWidth, height: layer.clientHeight || window.innerHeight })
   const movers = () => [lift, scrim, page, ...clips, ...(clone ? [clone] : [])]
 
   /* While anything moves: the clips clip, the moving parts are their own layers. Off again the moment it stops. */
-  const setMoving = (on: boolean, radius = 0) => {
+  const setMoving = (on: boolean, radius = 0, morph = false) => {
     layer.toggleAttribute("data-moving", on)
+    /* The container's white is the container move's alone: for any other style it would be a white screen under the post. */
+    layer.toggleAttribute("data-morph", on && morph)
     for (const el of movers()) el.style.willChange = on ? (el === scrim || el === page || el === clone ? "opacity" : "translate, scale") : ""
     clips.forEach((el, i) => {
       el.style[CLIP_CORNER[CLIPS[i]]] = on && radius ? `${radius}px` : ""
@@ -161,7 +165,7 @@ export function postStage(parts: PostStageParts): PostStage {
     }
     lift.style.opacity = ""
     page.style.opacity = ""
-    scrim.style.opacity = String(SCRIM)
+    scrim.style.opacity = String(restScrim)
     clearClone()
     setMoving(false)
   }
@@ -203,11 +207,13 @@ export function postStage(parts: PostStageParts): PostStage {
   }
 
   return {
-    async open({ style: chosen, origin, reduced, ms, prepare }) {
+    async open({ style: chosen, origin, reduced, prepare }) {
       stop()
       const s = screen()
       const from = origin ? rectOf(origin) : null
       const style = styleFor(chosen, from, s, reduced)
+      const ms = msFor(style, "open")
+      restScrim = scrimFor(style)
       /*
         PREPARED BEFORE IT MOVES, unseen: while the post is laid out and its pictures decoded the whole layer is at GONE (not
         hidden: a hidden layer is neither painted nor rastered, and that work then lands in the move's first frames).
@@ -218,7 +224,7 @@ export function postStage(parts: PostStageParts): PostStage {
         cloneHost.appendChild(clone)
         copyScroll(origin, clone)
         const radius = parseFloat(getComputedStyle(origin).borderTopLeftRadius) || 0
-        setMoving(true, radius)
+        setMoving(true, radius, true)
         const frames = clipFrames(from, screenRect(s), s)
         page.style.opacity = String(GONE)
         scrim.style.opacity = "0"
@@ -232,31 +238,38 @@ export function postStage(parts: PostStageParts): PostStage {
         clips.forEach((el, i) => run(el, frames[i], ms, EASE))
         run(page, fadeInKeyframes(), ms, "linear")
         run(clone, fadeOutKeyframes(), ms, "linear")
-        run(scrim, [{ opacity: 0 }, { opacity: SCRIM }], ms, EASE)
+        run(scrim, [{ opacity: 0 }, { opacity: restScrim }], ms, EASE)
         await finished(ms)
         toRest()
         return
       }
-      /* The sheet, the push, the fade, and reduced motion: the whole layer moves (or only fades). */
+      /* The rise, the sheet, the push, the fade, and reduced motion: the whole layer moves (or only fades). */
       const away = awayFor(style, s)
-      const dur = style === "reduced" ? REDUCED_MS : ms
+      const dur = ms
       setMoving(true)
+      /*
+        The lift moves (translate only); the PAGE fades, as in the container: an opacity on the lift is an opacity over every
+        layer inside it at once (the scroller, the sticky comment box, the top), and measured that way the move stopped for
+        up to 105ms at 4x CPU where the page's own fade never did.
+      */
       lift.style.translate = away.translate
-      lift.style.opacity = String(away.opacity)
+      page.style.opacity = String(away.opacity)
       scrim.style.opacity = "0"
       await readyThenDrawn(Promise.all([prepare?.(), decodeIn([page])]), PREPARE_CAP_MS)
       layer.style.opacity = ""
-      run(lift, [{ translate: away.translate, opacity: away.opacity }, { translate: "0px 0px", opacity: 1 }], dur, style === "reduced" ? "linear" : EASE)
-      run(scrim, [{ opacity: 0 }, { opacity: SCRIM }], dur, EASE)
+      run(lift, [{ translate: away.translate }, { translate: "0px 0px" }], dur, style === "reduced" ? "linear" : EASE)
+      if (away.opacity < 1) run(page, style === "rise" ? riseInKeyframes() : [{ opacity: away.opacity }, { opacity: 1 }], dur, style === "rise" ? "linear" : style === "reduced" ? "linear" : EASE)
+      if (restScrim > 0) run(scrim, [{ opacity: 0 }, { opacity: restScrim }], dur, EASE)
       await finished(dur)
       toRest()
     },
 
-    async close({ style: chosen, origin, reduced, ms }) {
+    async close({ style: chosen, origin, reduced }) {
       stop()
       const s = screen()
       const to = origin ? rectOf(origin) : null
       const style = styleFor(chosen, to, s, reduced)
+      const ms = msFor(style, "close")
       /* Where a finger left it (or rest). */
       const liftFrom = { translate: lift.style.translate || "0px 0px", scale: lift.style.scale || "1", opacity: lift.style.opacity || "1" }
       const scrimFrom = Number(getComputedStyle(scrim).opacity)
@@ -266,7 +279,7 @@ export function postStage(parts: PostStageParts): PostStage {
         cloneHost.appendChild(clone)
         copyScroll(origin, clone)
         const radius = parseFloat(getComputedStyle(origin).borderTopLeftRadius) || 0
-        setMoving(true, radius)
+        setMoving(true, radius, true)
         const frames = clipFrames(screenRect(s), to, s)
         clips.forEach((el, i) => run(el, frames[i], ms, EASE))
         run(lift, [liftFrom, { translate: "0px 0px", scale: "1", opacity: 1 }], ms, EASE)
@@ -279,10 +292,16 @@ export function postStage(parts: PostStageParts): PostStage {
         return
       }
       const away = awayFor(style, s)
-      const dur = style === "reduced" ? REDUCED_MS : ms
+      const dur = ms
       setMoving(true)
-      run(lift, [liftFrom, { translate: away.translate, scale: "1", opacity: away.opacity }], dur, style === "reduced" ? "linear" : EASE)
-      run(scrim, [{ opacity: scrimFrom }, { opacity: 0 }], dur, EASE)
+      /* From a finger (the post shrunk and moved): on from there, the same short way further, never back up to full size. */
+      const pulled = liftFrom.scale !== "1" || liftFrom.translate !== "0px 0px"
+      const [fx, fy] = liftFrom.translate.split(" ").map((v) => parseFloat(v) || 0)
+      const [ax, ay] = away.translate.split(" ").map((v) => parseFloat(v) || 0)
+      const target = pulled && style !== "sheet" && style !== "push" ? { translate: `${fx + ax}px ${fy + ay}px`, scale: liftFrom.scale } : { translate: away.translate, scale: "1" }
+      run(lift, [{ translate: liftFrom.translate, scale: liftFrom.scale }, target], dur, style === "reduced" ? "linear" : EASE)
+      if (away.opacity < 1) run(page, style === "rise" ? riseOutKeyframes() : [{ opacity: 1 }, { opacity: away.opacity }], dur, style === "rise" ? "linear" : style === "reduced" ? "linear" : EASE)
+      if (scrimFrom > 0) run(scrim, [{ opacity: scrimFrom }, { opacity: 0 }], dur, EASE)
       await finished(dur)
       layer.style.visibility = "hidden"
     },
@@ -293,7 +312,8 @@ export function postStage(parts: PostStageParts): PostStage {
       const f = followFor(dx, offset, screen())
       lift.style.translate = f.translate
       lift.style.scale = String(f.scale)
-      scrim.style.opacity = String(f.scrim)
+      /* The scrim lifts from where it rests for this style (none for the quiet ones). */
+      scrim.style.opacity = String(restScrim * (f.scrim / SCRIM))
     },
 
     async springBack() {
@@ -301,7 +321,7 @@ export function postStage(parts: PostStageParts): PostStage {
       const scrimFrom = Number(getComputedStyle(scrim).opacity)
       stop()
       run(lift, [from, { translate: "0px 0px", scale: "1" }], SPRING_BACK_MS, EASE)
-      run(scrim, [{ opacity: scrimFrom }, { opacity: SCRIM }], SPRING_BACK_MS, EASE)
+      if (scrimFrom > 0 || restScrim > 0) run(scrim, [{ opacity: scrimFrom }, { opacity: restScrim }], SPRING_BACK_MS, EASE)
       await finished(SPRING_BACK_MS)
       toRest()
     },
