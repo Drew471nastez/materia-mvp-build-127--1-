@@ -140,7 +140,6 @@ export const CANVAS_BRIDGE = `
     while (at) { path.unshift(at.getAttribute("data-block-id")); at = blockOf(at.parentElement, s); }
     post({ type: "pick", sectionId: idOf(s), blockPath: path });
   }, true);
-  document.addEventListener("submit", function (e) { e.preventDefault(); }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   var selected = { section: null, block: null };
   /* Where the selected section is on screen, for the builder's toolbar over the canvas. */
@@ -361,11 +360,251 @@ export const CANVAS_BRIDGE = `
 `.trim()
 
 /**
+ * FIRST IN THE CANVAS PAGE, BEFORE THE THEME'S OWN SCRIPTS: the website's
+ * addresses answered by the builder, and checkout kept for the live site
+ * (./canvas-cart.ts). In the head so a theme script that asks for the cart
+ * as it starts, or listens for clicks on the window, comes after it.
+ */
+export const CANVAS_REQUESTS = `
+(function () {
+  var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
+  /*
+    THE SITE'S ADDRESSES ARE ANSWERED BY THE BUILDER. This page has no origin
+    of its own and is drawn on the builder's host, so /cart/add.js,
+    ?sections=, /products/<handle>.js went to the builder and failed, and Add
+    to cart never finished. Every request for one of the website's own
+    addresses, by fetch or by XMLHttpRequest, is asked of the builder instead
+    (lib/storelib-theme/compat/canvas-cart.ts), which answers as the website
+    would, with a cart of its own. The theme's files and pictures still load
+    as they always did.
+  */
+  var baseUrl = document.baseURI;
+  var pagePath = typeof window.__slPath === "string" ? window.__slPath : "/";
+  var routed = function (u) {
+    if (u === undefined || u === null) return null;
+    var raw = String(u);
+    if (raw === "" || raw === "about:srcdoc" || raw.indexOf("srcdoc") === 0) return pagePath + (raw.indexOf("?") >= 0 ? raw.slice(raw.indexOf("?")) : "");
+    var url;
+    try { url = new URL(raw, baseUrl); } catch (e) { return null; }
+    if (url.protocol === "about:") return pagePath + url.search;
+    var home;
+    try { home = new URL(baseUrl); } catch (e) { return null; }
+    if (url.origin !== home.origin) return null;
+    var p = url.pathname;
+    if (/^\\/(api|_next|cdn)\\//.test(p) || /\\.(css|png|jpe?g|gif|webp|avif|svg|woff2?|ttf|otf|mp4|webm|ico)$/i.test(p)) return null;
+    /*
+      An address written from location.pathname ("srcdoc") lands under the
+      builder's own page: it is this page. One written from location.origin
+      ("null/cart/add.js") is the website's address after the "null".
+    */
+    if (/^\\/website-builder\\//.test(p)) { var after = /\\/null(\\/.*)$/.exec(p); p = after ? after[1] : pagePath; }
+    return p + url.search;
+  };
+  /*
+    \`location.origin\` IS "null" HERE, and a theme that builds an address on
+    it (Horizon: new URL(Theme.routes.search_url, location.origin)) threw
+    before it asked for anything. Such a base is read as the builder's page,
+    so the address resolves and its request is answered as above.
+  */
+  var NativeURL = window.URL;
+  var fixBase = function (b) { var s = String(b); return s === "null" || s.indexOf("about:") === 0 ? baseUrl : b; };
+  try {
+    window.URL = class extends NativeURL {
+      constructor(u, b) { if (arguments.length > 1 && b !== undefined) super(u, fixBase(b)); else super(u); }
+    };
+  } catch (e) {}
+  var waiting = {};
+  var asked = 0;
+  var ask = function (method, path, body, ajax) {
+    return new Promise(function (resolve) {
+      var id = ++asked;
+      waiting[id] = resolve;
+      post({ type: "request", id: id, method: method, url: path, body: body, ajax: ajax });
+      setTimeout(function () { if (waiting[id]) { delete waiting[id]; resolve({ status: 504, contentType: "text/plain", body: "" }); } }, 20000);
+    });
+  };
+  /* A body as the live route reads one (app/api/site-theme/site route.ts, bodyOf): \`updates[]\` a list, \`items[0][id]\` the items. */
+  var fromPairs = function (pairs) {
+    var out = {};
+    pairs.forEach(function (kv) {
+      var k = kv[0], v = kv[1];
+      if (typeof v !== "string") return;
+      var list = /^(\\w+)\\[\\]$/.exec(k);
+      if (list) { (out[list[1]] = out[list[1]] || []).push(v); return; }
+      var item = /^items\\[(\\d+)\\]\\[(\\w+)\\]$/.exec(k);
+      if (item) { out.items = out.items || []; var at = out.items[+item[1]] = out.items[+item[1]] || {}; at[item[2]] = v; return; }
+      out[k] = v;
+    });
+    return out;
+  };
+  var fields = function (body, type) {
+    if (body === undefined || body === null) return null;
+    try {
+      if (typeof FormData !== "undefined" && body instanceof FormData) return fromPairs(Array.from(body.entries()));
+      if (typeof URLSearchParams !== "undefined" && body instanceof URLSearchParams) return fromPairs(Array.from(body.entries()));
+      if (typeof body === "string") {
+        if (/json/i.test(type || "") || /^\\s*[\\[{]/.test(body)) { try { var j = JSON.parse(body); return j && typeof j === "object" ? j : null; } catch (e) {} }
+        return fromPairs(Array.from(new URLSearchParams(body).entries()));
+      }
+    } catch (e) {}
+    return null;
+  };
+  var liveOnly = function (what) { post({ type: "live-only", what: what }); };
+  var answered = function (r) {
+    if (r.checkout) liveOnly("checkout");
+    return r;
+  };
+  var realFetch = window.fetch ? window.fetch.bind(window) : null;
+  if (realFetch) window.fetch = function (input, init) {
+    var isReq = typeof Request !== "undefined" && input instanceof Request;
+    var path = routed(isReq ? input.url : input);
+    if (path === null) return realFetch(input, init);
+    init = init || {};
+    var method = String(init.method || (isReq ? input.method : "GET")).toUpperCase();
+    var h;
+    try { h = new Headers(init.headers || (isReq ? input.headers : undefined)); } catch (e) { h = new Headers(); }
+    var type = h.get("content-type") || (typeof FormData !== "undefined" && init.body instanceof FormData ? "multipart/form-data" : "");
+    var ajax = h.get("x-requested-with") === "XMLHttpRequest" || /json/i.test(type) || /application\\/json/i.test(h.get("accept") || "");
+    /* A Request made beforehand carries its own body. */
+    var body = isReq && init.body === undefined && method !== "GET" && method !== "HEAD" ? input.clone().text() : Promise.resolve(init.body);
+    return body.then(function (b) { return ask(method, path, fields(b, type), ajax); }).then(function (r) {
+      answered(r);
+      var empty = r.status === 204 || r.status === 304 || r.checkout;
+      return new Response(empty ? null : r.body, { status: r.checkout ? 200 : r.status < 200 || r.status > 599 ? 200 : r.status, headers: { "Content-Type": r.contentType || "text/plain" } });
+    });
+  };
+  var XHR = window.XMLHttpRequest;
+  if (XHR && XHR.prototype) {
+    var xOpen = XHR.prototype.open, xSend = XHR.prototype.send, xHeader = XHR.prototype.setRequestHeader;
+    XHR.prototype.open = function (method, url) {
+      var path = routed(url);
+      this.__sl = path === null ? null : { method: String(method || "GET").toUpperCase(), path: path, headers: {} };
+      return xOpen.apply(this, arguments);
+    };
+    XHR.prototype.setRequestHeader = function (k, v) {
+      if (this.__sl) this.__sl.headers[String(k).toLowerCase()] = String(v);
+      return xHeader.apply(this, arguments);
+    };
+    XHR.prototype.send = function (body) {
+      var s = this.__sl;
+      if (!s) return xSend.apply(this, arguments);
+      var x = this;
+      var type = s.headers["content-type"] || (typeof FormData !== "undefined" && body instanceof FormData ? "multipart/form-data" : "");
+      var ajax = s.headers["x-requested-with"] === "XMLHttpRequest" || /json/i.test(type) || /application\\/json/i.test(s.headers.accept || "");
+      var def = function (k, v) { try { Object.defineProperty(x, k, { value: v, configurable: true }); } catch (e) {} };
+      ask(s.method, s.path, fields(body, type), ajax).then(function (r) {
+        answered(r);
+        var text = r.body || "";
+        var rt = x.responseType;
+        var res = text;
+        if (rt === "json") { try { res = JSON.parse(text); } catch (e) { res = null; } }
+        else if (rt === "document") { try { res = new DOMParser().parseFromString(text, "text/html"); } catch (e) { res = null; } }
+        def("readyState", 4);
+        def("status", r.status);
+        def("statusText", r.status < 400 ? "OK" : "Error");
+        def("responseURL", baseUrl);
+        def("responseText", text);
+        def("response", res);
+        def("getResponseHeader", function (n) { return /^content-type$/i.test(String(n)) ? r.contentType : null; });
+        def("getAllResponseHeaders", function () { return "content-type: " + r.contentType + "\\r\\n"; });
+        ["readystatechange", "load", "loadend"].forEach(function (n) { try { x.dispatchEvent(new ProgressEvent(n)); } catch (e) { try { x.dispatchEvent(new Event(n)); } catch (e2) {} } });
+      });
+    };
+  }
+  /*
+    CHECKOUT IS THE LIVE SITE'S. Check out, Buy it now and a link to
+    /checkout are stopped before the theme sees them, and the builder says
+    where checkout is (a toast); nothing is added to the cart by Buy it now.
+  */
+  var checkoutPath = function (path) { return path !== null && (/^\\/checkout(\\/|\\?|$)/.test(path) || /^\\/cart\\/checkout(\\?|$)/.test(path) || /^\\/cart\\/[^/?]+:\\d+/.test(path)); };
+  var CHECKOUT = '[data-storelib-buy-now],.shopify-payment-button button,.shopify-payment-button__button,button[name="checkout"],input[name="checkout"],[data-storelib-checkout],button[class*="checkout" i],a[class*="checkout" i],input[type="submit"][class*="checkout" i],[role="button"][class*="checkout" i],button[id*="checkout" i]';
+  var SAYS = /^(check ?out|proceed to check ?out|go to check ?out|buy (it )?now)$/i;
+  var isCheckout = function (t) {
+    if (!t || !t.closest) return false;
+    if (t.closest(CHECKOUT)) return true;
+    var a = t.closest("a[href]");
+    if (a && checkoutPath(routed(a.getAttribute("href")))) return true;
+    var b = t.closest("button, a, [role=button], input[type=submit]");
+    return !!b && SAYS.test(String(b.innerText || b.value || "").replace(/\s+/g, " ").trim());
+  };
+  addEventListener("click", function (e) {
+    if (!isCheckout(e.target)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    liveOnly("checkout");
+  }, true);
+  /*
+    A FORM THE THEME DOES NOT HANDLE ITSELF (a cart page's Update, an older
+    theme's product form): posted to the builder, and the page it lands on
+    opened, as the website would. One the theme handles (it prevents the
+    submit and adds by fetch) is left to it.
+  */
+  var postForm = function (method, action, data) {
+    var path = routed(action || pagePath) || pagePath;
+    if (data && data.checkout !== undefined || checkoutPath(path)) { liveOnly("checkout"); return; }
+    if (method !== "POST") { post({ type: "navigate", href: path, chrome: false }); return; }
+    ask("POST", path, data, false).then(function (r) {
+      answered(r);
+      if (r.redirectedTo && !r.checkout) post({ type: "navigate", href: r.redirectedTo, chrome: true });
+    });
+  };
+  addEventListener("submit", function (e) {
+    var form = e.target;
+    var submitter = e.submitter || null;
+    var data = null;
+    try { data = fromPairs(Array.from(new FormData(form, submitter || undefined).entries())); } catch (err) { try { data = fromPairs(Array.from(new FormData(form).entries())); } catch (err2) { data = {}; } }
+    if (data.checkout !== undefined || checkoutPath(routed(form.getAttribute("action") || ""))) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      liveOnly("checkout");
+      return;
+    }
+    /* After every other listener: whether the theme took the submit for itself. */
+    addEventListener("submit", function last(ev) {
+      removeEventListener("submit", last);
+      if (ev !== e || ev.defaultPrevented) return;
+      ev.preventDefault();
+      postForm(String(form.getAttribute("method") || "GET").toUpperCase(), form.getAttribute("action"), data);
+    });
+  }, true);
+  /* A form a script submits (form.submit() fires no submit event): the same, never a page leaving the canvas. */
+  var formSubmit = HTMLFormElement.prototype.submit;
+  HTMLFormElement.prototype.submit = function () {
+    var form = this;
+    var path = routed(form.getAttribute("action") || pagePath);
+    if (path === null) return;
+    var data = {};
+    try { data = fromPairs(Array.from(new FormData(form).entries())); } catch (err) {}
+    postForm(String(form.getAttribute("method") || "GET").toUpperCase(), path, data);
+  };
+  void formSubmit;
+  /*
+    A PAGE A SCRIPT OPENS (location.href = "/checkout") cannot be stopped from
+    in here: a frame with no origin is told of no navigation it starts. The
+    builder is told the page is leaving, draws it again in its place, and,
+    when what was just pressed reads as checkout, says where checkout is.
+  */
+  var pressed = { at: 0, checkout: false };
+  addEventListener("pointerdown", function (e) { pressed = { at: Date.now(), checkout: isCheckout(e.target) || /check ?out|buy (it )?now/i.test(String((e.target && e.target.closest && (e.target.closest("button, a, [role=button]") || {}).className) || "")) }; }, true);
+  addEventListener("pagehide", function () { post({ type: "leaving", checkout: pressed.checkout && Date.now() - pressed.at < 3000 }); });
+  addEventListener("message", function (e) {
+    var m = e.data;
+    if (!m || m.storelib !== 1 || m.type !== "response") return;
+    var done = waiting[m.id];
+    if (done) { delete waiting[m.id]; done(m); }
+  });
+})();
+`.trim()
+
+/**
  * FIRST IN THE CANVAS PAGE'S HEAD. A frame with no origin of its own has no
  * storage: `localStorage` and `sessionStorage` throw, and a theme that keeps
  * its recently viewed products there stops on its first line. Each gets a
- * store in memory for the frame's life, and `document.cookie` reads empty.
+ * store in memory, and `document.cookie` reads empty. The store outlives the
+ * frame: what it held is sent to the builder as it changes and handed to
+ * the next page drawn (window.__slSeed), so a heart pressed on one page is
+ * still pressed on the next, and the wishlist count agrees, as on the site.
  */
-export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){function S(){var m=new Map();return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v))},removeItem:function(k){m.delete(String(k))},clear:function(){m.clear()}}}
-["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(),configurable:true})}catch(e){}}});
-try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}})();</script>`
+export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){var seed=window.__slSeed||{};function S(n){var m=new Map();var held=seed[n];if(held&&typeof held==="object")Object.keys(held).forEach(function(k){if(typeof held[k]==="string")m.set(k,held[k])});var t=0;var tell=function(){if(t)return;t=setTimeout(function(){t=0;var o={};m.forEach(function(v,k){o[k]=v});try{parent.postMessage({storelib:1,type:"storage",area:n,items:o},"*")}catch(e){}},0)};return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v));tell()},removeItem:function(k){m.delete(String(k));tell()},clear:function(){m.clear();tell()}}}
+["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(n),configurable:true})}catch(e){}}});
+try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}})();</script><script>${CANVAS_REQUESTS}</script>`
