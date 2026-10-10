@@ -147,8 +147,11 @@ export const ANIMATION_SETTING_ID = "animation"
 
 /* ── where a section may go ─────────────────────────────────────────────── */
 
-export const SECTION_GROUPS = ["header", "footer", "template"] as const
+/* `overlay`: what floats over every page (a popup, a bar fixed to the bottom of a phone, back to top), drawn after the footer. */
+export const SECTION_GROUPS = ["header", "footer", "template", "overlay"] as const
 export type SectionGroup = (typeof SECTION_GROUPS)[number]
+/** The groups a section goes in without naming the overlay. */
+const PLACED_GROUPS: SectionGroup[] = ["header", "footer", "template"]
 export const SECTION_KINDS = ["header", "footer"] as const
 export type SectionKind = (typeof SECTION_KINDS)[number]
 
@@ -171,13 +174,15 @@ export function sectionGroupsOf(schema: { kind?: unknown; enabled_on?: unknown; 
     if (!v || typeof v !== "object" || Array.isArray(v)) return null
     const g = (v as { groups?: unknown }).groups
     if (!Array.isArray(g)) return null
-    if (g.includes("*")) return [...SECTION_GROUPS]
-    return SECTION_GROUPS.filter((x) => g.includes(x))
+    /* The overlay is named, never implied: Shopify's `aside` and `custom.<name>` groups are where a theme floats things. */
+    const overlay = g.some((x) => x === "overlay" || x === "aside" || (typeof x === "string" && x.startsWith("custom.")))
+    if (g.includes("*")) return PLACED_GROUPS.slice()
+    return SECTION_GROUPS.filter((x) => g.includes(x) || (x === "overlay" && overlay))
   }
   const enabled = groupsIn(schema.enabled_on)
   if (enabled) return enabled
   const disabled = groupsIn(schema.disabled_on)
-  if (disabled) return SECTION_GROUPS.filter((g) => !disabled.includes(g))
+  if (disabled) return PLACED_GROUPS.filter((g) => !disabled.includes(g))
   if (typeof schema.category === "string" && schema.category.trim().toLowerCase() === "announcement") return ["header"]
   return ["template"]
 }

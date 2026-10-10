@@ -21,6 +21,7 @@ export const CANVAS_BRIDGE = `
 (function () {
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
   var css = document.createElement("style");
+  css.setAttribute("data-sl", "");
   css.textContent = "[data-sl-hover]{outline:1px dashed rgba(139,92,246,.7)!important;outline-offset:-1px!important}" +
     "[data-sl-selected]{outline:2px solid #8b5cf6!important;outline-offset:-2px!important}" +
     "[data-sl-selected-block]{outline:2px solid #8b5cf6!important;outline-offset:2px!important}";
@@ -42,7 +43,12 @@ export const CANVAS_BRIDGE = `
   document.addEventListener("click", function (e) {
     var s = sectionOf(e.target);
     var link = e.target.closest && e.target.closest("a[href]");
-    if (link) e.preventDefault();
+    if (link) {
+      e.preventDefault();
+      /* The builder decides whether a link opens its page: a header's or a footer's always does, as the site's own navigation. */
+      var chrome = !!link.closest(".shopify-section-group-header-group, .shopify-section-group-footer-group, header, footer, nav");
+      post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
+    }
     if (!s) return;
     /* The block and every block around it, outermost first: the path the sidebar's tree reads. */
     var path = [];
@@ -53,6 +59,18 @@ export const CANVAS_BRIDGE = `
   document.addEventListener("submit", function (e) { e.preventDefault(); }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   var selected = { section: null, block: null };
+  /* Where the selected section is on screen, for the builder's toolbar over the canvas. */
+  var boxFrame = 0;
+  var report = function () {
+    boxFrame = 0;
+    var el = selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
+    if (!el) { post({ type: "box", id: null }); return; }
+    var r = el.getBoundingClientRect();
+    post({ type: "box", id: selected.section, top: r.top, left: r.left, width: r.width, height: r.height });
+  };
+  var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); };
+  addEventListener("scroll", reportSoon, { passive: true });
+  addEventListener("resize", reportSoon);
   var mark = function (sectionId, blockId, scroll) {
     document.querySelectorAll("[data-sl-selected],[data-sl-selected-block]").forEach(function (el) { el.removeAttribute("data-sl-selected"); el.removeAttribute("data-sl-selected-block"); });
     var s = sectionId ? document.getElementById("shopify-section-" + sectionId) : null;
@@ -65,6 +83,7 @@ export const CANVAS_BRIDGE = `
       if (oldB) fire(oldB, "shopify:block:deselect", { blockId: selected.block, sectionId: selected.section, load: false });
     }
     selected = { section: sectionId, block: blockId };
+    reportSoon();
     if (!s) return;
     s.setAttribute("data-sl-selected", "");
     s.removeAttribute("data-sl-hover");
@@ -95,6 +114,7 @@ export const CANVAS_BRIDGE = `
     var l = document.createElement("link");
     l.rel = "stylesheet";
     l.href = href;
+    l.setAttribute("data-sl", "");
     kept[href] = new Promise(function (done) { l.onload = done; l.onerror = done; setTimeout(done, 2000); });
     document.head.appendChild(l);
     return kept[href];
@@ -127,12 +147,117 @@ export const CANVAS_BRIDGE = `
       if (scrollY !== y) scrollTo(0, y);
       fire(next, "shopify:section:load", { sectionId: id, load: true });
       if (selected.section === id) mark(selected.section, selected.block, false);
+      reportSoon();
     });
+  };
+  /*
+    THE PAGE CHANGED SHAPE OR STYLE, AND IS CHANGED IN PLACE. The builder
+    compared the page it would draw now with this one and sends only what
+    differs: the theme's inline styles, the attributes on <html> and <body>,
+    sections taken away, sections added or moved. A page that cannot take a
+    change here (a group with nowhere to put the new section in) asks to be
+    drawn again, behind this one.
+  */
+  var reload = function (why) { post({ type: "reload", why: why }); };
+  var setAttrs = function (el, attrs) {
+    if (!attrs) return;
+    Array.prototype.slice.call(el.attributes).forEach(function (a) { if (!(a.name in attrs) && a.name.indexOf("data-sl") !== 0) el.removeAttribute(a.name); });
+    Object.keys(attrs).forEach(function (k) { if (el.getAttribute(k) !== attrs[k]) el.setAttribute(k, attrs[k]); });
+  };
+  var groupOf = function (el) { var m = /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className || ""); return m ? m[1] : ""; };
+  var fresh = function (html) {
+    var tpl = document.createElement("template");
+    tpl.innerHTML = html;
+    var el = tpl.content.firstElementChild;
+    if (!el) return null;
+    Array.prototype.slice.call(el.querySelectorAll('link[rel="stylesheet"][href]')).forEach(function (l) { keep(l.href); l.remove(); });
+    return el;
+  };
+  /*
+    A section new to the page runs its own scripts once, as it would have had
+    the page been drawn with it. Once: a script that already ran (the page's
+    own, or a section's brought back by undo) is not run again, since a
+    theme's top level const would be declared twice.
+  */
+  var ran = new Set();
+  document.querySelectorAll("script").forEach(function (x) { ran.add(x.src || x.textContent); });
+  var runScripts = function (el) {
+    el.querySelectorAll("script").forEach(function (old) {
+      var key = old.src || old.textContent;
+      if (ran.has(key)) return;
+      ran.add(key);
+      var s = document.createElement("script");
+      Array.prototype.slice.call(old.attributes).forEach(function (a) { s.setAttribute(a.name, a.value); });
+      s.textContent = old.textContent;
+      old.replaceWith(s);
+    });
+  };
+  var patch = function (m) {
+    if (m.styles) {
+      var mine = Array.prototype.filter.call(document.head.querySelectorAll("style"), function (x) { return !x.hasAttribute("data-sl"); });
+      if (mine.length !== m.styles.length) return reload("styles");
+      mine.forEach(function (x, i) { if (x.textContent !== m.styles[i]) x.textContent = m.styles[i]; });
+    }
+    if (m.fonts) {
+      var have = Array.prototype.slice.call(document.querySelectorAll("link[data-storelib-font]"));
+      have.forEach(function (l) { if (m.fonts.indexOf(l.getAttribute("href")) === -1) l.remove(); });
+      m.fonts.forEach(function (href) {
+        if (have.some(function (l) { return l.getAttribute("href") === href; })) return;
+        var l = document.createElement("link"); l.rel = "stylesheet"; l.href = href; l.setAttribute("data-storelib-font", ""); document.head.appendChild(l);
+      });
+    }
+    setAttrs(document.documentElement, m.htmlAttrs);
+    setAttrs(document.body, m.bodyAttrs);
+    (m.remove || []).forEach(function (id) {
+      var el = document.getElementById("shopify-section-" + id);
+      if (!el) return;
+      fire(el, "shopify:section:unload", { sectionId: id, load: true });
+      el.remove();
+    });
+    /* A selected section taken off keeps its selection: shown again, it is outlined again and the toolbar comes back to it. */
+    reportSoon();
+    if (!m.order) return;
+    var y = scrollY;
+    var byId = function (id) { return document.getElementById("shopify-section-" + id); };
+    var added = [];
+    for (var i = 0; i < m.order.length; i++) {
+      var it = m.order[i];
+      var el = byId(it.id);
+      if (!el) {
+        if (!it.html) return reload("missing " + it.id);
+        el = fresh(it.html);
+        if (!el) continue;
+        added.push(el);
+      }
+      /* Placed after the section before it in its group, or else before the one after it. */
+      var prev = null, next = null;
+      for (var j = i - 1; j >= 0 && !prev; j--) if (m.order[j].group === it.group) prev = byId(m.order[j].id);
+      for (var k = i + 1; k < m.order.length && !next; k++) if (m.order[k].group === it.group && byId(m.order[k].id) && byId(m.order[k].id) !== el) next = byId(m.order[k].id);
+      if (prev) { if (prev.nextElementSibling !== el) prev.after(el); }
+      else if (next) { if (el.nextElementSibling !== next) next.before(el); }
+      else if (!el.isConnected) {
+        /* The first of its group on the page: beside a section of the same group, or nowhere this page can know. */
+        var kin = it.group ? Array.prototype.find.call(document.querySelectorAll(".shopify-section"), function (x) { return groupOf(x) === it.group; }) : document.querySelector("main .shopify-section, #MainContent .shopify-section");
+        var main = !it.group ? document.querySelector("main, #MainContent, [role=main]") : null;
+        if (kin) kin.after(el); else if (main) main.appendChild(el); else return reload("no place for " + it.id);
+      }
+    }
+    added.forEach(function (el) {
+      var id = el.getAttribute("data-section-id");
+      runScripts(el);
+      fire(el, "shopify:section:load", { sectionId: id, load: true });
+    });
+    if (scrollY !== y) scrollTo(0, y);
+    if (selected.section) mark(selected.section, selected.block, false);
+    reportSoon();
   };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
-    if (m.type === "section") {
+    if (m.type === "patch") {
+      /* After the section swaps already asked for, in order. */
+      queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
+    } else if (m.type === "section") {
       /* In order: a swap that waits for a stylesheet holds the ones after it. */
       queue = queue.then(function () { return swap(m.id, m.html); }).catch(function () {});
     } else if (m.type === "select") {
@@ -143,6 +268,9 @@ export const CANVAS_BRIDGE = `
   });
   var ready = function () { post({ type: "ready", scrollY: scrollY }); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready); else ready();
+  /* Drawn, its pictures in: a page drawn behind the one on screen takes its place at this, not before. */
+  var loaded = function () { post({ type: "loaded", scrollY: scrollY }); };
+  if (document.readyState === "complete") setTimeout(loaded, 0); else addEventListener("load", loaded);
   addEventListener("scroll", function () { post({ type: "scrolled", scrollY: scrollY }); }, { passive: true });
 })();
 `.trim()

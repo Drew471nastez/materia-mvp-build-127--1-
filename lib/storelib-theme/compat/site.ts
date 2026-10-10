@@ -109,6 +109,11 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/account" || path === "/contact/")) return formHandoff(site, req)
+  /* Storelib's own menus link the shop as /products; Shopify sends that address to every product, as here. */
+  if (path === "/products" && (method === "GET" || method === "HEAD")) {
+    const q = req.query.toString()
+    return redirect(`/collections/all${q ? `?${q}` : ""}`)
+  }
   if (method === "POST" && path === "/localization") return redirect(safeReturn(req.body?.return_to) ?? "/")
 
   /* ── products as data ── */
@@ -197,9 +202,11 @@ function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
   const own = site.pages[key]
   if (!own) return null
   const parts = pageParts(own)
-  if (parts.header.length || parts.footer.length) return own
   const home = pageParts(site.pages.home ?? [])
-  return [...home.header, ...own, ...home.footer]
+  /* The Overlay group is the site's, as the header and footer are: a page without its own wears the home page's. */
+  const overlay = parts.overlay.length ? [] : home.overlay
+  if (parts.header.length || parts.footer.length) return [...own, ...overlay]
+  return [...home.header, ...own, ...home.footer, ...overlay]
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {

@@ -108,6 +108,8 @@ export interface CompatSectionInstance {
   blocks?: CompatBlockInstance[]
   hidden?: boolean
   disabled?: boolean
+  /** For a section of the Overlay group: the theme's group file it is drawn in (overlay-group). */
+  slot?: string
 }
 export interface CompatBlockInstance {
   id: string
@@ -122,7 +124,7 @@ export interface CompatBlockInstance {
 /** Everything one page of the site is drawn with. */
 export interface CompatPage {
   /** The header and footer groups' sections, as the page row stores them. Absent: the theme's group files. */
-  groups?: { header?: CompatSectionInstance[]; footer?: CompatSectionInstance[] }
+  groups?: { header?: CompatSectionInstance[]; footer?: CompatSectionInstance[]; overlay?: CompatSectionInstance[] }
   /** Shopify's template name: index, product, collection, list-collections, search, cart, page, 404, password. */
   template: string
   /** A page's suffix, for templates/page.contact.json: "contact". */
@@ -164,6 +166,8 @@ export interface CompatThemeOptions {
   renamed?: Record<string, string>
   /** The theme's name, for window.Shopify.theme. */
   themeName?: string
+  /** Section groups besides the header and footer whose sections the page holds (install.ts, CompatSettings.slots). */
+  slots?: string[]
 }
 
 export interface RenderedSection {
@@ -490,7 +494,7 @@ export class CompatTheme {
     }
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
-    return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(group)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
+    return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
   }
 
   private sectionObject(instance: CompatSectionInstance, schema: O, res: Resources, index: number, group: string | undefined, dyn: DynamicResolver): O {
@@ -506,7 +510,8 @@ export class CompatTheme {
       block_order: blocks.map((b) => b.id),
       index: index + 1,
       index0: index,
-      location: group ?? "template",
+      /* Shopify's own words: header, footer, aside, custom.<name>, or template. */
+      location: !group ? "template" : /^(header|footer|aside)(-group)?$/.test(group) ? group.replace(/-group$/, "") : `custom.${group.replace(/-group$/, "")}`,
       __instance: instance,
     }
   }
@@ -565,6 +570,10 @@ export class CompatTheme {
 
   /** `{% section 'x' %}` in a layout: a section with no instance on a page, drawn from its defaults. */
   private renderStaticSection(ctx: Ctx, name: string): string {
+    /* The page's own copy first: an older theme's header, imported into the Header group under its name so it can be edited. */
+    const groups = (ctx.registers.page as CompatPage | undefined)?.groups
+    const placed = [...(groups?.header ?? []), ...(groups?.footer ?? []), ...(groups?.overlay ?? [])].find((s) => s.id === name)
+    if (placed) return placed.hidden || placed.disabled ? "" : this.renderSectionRaw(ctx, { ...placed, type: this.typeOf(placed.type) }).html
     /* settings_data.json keeps a static section's values under `sections`, by its name. */
     const stored = (this.settingsValues.sections as Record<string, O> | undefined)?.[name]
     const instance = stored && typeof stored === "object" ? instanceFromJson(name, stored) : { id: name, type: name, settings: {} }
@@ -575,9 +584,10 @@ export class CompatTheme {
   private renderGroup(ctx: Ctx, group: string): string {
     const page = ctx.registers.page as CompatPage
     const key = group.replace(/-group$/, "")
-    const own = key === "header" || key === "footer" ? page.groups?.[key] : undefined
+    /* Another group the page holds (an overlay, an aside): its sections are the Overlay group's that name it. */
+    const own = key === "header" || key === "footer" ? page.groups?.[key] : this.opts.slots?.includes(group) ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
     const list: CompatSectionInstance[] = own ?? groupSections(this.files[`sections/${group}.json`]).map((s) => ({ ...s, type: this.typeOf(s.type) }))
-    return list.filter((s) => !s.disabled && !s.hidden).map((s, i) => this.renderSectionRaw(ctx, s, i, group.replace(/-group$/, "")).html).join("")
+    return list.filter((s) => !s.disabled && !s.hidden).map((s, i) => this.renderSectionRaw(ctx, s, i, group).html).join("")
   }
 
   // ── The layout ──

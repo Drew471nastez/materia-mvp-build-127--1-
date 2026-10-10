@@ -76,7 +76,9 @@ export interface ImportedSection {
   id: string
   type: string
   name?: string
-  group?: "header" | "footer"
+  group?: "header" | "footer" | "overlay"
+  /** In the Overlay group: the theme's group file it is drawn in (overlay-group). */
+  slot?: string
   hidden?: boolean
   settings: Record<string, unknown>
   blocks?: ImportedBlock[]
@@ -354,6 +356,44 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const groups = {
     header: groupList(src.text.get("sections/header-group.json"), "header", sectionTypes, report, "sections/header-group.json"),
     footer: groupList(src.text.get("sections/footer-group.json"), "footer", sectionTypes, report, "sections/footer-group.json"),
+    overlay: [] as ImportedSection[],
+  }
+  const layout = src.text.get("layout/theme.liquid") ?? ""
+  const contentAt = layout.search(/\{\{-?\s*content_for_layout/)
+  /*
+    THE THEME'S OTHER GROUPS: an overlay, an aside, a custom group the layout
+    draws with {% sections %}. Popups, drawers and bars fixed to the screen
+    live there. Each comes into the builder's Overlay group, every section
+    remembering the group file it is drawn in.
+  */
+  const slots: string[] = []
+  for (const g of layout.matchAll(/\{%-?\s*sections\s+['"]([^'"]+)['"]/g)) {
+    const slot = g[1]
+    if (slot === "header-group" || slot === "footer-group" || slots.includes(slot) || !src.text.has(`sections/${slot}.json`)) continue
+    slots.push(slot)
+    groups.overlay.push(...groupList(src.text.get(`sections/${slot}.json`), "overlay", sectionTypes, report, `sections/${slot}.json`).map((x) => ({ ...x, slot })))
+  }
+  /*
+    AN OLDER THEME'S HEADER AND FOOTER are static: {% section 'header' %} in
+    the layout, their values in settings_data.json's `sections`. Each comes
+    into the Header group (above the page's content) or the Footer group
+    (below it) under its own name, so it is selected and edited like any
+    other; the engine draws the page's copy where the tag stands.
+  */
+  const staticValues = (() => {
+    const v = themeValues(parseJson(src.text.get("config/settings_data.json") ?? "")).sections
+    return v && typeof v === "object" ? (v as Record<string, Tree>) : {}
+  })()
+  for (const m of layout.matchAll(/\{%-?\s*section\s+['"]([^'"]+)['"]/g)) {
+    const name = m[1]
+    const type = sectionTypes.get(name)
+    const part = contentAt !== -1 && (m.index ?? 0) > contentAt ? "footer" : "header"
+    if (!type || groups.header.some((x) => x.id === name) || groups.footer.some((x) => x.id === name)) continue
+    const stored = staticValues[name] && typeof staticValues[name] === "object" ? staticValues[name] : {}
+    const section: ImportedSection = { id: name, type, name: humanise(name), group: part, settings: idsOf((stored.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
+    const blocks = blockList(stored.blocks as Record<string, Tree> | undefined, stored.block_order, 1)
+    if (blocks.length) section.blocks = blocks
+    groups[part].push(section)
   }
   const pages: ImportedTheme["pages"] = []
   for (const [path, text] of [...src.text].sort(([a], [b]) => (a < b ? -1 : 1))) {
@@ -364,7 +404,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       const key = compatPageKey(name)
       if (key && !pages.some((p) => p.page_key === key) && !src.text.has(`templates/${name}.json`)) {
         checkSyntax(text, (msg) => report.note(path, msg))
-        pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer] })
+        pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer, ...groups.overlay] })
         report.converted.push(path)
         report.note(path, `A template written in Liquid rather than JSON draws as written; it has no sections to edit in the builder`)
       } else if (!key) {
@@ -387,7 +427,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       continue
     }
     const sections = templateSections(t, sectionTypes, report, path)
-    pages.push({ page_key: key, template: name, sections: [...groups.header, ...sections, ...groups.footer] })
+    pages.push({ page_key: key, template: name, sections: [...groups.header, ...sections, ...groups.footer, ...groups.overlay] })
     report.converted.push(path)
   }
   if (!pages.some((p) => p.page_key === "home")) return { ok: false, error: "This theme has no templates/index.json, so there is no home page to draw" }
@@ -397,7 +437,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     if (!path.endsWith(".liquid")) continue
     for (const g of text.matchAll(/\{%-?\s*sections\s+['"]([^'"]+)['"]/g)) {
       if (g[1] !== "header-group" && g[1] !== "footer-group" && !src.text.has(`sections/${g[1]}.json`)) report.note(path, `It draws the section group "${g[1]}", which the theme does not have`)
-      else if (g[1] !== "header-group" && g[1] !== "footer-group") report.note(path, `The section group "${g[1]}" is drawn as the theme set it; the builder edits the header and footer groups`)
+      else if (g[1] !== "header-group" && g[1] !== "footer-group" && !slots.includes(g[1])) report.note(path, `The section group "${g[1]}" is drawn as the theme set it; the builder edits the groups the layout draws`)
     }
   }
 
@@ -422,7 +462,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     binaries,
     pages,
     settings: {
-      compat: { kind: "shopify", version: 1, theme: name.slice(0, 80), theme_version: version, renamed: Object.fromEntries([...sectionTypes].filter(([a, b]) => a !== b)) },
+      compat: { kind: "shopify", version: 1, theme: name.slice(0, 80), theme_version: version, renamed: Object.fromEntries([...sectionTypes].filter(([a, b]) => a !== b)), ...(slots.length ? { slots } : {}) },
       shopify: values,
     },
   }
@@ -817,7 +857,7 @@ function settle(schema: Tree, job: FileJob): Tree | null {
 
 // ── Pages ───────────────────────────────────────────────────────────────────
 
-function groupList(json: string | undefined, group: "header" | "footer", types: Map<string, string>, report: Report, path: string): ImportedSection[] {
+function groupList(json: string | undefined, group: "header" | "footer" | "overlay", types: Map<string, string>, report: Report, path: string): ImportedSection[] {
   if (!json) return []
   const g = parseJson(json) as Tree | undefined
   if (!g || typeof g.sections !== "object" || g.sections === null) {
@@ -844,7 +884,8 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
       break
     }
     const section: ImportedSection = { id, type, settings: idsOf((s.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
-    if (typeof s.name === "string" && s.name.trim()) section.name = s.name.slice(0, 80)
+    /* Every save route reads a section's name; a group's sections usually come without one. */
+    section.name = typeof s.name === "string" && s.name.trim() ? s.name.slice(0, 80) : humanise(String(s.type))
     if (s.disabled === true) section.hidden = true
     const blocks = blockList(s.blocks as Record<string, Tree> | undefined, s.block_order, 1)
     if (blocks.length) section.blocks = blocks

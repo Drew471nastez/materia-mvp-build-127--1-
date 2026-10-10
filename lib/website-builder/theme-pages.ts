@@ -37,6 +37,8 @@ import type { SectionInstance } from "./types"
 
 export const HEADER_GROUP_PATH = "sections/header-group.json"
 export const FOOTER_GROUP_PATH = "sections/footer-group.json"
+/* What floats over every page: a popup, a bar fixed to the bottom of a phone (section-groups.ts). */
+export const OVERLAY_GROUP_PATH = "sections/overlay-group.json"
 
 const PAGE_KEY = /^[A-Za-z0-9_.\-]+$/
 
@@ -49,14 +51,14 @@ type Section = SectionInstance & Record<string, unknown>
 
 /** A group file: Shopify's shape, a template with a name and the group it is. */
 interface GroupFile extends Template {
-  type: "header" | "footer"
+  type: "header" | "footer" | "overlay"
   name: string
 }
 
-function groupFile(kind: "header" | "footer", list: Section[]): string {
+function groupFile(kind: "header" | "footer" | "overlay", list: Section[]): string {
   /* The group is the file's, so the sections in it do not repeat it. */
   const t = templateFromSections(list.map((s) => inGroup(s, "template") as Section) as never)
-  const file: GroupFile = { type: kind, name: kind === "header" ? "Header group" : "Footer group", sections: t.sections, order: t.order }
+  const file: GroupFile = { type: kind, name: kind === "header" ? "Header group" : kind === "footer" ? "Footer group" : "Overlay group", sections: t.sections, order: t.order }
   return JSON.stringify(file, null, 2) + "\n"
 }
 
@@ -74,6 +76,7 @@ export function packageFilesFromPages(pages: PageRow[], homeKey = "home"): Recor
   if (chrome) {
     files[HEADER_GROUP_PATH] = groupFile("header", chrome.header)
     files[FOOTER_GROUP_PATH] = groupFile("footer", chrome.footer)
+    if (chrome.overlay.length) files[OVERLAY_GROUP_PATH] = groupFile("overlay", chrome.overlay)
   }
   for (const page of pages) {
     if (!PAGE_KEY.test(page.page_key)) continue
@@ -84,7 +87,7 @@ export function packageFilesFromPages(pages: PageRow[], homeKey = "home"): Recor
   return files
 }
 
-function readGroup(text: string | undefined, kind: "header" | "footer"): Section[] | null {
+function readGroup(text: string | undefined, kind: "header" | "footer" | "overlay"): Section[] | null {
   if (typeof text !== "string") return null
   try {
     const t = JSON.parse(text) as Template
@@ -104,6 +107,7 @@ function readGroup(text: string | undefined, kind: "header" | "footer"): Section
 export function pagesFromPackageFiles(files: Record<string, string>, kindOfType?: KindOfType, homeKey = "home"): { page_key: string; sections: SectionInstance[] }[] {
   const headerGroup = readGroup(files[HEADER_GROUP_PATH], "header")
   const footerGroup = readGroup(files[FOOTER_GROUP_PATH], "footer")
+  const overlayGroup = readGroup(files[OVERLAY_GROUP_PATH], "overlay")
   const pages: Record<string, SectionInstance[]> = {}
   for (const [path, text] of Object.entries(files)) {
     const m = path.match(/^templates\/([A-Za-z0-9_.\-]+)\.json$/)
@@ -122,7 +126,8 @@ export function pagesFromPackageFiles(files: Record<string, string>, kindOfType?
     const own = splitGroups(list)
     const header = headerGroup ? [...headerGroup, ...own.header.filter((s) => !headerGroup.some((h) => h.id === s.id))] : own.header
     const footer = footerGroup ? [...own.footer.filter((s) => !footerGroup.some((f) => f.id === s.id)), ...footerGroup] : own.footer
-    pages[m[1]] = repairChrome([...header, ...own.template, ...footer], kindOfType).sections
+    const overlay = overlayGroup ? [...own.overlay.filter((s) => !overlayGroup.some((o) => o.id === s.id)), ...overlayGroup] : own.overlay
+    pages[m[1]] = repairChrome([...header, ...own.template, ...footer, ...overlay], kindOfType).sections
   }
   const dressed = applyUniversalChrome(pages, homeKey, kindOfType)
   return Object.entries(dressed).map(([page_key, sections]) => ({ page_key, sections }))

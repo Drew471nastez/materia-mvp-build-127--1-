@@ -49,6 +49,8 @@ export interface CompatCanvasProps {
   selectedBlockId: string | null
   inspectorEnabled: boolean
   onSelect: (sectionId: string, blockPath: string[]) => void
+  /** A link pressed in the page: its address, and whether it is in the header or the footer. */
+  onNavigate?: (href: string, chrome: boolean) => void
 }
 
 const loading = new Map<string, Promise<Record<string, string>>>()
@@ -75,11 +77,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const { installId, sources, theme: settings, pageKey, products, collections, menus, shopName } = props
   /* A slider under a finger: its section is drawn again with each value, before the editor commits it (lib/website-builder/live-settings.ts). */
   const sections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
-  const frame = useRef<HTMLIFrameElement | null>(null)
   const box = useRef<HTMLDivElement | null>(null)
   const [compatFiles, setCompatFiles] = useState<Record<string, string> | null>(null)
   const [height, setHeight] = useState(800)
-  const ready = useRef(false)
   const scrollY = useRef(0)
 
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
@@ -145,42 +145,97 @@ export function CompatCanvas(props: CompatCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, dataKey])
 
-  /* The whole page, when its shape, its theme or its data changes. */
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     DRAWN ONCE, THEN CHANGED IN PLACE, AND NEVER BLANK
+    ═══════════════════════════════════════════════════════════════════════
+    Every change to the theme's settings, the shop's data or the page's
+    shape (a section added, moved, removed, hidden) draws the page again
+    here, as text, and compares it with the page on screen (docShape). What
+    differs is sent to the page and changed there: the theme's inline
+    styles, the attributes on <html> and <body>, sections swapped, added,
+    taken away or moved. The frame does not load again, so it keeps its
+    scroll, its open menus and its pictures.
+
+    Only a page whose skeleton changed (a different stylesheet, the layout
+    drawn otherwise) is loaded again, and then BEHIND the one on screen: the
+    new frame loads hidden, and takes the old one's place once it is drawn
+    and its pictures are in. The canvas never shows an empty frame.
+  */
   const shape = shapeOf(sections)
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
-  const drawnFrom = useRef<Map<string, string>>(new Map())
-  const srcDoc = useMemo(() => {
-    if (!compatTheme) return null
-    const list = sectionsRef.current
+  /* Which page is drawn, in which files: a different one is always loaded again. */
+  const docKey = `${installId}:${pageKey}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
+  const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
-    const drawn = drawPage(compatTheme, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
-    drawnFrom.current = new Map(list.map((s) => [s.id, JSON.stringify(s)]))
-    ready.current = false
+    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line. */
     return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
+  }
+
+  type Slot = { n: number; key: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean }
+  const [slots, setSlots] = useState<Slot[]>([])
+  const slotsRef = useRef<Slot[]>([])
+  slotsRef.current = slots
+  const frames = useRef(new Map<number, HTMLIFrameElement>())
+  const counter = useRef(0)
+  const front = () => slotsRef.current[0] ?? null
+  const frontWindow = () => { const f = front(); return f ? frames.current.get(f.n)?.contentWindow ?? null : null }
+
+  /* A page loaded behind the one on screen. */
+  const loadBehind = (html: string, key: string, list: StoredSection[]) => {
+    const slot: Slot = { n: ++counter.current, key, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false }
+    setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
+  }
+
+  useEffect(() => {
+    if (!compatTheme) return
+    const list = sectionsRef.current
+    const html = draw(list)
+    const now = front()
+    if (!now) { loadBehind(html, docKey, list); return }
+    const next = docShape(html)
+    const plan = now.key === docKey ? planPatch(now.shape, next) : null
+    const win = frontWindow()
+    if (!plan || !win || !now.ready) {
+      loadBehind(html, docKey, list)
+      return
+    }
+    if (plan.empty) { now.shape = next; return }
+    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html }, "*")
+    if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
+    now.shape = next
+    for (const s of list) now.drawnFrom.set(s.id, JSON.stringify(s))
+    for (const id of [...now.drawnFrom.keys()]) if (!list.some((s) => s.id === id)) now.drawnFrom.delete(id)
+    /* A page that changed behind this one is out of date too: drawn again from now. */
+    if (slotsRef.current[1]) loadBehind(html, docKey, list)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape])
+  }, [compatTheme, page, shape, docKey])
 
   /*
     A section's settings or blocks changed: that section, drawn again and
     swapped in. Only into a page that is ready: a change made while the page
     is loading is sent when it says it is (the "ready" message below).
   */
-  const sync = useRef<() => void>(() => {})
-  sync.current = () => {
-    if (!compatTheme || !frame.current?.contentWindow || !ready.current) return
-    const changed = sections.filter((s) => drawnFrom.current.get(s.id) !== JSON.stringify(s))
+  const syncSlot = (slot: Slot) => {
+    const win = frames.current.get(slot.n)?.contentWindow
+    if (!compatTheme || !win || !slot.ready) return
+    const list = sectionsRef.current
+    const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== JSON.stringify(s))
     if (!changed.length) return
-    const ctx = pageContextFor(compatTheme, page, sections)
+    const ctx = pageContextFor(compatTheme, page, list)
     for (const s of changed) {
-      const at = sections.indexOf(s)
+      const at = list.indexOf(s)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       const { html } = drawSection(compatTheme, ctx, s, at, group)
-      frame.current.contentWindow.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
-      drawnFrom.current.set(s.id, JSON.stringify(s))
+      win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
+      slot.drawnFrom.set(s.id, JSON.stringify(s))
+      slot.shape.sections.set(s.id, html)
     }
   }
+  const sync = useRef<() => void>(() => {})
+  sync.current = () => { for (const slot of slotsRef.current) syncSlot(slot) }
   useEffect(() => sync.current(), [sections, compatTheme, page])
 
   /* The selection, outlined in the page and announced to the theme. */
@@ -188,48 +243,168 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const select = useRef({ sectionId: props.selectedSectionId, blockId: selectedBlock })
   select.current = { sectionId: props.inspectorEnabled ? props.selectedSectionId : null, blockId: props.inspectorEnabled ? selectedBlock : null }
   useEffect(() => {
-    if (!ready.current) return
-    frame.current?.contentWindow?.postMessage({ storelib: 1, type: "select", ...select.current }, "*")
+    if (!front()?.ready) return
+    frontWindow()?.postMessage({ storelib: 1, type: "select", ...select.current }, "*")
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled])
 
+  /*
+    THE TOOLBAR OVER THE CANVAS finds a section by its element in the editor's
+    page (wb-section-<id>), and an imported theme's sections are inside the
+    frame. The frame says where the selected one is; an empty box of that
+    size stands there, and the toolbar points at it like any other section.
+  */
+  const [ghost, setGhost] = useState<{ id: string; top: number; left: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    document.getElementById("wb-preview-root")?.dispatchEvent(new Event("scroll"))
+  }, [ghost])
   const onSelect = useRef(props.onSelect)
   onSelect.current = props.onSelect
+  const onNavigate = useRef(props.onNavigate)
+  onNavigate.current = props.onNavigate
   const inspecting = useRef(props.inspectorEnabled)
   inspecting.current = props.inspectorEnabled
+  /* The page behind takes the front's place: drawn, its pictures in, and where the front was scrolled to. */
+  const promote = (n: number) => {
+    setSlots((prev) => {
+      const at = prev.findIndex((x) => x.n === n)
+      return at <= 0 ? prev : prev.slice(at)
+    })
+  }
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (!frame.current || e.source !== frame.current.contentWindow) return
+      const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
+      if (!slot) return
       const m = e.data as { storelib?: number; type?: string; sectionId?: string; blockPath?: string[]; scrollY?: number }
       if (!m || m.storelib !== 1) return
+      const win = e.source as Window
+      const isFront = slot === slotsRef.current[0]
       if (m.type === "ready") {
-        ready.current = true
-        sync.current()
-        frame.current.contentWindow?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+        slot.ready = true
+        syncSlot(slot)
+        win.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+        /* A page behind that never says it has loaded still comes forward. */
+        if (!isFront) setTimeout(() => promote(slot.n), 2500)
+      } else if (m.type === "loaded") {
+        slot.loaded = true
+        if (!isFront) {
+          win.postMessage({ storelib: 1, type: "scroll", top: scrollY.current }, "*")
+          requestAnimationFrame(() => promote(slot.n))
+        }
+      } else if (m.type === "reload") {
+        /* The page could not take a change in place: drawn again, behind it. */
+        if (isFront && compatTheme) loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+      } else if (m.type === "navigate" && isFront) {
+        const n = m as { href?: string; chrome?: boolean }
+        if (typeof n.href === "string") onNavigate.current?.(n.href, n.chrome === true)
+      } else if (m.type === "box" && isFront) {
+        const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
+        setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)
       } else if (m.type === "scrolled" && typeof m.scrollY === "number") {
-        scrollY.current = m.scrollY
-      } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current) {
+        if (isFront) scrollY.current = m.scrollY
+      } else if (m.type === "pick" && typeof m.sectionId === "string" && inspecting.current && isFront) {
         onSelect.current(m.sectionId, Array.isArray(m.blockPath) ? m.blockPath.filter((x): x is string => typeof x === "string") : [])
       }
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compatTheme])
 
   const compat = compatOf(settings)
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
-      {srcDoc === null ? (
+      {slots.length === 0 ? (
         <div className="flex h-full items-center justify-center text-[14px] text-[#6b7280]">Loading {compat?.theme ?? "the theme"}…</div>
       ) : (
-        <iframe
-          ref={frame}
-          title={`${compat?.theme ?? "Theme"} preview`}
-          srcDoc={srcDoc}
-          sandbox="allow-scripts allow-forms allow-popups"
-          className="block h-full w-full border-0 bg-white"
-          style={{ position: "sticky", top: 0 }}
-        />
+        <div className="sticky top-0 h-full w-full" style={{ height }}>
+          {slots.map((slot, i) => (
+            <iframe
+              key={slot.n}
+              ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
+              title={`${compat?.theme ?? "Theme"} preview`}
+              srcDoc={slot.html}
+              sandbox="allow-scripts allow-forms allow-popups"
+              data-compat-frame={i === 0 ? "front" : "behind"}
+              aria-hidden={i === 0 ? undefined : true}
+              tabIndex={i === 0 ? undefined : -1}
+              className="absolute inset-0 block h-full w-full border-0 bg-white"
+              style={i === 0 ? undefined : { visibility: "hidden", pointerEvents: "none" }}
+            />
+          ))}
+          {ghost && props.selectedSectionId === ghost.id && (
+            <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
+          )}
+        </div>
       )}
     </div>
   )
+}
+
+/* ── What a drawn page is, to compare one with the next ───────────────────── */
+
+export interface DocShape {
+  /** Everything in <head> but the text of its inline styles and the font links: a change here is a different page. */
+  head: string
+  styles: string[]
+  fonts: string[]
+  htmlAttrs: Record<string, string>
+  bodyAttrs: Record<string, string>
+  /** <body> with every section and script taken out: what the layout draws around the sections. */
+  skeleton: string
+  /** Every section, in the order drawn, by id: its markup. */
+  sections: Map<string, string>
+  order: { id: string; group: string }[]
+}
+
+const attrsOf = (el: Element): Record<string, string> => Object.fromEntries(Array.from(el.attributes).map((a) => [a.name, a.value]))
+
+export function docShape(html: string): DocShape {
+  const doc = new DOMParser().parseFromString(html, "text/html")
+  const styles: string[] = []
+  const fonts: string[] = []
+  const head: string[] = []
+  for (const el of Array.from(doc.head.children)) {
+    if (el.tagName === "STYLE") { styles.push(el.textContent ?? ""); head.push("<style>"); continue }
+    if (el.tagName === "LINK" && el.hasAttribute("data-storelib-font")) { fonts.push(el.getAttribute("href") ?? ""); continue }
+    if (el.tagName === "SCRIPT") { head.push(`<script ${el.getAttribute("src") ?? ""}>`); continue }
+    head.push(el.outerHTML)
+  }
+  const sections = new Map<string, string>()
+  const order: { id: string; group: string }[] = []
+  for (const el of Array.from(doc.body.querySelectorAll(".shopify-section[data-section-id]"))) {
+    const id = el.getAttribute("data-section-id") ?? ""
+    sections.set(id, el.outerHTML)
+    order.push({ id, group: /shopify-section-group-([a-z0-9_-]+)/i.exec(el.className)?.[1] ?? "" })
+  }
+  const body = doc.body.cloneNode(true) as HTMLElement
+  body.querySelectorAll(".shopify-section[data-section-id], script").forEach((el) => el.remove())
+  return { head: head.join("\n"), styles, fonts, htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), skeleton: body.innerHTML, sections, order }
+}
+
+const sameRecord = (a: Record<string, string>, b: Record<string, string>) => {
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every((k) => a[k] === b[k])
+}
+
+/**
+ * What to send a page drawn as `from` so it reads as `to`, or null when the
+ * page has to be loaded again (its head or its skeleton changed).
+ */
+export function planPatch(from: DocShape, to: DocShape): { empty: boolean; message: Record<string, unknown>; swaps: { id: string; html: string }[] } | null {
+  if (from.head !== to.head || from.skeleton !== to.skeleton || from.styles.length !== to.styles.length) return null
+  const message: Record<string, unknown> = {}
+  if (from.styles.some((x, i) => x !== to.styles[i])) message.styles = to.styles
+  if (from.fonts.join("\n") !== to.fonts.join("\n")) message.fonts = to.fonts
+  if (!sameRecord(from.htmlAttrs, to.htmlAttrs)) message.htmlAttrs = to.htmlAttrs
+  if (!sameRecord(from.bodyAttrs, to.bodyAttrs)) message.bodyAttrs = to.bodyAttrs
+  const remove = from.order.filter((x) => !to.sections.has(x.id)).map((x) => x.id)
+  if (remove.length) message.remove = remove
+  /* A section whose markup changed is swapped in its place (canvas-bridge.ts, swap); one added is put where it goes; one only moved is moved. */
+  const swaps = to.order.filter((x) => from.sections.has(x.id) && from.sections.get(x.id) !== to.sections.get(x.id)).map((x) => ({ id: x.id, html: to.sections.get(x.id)! }))
+  const kept = from.order.filter((x) => to.sections.has(x.id)).map((x) => x.id)
+  const moved = kept.join("|") !== to.order.filter((x) => from.sections.has(x.id)).map((x) => x.id).join("|")
+  const added = to.order.some((x) => !from.sections.has(x.id))
+  if (moved || added) message.order = to.order.map((x) => ({ ...x, html: from.sections.has(x.id) ? undefined : to.sections.get(x.id) }))
+  return { empty: Object.keys(message).length === 0 && swaps.length === 0, message, swaps }
 }

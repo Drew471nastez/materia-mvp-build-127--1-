@@ -27,7 +27,9 @@ const SectionSchema = z.object({
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
   /* Which section group it sits in: lib/storelib-theme/section-groups.ts. */
-  group: z.enum(["header", "footer"]).optional(),
+  group: z.enum(["header", "footer", "overlay"]).optional(),
+  /* An imported theme's Overlay group section: the theme's group file it is drawn in (overlay-group). */
+  slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional(),
 })
 /**
  * `header` and `footer` are the two sections an older editor sends. A
@@ -42,6 +44,8 @@ const SyncBodySchema = z.object({
   footer: SectionSchema.nullable(),
   header_group: GroupSchema,
   footer_group: GroupSchema,
+  /* What floats over every page: a popup, a bottom bar (lib/storelib-theme/section-groups.ts). */
+  overlay_group: GroupSchema,
   current_page: z.string().min(1).max(64),
   mode: z.enum(["draft", "publish"]),
 })
@@ -86,11 +90,12 @@ export async function PUT(req: Request, { params }: Params) {
       { status: 400 },
     )
   }
-  const { header: sentHeader, footer: sentFooter, header_group: sentHeaderGroup, footer_group: sentFooterGroup, current_page, mode } = parsed.data as {
+  const { header: sentHeader, footer: sentFooter, header_group: sentHeaderGroup, footer_group: sentFooterGroup, overlay_group: sentOverlayGroup, current_page, mode } = parsed.data as {
     header: SectionInstance | null
     footer: SectionInstance | null
     header_group?: SectionInstance[] | null
     footer_group?: SectionInstance[] | null
+    overlay_group?: SectionInstance[] | null
     current_page: string
     mode: "draft" | "publish"
   }
@@ -104,7 +109,7 @@ export async function PUT(req: Request, { params }: Params) {
    * The sections-per-page limit is not re-checked: a sync replaces a page's
    * header and footer, so a page holds at most the two it may have lacked.
    */
-  const sent = [sentHeader, sentFooter, ...(sentHeaderGroup ?? []), ...(sentFooterGroup ?? [])].filter((s): s is SectionInstance => !!s)
+  const sent = [sentHeader, sentFooter, ...(sentHeaderGroup ?? []), ...(sentFooterGroup ?? []), ...(sentOverlayGroup ?? [])].filter((s): s is SectionInstance => !!s)
   const overfull = sent.map((s) => blockTreeProblem(s)).find((problem) => problem !== null)
   if (overfull) return NextResponse.json({ error: overfull }, { status: 413 })
   const own = await readOwnSectionFields(supabase, installId, sent.map((s) => s.type))
@@ -119,6 +124,9 @@ export async function PUT(req: Request, { params }: Params) {
   const footerGroup: SectionInstance[] | null = Array.isArray(sentFooterGroup)
     ? sanitizeSections(sentFooterGroup, own).map((s) => inGroup(s, "footer"))
     : sentFooter ? sanitizeSections([sentFooter], own) : null
+  const overlayGroup: SectionInstance[] | null = Array.isArray(sentOverlayGroup)
+    ? sanitizeSections(sentOverlayGroup, own).map((s) => inGroup(s, "overlay"))
+    : null
 
   // Get all pages except the current one (current page already has the updated header/footer)
   const { data: pages, error: readErr } = await supabase
@@ -151,7 +159,7 @@ export async function PUT(req: Request, { params }: Params) {
 
     // Replace each page's Header and Footer groups with the shared ones; its own sections stay.
     const g = splitGroups(existing)
-    const merged = [...(headerGroup ?? g.header), ...g.template, ...(footerGroup ?? g.footer)]
+    const merged = [...(headerGroup ?? g.header), ...g.template, ...(footerGroup ?? g.footer), ...(overlayGroup ?? g.overlay)]
 
     const update = mode === "publish"
       ? { sections: sanitizeSections(merged, pageOwn), draft_sections: null }

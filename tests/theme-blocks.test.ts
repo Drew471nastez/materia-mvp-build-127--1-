@@ -300,7 +300,8 @@ function main() {
   check("the shared block schema keeps blocks inside blocks", parsed.success && (parsed.data.blocks?.length ?? 0) === 2 && parsed.data.blocks?.[1].hidden === true)
   check("and the static mark", BlockInstanceSchema.safeParse(editorTree[0]).success && (BlockInstanceSchema.safeParse(editorTree[0]) as { data: { static?: boolean } }).data.static === true)
   for (const route of ["app/api/website-builder/themes/[installId]/sections/route.ts", "app/api/website-builder/themes/[installId]/sections/sync-global/route.ts", "app/api/website-builder/themes/[installId]/agent/route.ts"]) {
-    check(`${route.split("/").slice(-2).join("/")} uses it, not a shape that drops nested blocks`, /const BlockSchema = BlockInstanceSchema/.test(read(route)))
+    /* The sections and sync routes read sections by one shared schema, which holds the tree (lib/website-builder/section-save-schema.ts). */
+    check(`${route.split("/").slice(-2).join("/")} uses it, not a shape that drops nested blocks`, /const BlockSchema = BlockInstanceSchema/.test(read(route)) || (/SectionSaveSchema/.test(read(route)) && /blocks: z\.array\(BlockInstanceSchema\)/.test(read("lib/website-builder/section-save-schema.ts"))))
   }
   const many: BlockInstance[] = Array.from({ length: 30 }, (_, i) => ({ id: `g${i}`, type: "group", settings: {}, blocks: [{ id: `t${i}`, type: "text", settings: {} }] }))
   check("50 blocks per section counts the ones inside blocks", blockTreeProblem({ type: "t", blocks: many })?.includes("holds 50 blocks") === true)

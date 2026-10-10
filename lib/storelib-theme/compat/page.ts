@@ -24,6 +24,8 @@ export interface StoredSection {
   hidden?: boolean
   settings?: Record<string, unknown>
   blocks?: StoredBlock[]
+  /** In the Overlay group: the theme's group file it is drawn in. */
+  slot?: string
 }
 export interface StoredBlock {
   id: string
@@ -39,15 +41,16 @@ function block(b: StoredBlock): CompatBlockInstance {
 }
 
 export function instanceOf(s: StoredSection): CompatSectionInstance {
-  return { id: s.id, type: s.type, settings: s.settings ?? {}, hidden: s.hidden === true, blocks: (s.blocks ?? []).map(block) }
+  return { id: s.id, type: s.type, settings: s.settings ?? {}, hidden: s.hidden === true, blocks: (s.blocks ?? []).map(block), ...(typeof s.slot === "string" ? { slot: s.slot } : {}) }
 }
 
-/** A page row's sections in their three parts. */
-export function pageParts(sections: readonly StoredSection[]): { header: StoredSection[]; template: StoredSection[]; footer: StoredSection[] } {
-  const out = { header: [] as StoredSection[], template: [] as StoredSection[], footer: [] as StoredSection[] }
+/** A page row's sections in their parts. */
+export function pageParts(sections: readonly StoredSection[]): { header: StoredSection[]; template: StoredSection[]; footer: StoredSection[]; overlay: StoredSection[] } {
+  const out = { header: [] as StoredSection[], template: [] as StoredSection[], footer: [] as StoredSection[], overlay: [] as StoredSection[] }
   for (const s of sections) {
     if (s.group === "header") out.header.push(s)
     else if (s.group === "footer") out.footer.push(s)
+    else if (s.group === "overlay") out.overlay.push(s)
     else out.template.push(s)
   }
   return out
@@ -56,7 +59,7 @@ export function pageParts(sections: readonly StoredSection[]): { header: StoredS
 /** The theme an install's files and settings make. */
 export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
   const compat = compatOf(settings)
-  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme })
+  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots })
 }
 
 export interface DrawOptions {
@@ -79,7 +82,7 @@ export interface DrawnPage {
  */
 export function pageContextFor(theme: CompatTheme, page: CompatPage, sections: readonly StoredSection[]): Ctx {
   const parts = pageParts(sections)
-  return theme.pageContext({ ...page, groups: { header: parts.header.map(instanceOf), footer: parts.footer.map(instanceOf) } })
+  return theme.pageContext({ ...page, groups: { header: parts.header.map(instanceOf), footer: parts.footer.map(instanceOf), overlay: parts.overlay.map(instanceOf) } })
 }
 
 /** The whole document. */
@@ -119,15 +122,24 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
 }
 
 /** One section, wrapped as on Shopify, for the section rendering API and for the builder's live edits. */
-export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: "header" | "footer"): { html: string; errors: string[] } {
-  return theme.renderSection(ctx, instanceOf(section), index, group)
+export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: string): { html: string; errors: string[] } {
+  /* An Overlay group section is drawn as a section of the theme's group it came from. */
+  return theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" && section.slot ? section.slot : group)
 }
 
-/** A page with none of its scripts: for a surface that must not run the theme's code. */
+/**
+ * A page with none of its scripts: for a surface that must not run the
+ * theme's code. A stylesheet a theme loads late with `media="print"
+ * onload="this.media='all'"` (Dawn's way) is loaded outright, since the
+ * handler that would switch it on cannot run here, and every other inline
+ * handler goes for the same reason.
+ */
 export function withoutScripts(html: string): string {
   return html
     .replace(/<script\b(?![^>]*type=["']?(?:application\/(?:ld\+)?json|text\/template)["']?)[^>]*>[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<link\b[^>]*rel=["']?modulepreload["']?[^>]*>/gi, "")
+    .replace(/<link\b[^>]*\bonload\s*=\s*(["'])[^"']*this\.media\s*=[^>]*>/gi, (tag) => tag.replace(/\smedia\s*=\s*(["'])print\1/i, ' media="all"'))
+    .replace(/<[a-z][a-z0-9-]*\b[^>]*\son[a-z]+\s*=[^>]*>/gi, (tag) => tag.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ""))
 }
 
 /** The template and suffix a page key is drawn as. */

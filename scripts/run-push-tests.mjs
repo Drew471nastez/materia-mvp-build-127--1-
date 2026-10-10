@@ -29,6 +29,7 @@ const SUITES = [
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
   "tests/shopify-import.test.ts",
+  "tests/editor-groups-saves.test.ts",
   "tests/compat-engine.test.ts",
   "tests/compat-section-preview.test.ts",
   "tests/editor-save-errors.test.ts",

@@ -115,6 +115,15 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     if (probeGlobals.PROBE_SECURITY === "fail") return new Response(JSON.stringify({ error: "Could not check the site just now. Try again." }), { status: 500, headers: { "content-type": "application/json" } })
     return json(probeGlobals.PROBE_SECURITY ?? { issues: [], truncated: false, checked_at: now })
   }
+  /* Every save, kept as sent, so a probe can hold it against the routes' own schemas (scripts/check-compat-editor.ts). */
+  if (init?.method === "PUT" && /\/themes\/probe-install\/(sections|settings)/.test(url)) {
+    ;(window as unknown as { probeSaves: { url: string; body: unknown }[] }).probeSaves = [...((window as unknown as { probeSaves?: { url: string; body: unknown }[] }).probeSaves ?? []), { url, body: JSON.parse(String(init.body)) }]
+  }
+  /* PROBE_SAVE_FAIL, set by a probe at any moment: the next saves answer as the route would when it refuses. */
+  const failWith = (window as unknown as { PROBE_SAVE_FAIL?: number }).PROBE_SAVE_FAIL
+  if (failWith && init?.method === "PUT" && /\/themes\/probe-install\/sections$/.test(url)) {
+    return new Response(JSON.stringify({ error: "Invalid body" }), { status: failWith, headers: { "content-type": "application/json" } })
+  }
   if (/\/themes\/probe-install\/sections/.test(url) && compat) {
     if (init?.method && init.method !== "GET") return json({ ok: true })
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"

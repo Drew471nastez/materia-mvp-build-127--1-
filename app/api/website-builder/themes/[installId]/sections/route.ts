@@ -34,7 +34,9 @@ const SectionSchema = z.object({
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
   /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
-  group: z.enum(["header", "footer"]).optional(),
+  group: z.enum(["header", "footer", "overlay"]).optional(),
+  /* An imported theme's Overlay group section: the theme's group file it is drawn in (overlay-group). */
+  slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional(),
 })
 
 const PutBodySchema = z.object({

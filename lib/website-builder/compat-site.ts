@@ -25,7 +25,8 @@ import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
 import { drawPage, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { SiteData } from "@/lib/storelib-theme/compat/site"
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
-import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/objects"
+import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
+import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 
 type Admin = ReturnType<typeof createAdminClient>
 type Row = { path: string; content: string | null; draft_content?: string | null }
@@ -85,20 +86,6 @@ function holdTheme(installId: string, version: string, rows: Record<string, stri
 }
 
 const rowsHeld = new Map<string, Record<string, string>>()
-
-/** The menus a theme's link_list settings read: the store's own, or a first one from the pages the site has. */
-function menusFor(stored: Record<string, { title?: string; links: MenuLinkLike[] }> | null, pages: string[]): Record<string, { title?: string; links: MenuLinkLike[] }> {
-  if (stored && Object.keys(stored).length) {
-    const out = { ...stored }
-    const first = Object.values(stored)[0]
-    if (!out["main-menu"] && first) out["main-menu"] = first
-    if (!out.footer && first) out.footer = first
-    return out
-  }
-  const links: MenuLinkLike[] = [{ title: "Home", url: "/" }, { title: "Shop", url: "/collections/all" }]
-  if (pages.includes("contact")) links.push({ title: "Contact", url: "/pages/contact" })
-  return { "main-menu": { title: "Main menu", links }, footer: { title: "Footer", links: [{ title: "Search", url: "/search" }] } }
-}
 
 const collectionsOf = (creatorId: string) =>
   unstable_cache(
@@ -163,7 +150,7 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     pages,
     products,
     collections,
-    menus: menusFor(menus as never, Object.keys(pages)),
+    menus: compatMenus(menus as never, Object.keys(pages)),
     shop: { name: creator.displayName, currency: "USD", moneyFormat: "${{amount}}" },
     host,
     designMode: false,
@@ -223,7 +210,7 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     designMode: false,
     products,
     collections,
-    menus: menusFor(menus as never, ["home"]),
+    menus: compatMenus(menus as never, ["home"]),
     shop: { name: row.name ?? "", currency: "USD", moneyFormat: "${{amount}}" },
   }, sections, { scripts: true }).html
 }

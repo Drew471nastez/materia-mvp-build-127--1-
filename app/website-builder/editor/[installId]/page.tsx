@@ -133,7 +133,8 @@ import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-sche
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
 import { CompatCanvas } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
-import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
+import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -2761,11 +2762,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       creator's own header files, which Add section never offers for a page
       (customAddableSections leaves them out), and what else fits the group.
     */
+    /* The Overlay group: what floats over the page, and nothing that is a header or a footer. */
+    if (addGroup === "overlay") return all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
   }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
+  /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
+  const overlayAddable = useMemo(() => {
+    const all = compatInstall ? ownSectionTypes : [...ADDABLE_SECTIONS, ...ownSectionTypes]
+    return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
+  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -2773,7 +2781,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * takes it off every other page too. Without it, a page with no header is
    * a page whose header has not been synced yet, and is left alone.
    */
-  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean }>({})
+  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean; overlay?: boolean }>({})
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
@@ -3420,7 +3428,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const oldIdx = g.template.findIndex(s => s.id === fromId)
       const newIdx = g.template.findIndex(s => s.id === toId)
       if (oldIdx === -1 || newIdx === -1) return prev
-      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer]
+      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer, ...g.overlay]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3455,7 +3463,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const to = from + step
       if (from === -1 || to < 0 || to >= list.length) return prev
       const next = { ...g, [group]: arrayMove(list, from, to) }
-      return [...next.header, ...next.template, ...next.footer]
+      return [...next.header, ...next.template, ...next.footer, ...next.overlay]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -4421,6 +4429,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   useEffect(() => {
     if (loading || sectionsLoading || switchingPage.current) return
+    /* An imported Shopify theme says where each section goes in its own group files: nothing here is a duplicate to hide. */
+    if (compatInstall) return
     const fixed = repairChrome(sections, kindOfType)
     if (!fixed.changed) return
     setSections(fixed.sections)
@@ -4433,7 +4443,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification(`Hid ${names(fixed.hidden).join(" and ")}, a duplicate`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections, kindOfType, loading, sectionsLoading])
+  }, [sections, kindOfType, loading, sectionsLoading, compatInstall])
 
   /*
     A SETTING SET TO WHAT IT ALREADY IS CHANGES NOTHING. Clicking the option
@@ -4871,6 +4881,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const others = sectionsRef.current.filter((s) => s.id !== sectionId && groupOf(s) === kind && isKind(s, kind, kindOfType))
         if (others.length === 0) chromeRemoved.current[kind] = true
       }
+      /* The last thing in the Overlay group gone: the other pages lose it too on the next save. */
+      if (groupOf(gone) === "overlay" && !sectionsRef.current.some((s) => s.id !== sectionId && groupOf(s) === "overlay")) chromeRemoved.current.overlay = true
     }
     setSections(prev => prev.filter(s => s.id !== sectionId))
     if (selectedSectionId === sectionId) {
@@ -5237,7 +5249,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const g = splitGroups(sections)
     const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
     const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
-    if (!headerGroup && !footerGroup) return
+    /* The Overlay group is the site's too: a popup or a bottom bar is on every page, as Shopify's groups are. */
+    const overlayGroup = g.overlay.length > 0 ? g.overlay : chromeRemoved.current.overlay ? [] : null
+    if (!headerGroup && !footerGroup && !overlayGroup) return
 
     // Fetch all pages for this install
     const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
@@ -5248,6 +5262,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         footer: null,
         header_group: headerGroup,
         footer_group: footerGroup,
+        overlay_group: overlayGroup,
         current_page: currentPage,
         mode,
       }),
@@ -6489,6 +6504,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onRemove={removeSection}
                 onMove={moveSectionBy}
                 kindOfType={kindOfType}
+                overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
                   /* `at` counts the page's own sections; the list index is after the Header group. */
                   setAddGroup(group)
@@ -6981,6 +6997,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ id: c.id, title: c.title, handle: c.handle, description: c.description, image: c.image, url: c.url, products_count: c.products_count, products: c.products })),
     [builderCollections],
   )
+  /* The store's menus under the names a Shopify theme reads them by, as the live site gives them (lib/storelib-theme/compat/menus.ts). */
+  const compatCanvasMenus = useMemo(() => compatMenus(canvasMenus as never, rowPageKeys), [canvasMenus, rowPageKeys])
+  /*
+    A LINK PRESSED IN AN IMPORTED THEME'S PAGE opens that page here, as on the
+    live site: always from the header or the footer, which are the site's
+    navigation, and from anywhere while the inspector is off. A link with the
+    inspector on selects its section instead, as on a page of Storelib's own.
+  */
+  const rowPageKeysRef = useRef(rowPageKeys)
+  rowPageKeysRef.current = rowPageKeys
+  const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
+    if (inspectorRef.current && !chrome) return
+    const to = compatPageForHref(href, rowPageKeysRef.current)
+    if (!to) return
+    if (to.key === currentPageRef.current) {
+      if (!to.product) document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: 0 }, "*")
+      return
+    }
+    holdCanvasWhileOpening()
+    pageChangeRef.current(to.key as PageKey)
+  }, [holdCanvasWhileOpening])
   const selectFromCompatCanvas = useCallback(
     (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
     [selectSectionFromCanvas],
@@ -8424,7 +8461,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       {/* ── A save that did not go through: what happened and the one thing to do ── */}
       {saveProblem ? (
-        <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)" }}>
+        <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>
           <SaveProblemBanner
             problem={saveProblem}
             onClose={() => setSaveProblem(null)}
@@ -9184,12 +9221,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
                   collections={compatCollections}
-                  menus={canvasMenus as never}
+                  menus={compatCanvasMenus}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
                   selectedSectionId={selectedSectionId}
                   selectedBlockId={selectedBlockId}
                   inspectorEnabled={canvasInspecting && !fullSettled}
                   onSelect={selectFromCompatCanvas}
+                  onNavigate={navigateCompatCanvas}
                 />
               ) : (
               <EditorCanvasPage
@@ -9248,7 +9286,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const group = groupOf(current)
             const body = splitGroups(sections)[group]
             const idx = body.findIndex((x) => x.id === selectedSectionId)
-            const chrome = group !== "template" && isKind(current, group, kindOfType)
+            const chrome = (group === "header" || group === "footer") && isKind(current, group, kindOfType)
             return (
               <SectionToolbar
                 sectionId={selectedSectionId}
