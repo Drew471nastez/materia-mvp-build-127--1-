@@ -215,7 +215,8 @@ export const TRACKER_HOSTS = [...new Set(TRACKER_ORDER.flatMap((id) => TRACKERS[
  * each order is one purchase in each service: GA4 and Google Ads a
  * `purchase`, Tag Manager a `purchase` in its data layer, Meta a `Purchase`,
  * TikTok a `CompletePayment`, Pinterest a `checkout`. Only the order's
- * number, value and currency go: no name, no email, no address.
+ * number, value and currency go: no name, no email, no address. Once told,
+ * `paid` is taken off the address, so a reload is a later visit.
  */
 export function purchaseTags(stored: unknown, order: { id: string; valueCents: number; currency: string; quantity: number }): { key: string; inline: string }[] {
   const t = readTracking(stored)
@@ -226,11 +227,15 @@ export function purchaseTags(stored: unknown, order: { id: string; valueCents: n
   const qty = Math.max(1, Math.floor(order.quantity) || 1)
   const out: string[] = []
   if (t.ga4 || t.google_ads) out.push(`if(window.gtag)gtag('event','purchase',{transaction_id:${id},value:${value},currency:${currency}});`)
-  if (t.gtm) out.push(`window.dataLayer=window.dataLayer||[];dataLayer.push({event:'purchase',ecommerce:{transaction_id:${id},value:${value},currency:${currency}}});`)
+  if (t.gtm) out.push(`window.dataLayer=window.dataLayer||[];dataLayer.push({event:'purchase',transaction_id:${id},event_id:${id},ecommerce:{transaction_id:${id},value:${value},currency:${currency}}});`)
   if (t.meta_pixel) out.push(`if(window.fbq)fbq('track','Purchase',{value:${value},currency:${currency}},{eventID:${id}});`)
-  if (t.tiktok_pixel) out.push(`if(window.ttq)ttq.track('CompletePayment',{value:${value},currency:${currency},content_type:'product'});`)
+  if (t.tiktok_pixel) out.push(`if(window.ttq)ttq.track('CompletePayment',{value:${value},currency:${currency},content_type:'product'},{event_id:${id}});`)
   if (t.pinterest_tag) out.push(`if(window.pintrk)pintrk('track','checkout',{value:${value},order_quantity:${qty},currency:${currency},order_id:${id}});`)
   if (out.length === 0) return []
-  /* After the base tags (afterInteractive), so each service's queue is there to take it. */
-  return [{ key: "purchase", inline: `(function(){var go=function(){try{${out.join("")}}catch(e){}};if(document.readyState==='complete')setTimeout(go,0);else window.addEventListener('load',function(){setTimeout(go,0)});})();` }]
+  /* After the base tags (afterInteractive), so each service's queue is there to take it. Then ?paid=1
+     comes off the address (history.replaceState, the router's state kept), so a reload or Back to the
+     page does not tell the pixels again; the order's id goes with each as its event id, for the
+     services that drop a repeat (Meta eventID, TikTok event_id, Tag Manager transaction_id). */
+  const unpaid = `try{var u=new URL(location.href);if(u.searchParams.has('paid')){u.searchParams.delete('paid');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}}catch(e){}`
+  return [{ key: "purchase", inline: `(function(){var go=function(){try{${out.join("")}}catch(e){}${unpaid}};if(document.readyState==='complete')setTimeout(go,0);else window.addEventListener('load',function(){setTimeout(go,0)});})();` }]
 }

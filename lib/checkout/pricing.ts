@@ -246,9 +246,11 @@ export type PricedCart =
        * The whole cart, as asked for, when anything in it ships. It belongs
        * to the physical checkout, which takes digital lines beside shipped
        * ones; this one would drop the shipped lines and could refuse a cart
-       * of nothing but them. Empty when nothing ships.
+       * of nothing but them. Empty when nothing ships. A digital line keeps
+       * the pay what you want amount the buyer named, checked below against
+       * its minimum, and the physical checkout checks it again.
        */
-      ships: { productId: string; variantId: string | null; quantity: number }[]
+      ships: { productId: string; variantId: string | null; quantity: number; customPriceCents?: number }[]
       /** Every creator whose published product was asked for. */
       creatorIds: string[]
       subtotalCents: number
@@ -264,6 +266,12 @@ export interface CartRequest {
   couponCode?: unknown
   /** The signed in buyer, whose products are left out. */
   buyerId?: string | null
+  /**
+   * Physical commerce is on, so a cart that ships is handed to the physical
+   * checkout (`ships`). False while it is off: the shipped lines are only
+   * left out, like anything else that cannot be bought here. On by default.
+   */
+  handOff?: boolean
 }
 
 export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
@@ -323,7 +331,13 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const dropped: string[] = []
   let ownedAny = false
   const shipsAny = (products as CartProduct[]).some((p) => p.type === "physical")
-  const ships = shipsAny ? [...wanted].map(([key, want]) => ({ productId: key.split("::")[0], variantId: want.variantId, quantity: want.quantity })) : []
+  const ships = shipsAny && req.handOff !== false
+    ? [...wanted].map(([key, want]) => {
+        const productId = key.split("::")[0]
+        const custom = byId.get(productId)?.type === "physical" ? null : wholeCents(want.customPriceCents, 0, MAX_PWYW_CENTS)
+        return { productId, variantId: want.variantId, quantity: want.quantity, ...(custom !== null ? { customPriceCents: custom } : {}) }
+      })
+    : []
   for (const [key, want] of wanted) {
     const productId = key.split("::")[0]
     const product = byId.get(productId)
@@ -360,8 +374,11 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
-  /* Nothing left to buy is said as that, not as a code that applies to nothing. */
-  if (!typed || lines.length === 0) return priced(null, null)
+  /* Nothing left to buy is said as that, not as a code that applies to nothing.
+     A cart that ships is priced, code and all, by the physical checkout it
+     goes on to: a code for the shipped product is not refused here for
+     fitting nothing in the digital lines left. */
+  if (!typed || lines.length === 0 || ships.length > 0) return priced(null, null)
   const code = normaliseCode(typed)
   if (!code) return { ok: false, status: 400, error: "That code is not valid." }
 

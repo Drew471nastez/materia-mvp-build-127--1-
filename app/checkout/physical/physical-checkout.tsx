@@ -132,7 +132,7 @@ export function PhysicalCheckout({
     } else if (shopId) {
       try {
         const lines = parseCart(window.localStorage.getItem(cartStorageKey(shopId)))
-        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })))
+        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}) })))
         setFromCart(true)
       } catch {
         setItems([])

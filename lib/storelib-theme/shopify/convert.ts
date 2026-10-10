@@ -47,6 +47,7 @@ import { CompatSyntaxError } from "../compat/lexer"
 import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
 import { splitCompatFile, wrapCompatTemplate } from "../compat/theme"
+import { floatsOverPage } from "../section-groups"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -375,9 +376,17 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     remembering the group file it is drawn in.
   */
   const slots: string[] = []
+  const chromeGroups: Record<string, "header" | "footer"> = {}
   for (const g of layout.matchAll(/\{%-?\s*sections\s+['"]([^'"]+)['"]/g)) {
     const slot = g[1]
-    if (slot === "header-group" || slot === "footer-group" || slots.includes(slot) || !src.text.has(`sections/${slot}.json`)) continue
+    if (slot === "header-group" || slot === "footer-group" || slots.includes(slot) || chromeGroups[slot] || !src.text.has(`sections/${slot}.json`)) continue
+    /* A header or footer group under a name of the theme's own: its file's `type` says which. */
+    const said = (parseJson(src.text.get(`sections/${slot}.json`) ?? "") as Tree | undefined)?.type
+    if ((said === "header" || said === "footer") && groups[said].length === 0) {
+      chromeGroups[slot] = said
+      groups[said].push(...groupList(src.text.get(`sections/${slot}.json`), said, sectionTypes, report, `sections/${slot}.json`))
+      continue
+    }
     slots.push(slot)
     groups.overlay.push(...groupList(src.text.get(`sections/${slot}.json`), "overlay", sectionTypes, report, `sections/${slot}.json`).map((x) => ({ ...x, slot })))
   }
@@ -395,8 +404,9 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   for (const m of layout.matchAll(/\{%-?\s*section\s+['"]([^'"]+)['"]/g)) {
     const name = m[1]
     const type = sectionTypes.get(name)
-    const part = contentAt !== -1 && (m.index ?? 0) > contentAt ? "footer" : "header"
-    if (!type || groups.header.some((x) => x.id === name) || groups.footer.some((x) => x.id === name)) continue
+    /* A popup, a phone tab bar or back to top is the Overlay group's, wherever the layout draws it; it still draws there, by its name. */
+    const part = type && (floatsOverPage(name) || floatsOverPage(type)) ? "overlay" : contentAt !== -1 && (m.index ?? 0) > contentAt ? "footer" : "header"
+    if (!type || groups.header.some((x) => x.id === name) || groups.footer.some((x) => x.id === name) || groups.overlay.some((x) => x.id === name)) continue
     const stored = staticValues[name] && typeof staticValues[name] === "object" ? staticValues[name] : {}
     const section: ImportedSection = { id: name, type, name: humanise(name), group: part, settings: idsOf((stored.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
     const blocks = blockList(stored.blocks as Record<string, Tree> | undefined, stored.block_order, 1)
@@ -445,7 +455,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     if (!path.endsWith(".liquid")) continue
     for (const g of text.matchAll(/\{%-?\s*sections\s+['"]([^'"]+)['"]/g)) {
       if (g[1] !== "header-group" && g[1] !== "footer-group" && !src.text.has(`sections/${g[1]}.json`)) report.note(path, `It draws the section group "${g[1]}", which the theme does not have`)
-      else if (g[1] !== "header-group" && g[1] !== "footer-group" && !slots.includes(g[1])) report.note(path, `The section group "${g[1]}" is drawn as the theme set it; the builder edits the groups the layout draws`)
+      else if (g[1] !== "header-group" && g[1] !== "footer-group" && !slots.includes(g[1]) && !chromeGroups[g[1]]) report.note(path, `The section group "${g[1]}" is drawn as the theme set it; the builder edits the groups the layout draws`)
     }
   }
 
@@ -470,7 +480,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     binaries,
     pages,
     settings: {
-      compat: { kind: "shopify", version: 1, theme: name.slice(0, 80), theme_version: version, renamed: Object.fromEntries([...sectionTypes].filter(([a, b]) => a !== b)), ...(slots.length ? { slots } : {}) },
+      compat: { kind: "shopify", version: 1, theme: name.slice(0, 80), theme_version: version, renamed: Object.fromEntries([...sectionTypes].filter(([a, b]) => a !== b)), ...(slots.length ? { slots } : {}), ...(Object.keys(chromeGroups).length ? { chrome_groups: chromeGroups } : {}) },
       shopify: values,
     },
   }
@@ -792,7 +802,9 @@ function placement(raw: Tree, out: Tree, job: FileJob) {
   if (!key) return
   const v = raw[key] as Tree
   if (!v || typeof v !== "object") return
-  const groups = Array.isArray(v.groups) ? (v.groups as unknown[]).filter((g): g is string => g === "*" || g === "header" || g === "footer" || g === "template") : []
+  /* Shopify's floating groups (aside, custom.<name>) are the builder's Overlay group: a phone tab bar or a popup limited to them lands there. */
+  const named = Array.isArray(v.groups) ? (v.groups as unknown[]).filter((g): g is string => typeof g === "string") : []
+  const groups = [...new Set(named.map((g) => (g === "aside" || /^custom\.[a-z0-9_-]+$/i.test(g) ? "overlay" : g)).filter((g) => g === "*" || g === "header" || g === "footer" || g === "template" || g === "overlay"))]
   const templates = Array.isArray(v.templates) ? (v.templates as unknown[]).filter((t): t is string => typeof t === "string" && t !== "*") : []
   if (groups.length) out[key] = { groups }
   else if (Array.isArray(v.groups) && v.groups.length) job.note(`Its ${key} names groups the builder does not have; it can be added to a page`)

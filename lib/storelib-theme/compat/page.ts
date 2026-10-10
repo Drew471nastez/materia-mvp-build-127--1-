@@ -60,7 +60,7 @@ export function pageParts(sections: readonly StoredSection[]): { header: StoredS
 /** The theme an install's files and settings make. */
 export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
   const compat = compatOf(settings)
-  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots })
+  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
 }
 
 export interface DrawOptions {
@@ -100,7 +100,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   } else if (liquidTemplate !== undefined && parts.template.length === 0) {
     /* A template written in Liquid (gift_card.liquid, an older theme's product.liquid) is the page's content itself. */
     try {
-      content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate), ctx)
+      content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate, { lax: true }), ctx)
     } catch (e) {
       errors.template = [(e as Error).message]
     }
@@ -129,7 +129,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
 /** One section, wrapped as on Shopify, for the section rendering API and for the builder's live edits. */
 export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: string): { html: string; errors: string[] } {
   /* An Overlay group section is drawn as a section of the theme's group it came from. */
-  return theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" && section.slot ? section.slot : group)
+  return theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" ? section.slot || "overlay-group" : group)
 }
 
 /**

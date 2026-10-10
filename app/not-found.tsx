@@ -5,6 +5,7 @@ import { NotFoundBody } from "@/components/platform/not-found-body"
 import { SiteNotFound } from "@/components/website-builder/site-not-found"
 import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
 import { NotFoundActions } from "@/components/platform/not-found-actions"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
  * Two answers, one route. See components/platform/not-found-body.tsx: on
@@ -16,6 +17,24 @@ import { NotFoundActions } from "@/components/platform/not-found-actions"
  */
 export default function NotFound() {
   return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound fallback={<PlainSiteNotFound />} />} />
+}
+
+/**
+ * NEVER STORELIB'S HEADER ON SOMEBODY'S SITE, NOT EVEN FOR A FRAME. The
+ * server draws the platform's answer (it cannot know the host without
+ * turning every missing page dynamic), and the browser swaps in the site's
+ * as it hydrates. Until then, on any host that is not Storelib's own, the
+ * platform's answer is drawn but not shown.
+ */
+function HideOnSites() {
+  const main = getMainDomain().toLowerCase()
+  const hosts = JSON.stringify([main, `www.${main}`, "localhost", "127.0.0.1"])
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: `if(${hosts}.indexOf(location.hostname.toLowerCase())<0)document.documentElement.setAttribute("data-site-404","")` }} />
+      <style>{`html[data-site-404] [data-platform-404]{visibility:hidden}`}</style>
+    </>
+  )
 }
 
 /** A page that is not there, on somebody's own website, when their own 404 page cannot be drawn. */
@@ -45,7 +64,8 @@ function PlatformNotFound() {
    * There used to be one button, Explore Storelib, which only fits a shopper.
    */
   return (
-    <div className="flex min-h-svh flex-col bg-white">
+    <div className="flex min-h-svh flex-col bg-white" data-platform-404="">
+      <HideOnSites />
       <Suspense fallback={<div className="h-[65px] md:h-[72px]" aria-hidden />}>
         <PlatformHeaderClient />
       </Suspense>

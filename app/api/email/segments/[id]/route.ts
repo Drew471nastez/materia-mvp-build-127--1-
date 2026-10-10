@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server"
 import { isResponse, noStore, readJson, requireCreator } from "@/lib/email-campaigns/route-auth"
-import { readRules } from "@/lib/email-campaigns/segments"
+import { NO_PRODUCTS_ERROR, namesNoProducts, readRules } from "@/lib/email-campaigns/segments"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,6 +25,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!name) return NextResponse.json({ error: "Give the segment a name." }, { status: 400, headers: noStore })
     patch.name = name
   }
+  if (body.rules !== undefined && namesNoProducts(body.rules)) return NextResponse.json({ error: NO_PRODUCTS_ERROR }, { status: 400, headers: noStore })
   if (body.rules !== undefined) patch.filters = { rules: readRules(body.rules) }
   const { data, error } = await ctx.admin.from("email_segments").update(patch).eq("id", id).eq("creator_id", ctx.creatorId).select("id").maybeSingle()
   if (error) return NextResponse.json({ error: "That did not save. Try again." }, { status: 500, headers: noStore })
