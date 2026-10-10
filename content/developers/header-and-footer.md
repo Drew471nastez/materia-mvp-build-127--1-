@@ -211,6 +211,16 @@ An announcement bar, or anything else that belongs above the header on every pag
 
 `"category": "announcement"` puts a section in the header group even without `enabled_on`. Nothing else goes there: header content in the page's own sections, or page content in the header group, is the wrong group. See [Schema](/developers/schema#where-a-section-may-go).
 
+## Over every page: the overlay group
+
+What floats over the page rather than sitting in it (a mobile bottom bar, a popup, a back to top button, a sticky add to cart, a cookie or age check) sits in the **overlay group**. It is the fourth group in the sidebar, under the footer, shown when the theme has such a section or the page already holds one. Like the header and footer groups, it is the same on every page.
+
+```json
+{ "type": "bottom_bar", "name": "Mobile bottom bar", "enabled_on": { "groups": ["overlay"] } }
+```
+
+A section whose name or type plainly says what it is (popup, modal, back to top, bottom nav, mobile menu bar, sticky cart, cookie, age gate, chat button) may go there without saying so, and still on a page if you add it there. `"*"` in `enabled_on` and anything `disabled_on` mean the header, page and footer, never the overlay: a section goes over the page only when it is meant to. Overlay sections are drawn after the footer, so they sit on top; position them yourself (`position: fixed`) as the design needs.
+
 ## How a file is recognised as a header or footer
 
 Recognition places a header, it does not refuse one. The rule is in `lib/storelib-theme/chrome.ts`. An imported theme that brings a header file keeps it and draws it as the site's header, with the built-in one hidden. A save of any file except the two reserved names goes through.

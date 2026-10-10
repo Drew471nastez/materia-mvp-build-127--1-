@@ -12,6 +12,20 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 10 October 2026
+
+**Added**
+
+- [The overlay group](/developers/header-and-footer#over-every-page-the-overlay-group): a fourth section group, `"overlay"`, for what floats over every page. `enabled_on: { "groups": ["overlay"] }` puts a section there; it is shared by every page like the header and footer, saved in `sections/overlay-group.json` in a theme package.
+- A section can be renamed from the title of its settings. The name is the page's own (`label` on the placed section) and wins over the schema's `name` in the sidebar and the canvas; clearing it goes back to the schema's.
+- Every store starts with two collections, All products (smart, every product) and Home page (picked by hand), so a `collection_picker` always has something to name.
+
+**Changed**
+
+- A schema default written as a `t:` key (an imported Shopify theme's) is drawn as the word in the theme's schema locale, on the live site, in the canvas and in Add a section.
+- Add a section never shows a blank card: a section drawn hidden until a script reveals it is shown, and one that draws nothing until it has content is named.
+- A save the server refuses says what happened and what to do, in one line with one action, instead of the raw error.
+
 ## 7 October 2026
 
 **Changed**

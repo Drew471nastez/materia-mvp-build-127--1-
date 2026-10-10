@@ -28,7 +28,7 @@
 import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
-import { drawPage, themeOfInstall, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
+import { drawPage, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { SectionSchema } from "@/lib/website-builder/types"
 
@@ -130,7 +130,13 @@ export function previewDocument(theme: CompatTheme, page: CompatPage, section: S
     /* No scrollbar, nothing that moves, and the page as tall as the section. */
     extraHead: "<style data-storelib-preview>html,body{margin:0!important;overflow:hidden!important;min-height:0!important;height:auto!important;background:#fff}*,*::before,*::after{animation:none!important;transition:none!important}.scroll-trigger,[class*='animate--'],[data-aos],[data-animate],[data-reveal],.reveal,.fade-in,.js-animate,.animate-on-scroll,.wow{opacity:1!important;transform:none!important;visibility:visible!important;clip-path:none!important}</style>",
   })
-  return html
+  /* No script tag at all: the frame could not run one anyway, and each one it is handed is a console error. */
+  return withoutScripts(html)
+    /* A stylesheet loaded "print, then all on load" (Dawn's way) is simply on: the handler that would switch it cannot run here. */
+    .replace(/(<link\b[^>]*?)\smedia=["']print["']([^>]*?)\sonload=(?:"[^"]*"|'[^']*')/gi, "$1$2")
+    .replace(/(<link\b[^>]*?)\sonload=(?:"[^"]*"|'[^']*')([^>]*?)\smedia=["']print["']/gi, "$1$2")
+    /* And no inline handler anywhere: each is a script the frame refuses, and says so in the console. */
+    .replace(/(<[a-z][^>]*?)\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*')/gi, "$1")
 }
 
 const TALLEST = 1.1
