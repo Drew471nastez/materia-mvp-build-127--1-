@@ -75,6 +75,7 @@ export function useExploreProducts(category: string, search?: string) {
         .from("products")
         .select("*, creator:creators(id, slug, display_name, avatar_url, niche_tags)")
         .eq("status", "published")
+        .neq("type", "physical")
         .order("created_at", { ascending: false })
         .limit(100)
 

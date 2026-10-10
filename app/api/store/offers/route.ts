@@ -9,7 +9,7 @@ export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
- * /app/offers (lib/offers, SQL part 115): the store's upsells and bundles.
+ * /app/offers (lib/offers, SQL part 116): the store's upsells and bundles.
  * Only while physical commerce is on in /admin, since they apply in the
  * cart checkout.
  *

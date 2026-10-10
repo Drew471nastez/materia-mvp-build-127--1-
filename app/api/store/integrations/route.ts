@@ -3,6 +3,8 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadTracking, saveTrackerId } from "@/lib/store/tracking-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { TRACKERS, type TrackerId } from "@/lib/store/tracking"
+import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { cachedCatalogOverrides } from "@/lib/integrations/overrides-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,6 +27,13 @@ export async function PUT(request: Request) {
   if (c instanceof NextResponse) return c
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
+  /* Paused or hidden for every store from /admin: it can still be removed, never added. */
+  const adding = typeof body.value === "string" && body.value.trim() !== ""
+  if (adding) {
+    const slug = INTEGRATIONS.find((i) => i.kind === "tracker" && i.trackerId === body.id)?.id
+    const o = slug ? (await cachedCatalogOverrides().catch(() => [])).find((x) => x.id === slug) : null
+    if (o && o.availability !== "default") return physicalJson({ error: "This integration is paused on Storelib for now. Try again later." }, 409)
+  }
   const out = await saveTrackerId(c.db, c.creatorId, body.id, body.value)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
   const tracker = TRACKERS[body.id as TrackerId]

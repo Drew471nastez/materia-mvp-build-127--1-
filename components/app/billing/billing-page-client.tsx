@@ -336,6 +336,19 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
         <div className="space-y-6">
 
+          {/* ---- FIRST: the plans, the same cards the plans page shows. What you could be on comes before what you are on (the owner's order: plans, then the overview, the card and the history). ---- */}
+          <PricingTiers
+            plans={plans}
+            currentPlan={currentPlan}
+            subscription={subscription}
+            loading={loading}
+            setLoading={setLoading}
+            showNotification={showNotification}
+            router={router}
+            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
+            pendingPlanId={pendingPlanId}
+          />
+
           {/*
             ---- SECTION 1: Subscription Overview ----
             Two cards in Storelib's own surface (the white card, a hairline
@@ -557,18 +570,6 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             )}
           </div>
 
-          {/* ---- SECTION 3: The plans, the same cards the plans page shows ---- */}
-          <PricingTiers
-            plans={plans}
-            currentPlan={currentPlan}
-            subscription={subscription}
-            loading={loading}
-            setLoading={setLoading}
-            showNotification={showNotification}
-            router={router}
-            onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
-            pendingPlanId={pendingPlanId}
-          />
         </div>
       </div>
 

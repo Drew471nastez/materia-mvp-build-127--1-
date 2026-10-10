@@ -17,12 +17,24 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [settings, h, creator] = await Promise.all([
+  const [settings, h, creator, account] = await Promise.all([
     loadStoreSettings(c.db, c.creatorId),
     headers(),
-    db.from("creators").select("support_email, payout_currency").eq("id", c.creatorId).maybeSingle(),
+    db.from("creators").select("support_email, payout_currency, display_name, username").eq("id", c.creatorId).maybeSingle(),
+    db.auth.admin.getUserById(c.userId).catch(() => null),
   ])
-  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: creator?.data?.support_email ?? null, currency: creator?.data?.payout_currency ?? null })
+  /*
+    WHAT TO START FROM WHEN NOTHING IS SAVED YET: the name the store already
+    goes by on Storelib and the email the account signs in with. Only ever a
+    starting value in the form; nothing is written until Save, and a saved
+    value is never replaced by these.
+  */
+  const row = creator?.data as { support_email?: string | null; payout_currency?: string | null; display_name?: string | null; username?: string | null } | null
+  const suggested = {
+    storeName: (row?.display_name || row?.username || "").trim().slice(0, 80) || null,
+    contactEmail: account?.data?.user?.email ?? null,
+  }
+  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: row?.payout_currency ?? null, suggested })
 }
 
 export async function PUT(request: Request) {

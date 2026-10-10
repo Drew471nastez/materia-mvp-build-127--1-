@@ -406,6 +406,7 @@ const SUITES = [
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",
   "tests/integrations-t.test.ts",
+  "tests/round-u.test.ts",
   "tests/physical-setup-t.test.ts",
   "tests/emails-t.test.ts",
   "tests/files-t.test.ts",

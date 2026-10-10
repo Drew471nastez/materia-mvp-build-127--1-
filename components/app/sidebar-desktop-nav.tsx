@@ -69,6 +69,8 @@ import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
 import { WindowFrameIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/window-frame"
 import { WindowFrameIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/window-frame"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
+import { WidgetAddIcon as IntegrationsLinear } from "@solar-icons/react/linear/widget-add"
+import { WidgetAddIcon as IntegrationsBold } from "@solar-icons/react/bold/widget-add"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 /* Community: three people, drawn and filled, for the row that only shows while communities are switched on. */
 import { UsersGroupRoundedIcon as CommunityLinear } from "@solar-icons/react/linear/users-group-rounded"
@@ -407,6 +409,8 @@ export const NAV_ICONS = {
 export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
   community: { line: CommunityLinear, fill: CommunityBold },
+  /* The store's installed integrations (components/app/sidebar.tsx), only once one is installed. */
+  integrations: { line: IntegrationsLinear, fill: IntegrationsBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**

@@ -99,6 +99,13 @@ const DIRECTIVES: [string, string[]][] = [
     "https://connect.facebook.net",
     "https://analytics.tiktok.com",
     "https://s.pinimg.com",
+    "https://www.clarity.ms",
+    "https://*.clarity.ms",
+    "https://*.klaviyo.com",
+    "https://klaviyo.com",
+    "https://omnisnippet1.com",
+    "https://*.omnisnippet1.com",
+    "https://*.omnisend.com",
   ]],
 
   /* Tailwind and every inline style attribute in the product. */
@@ -144,6 +151,14 @@ const DIRECTIVES: [string, string[]][] = [
     "https://www.facebook.com",
     "https://analytics.tiktok.com",
     "https://ct.pinterest.com",
+    "https://www.clarity.ms",
+    "https://*.clarity.ms",
+    "https://c.bing.com",
+    "https://*.klaviyo.com",
+    "https://klaviyo.com",
+    "https://omnisnippet1.com",
+    "https://*.omnisnippet1.com",
+    "https://*.omnisend.com",
   ]],
 
   /* Stripe's and Airwallex's own frames, and the embed providers the sanitiser allows. */

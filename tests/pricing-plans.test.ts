@@ -315,7 +315,8 @@ function main() {
     const overview = billing.indexOf(">Subscription Overview</h2>")
     const history = billing.indexOf(">Billing History</h2>")
     const plansAt = billing.indexOf("<PricingTiers")
-    check("the Billing tab reads Subscription Overview, then Billing History, then Plans", overview > 0 && history > overview && plansAt > history, JSON.stringify({ overview, history, plansAt }))
+    /* Changed on purpose (round U): the owner's order is the plans first, then the overview, then the history. */
+    check("the Billing tab reads Plans, then Subscription Overview, then Billing History", plansAt > 0 && overview > plansAt && history > overview, JSON.stringify({ overview, history, plansAt }))
     check("Plans is a section heading the size of the tab's others, handed to the cards' row",
       /heading=\{<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Plans<\/h2>\}/.test(billing)
         && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\] mb-4">Subscription Overview<\/h2>/.test(billing)

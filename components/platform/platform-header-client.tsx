@@ -36,7 +36,7 @@ import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { useSearchHandoff, useSearchHandoffState, WINDOW_SLACK } from "@/lib/explore/use-search-handoff"
 import { useSearchCategories } from "@/lib/explore/search-categories"
-import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE } from "@/lib/explore/search-field-look"
+import { SEARCH_FIELD_FOCUS, SEARCH_FIELD_SURFACE, HEADER_FIELD_ON_DARK } from "@/lib/explore/search-field-look"
 import { SearchCategoriesButton } from "@/components/explore/search-categories-button"
 import { useBuyerTabsHere } from "@/lib/nav/use-buyer-tabs-where"
 import { PlaceNavigator, forgetPlaces } from "@/components/nav/place-navigator"
@@ -1715,7 +1715,14 @@ export function PlatformHeaderClient({
     strip laid over its first lines on a phone, and the same curved edge.
   */
   const isDevelopersRoute = pathname === "/developers" || pathname.startsWith("/developers/")
-  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute
+  /*
+    HELP, TERMS AND PRIVACY ARE READ, LIKE THE DEVELOPER HUB. They took the
+    marketplace's bar, with its "Search for anything" field, on a page that
+    has its own help search a few pixels under it. They take the reading
+    header now; Help keeps its own search, inside the page.
+  */
+  const isReadRoute = pathname === "/help" || pathname.startsWith("/help/") || pathname === "/terms" || pathname === "/privacy"
+  const isMarketingNavRoute = pathname === "/" || pathname === "/features" || pathname === "/pricing" || isBlogRoute || isFaqRoute || isDevelopersRoute || isReadRoute
 
   const canonicalBaseUrl = useMemo(() => getCanonicalSiteUrl(), [])
 
@@ -2192,7 +2199,7 @@ export function PlatformHeaderClient({
               never stack. The phone's header keeps its search icon.
             */}
             <div className="relative w-full" data-header-search-field="">
-              <Search className="absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10 text-neutral-400" />
+              <Search className={cn("absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 pointer-events-none z-10", buyerHeaderLight ? "text-neutral-400" : "text-white/55")} />
               <Input
                 ref={searchInputRef}
                 value={query}
@@ -2208,6 +2215,7 @@ export function PlatformHeaderClient({
                   SEARCH_FIELD_SURFACE,
                   SEARCH_FIELD_FOCUS,
                   "focus-visible:border-neutral-300 focus-visible:ring-0 focus-visible:ring-offset-0",
+                  !buyerHeaderLight && HEADER_FIELD_ON_DARK,
                   deskCategories ? (query ? "pr-[92px]" : "pr-[52px]") : query ? "pr-12" : "pr-4",
                 )}
               />
@@ -2683,7 +2691,7 @@ export function PlatformHeaderClient({
       */}
       {/* Not where the tab bar is (its Search is the way in there), and
           never on the library, the account or inside a community. */}
-      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage) && (
+      {searchInHeader && !tabsHere && !isOwnPages && !isCommunityRoute && (pathname !== "/" && !pathname.startsWith("/features") && !pathname.startsWith("/blog") && !pathname.startsWith("/pricing") && !isFaqRoute && !isDevelopersRoute && !isReadRoute && !isSellerOrProductPage) && (
         <div
           /*
             NO ENTRANCE ON THIS BAR. It faded in on mount, which replayed on

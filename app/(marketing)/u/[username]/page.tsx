@@ -198,6 +198,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
           .select("id", { count: "exact", head: true })
           .eq("creator_id", creator.id)
           .eq("status", "published")
+          .neq("type", "physical")
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
@@ -497,6 +498,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     `)
       .eq("creator_id", creator.id)
       .eq("status", "published")
+      /* The marketplace profile sells what Storelib sells; shipped products live on the creator's own website. */
+      .neq("type", "physical")
       .order("created_at", { ascending: false }),
     getPublishedConfig(creator.id, "shop"),
     /**

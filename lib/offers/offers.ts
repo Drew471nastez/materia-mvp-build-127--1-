@@ -2,7 +2,7 @@
  * ===========================================================================
  *  UPSELLS AND BUNDLES: WHAT AN OFFER TAKES OFF A CART
  * ===========================================================================
- * A store's offers (store_offers, SQL part 115) are of two kinds:
+ * A store's offers (store_offers, SQL part 116) are of two kinds:
  *
  *   bundle     two to five products bought together. Each complete set in
  *              the cart (one of each) gets the offer's discount: a percent

@@ -338,6 +338,24 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
   /* Upsells and bundles beside Coupons: they apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
   if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: "Upsells and bundles" })
 
+  /*
+    INTEGRATIONS, ONCE ONE IS INSTALLED. A row that opens Settings ›
+    Integrations, its children the store's installed integrations, each to
+    its own page there. Nothing installed, no row: an empty group is clutter.
+    Read once per visit to the shell and again when the tab comes back into
+    view, so installing one in Settings shows up without a reload.
+  */
+  const installedIntegrations = useInstalledIntegrations()
+  if (installedIntegrations.length > 0) {
+    const at = mainNavItems.findIndex((item) => item.href === "/app/emails")
+    mainNavItems.splice(at < 0 ? mainNavItems.length : at + 1, 0, {
+      href: "/app/settings?tab=integrations",
+      label: "Integrations",
+      icon: NAV_ICONS_EXTRA.integrations,
+      children: installedIntegrations.map((i) => ({ href: `/app/settings?tab=integrations&integration=${encodeURIComponent(i.id)}`, label: i.needsAttention ? `${i.name} (needs attention)` : i.name })),
+    })
+  }
+
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No
   // auto-expand based on pathname (we tried this and it made the default
@@ -1021,4 +1039,32 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       <AppLanguageModal open={languageOpen} onOpenChange={setLanguageOpen} />
     </>
   )
+}
+
+/** The store's installed integrations for the sidebar (app/api/store/integrations/installed). Empty until read, and on any failure. */
+function useInstalledIntegrations(): { id: string; name: string; needsAttention: boolean }[] {
+  const [list, setList] = useState<{ id: string; name: string; needsAttention: boolean }[]>([])
+  useEffect(() => {
+    let live = true
+    const read = () => {
+      fetch("/api/store/integrations/installed", { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { installed?: { id: string; name: string; needsAttention: boolean }[] } | null) => {
+          if (live && d && Array.isArray(d.installed)) setList(d.installed)
+        })
+        .catch(() => {})
+    }
+    read()
+    const onShow = () => {
+      if (document.visibilityState === "visible") read()
+    }
+    window.addEventListener("storelib:integrations-changed", read)
+    document.addEventListener("visibilitychange", onShow)
+    return () => {
+      live = false
+      window.removeEventListener("storelib:integrations-changed", read)
+      document.removeEventListener("visibilitychange", onShow)
+    }
+  }, [])
+  return list
 }

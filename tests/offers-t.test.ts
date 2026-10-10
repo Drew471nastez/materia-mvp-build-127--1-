@@ -1,5 +1,5 @@
 /**
- * Round T: upsells and bundles (lib/offers, SQL part 115). The arithmetic the
+ * Round T: upsells and bundles (lib/offers, SQL part 116). The arithmetic the
  * checkout charges by, and where it's wired in.
  *
  *   npx tsx tests/offers-t.test.ts
@@ -82,10 +82,10 @@ check("every product an offer names must be the store's", /One of those products
 check("the product page and website product section show bundles", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
 check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
 check("Products has Upsells and bundles beside Coupons while physical commerce is on", /if \(physicalCommerce\) mainNavItems\.find\([\s\S]{0,200}\{ href: "\/app\/offers", label: "Upsells and bundles" \}/.test(read("components/app/sidebar.tsx")))
-const sql = read("supabase/sql/run-now/115_store_offers.sql")
-check("SQL: the migration is the same part, owner reads, only the server writes", sql === read("supabase/migrations/20261207_store_offers.sql") && /store_offers_owner_read/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(sql))
+const sql = read("supabase/sql/run-now/116_store_offers.sql")
+check("SQL: the migration is the same part, owner reads, only the server writes", sql === read("supabase/migrations/20261211_store_offers.sql") && /store_offers_owner_read/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(sql))
 check("SQL: the shapes are held by the database too", /cardinality\(product_ids\) BETWEEN 2 AND 5/.test(sql) && /discount_value BETWEEN 1 AND 90/.test(sql))
-check("listed in the README and the check after", /115_store_offers\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p115_store_offers/.test(read("supabase/sql/run-now/99_check_after.sql")))
+check("listed in the README and the check after", /116_store_offers\.sql/.test(read("supabase/sql/run-now/README.md")) && /as p116_store_offers/.test(read("supabase/sql/run-now/99_check_after.sql")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

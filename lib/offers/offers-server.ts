@@ -1,7 +1,7 @@
 import "server-only"
 
 /**
- * A store's upsells and bundles (store_offers, SQL part 115; the arithmetic
+ * A store's upsells and bundles (store_offers, SQL part 116; the arithmetic
  * is lib/offers/offers.ts): reading them for the checkout and the product
  * page, and the store's own edits from /app/offers. Every product an offer
  * names must be the store's own; an offer whose products are no longer on
@@ -71,7 +71,7 @@ export async function deleteOffer(db: Db, creatorId: string, id: string): Promis
 }
 
 function failed(error: { code?: string } | null | undefined): Failure {
-  if (error && MISSING.has(error.code ?? "")) return { ok: false, error: "Upsells and bundles need SQL part 115 (supabase/sql/run-now/115_store_offers.sql).", status: 503 }
+  if (error && MISSING.has(error.code ?? "")) return { ok: false, error: "Upsells and bundles need SQL part 116 (supabase/sql/run-now/116_store_offers.sql).", status: 503 }
   console.error(`[offers] write failed: ${loggable(error)}`)
   return { ok: false, error: "That could not be saved. Try again in a moment.", status: 500 }
 }

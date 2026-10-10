@@ -80,7 +80,7 @@ export function OffersClient() {
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
         <p className="mb-3 text-[13.5px] leading-5 text-[#6b7280]">Sell more to people already buying. A bundle shows on each of its products&apos; pages; a checkout offer shows in the checkout. Discounts come off at checkout, before any code.</p>
         {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {!ready ? <Notice tone="amber" className="mb-3">Upsells and bundles need SQL part 115 (supabase/sql/run-now/115_store_offers.sql). Run it in Supabase and come back.</Notice> : null}
+        {!ready ? <Notice tone="amber" className="mb-3">Upsells and bundles need SQL part 116 (supabase/sql/run-now/116_store_offers.sql). Run it in Supabase and come back.</Notice> : null}
         {offers === null ? (
           <div className="min-h-[240px]" aria-busy="true" />
         ) : offers.length === 0 ? (

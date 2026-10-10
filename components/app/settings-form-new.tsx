@@ -786,24 +786,19 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      * state rather than blanking the page.
      */
     /**
-     * THE TAB BAR STAYS WHERE YOUR FINGER LEFT IT.
+     * EVERY SECTION OPENS AT ITS TOP.
      *
-     * Part way down General, a press on Security used to swap in a panel a
-     * few hundred pixels shorter; the scroller could no longer be scrolled
-     * that far, the browser pulled it back, and the whole page, tab bar
-     * included, jumped 160 to 270px under the finger (measured by
-     * scripts/check-settings-tabs). So before the swap the form is told to
-     * be at least as tall as it needs to be for the scroll to stay where it
-     * is. The new tab appears directly under the bar, and anything short of
-     * the screen's foot is left as page.
+     * The form used to be pinned to the height the old scroll needed, so the
+     * page did not jump under the finger; the pin was never taken off, so a
+     * short section opened halfway down a long one's scroll, with nothing in
+     * view. Now the scroll goes to the top before the new section is drawn,
+     * in one frame and without a smooth scroll, and any pin left by an older
+     * build is cleared.
      */
     /* The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
     const scroller = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
-    const form = formRef.current
-    if (scroller && form) {
-      const formTop = form.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
-      form.style.minHeight = `${Math.max(0, Math.ceil(scroller.scrollTop + scroller.clientHeight - formTop))}px`
-    }
+    if (formRef.current) formRef.current.style.minHeight = ""
+    if (scroller && scroller.scrollTop > 0) scroller.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
     /* The new panel fades in, for a press only (not on load, not on a re-render). */
     setPanelEntrance(true)
     setActiveTab(newTab)
@@ -1253,7 +1248,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         page rises inside the shell's scroller, whose track is always there.
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
-        <div className="max-w-4xl lg:max-w-[1120px] mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
+        <div className="max-w-4xl lg:max-w-[1200px] mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
         {/*
           THE HEADER AND THE ADDRESS PILL. On a phone the pill took the right
           half of the row the title and the subtitle shared, and "Manage your
@@ -1285,9 +1280,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           FROM 1024px, THE SECTIONS ARE A COLUMN OF GROUPS beside the one open (the owner's reference: Account, Store,
           Commerce, Integrations). Below it, the same sections are the pill row above, in the same order.
         */}
-        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:items-start lg:gap-10">
+        <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-12">
         {/* A plain list, not a card in the sheet: the groups' names and their sections, the open one filled. */}
-        <nav aria-label="Settings" data-settings-groups="" className="sticky top-4 hidden lg:block">
+        <nav aria-label="Settings" data-settings-groups="" className="sticky top-6 hidden lg:block">
           <div className="py-1">
             {TAB_GROUPS.map((group) => {
               const list = shownTabs.filter((tab) => tab.group === group.id)
