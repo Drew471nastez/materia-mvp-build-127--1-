@@ -13,11 +13,18 @@
  *
  *   SWAP       how long from the press to the first frame the next screen is
  *              on the glass, and to the frame nothing is moving any more
- *   NO FLASH   in every frame a whole screen is on the glass: the old one,
- *              the new one, or one dissolving into the other. "cover" is how
- *              much of a screen is there over the page's own grey (1 = all);
- *              a frame under 0.9 is a flash
- *   CROSSFADE  the old screen only fades, over several frames, never back up
+ *   NO FLASH   in every frame a screen is on the glass: never the page's
+ *              own grey alone. "cover" is how much of a screen is there
+ *              (1 = all); a frame under 0.5 is a flash
+ *   ONE SCREEN round 17 (the owner: "switching in between pill shapes is
+ *              not smooth"): never two screens' words at once. No copy of
+ *              the old screen is ever laid over the new one, and the new
+ *              one lands in place with a short soft fade (from 0.6 or more,
+ *              120ms, lib/ui/pill-switch.ts), where round 16 dissolved a
+ *              copy of the old screen over it for 180ms
+ *   THE PILL   its own fill fades in where it is (opacity only, the space
+ *              pills' 140ms), nothing on it scales, and a finger's tap at
+ *              the phone size switches on the first try
  *   STILL      the title and the pill row never move and never fade; the
  *              scroll stays where it was; no layout shift
  *   PREFETCH   every other tab is fetched whole while the page is idle
@@ -225,6 +232,10 @@ async function sampleMove(page, selector, target, ms) {
           }
           const under = Math.max(liveOp, incOp)
           const pill = document.querySelector('[data-library-tab][data-active="true"]')
+          const targetPill = document.querySelector(`[data-library-tab-href="${target}"]`)
+          const targetFill = targetPill?.querySelector("[data-library-tab-fill]")
+          const scales = [...document.querySelectorAll("[data-library-tab], [data-library-tab-fill]")].map((n) => getComputedStyle(n).scale).filter((v) => v !== "none" && v !== "1")
+          const liveAnims = live ? live.getAnimations().map((a) => ({ ms: Number(a.effect?.getTiming().duration), from: Number(a.effect?.getKeyframes?.()[0]?.opacity ?? 1) })) : []
           out.push({
             t: Math.round(t),
             rowTop: tabs ? Math.round(tabs.getBoundingClientRect().top * 10) / 10 : null,
@@ -236,6 +247,10 @@ async function sampleMove(page, selector, target, ms) {
             cover: Math.round((copy + (1 - copy) * under) * 1000) / 1000,
             path: screen ? screen.getAttribute("data-probe-path") : skeleton ? "skeleton" : null,
             active: pill ? pill.getAttribute("data-library-tab-href") : null,
+            fill: targetFill ? Math.round(parseFloat(getComputedStyle(targetFill).opacity) * 1000) / 1000 : null,
+            scaled: scales.length,
+            layers: layers.length,
+            liveAnims,
             scrollY: Math.round(window.scrollY),
           })
           if (t < ms) requestAnimationFrame(step)
@@ -262,7 +277,9 @@ async function sampleMove(page, selector, target, ms) {
     target,
     ms,
   )
-  await page.click(selector)
+  /* A finger at the phone size (one tap, decided on the lift), the mouse on a computer. */
+  if (page.viewport()?.hasTouch) await page.tap(selector)
+  else await page.click(selector)
   return page.evaluate(() => window.__sample)
 }
 
@@ -351,7 +368,7 @@ for (const [label, vp] of [["390", PHONE], ["1440", DESK]].filter(([l]) => SIZES
       const swapAt = f.find((x) => x.path === to && x.live > 0.01)
       const settledAt = f.find((x, i) => i > 0 && x.path === to && x.copy === 0 && x.live >= 0.999 && f.slice(i).every((y) => y.copy === 0 && y.live >= 0.999))
       const minCover = Math.min(...f.slice(1).map((x) => x.cover))
-      const flashes = f.slice(1).filter((x) => x.cover < 0.9).length
+      const flashes = f.slice(1).filter((x) => x.cover < 0.5).length
       const rowTops = [...new Set(f.map((x) => x.rowTop))]
       const titleTops = [...new Set(f.map((x) => x.titleTop))]
       const rowOps = Math.min(...f.map((x) => x.rowOp))
@@ -368,11 +385,18 @@ for (const [label, vp] of [["390", PHONE], ["1440", DESK]].filter(([l]) => SIZES
       if (process.env.DEBUG_FRAMES || cls >= 0.001) console.log("      shifts", JSON.stringify(shifts))
       if (process.env.DEBUG_FRAMES) console.log(f.map((x) => JSON.stringify({ t: x.t, path: x.path, live: x.live, copy: x.copy, cover: x.cover, active: x.active })).join("\n"))
       expect(pillFrame >= 0 && pillFrame <= 2, "the pressed pill lights in the press's own frames", pillFrame)
-      expect(flashes === 0, "no flash: a whole screen is on the glass in every frame", { minCover, at: f.filter((x) => x.cover < 0.9).map((x) => `${x.t}:${x.cover}`).slice(0, 6) })
+      expect(flashes === 0, "no flash: a screen is on the glass in every frame", { minCover, at: f.filter((x) => x.cover < 0.5).map((x) => `${x.t}:${x.cover}`).slice(0, 6) })
       expect(rowTops.length === 1 && titleTops.length === 1 && rowOps >= 0.999, "the title and the pill row never move and never fade", { rowTops, titleTops, rowOps })
-      expect(layerIds.length > 0 && layerRises === 0, "each copy over the new screen only fades out, never back up", { layers: layerIds.length, rises: layerRises })
-      /* The copy's fade runs on the compositor, so it keeps going through a long main thread frame that rAF cannot sample: its own clock is read too. */
-      expect(anims.length > 0 && anims.every((a) => a.ms >= 120 && a.props === "opacity") && (between >= 1 || anims.length > 0), "a cross fade, not a cut: each copy's own opacity animation over at least 120ms", { anims, sampledBetween: between })
+      /* Round 17: never two screens at once. No copy of any screen over the live one, in any frame, and React's live slot holds one screen. */
+      const copies = Math.max(...f.map((x) => x.layers ?? 0))
+      expect(copies === 0 && anims.length === 0, "never two screens at once: no copy of the old screen is laid over the new one", { copies, anims })
+      /* The landing: short and soft, from most of the way there. Read from the animation itself, since a compositor fade runs through frames rAF cannot sample. */
+      const lands = f.flatMap((x) => x.liveAnims || [])
+      const minLive = Math.min(...f.slice(1).filter((x) => x.path === to || x.path === "skeleton").map((x) => x.live))
+      expect(lands.length > 0 && lands.every((a) => a.ms <= 160 && a.from >= 0.59) && minLive >= 0.59, "the new screen lands in place with a short soft fade (from 0.6 or more, 160ms at most)", { lands: [...new Set(lands.map((a) => `${a.from}/${a.ms}ms`))], minLive })
+      const fills = f.map((x) => x.fill).filter((v) => v !== null)
+      expect(fills.length > 1 && rises(fills) >= 1 && fills.every((v, i) => i === 0 || v >= fills[i - 1] - 0.002) && fills.at(-1) >= 0.999, "the pressed pill's own fill fades in where it is, only up", { first: fills.slice(0, 6) })
+      expect(f.every((x) => !x.scaled), "nothing on a pill scales", f.filter((x) => x.scaled).length)
       expect(cls < 0.001, "no layout shift on the screen (the footer under a late screen of another height aside)", cls)
       expect(new Set(f.map((x) => x.scrollY)).size === 1, "the scroll stays where it was", [...new Set(f.map((x) => x.scrollY))])
       expect(!!settledAt, "it settles: the new screen whole and nothing left over it", f.at(-1))
