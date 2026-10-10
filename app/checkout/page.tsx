@@ -22,7 +22,7 @@ import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { providerFor } from "@/lib/payments/service"
-import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
+import { detectedCountry, loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
 import { loadTaxForCheckout } from "@/lib/tax/server"
 import { checkoutTaxFor } from "@/lib/tax/rules"
 import { createAdminClient as checkoutAdmin } from "@/lib/supabase/admin"
@@ -223,13 +223,15 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders] = await Promise.all([
+  const [paymentProvider, checkoutConfig, taxSetup, requestHeaders, storeName] = await Promise.all([
     creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
     /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
     loadCheckoutConfig(checkoutAdmin(), creator?.id),
     /* Settings › Taxes, when the store taxes digital products (lib/tax). */
     loadTaxForCheckout(checkoutAdmin(), creator?.id),
     headers(),
+    /* Settings › Store details' store name, which receipts already sign with ("On receipts, order emails and checkout"). */
+    creator?.id ? loadStoreName(checkoutAdmin(), creator.id) : Promise.resolve(null),
   ])
   const checkoutTax = checkoutTaxFor(taxSetup, product.id, detectedCountry(requestHeaders))
 
@@ -250,7 +252,7 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
       }}
       creator={{
         id: creator?.id || "",
-        name: personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug }),
+        name: storeName || personName({ name: creatorProfile?.display_name, username: creatorProfile?.username, slug: creator?.slug }),
         avatar_url: creatorProfile?.avatar_url || null,
         username: creatorUsername,
       }}

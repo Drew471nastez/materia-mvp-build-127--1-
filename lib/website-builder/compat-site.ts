@@ -34,6 +34,13 @@ import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationMarkup } from "./live-navigation"
+import { storeIdentity } from "@/lib/store/identity-server"
+
+/** Theme settings › Branding's store name, when the website has one of its own. */
+const brandOf = (settings: unknown): string => {
+  const v = (settings as { brand_name?: unknown } | null)?.brand_name
+  return typeof v === "string" ? v.trim() : ""
+}
 
 type Admin = ReturnType<typeof createAdminClient>
 type Row = { path: string; content: string | null; draft_content?: string | null }
@@ -117,6 +124,28 @@ const collectionsOf = (creatorId: string) =>
     { tags: [creatorShopTag(creatorId)], revalidate: 60 },
   )()
 
+/*
+  WHO THE STORE IS, FOR shop.name AND shop.email: Settings › Store details'
+  store name and contact email (lib/store/identity-server.ts, the same read
+  receipts and checkout sign with). The live site said the person's display
+  name whatever the store was called, and never had an email for a theme's
+  contact line. Cached with the shop and cleared when Store details is saved.
+*/
+const storeOf = (creatorId: string) =>
+  unstable_cache(
+    async (): Promise<{ name: string | null; email: string | null }> => {
+      const admin = createAdminClient()
+      const [{ data }, identity] = await Promise.all([
+        Promise.resolve(admin.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle()).then((r) => r, () => ({ data: null })),
+        storeIdentity(admin, creatorId).catch(() => null),
+      ])
+      const name = typeof (data as { store_name?: unknown } | null)?.store_name === "string" ? String((data as { store_name: string }).store_name).trim() : ""
+      return { name: name || null, email: identity?.email ?? null }
+    },
+    ["compat-store", creatorId],
+    { tags: [creatorShopTag(creatorId)], revalidate: 60 },
+  )().catch(() => ({ name: null, email: null }))
+
 export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" }
 
 /**
@@ -172,7 +201,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
   let rows = draft ? null : rowsHeld.get(rowsKey) ?? null
-  const [pageRows, products, catalog, collections, menus] = await Promise.all([
+  const [pageRows, products, catalog, collections, menus, , store] = await Promise.all([
     siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
@@ -180,6 +209,7 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     collectionsOf(creator.creatorId),
     storeMenusOrNull(admin, creator.creatorId),
     rows ? Promise.resolve() : installFiles(admin, row.id, draft).then((r) => { rows = r }),
+    storeOf(creator.creatorId),
   ])
   if (!rows) return { kind: "missing" }
   if (!draft) {
@@ -207,7 +237,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     pickable: catalog,
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
-    shop: { name: creator.displayName, currency: "USD", moneyFormat: "${{amount}}", policies },
+    /* The website's own brand name, else Store details' store name, else the person's (lib/website-builder/storefront-data dynamicContext, the same order). */
+    shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency: "USD", moneyFormat: "${{amount}}", policies },
     host,
     designMode: false,
     product: async (handle) => {

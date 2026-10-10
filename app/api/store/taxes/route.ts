@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadTaxSetup, saveTaxSwitches } from "@/lib/tax/server"
-import { detectedCountry } from "@/lib/store/settings-server"
+import { detectedCountry, loadStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -13,16 +13,19 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [setup, h, creator, products] = await Promise.all([
+  const [setup, h, creator, products, store] = await Promise.all([
     loadTaxSetup(c.db, c.creatorId),
     headers(),
     db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
     /* For a product's own rate: the store's products by name. */
     c.db.from("products").select("id, title").eq("creator_id", c.creatorId).neq("status", "archived").order("title").limit(500),
+    /* Settings › Store details' country: "New locations and tax start here". */
+    loadStoreSettings(c.db, c.creatorId).catch(() => null),
   ])
   return physicalJson({
     ...setup,
-    detectedCountry: detectedCountry(h),
+    /* The country the first region is offered in: where the store says it is based, else where the request came from. */
+    detectedCountry: store?.defaultCountry ?? detectedCountry(h),
     currency: (creator?.data?.payout_currency as string | null) ?? "USD",
     products: ((products?.data ?? []) as { id: string; title: string | null }[]).map((p) => ({ id: p.id, title: p.title || "Untitled product" })),
   })

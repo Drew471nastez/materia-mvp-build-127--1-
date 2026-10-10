@@ -355,7 +355,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
       sections,
       pages,
       sources,
-      profile: { name: profile.name ?? displayName, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "" },
+      profile: { name: profile.name ?? displayName, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "", ...(profile.storeName ? { storeName: profile.storeName } : {}) },
     },
   }
 }
@@ -411,11 +411,12 @@ export async function publishedSiteByName(name: string, pageKey = "home"): Promi
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
   const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
-  /* `shop.name` falls back to the creator's public name when the store has
-     none set: lib/storelib-theme/globals.ts. Nothing per visitor here. */
+  /* `shop.name` falls back to Store details' store name, then the creator's
+     public name, when the theme has none set: lib/storelib-theme/globals.ts.
+     Nothing per visitor here. */
   /* The page's title rides on `page` too, for the Breadcrumbs section's trail. */
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, data, {
-    shop: { name: site.displayName },
+    shop: { name: site.profile?.storeName || site.displayName },
   })
   return { kind: "site", site: { ...site, sections, prerendered } }
 }
@@ -560,7 +561,7 @@ export async function publishedNotFoundPage(name: string): Promise<NotFoundPage 
   const template = templateForPage(NOT_FOUND_PAGE_KEY)
   const title = pageTitleFromKey(NOT_FOUND_PAGE_KEY)
   const { sections, data } = await dressPage(site, linked, products, productCount, template, title)
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.displayName } })
+  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, undefined, data, { shop: { name: site.profile?.storeName || site.displayName } })
   const brand = typeof site.themeSettings.brand_name === "string" ? site.themeSettings.brand_name.trim() : ""
   return {
     template,
@@ -794,7 +795,7 @@ export async function ownerOf(
       displayName: name,
       themeSettings,
       sources,
-      profile: { name, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "" },
+      profile: { name, headline: profile.headline ?? "", bio: profile.bio ?? "", avatar: profile.avatar ?? "", ...(profile.storeName ? { storeName: profile.storeName } : {}) },
     },
     products,
     productCount,
