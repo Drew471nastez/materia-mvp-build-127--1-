@@ -254,7 +254,8 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     pickable: site.pickable,
     collections: site.collections,
     menus: site.menus,
-    shop: site.shop,
+    /* The creator's id: the key the website's own wishlist is kept under, which a theme's hearts are copied into (shims.ts). */
+    shop: { ...site.shop, id: site.creatorId },
     cart: cartLines(site, req.cart),
     ...extra,
   }
@@ -332,7 +333,9 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   }
 
   if (path === "/search") {
-    const terms = (req.query.get("q") ?? "").trim().slice(0, 200)
+    /* A list asked for by id (a wishlist page's `id:… OR id:…`) is longer than words typed into the box. */
+    const asked = (req.query.get("q") ?? "").trim()
+    const terms = asked.slice(0, /^\(?(id|handle):/i.test(asked) ? 4000 : 200)
     const found = terms ? searchProducts(site.products, terms) : []
     const { filters, products } = facet(found, req.query, path)
     const results = sortProducts(products, req.query.get("sort_by"))
@@ -442,7 +445,33 @@ export function variantForOptionValues(card: CardLike, raw: string | null): stri
   return match ? String(match.id) : null
 }
 
+/**
+ * Shopify's search syntax for fields, `id:<id> OR id:<id>`, `handle:<h>`,
+ * `title:<t>`: how a theme's wishlist page (Posturex's, and most written by
+ * hand) asks for the products it keeps by id, through `/search?q=` with its
+ * section. Null when the terms are plain words.
+ */
+export function fieldMatches(products: CardLike[], terms: string): CardLike[] | null {
+  const clauses = terms.split(/\s+OR\s+/i).map((c) => c.trim().replace(/^\(|\)$/g, "")).filter(Boolean)
+  const parsed = clauses.map((c) => c.match(/^(id|handle|title|product_type|vendor|tag):"?([^"]+?)"?\*?$/i))
+  if (!parsed.length || parsed.some((m) => !m)) return null
+  const handleOf = (p: CardLike) => String(p.settings.slug ?? "") || handleize(String(p.settings.title ?? ""))
+  return products.filter((p) => parsed.some((m) => {
+    const [, field, raw] = m as RegExpMatchArray
+    const want = raw.trim().toLowerCase()
+    switch (field.toLowerCase()) {
+      case "id": return p.id.toLowerCase() === want.replace(/^gid:\/\/shopify\/product\//, "")
+      case "handle": return handleOf(p) === want
+      case "title": return String(p.settings.title ?? "").toLowerCase().includes(want)
+      case "product_type": return String(p.settings.category ?? "").toLowerCase() === want
+      default: return false
+    }
+  }))
+}
+
 function searchProducts(products: CardLike[], terms: string): CardLike[] {
+  const fields = fieldMatches(products, terms)
+  if (fields) return fields
   const words = terms.toLowerCase().split(/\s+/).filter(Boolean)
   if (!words.length) return []
   return products.filter((p) => {

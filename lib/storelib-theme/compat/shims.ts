@@ -210,6 +210,8 @@ export interface BootstrapInput {
   country?: string
   themeName?: string
   designMode: boolean
+  /** The creator's id, which keys the website's own wishlist (lib/site-accounts/wishlist-list.ts). */
+  storeId?: string
 }
 
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
@@ -223,6 +225,55 @@ const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
   sends that item alone to checkout (site.ts). Not in the builder's canvas.
 */
 const BUY_NOW = `if(!S.designMode)document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-storelib-buy-now]");if(!b)return;var src=b.form||b.closest("form")||document.querySelector('form[action*="/cart/add"]');if(!src)return;e.preventDefault();e.stopImmediatePropagation();var f=document.createElement("form");f.method="post";f.action="/cart/add";f.style.display="none";new FormData(src).forEach(function(v,k){if(typeof v!=="string"||k==="checkout")return;var i=document.createElement("input");i.type="hidden";i.name=k;i.value=v;f.appendChild(i)});var c=document.createElement("input");c.type="hidden";c.name="checkout";c.value="1";f.appendChild(c);document.body.appendChild(f);f.submit()},true);`
+
+/*
+  A CHECKOUT LEFT DISABLED AFTER ITS BOX IS TICKED. A theme can draw its
+  "I agree to the terms" box with Check out disabled and leave the script
+  that enables it out of the page (Posturex: the drawer's box is drawn by one
+  setting, the script that listens to it by another, and a section drawn
+  again after an add brings its script as markup, which never runs). Once
+  every such box near the button is ticked, the theme's own script has had
+  its turn and Check out is still disabled, it is enabled here. Nothing is
+  ever disabled here: a theme that keeps its own rule keeps it.
+*/
+const TERMS = `if(!S.designMode)document.addEventListener("change",function(e){var box=e.target;if(!box||box.type!=="checkbox"||!box.closest)return;var terms=box.required||/terms|agree|condition|policy/i.test((box.name||"")+" "+(box.id||"")+" "+(box.className||""));if(!terms)return;setTimeout(function(){var CO='button[name="checkout"],input[name="checkout"],a[href*="/checkout"],[data-requires-terms]';var at=box.parentElement,n=0;while(at&&at!==document.body&&!at.querySelector(CO)&&n<12){at=at.parentElement;n++}if(!at||at===document.body||!at.querySelector(CO))return;var boxes=at.querySelectorAll('input[type="checkbox"]');for(var i=0;i<boxes.length;i++){var b=boxes[i];if((b.required||/terms|agree|condition|policy/i.test((b.name||"")+" "+(b.id||"")+" "+(b.className||"")))&&!b.checked)return}at.querySelectorAll(CO).forEach(function(c){if(c.disabled)c.disabled=false;if(c.getAttribute("aria-disabled")==="true")c.removeAttribute("aria-disabled");if(c.getAttribute("tabindex")==="-1"&&c.tagName==="A")c.removeAttribute("tabindex")})},0)},true);`
+
+/*
+  A THEME'S HEARTS ARE THE WEBSITE'S WISHLIST. A Shopify theme keeps the
+  products a visitor hearts in this browser's local storage, under a key of
+  its own with "wish" in it (Posturex: materia__wishlist-items, a list of
+  product ids), and its wishlist link opens Storelib's own Wishlist page
+  (site.ts accountShell), which reads the website's list: local storage
+  under the creator's id and the sl_wishlist cookie for a guest, the
+  account's for a signed in visitor (lib/site-accounts/wishlist-list.ts,
+  components/website-builder/site-wishlist.tsx). So each change the theme
+  writes is copied into the website's list, and a change made on the
+  Wishlist page is copied back into the theme's key on the next page, so
+  its hearts and its count agree. A theme that keeps handles has them read
+  as ids from /products/<handle>.js.
+*/
+const WISHLIST = `if(!S.designMode&&SID)(function(){var ls;try{ls=window.localStorage;ls.getItem("x")}catch(e){return}
+var U=/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i,P=Storage.prototype,rg=P.getItem,rs=P.setItem,rr=P.removeItem;
+var G="storelib:wishlist:"+SID,A="storelib:wishlist-account:"+SID,SN="storelib:wishlist-theme:"+SID,HK="storelib:wishlist-handles";
+var get=function(k){try{return rg.call(ls,k)}catch(e){return null}},put=function(k,v){try{if(v==null)rr.call(ls,k);else rs.call(ls,k,v)}catch(e){}};
+var json=function(v){try{return JSON.parse(v)}catch(e){return null}};
+var ids=function(v){var a=Array.isArray(v)?v:[],o=[];a.forEach(function(x){x=String(x).toLowerCase();if(U.test(x)&&o.indexOf(x)<0)o.push(x)});return o};
+var same=function(a,b){return a.length===b.length&&a.every(function(x){return b.indexOf(x)>=0})};
+var handles=json(get(HK))||{};
+var entries=function(raw){var v=json(raw);if(v&&typeof v==="object"&&!Array.isArray(v))v=v.items||v.products||v.list||v.ids||null;if(!Array.isArray(v))return null;return v.map(function(x){if(x&&typeof x==="object")x=x.id||x.product_id||x.productId||x.handle||"";x=String(x);var m=x.match(U);return m?{id:m[0].toLowerCase()}:/^[a-z0-9][a-z0-9-]{0,200}$/i.test(x)?{handle:x.toLowerCase()}:null}).filter(Boolean)};
+var plain=function(raw){var v=json(raw);return Array.isArray(v)&&v.every(function(x){return typeof x==="string"&&U.test(x)})};
+var signed=function(){return /(?:^|;\\s*)sl_signed_in=1/.test(document.cookie)};
+var mine=function(){return ids(json(get(signed()?A:G)))};
+var cookie=function(list){try{document.cookie="sl_wishlist="+list.join(".")+"; Path=/; "+(list.length?"Max-Age=31536000":"Max-Age=0")+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"")}catch(e){}};
+var save=function(list,before){if(signed()){put(A,JSON.stringify(list));list.forEach(function(id){if(before.indexOf(id)<0)call("add",id)});before.forEach(function(id){if(list.indexOf(id)<0)call("remove",id)})}else{put(G,list.length?JSON.stringify(list):null);cookie(list)}put(SN,JSON.stringify(list))};
+var call=function(action,id){try{fetch("/api/site-account/wishlist",{method:"POST",headers:{"Content-Type":"application/json"},credentials:"same-origin",body:JSON.stringify({action:action,productId:id})}).catch(function(){})}catch(e){}};
+var resolve=function(list,done){var want=list.filter(function(x){return x.handle&&!handles[x.handle]});if(!want.length)return done(list.map(function(x){return x.id||handles[x.handle]}).filter(Boolean));Promise.all(want.map(function(x){return fetch("/products/"+encodeURIComponent(x.handle)+".js",{headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(p){if(p&&U.test(String(p.id)))handles[x.handle]=String(p.id).toLowerCase()}).catch(function(){})})).then(function(){put(HK,JSON.stringify(handles));done(list.map(function(x){return x.id||handles[x.handle]}).filter(Boolean))})};
+var themeKey=function(k){return typeof k==="string"&&/wish/i.test(k)&&k.indexOf("storelib:")!==0};
+var changed=function(k,raw){var list=raw==null?[]:entries(raw);if(!list)return;resolve(list,function(now){now=ids(now);var snap=json(get(SN));var before=mine();var base=Array.isArray(snap)?ids(snap):before;var next=before.filter(function(id){return !(base.indexOf(id)>=0&&now.indexOf(id)<0)});now.forEach(function(id){if(next.indexOf(id)<0)next.unshift(id)});if(!same(next,before)||!Array.isArray(snap))save(next.slice(0,60),before);else put(SN,JSON.stringify(next))})};
+P.setItem=function(k,v){var r=rs.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,String(v));return r};
+P.removeItem=function(k){var r=rr.apply(this,arguments);if(this===ls&&themeKey(k))changed(k,null);return r};
+try{for(var i=0;i<ls.length;i++){var k=ls.key(i);if(!themeKey(k))continue;var raw=get(k),snap=json(get(SN)),w=mine(),t=ids((entries(raw)||[]).map(function(x){return x.id}));
+if(Array.isArray(snap)&&same(t,ids(snap))&&!same(w,ids(snap))){if(plain(raw)){put(k,JSON.stringify(w));put(SN,JSON.stringify(w));if(!signed())cookie(w)}}else if(!Array.isArray(snap)||!same(t,ids(snap)))changed(k,raw)}}catch(e){}})();`
 
 /* The next page fetched while the visitor rests on its link, as on a Storelib theme's site (lib/website-builder/prefetch-rules.ts). */
 const PREFETCH = `if(!S.designMode&&HTMLScriptElement.supports&&HTMLScriptElement.supports("speculationrules")){var sr=document.createElement("script");sr.type="speculationrules";sr.textContent=${JSON.stringify(JSON.stringify(SITE_PREFETCH_RULES))};document.head.appendChild(sr)}`
@@ -238,7 +289,7 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     designMode: i.designMode,
     storelib: true,
   }
-  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};${BUY_NOW}${PREFETCH}})();</script>`
+  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var SID=${js(i.storeId ?? "")};${BUY_NOW}${TERMS}${WISHLIST}${PREFETCH}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */

@@ -155,7 +155,7 @@ export interface CompatPage {
   selectedVariantId?: string | null
   collection?: CollectionLike | null
   cart?: CartLineLike[]
-  shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[] }
+  shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[]; id?: string }
   customer?: O | null
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
@@ -442,7 +442,7 @@ export class CompatTheme {
       page_description: page.description ?? page.shop.description ?? "",
       canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
-      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName }),
+      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id }),
       collections,
       all_products,
       linklists,
