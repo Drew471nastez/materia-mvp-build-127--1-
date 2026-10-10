@@ -36,7 +36,7 @@ async function CommunityShellAsync({ community, viewer, active, children }: { co
   const [data, topBar, wall] = await Promise.all([shellData(community.id, viewer, community), topBarData(community, viewer), wallData(admin(), community, viewer)])
   return (
     <>
-      <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active}>
+      <ShellFrame community={data.community} viewer={viewerView(viewer)} topBar={topBar} unreadMessages={data.unreadMessages} wall={wall} active={active} chatSpaces={data.spaces.filter((s) => s.kind === "chat").map((s) => s.slug)}>
         {children}
       </ShellFrame>
       <MediaLinks communityId={community.id} />

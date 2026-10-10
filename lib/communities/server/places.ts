@@ -168,7 +168,8 @@ export async function loadPlace(db: Db, community: CommunityRow, viewer: Viewer,
     case "profile": {
       const ref = await profileRef(db, community, viewer, place.ref)
       if (!ref) return missing
-      return ok({ kind: "profile", ref, data: await loadProfileData(db, community, viewer, ref) })
+      /* The place as the member's address keeps it: an old link's user id becomes the handle. */
+      return { ok: true, place: { kind: "profile", ref }, data: { kind: "profile", ref, data: await loadProfileData(db, community, viewer, ref) } }
     }
   }
 }
