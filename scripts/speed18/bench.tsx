@@ -1,0 +1,208 @@
+/**
+ * The scenarios scripts/measure-speed18.mjs times: each one is what a route
+ * does for one visitor, called the way Next calls it (metadata and page in
+ * the same request, so React's cache() is shared between them as it is in
+ * production). Every scenario runs three visits on one warm server:
+ *
+ *   first          nothing cached yet (a cold server, or the first visitor)
+ *   repeat         a second visitor a few seconds later
+ *   after 2 min    a visitor after every short TTL has run out
+ */
+import "./setup"
+import { visit, type VisitResult } from "./context"
+import { setRtt, useFixture, missingRelations } from "./fake-postgrest"
+import { clock, resetCache, pending } from "./shims/next-cache"
+import { buildFixture, SITE, EXPLORE, ONEPAGE } from "./fixture"
+
+type Scenario = {
+  name: string
+  held: string
+  run: () => Promise<unknown>
+  /** Loads the modules without warming what is measured (the proxy keeps its answers per server). */
+  warm?: () => Promise<unknown>
+  cookies?: Record<string, string>
+  headers?: Record<string, string>
+}
+
+/* Every clock in the process moves with the bench's, so a TTL kept with Date.now() runs out too. */
+Date.now = clock.now
+
+async function proxyVisit(url: string) {
+  const { proxy } = await import("@/proxy")
+  const { NextRequest } = await import("next/server")
+  const res = (await proxy(new NextRequest(url, { headers: { host: new URL(url).host, "user-agent": "Mozilla/5.0 (iPhone)", accept: "text/html" } }))) as Response
+  const to = res.headers.get("x-middleware-rewrite") ?? res.headers.get("location") ?? `status ${res.status}`
+  return to
+}
+
+const scenarios: Scenario[] = [
+  {
+    name: "proxy: maya.storelib.com/",
+    held: "proxy runs on every visit",
+    warm: () => proxyVisit("https://leo.storelib.com/"),
+    run: () => proxyVisit("https://maya.storelib.com/"),
+  },
+  {
+    name: "proxy: www.mayastudio.com/",
+    held: "proxy runs on every visit",
+    warm: () => proxyVisit("https://www.leostudio.com/"),
+    run: () => proxyVisit("https://www.mayastudio.com/products/maya-product-3"),
+  },
+  {
+    name: "site-home",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(site)/w/[username]/render-site")
+      await m.siteMetadata(SITE.username, undefined, "home")
+      return m.renderSite(SITE.username, undefined, "home")
+    },
+  },
+  {
+    name: "site-about",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(site)/w/[username]/render-site")
+      await m.siteMetadata(SITE.username, undefined, "about")
+      return m.renderSite(SITE.username, undefined, "about")
+    },
+  },
+  {
+    name: "site-product",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(site)/w/[username]/products/[slug]/page")
+      const params = Promise.resolve({ username: SITE.username, slug: SITE.productSlug })
+      await m.generateMetadata({ params })
+      return m.default({ params })
+    },
+  },
+  {
+    name: "site-products",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(site)/w/[username]/products/page")
+      const params = Promise.resolve({ username: SITE.username })
+      const searchParams = Promise.resolve({})
+      if ("generateMetadata" in m && typeof m.generateMetadata === "function") await (m.generateMetadata as (p: unknown) => Promise<unknown>)({ params, searchParams })
+      return (m.default as (p: unknown) => Promise<unknown>)({ params, searchParams })
+    },
+  },
+  {
+    name: "site-collection",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(site)/w/[username]/collections/[handle]/page")
+      const params = Promise.resolve({ username: SITE.username, handle: SITE.collectionHandle })
+      const searchParams = Promise.resolve({})
+      if ("generateMetadata" in m && typeof m.generateMetadata === "function") await (m.generateMetadata as (p: unknown) => Promise<unknown>)({ params, searchParams })
+      return (m.default as (p: unknown) => Promise<unknown>)({ params, searchParams })
+    },
+  },
+  {
+    name: "explore",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(marketing)/explore/page")
+      return (m.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) })
+    },
+  },
+  {
+    name: "onepage",
+    held: "route",
+    headers: { host: "storelib.me", "x-forwarded-for": "203.0.113.9", "user-agent": "Mozilla/5.0 (iPhone)" },
+    run: async () => {
+      const m = await import("@/app/(marketing)/l/[slug]/page")
+      const params = Promise.resolve({ slug: ONEPAGE.slug })
+      await m.generateMetadata({ params })
+      return m.default({ params, searchParams: Promise.resolve({}) })
+    },
+  },
+]
+
+/** Next's route config, read from the module: what decides whether a page is kept. */
+async function heldBy(name: string): Promise<string> {
+  const mods: Record<string, () => Promise<Record<string, unknown>>> = {
+    "site-home": () => import("@/app/(site)/w/[username]/page"),
+    "site-about": () => import("@/app/(site)/w/[username]/[page]/page"),
+    "site-product": () => import("@/app/(site)/w/[username]/products/[slug]/page"),
+    "site-products": () => import("@/app/(site)/w/[username]/products/page"),
+    "site-collection": () => import("@/app/(site)/w/[username]/collections/[handle]/page"),
+    explore: () => import("@/app/(marketing)/explore/page"),
+    onepage: () => import("@/app/(marketing)/l/[slug]/page"),
+  }
+  const m = await mods[name]?.()
+  if (!m) return scenarios.find((s) => s.name === name)?.held ?? "?"
+  if (m.dynamic === "force-dynamic") return "no (per visit)"
+  if (typeof m.revalidate === "number") return `ISR ${m.revalidate}s`
+  return "default"
+}
+
+function summary(label: string, r: VisitResult<unknown>, ms0: number) {
+  const err = r.error as { kind?: string; message?: string } | undefined
+  return {
+    label,
+    trips: r.foreground,
+    behind: r.background,
+    ms: r.ms,
+    ms0,
+    error: err ? (err.kind ? `${err.kind}` : String(err.message ?? err).slice(0, 120)) : null,
+    tables: r.trips.map((t) => `${t.background ? "~" : ""}${t.table}`),
+    answer: typeof r.value === "string" ? r.value : null,
+  }
+}
+
+async function measure(s: Scenario) {
+  const visits = []
+  const rtt = Number(process.env.RTT ?? 20)
+  for (const [label, advance] of [["first", 0], ["repeat", 5_000], ["after 2 min", 120_000]] as const) {
+    clock.advance(advance)
+    useFixture(buildFixture())
+    setRtt(rtt)
+    const r = await visit(s.run, { cookies: s.cookies, headers: s.headers })
+    await Promise.allSettled(pending.splice(0))
+    /* The same visit with no network, for the server's own time. */
+    visits.push({ r, label })
+  }
+  /* ms@0: a separate warm run per visit shape, with the round trip at zero. */
+  const out = []
+  resetCache()
+  for (const [i, [label, advance]] of ([["first", 0], ["repeat", 5_000], ["after 2 min", 120_000]] as const).entries()) {
+    clock.advance(advance)
+    useFixture(buildFixture())
+    setRtt(0)
+    const r0 = await visit(s.run, { cookies: s.cookies, headers: s.headers })
+    await Promise.allSettled(pending.splice(0))
+    out.push(summary(label, visits[i].r, r0.ms))
+  }
+  setRtt(rtt)
+  return out
+}
+
+async function main() {
+  const only = (process.env.ONLY ?? "").split(",").filter(Boolean)
+  const rows = []
+  for (const s of scenarios) {
+    if (only.length && !only.includes(s.name)) continue
+    resetCache()
+    /* Warm the module graph so the first visit is not timing imports. */
+    useFixture(buildFixture())
+    setRtt(0)
+    await visit(s.warm ?? s.run, { cookies: s.cookies, headers: s.headers })
+    await Promise.allSettled(pending.splice(0))
+    resetCache()
+    const visits = await measure(s)
+    rows.push({ name: s.name, held: await heldBy(s.name), visits })
+  }
+  const missing = missingRelations()
+  if (missing.length) console.error(`fixture has no relation for: ${missing.join(", ")}`)
+  console.log(JSON.stringify({ rows, missing }))
+}
+
+void EXPLORE
+main().then(
+  () => process.exit(0),
+  (e) => {
+    console.error(e)
+    process.exit(1)
+  },
+)
