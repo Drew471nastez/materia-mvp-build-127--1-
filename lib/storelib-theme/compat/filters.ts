@@ -566,7 +566,14 @@ const F: Record<string, FilterFn> = {
   /* A card's mark as a picture (paymentMark below), for themes that use an <img> rather than inline SVG. */
   payment_type_img_url: (v) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(paymentMark(str(v), ""))}`,
   payment_type_svg_tag: (v, _args, named) => paymentMark(str(v), str((named as Record<string, unknown> | undefined)?.class) || "icon icon--full-color"),
-  payment_button: () => "",
+  /*
+    Shopify's "Buy it now", unbranded, as a store without express wallets
+    shows it. It buys this item alone, straight to checkout, and leaves the
+    cart as it was (the page's handler: shims.ts BUY_NOW; the site's:
+    site.ts, a cart/add with `checkout`).
+  */
+  payment_button: () =>
+    `<div class="shopify-payment-button" data-shopify="payment-button"><button type="submit" name="checkout" value="1" formnovalidate class="shopify-payment-button__button shopify-payment-button__button--unbranded" data-storelib-buy-now>Buy it now</button></div>`,
   login_button: () => "",
   avatar: () => "",
   format_address: (v) => { const o = (v ?? {}) as Record<string, unknown>; return ["name", "company", "address1", "address2", "city", "province", "zip", "country"].map((k) => str(o[k])).filter(Boolean).map(escapeHtml).join("<br>") },

@@ -15,6 +15,7 @@
  *   and the header's count says so
  *   choosing another option changes the price on the page
  *   the cart page lists the line, and its quantity can be changed
+ *   Buy it now sends that item alone to checkout and leaves the cart as it was
  *   the search box finds a product (/search/suggest, section rendering)
  *   nothing is requested from Shopify's servers
  *
@@ -32,6 +33,8 @@ import { themeOfInstall } from "../lib/storelib-theme/compat/page"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
+/** What the page last sent to the basket checkout. */
+let lastCheckout: { items?: unknown[] } | null = null
 mkdirSync(OUT, { recursive: true })
 let failed = 0
 const check = (label: string, ok: boolean, detail = "") => {
@@ -102,6 +105,9 @@ async function serve(zipPath: string) {
       return
     }
     if (url.pathname.startsWith("/api/checkout/cart")) {
+      const sent: Buffer[] = []
+      for await (const c of req) sent.push(c as Buffer)
+      try { lastCheckout = JSON.parse(Buffer.concat(sent).toString("utf8")) } catch { lastCheckout = null }
       res.writeHead(200, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ url: "http://127.0.0.1/__checkout_opened" }))
       return
@@ -262,6 +268,23 @@ async function run(zipPath: string) {
       await new Promise((r) => setTimeout(r, 2000))
       const after = await page.evaluate(async () => (await fetch("/cart.js")).json())
       check("+ makes the quantity 2", plus && after.item_count === 2, `clicked ${plus}, item_count ${after.item_count}`)
+
+      /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
+      await visit("/products/linen-shirt-3")
+      lastCheckout = null
+      const buyNow = await page.evaluate(() => {
+        const b = document.querySelector<HTMLButtonElement>("[data-storelib-buy-now]")
+        if (!b) return false
+        b.click()
+        return true
+      })
+      /* The handoff page posts the lines to the basket checkout and follows the address it answers. */
+      for (let t = 0; t < 40 && !lastCheckout; t++) await new Promise((r) => setTimeout(r, 200))
+      await visit("/cart")
+      const kept = await page.evaluate(async () => (await fetch("/cart.js")).json())
+      const sentItems = (lastCheckout as { items?: { quantity?: number }[] } | null)?.items ?? []
+      check("Buy it now goes straight to checkout with that item alone", buyNow && sentItems.length === 1 && sentItems[0]?.quantity === 1, `button ${buyNow}, sent ${JSON.stringify(sentItems).slice(0, 120)}`)
+      check("  and the cart is left as it was", kept.item_count === 2, `item_count ${kept.item_count}`)
 
       /* The search box. */
       await visit("/")

@@ -556,6 +556,8 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
     const items = itemsOf(req.body)
     if (!items.length) return error("Choose an option to add.")
     const added: CartEntry[] = []
+    /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
+    const asked: CartEntry[] = []
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
@@ -564,6 +566,7 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
+      asked.push({ k, p: hit.card.id, v, q: qty, ...(item.properties ? { props: item.properties } : {}) })
       if (existing) existing.q = Math.min(MAX_QTY, existing.q + qty)
       else {
         if (cart.length >= MAX_LINES) return error("The cart is full.")
@@ -571,6 +574,8 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
       }
       added.push(cart.find((e) => e.k === k)!)
     }
+    /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked), cart: req.cart, note: req.note ?? "" }
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
