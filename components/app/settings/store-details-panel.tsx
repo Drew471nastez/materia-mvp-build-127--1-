@@ -6,6 +6,9 @@
  * ===========================================================================
  * Who the store is to its buyers, and where it is based:
  *
+ *   logo           the picture at the top of receipts, order pages and
+ *                  customer emails (store_settings.logo_url, part 118);
+ *                  empty, the website's logo, then the person's photo
  *   name           what receipts, order emails and the checkout's header
  *                  say the order is from (store_settings.store_name; empty,
  *                  the person's own name, as before)
@@ -29,6 +32,7 @@ import { callingCode } from "@/lib/account/phone"
 import { PhoneField } from "@/components/app/settings/phone-field"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_PRIMARY, BTN_SECONDARY, Card, Field, Notice, SelectInput, TextInput, api } from "@/components/physical/ui"
+import { FilesLibraryChooser } from "@/components/files/files-library"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 
 interface Settings {
@@ -38,6 +42,7 @@ interface Settings {
   defaultCountry: string | null
   checkout: CheckoutConfig
   defaultSalesChannelId: string | null
+  logoUrl?: string | null
   ready: boolean
 }
 interface Loaded {
@@ -46,6 +51,8 @@ interface Loaded {
   supportEmail: string | null
   /** What the form starts from while nothing is saved: the store's Storelib name and the account's email (app/api/store/settings). */
   suggested?: { storeName: string | null; contactEmail: string | null }
+  /** What receipts show while no store logo is set (lib/store/identity-server.ts). */
+  logoDefault?: { url: string; from: "website" | "profile" | "store" | null } | null
 }
 interface Location {
   id: string
@@ -131,6 +138,7 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
   return (
     <div className="space-y-4 sm:space-y-6" data-store-details="">
       {!data.settings.ready ? <Notice tone="amber">Store details need their database update (SQL part 109). Until it runs, what you see here is not saved.</Notice> : null}
+      <Logo data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
       <Identity data={data} onSaved={(s, email) => {
         setData((d) => (d ? { ...d, settings: s, supportEmail: email } : d))
         onSupportEmail?.(email ?? "")
@@ -138,6 +146,53 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
       <BasedIn data={data} onSaved={(s) => setData((d) => (d ? { ...d, settings: s } : d))} />
       {physical ? <OrdersFrom locations={locations} value={defaultLocation} onSaved={setDefaultLocation} /> : null}
     </div>
+  )
+}
+
+/*
+  THE STORE'S LOGO, ON EVERYTHING A BUYER GETS. Receipts, the order page,
+  order and shipping emails and a buyer's case all carry it. Until one is
+  chosen here they use the website's logo, then the profile photo, and the
+  card says which, so nobody wonders where that picture came from.
+*/
+function Logo({ data, onSaved }: { data: Loaded; onSaved: (s: Settings) => void }) {
+  const saved = data.settings.logoUrl ?? null
+  const [picking, setPicking] = React.useState(false)
+  const { state, error, save } = useSave()
+  const shown = saved ?? data.logoDefault?.url ?? null
+  const from = saved ? "Your store logo." : data.logoDefault?.from === "website" ? "From your website's logo. Choose another for receipts and emails if you like." : data.logoDefault?.from === "profile" ? "Your profile photo, until you choose a logo." : "No logo yet: receipts and emails show your store's name."
+  const set = async (url: string | null) => {
+    const s = await save({ logoUrl: url })
+    if (s) onSaved(s)
+  }
+  return (
+    <Card title="Logo" description="On receipts, order pages and every email your buyers get.">
+      <div className="flex flex-wrap items-center gap-4" data-store-logo="">
+        <div className="grid h-16 w-28 shrink-0 place-items-center overflow-hidden rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]">
+          {shown ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={shown} alt="" className="max-h-12 max-w-[96px] object-contain" />
+          ) : (
+            <span className="px-2 text-center text-[12px] font-semibold text-[#9ca3af]">{data.settings.storeName || data.suggested?.storeName || "Your store"}</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13.5px] leading-[19px] text-[#4b5563]">{from}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button type="button" className={BTN_SECONDARY} onClick={() => setPicking(true)} disabled={state === "saving"}>
+              {saved ? "Change" : "Choose a logo"}
+            </button>
+            {saved ? (
+              <button type="button" className="inline-flex h-9 items-center rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => void set(null)} disabled={state === "saving"}>
+                Use the default
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+      {error ? <Notice className="mt-3">{error}</Notice> : null}
+      <FilesLibraryChooser open={picking} onClose={() => setPicking(false)} selectedUrl={saved} onPick={(url) => void set(url)} />
+    </Card>
   )
 }
 

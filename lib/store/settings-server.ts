@@ -24,6 +24,8 @@ export interface StoreSettings {
   defaultCountry: string | null
   checkout: CheckoutConfig
   defaultSalesChannelId: string | null
+  /** The picture on receipts and customer emails (SQL part 118); empty, the website's logo or the person's photo (lib/store/identity-server.ts). */
+  logoUrl: string | null
   /** False until SQL part 109 has run. */
   ready: boolean
 }
@@ -35,8 +37,12 @@ export function isMissingTable(error: { code?: string } | null | undefined): boo
   return !!error?.code && MISSING.has(error.code)
 }
 
+const BASE_COLUMNS = "store_name, phone, phone_country, default_country, checkout, default_sales_channel_id"
+
 export async function loadStoreSettings(db: Db, creatorId: string): Promise<StoreSettings> {
-  const { data, error } = await db.from("store_settings").select("store_name, phone, phone_country, default_country, checkout, default_sales_channel_id").eq("creator_id", creatorId).maybeSingle()
+  /* With the logo (part 118) when the column is there; without it on a database that hasn't run that part, so nothing else stops working. */
+  let { data, error } = await db.from("store_settings").select(`${BASE_COLUMNS}, logo_url`).eq("creator_id", creatorId).maybeSingle()
+  if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await db.from("store_settings").select(BASE_COLUMNS).eq("creator_id", creatorId).maybeSingle())
   const ready = !error || !isMissingTable(error)
   return {
     storeName: data?.store_name ?? null,
@@ -45,6 +51,7 @@ export async function loadStoreSettings(db: Db, creatorId: string): Promise<Stor
     defaultCountry: data?.default_country ?? null,
     checkout: checkoutConfig(data?.checkout),
     defaultSalesChannelId: data?.default_sales_channel_id ?? null,
+    logoUrl: typeof data?.logo_url === "string" && data.logo_url ? data.logo_url : null,
     ready: ready && !error,
   }
 }
@@ -112,6 +119,13 @@ export async function saveStoreSettings(db: Db, creatorId: string, body: Record<
     row.default_sales_channel_id = id
   }
 
+  if ("logoUrl" in body) {
+    const raw = typeof body.logoUrl === "string" ? body.logoUrl.trim() : ""
+    /* A picture of the store's own (its files, an upload) or none, which means the default. */
+    if (raw && (raw.length > 600 || !/^(https:\/\/|\/media\/)/.test(raw))) return { ok: false, error: "Choose the logo from your files.", status: 400 }
+    row.logo_url = raw || null
+  }
+
   /* The contact email lives on the creator row, where receipts already read it (lib/email.tsx resolveCreatorIdentity). */
   if ("supportEmail" in body) {
     const raw = typeof body.supportEmail === "string" ? body.supportEmail.trim().toLowerCase() : ""
@@ -121,6 +135,7 @@ export async function saveStoreSettings(db: Db, creatorId: string, body: Record<
   }
 
   const { error } = await db.from("store_settings").upsert(row, { onConflict: "creator_id" })
+  if (error && "logo_url" in row && (error.code === "42703" || error.code === "PGRST204")) return { ok: false, error: "The store logo needs its database update. Run SQL part 118 in Supabase, then try again.", status: 503 }
   if (error) return { ok: false, error: isMissingTable(error) ? NEEDS_PART : "That could not be saved. Try again in a moment.", status: isMissingTable(error) ? 503 : 400 }
   return { ok: true, settings: await loadStoreSettings(db, creatorId) }
 }

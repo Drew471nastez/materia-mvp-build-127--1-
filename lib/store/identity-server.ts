@@ -52,7 +52,7 @@ function absolute(v: string): string | null {
   return path.startsWith("http") ? path : `https://${getMainDomain()}${path.startsWith("/") ? "" : "/"}${path}`
 }
 
-export async function storeIdentity(db: Db, creatorId: string): Promise<StoreIdentity> {
+export async function storeIdentity(db: Db, creatorId: string, opts: { skipStoreLogo?: boolean } = {}): Promise<StoreIdentity> {
   const [settingsRes, creatorRes, installRes] = await Promise.all([
     db.from("store_settings").select("store_name, phone, logo_url, contact_email").eq("creator_id", creatorId).maybeSingle().then(
       (r: { data: unknown; error: unknown }) => (r.error ? db.from("store_settings").select("store_name, phone").eq("creator_id", creatorId).maybeSingle() : r),
@@ -72,7 +72,7 @@ export async function storeIdentity(db: Db, creatorId: string): Promise<StoreIde
   let logoUrl: string | null = null
   let logoFrom: StoreIdentity["logoFrom"] = null
   const candidates: [string, StoreIdentity["logoFrom"]][] = [
-    [str(s.logo_url), "store"],
+    [opts.skipStoreLogo ? "" : str(s.logo_url), "store"],
     [str(theme.logo_url), "website"],
     [str(c.avatar_url), "profile"],
   ]
