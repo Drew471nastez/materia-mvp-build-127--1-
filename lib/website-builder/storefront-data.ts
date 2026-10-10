@@ -253,6 +253,8 @@ export function productFacts(row: ProductRowLike | null | undefined): NonNullabl
 
 export interface CreatorFacts {
   name?: string
+  /** Settings › Store details' store name, the name receipts and checkout already sign with; empty when none is saved. */
+  storeName?: string
   headline?: string
   bio?: string
   avatar?: string
@@ -278,7 +280,8 @@ export function dynamicContext(input: {
   const social = (id: string) => str(t[`social_${id}`]) || undefined
   return {
     shop: {
-      name: brand || input.creator?.name || "",
+      /* The website's own brand name, else the store's name from Store details, else the person's. */
+      name: brand || input.creator?.storeName || input.creator?.name || "",
       description: str(t.seo_description),
       url: input.siteUrl ?? "",
       product_count: typeof input.productCount === "number" ? input.productCount : undefined,

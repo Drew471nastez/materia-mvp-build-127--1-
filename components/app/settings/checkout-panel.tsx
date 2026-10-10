@@ -98,6 +98,7 @@ export function CheckoutPanel() {
     setSaved("saving")
     if (timer.current) window.clearTimeout(timer.current)
     timer.current = window.setTimeout(async () => {
+      timer.current = null
       const body = pending.current
       pending.current = {}
       const r = await api<{ settings: { checkout: CheckoutConfig } }>("/api/store/settings", { method: "PUT", body: { checkout: body } })
@@ -111,8 +112,18 @@ export function CheckoutPanel() {
       setSaved("saved")
     }, 450)
   }
+  /*
+    A change still waiting when the section closes (another section pressed, the sheet closed, within the moment
+    changes are gathered for) is sent now, not dropped: it used to be thrown away with the timer, so a toggle flipped
+    on the way out read as saved and never reached checkout.
+  */
   React.useEffect(() => () => {
-    if (timer.current) window.clearTimeout(timer.current)
+    if (!timer.current) return
+    window.clearTimeout(timer.current)
+    timer.current = null
+    const body = pending.current
+    pending.current = {}
+    if (Object.keys(body).length) void api("/api/store/settings", { method: "PUT", body: { checkout: body } })
   }, [])
 
   if (!config) {
