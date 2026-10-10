@@ -175,6 +175,16 @@ for (const tab of ["security", "domains", "notifications"]) {
 }
 say(far > 1000, `the longest section scrolls far enough to measure (${far}px)`)
 
+/* SHEET_SHOT=/some/dir: the sheet at rest on Domains, scrolled, for a look. */
+if (process.env.SHEET_SHOT) {
+  await page.evaluate(() => document.querySelector('[data-settings-side-tab="domains"]').click())
+  await wait(900)
+  await page.screenshot({ path: `${process.env.SHEET_SHOT}/sheet-domains.png` })
+  await page.evaluate(() => { const s = document.querySelector("[data-settings-sheet-scroll]"); s.scrollTop = 400 })
+  await wait(300)
+  await page.screenshot({ path: `${process.env.SHEET_SHOT}/sheet-domains-scrolled.png` })
+}
+
 /* ── THE COLUMN ── */
 console.log("\nthe column")
 const depth = await page.evaluate(() => getComputedStyle(document.querySelector("[data-settings-side-on]")).boxShadow)
