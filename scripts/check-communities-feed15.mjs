@@ -703,6 +703,68 @@ try {
     await p.close()
   }
 
+  /* ── SEARCH: the results drawn, to be looked at, at both sizes ── */
+  if (want("SEARCH")) {
+    console.log(`\nSEARCH: "glaze" in the community's search [${LABEL}]`)
+    {
+      const p = await browser.newPage()
+      await p.setViewport(DESK)
+      await p.goto(PAGE, { waitUntil: "domcontentloaded" })
+      await p.waitForSelector("input[placeholder^='Search']")
+      await sleep(500)
+      await p.click("input[placeholder^='Search']")
+      await p.keyboard.type("glaze", { delay: 40 })
+      await p.waitForSelector("[data-search-results][data-search-source=server]", { timeout: 8000 }).catch(() => {})
+      await sleep(500)
+      const rows = await p.evaluate(() => [...document.querySelectorAll("[data-search-option]")].map((el) => ({ group: el.getAttribute("data-search-option"), h: Math.round(el.getBoundingClientRect().height) })))
+      say("1440 rows", rows)
+      const panel = await p.evaluate(() => {
+        const el = document.querySelector("[data-community-search-panel]")
+        if (!el) return null
+        const cs = getComputedStyle(el)
+        const b = el.getBoundingClientRect()
+        const chain = []
+        for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+          const c = getComputedStyle(n)
+          if (c.opacity !== "1" || c.zIndex !== "auto" || c.transform !== "none" || c.backdropFilter !== "none" || c.mixBlendMode !== "normal") chain.push([n.tagName, (n.className.baseVal ?? n.className).slice(0, 60), c.opacity, c.zIndex, c.transform.slice(0, 24), c.mixBlendMode])
+        }
+        const at = document.elementFromPoint(b.left + 200, b.top + 120)
+        return { opacity: cs.opacity, bg: cs.backgroundColor, animation: cs.animationName, list: getComputedStyle(el.firstElementChild).opacity, anims: el.getAnimations().map((a) => [a.animationName, a.playState, a.currentTime]), at: at?.closest("[data-community-search-panel]") ? "panel" : at?.outerHTML.slice(0, 120), chain }
+      })
+      say("the panel", panel)
+      expect(panel && Number(panel.opacity) === 1 && panel.bg === "rgb(255, 255, 255)", "the results panel is opaque white once it is up", panel)
+      await sleep(300)
+      await p.screenshot({ path: join(shots, `${LABEL}-search-1440.png`), clip: { x: 300, y: 0, width: 840, height: 720 }, captureBeyondViewport: false })
+      await p.close()
+    }
+    {
+      const p = await browser.newPage()
+      await p.setViewport(PHONE)
+      await p.goto(PAGE, { waitUntil: "domcontentloaded" })
+      await p.waitForSelector("[data-space-chip]")
+      await sleep(500)
+      /* The phone's search screen opens from the tab bar through the bridge (lib/nav/community-search-bridge.ts); its button in the bar does the same. */
+      const opened = await p.evaluate(() => {
+        return window.__openSearch()
+      })
+      await sleep(600)
+      const field = await p.$("[data-community-search-screen] input")
+      if (field) {
+        await field.type("glaze", { delay: 40 })
+        await p.waitForSelector("[data-search-results][data-search-source=server]", { timeout: 8000 }).catch(() => {})
+        await sleep(700)
+      }
+      say("390 opened", { opened, field: !!field })
+      const rows = await p.evaluate(() => [...document.querySelectorAll("[data-search-option]")].map((el) => ({ group: el.getAttribute("data-search-option"), h: Math.round(el.getBoundingClientRect().height), w: Math.round(el.getBoundingClientRect().width) })))
+      say("390 rows", rows)
+      const overflow = await p.evaluate(() => document.documentElement.scrollWidth - innerWidth)
+      expect(overflow <= 0, "no sideways overflow on the phone", overflow)
+      expect(rows.every((r) => r.h >= 44), "every result row is at least 44px tall on a phone", rows.map((r) => r.h))
+      await p.screenshot({ path: join(shots, `${LABEL}-search-390.png`) })
+      await p.close()
+    }
+  }
+
   /* ── SLOTS: what each picture's box measures at each width, against what its `sizes` says ── */
   if (want("SLOTS")) {
     console.log(`\nSLOTS: each picture's box, and the width its sizes attribute claims [${LABEL}]`)

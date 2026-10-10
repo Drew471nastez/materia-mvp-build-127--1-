@@ -22,6 +22,7 @@ import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedColumns } from "@/components/community/member/columns"
 import { CommunityFeed } from "@/components/community/member/feed"
 import { LocaleProvider } from "@/components/locale-provider"
+import { openCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { CommunityNavigatorProvider, placeFromUrl, useCommunityNavigator } from "@/lib/communities/client/navigator"
 import { ViewportVars } from "@/components/viewport-vars"
 import { allowedActions } from "@/lib/communities/permissions"
@@ -142,6 +143,28 @@ function makePosts(version: number): FeedPostView[] {
   })
 }
 
+/** A search for "glaze" in Clay Studio, the shape GET /api/community/<id>/search answers with (view-types.ts SearchResults). */
+const SEARCH_REPLY = (q: string) => ({
+  results: {
+    q,
+    posts: [
+      { id: "p-2", title: "Glaze test tiles, round two", snippet: "Six glazes over the same clay body, fired to cone 6 with a slow cool. The celadon pooled best.", createdAt: iso(NOW - 2 * HOUR), space: { slug: "glazes", name: "Glazes", icon: "🎨", kind: "feed" }, author: { name: "Jonas Berg", avatarUrl: people.jonas.avatarUrl } },
+      { id: "p-7", title: "Which glaze for a matte white?", snippet: "Looking for a matte white glaze that does not crawl on the rim. What works for you at cone 6?", createdAt: iso(NOW - 26 * HOUR), space: { slug: "general", name: "General", icon: "messages-square", kind: "feed" }, author: { name: "Leo Martins", avatarUrl: people.leo.avatarUrl } },
+      { id: "p-9", title: null, snippet: "The shino glaze crawled again on the inside of the bowl. Thicker coat next time.", createdAt: iso(NOW - 6 * 24 * HOUR), space: { slug: "firing", name: "Firing logs", icon: "🔥", kind: "feed" }, author: { name: "Maya Okafor", avatarUrl: people.maya.avatarUrl } },
+    ],
+    members: [
+      { id: "u-glazer", name: "Gladys Zeller", username: "glazequeen", avatarUrl: face("#f3dccb", "#9a5b3a"), href: "/community/clay-studio?profile=glazequeen", role: "member" },
+      { id: "u-maya", name: "Maya Okafor", username: "mayao", avatarUrl: people.maya.avatarUrl, href: "/community/clay-studio?profile=mayao", role: "owner" },
+    ],
+    spaces: [{ id: "s-glazes", slug: "glazes", name: "Glazes", kind: "feed", icon: "🎨", description: "Recipes, tests and the results, good and bad." }],
+    lessons: [{ id: "l-1", kind: "lesson", title: "Mixing your first glaze", course: "Glaze basics", href: "/community/clay-studio/learn/glaze-basics" }],
+    events: [],
+  },
+})
+
+/* The phone's tab bar opens the community's search through the bridge; the probe does the same. */
+;(window as unknown as { __openSearch: () => boolean }).__openSearch = () => openCommunitySearch("clay-studio")
+
 type ProbeWindow = Window & { __bump?: () => void; __reads?: number; __feedWait?: number; __version?: number; __pushes?: string[] }
 const w = window as ProbeWindow
 w.__version = 0
@@ -171,6 +194,11 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       return reply({ pinned: [], posts, nextCursor: null }, w.__feedWait ?? 120)
     }
     if (url.pathname.endsWith("/live")) return reply({ topic: "community-live:probe" })
+    /* The community's search: what the server answers for "glaze" (and its index, empty, so the server's answer is drawn). */
+    if (url.pathname.endsWith("/search")) {
+      if (url.searchParams.get("index")) return reply({ index: { at: Date.now(), spaces: [], posts: [], members: [], lessons: [], events: [] } })
+      return reply(SEARCH_REPLY(url.searchParams.get("q") || ""), 90)
+    }
     return reply({})
   }
   return realFetch(input, init)
