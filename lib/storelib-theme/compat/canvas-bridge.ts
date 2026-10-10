@@ -90,13 +90,47 @@ export const CANVAS_BRIDGE = `
     redraw();
   }, true);
   document.addEventListener("mouseleave", function () { if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
+  /*
+    THE SITE'S OWN ADDRESS UNDER THE POINTER. The page is drawn on the
+    builder's host, so a link's address read as storelib.com/pages/wishlist
+    in the browser's status bar. While the pointer is on a link it carries the
+    website's address (window.__slSite), and its own back the moment it is
+    left or pressed, so nothing of the theme's ever reads the borrowed one.
+  */
+  var site = typeof window.__slSite === "string" ? window.__slSite : "";
+  while (site.charAt(site.length - 1) === "/") site = site.slice(0, -1);
+  var lent = null;
+  var giveBack = function () {
+    if (!lent) return;
+    var own = lent.getAttribute("data-sl-href");
+    if (own !== null) lent.setAttribute("href", own);
+    lent.removeAttribute("data-sl-href");
+    lent = null;
+  };
+  document.addEventListener("mouseover", function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (a === lent) return;
+    giveBack();
+    if (!a || !site) return;
+    var h = a.getAttribute("href") || "";
+    if (h.charAt(0) !== "/" || h.charAt(1) === "/") return;
+    a.setAttribute("data-sl-href", h);
+    a.setAttribute("href", site + h);
+    lent = a;
+  }, true);
+  document.addEventListener("mouseleave", giveBack);
   document.addEventListener("click", function (e) {
+    giveBack();
     var s = sectionOf(e.target);
     var link = e.target.closest && e.target.closest("a[href]");
     if (link) {
       e.preventDefault();
-      /* The builder decides whether a link opens its page: a header's or a footer's always does, as the site's own navigation. */
-      var chrome = !!link.closest(".shopify-section-group-header-group, .shopify-section-group-footer-group, header, footer, nav");
+      /*
+        The builder decides whether a link opens its page: the header's, the
+        footer's and the Overlay group's (a phone tab bar, a menu drawer)
+        always do, as the site's own navigation.
+      */
+      var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
       post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
     }
     if (!s) return;
@@ -332,6 +366,6 @@ export const CANVAS_BRIDGE = `
  * its recently viewed products there stops on its first line. Each gets a
  * store in memory for the frame's life, and `document.cookie` reads empty.
  */
-export const CANVAS_HEAD = `<script>(function(){function S(){var m=new Map();return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v))},removeItem:function(k){m.delete(String(k))},clear:function(){m.clear()}}}
+export const CANVAS_HEAD = `<style data-sl-canvas>preload-page,.preload-page,website-intro,.website-intro,#preloader,.site-preloader,.page-loader,.page-loading-overlay{display:none!important}</style><script>(function(){function S(){var m=new Map();return{get length(){return m.size},key:function(i){return Array.from(m.keys())[i]??null},getItem:function(k){return m.has(String(k))?m.get(String(k)):null},setItem:function(k,v){m.set(String(k),String(v))},removeItem:function(k){m.delete(String(k))},clear:function(){m.clear()}}}
 ["localStorage","sessionStorage"].forEach(function(n){var ok=false;try{ok=!!window[n]}catch(e){ok=false}if(!ok){try{Object.defineProperty(window,n,{value:S(),configurable:true})}catch(e){}}});
 try{document.cookie}catch(e){try{Object.defineProperty(document,"cookie",{get:function(){return ""},set:function(){},configurable:true})}catch(e2){}}})();</script>`

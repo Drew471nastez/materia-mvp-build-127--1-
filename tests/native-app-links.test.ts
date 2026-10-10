@@ -21,7 +21,7 @@
  */
 import { readFileSync, existsSync } from "node:fs"
 import { join } from "node:path"
-import { NATIVE_ALLOW_NAVIGATION, isStorelibHost, nativeLinkFor, needsDocumentLoad } from "../lib/native-links"
+import { NATIVE_ALLOW_NAVIGATION, isCreatorSite, isStorelibHost, nativeLinkFor, needsDocumentLoad } from "../lib/native-links"
 import { isResumablePlace, resumablePlace, startTarget } from "../lib/native-resume"
 import { BUYER_TABS, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "../lib/nav/buyer-tabs"
 import { openCommunitySearch, registerCommunitySearch } from "../lib/nav/community-search-bridge"
@@ -78,7 +78,7 @@ console.log("\nThe places that sent it to Safari")
 const bridge = code("lib/native-bridge.ts")
 check("openExternal navigates the app for a Storelib address before anything opens a browser",
   /* October 2026: from the creator's own tools their live page goes to the browser (openInBrowser); everywhere else a Storelib address still navigates the app first. */
-  /if \(isNativeApp\(\)\) \{\s*if \(onCreatorTools\(\)\) return openInBrowser\(url\)\s*if \(navigateInApp\(url\)\) return\s*if \(isIOS\(\)\)/.test(bridge) && /export function navigateInApp\(/.test(bridge) && /const link = nativeLinkFor\(href\)/.test(bridge))
+  /if \(isNativeApp\(\)\) \{\s*if \(onCreatorTools\(\) && isCreatorSite\(nativeLinkFor\(url\)\)\) return openInBrowser\(url\)\s*if \(navigateInApp\(url\)\) return\s*if \(isIOS\(\)\)/.test(bridge) && /export function navigateInApp\(/.test(bridge) && /const link = nativeLinkFor\(href\)/.test(bridge))
 const smart = code("components/smart-link.tsx")
 check("SmartLink: no target=\"_blank\" branch to the browser, and an absolute storelib.com address is a path",
   !/target === "_blank"/.test(smart) && /const link = href \? nativeLinkFor\(href\)/.test(smart) && /<Link href=\{link\.path\} \{\.\.\.linkSafeProps\}/.test(smart) && /openExternal\(link\.url\)/.test(smart) && !/toInternalHref/.test(smart))
@@ -90,7 +90,7 @@ const guard = code("components/platform/native-link-guard.tsx")
 check("the guard is installed in the app only, on every page", /if \(!isNativeApp\(\)\) return/.test(guard) && /<NativeLinkGuard \/>/.test(read("app/layout.tsx")))
 check("  it reads clicks after React's handlers and leaves handled, modified and download clicks alone",
   /window\.addEventListener\("click", onClick\)/.test(guard) && /if \(e\.defaultPrevented \|\| e\.button !== 0/.test(guard) && /a\.hasAttribute\("download"\)/.test(guard))
-check("  somebody else's site is left to the browser", /if \(link\.kind === "none" \|\| link\.kind === "external"\) return/.test(guard))
+check("  somebody else's site is left to the browser, except a new window from a creator tool, which opens in the sheet", /if \(link\.kind === "none"\) return/.test(guard) && /if \(link\.kind === "external"\) \{\s*if \(newWindow && inCreatorTools\(\) && \/\^https:\\\/\\\/\/\.test\(a\.href\)\) \{\s*e\.preventDefault\(\)\s*openInApp\(a\.href\)/.test(guard))
 check("  a new window or another of our hosts navigates the app", /const newWindow = /.test(guard) && /if \(!newWindow && sameHost\(a\.href\)\) return/.test(guard) && /navigateInApp\(link\.kind === "path" \? link\.path : link\.url, routerRef\.current\)/.test(guard))
 check("  from checkout a new window page opens in the sheet over it, keeping the payment", /const FLOW_PAGES = \["\/checkout", "\/purchase"\]/.test(guard) && /openInApp\(new URL\(link\.path, window\.location\.origin\)\.toString\(\)\)/.test(guard))
 check("  but the in-app sheet's own window (openInApp) is let through", /__storelibSheet = url/.test(bridge) && /if \(href && sheet\.__storelibSheet === href\)/.test(guard))
@@ -183,6 +183,12 @@ console.log("\nCopy")
 const mine = ["lib/native-links.ts", "lib/native-resume.ts", "lib/nav/community-search-bridge.ts", "components/platform/native-link-guard.tsx", "components/platform/native-place-keeper.tsx", "scripts/check-community-tab-bar.mjs", "scripts/render-community-tab-bar.tsx", "scripts/check-native-links.mjs", "scripts/render-native-links.tsx"]
 const offenders = mine.filter((f) => existsSync(f) && (/—/.test(read(f)) || /\b(unlock\w*|elevate|seamless|powerful|effortless(ly)?|supercharge|transform\w*)\b/i.test(read(f))))
 check("no em dash and no banned word in this round's new files", offenders.length === 0, offenders)
+
+console.log("\nFrom a creator's tools: their site to the browser, everything else in the app")
+check("a creator's subdomain, their page and a website preview are their site", isCreatorSite(nativeLinkFor("https://andrew.storelib.com/")) && isCreatorSite({ kind: "path", path: "/andrew" }) && isCreatorSite({ kind: "path", path: "/w/andrew/products/x" }))
+check("  Payouts' invoice, the help center, the terms and the app itself are not", !isCreatorSite({ kind: "path", path: "/api/stripe/invoice?orderId=1" }) && !isCreatorSite({ kind: "path", path: "/help/payouts" }) && !isCreatorSite({ kind: "path", path: "/terms" }) && !isCreatorSite({ kind: "path", path: "/app/payouts" }))
+check("  and somebody else's site never is", !isCreatorSite({ kind: "external", url: "https://connect.stripe.com/express" }))
+check("  a new window that is not their site opens in the sheet over the app", /if \(newWindow && inCreatorTools\(\)\) \{\s*openInApp\(/.test(guard))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

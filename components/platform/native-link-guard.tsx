@@ -27,7 +27,7 @@
 import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
-import { nativeLinkFor } from "@/lib/native-links"
+import { isCreatorSite, nativeLinkFor } from "@/lib/native-links"
 import { navigateInApp, onCreatorTools, openInApp, openInBrowser } from "@/lib/native-bridge"
 
 /** Pages that are half of a flow: a new window link from them opens in the sheet over them. */
@@ -38,6 +38,7 @@ const FLOW_PAGES = ["/checkout", "/purchase"]
   world sees: it opens in the phone's browser (openInBrowser), not the app.
 */
 const inCreatorTools = onCreatorTools
+
 const under = (path: string, base: string) => path === base || path.startsWith(`${base}/`)
 
 function sameHost(href: string): boolean {
@@ -88,13 +89,26 @@ export function NativeLinkGuard() {
         return
       }
       const link = nativeLinkFor(a.href)
-      if (link.kind === "none" || link.kind === "external") return
+      if (link.kind === "none") return
       const newWindow = !!a.target && !["_self", "_top", "_parent"].includes(a.target)
+      /* Somebody else's site from a creator tool (Stripe's dashboard from Payouts): the in-app sheet, not out of the app. */
+      if (link.kind === "external") {
+        if (newWindow && inCreatorTools() && /^https:\/\//.test(a.href)) {
+          e.preventDefault()
+          openInApp(a.href)
+        }
+        return
+      }
       /* A link on the host the app is on, in this window: the WebView follows it in place already. */
       if (!newWindow && sameHost(a.href)) return
       e.preventDefault()
-      if ((newWindow && inCreatorTools()) || a.hasAttribute("data-open-browser")) {
+      if ((newWindow && inCreatorTools() && isCreatorSite(link)) || a.hasAttribute("data-open-browser")) {
         openInBrowser(a.href)
+        return
+      }
+      /* Any other new window from a creator tool: the sheet over the app. */
+      if (newWindow && inCreatorTools()) {
+        openInApp(link.kind === "path" ? new URL(link.path, window.location.origin).toString() : link.url)
         return
       }
       /*
@@ -138,8 +152,13 @@ export function NativeLinkGuard() {
       /* From the creator's tools, a page of ours in a new window is the live site being checked: the browser. */
       if (href && inCreatorTools() && target !== "_self") {
         const link = nativeLinkFor(href)
-        if (link.kind === "path" || link.kind === "host") {
-          openInBrowser(link.kind === "path" ? new URL(link.path, window.location.origin).toString() : link.url)
+        if (isCreatorSite(link)) {
+          openInBrowser(link.kind === "path" ? new URL(link.path, window.location.origin).toString() : (link as { url: string }).url)
+          return window
+        }
+        /* A page of ours or somebody else's opened by a creator tool: the in-app sheet. */
+        if (link.kind === "path" || link.kind === "host" || (link.kind === "external" && /^https:\/\//.test(href) && !stripeLeavesApp(href))) {
+          openInApp(link.kind === "path" ? new URL(link.path, window.location.origin).toString() : (link as { url: string }).url)
           return window
         }
       }

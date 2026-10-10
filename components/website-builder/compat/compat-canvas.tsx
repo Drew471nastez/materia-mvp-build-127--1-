@@ -55,6 +55,8 @@ export interface CompatCanvasProps {
   onSelect: (sectionId: string, blockPath: string[]) => void
   /** A link pressed in the page: its address, and whether it is in the header or the footer. */
   onNavigate?: (href: string, chrome: boolean) => void
+  /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
+  siteUrl?: string
 }
 
 const loading = new Map<string, Promise<Record<string, string>>>()
@@ -177,7 +179,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
-    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
+    let site = ""
+    try {
+      site = props.siteUrl ? new URL(props.siteUrl).origin : ""
+    } catch {
+      site = ""
+    }
+    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line. */
     return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
   }
@@ -202,7 +210,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     if (!compatTheme) return
     const list = sectionsRef.current
-    const html = draw(list)
+    /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
+    let html: string
+    try {
+      html = draw(list)
+    } catch (e) {
+      console.error("[compat-canvas] the page could not be drawn", e)
+      return
+    }
     const now = front()
     if (!now) { loadBehind(html, docKey, list); return }
     const next = docShape(html)
@@ -234,11 +249,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const list = sectionsRef.current
     const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== JSON.stringify(s))
     if (!changed.length) return
-    const ctx = pageContextFor(compatTheme, page, list)
+    let ctx: ReturnType<typeof pageContextFor>
+    try {
+      ctx = pageContextFor(compatTheme, page, list)
+    } catch (e) {
+      console.error("[compat-canvas] the page could not be read", e)
+      return
+    }
     for (const s of changed) {
       const at = list.indexOf(s)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
-      const { html } = drawSection(compatTheme, ctx, s, at, group)
+      let html: string
+      try {
+        html = drawSection(compatTheme, ctx, s, at, group).html
+      } catch (e) {
+        /* This section stays as it was drawn; the others still change. */
+        console.error("[compat-canvas] a section could not be drawn", e)
+        continue
+      }
       win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
       slot.drawnFrom.set(s.id, JSON.stringify(s))
       slot.shape.sections.set(s.id, html)
@@ -305,7 +333,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
       } else if (m.type === "reload") {
         /* The page could not take a change in place: drawn again, behind it. */
-        if (isFront && compatTheme) loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+        if (isFront && compatTheme) {
+          try {
+            loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+          } catch (e) {
+            console.error("[compat-canvas] the page could not be drawn", e)
+          }
+        }
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
         if (typeof n.href === "string") onNavigate.current?.(n.href, n.chrome === true)

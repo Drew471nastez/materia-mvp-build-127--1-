@@ -132,6 +132,28 @@ console.log("\nWhat Posturex (Materia) leaned on\n")
   check("one section's broken script never stops the others: the bundle reads, the good one is in, the broken one is out", reads && /window\.__good = 1/.test(js) && /var x = 1/.test(js) && !/function \(\{/.test(js), js.slice(0, 200))
 }
 
+console.log("\nAn earlier import's Overlay group, the canvas's links\n")
+{
+  const { overlayFromFiles } = await import("../lib/storelib-theme/shopify/convert")
+  const rows: Record<string, string> = {
+    "layout/theme.storelib": '<template compat="shopify">\n{%- liquid\n  sections \'header-group\'\n-%}<main>{{ content_for_layout }}</main>{%- liquid\n  sections \'footer-group\'\n  sections \'overlay-group\'\n-%}\n</template>',
+    "shopify/sections/overlay-group.json": JSON.stringify({ type: "custom.overlay", name: "Overlay", sections: { bar: { type: "mobile-navigation-bar", settings: {} }, top: { type: "Back-to-top-pro", settings: {} }, pop: { type: "promobanner", disabled: true, settings: {} } }, order: ["bar", "top", "pop"] }),
+    "sections/mobile-navigation-bar.storelib": "",
+    "sections/back-to-top-pro.storelib": "",
+    "sections/promobanner.storelib": "",
+  }
+  const got = overlayFromFiles(rows, { "Back-to-top-pro": "back-to-top-pro" })
+  check("a theme imported before its overlay group was read gets it back from its own files, renamed types and hidden ones included", got.slots.join() === "overlay-group" && got.sections.map((x) => `${x.type}${x.hidden ? "(h)" : ""}@${x.slot}`).join(" ") === "mobile-navigation-bar@overlay-group back-to-top-pro@overlay-group promobanner(h)@overlay-group", got)
+  const { compatPageForHref } = await import("../lib/storelib-theme/compat/install")
+  check("/pages/wishlist is not the theme's page template unless the site has a wishlist page", compatPageForHref("/pages/wishlist", ["home", "page"]) === null && compatPageForHref("/pages/wishlist", ["wishlist"])?.key === "wishlist")
+  const { CANVAS_BRIDGE } = await import("../lib/storelib-theme/compat/canvas-bridge")
+  let bridgeReads = true
+  try { new Function(CANVAS_BRIDGE) } catch { bridgeReads = false }
+  check("the canvas's script reads as JavaScript (one bad escape and the canvas does nothing)", bridgeReads)
+  check("the canvas lends a link the website's address under the pointer and gives it back before a click", /window\.__slSite/.test(CANVAS_BRIDGE) && /giveBack\(\);\s*var s = sectionOf/.test(CANVAS_BRIDGE))
+  check("  and a phone tab bar's link opens its page in the builder, as a header's does", /\[class\*='shopify-section-group-'\]/.test(CANVAS_BRIDGE) && /mobile-navigation-bar/.test(CANVAS_BRIDGE))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
 }
