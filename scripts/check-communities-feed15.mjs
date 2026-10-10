@@ -703,12 +703,80 @@ try {
     await p.close()
   }
 
+  /* ── SLOTS: what each picture's box measures at each width, against what its `sizes` says ── */
+  if (want("SLOTS")) {
+    console.log(`\nSLOTS: each picture's box, and the width its sizes attribute claims [${LABEL}]`)
+    const p = await browser.newPage()
+    await p.setViewport(PHONE)
+    await p.goto(PAGE, { waitUntil: "domcontentloaded" })
+    await p.waitForSelector("[data-feed-list] [data-card-media]")
+    const rows = []
+    for (const width of (process.env.SLOT_WIDTHS || "360,390,430,640,768,1023,1024,1100,1279,1280,1300,1350,1376,1400,1440,1920").split(",").map(Number)) {
+      await p.setViewport({ width, height: 900, deviceScaleFactor: 1, isMobile: width < 640, hasTouch: width < 640 })
+      await sleep(400)
+      const boxes = await p.evaluate(() => {
+        const out = {}
+        const note = (name, el) => {
+          if (!el || out[name]) return
+          const img = el.querySelector("img")
+          const b = el.getBoundingClientRect()
+          if (b.width < 1) return
+          /* What the browser makes of the sizes attribute: the img's own sizes, read through a probe img of that sizes. */
+          const probe = document.createElement("img")
+          probe.sizes = img?.getAttribute("sizes") ?? ""
+          out[name] = { box: Math.round(b.width), sizes: img?.getAttribute("sizes") ?? null }
+        }
+        note("cardSingle", document.querySelector("[data-card-media='single']"))
+        const pair = document.querySelector("[data-card-media='pair'] [data-card-media-tile]")
+        note("cardHalf", pair)
+        const grid = document.querySelectorAll("[data-card-media='grid'] [data-card-media-tile]")
+        note("cardGridLead", grid[0])
+        note("cardGridSmall", grid[1])
+        note("cardThumb", document.querySelector("[data-post-thumb]"))
+        return out
+      })
+      rows.push({ width, ...Object.fromEntries(Object.entries(boxes).map(([k, v]) => [k, v.box])) })
+      if (width === 390 || width === 1440) say(`sizes at ${width}`, Object.fromEntries(Object.entries(boxes).map(([k, v]) => [k, v.sizes])))
+    }
+    console.table(rows)
+    results.slots = rows
+    await p.close()
+  }
+
   /* ── SPEED and QUALITY ────────────────────────────────────────────────── */
-  if (want("SPEED") || want("QUALITY")) {
+  if (want("QUALITY")) {
+    /*
+      THE SAME PICTURE AS A PHONE DRAWS IT, to be looked at: a fresh page at 390px on a 3x screen (an iPhone) and on a 2x one,
+      the first card's picture cut out of the screen as it was painted, and the file it came from.
+    */
+    console.log(`\nQUALITY: the first card's picture at 390px, 3x and 2x [${LABEL}]`)
+    for (const dpr of [3, 2]) {
+      const p = await browser.newPage()
+      await p.setViewport({ ...PHONE, deviceScaleFactor: dpr })
+      await p.goto(PAGE, { waitUntil: "domcontentloaded" })
+      await p.waitForSelector("[data-feed-list] [data-card-media]")
+      await settlePictures(p, 30_000)
+      await sleep(900)
+      const box = await p.evaluate(() => {
+        const el = document.querySelector("[data-feed-list] [data-card-media='single']")
+        const b = el.getBoundingClientRect()
+        const img = el.querySelector("img")
+        return { x: b.left, y: b.top + scrollY, width: b.width, height: b.height, file: img?.currentSrc.replace(location.origin, ""), w: Number(/[?&]w=(\d+)/.exec(img?.currentSrc ?? "")?.[1] ?? 0), q: Number(/[?&]q=(\d+)/.exec(img?.currentSrc ?? "")?.[1] ?? 0) }
+      })
+      const el = await p.$("[data-feed-list] [data-card-media='single']")
+      await el.scrollIntoView()
+      await sleep(400)
+      await el.screenshot({ path: join(shots, `${LABEL}-quality-390-${dpr}x.png`) })
+      say(`${dpr}x: the file drawn in a ${Math.round(box.width)}px box`, { w: box.w, q: box.q })
+      results[`quality${dpr}x`] = { w: box.w, q: box.q, box: Math.round(box.width) }
+      await p.close()
+    }
+  }
+
+  if (want("SPEED")) {
     const REPEATS = Number(process.env.REPEATS || 3)
     const median = (list) => [...list].sort((a, b) => a - b)[Math.floor(list.length / 2)]
     for (const [name, vp] of [["390", PHONE], ["1440", DESK]]) {
-      if (!want("SPEED") && name !== "390") continue
       console.log(`\nSPEED: the first screen of pictures, ${name}, slow 4G, CPU 4x [${LABEL}]`)
       /* Fill the probe's encoder first, so no measured run waits on sharp. */
       {
@@ -756,33 +824,6 @@ try {
         runs.push({ ...r, bytes, widths: [...new Set(served.map((s) => s.w))].sort((a, b) => a - b), qualities: [...new Set(served.map((s) => s.q))], requests: served.length })
         if (i === REPEATS - 1) {
           await p.screenshot({ path: join(shots, `${LABEL}-speed-${name}.png`) })
-          if (name === "390") {
-            /* QUALITY: the first card's picture, cut out as the phone drew it, at a 3x screen like an iPhone's. */
-            await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
-            await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 })
-            await p.setViewport({ ...vp, deviceScaleFactor: 3 })
-            await sleep(500)
-            await settlePictures(p, 20_000)
-            await sleep(400)
-            const box = await p.evaluate(() => {
-              const el = document.querySelector("[data-feed-list] [data-card-media]")
-              if (!el) return null
-              el.scrollIntoView({ block: "center" })
-              const b = el.getBoundingClientRect()
-              const img = el.querySelector("img")
-              return { x: b.left, y: b.top, width: b.width, height: b.height, src: img?.currentSrc.replace(location.origin, "").slice(0, 160), natural: Number(/[?&]w=(\d+)/.exec(img?.currentSrc ?? "")?.[1] ?? 0) }
-            })
-            await sleep(600)
-            const again = await p.evaluate(() => {
-              const b = document.querySelector("[data-feed-list] [data-card-media]").getBoundingClientRect()
-              return { x: b.left, y: b.top, width: b.width, height: b.height }
-            })
-            if (box) {
-              await p.screenshot({ path: join(shots, `${LABEL}-quality-390.png`), clip: again })
-              say("the picture compared (3x screen)", { file: box.src, natural: box.natural, box: Math.round(box.width) })
-              results.quality = { file: box.src, natural: box.natural, box: Math.round(box.width) }
-            }
-          }
         }
         await p.close()
       }
