@@ -134,6 +134,8 @@ console.log("\nENGINE: on the compositor, nothing behind it moving, prepared fir
   check("on a phone the address moves once the post has arrived (the router's render was landing in the open)", /const \[historyReady, setHistoryReady\] = useState\(!phone\)/.test(ov) && /useHistoryLayer\(history && historyReady, close, postPath\(slug, given\), open\)/.test(ov))
   check("the comments are drawn with the post, before it moves, and read ahead as its preparation", /const \[drawComments, setDrawComments\] = useState\(phone\)/.test(ov) && /readAheadComments\(given\.communityId, given\.id\)/.test(ov) && /prepare=\{prepare\}/.test(ov))
   check("never drawn while the page hydrates (a shared link's page)", /useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(ov) && /if \(!client\) return null/.test(ov))
+  const sheet = read("components/ui/bottom-sheet.tsx")
+  check("a kept sheet is not built while something moves (the comment box's emoji sheet was built 60 to 90ms into the rise, a 70ms task)", /if \(document\.querySelector\("\[data-moving\]"\)\) \{\s*timer = window\.setTimeout\(later, MOVING_RETRY_MS\)/.test(sheet) && (stage.match(/layer\.removeAttribute\("data-moving"\)/g) || []).length === 2)
   const composer = read("components/community/member/composer.tsx")
   check("the composer is the website builder's sheet: no community scale, no rounded community, no dark edge", /<MobileEditorSheet/.test(composer) && !/communityFrame|SheetBackdrop|sheetStage|RECEDE_SCALE/.test(composer) && !/communityFrame|data-sheet-band/.test(read("components/community/member/post-stage.ts")))
   check("the container's white is drawn only for the container move (the rise fades over the feed, never over a white screen)", /\[\[data-morph\]_&\]:bg-white/.test(pf) && /layer\.toggleAttribute\("data-morph", on && morph\)/.test(stage))
@@ -141,11 +143,12 @@ console.log("\nENGINE: on the compositor, nothing behind it moving, prepared fir
   /*
     THE BUSY LOOP (scripts/check-communities-post17.mjs PART=frames, 390x844, 4x CPU, a 150ms busy loop as the move starts,
     the compositor's own frames). Measured on round 16's engine and on this one; the longest gap between two frames while it
-    moves, in ms. Run the probe again to refresh these.
+    moves, in ms. "after" is the rise (the default), the worst of four runs; the container move measured 21 to 36 the same
+    way. Run the probe again to refresh these.
   */
   const MEASURED = {
     before: { open: 266, openBusy: 242, close: 25, closeBusy: 31 },
-    after: { open: 32, openBusy: 36, close: 20, closeBusy: 28 },
+    after: { open: 32, openBusy: 30, close: 22, closeBusy: 32 },
   }
   check("the busy loop result: the open no longer stops (under 50ms between frames, busy or not); round 16's stopped for over 240ms", MEASURED.after.open < 50 && MEASURED.after.openBusy < 50 && MEASURED.before.open > 200 && MEASURED.before.openBusy > 200)
   check("and the close stays even, busy or not", MEASURED.after.close < 50 && MEASURED.after.closeBusy < 50)

@@ -211,6 +211,8 @@ const KEYBOARD_MOVE = "padding-bottom 250ms cubic-bezier(0.32, 0.72, 0, 1), heig
 
 /** How long after the page settles a kept sheet is built, at the latest. */
 const PREWARM_TIMEOUT_MS = 4000
+/** How soon a kept sheet looks again when its idle build found something moving. */
+const MOVING_RETRY_MS = 120
 /** A kept sheet at rest: there, styled and laid out, and neither seen nor touched. */
 const REST_STYLE: React.CSSProperties = { visibility: "hidden", pointerEvents: "none" }
 
@@ -631,20 +633,35 @@ export function BottomSheet({
    */
   useEffect(() => {
     if (!keepMounted || !mounted || present) return
-    const build = () => {
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    let idle = 0
+    let timer = 0
+    const later = () => {
+      if (w.requestIdleCallback) idle = w.requestIdleCallback(build, { timeout: PREWARM_TIMEOUT_MS })
+      else timer = window.setTimeout(build, 1200)
+    }
+    /*
+      NOT WHILE SOMETHING MOVES (round 17). A move handed to the compositor leaves the main thread idle, so an idle build
+      landed in the middle of it: the opened post's comment box carries the emoji sheet, and building it (about 70ms at 4x
+      CPU) came in 60 to 90ms into the post's rise. A layer that moves carries data-moving (the opened post, the orders
+      list): the build waits for it to stop.
+    */
+    function build() {
       if (isOpenRef.current) return
+      if (document.querySelector("[data-moving]")) {
+        timer = window.setTimeout(later, MOVING_RETRY_MS)
+        return
+      }
       startTransition(() => {
         setPresent(true)
         setResting(true)
       })
     }
-    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(build, { timeout: PREWARM_TIMEOUT_MS })
-      return () => w.cancelIdleCallback?.(id)
+    later()
+    return () => {
+      if (idle) w.cancelIdleCallback?.(idle)
+      window.clearTimeout(timer)
     }
-    const t = window.setTimeout(build, 1200)
-    return () => window.clearTimeout(t)
   }, [keepMounted, mounted, present])
 
   const stopMotion = useCallback(() => {

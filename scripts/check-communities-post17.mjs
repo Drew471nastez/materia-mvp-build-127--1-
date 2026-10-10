@@ -151,6 +151,15 @@ const BUSY_HOOK = () => {
   } catch {
     /* No long task timing here. */
   }
+  /* What React (or anything) changed in the page, and when: to name what a long task in the move was (DEBUG_MUT=1 prints it). */
+  window.__muts = []
+  const name = (n) => (n && n.nodeType === 1 ? `${n.tagName.toLowerCase()}${n.id ? "#" + n.id : ""}${[...n.attributes].filter((a) => a.name.startsWith("data-")).map((a) => `[${a.name}]`).slice(0, 2).join("")}` : "#text")
+  document.addEventListener("DOMContentLoaded", () =>
+    new MutationObserver((list) => {
+      const t = performance.now()
+      for (const m of list) if (window.__muts.length < 4000) window.__muts.push({ t, k: m.type[0], on: name(m.target), a: m.attributeName || "", n: m.addedNodes.length + m.removedNodes.length, x: m.target === document.body ? [...m.addedNodes].map((n) => "+" + (n.outerHTML || n.nodeName + ":" + (n.textContent || "")).slice(0, 300)).concat([...m.removedNodes].map((n) => "-" + (n.outerHTML || n.nodeName + ":" + (n.textContent || "")).slice(0, 300))).join(" ") : "" })
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true }),
+  )
   /* The website builder's sheet (the composer since round 17) moves by a CSS transition: its start is the motion too. Its
      property's name is spelled in pieces, so this file holds none of the words the copy rules keep out. */
   const MOVED = ["trans", "form"].join("")
@@ -272,7 +281,7 @@ async function record(s, name, act, ms, busy) {
   await sleep(ms)
   await s.cdp.send("Page.stopScreencast")
   s.cdp.off("Page.screencastFrame", onFrame)
-  const notes = await s.p.evaluate(() => ({ long: window.__long.filter((l) => l.t + l.d > window.__t0).map((l) => ({ t: Math.round(l.t - window.__t0), d: Math.round(l.d) })), origin: performance.timeOrigin + window.__t0, anims: window.__anims.map((a) => ({ t: Math.round(a.t - window.__t0), d: a.d })), busy: window.__busyTo ? Math.round(window.__busyTo - window.__busyFrom) : 0, busyAt: window.__busyFrom ? Math.round(window.__busyFrom - window.__t0) : null }))
+  const notes = await s.p.evaluate(() => ({ long: window.__long.filter((l) => l.t + l.d > window.__t0).map((l) => ({ t: Math.round(l.t - window.__t0), d: Math.round(l.d) })), origin: performance.timeOrigin + window.__t0, anims: window.__anims.map((a) => ({ t: Math.round(a.t - window.__t0), d: a.d })), busy: window.__busyTo ? Math.round(window.__busyTo - window.__busyFrom) : 0, busyAt: window.__busyFrom ? Math.round(window.__busyFrom - window.__t0) : null, muts: window.__muts.filter((m) => m.t > window.__t0 && m.t < window.__t0 + 1200).map((m) => `${Math.round(m.t - window.__t0)} ${m.k} ${m.on} ${m.a}${m.n ? " +" + m.n : ""} ${m.x || ""}`), res: performance.getEntriesByType("resource").filter((r) => r.responseEnd > window.__t0 - 50 && r.responseEnd < window.__t0 + 1200).map((r) => `${Math.round(r.responseEnd - window.__t0)} ${r.name.slice(-70)}`) }))
   return { name, frames: frames.slice(Math.max(0, before - 1)), startWall, notes }
 }
 
@@ -376,6 +385,10 @@ async function partFrames() {
       const r = judgeFrames(seq)
       out[seq.name] = r
       console.log(`  ${seq.name}: ${r.moving} frames while it moves (${r.motionMs}ms), longest gap ${r.longestGapMs}ms, first frame ${r.startLatencyMs}ms after the start, busy loop ${r.busyMs}ms from +${r.busyAt}ms   at ${JSON.stringify(r.at)}  long tasks ${JSON.stringify(r.long)}`)
+      if (process.env.DEBUG_MUT) {
+        const shift = (line) => line.replace(/^(-?\d+)/, (n) => String(Number(n) - r.firstAnimAt))
+        console.log(`    changes:\n      ${(seq.notes.muts || []).map(shift).join("\n      ")}\n    loaded:\n      ${(seq.notes.res || []).map(shift).join("\n      ")}`)
+      }
       await contactSheet(seq, `${LABEL}-${seq.name}.png`)
     }
     expect(!s.errors.length, `no page errors (${tag})`, s.errors.slice(0, 3))

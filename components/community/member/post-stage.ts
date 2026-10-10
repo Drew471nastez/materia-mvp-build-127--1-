@@ -289,6 +289,8 @@ export function postStage(parts: PostStageParts): PostStage {
         await finished(ms)
         /* LANDED: the copy is exactly on the card. Hidden on the next frame, so the real card is what shows; nothing moves after. */
         layer.style.visibility = "hidden"
+        /* Nothing moves any more (a kept sheet's idle build waits on this mark: components/ui/bottom-sheet.tsx). */
+        layer.removeAttribute("data-moving")
         return
       }
       const away = awayFor(style, s)
@@ -304,6 +306,7 @@ export function postStage(parts: PostStageParts): PostStage {
       if (scrimFrom > 0) run(scrim, [{ opacity: scrimFrom }, { opacity: 0 }], dur, EASE)
       await finished(dur)
       layer.style.visibility = "hidden"
+      layer.removeAttribute("data-moving")
     },
 
     follow(dx, offset) {
