@@ -3,138 +3,132 @@
 A Shopify Online Store 2.0 theme, as the Shopify admin downloads it (a ZIP
 with `assets/`, `blocks/`, `config/`, `layout/`, `locales/`, `sections/`,
 `snippets/`, `templates/`), imports through the same Import button as a
-`.storelib-theme` package. Its Liquid is converted to `.storelib` files, the
-result is built into a package, and that package goes through `readPackage`
-with every check in 11. A GitHub download, with the folders one level down
-(`dawn-main/sections/…`), is read the same way.
+`.storelib-theme` package. A GitHub download, with the folders one level
+down (`dawn-main/sections/…`), is read the same way. Nothing has to be
+prepared first.
 
-The converter is `lib/storelib-theme/shopify/convert.ts` (the folders) and
-`lib/storelib-theme/shopify/liquid.ts` (the markup). The route is
-`POST /api/website-builder/themes/import`, unchanged for every other kind of
-file.
+The theme is kept whole, as its author wrote it, and drawn by Storelib's own
+engine: its layout, its sections, blocks and snippets, its CSS, its
+JavaScript, its settings and its words. Horizon and Dawn are the two themes
+it was built and measured against.
 
-## Liquid is never run
+A Shopify theme's license decides whether it may be used outside Shopify.
+Shopify's own themes are licensed for Shopify stores. Import only a theme
+you have the right to use.
 
-There is no Liquid engine in Storelib. The converter reads each tag and
-writes text: the tag Storelib spells another way, or nothing. What comes out
-is compiled by `compileSection` and `compileBlock` like a file typed into the
-code editor, so a script, an `on…=` handler or a frame is refused there even
-if the converter missed it. A tag that would compute something on Shopify's
-server (`increment`, `capture`, `cycle`) is removed, not evaluated.
-
-A name Storelib cannot read (`request.design_mode`, `cart.item_count`, a
-dropped setting) is read as `null`, which is what Liquid gives for a name it
-does not know. `{% if request.design_mode %}` takes its else branch; `{{ x |
-default: "Shop" }}` prints Shop.
-
-## What converts
+## How it is kept
 
 | Shopify | Storelib |
 | --- | --- |
-| `sections/<name>.liquid` | `sections/<name>.storelib`, the type from the file name |
-| `blocks/<name>.liquid` | `blocks/<name>.storelib`, a theme block; `{{ block.shopify_attributes }}` is `{{ block.storelib_attributes }}` with `"tag": null` |
-| `{% schema %}` | `<schema>`: name, settings, blocks, max_blocks, presets; `t:` keys from `locales/en.default.schema.json`, else the id in words |
-| `enabled_on` / `disabled_on` | the header, footer and page groups; `templates` as `allowed_templates` / `disabled_templates` |
-| `{% stylesheet %}`, `{% style %}`, `'x.css' \| asset_url \| stylesheet_tag` | `<style>`, scoped to the section |
-| `{% javascript %}` | `<script>` only when it compiles against the scripting API (09); usually it does not and is left out |
-| `section.settings.x` | `settings.x` |
-| `settings.x` (the theme's) | `theme.settings.shopify.x`, from `config/settings_data.json` |
-| `for block in section.blocks` | `for block in blocks` |
-| `unless x` | `if not (x)` |
-| `case` / `when` | an `if` / `elsif` chain |
-| `assign x = y` | every later `x` read as `y`; assigned twice, read as nothing |
-| `render 'name', a: b`, `include` | the snippet written in place, `a` read as `b`, four deep at most |
-| `echo x`, `{% liquid %}` | the same statements as tags and outputs |
-| `x != blank`, `x == empty` | `x`, `not x` |
-| `{{ 'key' \| t }}` | the words from `locales/en.default.json` |
-| `image_url`, `img_url` | removed: the setting already prints the picture's address |
-| `x \| image_url \| image_tag` | `<img src="{{ x }}" alt="">` |
-| `'logo.png' \| asset_url` | the picture as a package asset, by hash |
-| richtext, inline_richtext, html settings | printed with `raw`, as Shopify prints them |
-| `padding-block-start` setting ids | `padding_block_start` |
-| `templates/index.json`, `product.json`, `page.contact.json`, `page.about*.json` | the home, product, contact and about pages |
-| `{%- -%}`, `{{- -}}` | the whitespace trimmed, the dashes gone |
+| `layout/*.liquid` | `layout/<name>.storelib` |
+| `sections/<name>.liquid` | `sections/<name>.storelib`: the markup, then one `<schema>` that is the builder's panel and, under `"shopify"`, the theme's own |
+| `blocks/<name>.liquid` | `blocks/<name>.storelib`, the same way |
+| `snippets/<name>.liquid` | `snippets/<name>.storelib` |
+| `templates/*.json` | the website's pages, below |
+| `sections/header-group.json`, `footer-group.json` | the Header and Footer groups, on every page |
+| `config/settings_data.json` | the theme's settings, under `shopify` in the website's theme settings |
+| `config/settings_schema.json` | Theme settings in the builder: the theme's own groups |
+| everything else | under `shopify/`, at the path it had: `shopify/templates/index.json`, `shopify/locales/en.default.json`, `shopify/assets/base.css` |
+| pictures and videos in `assets/` | stored as media; `shopify/config/assets.json` names each one's address |
 
-## What is left out, and why
+Each `.storelib` file is in the compatible profile of the template language
+(`<template compat="shopify">`, lib/storelib-theme/compat). That is the full
+language Shopify themes are written in: `assign`, `capture`, `case`,
+`render`, `include`, `{% liquid %}`, whitespace control, `paginate`, `form`,
+`content_for`, every filter a theme uses. It is Storelib's own
+implementation, run by Storelib. No Shopify service and no third party
+engine is involved.
 
-Each of these is a line in the report, per file.
+`header` and `footer` are the names of Storelib's own built-in sections, so
+Shopify's are kept as `theme-header` and `theme-footer`, marked as the site's
+header and footer. A section whose name does not start with a letter
+(Horizon's `_blocks`) is kept as `s_blocks`. The website's settings record
+each rename, so `{% section 'header' %}` in a layout still finds it.
 
-- **Setting types Storelib does not have**: blog, article, metaobject,
-  metaobject_list, color_scheme_group. The setting is dropped and the
-  template reads it as nothing.
-- **App blocks** (`@app`): Storelib has no Shopify apps.
-- **The header, the footer and the group files**: a Storelib site draws its
-  own, set in Theme settings.
-- **The layout**: the page shell is Storelib's.
-- **Scripts in `assets/`, `<script>` tags, `on…=` attributes, iframes**: a
-  Shopify theme's scripts call Shopify's storefront, and a section's markup
-  holds no scripts.
-- **CSS with Liquid tags between rules**: no stylesheet parser reads it. A
-  filled button rule with no label colour gets `color: var(--s-btn-text)`,
-  which is what the CSS compiler asks for.
-- **Filters Storelib lacks** (`money`, `handleize`, `where`…): removed from
-  the chain and the value printed as it is. Filters that write Shopify
-  markup (`payment_type_svg_tag`, `link_to`, `font_face`…) take their output
-  with them.
-- **`form`, `paginate`**: the tag goes, what was inside stays.
-- **`capture`, `cycle`, `increment`, `break`, `limit:` and `offset:` on a
-  loop, ranges**: there is nothing for them to mean in a Storelib template.
-- **Templates with no Storelib page**: collection, blog, article, cart,
-  search, 404, password, customers. The pages Storelib generates are used.
-- **Colours, fonts and colour schemes** from `settings_data.json`: their
-  shapes are Shopify's. The plain values (true and false, numbers, short
-  words) are kept for the sections that read them.
-- **Locales** beyond the English words a section prints: sites are single
-  language.
+## Pages
 
-A section that still does not compile after the conversion is retried
-without its script, then without the CSS that carried Liquid, then without
-its CSS, then with each line the compiler names emptied of everything but
-its tags. If it still does not compile it is left out, and the report gives
-the compiler's first error with the file and line.
+| Template | Page |
+| --- | --- |
+| `index` | Home |
+| `product` | Product, drawn for every product at `/products/<handle>` |
+| `collection` | Collection, for every collection at `/collections/<handle>`, and `/collections/all` |
+| `list-collections` | Collections list, `/collections` |
+| `search` | Search |
+| `cart` | Cart |
+| `page` | every page without a template of its own, at `/pages/<handle>` |
+| `page.<name>` | that page: `page.contact` is Contact |
+| `blog`, `article` | Blog and Blog post |
+| `404`, `password` | Not found and Password |
 
-## The answer
+An alternate template (`product.preorder.json`) is kept under `shopify/` and
+said in the report: a page is drawn with its kind's main template.
 
-The import route answers as it does for a package, plus:
+## The website
 
-```json
-"shopify": {
-  "converted": ["sections/rich-text.liquid", "templates/index.json"],
-  "skipped": [{ "file": "sections/header.liquid", "reason": "A Storelib site draws its own header, set in Theme settings › Header" }],
-  "notes": [{ "file": "sections/rich-text.liquid", "message": "The \"money\" filter was removed, so its value is printed as it is" }],
-  "summary": "Converted 36 of 46 sections from Shopify. 10 were left out.",
-  "license": "A Shopify theme's license decides whether it may be used outside Shopify. …"
-}
+A website whose theme was imported answers every address the theme's markup
+and scripts reach for, from the creator's own shop:
+
+| Address | Answer |
+| --- | --- |
+| the pages above | the theme's layout and that page's sections |
+| `?section_id=` and `?sections=` on any page | Shopify's section rendering API: those sections, drawn |
+| `/cart.js`, `/cart/add`, `/cart/change`, `/cart/update`, `/cart/clear` | the cart, kept in a cookie; JSON to a script, a redirect to a form |
+| `/cart` with `checkout`, `/checkout` | Storelib's own basket checkout, priced from the database |
+| `/products/<handle>.js` | the product as data |
+| `/search/suggest` | the search box's results |
+| `/recommendations/products` | products like the one named |
+| `/contact` | a contact form to the creator's inbox; a newsletter form to Subscribers |
+
+Prices, options and pictures are the creator's products. A product's price
+reaches a theme in cents, as on Shopify, and `| money` writes it.
+`window.Shopify` and the storefront events module a theme imports
+(`@shopify/events`) are written by Storelib. Any other script or stylesheet
+from Shopify's servers is taken out of the page, and named in the report.
+
+## The builder
+
+The canvas draws the same page the website serves, with the same function,
+inside a sandboxed frame that has no origin of its own: the theme's scripts
+run there exactly as on the website (its sliders, drawers and option
+pickers) and can reach nothing of the builder or the account.
+
+A click on the page selects the section and the block under it. A change in
+the sidebar draws that one section again and puts it in place, with the
+events Shopify's own editor sends (`shopify:section:load`,
+`shopify:section:select`, `shopify:block:select`), so a theme opens the slide
+or the tab that was chosen. Add section offers the theme's own sections, and
+Add block its own blocks.
+
+Theme settings are the theme's groups from `settings_schema.json`, its words
+from its locale, each setting with the builder's control for its type.
+
+## The report
+
+Nothing is left out without a word. The import's answer has a one line
+summary; the whole report is kept with the theme as
+`shopify/import-report.json`, which the code editor shows. It names:
+
+- each file that is not part of a theme, and why it was not kept
+- each setting the builder has no control for: it keeps the theme's value
+  and default on the page, and is not shown in the panel
+- each tag the engine does not know, which draws nothing
+- each picture or page a value names that lived in the Shopify store rather
+  than in the theme (`shopify://shop_images/…`): the theme's placeholder
+  draws until one is chosen
+- each script or stylesheet from Shopify's servers the page went without
+- app blocks, which have no Shopify apps to come from
+
+## Checking a theme
+
+```bash
+npx tsx scripts/check-shopify-theme.ts horizon.zip dawn.zip
+npx tsx scripts/check-compat-editor.ts horizon.zip
 ```
 
-The library's toast after an import ends with the summary.
-
-Measured on Shopify's own themes: Dawn converts 36 of its 46 sections (the
-other ten are the header, the footer and eight with no schema, such as
-cart-drawer); Horizon converts 38 of its 40 sections (all but the header and
-footer) and all 95 of its theme blocks. Every converted package passes
-`readPackage`.
-
-## Licensing
-
-A Shopify theme's license decides whether it may be used outside Shopify.
-Shopify's own themes, such as Dawn and Horizon, are licensed for use on
-Shopify stores. The person importing a theme is responsible for having the
-right to use it. The import route says so once, in `shopify.license`.
-
-## Limits
-
-The theme's ZIP is held to the import's own limits first: 50 MB, and the
-upload check in `lib/security/uploads`, which runs before the ZIP is opened.
-That check refuses a theme package containing a `.js` file
-(`zip_blocked_entry`), with one exception: in an archive whose own file list
-is a Shopify theme (`sections/*.liquid` beside `config/settings_schema.json`
-or `layout/theme.liquid`, and no `theme.json`), a `.js` directly inside
-`assets/` is let in (`shopifyThemeRoot` and `shopifyScriptEntry` in
-`lib/security/uploads/zip.ts`), and the admin log notes
-`zip_shopify_scripts_ignored`. Every theme Shopify ships keeps its scripts
-there, and the converter never reads or keeps them. A `.js` anywhere else,
-and every other blocked type, is still refused. The converter then refuses a theme of more than 4000 files or one
-that declares more than 200 MB unpacked, before reading any of it. One
-section grows by at most 400 KB of inlined snippets and 1 MB of the theme's
-CSS; past that, the rest is left out and said.
+The first serves each theme through the live site's own handler and drives
+it in Chromium at 1440 and 390 wide: every page type, Add to cart, choosing
+an option, the cart page, the search box, and that nothing is asked of
+Shopify. The second opens the real builder on the theme: the canvas, a
+click to select, an edit drawn in place, Theme settings.
+`tests/compat-engine.test.ts` and `tests/shopify-import.test.ts` run with the
+suite.

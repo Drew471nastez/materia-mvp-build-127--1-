@@ -1,5 +1,6 @@
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import { isStorelibSection, renderStorelibSection } from "@/lib/website-builder/storelib-runtime"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import { headerLogoOf, themeWithHeaderLogo } from "./chrome-logo"
 import type { RenderedSection } from "@/components/website-builder/sections/storelib-sources"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
@@ -104,6 +105,8 @@ export async function sectionSources(
      * would blank the shipped hero on the live site. See `saveDraft`.
      */
     if (typeof row.content !== "string" || row.content.trim() === "") continue
+    /* An imported Shopify theme's files are drawn by its own engine (lib/storelib-theme/compat), never by this one. */
+    if (isCompatSource(row.content)) continue
     sources[row.path] = row.content
   }
   return sources

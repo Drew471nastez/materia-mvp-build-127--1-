@@ -127,6 +127,11 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
+import { CompatCanvas } from "@/components/website-builder/compat/compat-canvas"
+import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { scheduleCoverRefresh, flushCoverRefresh } from "@/lib/website-builder/cover-refresh"
 import { FullScreenLock } from "@/components/website-builder/full-screen-lock"
@@ -152,6 +157,27 @@ import type { PickerCollection, PickerCommunity } from "@/components/website-bui
 type BuilderCommunities = { choices: PickerCommunity[]; cards: Record<string, StorefrontCommunity> }
 /** And about their collections: every one to pick, the published ones as a section reads them. */
 type BuilderCollections = { choices: PickerCollection[]; cards: Record<string, StorefrontCollection> }
+
+/** An imported Shopify theme's pages, by the theme's own names for its templates, in the order a shop reads. */
+const COMPAT_PAGE_NAMES: [string, string, string][] = [
+  ["home", "Home", "/"],
+  ["product", "Product", "/products"],
+  ["collection", "Collection", "/collections/all"],
+  ["collections", "Collections list", "/collections"],
+  ["search", "Search", "/search"],
+  ["cart", "Cart", "/cart"],
+  ["page", "Page", "/pages/page"],
+  ["contact", "Contact", "/pages/contact"],
+  ["blog", "Blog", "/blogs/news"],
+  ["article", "Blog post", "/blogs/news/post"],
+  ["404", "Not found", "/404"],
+  ["password", "Password", "/password"],
+]
+function compatPages(keys: string[], extra: string[]): SwitcherPage[] {
+  const known = COMPAT_PAGE_NAMES.filter(([k]) => keys.includes(k)).map(([key, name, path]) => ({ key, name, path }))
+  const rest = [...new Set([...keys.filter((k) => !COMPAT_PAGE_NAMES.some(([n]) => n === k)), ...extra])].sort().map((key) => ({ key, name: pageTitleFromKey(key), path: `/pages/${key}`, custom: true }))
+  return [...known, ...rest]
+}
 /** The sections that show the creator's collections, offered only while collections are on. */
 const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
@@ -2694,7 +2720,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [builderCollections, setBuilderCollections] = useState<BuilderCollections | null>(null)
   const customSchemas = useMemo(() => customSectionSchemas(storelibSources), [storelibSources])
   /** The theme's blocks (blocks/*.storelib), this install's own files over them: what Add block can offer. */
-  const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources), [storelibSources])
+  const blockCatalog = useMemo(() => themeBlockCatalog(storelibSources, { builtIn: !isCompatSource(storelibSources["layout/theme.storelib"]) }), [storelibSources])
   const librarySchemas = useMemo(() => ({ ...SECTION_SCHEMAS, ...customSchemas }), [customSchemas])
   const ownSectionTypes = useMemo(() => customAddableSections(customSchemas), [customSchemas])
   /* The Community card is offered only while communities are on, and the collection sections only while
@@ -2711,8 +2737,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [addGroup, setAddGroup] = useState<SectionGroup>("template")
   /* Every section this creator wrote, a header of their own included, is filed under Created in the library. */
   const libraryOwnTypes = useMemo(() => Object.keys(customSchemas), [customSchemas])
+  /* An imported Shopify theme draws only its own sections: Storelib's would have nothing to draw them with there. */
+  const compatInstall = useMemo(() => isCompatSource(storelibSources["layout/theme.storelib"]), [storelibSources])
   const libraryAddable = useMemo(() => {
-    const all = [
+    const all = compatInstall ? ownSectionTypes : [
       ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
       ...ownSectionTypes,
     ]
@@ -2732,8 +2760,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
-    return [...new Set([own, ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas])
+    return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -3200,6 +3228,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     notificationTimer.current = setTimeout(() => setNotification(null), 4000)
   }, [])
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
+  /* Every page the install has a row for: an imported theme's switcher lists exactly these (compatPages). */
+  const [rowPageKeys, setRowPageKeys] = useState<string[]>([])
   /**
    * Which of the builder's migrations have been run. Only used to SAY what
    * is missing where it costs something — the publish panel warns when a
@@ -3547,6 +3577,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       .sort((a, b) => a.localeCompare(b))
       .map((key) => ({ id: key, name: pageTitleFromKey(key), key: key as PageKey }))
     setCustomPages(restored)
+    setRowPageKeys((inst.pages ?? []).map((pg) => String(pg.page_key)).filter(Boolean))
 
     // Load settings
     const settings = inst.settings
@@ -5958,12 +5989,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * the theme's own and the creator's, each with the address it is served at.
    */
   const sitePages = useMemo<SwitcherPage[]>(
-    () => [
+    () => compatInstall ? compatPages(rowPageKeys, customPages.filter((p) => !rowPageKeys.includes(p.key)).map((p) => p.key)) : [
       /* The collections page is listed while collections are on (physical commerce); off, the site has none to show. */
       ...(Object.keys(PAGE_META) as PageKey[]).filter((k) => (k !== "collections" && k !== "collection") || builderCollections !== null).map((k) => ({ key: k, name: PAGE_META[k].label, path: pagePath(k) })),
       ...customPages.map((p) => ({ key: p.key as string, name: p.name, path: `/${p.key}`, custom: true })),
     ],
-    [customPages, builderCollections],
+    [customPages, builderCollections, compatInstall, rowPageKeys],
   )
   const switcherProducts = useMemo(() => products.map((p) => ({ id: p.id, title: p.title })), [products])
   const selectProductById = (id: string) => {
@@ -6135,6 +6166,47 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )
     }
 
+    /*
+      AN IMPORTED SHOPIFY THEME'S SETTINGS, the theme's own groups read at
+      import (components/website-builder/compat/compat-theme-settings.tsx).
+      `atTop`: the Theme tab's own list, which has nothing to go back to.
+    */
+    function compatThemePanel(atTop: boolean) {
+      const shopifyValues = ((settingsDraft as Record<string, unknown>).shopify ?? {}) as Record<string, unknown>
+      return (
+        <CompatThemeSettings
+          installId={installId}
+          values={shopifyValues}
+          open={expandedSettings}
+          onOpen={(name) => (name === "__back__" ? (atTop ? undefined : setSelectedPanel({ type: "pages" })) : setExpandedSettings(name))}
+          onChange={(id, v) => {
+            /* Read when it changes, so two settings moved in one frame both land. */
+            const now = ((settingsRef.current as Record<string, unknown>).shopify ?? {}) as Record<string, unknown>
+            updateSetting("shopify", { ...now, [id]: v })
+          }}
+          renderField={(field, value, change) =>
+            field.type === "color" || field.type === "header" || field.type === "paragraph" ? (
+              <FieldEditor field={field} value={value} onChange={change} />
+            ) : (
+              <FieldEditor label={field.label} field={field} value={value} onChange={change} />
+            )
+          }
+          back={(label, onBack) =>
+            atTop && label === "Theme settings" ? (
+              <div className="shrink-0 border-b border-border px-4 py-3">
+                <p className="text-sm font-semibold">Theme settings</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{compatOf(settingsDraft)?.theme || "The theme"}&apos;s own settings</p>
+              </div>
+            ) : (
+              <PanelBack onBack={onBack}>
+                <span className="text-[15px] font-semibold md:text-sm">{label}</span>
+              </PanelBack>
+            )
+          }
+        />
+      )
+    }
+
     // ── General Settings mode ──
     if (sidebarMode === "settings") {
       // Show section settings if a section is selected
@@ -6146,6 +6218,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         // This will fall through to the existing SECTION panel code below
       } else {
         // Global theme settings
+        /* An imported Shopify theme's settings are its own (config/settings_schema.json). */
+        if (compatInstall) return compatThemePanel(true)
         /*
           A LIST OF GROUPS, AND A GROUP OPENS AS ITS OWN PANEL. It was an
           accordion: a chevron turning on every row and the groups under an
@@ -6742,6 +6816,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
 
     // THEME SETTINGS panel
+    if (selectedPanel.type === "theme_settings" && compatInstall) return compatThemePanel(false)
+
     if (selectedPanel.type === "theme_settings") {
       /* The same list and panels as General Settings above. */
       const panelGroups = THEME_SETTINGS_GROUPS.filter(group => group.id !== "menus" && (!group.shownWhen || settingsDraft[group.shownWhen as keyof ThemeSettingsValues] === true))
@@ -6883,6 +6959,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     [catalogCardsForCanvas],
   )
   const canvasMenus = useMemo(() => siteMenus(activeThemeSettings, sections), [activeThemeSettings, sections])
+  /* An imported Shopify theme (lib/storelib-theme/compat/install.ts): its canvas, its collections. */
+  const canvasCompat = useMemo(() => compatOf(canvasThemeSettings), [canvasThemeSettings])
+  const compatCollections = useMemo(
+    () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ id: c.id, title: c.title, handle: c.handle, description: c.description, image: c.image, url: c.url, products_count: c.products_count, products: c.products })),
+    [builderCollections],
+  )
+  const selectFromCompatCanvas = useCallback(
+    (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
+    [selectSectionFromCanvas],
+  )
   /** Which menu Menus opens at, when something asked for one (the header's Edit, a section's menu picker). */
   const [menuRequest, setMenuRequest] = useState<{ handle: string; n: number } | null>(null)
   /* Navigation is its own panel, opened at the menu asked for; Back returns to whatever asked. */
@@ -9036,6 +9122,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                * how a section is rendered, with selection, hovering and the
                * device mode on it.
                */}
+              {canvasCompat ? (
+                /* An imported Shopify theme: drawn by the same function its website is (components/website-builder/compat/compat-canvas.tsx). */
+                <CompatCanvas
+                  installId={installId}
+                  sources={storelibSources}
+                  theme={canvasThemeSettings as Record<string, unknown>}
+                  pageKey={currentPage}
+                  sections={canvasSections as unknown as StoredSection[]}
+                  products={shopCards}
+                  collections={compatCollections}
+                  menus={canvasMenus as never}
+                  shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
+                  selectedSectionId={selectedSectionId}
+                  selectedBlockId={selectedBlockId}
+                  inspectorEnabled={canvasInspecting && !fullSettled}
+                  onSelect={selectFromCompatCanvas}
+                />
+              ) : (
               <EditorCanvasPage
                 theme={canvasThemeSettings}
                 sources={storelibSources}
@@ -9072,6 +9176,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 shopCards={shopCards}
                 installId={installId}
               />
+              )}
               {/* The sections Storelib AI is working on, and the ones it just changed. Over the page, never in its way. */}
               <AiWorkingOverlay working={aiWorkingIds} settled={aiSettledIds} label={aiWorkingLabel} />
               </div>

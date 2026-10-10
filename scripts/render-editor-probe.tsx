@@ -81,12 +81,19 @@ const probeGlobals = globalThis as unknown as {
   PROBE_PRODUCTS?: { id: string; title: string; slug?: string }[]
   /* The store's menus, as the theme route answers them (lib/website-builder/store-menus-server.ts); unset, the store keeps none. */
   PROBE_STORE_MENUS?: { available: boolean; stored: boolean; menus: Record<string, unknown> }
+  /**
+   * An imported Shopify theme (scripts/check-compat-editor.ts): its settings,
+   * its pages' sections by key, its .storelib files and its own files under
+   * shopify/, as the routes answer them for such an install.
+   */
+  PROBE_COMPAT?: { settings: Record<string, unknown>; pages: Record<string, unknown[]>; sources: Record<string, string>; files: Record<string, string> }
 }
+const compat = probeGlobals.PROBE_COMPAT
 const install = {
   id: "probe-install", creator_id: "probe-creator", theme_id: "default", name: "Probe store", status: probeGlobals.PROBE_LIVE ? "published" : "draft",
   is_custom: false, parent_install_id: null, sort_order: 0, created_at: now, updated_at: now, published_at: probeGlobals.PROBE_LIVE ? now : null,
-  settings: { id: "s1", install_id: "probe-install", settings: {}, draft_settings: null, created_at: now, updated_at: now },
-  pages: [
+  settings: { id: "s1", install_id: "probe-install", settings: compat?.settings ?? {}, draft_settings: null, created_at: now, updated_at: now },
+  pages: compat ? Object.keys(compat.pages).map((key, i) => ({ id: `p${i + 1}`, install_id: "probe-install", page_key: key, sections: [], created_at: now, updated_at: now })) : [
     { id: "p1", install_id: "probe-install", page_key: "home", sections: [], created_at: now, updated_at: now },
     ...Object.keys(probeGlobals.PROBE_PAGES ?? {})
       .filter((key) => key !== "home")
@@ -107,6 +114,14 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (/\/themes\/probe-install\/security/.test(url)) {
     if (probeGlobals.PROBE_SECURITY === "fail") return new Response(JSON.stringify({ error: "Could not check the site just now. Try again." }), { status: 500, headers: { "content-type": "application/json" } })
     return json(probeGlobals.PROBE_SECURITY ?? { issues: [], truncated: false, checked_at: now })
+  }
+  if (/\/themes\/probe-install\/sections/.test(url) && compat) {
+    if (init?.method && init.method !== "GET") return json({ ok: true })
+    const key = new URL(url, location.href).searchParams.get("page") ?? "home"
+    return json({ sections: compat.pages[key] ?? [], has_draft: false })
+  }
+  if (/\/themes\/probe-install\/files/.test(url) && compat) {
+    return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : compat.sources })
   }
   if (/\/themes\/probe-install\/sections/.test(url)) {
     const key = new URL(url, location.href).searchParams.get("page") ?? "home"

@@ -1,0 +1,134 @@
+/**
+ * ===========================================================================
+ *  ONE PAGE OF AN IMPORTED THEME, THE SAME EVERYWHERE
+ * ===========================================================================
+ * The published site, the preview and the builder's canvas all draw a page
+ * through `drawPage`, from the same files, the same settings and the same
+ * sections, so the three cannot disagree. What differs is only what each
+ * asks for: the builder's canvas carries its own small script for selecting
+ * and editing (./canvas-bridge.ts) and marks the page as design mode, as
+ * Shopify's theme editor does.
+ */
+import type { Ctx } from "./runtime"
+import { renderTree } from "./runtime"
+import { parseCompat } from "./parser"
+import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
+import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
+
+/** A section as a page row stores it. */
+export interface StoredSection {
+  id: string
+  type: string
+  name?: string
+  group?: unknown
+  hidden?: boolean
+  settings?: Record<string, unknown>
+  blocks?: StoredBlock[]
+}
+export interface StoredBlock {
+  id: string
+  type: string
+  settings?: Record<string, unknown>
+  static?: boolean
+  hidden?: boolean
+  blocks?: StoredBlock[]
+}
+
+function block(b: StoredBlock): CompatBlockInstance {
+  return { id: b.id, type: b.type, settings: b.settings ?? {}, static: b.static === true, hidden: b.hidden === true, blocks: (b.blocks ?? []).map(block) }
+}
+
+export function instanceOf(s: StoredSection): CompatSectionInstance {
+  return { id: s.id, type: s.type, settings: s.settings ?? {}, hidden: s.hidden === true, blocks: (s.blocks ?? []).map(block) }
+}
+
+/** A page row's sections in their three parts. */
+export function pageParts(sections: readonly StoredSection[]): { header: StoredSection[]; template: StoredSection[]; footer: StoredSection[] } {
+  const out = { header: [] as StoredSection[], template: [] as StoredSection[], footer: [] as StoredSection[] }
+  for (const s of sections) {
+    if (s.group === "header") out.header.push(s)
+    else if (s.group === "footer") out.footer.push(s)
+    else out.template.push(s)
+  }
+  return out
+}
+
+/** The theme an install's files and settings make. */
+export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
+  const compat = compatOf(settings)
+  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme })
+}
+
+export interface DrawOptions {
+  /** The theme's own scripts: on the website, and in the builder's canvas, which is a sandbox of its own. */
+  scripts: boolean
+  extraHead?: string
+  extraBodyEnd?: string
+}
+
+export interface DrawnPage {
+  html: string
+  /** Problems while drawing, by section id. */
+  errors: Record<string, string[]>
+  ctx: Ctx
+}
+
+/**
+ * The page's context: the theme's settings, the shop, the products, and the
+ * page's own header and footer groups.
+ */
+export function pageContextFor(theme: CompatTheme, page: CompatPage, sections: readonly StoredSection[]): Ctx {
+  const parts = pageParts(sections)
+  return theme.pageContext({ ...page, groups: { header: parts.header.map(instanceOf), footer: parts.footer.map(instanceOf) } })
+}
+
+/** The whole document. */
+export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonly StoredSection[], opts: DrawOptions): DrawnPage {
+  const ctx = pageContextFor(theme, page, sections)
+  const errors: Record<string, string[]> = {}
+  const parts = pageParts(sections)
+  let content = ""
+  const liquidTemplate = theme.files[`templates/${page.suffix ? `${page.template}.${page.suffix}` : page.template}.liquid`] ?? (page.suffix ? undefined : theme.files[`templates/${page.template}.liquid`])
+  if (liquidTemplate !== undefined && parts.template.length === 0) {
+    /* A template written in Liquid (gift_card.liquid, an older theme's product.liquid) is the page's content itself. */
+    try {
+      content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate), ctx)
+    } catch (e) {
+      errors.template = [(e as Error).message]
+    }
+  } else {
+    content = parts.template
+      .filter((s) => !s.hidden)
+      .map((s, i) => {
+        const r = theme.renderSection(ctx, instanceOf(s), i)
+        if (r.errors.length) errors[s.id] = r.errors
+        return r.html
+      })
+      .join("")
+  }
+  /* The fonts the theme's settings name, from a public font library (font_face draws no rule of its own). */
+  const fonts = theme.fontStylesheets(ctx).map((href) => `<link rel="stylesheet" href="${href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" data-storelib-font>`).join("")
+  const head = `${fonts ? `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>${fonts}` : ""}<style data-storelib-bundle>${theme.stylesheetBundle()}</style>${opts.extraHead ?? ""}`
+  const js = opts.scripts ? theme.javascriptBundle() : ""
+  const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
+  let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail })
+  /* A theme preloads its font files by font_url; a font library's address is a stylesheet, which the head above already loads. */
+  html = html.replace(/<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*href=["']https:\/\/fonts\.googleapis\.com[^>]*>|<link\b[^>]*href=["']https:\/\/fonts\.googleapis\.com[^"']*["'][^>]*rel=["']?preload["']?[^>]*>/gi, "")
+  if (!opts.scripts) html = withoutScripts(html)
+  return { html, errors, ctx }
+}
+
+/** One section, wrapped as on Shopify, for the section rendering API and for the builder's live edits. */
+export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection, index = 0, group?: "header" | "footer"): { html: string; errors: string[] } {
+  return theme.renderSection(ctx, instanceOf(section), index, group)
+}
+
+/** A page with none of its scripts: for a surface that must not run the theme's code. */
+export function withoutScripts(html: string): string {
+  return html
+    .replace(/<script\b(?![^>]*type=["']?(?:application\/(?:ld\+)?json|text\/template)["']?)[^>]*>[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<link\b[^>]*rel=["']?modulepreload["']?[^>]*>/gi, "")
+}
+
+/** The template and suffix a page key is drawn as. */
+export { templateOfPage }

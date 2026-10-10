@@ -17,12 +17,13 @@ import { DESIGN_SUPPORT_KEYS } from "./design-support"
 import { chromeRoleOf } from "@/lib/storelib-theme/chrome"
 import { COMPILE_CACHE_LIMIT, createLru } from "@/lib/storelib-theme/storelib/compile"
 import { parseStorelib, parseSchemaJson } from "@/lib/storelib-theme/storelib/parse"
-import { acceptsType, validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
+import { acceptsType, validateBlockSchema, validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
 import { compileTemplate, contentForRefs } from "@/lib/storelib-theme/storelib/template"
 import { compileBlock } from "@/lib/storelib-theme/storelib/compile"
 import { blockTypeFromPath, isPrivateBlock, listFromPreset, presetTree } from "@/lib/storelib-theme/blocks"
 import type { SectionPreset as EnginePreset, SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
@@ -95,6 +96,21 @@ function editorPresets(type: string, presets: EnginePreset[]): SectionPreset[] {
   })
 }
 
+/**
+ * The static blocks an imported theme's markup places: `{% content_for
+ * 'block', type: 'x', id: 'y' %}`, read from the text, since that markup is
+ * the compatible profile (lib/storelib-theme/compat) and not Storelib's own.
+ */
+function compatStatics(markup: string): { type: string; id: string }[] {
+  const out: { type: string; id: string }[] = []
+  for (const m of markup.matchAll(/\{%-?\s*content_for\s+['"]block['"]\s*,([^%]*)-?%\}/g)) {
+    const type = m[1].match(/\btype\s*:\s*['"]([^'"]+)['"]/)?.[1]
+    const id = m[1].match(/\bid\s*:\s*['"]([^'"]+)['"]/)?.[1]
+    if (type && id && !out.some((o) => o.id === id)) out.push({ type, id })
+  }
+  return out
+}
+
 /** The static blocks a template places, read from the template without compiling the rest of the file. */
 function staticsIn(templateText: string, file: string): { type: string; id: string }[] {
   const t = compileTemplate(templateText, { file, lenient: true })
@@ -134,7 +150,7 @@ export function schemaFromStorelib(source: string, file: string): StorelibSchema
       if (valid.ok === false) result = { ok: false, errors: describe(valid.errors) }
       else {
         const schema = editorSchema(valid.value)
-        const statics = staticsIn(parsed.value.template.text, file)
+        const statics = isCompatSource(source) ? compatStatics(splitCompatFile(source).markup) : staticsIn(parsed.value.template.text, file)
         if (statics.length) schema.statics = statics
         result = { ok: true, schema }
       }
@@ -303,6 +319,11 @@ export function themeBlockSchema(source: string, path: string): BlockSchema | nu
   const key = `${type}\0${source}`
   const hit = blockCache.get(key)
   if (hit !== undefined) return hit
+  if (isCompatSource(source)) {
+    const out = compatBlockSchema(source, path, type)
+    blockCache.set(key, out)
+    return out
+  }
   const r = compileBlock(source, { file: path, type, lenient: true })
   let out: BlockSchema | null = null
   if (r.ok === true) {
@@ -318,10 +339,32 @@ export function themeBlockSchema(source: string, path: string): BlockSchema | nu
   return out
 }
 
+/** An imported theme's block: its panel schema, read and checked without compiling its markup. */
+function compatBlockSchema(source: string, path: string, type: string): BlockSchema | null {
+  const parsed = parseStorelib(source, path)
+  if (parsed.ok === false) return null
+  const json = parseSchemaJson(parsed.value.schema, path)
+  if (json.ok === false) return null
+  const { shopify: _theirs, ...panel } = json.value as Record<string, unknown>
+  void _theirs
+  const valid = validateBlockSchema(panel, { file: path, type })
+  if (valid.ok === false) return null
+  const s = valid.value
+  const out: BlockSchema = { type, name: s.name, fields: s.settings.map(field), theme: true }
+  if (isPrivateBlock(type)) out.private = true
+  if (s.accepts?.length) out.accepts = [...s.accepts]
+  if (s.max_blocks !== undefined) out.max_blocks = s.max_blocks
+  if (s.presets?.length) out.presets = editorPresets(type, s.presets)
+  const statics = compatStatics(splitCompatFile(source).markup)
+  if (statics.length) out.statics = statics
+  return out
+}
+
 /** The theme's blocks, then this install's own files over them. */
-export function themeBlockCatalog(sources?: Record<string, string>): Record<string, BlockSchema> {
+export function themeBlockCatalog(sources?: Record<string, string>, opts: { builtIn?: boolean } = {}): Record<string, BlockSchema> {
   const out: Record<string, BlockSchema> = {}
-  for (const all of [DEFAULT_THEME_SOURCES as Record<string, string>, sources ?? {}]) {
+  /* An imported Shopify theme has its own blocks and draws no others: `builtIn: false`. */
+  for (const all of [opts.builtIn === false ? {} : (DEFAULT_THEME_SOURCES as Record<string, string>), sources ?? {}]) {
     for (const [path, source] of Object.entries(all)) {
       if (!blockTypeFromPath(path) || typeof source !== "string") continue
       const b = themeBlockSchema(source, path)

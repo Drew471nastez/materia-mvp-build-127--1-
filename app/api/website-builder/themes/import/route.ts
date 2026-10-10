@@ -21,6 +21,7 @@ import { logUploadVerdict } from "@/lib/security/uploads/audit"
 import { runAfterResponse } from "@/lib/security/uploads/pipeline"
 import { IMPORT_BUCKET, IMPORT_MAX_BYTES, IMPORT_NOT_A_PACKAGE, IMPORT_TOO_LARGE, isOwnImportPath, looksLikeZip } from "@/lib/website-builder/theme-import"
 import JSZip from "jszip"
+import { createHash } from "node:crypto"
 import {
   parseThemePackageManifest,
   MAX_IMAGE_BYTES_IN_ZIP,
@@ -28,7 +29,8 @@ import {
   type ThemePackageManifest,
 } from "@/lib/website-builder/theme-package-schema"
 import { buildPackage, readPackage } from "@/lib/storelib-theme"
-import { SHOPIFY_LICENSE_NOTICE, conversionSummary, convertShopifyTheme, isShopifyTheme, type ConversionReport } from "@/lib/storelib-theme/shopify/convert"
+import { SHOPIFY_LICENSE_NOTICE, conversionSummary, convertShopifyTheme, isShopifyTheme, type ConversionReport, type ImportedTheme } from "@/lib/storelib-theme/shopify/convert"
+import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
 import { pagesFromPackageFiles } from "@/lib/website-builder/theme-pages"
 import { readEntryCapped } from "@/lib/storelib-theme/package"
@@ -188,27 +190,19 @@ export async function POST(req: Request) {
 
   /**
    * ===========================================================================
-   *  A SHOPIFY THEME, CONVERTED, THEN READ LIKE ANY PACKAGE
+   *  A SHOPIFY THEME, IMPORTED WHOLE
    * ===========================================================================
-   * A ZIP with sections/*.liquid and no theme.json is a Shopify theme. Its
-   * Liquid is rewritten as text into .storelib files (lib/storelib-theme/
-   * shopify/convert.ts), never run, and the result is built into a package
-   * and handed to the branch below, so every check a package gets, this
-   * gets too. What was left out comes back in the answer as `shopify`.
+   * A ZIP with sections/*.liquid and no theme.json is a Shopify theme. It is
+   * kept as the theme wrote it, in Storelib's compatible profile (lib/
+   * storelib-theme/shopify/convert.ts), and drawn by Storelib's own engine
+   * on the website, in the preview and in the builder alike. What the import
+   * could not carry, and why, comes back in the answer as `shopify`.
    */
-  let shopify: ConversionReport | null = null
   if (isShopifyTheme(zip)) {
-    const converted = await convertShopifyTheme(zip, { reservedTypes: Object.keys(SECTION_SCHEMAS) })
+    const converted = await convertShopifyTheme(zip, { fallbackName: "Shopify theme" })
     if (converted.ok === false) return NextResponse.json({ error: converted.error }, { status: 400 })
-    shopify = converted.report
-    try {
-      buf = Buffer.from(await buildPackage(converted.pkg))
-      zip = await JSZip.loadAsync(buf)
-    } catch {
-      return NextResponse.json({ error: "This Shopify theme could not be converted" }, { status: 400 })
-    }
+    return importShopifyTheme(req, admin, { userId: user.id, creatorId: creator.id as string }, converted.theme, converted.report)
   }
-  const shopifyAnswer = shopify ? { shopify: { ...shopify, summary: conversionSummary(shopify), license: SHOPIFY_LICENSE_NOTICE } } : {}
 
   /**
    * ===========================================================================
@@ -226,7 +220,7 @@ export async function POST(req: Request) {
     const read = await readPackage(new Uint8Array(buf), { knownTypes: Object.keys(SECTION_SCHEMAS) })
     if (read.ok === false) {
       return NextResponse.json(
-        { error: read.errors[0]?.message ?? "This package is not valid", errors: read.errors, ...shopifyAnswer },
+        { error: read.errors[0]?.message ?? "This package is not valid", errors: read.errors },
         { status: 400 },
       )
     }
@@ -339,8 +333,7 @@ export async function POST(req: Request) {
     const rows = Object.entries(pkg.files)
       .filter(([path]) => path.endsWith(".storelib"))
       .filter(([path, content]) => DEFAULT_THEME_SOURCES[path] !== content)
-      /* A converted Shopify section names its pictures by asset reference, written into the file itself. */
-      .map(([path, content]) => ({ install_id: created.id, path, content: shopify ? Object.entries(refToUrl).reduce((text, [ref, url]) => text.split(ref).join(url), content) : content }))
+      .map(([path, content]) => ({ install_id: created.id, path, content }))
     const filled = await fillInstall(admin, created.id, settings, pages, rows)
     if (filled) return filled
 
@@ -373,8 +366,6 @@ export async function POST(req: Request) {
       media: describeMedia(imported),
       /** A section file that took the built-in header's or footer's own name, left out: lib/storelib-theme/package.ts. */
       left_out: [...new Set((read.warnings ?? []).map((w) => w.message.match(/ takes the built-in (header|footer)'s own name/)?.[1]).filter(Boolean))],
-      /** What a Shopify theme's conversion kept and left out, with the line to show and the license reminder. */
-      ...shopifyAnswer,
       ...first,
     })
   }
@@ -486,6 +477,16 @@ export async function POST(req: Request) {
 
 type Admin = ReturnType<typeof createAdminClient>
 
+/** An imported theme is hundreds of files: written a few hundred at a time, so no one request is megabytes. */
+async function insertInChunks(admin: Admin, files: { install_id: string; path: string; content: string }[]): Promise<{ error: unknown }> {
+  const CHUNK = 200
+  for (let i = 0; i < files.length; i += CHUNK) {
+    const { error } = await admin.from("store_theme_custom_files").insert(files.slice(i, i + CHUNK))
+    if (error) return { error }
+  }
+  return { error: null }
+}
+
 /**
  * The catalogue theme a new install points at.
  *
@@ -557,10 +558,75 @@ async function fillInstall(
     pages.length > 0
       ? admin.from("store_theme_pages").insert(pages.map((p) => ({ install_id: installId, page_key: p.page_key, sections: p.sections })))
       : Promise.resolve({ error: null }),
-    files.length > 0 ? admin.from("store_theme_custom_files").insert(files) : Promise.resolve({ error: null }),
+    insertInChunks(admin, files),
   ]
   const failed = (await Promise.all(writes)).find((r) => r.error)
   if (!failed) return null
   await admin.from("store_theme_installs").delete().eq("id", installId)
   return NextResponse.json({ error: "Could not import this theme. Try again." }, { status: 500 })
+}
+
+/**
+ * ===========================================================================
+ *  AN IMPORTED SHOPIFY THEME, STORED
+ * ===========================================================================
+ * Its pictures and videos to the creator's media, each checked as every
+ * upload is (packageFileAllowed); their addresses in shopify/config/
+ * assets.json. Every other file as a row of the install's files, its pages
+ * and its settings beside them, cleaned at the door like any package's.
+ * All or nothing: fillInstall removes the install if a write fails.
+ */
+async function importShopifyTheme(
+  req: Request,
+  admin: Admin,
+  who: { userId: string; creatorId: string },
+  theme: ImportedTheme,
+  report: ConversionReport,
+): Promise<NextResponse> {
+  const addresses: Record<string, string> = {}
+  const imported: Partial<Record<MediaKind, number>> = {}
+  for (const asset of theme.binaries) {
+    try {
+      const ext = extensionOf(asset.name)
+      const type = MEDIA_TYPES[ext]
+      if (!type || asset.bytes.byteLength > MAX_BYTES[type.kind] || !packageFileAllowed(asset.name, asset.bytes, type.kind)) {
+        report.skipped.push({ file: `assets/${asset.name}`, reason: "It is not a picture or video Storelib stores" })
+        continue
+      }
+      const path = `${who.userId}/imported/${createHash("sha256").update(asset.bytes).digest("hex").slice(0, 32)}.${ext}`
+      const { error } = await admin.storage.from(BUCKET).upload(path, Buffer.from(asset.bytes), { contentType: type.mime, upsert: true, cacheControl: "31536000" })
+      if (error) {
+        report.skipped.push({ file: `assets/${asset.name}`, reason: "It could not be stored. Import the theme again to retry" })
+        continue
+      }
+      addresses[asset.name] = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl
+      imported[type.kind] = (imported[type.kind] ?? 0) + 1
+    } catch {
+      report.skipped.push({ file: `assets/${asset.name}`, reason: "It could not be stored. Import the theme again to retry" })
+    }
+  }
+  /* The whole report is kept with the theme, where the code editor shows it: the answer's summary is one line. */
+  const files: Record<string, string> = { ...theme.files, [ASSET_MAP_PATH]: JSON.stringify(addresses, null, 2), "shopify/import-report.json": JSON.stringify({ summary: conversionSummary(report), ...report }, null, 2) }
+  const own = ownSectionFields(Object.entries(files).filter(([p]) => p.endsWith(".storelib")).map(([path, content]) => ({ path, content })))
+  const pages = theme.pages.map((p) => ({ page_key: p.page_key, sections: sanitizeSections(p.sections as unknown as SectionInstance[], own) }))
+  const settings = sanitizeThemeSettings(theme.settings as unknown as Record<string, unknown>)
+
+  const sortOrder = await firstSortOrder(admin, who.creatorId)
+  const made = await createInstall(admin, who.creatorId, { theme_id: await catalogThemeId(admin, null), name: theme.name, sort_order: sortOrder })
+  if (made instanceof NextResponse) return made
+  const rows = Object.entries(files).map(([path, content]) => ({ install_id: made.id, path, content }))
+  const filled = await fillInstall(admin, made.id, settings, pages, rows)
+  if (filled) return filled
+
+  const first = await coverForNewWebsite({ installId: made.id, userId: who.userId, creatorId: who.creatorId }, renderOrigin(req.url), "import", null)
+  return NextResponse.json({
+    ok: true,
+    install_id: made.id,
+    name: theme.name,
+    migrated: false,
+    media: describeMedia(imported),
+    left_out: [],
+    shopify: { ...report, summary: `${conversionSummary(report)}${report.notes.length || report.skipped.length ? " The full report is in the code editor, shopify/import-report.json." : ""}`, license: SHOPIFY_LICENSE_NOTICE },
+    ...first,
+  })
 }

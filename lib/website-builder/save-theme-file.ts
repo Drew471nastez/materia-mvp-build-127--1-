@@ -18,6 +18,29 @@ import { compileSection, compileThemeFile } from "@/lib/storelib-theme/storelib/
 import { CHROME_TYPES, chromeRefusal, declaredKind, kindTaken } from "@/lib/storelib-theme/chrome"
 import { recordVersion, saveDraft, sourceMap, type FileRow } from "./theme-file-drafts"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
+import { parseCompat } from "@/lib/storelib-theme/compat/parser"
+import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
+import { validateBlockSchema, validateSectionSchema } from "@/lib/storelib-theme/schema/validate"
+
+/** What is wrong with an imported theme's file: its markup, then its panel schema. Empty when nothing is. */
+function compatFileErrors(path: string, content: string): ThemeError[] {
+  const { markup, schema } = splitCompatFile(content)
+  try {
+    parseCompat(markup)
+  } catch (e) {
+    /* The markup starts on the file's second line, after <template compat="shopify">. */
+    return [{ stage: "template", file: path, line: e instanceof CompatSyntaxError ? e.line + 1 : undefined, message: (e as Error).message }]
+  }
+  const section = path.match(/^sections\/([a-z0-9_-]+)\.storelib$/)
+  const block = path.match(/^blocks\/(_?[a-z][a-z0-9_-]*)\.storelib$/)
+  if (!section && !block) return []
+  if (!schema) return [{ stage: "schema", file: path, message: "The <schema> block is missing or is not JSON" }]
+  const { shopify: _theirs, ...panel } = schema as Record<string, unknown>
+  void _theirs
+  const r = section ? validateSectionSchema({ ...panel, type: section[1] }) : validateBlockSchema(panel, { type: block![1] })
+  return r.ok === false ? r.errors.map((e) => ({ ...e, file: path })) : []
+}
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -110,7 +133,15 @@ export async function saveThemeFile(
    * page stores and what the library is keyed by; the schema's own `type`
    * line is documentation, so a copy saved under a new name saves.
    */
-  if (path.endsWith(".storelib") && path.startsWith("blocks/")) {
+  if (path.endsWith(".storelib") && isCompatSource(content)) {
+    /*
+      AN IMPORTED SHOPIFY THEME'S FILE (lib/storelib-theme/compat): its markup
+      read by the compatible profile's own parser, and the panel's schema
+      checked as the builder reads it. Refused with the line, like any file.
+    */
+    const errors = compatFileErrors(path, content)
+    if (errors.length) return { ok: false, status: 422, error: `${path} did not read`, errors }
+  } else if (path.endsWith(".storelib") && path.startsWith("blocks/")) {
     /* A theme block: compiled by a block's rules (compile.ts, compileBlock). It is never a header or a footer, and its name is the Add block menu's, not Add section's. */
     const r = compileThemeFile(content, { file: path })
     if (r.ok === false) return { ok: false, status: 422, error: `${path} did not compile`, errors: r.errors }

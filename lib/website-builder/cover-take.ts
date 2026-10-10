@@ -37,6 +37,7 @@ import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { mintCoverPass } from "./cover-pass"
+import { isCompatInstall } from "./compat-site"
 import { takeCoverShots } from "./cover-shot"
 import {
   SNAPSHOT_BUCKET,
@@ -147,7 +148,10 @@ export async function takeCover(owner: CoverOwner, origin: string, opts: { force
     }
   }
   const pass = mintCoverPass(owner.installId)
-  const shots = await takeCoverShots(`${origin}/cover-render/${encodeURIComponent(pass)}`)
+  /* An imported Shopify theme is drawn by its own engine (lib/website-builder/compat-site.ts). */
+  const compat = await isCompatInstall(owner.installId)
+  const page = compat ? `${origin}/api/site-theme/cover/${encodeURIComponent(pass)}` : `${origin}/cover-render/${encodeURIComponent(pass)}`
+  const shots = await takeCoverShots(page)
   const result = await storeCover(owner, shots.desktop, shots.mobile)
   return { ...result, ms: shots.ms }
 }

@@ -91,6 +91,35 @@ export async function GET(req: Request, { params }: Params) {
    * source this install has saved, path to content, so a section a person
    * edited draws the way they edited it. Bounded by MAX_FILE_BYTES per row.
    */
+  /**
+   * AN IMPORTED SHOPIFY THEME'S OWN FILES, for the canvas that draws it
+   * (components/website-builder/compat/compat-canvas.tsx): its templates,
+   * config, default locale and text assets under `shopify/`, drafts first.
+   * Fonts (kept as base64) and the other languages' locales are left out:
+   * the canvas loads fonts by address and draws in the default language.
+   */
+  if (searchParams.get("compat") === "1") {
+    const files: Record<string, string> = {}
+    for (let from = 0; from < 10_000; from += 1000) {
+      const { data, error: readErr } = await supabase!
+        .from("store_theme_custom_files")
+        .select("path, content, draft_content")
+        .eq("install_id", installId)
+        .like("path", "shopify/%")
+        .order("path")
+        .range(from, from + 999)
+      if (readErr) break
+      const rows = (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
+      for (const r of rows) {
+        if (/^shopify\/locales\/(?!.*\.default\.json$)/.test(r.path)) continue
+        const text = r.draft_content ?? r.content
+        if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
+      }
+      if (rows.length < 1000) break
+    }
+    return NextResponse.json({ files })
+  }
+
   if (searchParams.get("sources") === "1") {
     /**
      * THE EDITOR SEES DRAFTS; A VISITOR SEES WHAT IS PUBLISHED. This is the

@@ -242,7 +242,7 @@ export function checkZipDirectory(
     const ext = extensionOf(entry.name)
     if (blockedInside.has(ext)) {
       if (exempt?.(entry.name, ext)) {
-        if (!report.notes.some((n) => n.code === "zip_shopify_scripts_ignored")) report.notes.push({ code: "zip_shopify_scripts_ignored", detail: `a Shopify theme's scripts, e.g. "${shown}", let in and never read or kept` })
+        if (!report.notes.some((n) => n.code === "zip_shopify_scripts_ignored")) report.notes.push({ code: "zip_shopify_scripts_ignored", detail: `a Shopify theme's scripts, e.g. "${shown}", let in as the theme's own files` })
       } else refuse("zip_blocked_entry", `entry "${shown}" is a .${ext}`)
     }
     if (NESTED.has(ext)) report.nestedArchives++
@@ -551,9 +551,11 @@ export async function verifyZipEntries(
  * Every theme Shopify ships (Dawn, Horizon) carries its JavaScript in
  * assets/*.js, so refusing any archive with a .js inside refused every real
  * Shopify theme before the converter (lib/storelib-theme/shopify/convert.ts)
- * could see it. The converter never reads those files and nothing stores
- * them: it takes sections, snippets, blocks, templates, locales and the
- * pictures the sections name.
+ * could see it. The import keeps them as the theme's own files: they run on
+ * the creator's website, which is on its own address with no Storelib
+ * session on it, and in the builder only inside a sandboxed frame with no
+ * origin of its own (components/website-builder/compat/compat-canvas.tsx).
+ * Nothing of Storelib's own ever runs them.
  *
  * So, and only for an archive whose own list says it is a Shopify theme
  * (sections/*.liquid beside config/settings_schema.json or

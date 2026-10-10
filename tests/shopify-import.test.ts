@@ -1,6 +1,7 @@
 /**
- * A Shopify Online Store 2.0 theme, imported by converting its Liquid to
- * .storelib files (lib/storelib-theme/shopify/convert.ts).
+ * A Shopify Online Store 2.0 theme, imported whole into Storelib's compatible
+ * profile (lib/storelib-theme/shopify/convert.ts) and drawn by Storelib's own
+ * engine (lib/storelib-theme/compat).
  *
  * The theme here is built in memory and small, but has every kind of thing
  * a real one has: a schema with locale keys, a stylesheet and a script, the
@@ -8,14 +9,15 @@
  * increment, comment, raw), filters it does not have, shopify_attributes,
  * a setting type it does not have, a section that cannot be converted, a
  * theme block, templates, theme settings, locales and a picture. It is
- * converted, built into a package and read back through readPackage, the
- * same door the import route uses.
+ * imported as the import route imports it, and its home page drawn.
  */
 import JSZip from "jszip"
 
-import { buildPackage, readPackage } from "../lib/storelib-theme/package"
-import { compileBlock, compileSection } from "../lib/storelib-theme/storelib/compile"
-import { conversionSummary, convertShopifyTheme, isShopifyTheme, SHOPIFY_LICENSE_NOTICE } from "../lib/storelib-theme/shopify/convert"
+import { convertShopifyTheme, isShopifyTheme } from "../lib/storelib-theme/shopify/convert"
+import { isCompatSource, splitCompatFile } from "../lib/storelib-theme/compat/theme"
+import { drawPage, themeOfInstall } from "../lib/storelib-theme/compat/page"
+import { exportShopifyTheme } from "../lib/storelib-theme/compat/export"
+import { schemaFromStorelib, themeBlockSchema } from "../lib/website-builder/storelib-schemas"
 import { LIMITS } from "../lib/storelib-theme/types"
 
 let passed = 0
@@ -230,135 +232,99 @@ async function shopifyZip(): Promise<JSZip> {
   for (const [p, f] of Object.entries(zip.files)) if (!f.dir) nested.file(`dawn-main/${p}`, await f.async("uint8array"))
   check("a GitHub download, one folder down, is recognised too", isShopifyTheme(nested))
 
-  console.log("\nConverting it\n")
+  console.log("\nImporting it whole\n")
   const r = await convertShopifyTheme(zip)
-  check("it converts", r.ok === true, r.ok === false ? r.error : undefined)
+  check("it imports", r.ok === true, r.ok === false ? r.error : undefined)
   if (r.ok === false) {
     console.log(`\n${passed} passed, ${failed} failed\n`)
     process.exit(1)
   }
-  const { pkg, report } = r
-  const src = pkg.files["sections/feature-list.storelib"] ?? ""
-  check("theme.json takes the name, version and author from theme_info", pkg.theme.name === "Test Shop Theme" && pkg.theme.version === "2.1.0" && pkg.theme.author === "Ada")
-  check("and says it was converted from Shopify", /Converted from the Shopify theme/.test(String(pkg.theme.description)))
-  check("the converted sections are listed", ["sections/feature-list.liquid", "sections/blog-only.liquid", "sections/quotes.liquid", "blocks/_quote.liquid", "templates/index.json"].every((f) => report.converted.includes(f)), report.converted)
+  const { theme, report } = r
+  const files = theme.files
+  check("the theme's name, version and author", theme.name === "Test Shop Theme" && theme.version === "2.1.0" && theme.author === "Ada")
+  check("every section is kept, in the compatible profile", ["feature-list", "blog-only", "quotes", "broken", "bad-json", "product-list", "spotlight"].every((t) => isCompatSource(files[`sections/${t}.storelib`])))
+  check("Shopify's header is kept under a name of its own, as the site's header", !files["sections/header.storelib"] && /"kind": "header"/.test(files["sections/theme-header.storelib"] ?? "") && theme.settings.compat.renamed?.header === "theme-header")
+  check("theme blocks, snippets and the layout are kept", isCompatSource(files["blocks/_quote.storelib"]) && isCompatSource(files["blocks/text.storelib"]) && isCompatSource(files["snippets/badge.storelib"]) && isCompatSource(files["layout/theme.storelib"]))
+  check("the markup is the theme's own, every tag in it", (files["sections/feature-list.storelib"] ?? "").includes("{% unless section.settings.show_note %}") && (files["sections/feature-list.storelib"] ?? "").includes("{% increment visits %}"))
+  const feature = splitCompatFile(files["sections/feature-list.storelib"]).schema as Record<string, unknown>
+  const panel = (feature.settings as { id: string }[]).map((s) => s.id)
+  check("the panel's schema is the builder's: padding-top is padding_top", panel.includes("padding_top") && panel.includes("heading"))
+  check("a setting the builder has no control for is not in the panel, and is in the theme's schema", !panel.includes("thing") && ((feature.shopify as { settings: { id: string }[] }).settings.some((s) => s.id === "thing")))
+  check("  and the report says so", report.notes.some((n) => n.file === "sections/feature-list.liquid" && /"thing"/.test(n.message)))
+  check("words written as t: keys are the words", feature.name === "Feature list")
+  check("the panel's schema validates as the builder reads it", schemaFromStorelib(files["sections/feature-list.storelib"], "sections/feature-list.storelib").ok === true)
+  const quoteBlock = themeBlockSchema(files["blocks/_quote.storelib"], "blocks/_quote.storelib")
+  check("a theme block's panel schema reads too", quoteBlock?.fields.some((f) => f.id === "text") === true)
+  check("a section with no schema is kept and drawn, and the report says it has nothing to change", report.notes.some((n) => n.file === "sections/broken.liquid" && /no \{% schema %\}/.test(n.message)))
+  check("a schema that is not JSON is kept and drawn too, and said", report.notes.some((n) => n.file === "sections/bad-json.liquid" && /not a JSON object/.test(n.message)))
+  check("the stylesheets and scripts are kept as the theme's files", files["shopify/assets/section-feature.css"]?.includes("font-size: 28px") && files["shopify/assets/theme.js"]?.includes("never read"))
+  check("the picture is stored as media", theme.binaries.some((b) => b.name === "logo.png"))
+  check("templates, config and locales are kept at their own paths", !!files["shopify/templates/index.json"] && !!files["shopify/config/settings_schema.json"] && !!files["shopify/locales/en.default.json"])
 
-  const compiled = compileSection(src, { file: "sections/feature-list.storelib", expectType: "feature-list" })
-  check("the main section compiles as a Storelib section", compiled.ok === true, compiled.ok === false ? compiled.errors.slice(0, 3) : undefined)
-  for (const path of Object.keys(pkg.files).filter((p) => p.endsWith(".storelib"))) {
-    const c = path.startsWith("blocks/") ? compileBlock(pkg.files[path], { file: path, type: path.slice(7, -9) }) : compileSection(pkg.files[path], { file: path })
-    check(`${path} compiles`, c.ok === true, c.ok === false ? c.errors[0] : undefined)
+  console.log("\nIts pages\n")
+  const home = theme.pages.find((p) => p.page_key === "home")
+  check("index is the home page, collection the collection page", !!home && theme.pages.some((p) => p.page_key === "collection"))
+  const main = home?.sections.find((s) => s.id === "main")
+  check("a section's values are under the builder's ids", main?.settings.padding_top === 48 && main?.settings.heading === "Hello")
+  check("a dynamic source is kept, to be read where it is drawn", main?.blocks?.find((b) => b.id === "b2")?.settings.title === "{{ product.title }}")
+  check("blocks keep their order", main?.blocks?.map((b) => b.id).join() === "b1,b2,b3")
+  check("a picture from the Shopify store's Files is named in the report", report.notes.some((n) => /shop_images|store's Files/.test(n.message)))
+  const settings = theme.settings
+  check("the install says it is an imported theme", settings.compat.kind === "shopify" && settings.compat.theme === "Test Shop Theme")
+  check("the theme's settings are carried whole, objects included", settings.shopify.show_badges === true && settings.shopify.page_width === 1200 && typeof settings.shopify.color_schemes === "object")
+  const panelGroups = JSON.parse(files["shopify/config/settings_panel.json"] ?? "[]") as { name: string }[]
+  check("the theme settings panel is the theme's own groups", panelGroups.every((g) => g.name !== "theme_info"))
+
+  console.log("\nDrawn\n")
+  const drawn = themeOfInstall(files, settings, { assetUrl: (n) => `/a/${n}`, assetText: (n) => files[`shopify/assets/${n}`] ?? null })
+  const page = drawPage(drawn, { template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "Shop", currency: "USD", moneyFormat: "${{amount}}" } }, (home?.sections ?? []) as never, { scripts: false })
+  check("the home page draws its heading through the theme's own Liquid", page.html.includes("<h2>HELLO</h2>"))
+  check("case, unless and the locale's words", page.html.includes("<span>Grid</span>") && page.html.includes("Free returns within 30 days"))
+  check("a snippet with what it was handed", page.html.includes('<span class="badge">Hello</span>'))
+  check("a block's attributes are the builder's selection marks", page.html.includes('data-block-id="b1"'))
+  check("raw stays text", page.html.includes("{{ shown as text }}"))
+  check("the theme's settings reach the page", page.html.includes("<em>badges on</em>"))
+  check("the section's {% stylesheet %} is in the page", page.html.includes(".feature { display: grid; gap: 12px; }"))
+  check("a page for the builder carries no script of the theme's when asked for none", !page.html.includes('classList.add("ready")'))
+
+  console.log("\nExported, and imported again\n")
+  {
+    const out = exportShopifyTheme(files, settings, Object.fromEntries(theme.pages.map((p) => [p.page_key, p.sections])) as never)
+    check("it exports as a Shopify theme, under the theme's own names", typeof out.files["sections/header.liquid"] === "string" && typeof out.files["layout/theme.liquid"] === "string" && !Object.keys(out.files).some((p) => p.endsWith(".storelib") || p.startsWith("shopify/")))
+    check("a section's {% schema %} is the theme's own again", String(out.files["sections/feature-list.liquid"]).includes('"id": "padding-top"'))
+    check("a page's values are under the theme's ids again", JSON.parse(String(out.files["templates/index.json"])).sections.main.settings["padding-top"] === 48)
+    const again = new JSZip()
+    for (const [path, body] of Object.entries(out.files)) again.file(path, body)
+    const r2 = await convertShopifyTheme(again)
+    check("and imports again", r2.ok === true, r2.ok === false ? r2.error : undefined)
+    if (r2.ok === true) {
+      const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+      const home2 = r2.theme.pages.find((p) => p.page_key === "home")
+      check("to the same home page", same(home2?.sections, home?.sections), { before: home?.sections.map((x) => x.id), after: home2?.sections.map((x) => x.id) })
+      const differ = Object.keys(files).filter((p) => /^sections\/.*\.storelib$/.test(p)).filter((p) => r2.theme.files[p] !== files[p])
+      check("with the same section files", differ.length === 0, differ.map((p) => [p, (files[p] ?? "").length, (r2.theme.files[p] ?? "").length, [...(files[p] ?? "")].findIndex((ch, i) => ch !== (r2.theme.files[p] ?? "")[i])]))
+      check("and the same theme settings", same(r2.theme.settings.shopify, settings.shopify))
+    }
   }
-
-  console.log("\nWhat the Liquid became\n")
-  check("section.settings.x is settings.x, and an assign is read as what it was assigned", src.includes("<h2>{{ settings.heading | upcase }}</h2>"))
-  check("unless is if not (…)", src.includes("{% if not (settings.show_note) %}"))
-  check("the t filter is the words from locales/en.default.json", src.includes(`<p class="note">Free returns within 30 days</p>`))
-  check("case/when is an if/elsif chain, a when with two values is an or", src.includes(`{% if settings.layout == "grid" %}`) && src.includes(`{% elsif settings.layout == "list" or settings.layout == "rows" %}`) && src.includes("{% else %}<span>Other</span>"))
-  check("a rendered snippet is written in place, its parameter read as what was passed", src.includes(`<span class="badge">{{ settings.heading }}</span>`))
-  const list = pkg.files["sections/product-list.storelib"] ?? ""
-  check("a snippet that requires settings still receives the object that was passed", list.includes("{% if not (true) %}") && list.includes("{{ settings.layout_type }}") && list.includes('class="resource-list"'), list.slice(0, 500))
-  const textBlock = pkg.files["blocks/text.storelib"] ?? ""
-  check("a text block prints its words, not an empty branch", textBlock.includes("block.settings.text") && textBlock.includes("<div") && textBlock.includes('class="text-block') && !textBlock.includes("{% if null %}") && !textBlock.includes("{% elsif null %}"), textBlock.slice(0, 700))
-  check("a placeholder image is a picture, not a hole", src.includes("<svg") && src.includes("hero__media"))
-  const spot = pkg.files["sections/spotlight.storelib"] ?? ""
-  check("a section that only places a static block still carries that block, with its words", /"static": true/.test(spot) && spot.includes("Free returns within 30 days") && spot.includes('content_for "block"'), spot.slice(0, 400))
-  check("for block in section.blocks is for block in blocks", src.includes("{% for block in blocks %}"))
-  check("richtext prints with raw, as Shopify printed it", src.includes("{{ settings.text | raw }}"))
-  check("image_url | image_tag is an <img> of the setting", src.includes(`<img src="{{ settings.image }}" alt="" loading="lazy">`))
-  check("a hyphenated setting id is the same name with _", src.includes(`"id": "padding_top"`) && src.includes("{{ settings.padding_top }}px"))
-  check("Shopify's own settings.x is the theme's, under theme.settings.shopify", src.includes("{% if theme.settings.shopify.show_badges %}"))
-  check("{% stylesheet %}, {% style %} and a stylesheet_tag'd asset all reach the <style> block", (() => {
-    const style = src.split("<style>")[1] ?? ""
-    return style.includes(".feature { display: grid") && style.includes(".feature h2 { font-size: 28px; }") && style.includes("padding-top: {{ settings.padding_top }}px")
-  })())
-  const asset = Object.entries(pkg.assets).find(([, a]) => a.filename === "logo.png")
-  check("the picture a section points at is a package asset, referenced by hash", !!asset && src.includes(`{{ "asset://${asset[0]}" | asset }}`))
-  check("a script nobody points at is not an asset", !Object.values(pkg.assets).some((a) => a.filename.endsWith(".js")))
-  const block = pkg.files["blocks/_quote.storelib"] ?? ""
-  check("a theme block prints block.storelib_attributes and is not wrapped", block.includes("{{ block.storelib_attributes }}") && /"tag": null/.test(block))
-  check("a section holding theme blocks keeps content_for", (pkg.files["sections/quotes.storelib"] ?? "").includes(`{% content_for "blocks" %}`))
-
-  console.log("\nNo Liquid survives, and nothing ran\n")
-  const all = Object.values(pkg.files).join("\n")
-  for (const tag of ["render", "assign", "unless", "case", "when", "liquid", "increment", "comment", "raw", "schema", "javascript", "stylesheet", "style", "include", "capture"]) {
-    check(`no {% ${tag} %} in any converted file`, !new RegExp(`\\{%-?\\s*${tag}\\b`).test(all))
-  }
-  check("no shopify_attributes, no {{- or -%}", !/shopify_attributes|\{\{-|-%\}|\{%-/.test(all))
-  check("no section.settings outside a visible_if", !all.split("\n").some((l) => l.includes("section.settings") && !l.includes("visible_if")))
-  check("the <script> and the onclick are gone", !/<script|onclick/.test(src.split("<style>")[0]))
-  check("{% increment %} is text that was removed, not a counter: nothing counts", !/visits/.test(src))
-  check("names Storelib cannot read are read as nothing", !/cart|request|design_mode/.test(src.split("<style>")[0]) && src.includes("{% if null %}EDITOR ONLY{% endif %}"))
-  check("a comment does not reach the page", !src.includes("secret note"))
-  check("raw's body is text, so its braces start nothing", src.includes("&#123;{ shown as text }}"))
-  check("{% javascript %} that reaches for document is left out", !src.includes("<script>"))
-
-  console.log("\nWhat was left out is said\n")
-  const said = (file: string, re: RegExp) => report.notes.some((n) => n.file === file && re.test(n.message))
-  const F = "sections/feature-list.liquid"
-  check("a blog setting dropped, with the reason", said(F, /Setting "blog" \(blog\) was dropped\. A Storelib website has no blog/))
-  check("a metaobject setting dropped, with the reason", said(F, /Setting "thing" \(metaobject\) was dropped/))
-  check("app blocks dropped", said(F, /App blocks were dropped/))
-  check("a snippet that is not there", said(F, /\{% render 'missing-snippet' %\} was removed: snippets\/missing-snippet\.liquid is not in the theme/))
-  check("a filter Storelib lacks", said(F, /The "money" filter was removed/))
-  check("the <script> tag", said(F, /A <script> in the markup was removed/))
-  check("the onclick", said(F, /on…= attributes were removed/))
-  check("increment", said(F, /\{% increment %\} was removed/))
-  check("the section's {% javascript %}", said(F, /\{% javascript %\} was left out/))
-  check("the section with a dropped setting still converts", report.converted.includes("sections/blog-only.liquid") && said("sections/blog-only.liquid", /Setting "blog" \(blog\) was dropped/))
-  const skipped = (file: string, re: RegExp) => report.skipped.some((s) => s.file === file && re.test(s.reason))
-  check("a section without a schema is left out, and why", skipped("sections/broken.liquid", /no \{% schema %\}/))
-  check("a section whose schema is not JSON is left out, and why", skipped("sections/bad-json.liquid", /not a JSON object/))
-  check("the header is left out: the site has its own", skipped("sections/header.liquid", /draws its own header/))
-  check("the header group is left out", skipped("sections/header-group.json", /groups are not imported/))
-  check("a collection template has no Storelib page", skipped("templates/collection.json", /no collection template/))
-  check("the layout is not used", skipped("layout/theme.liquid", /page shell/))
-  check("the theme's scripts are left out", skipped("assets/", /1 script was left out/))
-  check("the summary line counts sections", conversionSummary(report) === "Converted 5 of 8 sections and 2 of 2 blocks from Shopify. 3 were left out.", conversionSummary(report))
-  check("the license reminder says the importer is responsible", /right to use/.test(SHOPIFY_LICENSE_NOTICE) && !/—/.test(SHOPIFY_LICENSE_NOTICE))
-  check("no report line uses an em dash", ![...report.notes.map((n) => n.message), ...report.skipped.map((s) => s.reason)].some((m) => m.includes("—")))
-
-  console.log("\nTemplates and settings\n")
-  const home = JSON.parse(pkg.files["templates/home.json"] ?? "{}")
-  check("index is the home page", !!home.sections && Array.isArray(home.order))
-  check("a section that did not convert is left off the page", home.order.join(",") === "main,q" && !home.sections.gone)
-  check("and the page says so", said("templates/index.json", /did not convert were left off this page: broken/))
-  const main = home.sections.main ?? {}
-  check("saved values are kept for settings that survived, under their Storelib id", main.settings?.heading === "Hello" && main.settings?.padding_top === 48)
-  check("values for dropped settings and shopify:// addresses are not", !("blog" in (main.settings ?? {})) && !("image" in (main.settings ?? {})))
-  check("blocks of a type the section declares are kept, in order", JSON.stringify(main.block_order) === JSON.stringify(["b1", "b2"]) && main.blocks?.b1?.settings?.title === "One")
-  check("a dynamic source that names a product becomes a readable stand-in, not the tag", main.blocks?.b2?.settings?.title === "Product" && !String(main.blocks?.b2?.settings?.title).includes("{{"))
-  check("theme blocks in a section keep their values", home.sections.q?.blocks?.q1?.settings?.text === "Lovely")
-  check("no collection page was made", !pkg.files["templates/collection.json"])
-  const settings = JSON.parse(pkg.files["config/settings.json"] ?? "{}")
-  check("plain theme settings are carried under shopify", settings.shopify?.show_badges === true && settings.shopify?.page_width === 1200)
-  check("objects and shopify:// values are not", !("color_schemes" in settings.shopify) && !("logo" in settings.shopify))
-
-  console.log("\nThrough the package reader\n")
-  const bytes = await buildPackage(pkg)
-  const read = await readPackage(bytes, { knownTypes: [] })
-  check("buildPackage + readPackage accept it, every check included", read.ok === true, read.ok === false ? read.errors.slice(0, 3) : undefined)
-  if (read.ok === true) {
-    check("every converted file comes back", Object.keys(pkg.files).every((p) => read.value.files[p] === pkg.files[p]))
-    check("the picture comes back as an asset", !!asset && !!read.value.assets[asset[0]])
-  }
-  const reserved = await convertShopifyTheme(await shopifyZip(), { reservedTypes: ["quotes"] })
-  check("a name the account already draws itself is renamed, not replaced", reserved.ok === true && !!reserved.pkg.files["sections/quotes-shopify.storelib"] && !reserved.pkg.files["sections/quotes.storelib"] && JSON.parse(reserved.pkg.files["templates/home.json"]).sections.q.type === "quotes-shopify")
 
   console.log("\nLimits\n")
   const huge = new JSZip()
   huge.file("config/settings_schema.json", "[]")
+  huge.file("layout/theme.liquid", "")
   huge.file("sections/a.liquid", "")
   for (let i = 0; i < LIMITS.filesPerPackage * 2 + 1; i++) huge.file(`snippets/s${i}.liquid`, "")
   const tooMany = await convertShopifyTheme(huge)
   check("a ZIP with far too many files is refused early, with the number", tooMany.ok === false && /files; the most Storelib reads is/.test(tooMany.error))
-  const none = new JSZip()
-  none.file("config/settings_schema.json", "[]")
-  none.file("sections/a.liquid", "<div></div>")
-  const nothing = await convertShopifyTheme(none)
-  check("a theme where no section converts is refused, with the first reason", nothing.ok === false && /No section of this Shopify theme could be converted\. sections\/a\.liquid/.test(nothing.error))
+  const shell = new JSZip()
+  shell.file("config/settings_schema.json", "[]")
+  shell.file("sections/a.liquid", "<div></div>")
+  const noLayout = await convertShopifyTheme(shell)
+  check("a theme with no layout/theme.liquid is refused, saying so", noLayout.ok === false && /layout\/theme\.liquid/.test(noLayout.error))
+  const stray = await shopifyZip()
+  stray.file("README.md", "hello")
+  const withStray = await convertShopifyTheme(stray)
+  check("a file outside a theme's folders is named in the report, never dropped without a word", withStray.ok === true && withStray.report.skipped.some((s) => s.file === "README.md"))
 
-  
 console.log("\nA real Shopify download is let in at upload, and nothing else gets in with it\n")
 {
   const { checkZipDirectory, shopifyThemeRoot, shopifyScriptEntry, THEME_BLOCKED_INSIDE } = await import("@/lib/security/uploads/zip")
@@ -370,7 +336,7 @@ console.log("\nA real Shopify download is let in at upload, and nothing else get
   }
   const dawn = ["sections/header.liquid", "sections/main-product.liquid", "config/settings_schema.json", "layout/theme.liquid", "assets/global.js", "assets/cart.js", "assets/base.css"]
   check("Dawn's assets/*.js no longer refuse the whole theme", verdict(dawn).refusal === null, verdict(dawn).refusal)
-  check("  and the admin log says scripts were let in and never kept", verdict(dawn).notes.some((n) => n.code === "zip_shopify_scripts_ignored"))
+  check("  and the admin log says the theme's scripts were let in", verdict(dawn).notes.some((n) => n.code === "zip_shopify_scripts_ignored"))
   check("  in a theme zipped inside its own folder too", verdict(dawn.map((n) => `dawn-main/${n}`)).refusal === null)
   check("a .js anywhere else in a Shopify theme is still refused", verdict([...dawn, "snippets/evil.js"]).refusal?.code === "zip_blocked_entry")
   check("a .js deeper inside assets is still refused", verdict([...dawn, "assets/vendor/x.js"]).refusal?.code === "zip_blocked_entry")

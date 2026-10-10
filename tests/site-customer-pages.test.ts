@@ -446,7 +446,8 @@ async function main() {
     check("A asks: no pass is the password page, a pass is the website", blocked.blocked === true && open.blocked === false && open.protected === true)
     check("B does not ask, and is open", other.blocked === false && other.protected === false)
     const proxy = read("proxy.ts")
-    check("the proxy asks it on a subdomain and on a connected domain, before the page is rewritten", (proxy.match(/await passwordPageFor\(request, /g) ?? []).length === 2 && /to\.pathname = `\/w\/\$\{name\}\/password`/.test(proxy))
+    /* Three: a subdomain, a connected domain, and a site whose theme was imported from Shopify (compatRewrite), which answers on either. */
+    check("the proxy asks it on a subdomain and on a connected domain, before the page is rewritten", (proxy.match(/await passwordPageFor\(request, /g) ?? []).length === 3 && /to\.pathname = `\/w\/\$\{name\}\/password`/.test(proxy) && /async function compatRewrite[\s\S]{0,400}await passwordPageFor\(request, /.test(proxy))
     check("and a protected page is never handed to a shared cache", (proxy.match(/"private, no-store"/g) ?? []).length >= 3)
 
     section("Getting in: the password, or the owner")

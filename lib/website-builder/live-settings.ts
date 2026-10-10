@@ -52,7 +52,10 @@ let theme: Record<string, unknown> | null = null
 const commits = new Map<string, () => void>()
 const listeners = new Set<() => void>()
 
+/** Bumped on every change, for a reader of the whole store (useLiveSections). */
+let version = 0
 function notify() {
+  version++
   for (const l of listeners) l()
 }
 function subscribe(l: () => void) {
@@ -215,6 +218,31 @@ export function useLiveSection(section: SectionInstance): SectionInstance {
     }
   }, [section, o])
   return out
+}
+
+/**
+ * A whole page's sections with what a finger is changing laid over them: for
+ * a canvas that draws the page from one list rather than a component per
+ * section (components/website-builder/compat/compat-canvas.tsx). A section
+ * no finger is on is the same object, so a reader can tell which changed.
+ */
+export function useLiveSections<T extends SectionInstance>(list: readonly T[]): T[] {
+  const at = useSyncExternalStore(subscribe, () => version, () => 0)
+  /* Let go of a value once the editor's own copy says the same, as useLiveSection does: an Undo after a drag is then the Undo that is drawn. */
+  useLayoutEffect(() => {
+    if (depth > 0) return
+    for (const s of list) {
+      const o = sections.get(s.id)
+      if (o && settled(s, o)) sections.delete(s.id)
+    }
+  }, [list, at])
+  return useMemo(() => {
+    void at
+    return list.map((s) => {
+      const o = sections.get(s.id)
+      return o ? (withLive(s, o) as T) : s
+    })
+  }, [list, at])
 }
 
 /**

@@ -67,7 +67,8 @@ console.log("\nSEARCH: the phone's community search")
 console.log("\nPLACES: a fade and a rise, and nothing fixed rides it")
 {
   const f = code("components/community/member/shell-frame.tsx")
-  check("ARRIVE is the 260ms fade and 6px rise, none for reduced motion", /export const ARRIVE = "\[&>\*\]:animate-\[community-place-in_260ms_cubic-bezier\(0\.22,1,0\.36,1\)\] motion-reduce:\[&>\*\]:animate-none"/.test(f) && /@keyframes community-place-in\{from\{opacity:0;translate:0 6px\}to\{opacity:1;translate:0 0\}\}/.test(f))
+  /* On the page inside the pull to refresh wrapper, which stays mounted for the visit (community-pull-refresh.tsx). */
+  check("ARRIVE is the 260ms fade and 6px rise, none for reduced motion", /export const ARRIVE = "\[&>\[data-pull-to-refresh\]>\[data-pull-content\]>\*\]:animate-\[community-place-in_260ms_cubic-bezier\(0\.22,1,0\.36,1\)\] motion-reduce:\[&>\[data-pull-to-refresh\]>\[data-pull-content\]>\*\]:animate-none"/.test(f) && /@keyframes community-place-in\{from\{opacity:0;translate:0 6px\}to\{opacity:1;translate:0 0\}\}/.test(f))
   check("only once the member has moved to another place (the first page and a space switch do not land again)", /if \(!moved && tabFor\(current\) !== firstTab\.current\) setMoved\(true\)/.test(f) && /\$\{moved && !quietArrival \? ARRIVE : ""\}/.test(f))
   const j = code("components/community/public/join-controls.tsx")
   check("the phone's join bar is portalled to the body once the page is in the browser", /const onClient = React\.useSyncExternalStore\(noSubscribe, \(\) => true, \(\) => false\)/.test(j) && /return onClient \? createPortal\(bar, document\.body\) : bar/.test(j) && /\}, \[onClient\]\)/.test(j))

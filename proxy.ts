@@ -331,6 +331,81 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  A WEBSITE WHOSE THEME WAS IMPORTED FROM SHOPIFY
+ * ═══════════════════════════════════════════════════════════════════════════
+ * Its published install says so in its theme settings (`compat`). Such a
+ * site answers every address itself, its cart's `/cart.js` and its theme's
+ * section requests included, at /api/site-theme/site/<name>/…
+ * (lib/storelib-theme/compat/site.ts). Held for twenty seconds a name, so a
+ * page and the dozen requests its scripts make cost one read between them.
+ */
+const compatHeld = new Map<string, { at: number; value: boolean }>()
+async function compatSiteFor(username: string): Promise<boolean> {
+  const lower = username.toLowerCase()
+  const hit = compatHeld.get(lower)
+  if (hit && Date.now() - hit.at < 20_000) return hit.value
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) return false
+  let value = false
+  try {
+    const supabase = createClient(supabaseUrl, supabaseKey)
+    const { data: profile } = await supabase.from("profiles").select("id").eq("username", lower).maybeSingle()
+    let creatorId: string | null = null
+    if (profile) {
+      const { data: creator } = await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle()
+      creatorId = (creator as { id: string } | null)?.id ?? null
+    }
+    if (!creatorId) {
+      const { data: creator } = await supabase.from("creators").select("id").eq("slug", lower).maybeSingle()
+      creatorId = (creator as { id: string } | null)?.id ?? null
+    }
+    if (creatorId) {
+      const { data: install } = await supabase
+        .from("store_theme_installs")
+        .select("id")
+        .eq("creator_id", creatorId)
+        .eq("status", "published")
+        .order("sort_order", { ascending: true })
+        .limit(1)
+        .maybeSingle()
+      if (install) {
+        const { data: row } = await supabase.from("store_theme_settings").select("kind:settings->compat->>kind").eq("install_id", (install as { id: string }).id).maybeSingle()
+        value = (row as { kind?: string | null } | null)?.kind === "shopify"
+      }
+    }
+  } catch {
+    value = false
+  }
+  if (compatHeld.size > 5000) compatHeld.clear()
+  compatHeld.set(lower, { at: Date.now(), value })
+  return value
+}
+
+/** The addresses of an imported theme's site that are still Storelib's own: a visitor's account, the API, the site's SEO files. */
+function compatAnswers(pathname: string): boolean {
+  if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/_next/")) return false
+  if (pathname === "/account" || pathname.startsWith("/account/") || pathname === "/wishlist") return false
+  return pathname !== "/robots.txt" && pathname !== "/sitemap.xml"
+}
+
+/** The rewrite to the imported theme's handler, behind the site's password when it has one. */
+async function compatRewrite(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse> {
+  if (!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) {
+    const gate = await passwordPageFor(request, name, host, pathname, search)
+    if (gate.blocked) return gate.blocked
+  }
+  const to = request.nextUrl.clone()
+  to.pathname = `/api/site-theme/site/${name}${pathname === "/" ? "" : pathname}`
+  to.search = search
+  const r = NextResponse.rewrite(to, { request })
+  r.headers.set("Cache-Control", "private, no-store")
+  r.headers.set("x-seller-subdomain", name)
+  return r
+}
+
+/**
  * What a connected domain is: whose, and FOR WHAT.
  *
  * `purpose` is 'website' (the site built in the website builder, and the
@@ -972,6 +1047,10 @@ export async function proxy(request: NextRequest) {
        * collision it avoids.
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
+      /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
+      if (compatAnswers(pathname) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
+        return compatRewrite(request, subdomain, host, pathname, search)
+      }
       /*
         /links ON A SUBDOMAIN was the address the Share card once handed out,
         and the website answered it with a 404. It is sent to the OnePage,
@@ -1361,6 +1440,10 @@ export async function proxy(request: NextRequest) {
      */
     // Pages only, like the subdomain branch: an asset request must not cost
     // two database lookups, and a site's assets are Next's own anyway.
+    /* An imported Shopify theme answers its own addresses on a connected domain too. */
+    if (domainPurpose === "website" && compatAnswers(pathname) && (await compatSiteFor(username)) && !(await hasLiveAiSite(username))) {
+      return compatRewrite(request, username, host, pathname, search)
+    }
     const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
     const builtSite = !looksLikeFile && domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
 

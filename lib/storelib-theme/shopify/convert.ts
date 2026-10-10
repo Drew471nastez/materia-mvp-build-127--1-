@@ -1,46 +1,52 @@
 /**
  * ===========================================================================
- *  A SHOPIFY THEME, READ AS A STORELIB THEME
+ *  A SHOPIFY THEME, IMPORTED WHOLE
  * ===========================================================================
- * The ZIP Shopify's admin hands out (assets/, config/, layout/, locales/,
- * sections/, snippets/, templates/, blocks/) turned into the folder a
- * `.storelib-theme` package holds (docs/theme/01), so the import route can
- * hand it to readPackage and every check a package gets, this gets too.
+ * The ZIP Shopify's admin hands out (or a GitHub download of one: Dawn,
+ * Horizon, a commercial theme) becomes a Storelib website that draws the
+ * theme's own markup, with the theme's own CSS and scripts, on Storelib's
+ * engine. Nothing is rewritten into something else and nothing is thrown
+ * away to make it fit:
  *
- *   sections/<name>.liquid   sections/<name>.storelib: the schema, the
- *                            markup (./liquid.ts), the CSS it used
- *   blocks/<name>.liquid     blocks/<name>.storelib, a theme block
- *   snippets/*.liquid        written into whatever renders them
- *   templates/<page>.json    the pages Storelib has: index is home
- *   config/settings_data.json the theme's own values, under
- *                            theme.settings.shopify
- *   assets/*.png and the like the pictures a section points at
+ *   layout/*.liquid      layout/<name>.storelib       the page shell
+ *   sections/*.liquid    sections/<type>.storelib     markup + schema
+ *   blocks/*.liquid      blocks/<type>.storelib       markup + schema
+ *   snippets/*.liquid    snippets/<name>.storelib     markup
+ *   templates/*.json     the website's pages, one per template, each the
+ *                        header group, the template's sections and the
+ *                        footer group, editable in the builder
+ *   sections/*.json      the header and footer groups, placed on every page
+ *   config/*.json        the theme's settings, its values the install's
+ *   locales/*.json       kept, for `| t`
+ *   assets/*             stylesheets, scripts, icons and fonts kept as the
+ *                        theme's files; pictures and videos stored as media
  *
- * LIQUID IS NEVER RUN. Not here, not by the compiler, not on a page. Every
- * file is text that is rewritten, and what comes out is compiled by
- * compileSection and compileBlock exactly as a file somebody typed into the
- * code editor would be. A section that does not compile after the rewrite,
- * and after the fallbacks below, is left out and the report says why, with
- * the line.
+ * Each `.storelib` file is in the compatible profile of the template
+ * language (lib/storelib-theme/compat): `<template compat="shopify">`, the
+ * markup as the theme wrote it, and a `<schema>` that is two schemas at
+ * once. The Storelib one is what the builder's panel draws (the same
+ * controls every section has); the theme's own, under `"shopify"`, is what
+ * the page is drawn with, so a setting the panel cannot show still has its
+ * value and its default on the page.
  *
- * NOTHING IS LEFT OUT SILENTLY. Every dropped setting, tag, filter, script,
- * section and template is a line in the report, in words a person can act
- * on. The report is what tells somebody why their slideshow is missing,
- * so it is specific rather than reassuring.
+ * NOTHING IS LEFT OUT SILENTLY. A file that is not part of a theme, a
+ * setting the panel has no control for, a tag Storelib does not know, a
+ * picture that lives in the Shopify store's own Files rather than in the
+ * theme: each is a line in the report, with what was done about it.
  *
  * NEVER THROWS. A file that cannot be read is a line in the report; a ZIP
  * that is far too large is a refusal with the number.
  */
 import JSZip from "jszip"
-import postcss, { type Rule } from "postcss"
 
-import { UNSUPPORTED_TYPES, controlFor, holdsValue, resolveControlType } from "../controls/registry"
-import { mimeForExt, readEntryCapped, readEntryTextCapped, sha256, type PackageAsset, type ThemePackage } from "../package"
+import { UNSUPPORTED_TYPES, controlFor, resolveControlType } from "../controls/registry"
+import { readEntryCapped, readEntryTextCapped } from "../package"
 import { validateBlockSchema, validateSectionSchema } from "../schema/validate"
-import { compileBlock, compileSection } from "../storelib/compile"
-import { scopeCss } from "../storelib/css"
-import { LIMITS, THEME_FORMAT, THEME_FORMAT_VERSION, type ThemeError, type ThemeFiles, type ThemeManifest } from "../types"
-import { convertLiquid, type CssChunk, type Declared, type LiquidContext } from "./liquid"
+import { LIMITS } from "../types"
+import { CompatSyntaxError } from "../compat/lexer"
+import { parseCompat } from "../compat/parser"
+import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
+import { wrapCompatTemplate } from "../compat/theme"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -49,18 +55,56 @@ export interface ConversionReport {
   converted: string[]
   /** Files that were left out, each with the reason. */
   skipped: { file: string; reason: string }[]
-  /** What was changed or removed inside files that did convert. */
+  /** What was changed, or could not be carried, inside files that did convert. */
   notes: { file: string; message: string }[]
 }
 
 export interface ConvertOptions {
-  /** Section types the account already draws itself; a converted section is renamed rather than replacing one. */
-  reservedTypes?: readonly string[]
   /** The name to use when config/settings_schema.json gives none: usually the uploaded file's. */
   fallbackName?: string
 }
 
-export type ConvertResult = { ok: true; pkg: ThemePackage; report: ConversionReport } | { ok: false; error: string }
+/** A picture, a video or a font from assets/, for the import to store. */
+export interface ThemeBinary {
+  /** Its name in assets/, which `asset_url` asks for. */
+  name: string
+  bytes: Uint8Array
+}
+
+/** A section on a page, in the shape the builder stores. */
+export interface ImportedSection {
+  id: string
+  type: string
+  name?: string
+  group?: "header" | "footer"
+  hidden?: boolean
+  settings: Record<string, unknown>
+  blocks?: ImportedBlock[]
+}
+export interface ImportedBlock {
+  id: string
+  type: string
+  settings: Record<string, unknown>
+  static?: boolean
+  hidden?: boolean
+  blocks?: ImportedBlock[]
+}
+
+export interface ImportedTheme {
+  name: string
+  version: string
+  author?: string
+  /** Every text file, by the path it is stored under: the .storelib files and the theme's own under `shopify/`. */
+  files: Record<string, string>
+  /** assets/ files stored as media; the import writes their addresses to shopify/config/assets.json. */
+  binaries: ThemeBinary[]
+  /** One per page the theme's templates make. */
+  pages: { page_key: string; template: string; sections: ImportedSection[] }[]
+  /** The install's theme settings. */
+  settings: { compat: CompatSettings; shopify: Record<string, unknown> }
+}
+
+export type ConvertResult = { ok: true; theme: ImportedTheme; report: ConversionReport } | { ok: false; error: string }
 
 /** Said once, wherever a Shopify theme is imported: the route's answer and the docs. */
 export const SHOPIFY_LICENSE_NOTICE =
@@ -90,22 +134,25 @@ export function shopifyRoot(zip: JSZip): string | null {
   return null
 }
 
-/** A Shopify Online Store 2.0 theme, and not a Storelib package. */
+/** A Shopify Online Store theme, and not a Storelib package. */
 export function isShopifyTheme(zip: JSZip): boolean {
   if (zip.file("theme.json")) return false
   return shopifyRoot(zip) !== null
 }
 
-/** "Converted 18 of 23 sections from Shopify. 5 were left out." */
+/** "Imported 42 sections, 95 blocks and 9 pages from Shopify. 3 notes." */
 export function conversionSummary(report: ConversionReport): string {
-  const done = report.converted.filter((f) => f.startsWith("sections/")).length
-  const left = report.skipped.filter((s) => /^sections\/[^/]+\.liquid$/.test(s.file)).length
-  const total = done + left
-  const blocksDone = report.converted.filter((f) => f.startsWith("blocks/")).length
-  const blocksTotal = blocksDone + report.skipped.filter((s) => s.file.startsWith("blocks/")).length
-  const blocks = blocksTotal ? ` and ${blocksDone} of ${blocksTotal} blocks` : ""
-  const tail = left === 0 ? "" : left === 1 ? " 1 was left out." : ` ${left} were left out.`
-  return `Converted ${done} of ${total} sections${blocks} from Shopify.${tail}`
+  const count = (re: RegExp) => report.converted.filter((f) => re.test(f)).length
+  const sections = count(/^sections\/[^/]+\.liquid$/)
+  const blocks = count(/^blocks\//)
+  const pages = count(/^templates\/[^/]+\.json$/)
+  const parts = [`${sections} section${sections === 1 ? "" : "s"}`]
+  if (blocks) parts.push(`${blocks} block${blocks === 1 ? "" : "s"}`)
+  parts.push(`${pages} page${pages === 1 ? "" : "s"}`)
+  const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]
+  const left = report.skipped.length
+  const tail = left === 0 ? "" : left === 1 ? " 1 file was left out." : ` ${left} files were left out.`
+  return `Imported ${list} from Shopify.${tail}`
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────
@@ -114,17 +161,22 @@ export function conversionSummary(report: ConversionReport): string {
 const MAX_ENTRIES = LIMITS.filesPerPackage * 2
 /** Unpacked, as the archive declares it, before a byte is read. */
 const MAX_UNPACKED = LIMITS.packageBytes * 4
-/** How much one section may grow by through the snippets written into it. */
-const SNIPPET_BUDGET = 400 * 1024
-/** How much CSS one section may carry from the theme's stylesheets. */
-const CSS_BUDGET = 1024 * 1024
 /** Report lines per file, past which they are counted rather than listed. */
 const NOTES_PER_FILE = 12
 
-const IMAGE_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "svg", "avif"])
+/** Kept as media: stored once, served from storage. */
+const MEDIA_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif", "ico", "mp4", "webm", "mov"])
+/** Kept as text files of the theme, served from the website itself. */
+const TEXT_EXT = new Set(["css", "js", "mjs", "json", "svg", "txt", "map", "liquid", "md", "xml"])
+/** Kept as files of the theme too, written as base64 because they are not text. */
+const FONT_EXT = new Set(["woff", "woff2", "ttf", "otf", "eot"])
+
 const ID = /^[a-z][a-z0-9_]*$/
 const TYPE = /^[a-z][a-z0-9_-]*$/
+const SECTION_TYPE = /^[a-z][a-z0-9_-]{0,63}$/
 const BLOCK_REF = /^_?[a-z][a-z0-9_-]*$/
+/** Shopify names its header and footer sections `header` and `footer`; in Storelib those names are the built-in ones. */
+const RENAMED: Record<string, string> = { header: "theme-header", footer: "theme-footer" }
 
 function declaredSize(file: JSZip.JSZipObject): number {
   const internal = (file as unknown as { _data?: { uncompressedSize?: number } })._data
@@ -142,15 +194,11 @@ function lookupKey(tree: Tree | null, key: string): string | null {
     if (!cur || typeof cur !== "object") return null
     cur = (cur as Tree)[part]
   }
-  if (cur && typeof cur === "object") {
-    /* Plural forms: the one for many. */
-    const other = (cur as Tree).other ?? (cur as Tree).one
-    cur = other
-  }
+  if (cur && typeof cur === "object") cur = (cur as Tree).other ?? (cur as Tree).one
   return typeof cur === "string" ? cur.replace(/\{\{[\s\S]*?\}\}/g, "").replace(/\s{2,}/g, " ").trim() : null
 }
 
-/** A Shopify setting id as a Storelib one: `padding-block-start` is `padding_block_start`. Read by ./liquid.ts too. */
+/** A Shopify setting id as a Storelib one: `padding-block-start` is `padding_block_start`. The page reads either. */
 export function settingId(id: string): string {
   return id.replace(/-/g, "_")
 }
@@ -161,7 +209,7 @@ function humanise(id: string): string {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : "Untitled"
 }
 
-/** Strip JSON's comments, which Shopify's own files allow in config and templates. */
+/** JSON as Shopify writes it: comments allowed, a byte order mark allowed. */
 function parseJson(text: string): unknown {
   try {
     return JSON.parse(text)
@@ -174,12 +222,7 @@ function parseJson(text: string): unknown {
   }
 }
 
-// ── The conversion ──────────────────────────────────────────────────────────
-
-interface SourceFiles {
-  text: Map<string, string>
-  binary: Map<string, Uint8Array>
-}
+// ── The report ──────────────────────────────────────────────────────────────
 
 class Report {
   converted: string[] = []
@@ -202,30 +245,31 @@ class Report {
     this.skipped.push({ file, reason })
   }
 
-  /** Notes about a file that was then left out say nothing useful: the skip says it. */
-  forget(file: string) {
-    this.notes.delete(file)
-    this.extra.delete(file)
-  }
-
   done(): ConversionReport {
     const notes: { file: string; message: string }[] = []
     for (const [file, list] of this.notes) {
       for (const message of list) notes.push({ file, message })
       const more = this.extra.get(file)
-      if (more) notes.push({ file, message: `and ${more} more change${more === 1 ? "" : "s"} like these` })
+      if (more) notes.push({ file, message: `and ${more} more like these` })
     }
     return { converted: this.converted, skipped: this.skipped, notes }
   }
 }
+
+// ── The conversion ──────────────────────────────────────────────────────────
 
 export async function convertShopifyTheme(zip: JSZip, opts: ConvertOptions = {}): Promise<ConvertResult> {
   try {
     return await convertUnguarded(zip, opts)
   } catch (e) {
     const why = e instanceof Error && e.message ? e.message.split("\n")[0].slice(0, 200) : "it is not in a shape Storelib can read"
-    return { ok: false, error: `This Shopify theme could not be converted: ${why}` }
+    return { ok: false, error: `This Shopify theme could not be imported: ${why}` }
   }
+}
+
+interface SourceFiles {
+  text: Map<string, string>
+  binary: Map<string, Uint8Array>
 }
 
 async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<ConvertResult> {
@@ -239,9 +283,10 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
 
   const report = new Report()
   const src = await readSources(entries, root, report)
+  if (!src.text.has("layout/theme.liquid")) return { ok: false, error: "This theme has no layout/theme.liquid, the shell every page is drawn in" }
 
-  const schemaLocale = (parseJson(src.text.get("locales/en.default.schema.json") ?? "") as Tree | undefined) ?? null
-  const textLocale = (parseJson(src.text.get("locales/en.default.json") ?? "") as Tree | undefined) ?? null
+  const schemaLocale = (parseJson(src.text.get(defaultLocale(src, true) ?? "") ?? "") as Tree | undefined) ?? null
+  const textLocale = (parseJson(src.text.get(defaultLocale(src, false) ?? "") ?? "") as Tree | undefined) ?? null
   const tr = (value: unknown, fallback: string): string => {
     if (typeof value !== "string") return fallback
     if (!value.startsWith("t:")) return value
@@ -249,141 +294,196 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     return lookupKey(schemaLocale, key) ?? lookupKey(textLocale, key) ?? fallback
   }
 
-  /* Pictures in assets/, made into package assets only when a section points at one. */
-  const assets: Record<string, PackageAsset> = {}
-  const assetRef = new Map<string, string>()
-  const assetLookup = (name: string): ReturnType<LiquidContext["asset"]> => {
-    const clean = name.replace(/^\/+/, "")
-    const ext = clean.split(".").pop()?.toLowerCase() ?? ""
-    if (IMAGE_EXT.has(ext)) {
-      const bytes = src.binary.get(`assets/${clean}`)
-      if (!bytes) return null
-      let hash = assetRef.get(clean)
-      if (!hash) {
-        hash = sha256(bytes)
-        assetRef.set(clean, hash)
-        assets[hash] = { bytes, filename: clean, mime_type: mimeForExt(ext === "jpeg" ? "jpg" : ext) }
-      }
-      return { kind: "image", ref: `asset://${hash}` }
-    }
-    if (ext === "css") {
-      const text = src.text.get(`assets/${clean}`)
-      return text === undefined ? null : { kind: "css", text }
-    }
-    if (ext === "js") return { kind: "script" }
-    return null
+  const files: Record<string, string> = {}
+  const binaries: ThemeBinary[] = []
+
+  /* ── the theme's own files, kept as they are, under shopify/ ── */
+  for (const [path, text] of src.text) {
+    if (/^(sections|blocks|snippets|layout)\/[^/]+\.liquid$/.test(path)) continue
+    files[`${COMPAT_PREFIX}${path}`] = text
   }
-  const snippet = (name: string) => src.text.get(`snippets/${name}.liquid`) ?? null
-  const globalCss = globalStylesheet(src)
 
-  const files: ThemeFiles = {}
-  const reserved = new Set([...(opts.reservedTypes ?? []), "header", "footer"])
-
-  /* ── theme blocks first, so sections know which exist ── */
-  const blockSchemas = new Map<string, Setting[]>()
-  for (const [path, text] of [...src.text].sort(([a], [b]) => (a < b ? -1 : 1))) {
+  /* ── the files the engine draws ── */
+  const blockTypes = new Set<string>()
+  for (const path of src.text.keys()) {
     const m = path.match(/^blocks\/([^/]+)\.liquid$/)
+    if (m && BLOCK_REF.test(m[1])) blockTypes.add(m[1])
+  }
+  const sectionTypes = new Map<string, string>()
+  for (const path of [...src.text.keys()].sort()) {
+    const m = path.match(/^(layout|snippets|sections|blocks)\/([^/]+)\.liquid$/)
     if (!m) continue
-    const type = m[1].toLowerCase()
-    if (!BLOCK_REF.test(type)) {
-      report.skip(path, `"${m[1]}" is not a name a Storelib block can have: lowercase letters, digits, - and _`)
+    const [, folder, base] = m
+    const text = src.text.get(path)!
+    if (folder === "layout" || folder === "snippets") {
+      if (!/^[A-Za-z0-9_][A-Za-z0-9_.-]*$/.test(base)) { report.skip(path, `"${base}" is not a file name Storelib can store`); continue }
+      checkSyntax(text, (msg) => report.note(path, msg))
+      files[`${folder}/${base}.storelib`] = wrapCompatTemplate(text)
+      report.converted.push(path)
       continue
     }
-    const out = convertFile(text, { path, mode: "block", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: null })
-    if (!out) continue
-    files[`blocks/${type}.storelib`] = out.source
-    blockSchemas.set(type, out.settings)
+    const mode = folder === "sections" ? "section" : "block"
+    let type = mode === "block" ? base : base.toLowerCase().replace(/[^a-z0-9_-]+/g, "_")
+    if (mode === "section") {
+      if (RENAMED[type]) type = RENAMED[type]
+      /* `_blocks`: a section's name starts with a letter in Storelib. */
+      if (!/^[a-z]/.test(type)) type = `s${type.startsWith("_") || type.startsWith("-") ? "" : "-"}${type}`
+      if (!SECTION_TYPE.test(type)) { report.skip(path, `"${base}" cannot be made into a section name`); continue }
+      if (RENAMED[base]) report.note(path, `Stored as sections/${type}.storelib: "${base}" is the name of Storelib's own ${base}`)
+      else if (type !== base) report.note(path, `Stored as sections/${type}.storelib: a section's name starts with a letter and is lowercase letters, digits, - and _`)
+      sectionTypes.set(base, type)
+    } else if (!BLOCK_REF.test(type)) {
+      report.skip(path, `"${base}" is not a name a block can have: lowercase letters, digits, - and _`)
+      continue
+    }
+    const out = themeFile(text, { path, mode, type, original: base, tr, blockTypes, note: (msg) => report.note(path, msg) })
+    files[`${folder}/${type}.storelib`] = out
     report.converted.push(path)
   }
+  if (sectionTypes.size === 0) return { ok: false, error: "No section of this theme could be read" }
 
-  /* ── sections ── */
-  const sectionTypes = new Map<string, { type: string; settings: Setting[]; blocks: Map<string, Setting[]> | null }>()
+  /* ── assets ── */
+  for (const [path, bytes] of src.binary) {
+    const name = path.slice("assets/".length)
+    const ext = name.split(".").pop()?.toLowerCase() ?? ""
+    if (MEDIA_EXT.has(ext)) binaries.push({ name, bytes })
+    else if (FONT_EXT.has(ext)) files[`${COMPAT_PREFIX}${path}`] = `base64:${toBase64(bytes)}`
+  }
+
+  /* ── pages, from the templates and the groups ── */
+  const groups = {
+    header: groupList(src.text.get("sections/header-group.json"), "header", sectionTypes, report, "sections/header-group.json"),
+    footer: groupList(src.text.get("sections/footer-group.json"), "footer", sectionTypes, report, "sections/footer-group.json"),
+  }
+  const pages: ImportedTheme["pages"] = []
   for (const [path, text] of [...src.text].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    const m = path.match(/^sections\/([^/]+)\.(liquid|json)$/)
+    const m = path.match(/^templates\/(.+)\.(json|liquid)$/)
     if (!m) continue
-    if (m[2] === "json") {
-      report.skip(path, `Header and footer groups are not imported: a Storelib site draws its own header and footer, set in Theme settings`)
+    const name = m[1]
+    if (m[2] === "liquid") {
+      const key = compatPageKey(name)
+      if (key && !pages.some((p) => p.page_key === key) && !src.text.has(`templates/${name}.json`)) {
+        checkSyntax(text, (msg) => report.note(path, msg))
+        pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer] })
+        report.converted.push(path)
+        report.note(path, `A template written in Liquid rather than JSON draws as written; it has no sections to edit in the builder`)
+      } else if (!key) {
+        report.note(path, `Kept with the theme's files; ${name.startsWith("customers/") ? "a visitor's account pages are Storelib's own" : "Storelib has no page for it"}`)
+      }
       continue
     }
-    const base = m[1]
-    if (base === "header" || base === "footer") {
-      report.skip(path, `A Storelib site draws its own ${base}, set in Theme settings › ${humanise(base)}`)
+    if (name.startsWith("customers/")) {
+      report.note(path, `Kept with the theme's files; a visitor's account pages are Storelib's own`)
       continue
     }
-    let type = base.toLowerCase().replace(/[^a-z0-9_-]+/g, "_")
-    if (!/^[a-z]/.test(type)) type = `s_${type}`
-    if (reserved.has(type)) type = `${type}-shopify`
-    if (!TYPE.test(type)) {
-      report.skip(path, `"${base}" cannot be made into a section name`)
+    const key = compatPageKey(name)
+    if (!key) {
+      report.note(path, `Kept with the theme's files as an alternate template; Storelib draws each kind of page with its main template`)
       continue
     }
-    const out = convertFile(text, { path, mode: "section", type, tr, translate: (k) => lookupKey(textLocale, k), snippet, asset: assetLookup, report, blockTypes: new Set(blockSchemas.keys()), globalCss })
-    if (!out) continue
-    files[`sections/${type}.storelib`] = out.source
-    sectionTypes.set(base, { type, settings: out.settings, blocks: out.localBlocks })
+    const t = parseJson(text) as Tree | undefined
+    if (!t || typeof t.sections !== "object" || t.sections === null) {
+      report.skip(path, `It is not a JSON template with "sections"`)
+      continue
+    }
+    const sections = templateSections(t, sectionTypes, report, path)
+    pages.push({ page_key: key, template: name, sections: [...groups.header, ...sections, ...groups.footer] })
     report.converted.push(path)
   }
+  if (!pages.some((p) => p.page_key === "home")) return { ok: false, error: "This theme has no templates/index.json, so there is no home page to draw" }
 
-  if (sectionTypes.size === 0) {
-    const first = report.skipped.find((s) => s.file.startsWith("sections/") && s.file.endsWith(".liquid"))
-    return { ok: false, error: `No section of this Shopify theme could be converted${first ? `. ${first.file}: ${first.reason}` : ""}` }
+  /* ── what the layout reaches for, and nothing missing without a word ── */
+  for (const [path, text] of src.text) {
+    if (!path.endsWith(".liquid")) continue
+    for (const g of text.matchAll(/\{%-?\s*sections\s+['"]([^'"]+)['"]/g)) {
+      if (g[1] !== "header-group" && g[1] !== "footer-group" && !src.text.has(`sections/${g[1]}.json`)) report.note(path, `It draws the section group "${g[1]}", which the theme does not have`)
+      else if (g[1] !== "header-group" && g[1] !== "footer-group") report.note(path, `The section group "${g[1]}" is drawn as the theme set it; the builder edits the header and footer groups`)
+    }
   }
-
-  /* ── templates ── */
-  convertTemplates(src, sectionTypes, blockSchemas, files, report)
 
   /* ── theme settings ── */
   const schemaSettings = parseJson(src.text.get("config/settings_schema.json") ?? "")
   const info = Array.isArray(schemaSettings) ? (schemaSettings.find((g) => g && typeof g === "object" && (g as Tree).name === "theme_info") as Tree | undefined) : undefined
-  const carried = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
-  files["config/settings.json"] = JSON.stringify({ shopify: carried.values }, null, 2) + "\n"
-  if (src.text.has("config/settings_data.json")) {
-    report.note("config/settings_data.json", `${carried.kept} theme setting${carried.kept === 1 ? "" : "s"} carried over for the sections that read them. Colours, fonts and colour schemes are not: set them in Theme settings`)
+  const values = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
+  for (const [k, v] of Object.entries(values)) {
+    if (typeof v === "string" && v.startsWith("shopify://shop_images/")) {
+      report.note("config/settings_data.json", `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; choose it again in Theme settings`)
+    }
   }
-  for (const p of src.text.keys()) {
-    if (p.startsWith("layout/")) report.skip(p, `The page shell is Storelib's own; the theme's layout is not used`)
-  }
-  const scripts = [...src.binary.keys(), ...src.text.keys()].filter((p) => /^assets\/.*\.(js|mjs|ts)$/.test(p)).length
-  if (scripts) report.skip("assets/", `${scripts} script${scripts === 1 ? " was" : "s were"} left out: a Shopify theme's scripts call Shopify's own storefront`)
+
+  files[`${COMPAT_PREFIX}config/settings_panel.json`] = JSON.stringify(settingsPanel(schemaSettings, tr, (m) => report.note("config/settings_schema.json", m)), null, 1)
 
   const name = (typeof info?.theme_name === "string" && info.theme_name.trim()) || opts.fallbackName || "Shopify theme"
   const version = typeof info?.theme_version === "string" && /^\d+(\.\d+){0,2}/.test(info.theme_version) ? info.theme_version : "1.0.0"
-  const theme: ThemeManifest = {
-    format: THEME_FORMAT,
-    format_version: THEME_FORMAT_VERSION,
+  const theme: ImportedTheme = {
     name: name.slice(0, 80),
     version,
-    engine: { min: 1 },
-    description: `Converted from the Shopify theme ${name.slice(0, 80)}.`,
-    converted_from: "shopify",
+    files,
+    binaries,
+    pages,
+    settings: {
+      compat: { kind: "shopify", version: 1, theme: name.slice(0, 80), theme_version: version, renamed: Object.fromEntries([...sectionTypes].filter(([a, b]) => a !== b)) },
+      shopify: values,
+    },
   }
   if (typeof info?.theme_author === "string" && info.theme_author.trim()) theme.author = info.theme_author.trim().slice(0, 80)
+  return { ok: true, theme, report: report.done() }
+}
 
-  return { ok: true, pkg: { theme, files, assets }, report: report.done() }
+/** locales/en.default.json, or whichever locale the theme marks as its default. */
+function defaultLocale(src: SourceFiles, schema: boolean): string | null {
+  const suffix = schema ? ".default.schema.json" : ".default.json"
+  const all = [...src.text.keys()].filter((p) => p.startsWith("locales/") && p.endsWith(suffix) && (schema || !p.endsWith(".schema.json")))
+  return all.find((p) => p === `locales/en${suffix}`) ?? all[0] ?? null
 }
 
 async function readSources(entries: JSZip.JSZipObject[], root: string, report: Report): Promise<SourceFiles> {
   const text = new Map<string, string>()
   const binary = new Map<string, Uint8Array>()
+  const THEME_FOLDERS = new Set(["assets", "blocks", "config", "layout", "locales", "sections", "snippets", "templates"])
   for (const f of entries) {
     const path = f.name.slice(root.length)
-    const folder = path.split("/")[0]
-    const ext = path.split(".").pop()?.toLowerCase() ?? ""
-    if (folder === "assets" && IMAGE_EXT.has(ext)) {
-      const read = await readEntryCapped(f, LIMITS.assetBytes)
-      if (read.bytes) binary.set(path, read.bytes)
-      else report.skip(path, read.reason === "too_large" ? `Over ${LIMITS.assetBytes / 1024 / 1024} MB` : `Could not be read`)
+    const parts = path.split("/")
+    const folder = parts[0]
+    const base = parts[parts.length - 1]
+    if (base.startsWith(".") || parts.some((p) => p === "__MACOSX")) continue
+    if (!THEME_FOLDERS.has(folder) || parts.length < 2) {
+      report.skip(path, `It is not in one of a theme's folders (assets, blocks, config, layout, locales, sections, snippets, templates)`)
       continue
     }
-    if (folder === "assets" && /^(js|mjs|ts)$/.test(ext)) {
-      binary.set(path, new Uint8Array(0))
+    const ext = base.includes(".") ? base.split(".").pop()!.toLowerCase() : ""
+    if (folder === "assets") {
+      if (parts.length > 2) { report.skip(path, `A folder inside assets/ is not part of a Shopify theme; asset_url reads assets/ itself`); continue }
+      if (MEDIA_EXT.has(ext)) {
+        const read = await readEntryCapped(f, LIMITS.assetBytes)
+        if (read.bytes) binary.set(path, read.bytes)
+        else report.skip(path, read.reason === "too_large" ? `Over ${LIMITS.assetBytes / 1024 / 1024} MB` : `Could not be read`)
+        continue
+      }
+      if (FONT_EXT.has(ext)) {
+        const read = await readEntryCapped(f, 2 * 1024 * 1024)
+        if (read.bytes) binary.set(path, read.bytes)
+        else report.skip(path, read.reason === "too_large" ? `A font over 2 MB` : `Could not be read`)
+        continue
+      }
+      if (!TEXT_EXT.has(ext)) {
+        report.skip(path, `".${ext}" is not a kind of file a page loads: pictures, videos, fonts, stylesheets, scripts and text are kept`)
+        continue
+      }
+      const read = await readEntryTextCapped(f, LIMITS.sourceBytes)
+      if (read.reason) report.skip(path, read.reason === "too_large" ? `Over ${LIMITS.sourceBytes / 1024} KB` : `Could not be read`)
+      else text.set(path, read.text)
       continue
     }
-    const wanted =
-      (["sections", "blocks", "snippets", "layout"].includes(folder) && ext === "liquid") ||
-      (["sections", "templates", "config", "locales"].includes(folder) && ext === "json") ||
-      (folder === "assets" && ext === "css")
-    if (!wanted) continue
+    const wanted = (["sections", "blocks", "snippets", "layout", "templates"].includes(folder) && ext === "liquid") || (["sections", "templates", "config", "locales"].includes(folder) && ext === "json")
+    if (!wanted) {
+      report.skip(path, `A ${folder}/ folder holds ${folder === "config" || folder === "locales" ? ".json" : ".liquid"} files`)
+      continue
+    }
+    if (parts.length > 2 && !(folder === "templates" && parts.length === 3 && parts[1] === "customers")) {
+      report.skip(path, `A folder inside ${folder}/ is not read by Shopify either`)
+      continue
+    }
     const read = await readEntryTextCapped(f, LIMITS.sourceBytes)
     if (read.reason) report.skip(path, read.reason === "too_large" ? `Over ${LIMITS.sourceBytes / 1024} KB` : `Could not be read`)
     else text.set(path, read.text)
@@ -391,318 +491,107 @@ async function readSources(entries: JSZip.JSZipObject[], root: string, report: R
   return { text, binary }
 }
 
-// ── One file ────────────────────────────────────────────────────────────────
+function toBase64(bytes: Uint8Array): string {
+  let s = ""
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(s)
+}
+
+/** A file that does not read as the template language is still kept; the report names the line, and the page shows the problem there. */
+function checkSyntax(text: string, note: (m: string) => void): void {
+  try {
+    const parsed = parseCompat(text)
+    const unknown = [...new Set(parsed.unknown.map((u) => u.name))]
+    if (unknown.length) note(`Tags Storelib does not know draw nothing: ${unknown.map((n) => `{% ${n} %}`).join(", ")}`)
+  } catch (e) {
+    const line = e instanceof CompatSyntaxError ? ` (line ${e.line})` : ""
+    note(`It does not read as a template${line}: ${(e as Error).message}. Kept; fix it in the code editor`)
+  }
+}
+
+// ── One section or block file ───────────────────────────────────────────────
+
+const SCHEMA_TAG = /\{%-?\s*schema\s*-?%\}([\s\S]*?)\{%-?\s*endschema\s*-?%\}/
 
 type Setting = Record<string, unknown> & { type: string; id: string }
 
 interface FileJob {
   path: string
   mode: "section" | "block"
+  /** The name Storelib stores it under. */
   type: string
+  /** The name the theme gave it. */
+  original: string
   tr: (value: unknown, fallback: string) => string
-  translate: (key: string) => string | null
-  snippet: (name: string) => string | null
-  asset: LiquidContext["asset"]
-  report: Report
-  /** The theme block files that converted; null while converting those files themselves. */
-  blockTypes: Set<string> | null
-  /** The theme's own stylesheet (assets/base.css and its tokens), for a section. A block inherits it from the section it is drawn in. */
-  globalCss?: string
+  blockTypes: Set<string>
+  note: (m: string) => void
 }
 
-const SCHEMA_TAG = /\{%-?\s*schema\s*-?%\}([\s\S]*?)\{%-?\s*endschema\s*-?%\}/
-
 /**
- * One section or block file: its schema made Storelib's, then its markup,
- * then the compiler, with fallbacks. Null when it is left out, which the
- * report already says.
+ * The file as Storelib keeps it: the markup as the theme wrote it, then one
+ * schema that is both the panel's and the theme's.
  */
-function convertFile(text: string, job: FileJob): { source: string; settings: Setting[]; localBlocks: Map<string, Setting[]> | null } | null {
-  const { path, report } = job
-  const note = (m: string) => report.note(path, m)
-  const leave = (reason: string) => {
-    report.forget(path)
-    report.skip(path, reason)
-    return null
-  }
-
+function themeFile(text: string, job: FileJob): string {
   const found = text.match(SCHEMA_TAG)
-  if (!found) return leave(`It has no {% schema %}, so there is nothing to say what it is or what can be changed`)
-  const raw = parseJson(found[1])
-  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return leave(`Its {% schema %} is not a JSON object`)
-
-  const schema = job.mode === "section" ? sectionSchema(raw as Tree, job, note) : blockSchema(raw as Tree, job, note)
-  const valid = settle(schema, job, note)
-  if (!valid) return leave(`Its schema could not be made one Storelib accepts`)
-
-  const settings = (valid.settings as Setting[]) ?? []
-  const local = Array.isArray(valid.blocks) ? (valid.blocks as Tree[]).filter((b) => b.name !== undefined || b.settings !== undefined) : []
-  const refs = Array.isArray(valid.blocks) ? (valid.blocks as Tree[]).filter((b) => b.name === undefined && b.settings === undefined) : []
-  const declared: Declared = {
-    mode: job.mode,
-    settings: valueTypes(settings),
-    blockSettings: valueTypes(local.flatMap((b) => (b.settings as Setting[]) ?? [])),
-    localBlocks: local.length > 0,
-    themeBlocks: job.mode === "block" ? refs.length > 0 : refs.length > 0 && local.length === 0,
+  let raw: Tree = {}
+  if (!found) job.note(`It has no {% schema %}; it draws, and has nothing to change in the builder`)
+  else {
+    const parsed = parseJson(found[1])
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) raw = parsed as Tree
+    else job.note(`Its {% schema %} is not a JSON object; it draws with no settings`)
   }
-
-  const ctx: LiquidContext = {
-    declared,
-    translate: job.translate,
-    snippet: job.snippet,
-    asset: job.asset,
-    note,
-    styles: [],
-    script: null,
-    seen: new Set(),
-    budget: { chars: SNIPPET_BUDGET },
-  }
-  let template = cleanMarkup(convertLiquid(text.replace(SCHEMA_TAG, ""), ctx), ctx)
-
-  /* A theme block that prints its own attributes is not wrapped by the engine, as on Shopify. */
-  if (job.mode === "block") {
-    if (template.includes("block.storelib_attributes")) valid.tag = null
-    else delete valid.tag
-  }
-
-  /*
-    The theme's stylesheet is loaded by the layout, which is not imported
-    (the site draws its own page shell). Without it a section is an unstyled
-    shell: no type scale, no flex layout, no button, and a hero whose height
-    is an empty calc. It is carried with the section, scoped to that section.
-  */
-  if (job.mode === "section" && job.globalCss) ctx.styles.unshift({ css: job.globalCss, dynamic: false })
-  let styles = usableCss(budgetCss(ctx.styles, note), job, note)
-  let script = job.mode === "section" ? ctx.script : null
-  const file = `${job.mode === "section" ? "sections" : "blocks"}/${job.type}.storelib`
-  const compile = (s: string): ThemeError[] => {
-    const r = job.mode === "section" ? compileSection(s, { file, expectType: job.type }) : compileBlock(s, { file, type: job.type })
-    return r.ok === false ? r.errors : []
-  }
-
-  /*
-    THE FALLBACKS, IN ORDER. The script first, because a Shopify script
-    almost never passes (it reaches for `document` and Shopify's globals),
-    then the CSS that carried Liquid, then all CSS, then the markup line
-    by line: a line the compiler names is emptied of everything but its
-    tags, so the blocks around it still open and close.
-  */
-  let errors = compile(assemble(template, styles, script, valid))
-  if (errors.some((e) => e.stage === "script") && script) {
-    script = null
-    note(`{% javascript %} was left out: a Storelib section's script runs in a sandbox with its own API (docs/theme/09), and this one reaches past it`)
-    errors = compile(assemble(template, styles, script, valid))
-  } else if (script && !errors.length) {
-    note(`{% javascript %} was kept as the section's script; check that it still does what it did`)
-  }
-  const cssWhy = () => errors.find((e) => e.stage === "css")?.message ?? ""
-  if (errors.some((e) => e.stage === "css") && styles.some((c) => c.dynamic)) {
-    note(`CSS written with Liquid ({% style %}) was left out: ${cssWhy()}`)
-    styles = styles.filter((c) => !c.dynamic)
-    errors = compile(assemble(template, styles, script, valid))
-  }
-  if (errors.some((e) => e.stage === "css") && styles.length) {
-    note(`The ${job.mode}'s CSS was left out: ${cssWhy()}`)
-    styles = []
-    errors = compile(assemble(template, styles, script, valid))
-  }
-  for (let round = 0; round < 8 && errors.length && errors.every((e) => e.stage === "template"); round++) {
-    const next = emptyLines(template, errors, TEMPLATE_FIRST_LINE)
-    if (next === template) break
-    note(`A line the compiler could not accept was emptied: ${errors[0].message}`)
-    template = next
-    errors = compile(assemble(template, styles, script, valid))
-  }
-  if (job.mode === "block" && errors.some((e) => /storelib_attributes/.test(e.message))) {
-    delete valid.tag
-    errors = compile(assemble(template, styles, script, valid))
-  }
-  if (errors.length) {
-    const e = errors[0]
-    return leave(`It did not compile after conversion: ${e.file ?? file}${e.line ? ` line ${e.line}` : ""}: ${e.message}`)
-  }
-  const blocks = local.length ? new Map(local.map((b) => [String(b.type), (b.settings as Setting[]) ?? []])) : null
-  return { source: assemble(template, styles, script, valid), settings, localBlocks: blocks }
+  checkSyntax(text, job.note)
+  const editor = editorSchema(raw, job)
+  const schema = { ...editor, shopify: raw }
+  const markup = found ? text.replace(SCHEMA_TAG, "") : text
+  return `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify(schema, null, 2)}\n</schema>\n`
 }
 
-function valueTypes(list: Setting[]): Map<string, string> {
-  const out = new Map<string, string>()
-  for (const s of list) if (holdsValue(s.type)) out.set(s.id, resolveControlType(s.type) ?? s.type)
-  return out
-}
-
-/**
- * The .storelib file. A line of the template that is only `</template>` (an
- * HTML <template> element, which Shopify themes use) would end the block, so
- * it starts with a `{# #}` comment, which draws nothing.
- */
-function assemble(template: string, styles: CssChunk[], script: string | null, schema: Tree): string {
-  const tpl = template.replace(/^([ \t]*<\/(?:template|style|script|schema)>[ \t]*)$/gm, "{# #}$1")
-  const css = styles.map((c) => c.css).join("\n").replace(/\n([ \t]*<\/style>[ \t]*)(?=\n|$)/g, " $1")
-  const parts = [`<template>\n${tpl}\n</template>`]
-  if (css.trim()) parts.push(`<style>\n${css}\n</style>`)
-  if (script && script.trim()) parts.push(`<script>\n${script.replace(/\n([ \t]*<\/script>[ \t]*)(?=\n|$)/g, " $1")}\n</script>`)
-  parts.push(`<schema>\n${JSON.stringify(schema, null, 2)}\n</schema>`)
-  return parts.join("\n\n") + "\n"
-}
-
-/** assemble() writes `<template>` on line 1, so the template's first line is the file's second. */
-const TEMPLATE_FIRST_LINE = 2
-
-function emptyLines(template: string, errors: ThemeError[], first: number): string {
-  const lines = template.split("\n")
-  let changed = false
-  for (const e of errors) {
-    if (e.line === undefined) continue
-    const i = e.line - first
-    if (i < 0 || i >= lines.length) continue
-    const tags = lines[i].match(/\{%[\s\S]*?%\}/g) ?? []
-    const kept = tags.join("")
-    if (kept !== lines[i]) {
-      lines[i] = kept
-      changed = true
-    }
+/** The panel's schema: every setting the builder has a control for, validated. Never null: at worst a name and nothing to change. */
+function editorSchema(raw: Tree, job: FileJob): Tree {
+  const draft = job.mode === "section" ? sectionSchema(raw, job) : blockSchema(raw, job)
+  const settled = settle(draft, job)
+  if (settled) return settled
+  job.note(`Its settings could not be shown in the builder; it draws with the values the theme gave it`)
+  const bare: Tree = { name: draft.name }
+  if (job.mode === "section") {
+    bare.type = job.type
+    if (draft.kind) bare.kind = draft.kind
   }
-  return changed ? lines.join("\n") : template
+  return bare
 }
 
-/** The CSS a section carries, within what one section may hold. */
-function budgetCss(chunks: CssChunk[], note: (m: string) => void): CssChunk[] {
-  let total = 0
-  const out: CssChunk[] = []
-  for (const c of chunks) {
-    total += c.css.length
-    if (total > CSS_BUDGET) {
-      note(`Some of the theme's CSS was left out: a section carries at most ${CSS_BUDGET / 1024} KB of it here`)
-      break
-    }
-    out.push({ ...c, css: c.css.replace(/@import[^;]*;/gi, "") })
-  }
-  return out
-}
-
-/**
- * Each piece of CSS on its own, so one piece Storelib cannot read costs that
- * piece and not the section's whole stylesheet. Liquid tags between rules
- * (`{% if %}` around a rule in a `{% style %}`) are the usual one: no
- * stylesheet parser reads them, so that piece is left out and said.
- */
-function usableCss(chunks: CssChunk[], job: FileJob, note: (m: string) => void): CssChunk[] {
-  const file = `${job.mode === "section" ? "sections" : "blocks"}/${job.type}.storelib`
-  const type = job.mode === "section" ? job.type : `b-${job.type}`
-  const out: CssChunk[] = []
-  for (const chunk of chunks) {
-    const css = labelFilledButtons(chunk.css, note)
-    const r = scopeCss(css, { file, type })
-    if (r.ok === true) out.push({ ...chunk, css })
-    else note(`${chunk.dynamic ? "CSS written with Liquid ({% style %})" : "Part of the CSS"} was left out: ${r.errors[0]?.message ?? "it is not CSS Storelib reads"}`)
-  }
-  return out
-}
-
-/**
- * A rule that fills a button and never names its label's colour is refused
- * by the compiler (storelib/css.ts), which says to add
- * `color: var(--s-btn-text)`, the label colour the scheme chose for a filled
- * button. Shopify themes set that colour elsewhere, through classes this
- * import does not carry, so it is added here exactly as the compiler asks.
- * The same narrow test as the compiler's: a selector that says button, not
- * a state, a background that is a fill.
- */
-function labelFilledButtons(css: string, note: (m: string) => void): string {
-  if (!/btn|button/i.test(css) || /\{\{|\{%/.test(css)) return css
-  let root
-  try {
-    root = postcss.parse(css)
-  } catch {
-    return css
-  }
-  let changed = false
-  root.walkRules((rule: Rule) => {
-    const parent = rule.parent as { type?: string; name?: string } | undefined
-    if (parent?.type === "atrule" && /keyframes$/i.test(parent.name ?? "")) return
-    const selector = rule.selector.toLowerCase()
-    if (!/(^|[\s.#\[>+~])[a-z0-9_-]*(btn|button)/.test(selector)) return
-    if (/:(hover|focus|active|visited|disabled|focus-visible|focus-within)|::/.test(selector)) return
-    let fills = false
-    let names = false
-    rule.walkDecls((decl) => {
-      const prop = decl.prop.toLowerCase()
-      if (prop === "color") names = true
-      if (prop !== "background" && prop !== "background-color") return
-      const v = decl.value.trim().toLowerCase()
-      if (!["transparent", "none", "inherit", "unset", "initial"].includes(v)) fills = true
-    })
-    if (fills && !names) {
-      rule.append({ prop: "color", value: "var(--s-btn-text)" })
-      changed = true
-    }
-  })
-  if (!changed) return css
-  note(`Buttons with a background and no label colour were given color: var(--s-btn-text), the colour scheme's label colour for a filled button`)
-  return root.toString()
-}
-
-/**
- * What the template compiler refuses outright, taken out with a word
- * rather than refusing the whole section: scripts, handlers, frames,
- * document tags. A `<style>` element's CSS moves to the style block.
- */
-function cleanMarkup(html: string, ctx: LiquidContext): string {
-  let out = html
-  const take = (re: RegExp, message: string, to = "") => {
-    if (re.test(out)) {
-      ctx.note(message)
-      re.lastIndex = 0
-      out = out.replace(re, to)
-    }
-  }
-  take(/<script\b[\s\S]*?<\/script\s*>/gi, `A <script> in the markup was removed: a Storelib section's markup holds no scripts`)
-  take(/<script\b[^>]*>/gi, `A <script> in the markup was removed: a Storelib section's markup holds no scripts`)
-  out = out.replace(/<style\b[^>]*>([\s\S]*?)<\/style\s*>/gi, (_m, css: string) => {
-    if (!css.includes("{%")) ctx.styles.push({ css, dynamic: css.includes("{{") })
-    return ""
-  })
-  take(/<\/?(?:link|meta|base)\b[^>]*>/gi, `<link>, <meta> and <base> tags were removed: they belong to the page, not a section`)
-  take(/<iframe\b[\s\S]*?<\/iframe\s*>|<iframe\b[^>]*>/gi, `An <iframe> was removed: a Storelib section opens a frame only through the embed filter`)
-  take(/<object\b[\s\S]*?<\/object\s*>|<embed\b[^>]*>/gi, `An <object> or <embed> was removed`)
-  take(/([\s/"'])on[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `on…= attributes were removed: a section's behaviour goes in its <script> block`, "$1")
-  take(/([\s/"'])srcdoc\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `A srcdoc attribute was removed`, "$1")
-  take(/\s(?:v-[a-z-]+|@[a-z][\w.:-]*|:[a-z-]+)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, `Framework attributes (v-…, @…, :…) were removed`)
-  take(/javascript:[^"'\s>]*/gi, `A javascript: address was replaced with #`, "#")
-  return out
-}
-
-// ── Schemas ─────────────────────────────────────────────────────────────────
-
-/** A Shopify setting as a Storelib one, or null when Storelib has nothing to hold it. */
-function cleanSetting(raw: unknown, i: number, job: FileJob, note: (m: string) => void): Setting | null {
+/** A Shopify setting as a Storelib one, or null when the panel has nothing to show it with. The page still reads it. */
+function cleanSetting(raw: unknown, i: number, job: FileJob): Setting | null {
   if (!raw || typeof raw !== "object") return null
   const s = raw as Tree
   const type = String(s.type ?? "")
   if (type === "header" || type === "paragraph") {
-    const words = job.tr(s.content ?? s.label, "")
+    const raw = job.tr(s.content ?? s.label, "")
+    /* A line that only links to Shopify's own admin says nothing on Storelib. Other Markdown links keep their words. */
+    if (/^\s*\[[^\]]+\]\(\/admin[^)]*\)\s*$/.test(raw)) return null
+    const words = raw.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     if (!words) return null
     const out: Setting = { type, id: `${type === "header" ? "hdr" : "para"}_${i + 1}`, label: words.slice(0, 200) }
     if (type === "paragraph") out.content = words
     return out
   }
-  /* Horizon's ids are written padding-block-start; the same name with _ is the Storelib one (settingId). */
   const id = settingId(String(s.id ?? ""))
   const canonical = resolveControlType(type)
   if (!canonical) {
-    const why = UNSUPPORTED_TYPES[type] ?? `Storelib has no "${type}" control.`
-    note(`Setting "${id}" (${type}) was dropped. ${why}`)
+    const why = UNSUPPORTED_TYPES[type] ?? `the builder has no "${type}" control yet`
+    job.note(`Setting "${s.id}" (${type}) keeps the theme's value and is not shown in the builder: ${why}`)
     return null
   }
   if (!ID.test(id)) {
-    note(`Setting "${id}" was dropped: a Storelib setting id is lowercase letters, digits and _`)
+    job.note(`Setting "${s.id}" keeps the theme's value and is not shown in the builder: its id is not one the builder can store`)
     return null
   }
   const out: Setting = { ...(s as Tree), type, id, label: job.tr(s.label, humanise(id)).slice(0, 200) }
   for (const key of ["info", "placeholder"] as const) {
     if (s[key] === undefined) continue
-    const v = job.tr(s[key], "")
+    /* Shopify's help text links with Markdown, to its own admin: the words stay, the link to Shopify does not. */
+    const v = job.tr(s[key], "").replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     if (v) out[key] = v
     else delete out[key]
   }
@@ -724,26 +613,26 @@ function cleanSetting(raw: unknown, i: number, job: FileJob, note: (m: string) =
   return out
 }
 
-function cleanSettings(list: unknown, job: FileJob, note: (m: string) => void): Setting[] {
+function cleanSettings(list: unknown, job: FileJob): Setting[] {
   if (!Array.isArray(list)) return []
   const out: Setting[] = []
   const seen = new Set<string>()
   list.forEach((raw, i) => {
-    const s = cleanSetting(raw, i, job, note)
+    const s = cleanSetting(raw, i, job)
     if (!s || seen.has(s.id)) return
     seen.add(s.id)
     out.push(s)
   })
   if (out.length > LIMITS.settingsPerSchema) {
-    note(`Only the first ${LIMITS.settingsPerSchema} settings were kept`)
+    job.note(`The builder shows the first ${LIMITS.settingsPerSchema} settings; the rest keep the theme's values`)
     out.length = LIMITS.settingsPerSchema
   }
   return out
 }
 
-function sectionSchema(raw: Tree, job: FileJob, note: (m: string) => void): Tree {
-  const out: Tree = { type: job.type, name: job.tr(raw.name, humanise(job.type)).slice(0, 80) || humanise(job.type) }
-  out.settings = cleanSettings(raw.settings, job, note)
+function sectionSchema(raw: Tree, job: FileJob): Tree {
+  const out: Tree = { type: job.type, name: job.tr(raw.name, humanise(job.original)).slice(0, 80) || humanise(job.original) }
+  out.settings = cleanSettings(raw.settings, job)
   const local: Tree[] = []
   const refs: Tree[] = []
   if (Array.isArray(raw.blocks)) {
@@ -751,35 +640,37 @@ function sectionSchema(raw: Tree, job: FileJob, note: (m: string) => void): Tree
       if (!b || typeof b !== "object") continue
       const t = String(b.type ?? "")
       if (t === "@app") {
-        note(`App blocks were dropped: Storelib has no Shopify apps`)
+        job.note(`It accepts app blocks; Storelib has no Shopify apps, so none can be added`)
         continue
       }
       if (b.name === undefined && b.settings === undefined) {
-        if (t === "@theme" || (job.blockTypes?.has(t) ?? false)) refs.push({ type: t })
-        else note(`The theme block "${t}" it accepts did not convert, so it is not offered`)
+        if (t === "@theme" || job.blockTypes.has(t)) refs.push({ type: t })
+        else job.note(`It accepts the block "${t}", which the theme does not have`)
         continue
       }
       if (!TYPE.test(t)) {
-        note(`Block "${t}" was dropped: a block type is lowercase letters, digits, - and _`)
+        job.note(`Its block "${t}" draws, and cannot be added in the builder: its name is not one the builder can store`)
         continue
       }
-      const block: Tree = { type: t, name: job.tr(b.name, humanise(t)).slice(0, 80) || humanise(t), settings: cleanSettings(b.settings, job, note) }
+      const block: Tree = { type: t, name: job.tr(b.name, humanise(t)).slice(0, 80) || humanise(t), settings: cleanSettings(b.settings, job) }
       if (typeof b.limit === "number" && Number.isInteger(b.limit) && b.limit > 0) block.limit = b.limit
       local.push(block)
     }
   }
-  if (local.length && refs.length) note(`The theme blocks it accepts were dropped: a Storelib section holds its own blocks or theme blocks, not both`)
+  if (local.length && refs.length) job.note(`It holds its own blocks and theme blocks; the builder adds its own blocks, and theme blocks already on the page still draw`)
   const blocks = local.length ? local : refs
   if (blocks.length) out.blocks = blocks
   if (typeof raw.max_blocks === "number" && raw.max_blocks > 0) out.max_blocks = Math.min(Math.floor(raw.max_blocks), LIMITS.blocksPerSection)
   if (Array.isArray(raw.presets)) out.presets = cleanPresets(raw.presets as Tree[], out, job, local.length > 0)
-  placement(raw, out, note)
+  if (job.original === "header") out.kind = "header"
+  if (job.original === "footer") out.kind = "footer"
+  placement(raw, out, job)
   return out
 }
 
-function blockSchema(raw: Tree, job: FileJob, note: (m: string) => void): Tree {
+function blockSchema(raw: Tree, job: FileJob): Tree {
   const out: Tree = { name: job.tr(raw.name, humanise(job.type)).slice(0, 80) || humanise(job.type) }
-  out.settings = cleanSettings(raw.settings, job, note)
+  out.settings = cleanSettings(raw.settings, job)
   if (Array.isArray(raw.blocks)) {
     const refs = (raw.blocks as Tree[]).filter((b) => b && typeof b === "object" && (b.type === "@theme" || BLOCK_REF.test(String(b.type))) && b.name === undefined && b.settings === undefined).map((b) => ({ type: String(b.type) }))
     if (refs.length) out.blocks = refs
@@ -789,48 +680,28 @@ function blockSchema(raw: Tree, job: FileJob, note: (m: string) => void): Tree {
   return out
 }
 
-/** Presets that only set settings the section has and only add blocks it can hold. */
+/** Presets with the builder's ids, in the shape Add section places. Values are the theme's, untouched. */
 function cleanPresets(list: Tree[], schema: Tree, job: FileJob, local: boolean): Tree[] {
-  const ids = new Set(((schema.settings as Setting[]) ?? []).filter((s) => holdsValue(s.type)).map((s) => s.id))
   const localTypes = new Set(((schema.blocks as Tree[]) ?? []).map((b) => String(b.type)))
-  const accepts = ((schema.blocks as Tree[]) ?? []).map((b) => String(b.type))
-  const okType = (t: string, top: boolean) => {
-    if (local) return top && localTypes.has(t)
-    if (!BLOCK_REF.test(t)) return false
-    if (job.blockTypes && !job.blockTypes.has(t)) return false
-    if (!top) return true
-    return accepts.includes(t) || (accepts.includes("@theme") && !t.startsWith("_"))
-  }
+  const okType = (t: string, top: boolean) => (local ? top && localTypes.has(t) : BLOCK_REF.test(t) && job.blockTypes.has(t))
   const blocksOf = (node: Tree, top: boolean, depth: number): void => {
     const blocks = node.blocks
-    if (blocks === undefined) {
-      delete node.block_order
-      return
-    }
-    if (depth > 4) {
-      delete node.blocks
-      delete node.block_order
-      return
-    }
+    if (blocks === undefined) { delete node.block_order; return }
+    if (depth > 4 || typeof blocks !== "object" || blocks === null) { delete node.blocks; delete node.block_order; return }
     if (Array.isArray(blocks)) {
-      node.blocks = (blocks as Tree[]).filter((b) => b && typeof b === "object" && (okType(String(b.type), top) || (b.static === true && !local && BLOCK_REF.test(String(b.type)))))
+      node.blocks = (blocks as Tree[]).filter((b) => b && typeof b === "object" && okType(String(b.type), top))
       for (const b of node.blocks as Tree[]) {
-        if (local) { delete b.blocks; delete b.static }
-        else blocksOf(b, false, depth + 1)
+        if (b.settings && typeof b.settings === "object") b.settings = idsOf(b.settings as Tree, job.tr)
+        if (local) { delete b.blocks; delete b.static } else blocksOf(b, false, depth + 1)
       }
       delete node.block_order
-      return
-    }
-    if (typeof blocks !== "object" || blocks === null) {
-      delete node.blocks
       return
     }
     const kept: Record<string, Tree> = {}
     for (const [id, b] of Object.entries(blocks as Record<string, Tree>)) {
       if (!b || typeof b !== "object" || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) continue
-      const isStatic = b.static === true
-      if (local && isStatic) continue
-      if (!okType(String(b.type), top) && !(isStatic && BLOCK_REF.test(String(b.type)))) continue
+      if (!okType(String(b.type), top)) continue
+      if (b.settings && typeof b.settings === "object") b.settings = idsOf(b.settings as Tree, job.tr)
       if (local) delete b.blocks
       else blocksOf(b, false, depth + 1)
       kept[id] = b
@@ -844,62 +715,31 @@ function cleanPresets(list: Tree[], schema: Tree, job: FileJob, local: boolean):
   for (const p of list) {
     if (!p || typeof p !== "object") continue
     const preset: Tree = { ...p, name: job.tr(p.name, String(schema.name ?? "Preset")).slice(0, 80) }
-    if (p.settings && typeof p.settings === "object") {
-      preset.settings = Object.fromEntries(Object.entries(p.settings as Tree).map(([k, v]) => [settingId(k), v] as [string, unknown]).filter(([k, v]) => ids.has(k) && !shopifyOnly(v)).map(([k, v]) => [k, translateSetting(v, job.tr)]))
-    }
-    /*
-      A section that only places static blocks (`{% content_for "block" %}`,
-      Horizon's carousel, collection links) lists no blocks in its schema.
-      Dropping the preset's blocks there left the section with nothing to draw.
-      Static blocks stay; a block the section cannot hold still does not.
-    */
+    if (p.settings && typeof p.settings === "object") preset.settings = idsOf(p.settings as Tree, job.tr)
     blocksOf(preset, true, 1)
     const kept = preset.blocks
     const any = Array.isArray(kept) ? kept.length > 0 : !!kept && typeof kept === "object" && Object.keys(kept as Tree).length > 0
-    if (any) dropShopifyValues(kept, job.tr)
-    else {
-      delete preset.blocks
-      delete preset.block_order
-    }
+    if (!any) { delete preset.blocks; delete preset.block_order }
     out.push(preset)
   }
   return out
 }
 
-/** `t:html_defaults.new_arrivals_h2` is the words in the locale file, including a key written inside a longer string. */
+/** A preset's or a placed section's values, under the builder's ids. Words written as `t:` keys are the words. */
+function idsOf(settings: Tree, tr: (value: unknown, fallback: string) => string): Tree {
+  const out: Tree = {}
+  for (const [k, v] of Object.entries(settings)) out[settingId(k)] = translateSetting(v, tr)
+  return out
+}
+
 function translateSetting(v: unknown, tr: (value: unknown, fallback: string) => string): unknown {
   if (typeof v !== "string" || !v.includes("t:")) return v
-  if (v.startsWith("t:")) {
-    const words = tr(v, "")
-    return words || v
-  }
+  if (v.startsWith("t:")) return tr(v, "") || v
   return v.replace(/\bt:([a-z0-9_.]+)/gi, (whole, key: string) => tr(`t:${key}`, "") || whole)
 }
 
-/** The preset's blocks, at every depth, without values that only mean something on Shopify. */
-function dropShopifyValues(blocks: unknown, tr: (value: unknown, fallback: string) => string): void {
-  const list = Array.isArray(blocks) ? blocks : blocks && typeof blocks === "object" ? Object.values(blocks as Tree) : []
-  for (const b of list as Tree[]) {
-    if (!b || typeof b !== "object") continue
-    if (b.settings && typeof b.settings === "object") {
-      const entries: [string, unknown][] = []
-      for (const [k, v] of Object.entries(b.settings as Tree)) {
-        if (typeof v === "string" && (v.includes("{{") || v.startsWith("shopify://"))) {
-          const softened = softenDynamic(v)
-          if (softened != null) entries.push([k, softened])
-          continue
-        }
-        if (shopifyOnly(v)) continue
-        entries.push([k, translateSetting(v, tr)])
-      }
-      b.settings = Object.fromEntries(entries)
-    }
-    dropShopifyValues(b.blocks, tr)
-  }
-}
-
 /** `enabled_on` / `disabled_on`: the groups Storelib has, and the templates as allowed_templates / disabled_templates. */
-function placement(raw: Tree, out: Tree, note: (m: string) => void) {
+function placement(raw: Tree, out: Tree, job: FileJob) {
   const key = raw.enabled_on ? "enabled_on" : raw.disabled_on ? "disabled_on" : null
   if (!key) return
   const v = raw[key] as Tree
@@ -907,17 +747,18 @@ function placement(raw: Tree, out: Tree, note: (m: string) => void) {
   const groups = Array.isArray(v.groups) ? (v.groups as unknown[]).filter((g): g is string => g === "*" || g === "header" || g === "footer" || g === "template") : []
   const templates = Array.isArray(v.templates) ? (v.templates as unknown[]).filter((t): t is string => typeof t === "string" && t !== "*") : []
   if (groups.length) out[key] = { groups }
-  else if (Array.isArray(v.groups) && v.groups.length) note(`Its ${key} groups were dropped: Storelib has the header, footer and page groups only`)
+  else if (Array.isArray(v.groups) && v.groups.length) job.note(`Its ${key} names groups the builder does not have; it can be added to a page`)
   if (templates.length) out[key === "enabled_on" ? "allowed_templates" : "disabled_templates"] = templates
 }
 
 /**
  * The validator's word is final; this only answers it. Each refusal names a
- * path, and the thing at that path is removed (a setting, a default, a
- * preset) until the schema validates or nothing more can be removed.
+ * path, and the thing at that path is removed from the PANEL's schema (a
+ * setting, a default, a preset) until it validates. The theme's own schema,
+ * which the page is drawn with, is not touched.
  */
-function settle(schema: Tree, job: FileJob, note: (m: string) => void): Tree | null {
-  for (let round = 0; round < 8; round++) {
+function settle(schema: Tree, job: FileJob): Tree | null {
+  for (let round = 0; round < 10; round++) {
     const r = job.mode === "section" ? validateSectionSchema(schema) : validateBlockSchema(schema, { type: job.type })
     if (r.ok === true) return schema
     let changed = false
@@ -932,7 +773,7 @@ function settle(schema: Tree, job: FileJob, note: (m: string) => void): Tree | n
       const p = e.path ?? ""
       let m: RegExpMatchArray | null
       const settingAt = (list: unknown, i: number): Setting | undefined => (Array.isArray(list) ? (list[i] as Setting) : undefined)
-      if ((m = p.match(/^(?:blocks\[(\d+)\]\.)?settings\[(\d+)\]\.(default|visible_if|accept|limit|image|responsive|unit)$/))) {
+      if ((m = p.match(/^(?:blocks\[(\d+)\]\.)?settings\[(\d+)\]\.(default|visible_if|accept|limit|image|responsive|unit|min|max|step)$/))) {
         const list = m[1] !== undefined ? ((schema.blocks as Tree[])?.[Number(m[1])]?.settings as unknown) : schema.settings
         const s = settingAt(list, Number(m[2]))
         if (s && m[3] in s) {
@@ -942,7 +783,7 @@ function settle(schema: Tree, job: FileJob, note: (m: string) => void): Tree | n
       } else if ((m = p.match(/^(?:blocks\[(\d+)\]\.)?settings\[(\d+)\]/))) {
         const list = m[1] !== undefined ? ((schema.blocks as Tree[])?.[Number(m[1])]?.settings as unknown) : schema.settings
         const s = settingAt(list, Number(m[2]))
-        if (s) note(`Setting "${s.id}" was dropped: ${e.message}`)
+        if (s) job.note(`Setting "${s.id}" keeps the theme's value and is not shown in the builder: ${e.message}`)
         remove(list, Number(m[2]))
       } else if ((m = p.match(/^presets\[(\d+)\]\.settings\.(\w+)/))) {
         const pr = (schema.presets as Tree[])?.[Number(m[1])]
@@ -954,7 +795,7 @@ function settle(schema: Tree, job: FileJob, note: (m: string) => void): Tree | n
         remove(schema.presets, Number(m[1]))
       } else if ((m = p.match(/^blocks\[(\d+)\]/))) {
         remove(schema.blocks, Number(m[1]))
-      } else if (/^(enabled_on|disabled_on|allowed_templates|disabled_templates|kind|tag|class|capabilities|max_blocks|blocks)/.test(p)) {
+      } else if (/^(enabled_on|disabled_on|allowed_templates|disabled_templates|kind|tag|class|capabilities|max_blocks|blocks|presets)/.test(p)) {
         const k = p.split(/[.[]/)[0]
         if (k in schema) {
           delete schema[k]
@@ -974,355 +815,107 @@ function settle(schema: Tree, job: FileJob, note: (m: string) => void): Tree | n
   return null
 }
 
-// ── Templates ───────────────────────────────────────────────────────────────
+// ── Pages ───────────────────────────────────────────────────────────────────
 
-/** Shopify's template names that have a Storelib page of the same purpose. */
-function pageKeyFor(name: string): string | null {
-  if (name === "index") return "home"
-  if (name === "product") return "product"
-  if (name === "page.contact") return "contact"
-  if (/^page\.about/.test(name)) return "about"
-  return null
-}
-
-const WHY_NO_PAGE: [RegExp, string][] = [
-  [/^collection/, "Storelib has no collection template; the shop at /products is generated"],
-  [/^(blog|article)/, "A Storelib website has no blog of its own yet"],
-  [/^cart/, "The cart is Storelib's own and is not made of sections"],
-  [/^search/, "Search is a page Storelib generates"],
-  [/^404/, "The 404 page is generated; edit it in the editor"],
-  [/^password/, "A Storelib site is published or not; there is no password page"],
-  [/^gift_card|^list-collections|^customers/, "Storelib has no such page"],
-]
-
-function convertTemplates(
-  src: SourceFiles,
-  sections: Map<string, { type: string; settings: Setting[]; blocks: Map<string, Setting[]> | null }>,
-  blockSchemas: Map<string, Setting[]>,
-  files: ThemeFiles,
-  report: Report,
-) {
-  for (const [path, text] of [...src.text].sort(([a], [b]) => (a < b ? -1 : 1))) {
-    const m = path.match(/^templates\/(.+)\.json$/)
-    if (!m) continue
-    const key = m[1].includes("/") ? null : pageKeyFor(m[1])
-    if (!key) {
-      report.skip(path, WHY_NO_PAGE.find(([re]) => re.test(m[1]))?.[1] ?? `Storelib has no page for the "${m[1]}" template`)
-      continue
-    }
-    if (files[`templates/${key}.json`]) {
-      report.skip(path, `The ${key} page was already made from another template`)
-      continue
-    }
-    const t = parseJson(text) as Tree | undefined
-    if (!t || typeof t.sections !== "object" || t.sections === null) {
-      report.skip(path, `It is not a JSON template with "sections"`)
-      continue
-    }
-    const all = t.sections as Record<string, Tree>
-    const order = (Array.isArray(t.order) ? (t.order as unknown[]) : Object.keys(all)).filter((id): id is string => typeof id === "string")
-    const outSections: Tree = {}
-    const outOrder: string[] = []
-    const left = new Set<string>()
-    for (const id of order) {
-      const s = all[id]
-      if (!s || typeof s !== "object") continue
-      const conv = sections.get(String(s.type))
-      if (!conv) {
-        left.add(String(s.type))
-        continue
-      }
-      if (outOrder.length >= LIMITS.sectionsPerTemplate) break
-      const data: Tree = { type: conv.type, settings: values(s.settings, conv.settings) }
-      if (s.disabled === true) data.hidden = true
-      if (s.blocks && typeof s.blocks === "object") {
-        const counter = { n: 0 }
-        const kb = instanceBlocks(s.blocks as Record<string, Tree>, s.block_order, (type) => (conv.blocks ? conv.blocks.get(type) ?? null : blockSchemas.get(type) ?? null), !conv.blocks, counter, 1)
-        if (Object.keys(kb.blocks).length) {
-          data.blocks = kb.blocks
-          data.block_order = kb.order
-        }
-      }
-      outSections[id] = data
-      outOrder.push(id)
-    }
-    if (left.size) report.note(path, `Sections that did not convert were left off this page: ${[...left].join(", ")}`)
-    if (!outOrder.length) {
-      report.skip(path, `None of its sections converted`)
-      continue
-    }
-    files[`templates/${key}.json`] = JSON.stringify({ sections: outSections, order: outOrder }, null, 2) + "\n"
-    report.converted.push(path)
+function groupList(json: string | undefined, group: "header" | "footer", types: Map<string, string>, report: Report, path: string): ImportedSection[] {
+  if (!json) return []
+  const g = parseJson(json) as Tree | undefined
+  if (!g || typeof g.sections !== "object" || g.sections === null) {
+    report.skip(path, `It is not a JSON section group with "sections"`)
+    return []
   }
+  report.converted.push(path)
+  return templateSections(g, types, report, path).map((s) => ({ ...s, group }))
 }
 
-/**
- * A value that only means something on Shopify: a `shopify://` address, or a
- * dynamic source such as "{{ product.vendor }}", which here would print as
- * those characters.
- */
-/**
- * What the layout would have put on every page, carried into each section.
- * `body` and `html` rules are not: scoped, they would make the section itself
- * `min-height: 100svh` and the library card a tall blank.
- */
-const FALLBACK_TOKENS = `:root {
-  --section-height-small: 15rem;
-  --section-height-medium: 25rem;
-  --section-height-large: 35rem;
-  --color-foreground: #1a1a2e;
-  --color-foreground-rgb: 26 26 46;
-  --color-background: #ffffff;
-  --color-background-rgb: 255 255 255;
-  --color-border-rgb: 226 232 240;
-  --font-body--family: inherit;
-  --font-heading--family: inherit;
-  --font-subheading--family: inherit;
-  --font-accent--family: inherit;
-  --font-body--style: normal;
-  --font-body--weight: 400;
-  --font-heading--style: normal;
-  --font-heading--weight: 600;
-  --gap-scale: 1;
-  --layer-base: 0;
-  --layer-flat: 1;
-  --layer-raised: 2;
-  --layer-overlay: 16;
-  --opacity-10: 0.1;
-  --opacity-20: 0.2;
-  --opacity-40: 0.4;
-  --opacity-50: 0.5;
-  --opacity-70: 0.7;
-  --opacity-80: 0.8;
-  --font-size--xs: 0.75rem;
-  --font-size--sm: 0.875rem;
-  --font-size--md: 1rem;
-  --font-size--lg: 1.125rem;
-  --font-size--xl: 1.25rem;
-  --font-size--2xl: 1.5rem;
-  --font-size--3xl: 2rem;
-  --font-size--h1: 2.5rem;
-  --font-size--h2: 2rem;
-  --font-size--h3: 1.5rem;
-  --font-size--h4: 1.25rem;
-  --font-size--h5: 1.125rem;
-  --font-size--h6: 1rem;
-  --font-size--paragraph: 1rem;
-  --font-h1--size: var(--font-size--h1);
-  --font-h2--size: var(--font-size--h2);
-  --font-h3--size: var(--font-size--h3);
-  --font-h4--size: var(--font-size--h4);
-  --font-h5--size: var(--font-size--h5);
-  --font-h6--size: var(--font-size--h6);
-  --font-paragraph--size: var(--font-size--paragraph);
-  --font-h1--family: var(--font-heading--family);
-  --font-h2--family: var(--font-heading--family);
-  --font-h3--family: var(--font-heading--family);
-  --font-h4--family: var(--font-heading--family);
-  --font-h5--family: var(--font-heading--family);
-  --font-h6--family: var(--font-heading--family);
-  --font-paragraph--family: var(--font-body--family);
-  --font-h1--weight: 600;
-  --font-h2--weight: 600;
-  --font-h3--weight: 600;
-  --font-h4--weight: 600;
-  --font-h5--weight: 600;
-  --font-h6--weight: 600;
-  --font-paragraph--weight: 400;
-  --font-h1--line-height: 1.15;
-  --font-h2--line-height: 1.2;
-  --font-h3--line-height: 1.25;
-  --font-paragraph--line-height: 1.5;
-  --line-height--heading-normal: 1.25;
-  --line-height--body-normal: 1.5;
-  --color-primary-button-background: #1a1a2e;
-  --color-primary-button-text: #ffffff;
-  --color-primary-button-border: #1a1a2e;
-  --color-primary-button-hover-background: #000000;
-  --color-primary-button-hover-text: #ffffff;
-  --color-secondary-button-background: transparent;
-  --color-secondary-button-text: #1a1a2e;
-  --color-secondary-button-border: #1a1a2e;
-  --color-secondary-button-hover-background: #f3f4f6;
-  --color-secondary-button-hover-text: #1a1a2e;
-  --page-width: 1200px;
-  --page-margin: 20px;
-  --style-border-radius-buttons: 0px;
-}
-.hero__container { background: #e6e7eb; }
-.placeholder-svg { width: 100%; height: 100%; display: block; }
-.product-card, .card-gallery { min-height: 12rem; background: #f3f4f6; }
-`
-
-function globalStylesheet(src: SourceFiles): string {
-  const parts = [FALLBACK_TOKENS]
-  for (const name of ["theme-styles-variables", "css-variables", "color-palette"]) {
-    const text = src.text.get(`snippets/${name}.liquid`)
-    const css = text ? staticSnippetCss(text) : null
-    if (css) parts.push(css)
-  }
-  const base = src.text.get("assets/base.css")
-  if (base) {
-    const safe = sectionSafeCss(base)
-    if (safe) parts.push(safe)
-  }
-  return parts.join("\n")
-}
-
-/** `{% style %}` with the Liquid taken out, when what remains is still CSS. The font lines that only Shopify can fill are dropped. */
-function staticSnippetCss(source: string): string | null {
-  const chunks: string[] = []
-  const re = /\{%-?\s*(style|stylesheet)\s*-?%\}([\s\S]*?)\{%-?\s*end\1\s*-?%\}/g
-  let m: RegExpExecArray | null
-  while ((m = re.exec(source))) chunks.push(m[2])
-  if (!chunks.length) return null
-  let css = chunks.join("\n")
-  css = css.replace(/\{%-?\s*(?:comment|doc)[\s\S]*?end(?:comment|doc)\s*-?%\}/g, "")
-  css = css.replace(/\{%-?\s*liquid[\s\S]*?-?%\}/g, "")
-  css = css.replace(/\{%-?[\s\S]*?-?%\}/g, "")
-  css = css.replace(/\{\{[\s\S]*?\}\}/g, "")
-  css = css.replace(/^[ \t]*--[\w-]+\s*:\s*[,.\s]*;[ \t]*$/gm, "")
-  css = css.replace(/^[ \t]*[a-zA-Z-]+\s*:\s*;[ \t]*$/gm, "")
-  return parsedCss(css)
-}
-
-/** `html` and `body` rules restyle the page. On a section they would restyle the section. */
-function sectionSafeCss(css: string): string | null {
-  let root
-  try {
-    root = postcss.parse(css)
-  } catch {
-    return null
-  }
-  root.walkRules((rule) => {
-    const parent = rule.parent as { type?: string; name?: string } | undefined
-    if (parent?.type === "atrule" && /keyframes$/i.test(parent.name ?? "")) return
-    const selectors = rule.selectors.filter((s) => !/^(html|body)(\s|[:.#\[]|$)/i.test(s.trim()))
-    if (!selectors.length) rule.remove()
-    else rule.selectors = selectors
-  })
-  root.walkRules((rule) => {
-    if (!rule.nodes?.length) rule.remove()
-  })
-  root.walkAtRules((at) => {
-    if (!at.nodes?.length && at.name.toLowerCase() !== "import") at.remove()
-  })
-  return root.toString().trim() || null
-}
-
-function parsedCss(css: string): string | null {
-  try {
-    const root = postcss.parse(css)
-    root.walkRules((rule) => {
-      if (!rule.nodes?.length) rule.remove()
-    })
-    root.walkAtRules((at) => {
-      if (!at.nodes?.length) at.remove()
-    })
-    const out = root.toString().trim()
-    return out || null
-  } catch {
-    return null
-  }
-}
-
-function shopifyOnly(v: unknown): boolean {
-  return typeof v === "string" && (v.startsWith("shopify://") || v.includes("{{"))
-}
-
-/**
- * A heading whose only words are a Shopify source (`{{ closest.collection.title }}`)
- * was dropped whole, so the section drew nothing. Those sources become words
- * a visitor can read. A value that still has a tag we cannot fill is dropped.
- */
-function softenDynamic(v: string): string | null {
-  const next = v
-    .replace(/\{\{\s*closest\.collection\.title\s*\}\}/g, "Featured collection")
-    .replace(/\{\{\s*collection\.title\s*\}\}/g, "Collection")
-    .replace(/\{\{\s*closest\.product\.title\s*\}\}/g, "Product")
-    .replace(/\{\{\s*product\.title\s*\}\}/g, "Product")
-    .replace(/\{\{\s*closest\.blog\.title\s*\}\}/g, "Journal")
-    .replace(/\{\{\s*blog\.title\s*\}\}/g, "Journal")
-    .replace(/\{\{\s*closest\.article\.title\s*\}\}/g, "Article")
-    .replace(/\{\{\s*article\.title\s*\}\}/g, "Article")
-  if (next.includes("{{") || next.startsWith("shopify://")) return null
-  return next
-}
-
-/** A section's or block's saved values: only settings it still has, each a value its control accepts. */
-function values(raw: unknown, defs: Setting[]): Tree {
-  if (!raw || typeof raw !== "object") return {}
-  const out: Tree = {}
-  for (const [key, rawValue] of Object.entries(raw as Tree)) {
-    const k = settingId(key)
-    const def = defs.find((d) => d.id === k)
-    if (!def || !holdsValue(def.type)) continue
-    let v = rawValue
-    if (typeof v === "string" && (v.includes("{{") || v.startsWith("shopify://"))) {
-      const softened = softenDynamic(v)
-      if (softened == null) continue
-      v = softened
+function templateSections(t: Tree, types: Map<string, string>, report: Report, path: string): ImportedSection[] {
+  const all = t.sections as Record<string, Tree>
+  const order = (Array.isArray(t.order) ? (t.order as unknown[]) : Object.keys(all)).filter((id): id is string => typeof id === "string")
+  for (const id of Object.keys(all)) if (!order.includes(id)) order.push(id)
+  const out: ImportedSection[] = []
+  const missing = new Set<string>()
+  for (const id of order) {
+    const s = all[id]
+    if (!s || typeof s !== "object") continue
+    const type = types.get(String(s.type))
+    if (!type) { missing.add(String(s.type)); continue }
+    if (out.length >= LIMITS.sectionsPerTemplate) {
+      report.note(path, `The builder holds ${LIMITS.sectionsPerTemplate} sections a page; the rest were left off`)
+      break
     }
-    if (shopifyOnly(v)) continue
-    const control = controlFor(def.type)
-    if (!control || !control.schema.safeParse(v).success) continue
-    if (Array.isArray(def.options) && !(def.options as { value: string }[]).some((o) => o.value === v)) continue
-    out[k] = v
+    const section: ImportedSection = { id, type, settings: idsOf((s.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
+    if (typeof s.name === "string" && s.name.trim()) section.name = s.name.slice(0, 80)
+    if (s.disabled === true) section.hidden = true
+    const blocks = blockList(s.blocks as Record<string, Tree> | undefined, s.block_order, 1)
+    if (blocks.length) section.blocks = blocks
+    noteShopifyValues(section.settings, report, path)
+    out.push(section)
   }
+  if (missing.size) report.note(path, `It names sections the theme does not have, which were left off: ${[...missing].join(", ")}`)
   return out
 }
 
-function instanceBlocks(
-  blocks: Record<string, Tree>,
-  order: unknown,
-  schemaOf: (type: string) => Setting[] | null,
-  nested: boolean,
-  counter: { n: number },
-  depth: number,
-): { blocks: Tree; order: string[] } {
-  const out: Tree = {}
-  for (const [id, b] of Object.entries(blocks)) {
-    if (!b || typeof b !== "object" || !/^[A-Za-z0-9_-]{1,64}$/.test(id)) continue
-    const defs = schemaOf(String(b.type))
-    if (!defs) continue
-    if (++counter.n > LIMITS.blocksPerSection) break
-    const data: Tree = { type: String(b.type), settings: values(b.settings, defs) }
-    if (b.static === true) data.static = true
-    if (b.disabled === true) data.hidden = true
-    if (nested && depth < 4 && b.blocks && typeof b.blocks === "object") {
-      const inner = instanceBlocks(b.blocks as Record<string, Tree>, b.block_order, schemaOf, true, counter, depth + 1)
-      if (Object.keys(inner.blocks).length) {
-        data.blocks = inner.blocks
-        data.block_order = inner.order
-      }
-    }
-    out[id] = data
+function blockList(blocks: Record<string, Tree> | undefined, order: unknown, depth: number): ImportedBlock[] {
+  if (!blocks || typeof blocks !== "object" || depth > 8) return []
+  const listed = (Array.isArray(order) ? (order as unknown[]) : []).filter((id): id is string => typeof id === "string" && !!blocks[id])
+  const ids = [...new Set([...listed, ...Object.keys(blocks)])]
+  return ids.filter((id) => blocks[id] && typeof blocks[id] === "object").map((id) => {
+    const b = blocks[id]
+    const block: ImportedBlock = { id, type: String(b.type ?? ""), settings: idsOf((b.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
+    if (b.static === true) block.static = true
+    if (b.disabled === true) block.hidden = true
+    const inner = blockList(b.blocks as Record<string, Tree> | undefined, b.block_order, depth + 1)
+    if (inner.length) block.blocks = inner
+    return block
+  })
+}
+
+/** A picture or a page that only the Shopify store had. The page draws without it; the report says which. */
+function noteShopifyValues(settings: Tree, report: Report, path: string): void {
+  for (const [k, v] of Object.entries(settings)) {
+    if (typeof v !== "string") continue
+    if (v.startsWith("shopify://shop_images/")) report.note(path, `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; the theme's placeholder draws until one is chosen`)
+    else if (/^shopify:\/\/(pages|blogs|articles|metaobjects)\//.test(v)) report.note(path, `"${k}" links to ${v.slice(10)}, which this website does not have yet`)
   }
-  const listed = (Array.isArray(order) ? (order as unknown[]) : []).filter((id): id is string => typeof id === "string" && !!out[id] && !(out[id] as Tree).static)
-  for (const id of Object.keys(out)) if (!(out[id] as Tree).static && !listed.includes(id)) listed.push(id)
-  return { blocks: out, order: listed }
 }
 
 // ── Theme settings ──────────────────────────────────────────────────────────
 
 /**
- * settings_data.json's current values, the plain ones: true and false,
- * numbers, short words. They are what `{% if settings.x %}` read on Shopify,
- * and the converted sections read them as `theme.settings.shopify.x`.
- * Colour schemes and the like are objects in Shopify's own shape, which
- * Storelib's theme settings do not share, so they stay behind.
+ * THE THEME SETTINGS PANEL, from settings_schema.json: each group the theme
+ * declares, with its settings as the builder's controls, words translated,
+ * ids as the theme wrote them (the values are the theme's own, under
+ * `shopify` in the install's settings). A setting the builder has no control
+ * for keeps its value and is named in the report.
  */
-function themeValues(data: unknown): { values: Tree; kept: number } {
-  if (!data || typeof data !== "object") return { values: {}, kept: 0 }
+function settingsPanel(schema: unknown, tr: (value: unknown, fallback: string) => string, note: (m: string) => void): { name: string; settings: Setting[] }[] {
+  if (!Array.isArray(schema)) return []
+  const job: FileJob = { path: "config/settings_schema.json", mode: "section", type: "settings", original: "settings", tr, blockTypes: new Set(), note }
+  const out: { name: string; settings: Setting[] }[] = []
+  for (const g of schema as Tree[]) {
+    if (!g || typeof g !== "object" || g.name === "theme_info" || !Array.isArray(g.settings)) continue
+    const settings: Setting[] = []
+    ;(g.settings as Tree[]).forEach((raw, i) => {
+      if (raw && typeof raw === "object" && (raw.type === "color_scheme_group")) {
+        note(`The colour schemes are kept and drawn; the builder does not edit a colour scheme's colours yet, the code editor does (config/settings_data.json)`)
+        return
+      }
+      const clean = cleanSetting(raw, i, job)
+      if (!clean) return
+      if (typeof (raw as Tree).id === "string") clean.id = String((raw as Tree).id)
+      settings.push(clean)
+    })
+    if (settings.length) out.push({ name: tr(g.name, humanise(String(g.name ?? "Settings"))).slice(0, 60), settings })
+  }
+  return out
+}
+
+/** settings_data.json's current values, as the theme's settings, whole. */
+function themeValues(data: unknown): Record<string, unknown> {
+  if (!data || typeof data !== "object") return {}
   const d = data as Tree
   let current = d.current
   if (typeof current === "string" && d.presets && typeof d.presets === "object") current = (d.presets as Tree)[current]
-  if (!current || typeof current !== "object") return { values: {}, kept: 0 }
-  const values: Tree = {}
-  for (const [k, v] of Object.entries(current as Tree)) {
-    if (!ID.test(k)) continue
-    if (typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v))) values[k] = v
-    else if (typeof v === "string" && v.length <= 200 && !v.startsWith("shopify://") && !/[<>]/.test(v)) values[k] = v
-  }
-  return { values, kept: Object.keys(values).length }
+  if (!current || typeof current !== "object") return {}
+  return { ...(current as Tree) }
 }

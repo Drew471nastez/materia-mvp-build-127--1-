@@ -36,6 +36,10 @@ import { THEME_FORMAT, THEME_FORMAT_VERSION } from "@/lib/storelib-theme/types"
 import { MAX_BYTES as SNAPSHOT_MAX_BYTES, SNAPSHOT_BUCKET, mobilePartner, snapshotFolder, snapshotsNewestFirst } from "@/lib/website-builder/snapshot"
 import { isPackagedCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
 import { fetchPublic } from "@/lib/api/public-fetch"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { exportShopifyTheme } from "@/lib/storelib-theme/compat/export"
+import type { StoredSection } from "@/lib/storelib-theme/compat/page"
+import { installFiles } from "@/lib/website-builder/compat-site"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -135,6 +139,38 @@ export async function GET(_req: Request, { params }: Params) {
    * header that differs from the one in the editor is the one it would edit.
    */
   const exportPages = (pages ?? []).map((p) => ({ page_key: p.page_key as string, sections: (p.draft_sections ?? p.sections ?? []) as unknown }))
+
+  /*
+    AN IMPORTED SHOPIFY THEME EXPORTS AS ONE: its own folders and names, the
+    pages back as templates, every change made in the builder in them
+    (lib/storelib-theme/compat/export.ts). Importing it again gives the same
+    site.
+  */
+  if (compatOf(settings)) {
+    const rows = await installFiles(createAdminClient(), installId, true)
+    const out = exportShopifyTheme(rows, settings, Object.fromEntries(exportPages.map((p) => [p.page_key, p.sections as StoredSection[]])))
+    const zip = new JSZip()
+    for (const [path, body] of Object.entries(out.files)) zip.file(path, body)
+    let missing = 0
+    for (const [name, url] of Object.entries(out.media)) {
+      try {
+        const res = await fetchPublic(url, { maxBytes: 15 * 1024 * 1024, timeoutMs: 20_000, trustOrigins: STORAGE_ORIGINS })
+        if (!res.ok) { missing++; continue }
+        zip.file(`assets/${name}`, new Uint8Array(await res.arrayBuffer()))
+      } catch {
+        missing++
+      }
+    }
+    const body = await zip.generateAsync({ type: "uint8array", compression: "DEFLATE" })
+    return new NextResponse(Buffer.from(body) as unknown as BodyInit, {
+      headers: {
+        "Content-Type": "application/zip",
+        "Content-Disposition": `attachment; filename="${safeFilename(install.name)}.zip"`,
+        "Cache-Control": "no-store",
+        ...(missing ? { "X-Storelib-Media-Skipped": String(missing) } : {}),
+      },
+    })
+  }
 
   /**
    * ===========================================================================
