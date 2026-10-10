@@ -24,6 +24,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
+import { cartLines, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
@@ -57,7 +59,18 @@ export interface CompatCanvasProps {
   onNavigate?: (href: string, chrome: boolean) => void
   /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
   siteUrl?: string
+  /** Something pressed in the page that only the live site does (checkout, Buy it now): the builder says so. */
+  onLiveOnly?: (what: "checkout") => void
 }
+
+/*
+  THE CART AND THE STORAGE OF THE CANVAS, per install, for as long as the
+  builder is open: an add on the product page is in the drawer on the home
+  page, and a heart pressed on one page is still pressed on the next. Never
+  written anywhere; a reload of the builder starts both empty.
+*/
+const canvasCarts = new Map<string, CanvasCart>()
+const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
 
 const loading = new Map<string, Promise<Record<string, string>>>()
 
@@ -146,6 +159,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       collections,
       menus,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
+      /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
+      cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
       /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
       product: template === "product" ? sample : null,
       collection: template === "collection" ? firstCollection ?? { id: "all", title: "Products", handle: "all", url: "/collections/all", products, products_count: products.length } : null,
@@ -154,6 +169,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, dataKey, productId])
+  const pageRef = useRef(page)
+  pageRef.current = page
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -186,8 +203,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
       site = ""
     }
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
-    /* Before anything of the theme's: its scripts read storage on their first line. */
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
+    /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. */
+    const seed = `<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
+    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -301,6 +319,45 @@ export function CompatCanvas(props: CompatCanvasProps) {
   onSelect.current = props.onSelect
   const onNavigate = useRef(props.onNavigate)
   onNavigate.current = props.onNavigate
+  const onLiveOnly = useRef(props.onLiveOnly)
+  onLiveOnly.current = props.onLiveOnly
+  /*
+    A REQUEST FROM THE THEME'S SCRIPTS (Add to cart, the drawer drawn again,
+    a product's data), answered as the website answers it, from this page,
+    the shop and the builder's cart (lib/storelib-theme/compat/canvas-cart.ts).
+  */
+  const answerRequest = (win: Window, m: { id?: unknown; method?: unknown; url?: unknown; body?: unknown; ajax?: unknown }) => {
+    if (!compatTheme || typeof m.id !== "number" || typeof m.url !== "string") return
+    const { products, catalog, collections, menus } = dataRef.current
+    const current = pageRef.current
+    const site: SiteData = {
+      creatorId: "",
+      theme: compatTheme,
+      pages: canvasPages(compatTheme, pageKey, sectionsRef.current),
+      products,
+      pickable: catalog,
+      collections,
+      menus,
+      shop: current.shop,
+      host: "",
+      designMode: true,
+    }
+    const id = m.id
+    const state = canvasCarts.get(installId) ?? { cart: [], note: "" }
+    const body = m.body && typeof m.body === "object" ? (m.body as Record<string, unknown>) : null
+    answerInCanvas(site, state, { method: typeof m.method === "string" ? m.method : "GET", url: m.url, body, ajax: m.ajax === true }, current.path)
+      .then(({ answer, state: next }) => {
+        canvasCarts.set(installId, next)
+        const { type: contentType, ...rest } = answer
+        win.postMessage({ storelib: 1, type: "response", id, contentType, ...rest }, "*")
+      })
+      .catch((e) => {
+        console.error("[compat-canvas] a request from the page could not be answered", e)
+        win.postMessage({ storelib: 1, type: "response", id, status: 500, contentType: "application/json", body: JSON.stringify({ status: 500, message: "Something went wrong" }) }, "*")
+      })
+  }
+  const answerRequestRef = useRef(answerRequest)
+  answerRequestRef.current = answerRequest
   const inspecting = useRef(props.inspectorEnabled)
   inspecting.current = props.inspectorEnabled
   /* The page behind takes the front's place: drawn, its pictures in, and where the front was scrolled to. */
@@ -363,6 +420,25 @@ export function CompatCanvas(props: CompatCanvasProps) {
           } catch (e) {
             console.error("[compat-canvas] the page could not be drawn", e)
           }
+        }
+      } else if (m.type === "request") {
+        answerRequestRef.current(win, m as never)
+      } else if (m.type === "live-only" && isFront) {
+        onLiveOnly.current?.("checkout")
+      } else if (m.type === "leaving" && isFront && slot.ready) {
+        /* A script opened another address in the frame (location.href = "/checkout"): the page is drawn again in its place. */
+        if ((m as { checkout?: boolean }).checkout === true) onLiveOnly.current?.("checkout")
+        if (compatTheme) {
+          try {
+            loadBehind(draw(sectionsRef.current), slot.key, sectionsRef.current)
+          } catch (err) {
+            console.error("[compat-canvas] the page could not be drawn", err)
+          }
+        }
+      } else if (m.type === "storage") {
+        const st = m as { area?: unknown; items?: unknown }
+        if ((st.area === "localStorage" || st.area === "sessionStorage") && st.items && typeof st.items === "object") {
+          canvasStorage.set(installId, { ...(canvasStorage.get(installId) ?? {}), [st.area]: st.items as Record<string, string> })
         }
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }

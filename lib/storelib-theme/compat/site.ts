@@ -545,7 +545,7 @@ function variantIndex(site: SiteData): Map<string, Indexed> {
   return out
 }
 
-function cartLines(site: SiteData, entries: CartEntry[]): CartLineLike[] {
+export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]): CartLineLike[] {
   const byId = new Map(site.products.map((p) => [p.id, p]))
   return entries.flatMap((e) => {
     const card = byId.get(e.p)

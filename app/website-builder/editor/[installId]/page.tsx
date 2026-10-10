@@ -7112,13 +7112,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   const rowPageKeysRef = useRef(rowPageKeys)
   rowPageKeysRef.current = rowPageKeys
+  /*
+    CHECKOUT IN AN IMPORTED THEME'S CANVAS: Add to cart and the cart drawer
+    work there (lib/storelib-theme/compat/canvas-cart.ts), and Check out, Buy
+    it now and a link to /checkout say where checkout is instead of doing
+    nothing. One toast at a time, however often it is pressed.
+  */
+  const liveOnlyInCompatCanvas = useCallback(() => {
+    toast("Checkout only works on your live site", { id: "compat-live-only", description: "Adding to cart works here, so you can try your cart drawer." })
+  }, [])
   const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
     if (inspectorRef.current && !chrome) return
     const to = compatPageForHref(href, rowPageKeysRef.current)
     if (!to) {
       /* A visitor's account and checkout are Storelib's own pages: said, rather than a click that does nothing. */
       const path = href.split(/[?#]/)[0]
-      if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) toast(path.startsWith("/checkout") ? "Checkout opens on your live site" : /wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
+      if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) {
+        if (path.startsWith("/checkout")) liveOnlyInCompatCanvas()
+        else toast(/wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
+      }
       return
     }
     /* A link to a product opens that product's page, as on the website, not the shop's first product. */
@@ -7135,7 +7147,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     holdCanvasWhileOpening()
     pageChangeRef.current(to.key as PageKey)
-  }, [holdCanvasWhileOpening])
+  }, [holdCanvasWhileOpening, liveOnlyInCompatCanvas])
   const selectFromCompatCanvas = useCallback(
     (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
     [selectSectionFromCanvas],
@@ -9348,6 +9360,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   inspectorEnabled={canvasInspecting && !fullSettled}
                   onSelect={selectFromCompatCanvas}
                   onNavigate={navigateCompatCanvas}
+                  onLiveOnly={liveOnlyInCompatCanvas}
                   siteUrl={websiteUrl}
                 />
               ) : (
