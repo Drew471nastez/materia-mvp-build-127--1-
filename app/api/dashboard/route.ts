@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { startTimer, logSlowRequest } from "@/lib/perf"
 import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
+import { timed } from "@/lib/perf/server-timing"
 
 /**
  * GET /api/dashboard
@@ -13,7 +14,7 @@ import { creatorPageHostFromRows } from "@/lib/custom-domains/client"
  * Returns: creator info, products, orders summary, setup progress, and
  * quick analytics snapshot (last 7 days).
  */
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const timer = startTimer()
   try {
     const supabase = await createClient()
@@ -181,3 +182,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Failed to fetch dashboard data" }, { status: 500 })
   }
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const GET = timed("app", "/api/dashboard", handleGET)

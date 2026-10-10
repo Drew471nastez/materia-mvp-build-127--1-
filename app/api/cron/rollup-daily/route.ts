@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { requireBearerSecret } from "@/lib/api/require-secret"
 import { ROLLUP } from "@/lib/analytics/events"
 import { recordCronRun } from "@/lib/observability/report"
+import { rollupAndScorePerfDay, type DailyPerfResult } from "@/lib/perf/daily"
 
 /**
  * CRON: Refresh daily analytics rollups for yesterday.
@@ -151,13 +152,17 @@ export async function POST(request: Request) {
       })
     }
 
+    /* Storelib's own speed: the day's samples rolled up and its official Health Index written (lib/perf/daily.ts, part 126). */
+    const perf: DailyPerfResult[] = []
+    for (const date of dates) perf.push(await rollupAndScorePerfDay(date).catch((e) => ({ day: date, rolledUp: null, score: null, error: String(e) })))
+
     for (const date of backfill) {
       if (Date.now() - started > BACKFILL_BUDGET_MS) break
       const property = await admin.rpc(ROLLUP.refresh, { p_day: date })
       results.push({ date, rows: null, properties: property.error ? null : (property.data as number), propertiesError: property.error?.message, backfill: true })
     }
 
-    return NextResponse.json({ success: true, results })
+    return NextResponse.json({ success: true, results, perf })
   } catch (error) {
     console.error("[cron/rollup-daily] Error:", error)
     return NextResponse.json(

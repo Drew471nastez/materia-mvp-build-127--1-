@@ -5,6 +5,7 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, sessionUserId } from "@/lib/communities/server/feed"
 import { loadPlace } from "@/lib/communities/server/places"
 import { placeFromKey, placeKey } from "@/lib/communities/client/places"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,7 +18,7 @@ type Params = { params: Promise<{ communityId: string }> }
  * in the background. The same loader as the place's own server page (lib/communities/server/places.ts), so the two never
  * disagree. Members only (requireMember), and never another community's row: the loader checks every id against this one.
  */
-export async function GET(request: Request, { params }: Params) {
+async function handleGET(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId } = await params
@@ -31,3 +32,6 @@ export async function GET(request: Request, { params }: Params) {
   if (!load.ok) return NextResponse.json({ ok: false, error: load.error }, { status: load.status, headers: NO_STORE })
   return NextResponse.json({ ok: true, key: placeKey(load.place), data: load.data }, { headers: NO_STORE })
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const GET = timed("community", "/api/community/:id/place", handleGET)
