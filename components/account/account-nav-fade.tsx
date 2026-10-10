@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useLayoutEffect, useRef } from "react"
+import { useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react"
 import { tabSwapInProgress } from "@/lib/nav/tab-swap"
 import { usePathname } from "next/navigation"
 import { showsLibraryTabs } from "@/components/library/library-tab-list"
@@ -69,9 +69,21 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
     it drew the community bar solid and the profile under it fading after, a second fade that read as the page arriving in
     pieces. Read once, on the first render of this layout: on the server and while hydrating there is no swap.
   */
-  const arrival = useRef<{ key: string; swapped: boolean } | null>(null)
-  if (arrival.current === null) arrival.current = { key: navFadeKey(pathname), swapped: tabSwapInProgress() }
-  const enter = !onLibrary && !(arrival.current.swapped && arrival.current.key === navFadeKey(pathname))
+  /*
+    ROUND 18: ARRIVING FROM ANOTHER TAB, THE PAGE IS THERE WHOLE ON ITS FIRST FRAME. The owner: "sometimes in the community
+    feed, when I tap the nav bar to go to the account, for one second it flashes out, hides the space pills empty, and then
+    takes me there", and "get rid of the flash when I land on the account page, in the cover". Filmed at 4x CPU in a real
+    Next build (scratchpad n18/realnav), the account page arrived at opacity 0 and rose to 1 over 220ms: its first frame was
+    the community's bar (drawn by components/account/account-community-chrome.tsx, outside this box, solid) over an empty
+    white page, the pills and the feed gone, and then the profile, cover first grey, faded in under it. Where the app's tab
+    swap had given up waiting, that blank frame was the whole handover. A tab is not a page landing: a phone's own tab bar
+    shows the next screen whole, at once. So the reveal from nothing is kept for the document's own first paint (the server's
+    HTML, a reload, a link opened fresh), and a client arrival from outside the account plays nothing at all.
+  */
+  const hydrating = useSyncExternalStore(noop, () => false, () => true)
+  const arrival = useRef<{ key: string; swapped: boolean; fresh: boolean } | null>(null)
+  if (arrival.current === null) arrival.current = { key: navFadeKey(pathname), swapped: tabSwapInProgress(), fresh: hydrating }
+  const enter = !onLibrary && arrival.current.fresh && !(arrival.current.swapped && arrival.current.key === navFadeKey(pathname))
 
   return (
     <div
@@ -91,6 +103,8 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   pills, which share one key) puts the window at the top, before the frame is painted and again on the next one, after the
   router's own scroll.
 */
+const noop = () => () => {}
+
 /** Survives a refresh remount, which a ref does not: closing edit profile must not count as a new landing. */
 let lastAccountKey: string | null = null
 

@@ -106,6 +106,7 @@ import { swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
+import { warmAccountCover } from "@/components/account/cover-warm"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -554,6 +555,8 @@ function TabBar({
       /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */
       const key = tabs[index]?.key
       if (index !== current && key !== "search" && key !== "compose" && !(navHere && key === "home")) prefetchHref(router, hrefOf(index), "press")
+      /* The profile's cover, decoded by the time the page arrives (components/account/cover-warm.ts). */
+      if (index !== current && key === "profile" && signedIn) void warmAccountCover()
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -583,9 +586,19 @@ function TabBar({
        Idle-only reads were still in flight when Home or Profile was tapped,
        so the router fetched again and the spinner sat on a blank page. */
     for (const href of hrefs) prefetchHref(router, href, "press")
-    return prefetchOnIdle(router, hrefs)
+    /*
+      AND THE PROFILE'S COVER, DECODED AND KEPT (round 18, components/account/cover-warm.ts): the account page then draws it
+      whole on its first frame instead of fading it in over a grey band. Once the page has settled, never in its way.
+    */
+    const profileAhead = signedIn && tabs.some((tab, i) => tab.key === "profile" && i !== current)
+    const warm = profileAhead ? window.setTimeout(() => void warmAccountCover(), 600) : 0
+    const stopIdle = prefetchOnIdle(router, hrefs)
+    return () => {
+      window.clearTimeout(warm)
+      stopIdle()
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefetchKey, current, router, !!navHere])
+  }, [prefetchKey, current, router, !!navHere, signedIn])
 
   /* The tab that was pressed has arrived: back to where it was left (see EACH TAB KEEPS ITS PLACE), before the frame is painted. */
   useLayoutEffect(() => {
