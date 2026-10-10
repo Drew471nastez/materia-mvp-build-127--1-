@@ -22,6 +22,8 @@ type Scenario = {
   warm?: () => Promise<unknown>
   cookies?: Record<string, string>
   headers?: Record<string, string>
+  /** Changes to the fixture this scenario needs (an imported theme, a password, an AI site). */
+  fixture?: (f: ReturnType<typeof buildFixture>) => void
 }
 
 /* Every clock in the process moves with the bench's, so a TTL kept with Date.now() runs out too. */
@@ -42,6 +44,27 @@ const scenarios: Scenario[] = [
     warm: () => proxyVisit("https://leo.storelib.com/"),
     run: () => proxyVisit("https://maya.storelib.com/"),
   },
+  ...([
+    ["compat", "https://maya.storelib.com/", (f: ReturnType<typeof buildFixture>) => {
+      const st = f.tables.store_theme_settings.find((r) => r.install_id === SITE.installId)!
+      st.settings = { ...(st.settings as object), compat: { kind: "shopify" } }
+    }],
+    ["ai site", "https://maya.storelib.com/", (f: ReturnType<typeof buildFixture>) => {
+      f.tables.site_deployments.push({ id: "ai-1", slug: "maya", is_live: true, storage_prefix: "sites/maya/v1" })
+    }],
+    ["password", "https://www.mayastudio.com/about", (f: ReturnType<typeof buildFixture>) => {
+      f.tables.site_access.push({ creator_id: SITE.creatorId, password_enabled: true, password_version: 1, password_hash: "x" })
+    }],
+    ["not published", "https://www.mayastudio.com/", (f: ReturnType<typeof buildFixture>) => {
+      f.tables.store_theme_installs.find((r) => r.id === SITE.installId)!.status = "draft"
+    }],
+  ] as const).map(([label, url, change]) => ({
+    name: `proxy check: ${label}`,
+    held: "proxy",
+    fixture: change,
+    warm: () => proxyVisit("https://leo.storelib.com/"),
+    run: () => proxyVisit(url),
+  })),
   {
     name: "proxy: www.mayastudio.com/",
     held: "proxy runs on every visit",
@@ -280,12 +303,18 @@ function summary(label: string, r: VisitResult<unknown>, ms0: number) {
   }
 }
 
+function withChanges(s: Scenario) {
+  const f = buildFixture()
+  s.fixture?.(f)
+  return f
+}
+
 async function measure(s: Scenario) {
   const visits = []
   const rtt = Number(process.env.RTT ?? 20)
   for (const [label, advance] of [["first", 0], ["repeat", 5_000], ["after 2 min", 120_000]] as const) {
     clock.advance(advance)
-    useFixture(buildFixture())
+    useFixture(withChanges(s))
     setRtt(rtt)
     const r = await visit(rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
@@ -297,7 +326,7 @@ async function measure(s: Scenario) {
   resetCache()
   for (const [i, [label, advance]] of ([["first", 0], ["repeat", 5_000], ["after 2 min", 120_000]] as const).entries()) {
     clock.advance(advance)
-    useFixture(buildFixture())
+    useFixture(withChanges(s))
     setRtt(0)
     const r0 = await visit(rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
@@ -318,7 +347,7 @@ async function main() {
     if (only.length && !only.includes(s.name)) continue
     resetCache()
     /* Warm the module graph so the first visit is not timing imports. */
-    useFixture(buildFixture())
+    useFixture(withChanges(s))
     setRtt(0)
     await visit(s.warm ?? rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
