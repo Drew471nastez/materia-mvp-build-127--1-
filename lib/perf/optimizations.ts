@@ -61,4 +61,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database round trips per collection page visit on a website", value: 0, unit: "queries" },
     note: "The collection, the shop's products and the collection's members are held with the shop for its minute, under its tag (lib/website-builder/collection-members.ts), like the cards and sections on the same page already were. Server time to the answer at 20ms a round trip: 72ms to 14ms.",
   },
+  {
+    id: "onepage-reads-together",
+    title: "A OnePage asks the database 6 times before it is sent instead of 10",
+    area: "creator pages",
+    shippedAt: "2026-10-10",
+    before: { metric: "database round trips a visitor waits on per OnePage visit", value: 10, unit: "queries" },
+    after: { metric: "database round trips a visitor waits on per OnePage visit", value: 6, unit: "queries" },
+    note: "The view count's two reads run after the page is sent (next/server after), the owner's creator, profile, product count and domain are read together when the page names them, and the page's live products are read once per request for the metadata and the body. Products are still read live on every visit, so a deleted product leaves at once. At 20ms a round trip: 186ms to 71ms.",
+  },
 ]

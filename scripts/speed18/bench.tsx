@@ -119,6 +119,34 @@ const scenarios: Scenario[] = [
   },
 ]
 
+/**
+ * What React does with the element a page returns, as far as the database
+ * is concerned: every async server component placed in it (a tracking tag,
+ * a block that reads its own rows) is called and awaited, all the way down.
+ * Client components are not called: they run in the browser.
+ */
+async function resolveTree(node: unknown, depth = 0): Promise<void> {
+  if (!node || depth > 400 || typeof node !== "object") return
+  if (Array.isArray(node)) {
+    await Promise.all(node.map((n) => resolveTree(n, depth + 1)))
+    return
+  }
+  const el = node as { $$typeof?: unknown; type?: unknown; props?: Record<string, unknown> }
+  if (!el.$$typeof) return
+  if (typeof el.type === "function" && el.type.constructor?.name === "AsyncFunction") {
+    const out = await (el.type as (p: unknown) => Promise<unknown>)(el.props ?? {})
+    await resolveTree(out, depth + 1)
+    return
+  }
+  await Promise.all(Object.values(el.props ?? {}).map((v) => resolveTree(v, depth + 1)))
+}
+
+const rendered = (s: Scenario) => async () => {
+  const value = await s.run()
+  await resolveTree(value)
+  return value
+}
+
 /** Next's route config, read from the module: what decides whether a page is kept. */
 async function heldBy(name: string): Promise<string> {
   const mods: Record<string, () => Promise<Record<string, unknown>>> = {
@@ -158,7 +186,7 @@ async function measure(s: Scenario) {
     clock.advance(advance)
     useFixture(buildFixture())
     setRtt(rtt)
-    const r = await visit(s.run, { cookies: s.cookies, headers: s.headers })
+    const r = await visit(rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
     /* The same visit with no network, for the server's own time. */
     visits.push({ r, label })
@@ -170,7 +198,7 @@ async function measure(s: Scenario) {
     clock.advance(advance)
     useFixture(buildFixture())
     setRtt(0)
-    const r0 = await visit(s.run, { cookies: s.cookies, headers: s.headers })
+    const r0 = await visit(rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
     out.push(summary(label, visits[i].r, r0.ms))
   }
@@ -191,7 +219,7 @@ async function main() {
     /* Warm the module graph so the first visit is not timing imports. */
     useFixture(buildFixture())
     setRtt(0)
-    await visit(s.warm ?? s.run, { cookies: s.cookies, headers: s.headers })
+    await visit(s.warm ?? rendered(s), { cookies: s.cookies, headers: s.headers })
     await Promise.allSettled(pending.splice(0))
     resetCache()
     const visits = await measure(s)

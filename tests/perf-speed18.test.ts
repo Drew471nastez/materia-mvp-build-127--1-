@@ -23,8 +23,11 @@
 import { createClient } from "@supabase/supabase-js"
 import { fakeFetch, setRtt, useFixture, type Fixture } from "../scripts/speed18/fake-postgrest"
 import { visit } from "../scripts/speed18/context"
-import { buildFixture, SITE, OTHER, DRAFT_MARKER, OTHER_MARKER, PRIVATE_MARKER } from "../scripts/speed18/fixture"
+import { buildFixture, SITE, OTHER, ONEPAGE, DRAFT_MARKER, OTHER_MARKER, PRIVATE_MARKER } from "../scripts/speed18/fixture"
 import * as nextCache from "../scripts/speed18/shims/next-cache"
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
+import { stripComments } from "./_source"
 
 let passed = 0
 let failed = 0
@@ -210,10 +213,50 @@ async function collectionPages() {
   check("within the shop's minute the page lists what the collection holds now", !later.value?.productIds.includes(first.value!.productIds[0]))
 }
 
+const code = (p: string) => stripComments(readFileSync(join(process.cwd(), p), "utf8"))
+
+async function onePage() {
+  section("The OnePage asks less and still reads its products live (lib/onepage/published-page.ts)")
+  const { onePageOwner, liveBlocksFor } = await import("@/lib/onepage/published-page")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const page = fixture.tables.onepages.find((r) => r.id === ONEPAGE.id)!
+
+  const owner = await visit(() => onePageOwner(SITE.creatorId, null, SITE.userId))
+  check("a page naming its creator and owner reads them in one wave", owner.foreground === 4 && owner.value?.handle === SITE.username && owner.value.creatorId === SITE.creatorId && owner.value.publishedProducts === 30, [owner.foreground, owner.value?.handle])
+  const legacy = await visit(() => onePageOwner(null, null, SITE.userId))
+  check("a page that names only its owner is read the old way, to the same answer", legacy.value?.handle === owner.value?.handle && legacy.value?.creatorId === owner.value?.creatorId && legacy.value?.publishedProducts === owner.value?.publishedProducts && legacy.value?.canonical === owner.value?.canonical)
+  check("nothing private of the owner is in what the page is handed", !JSON.stringify(owner.value).includes(PRIVATE_MARKER))
+
+  const blocks = page.published_blocks as unknown[]
+  /*
+    React's cache() keeps an answer only inside the server renderer's
+    request, which this suite has no part of; scripts/measure-speed18.mjs
+    runs it per request and counts the shared read (lib/perf/optimizations.ts).
+    Here: both sides go through the one cached reader, keyed by the blocks.
+  */
+  const lib = code("lib/onepage/published-page.ts")
+  check("the metadata and the body share one read of the page's products, per request", /const liveBlocksOnce = cache\(/.test(lib) && /liveProducts \? await liveBlocksFor\(/.test(lib) && /await liveBlocksFor\(transformedOnepage\.seller_id/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  const first = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
+  const productReads = (r: typeof first) => r.trips.filter((t) => t.table === "products").length
+  check("and it answers what withLiveProducts answers", JSON.stringify(first.value) === JSON.stringify(await (await import("@/lib/onepage/live-products")).withLiveProducts((await import("@/lib/supabase/admin")).createAdminClient() as never, SITE.creatorId, blocks)))
+  /* The creator deletes a product: the very next visitor's page no longer has it (nothing held across visits). */
+  const named = (blocks.find((b) => (b as { type?: string }).type === "product") as { data: { product_id: string } }).data.product_id
+  fixture.tables.products = fixture.tables.products.filter((p) => p.id !== named)
+  const next = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
+  check("a deleted product leaves the page on the next visit, with nothing to purge", productReads(next) === 1 && !JSON.stringify(next.value).includes(named))
+
+  const route = code("app/(marketing)/l/[slug]/page.tsx")
+  check("a view is counted after the page is sent, by the same read and insert", /after\(async \(\) => \{[\s\S]*from\("onepage_views"\)[\s\S]*\.select\("id"\)[\s\S]*\.insert\(/.test(route) && (route.match(/from\("onepage_views"\)/g) ?? []).length === 2)
+  check("and the page still renders for every visitor (its products are live)", /export const dynamic = "force-dynamic"/.test(route))
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
   await collectionPages()
+  await onePage()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
