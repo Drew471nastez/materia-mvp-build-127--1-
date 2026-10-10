@@ -111,8 +111,9 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           does the address go Back. The page under it never left, so there is
           nothing to load and nothing to flash.
         */
+        /* Through the back watch, so a Back that goes nowhere still leaves for the dashboard. */
         const back = () => {
-          if (window.history.length > 1) router.back()
+          if (window.history.length > 1) backThen(() => router.replace("/app"))
           else router.replace("/app")
         }
         if (!el || !motion) return back()

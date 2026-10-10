@@ -157,7 +157,8 @@ async function main() {
     }
     const sites = readCode("app/sites/[siteId]/page.tsx")
     check("a page with no gate of its own renders the recovery itself", /if \(!user\) return <SessionRecovery \/>/.test(sites))
-    const settings = readCode("app/app/settings/page.tsx")
+    /* The settings route and the sheet over the page both render the form from _view.tsx. */
+    const settings = readCode("app/app/settings/_view.tsx")
     check("the settings page renders nothing, not a crash, while the layout recovers", /if \(!data\) return null/.test(settings))
   }
 

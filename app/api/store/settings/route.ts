@@ -15,10 +15,11 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
+  const db = c.db
   const [settings, h, creator] = await Promise.all([
     loadStoreSettings(c.db, c.creatorId),
     headers(),
-    c.db.from("creators").select("support_email, payout_currency").eq("id", c.creatorId).maybeSingle(),
+    db.from("creators").select("support_email, payout_currency").eq("id", c.creatorId).maybeSingle(),
   ])
   return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: creator?.data?.support_email ?? null, currency: creator?.data?.payout_currency ?? null })
 }
