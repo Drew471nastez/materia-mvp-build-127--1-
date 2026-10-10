@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
+import { Fragment, useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -17,8 +17,8 @@ import { ChoicePicker } from "@/components/ui/choice-list"
 import {
   X, Check, Loader2, AlertCircle, Mail, Lock,
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
-  ExternalLink, ChevronRight, Globe,
-  User, FileText, ChevronLeft,
+  ExternalLink, Globe,
+  User, FileText,
   ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2, History
 } from "lucide-react"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
@@ -385,12 +385,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const allowed = (tab: string | null): tab is TabId => !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce)
   const [activeTab, setActiveTab] = useState<TabId>(() => (allowed(addressTab) ? addressTab : TAB_IDS.includes(initialTab) && allowed(initialTab) ? initialTab : "general"))
   /*
-    ON A PHONE, A LIST FIRST. Every section in its group, a row each, the
-    way a phone's own settings open; a row opens its section with a way back
-    at the top. A link to a section (?tab=) opens straight on it. From 1024px
-    the groups are a column beside the open section and this is never shown.
+    BELOW 1024px, PILLS (round V, the owner: "like it was before, the whole
+    settings page with those pill shapes"). Settings opens on its first
+    section with every section in a row of pills at the top; a press swaps
+    the section in place. The list of rows that opened a section and came
+    back to it is gone.
   */
-  const [phoneList, setPhoneList] = useState(() => !allowed(addressTab) && !searchParams?.get("stripe"))
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
   /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
   const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: "Refunds", line: "Why you refund" } : tab))
@@ -439,6 +439,17 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     if (activeTab === "billing") void loadBilling()
   }, [activeTab, loadBilling])
   const formRef = useRef<HTMLFormElement>(null)
+  const pillRowRef = useRef<HTMLDivElement>(null)
+  /* The open section's pill is always in view in the row: a section opened by its address, or the last pill pressed. */
+  useEffect(() => {
+    const row = pillRowRef.current
+    const pill = row?.querySelector<HTMLElement>(`[data-settings-tab="${activeTab}"]`)
+    if (!row || !pill) return
+    const left = pill.offsetLeft - 16
+    const right = pill.offsetLeft + pill.offsetWidth + 16 - row.clientWidth
+    if (row.scrollLeft > left) row.scrollTo({ left, behavior: "smooth" })
+    else if (row.scrollLeft < right) row.scrollTo({ left: right, behavior: "smooth" })
+  }, [activeTab])
   const [panelEntrance, setPanelEntrance] = useState(false)
   /*
     THE PILL FIRST, THE PANEL AFTER. A press used to change the pill and swap
@@ -640,7 +651,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     } else if (allowed(tabFromAddress(tab, params.get("section")))) {
       const to = tabFromAddress(tab, params.get("section")) as TabId
       setActiveTab(to)
-      setPhoneList(false)
       if (to === "domains") fetchDomains()
       if (to !== tab) {
         /* An older ?tab=shipping&section= address: the section it meant, and the address says so. */
@@ -658,7 +668,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
     if (stripeParam === "return" || stripeParam === "refresh") {
       setActiveTab("payments")
-      setPhoneList(false)
       loadStripeStatus()
       // Clean URL
       const url = new URL(window.location.href)
@@ -752,12 +761,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
-    if (phoneList) {
-      /* From the phone's list: the section opens at its top, its way back above it. */
-      setPhoneList(false)
-      const box = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
-      box?.scrollTo({ top: 0 })
-    }
     if (newTab === activeTab) {
       const url = new URL(window.location.href)
       url.searchParams.set("tab", newTab)
@@ -797,8 +800,18 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      */
     /* The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
     const scroller = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
-    if (formRef.current) formRef.current.style.minHeight = ""
-    if (scroller && scroller.scrollTop > 0) scroller.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+    /*
+      With the pill row held at the top (below 1024px), a section opens just
+      under it: the row stays where the thumb left it instead of dropping
+      back down with the page. Without the row, the very top as before.
+    */
+    const bar = pillRowRef.current
+    const held = !!bar && getComputedStyle(bar).display !== "none" && !!formRef.current && !!scroller
+    const target = held ? Math.max(0, formRef.current!.getBoundingClientRect().top - scroller!.getBoundingClientRect().top + scroller!.scrollTop - bar!.offsetHeight - 12) : 0
+    /* A short section still fills the screen under the row, so the row can stay where it is. Measured first, set once:
+       clearing it before measuring laid the page out short and the browser pulled the scroll to the top. */
+    if (formRef.current) formRef.current.style.minHeight = held ? `${scroller!.clientHeight}px` : ""
+    if (scroller && scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: "instant" as ScrollBehavior })
     /* The new panel fades in, for a press only (not on load, not on a re-render). */
     setPanelEntrance(true)
     setActiveTab(newTab)
@@ -808,17 +821,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     url.searchParams.set("tab", newTab)
     url.searchParams.delete("section")
     window.history.replaceState({}, "", url.toString())
-  }
-
-  /* Back to the phone's list from a section. */
-  const backToList = () => {
-    setPhoneList(true)
-    const url = new URL(window.location.href)
-    url.searchParams.delete("tab")
-    url.searchParams.delete("section")
-    window.history.replaceState({}, "", url.toString())
-    const box = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
-    box?.scrollTo({ top: 0 })
   }
 
   const handleSubmit = async (e?: React.FormEvent | Event) => {
@@ -1265,7 +1267,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           the title's. From 640px the pill sits at the top right, as wide as
           its address needs, up to 360px.
         */}
-        <div data-settings-header="" className={`mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${phoneList ? "" : "max-lg:hidden"}`}>
+        <div data-settings-header="" className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
           <div className="min-w-0">
             <h1 className="text-[22px] font-bold leading-tight text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]">{t("settings.title")}</h1>
             <p className="mt-1 text-[14px] leading-snug text-[#6b7280]">{t("settings.subtitle")}</p>
@@ -1316,61 +1318,54 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         </nav>
         <div className="min-w-0">
         {/*
-          THE PHONE'S LIST. Every section in its group, one row each, its name
-          and what it is for; a row opens the section. Below 1024px only.
+          THE PILL ROW, BELOW 1024px. Every section in its groups' order, a
+          hairline between groups, held at the top of the scroll so it is
+          always a thumb away. The pill is drawn at once (activeTab); the
+          section follows a frame later (panelTab, useDeferredValue), so the
+          press never waits on the panel it opens.
         */}
-        {phoneList ? (
-          <div className="space-y-5 pb-6 lg:hidden" data-settings-list="">
-            {TAB_GROUPS.map((group) => {
+        <div
+          ref={pillRowRef}
+          data-settings-tabs=""
+          role="tablist"
+          aria-label="Settings"
+          className="sticky top-0 z-[4] -mx-4 mb-5 overflow-x-auto bg-[#f8f9fa]/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          <div className="flex w-max items-center gap-1.5">
+            {TAB_GROUPS.map((group, gi) => {
               const list = shownTabs.filter((tab) => tab.group === group.id)
               if (list.length === 0) return null
               return (
-                <section key={group.id} aria-labelledby={`settings-list-${group.id}`} data-settings-list-group={group.id}>
-                  <h2 id={`settings-list-${group.id}`} className="px-1 pb-2 text-[13px] font-medium text-[#6b7280]">
-                    {group.label}
-                  </h2>
-                  <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                    {list.map((tab, i) => {
-                      const Icon = tab.icon
-                      return (
-                        <button
-                          key={tab.id}
-                          type="button"
-                          onClick={() => handleTabChange(tab.id)}
-                          data-settings-row={tab.id}
-                          className={`flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors active:bg-[#f6f7f8] focus-visible:bg-[#f6f7f8] [-webkit-tap-highlight-color:transparent] ${i > 0 ? "border-t border-[#f0f1f3]" : ""}`}
-                        >
-                          <Icon className="h-[18px] w-[18px] shrink-0 text-[#6b7280]" aria-hidden />
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-[15px] font-medium leading-5 text-[#1a1a2e]">{labelOf(tab.id)}</span>
-                            <span className="block truncate text-[13px] leading-[18px] text-[#6b7280]">{tab.line}</span>
-                          </span>
-                          <ChevronRight className="h-4 w-4 shrink-0 text-[#c4c8ce]" aria-hidden />
-                        </button>
-                      )
-                    })}
-                  </div>
-                </section>
+                <Fragment key={group.id}>
+                  {gi > 0 ? <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-[#e3e5e8]" /> : null}
+                  {list.map((tab) => {
+                    const Icon = tab.icon
+                    const on = activeTab === tab.id
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={on}
+                        onClick={() => handleTabChange(tab.id)}
+                        data-settings-tab={tab.id}
+                        className={`inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
+                          on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] active:bg-[#f3f4f6]"
+                        }`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                        {labelOf(tab.id)}
+                      </button>
+                    )
+                  })}
+                </Fragment>
               )
             })}
           </div>
-        ) : (
-          /* A section open on a phone: the way back to the list, and the section's name. */
-          <div className="mb-4 lg:hidden" data-settings-back="">
-            <button
-              type="button"
-              onClick={backToList}
-              className="-ml-2 inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] outline-none transition-colors active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
-            >
-              <ChevronLeft className="h-4 w-4" aria-hidden />
-              Settings
-            </button>
-            <h2 className="mt-1 text-[22px] font-bold leading-tight text-[#1a1a2e]">{labelOf(activeTab)}</h2>
-          </div>
-        )}
+        </div>
 
         {/* Tab Content */}
-        <form ref={formRef} onSubmit={handleSubmit} className={phoneList ? "max-lg:hidden" : undefined}>
+        <form ref={formRef} onSubmit={handleSubmit}>
           {/*
             ONE KEYED WRAPPER, so React replaces the panel rather than
             reconciling one tab's fields into another's and keeping the DOM

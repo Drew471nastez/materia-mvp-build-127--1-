@@ -666,7 +666,7 @@ async function main() {
     const productChange = editor.slice(editor.indexOf("const handleSelectProductPage"), editor.indexOf("const handleSelectProductPage") + 6000)
     check(
       "a product page does the same",
-      /setSelectedProductPage\(productTitle\)\s*\n\s*setCurrentPage\("product"\)\s*\n\s*setSections\(merged\)/.test(productChange),
+      /setSelectedProductPage\(productTitle\)\s*\n\s*(?:setSelectedProductId\(productId\)\s*\n\s*)?setCurrentPage\("product"\)\s*\n\s*setSections\(merged\)/.test(productChange),
     )
     check(
       "and the scroll to the top runs after the commit rather than racing it",
