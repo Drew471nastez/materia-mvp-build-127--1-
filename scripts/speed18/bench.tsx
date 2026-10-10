@@ -10,7 +10,7 @@
  */
 import "./setup"
 import { visit, type VisitResult } from "./context"
-import { setRtt, useFixture, missingRelations } from "./fake-postgrest"
+import { setRtt, useFixture, missingRelations, signedInCookies } from "./fake-postgrest"
 import { clock, resetCache, pending } from "./shims/next-cache"
 import { buildFixture, SITE, EXPLORE, ONEPAGE } from "./fixture"
 
@@ -107,6 +107,48 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    name: "creator-page",
+    held: "route",
+    run: async () => {
+      const layout = await import("@/app/(marketing)/u/[username]/layout")
+      const page = await import("@/app/(marketing)/[sellername]/page")
+      const params = Promise.resolve({ sellername: SITE.username })
+      const searchParams = Promise.resolve({})
+      const [, , body] = await Promise.all([
+        (layout.default as (p: unknown) => Promise<unknown>)({ children: null, params: Promise.resolve({ username: SITE.username }) }),
+        page.generateMetadata({ params, searchParams } as never),
+        page.default({ params, searchParams } as never),
+      ])
+      return body
+    },
+  },
+  {
+    name: "marketplace-product",
+    held: "route",
+    run: async () => {
+      const page = await import("@/app/(marketing)/p/[slug]/page")
+      const params = Promise.resolve({ slug: SITE.productSlug })
+      const searchParams = Promise.resolve({})
+      const [, body] = await Promise.all([page.generateMetadata({ params } as never), (page.default as (p: unknown) => Promise<unknown>)({ params, searchParams })])
+      return body
+    },
+  },
+  {
+    name: "app-home (signed in)",
+    held: "per visit (private)",
+    cookies: signedInCookies(SITE.userId),
+    headers: { host: "storelib.com", "user-agent": "Mozilla/5.0 (iPhone)" },
+    run: async () => {
+      const layout = await import("@/app/app/layout")
+      const page = await import("@/app/app/page")
+      const [, body] = await Promise.all([
+        (layout.default as (p: unknown) => Promise<unknown>)({ children: null }),
+        (page.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}) }),
+      ])
+      return body
+    },
+  },
+  {
     name: "onepage",
     held: "route",
     headers: { host: "storelib.me", "x-forwarded-for": "203.0.113.9", "user-agent": "Mozilla/5.0 (iPhone)" },
@@ -157,6 +199,8 @@ async function heldBy(name: string): Promise<string> {
     "site-collection": () => import("@/app/(site)/w/[username]/collections/[handle]/page"),
     explore: () => import("@/app/(marketing)/explore/page"),
     onepage: () => import("@/app/(marketing)/l/[slug]/page"),
+    "creator-page": () => import("@/app/(marketing)/[sellername]/page"),
+    "marketplace-product": () => import("@/app/(marketing)/p/[slug]/page"),
   }
   const m = await mods[name]?.()
   if (!m) return scenarios.find((s) => s.name === name)?.held ?? "?"
@@ -173,7 +217,7 @@ function summary(label: string, r: VisitResult<unknown>, ms0: number) {
     behind: r.background,
     ms: r.ms,
     ms0,
-    error: err ? (err.kind ? `${err.kind}` : String(err.message ?? err).slice(0, 120)) : null,
+    error: err ? (err.kind ? `${err.kind}${(err as { to?: string }).to ? ` ${(err as { to?: string }).to}` : ""}` : String(err.message ?? err).slice(0, 120)) : null,
     tables: r.trips.map((t) => `${t.background ? "~" : ""}${t.table}`),
     answer: typeof r.value === "string" ? r.value : null,
   }

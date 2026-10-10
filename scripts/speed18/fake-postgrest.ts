@@ -275,6 +275,13 @@ export async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): P
   if (path.startsWith("/auth/v1/")) {
     record(`auth:${path.slice(9)}`, method, "")
     await wait()
+    /* A signed in fixture user: the token signedInCookies() hands out. */
+    const bearer = (headers.get("authorization") ?? "").replace(/^Bearer /, "")
+    const userId = bearer.startsWith("user-token-") ? bearer.slice("user-token-".length) : null
+    const profile = userId ? (fixture.tables.profiles ?? []).find((p) => p.id === userId) : null
+    if (path === "/auth/v1/user" && profile) {
+      return respond(200, { id: userId, aud: "authenticated", role: "authenticated", email: `${profile.username}@fixture.test`, app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" })
+    }
     return respond(401, { code: 401, error_code: "no_authorization", msg: "This endpoint requires a valid Bearer token" })
   }
   if (path.startsWith("/storage/v1/")) {
@@ -397,4 +404,20 @@ export async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): P
     return respond(200, page[0], range)
   }
   return respond(200, page, range)
+}
+
+/**
+ * The cookie a signed in fixture user's browser sends: the session supabase-ssr
+ * reads (sb-<project>-auth-token), with a token the auth endpoint above knows.
+ */
+export function signedInCookies(userId: string): Record<string, string> {
+  const session = {
+    access_token: `user-token-${userId}`,
+    token_type: "bearer",
+    expires_in: 3600,
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    refresh_token: "refresh-fixture",
+    user: { id: userId, aud: "authenticated", role: "authenticated", app_metadata: {}, user_metadata: {}, created_at: "2026-01-01T00:00:00Z" },
+  }
+  return { "sb-fixture-auth-token": `base64-${Buffer.from(JSON.stringify(session)).toString("base64url")}` }
 }

@@ -48,6 +48,8 @@ function plugin(srcRoot) {
       b.onResolve({ filter: /^next\/dist\// }, (args) => ({ path: args.path, external: true }))
       b.onResolve({ filter: /^next\/(link|image|script|dynamic|og|font\/.*|legacy\/image|form)$/ }, () => ({ path: join(shims, "next-client.ts") }))
       b.onResolve({ filter: /^next\/[a-z-]+$/ }, (args) => ({ path: `${args.path}.js`, external: true }))
+      /* A stylesheet, ours or a package's: nothing to count. */
+      b.onResolve({ filter: /(\.css$|^[a-z@][^.]*\/css(\/[^.]*)?$)/ }, () => ({ path: "css", namespace: "empty" }))
       b.onResolve({ filter: /^server-only$/ }, () => ({ path: "server-only", namespace: "empty" }))
       b.onResolve({ filter: /^__REAL_REACT__$/ }, () => ({ path: realReact, external: true }))
       b.onResolve({ filter: /^react$/ }, (args) => (args.importer.endsWith("react-cache.ts") ? undefined : { path: join(shims, "react-cache.ts") }))

@@ -91,8 +91,8 @@ function siteRows(who: typeof SITE | typeof OTHER, marker: string | null) {
   }))
   const items: Row[] = collections.flatMap((c, ci) => products.slice(ci * 5, ci * 5 + 8).map((p, k) => ({ collection_id: c.id, product_id: p.id, position: k })))
   return {
-    profile: { id: who.userId, username: who.username, display_name: tag(`${who.username} display`), avatar_url: `https://fixture.supabase.co/storage/v1/object/public/avatars/${who.username}.jpg`, email: `${who.username}@${PRIVATE_MARKER}.test`, bio: tag("bio") },
-    creator: { id: who.creatorId, user_id: who.userId, slug: who.username, display_name: tag(who.username), headline: tag("Designer"), bio: tag("I make things"), stripe_account_id: `acct_${PRIVATE_MARKER}`, banned_at: null, niche_tags: ["design"] },
+    profile: { id: who.userId, email_verified: true, role: "seller", account_type: "seller", username: who.username, display_name: tag(`${who.username} display`), avatar_url: `https://fixture.supabase.co/storage/v1/object/public/avatars/${who.username}.jpg`, email: `${who.username}@${PRIVATE_MARKER}.test`, bio: tag("bio") },
+    creator: { id: who.creatorId, user_id: who.userId, slug: who.username, display_name: tag(who.username), headline: tag("Designer"), bio: tag("I make things"), stripe_account_id: `acct_${PRIVATE_MARKER}`, banned_at: null, niche_tags: ["design"], onboarding_completed: true },
     install: { id: who.installId, creator_id: who.creatorId, theme_id: starter.install.theme_id, name: starter.install.name, status: "published", is_custom: false, sort_order: 0, preview_token: `token-${who.username}` },
     settings: { id: uuid(who === SITE ? "91" : "92", 1), install_id: who.installId, settings, draft_settings: draftSettings },
     pages: [
@@ -158,8 +158,14 @@ export function buildFixture(): Fixture {
     created_at: iso(1000),
     updated_at: iso(10),
   }
+  const profiles = [a.profile, b.profile, ...marketCreators.map((c) => c.profile)]
+  const creators = [a.creator, b.creator, ...marketCreators.map((c) => c.creator)]
+  /* The public views (run-now part 63): the same rows without the private columns. */
+  const publicOf = (rows: Row[], hidden: string[]) => rows.map((r) => Object.fromEntries(Object.entries(r).filter(([k]) => !hidden.includes(k))))
   return {
     tables: {
+      profiles_public: publicOf(profiles, ["email"]),
+      creators_public: publicOf(creators, ["stripe_account_id"]),
       profiles: [a.profile, b.profile, ...marketCreators.map((c) => c.profile)],
       creators: [a.creator, b.creator, ...marketCreators.map((c) => c.creator)],
       store_theme_installs: [a.install, b.install],
