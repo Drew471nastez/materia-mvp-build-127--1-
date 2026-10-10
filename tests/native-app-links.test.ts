@@ -159,8 +159,8 @@ check("  /community alone keeps none, and nor does a creator's own host", !buyer
 check("the community from the address, and nothing that is not a slug", communityOf("/community/mara-club/post/1") === "mara-club" && communityOf("/community/mara-club") === "mara-club" && communityOf("/community") === null && communityOf("/community/Bad_Slug") === null && communityOf("/explore") === null)
 const inside = buyerTabsAt("/community/mara-club/space/general")
 check("Home goes to the community's home", inside[0].key === "home" && inside[0].href === "/community/mara-club")
-/* Round 15, the owner: inside a community Library becomes Create post, and Profile is your profile in that community (tests/nav-tabs15.test.ts). */
-check("Search, Create post and Profile in the same order: Create post in Library's place, Profile yours in this community", same(inside.map((t) => t.key), ["home", "search", "compose", "profile"]) && inside[2].label === "Create post" && inside[3].href === "/community/mara-club?profile=me")
+/* Round 15, the owner: inside a community Library becomes Create post. Round 16: Profile is the account page again, not a card inside the community (tests/account-pills16.test.ts). */
+check("Search, Create post and Profile in the same order: Create post in Library's place, Profile the account page", same(inside.map((t) => t.key), ["home", "search", "compose", "profile"]) && inside[2].label === "Create post" && inside[3].href === "/account")
 check("every page of the community lights Home", buyerTabFor("/community/mara-club/members") === 0 && buyerTabFor("/community/mara-club", { exploreMarketplaceEnabled: false }) === 0)
 check("outside a community nothing changed", same(buyerTabsAt("/explore"), BUYER_TABS) && buyerTabsAt("/explore")[0].href === "/explore" && buyerTabsAt("/explore", false).map((t) => t.key).join() === "library,profile" && buyerTabFor("/account") === 3)
 let opened = 0
