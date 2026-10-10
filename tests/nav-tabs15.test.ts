@@ -203,6 +203,7 @@ async function main() {
     check("outside with a community kept as Home: only Home is the community's; Library and Profile are the site's", kept.map((t) => t.key).join() === "home,search,library,profile" && kept[0].href === "/community/clay-studio" && kept[3].href === "/account")
     check("your own profile in the community lights Profile; every other place lights Home; Create post is never lit",
       tabs.buyerTabFor("/community/clay-studio", { profile: "me" }) === 3 && tabs.buyerTabFor("/community/clay-studio", { profile: "maria" }) === 0 && tabs.buyerTabFor("/community/clay-studio/learn") === 0)
+    check("a person's profile keeps the bar (R's item 22: arriving from a community, the bar is still there), with no tab lit", tabs.buyerTabsBelongOn("/u/maria") && tabs.buyerTabFor("/u/maria") === -1 && !tabs.buyerTabsBelongOn("/u/maria/edit"))
     const bar = code("components/nav/buyer-tab-bar.tsx")
     check("Create post asks the composer on screen, and when there is none brings back the feed, whose composer takes the request",
       /if \(tab\.key === "compose" && community\) \{\s*if \(requestCompose\(\)\) return\s*if \(navHere\) navHere\.go\(\{ kind: "feed" \}, \{ scroll: "keep" \}\)/.test(bar))

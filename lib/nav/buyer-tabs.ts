@@ -19,6 +19,7 @@
  *   A receipt                      /receipt/<token>, under Library
  *   The account page               /account
  *   The wishlist                   /wishlist (a platform route of its own)
+ *   A person's profile             /u/<username>, the bar stays (round 15)
  *   Inside a community             /community/<slug>/..., community aware:
  *                                  Home is the community's home, Search
  *                                  its own search, Create post in
@@ -136,7 +137,9 @@ export function isBuyerPath(pathname: string, exploreMarketplaceEnabled = true):
     (exploreMarketplaceEnabled && under(pathname, "/explore")) ||
     under(pathname, "/account/library") ||
     under(pathname, "/account") ||
-    (exploreMarketplaceEnabled && under(pathname, "/wishlist"))
+    (exploreMarketplaceEnabled && under(pathname, "/wishlist")) ||
+    /* A person's profile (/u/<username>), opened from a community, Explore or a post: the bar stays, as on a creator's page (round 15). */
+    /^\/u\/[^/]+\/?$/.test(pathname)
   )
 }
 
