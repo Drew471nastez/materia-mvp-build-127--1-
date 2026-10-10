@@ -363,7 +363,7 @@ console.log("\nA theme with no sections: its layout and templates are the theme\
   zip.file("config/settings_schema.json", "[]")
   check("a theme with a layout and a home page but no sections is a Shopify theme", isShopifyTheme(zip))
   const r = await convertShopifyTheme(zip)
-  check("  and it imports", r.ok === true, r.ok ? "" : r.error)
+  check("  and it imports", r.ok === true, r.ok === false ? r.error : "")
   if (r.ok) {
     const theme = themeOfInstall(r.theme.files, r.theme.settings, { assetUrl: (n) => `/a/${n}` })
     const home = r.theme.pages.find((p) => p.page_key === "home")
