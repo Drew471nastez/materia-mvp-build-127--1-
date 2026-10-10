@@ -166,3 +166,29 @@ export function treatAsSignedIn(r: BoundedSession): boolean {
   if (!r.timedOut && !r.failed) return !!r.session
   return hasStoredSessionToken()
 }
+
+/**
+ * ===========================================================================
+ *  A FAILED READ OF THE USER IS NOT A SIGNED-OUT EITHER
+ * ===========================================================================
+ * `supabase.auth.getUser()` asks Supabase Auth over the network. When that
+ * request fails (a 504 from its gateway, a dropped connection, the
+ * AuthRetryableFetchError production logs show at busy moments) it comes
+ * back with an error and no user, the same shape as a real signed-out. The
+ * header read both the same way: it cleared the snapshot and drew Log in
+ * for somebody who was signed in the whole time.
+ *
+ * True only when Auth itself said there is no valid session: no session at
+ * all, a token it refused (401, 403), or a session, refresh token or user it
+ * no longer has. Anything else is "could not tell", and the screen keeps
+ * what it showed.
+ */
+export function signedOutForSure(error: unknown, user: unknown): boolean {
+  if (user) return false
+  if (!error) return true
+  const e = error as { name?: unknown; status?: unknown; code?: unknown }
+  if (e.name === "AuthSessionMissingError") return true
+  if (e.name === "AuthRetryableFetchError") return false
+  if (e.status === 401 || e.status === 403) return true
+  return typeof e.code === "string" && ["session_not_found", "refresh_token_not_found", "refresh_token_already_used", "bad_jwt", "user_not_found", "no_authorization"].includes(e.code)
+}
