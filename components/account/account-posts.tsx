@@ -30,7 +30,7 @@
  */
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { Loader2 } from "lucide-react"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
 import { PenIcon } from "@solar-icons/react/linear/pen"
@@ -47,6 +47,7 @@ import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { cn } from "@/lib/utils"
 import { markPostFromAccount, takeAccountPostsStale } from "@/lib/profile/post-return"
 import { prefetchHref } from "@/lib/nav/prefetch-policy"
+import { revealMore } from "@/components/community/member/reveal-more"
 
 /*
   A POST OPENS FROM HERE WITHOUT WAITING ON THE SERVER (round 18, the owner: "when I click a post to see it, it takes too
@@ -176,6 +177,15 @@ export function AccountPosts({ initial, now }: { initial: ProfilePostsPage; now:
   const [clock, setClock] = useState(now)
   useEffect(() => setClock(Date.now()), [])
 
+  const revealIds = useRef<Set<string> | null>(null)
+  const listEl = useRef<HTMLUListElement | null>(null)
+  useLayoutEffect(() => {
+    const ids = revealIds.current
+    if (!ids) return
+    revealIds.current = null
+    const items = Array.from(listEl.current?.querySelectorAll<HTMLElement>(":scope > [data-account-post]") ?? []).filter((el) => ids.has(el.dataset.accountPost ?? ""))
+    revealMore(items, { scroll: true })
+  }, [posts])
   const more = async () => {
     if (!next || state === "loading") return
     setState("loading")
@@ -186,7 +196,10 @@ export function AccountPosts({ initial, now }: { initial: ProfilePostsPage; now:
     }
     setPosts((list) => {
       const have = new Set(list.map((p) => p.id))
-      return [...list, ...r.data.posts.filter((p) => !have.has(p.id))]
+      const added = r.data.posts.filter((p) => !have.has(p.id))
+      /* Drawn in softly and scrolled up into view once they are on the page (community/member/reveal-more.ts, round 18). */
+      revealIds.current = added.length ? new Set(added.map((p) => p.id)) : null
+      return [...list, ...added]
     })
     setNext(r.data.next)
     setState("idle")
@@ -255,7 +268,7 @@ export function AccountPosts({ initial, now }: { initial: ProfilePostsPage; now:
           <p className="mx-auto max-w-[36ch] text-[14px] leading-[1.55] text-[#6b7280]">Nothing posted yet. What you post in your communities shows up here, to edit or delete.</p>
         </div>
       ) : (
-        <ul className={cn(LIST, "px-4 sm:px-5")} aria-label="Your posts">
+        <ul ref={listEl} className={cn(LIST, "px-4 sm:px-5")} aria-label="Your posts">
           {posts.map((post, i) => (
             <Row key={post.id} post={post} now={clock} index={i} onDelete={remove} />
           ))}

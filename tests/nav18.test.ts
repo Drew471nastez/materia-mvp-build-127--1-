@@ -26,6 +26,7 @@
 import { readCode, readSource } from "./_source"
 import { arrivedByTab, noteTabArrival } from "@/lib/nav/tab-swap"
 import { KEEP_FRESH_MS } from "@/components/nav/keep-fresh"
+import { REVEAL_GAP_PX, REVEAL_SCROLL_MAX, revealScrollTarget } from "@/components/community/member/reveal-more"
 import { pressShowsAtOnce, TAB_GAP, TAB_GAP_SM, TAB_HIT_X, TAB_HIT_X_SM, TAB_HIT_Y, TAB_TOUCH_H } from "@/components/community/member/chip-hit"
 
 let passed = 0
@@ -137,6 +138,19 @@ console.log("\nTHIRD SLOT: Create post and Library change one after the other, a
   check("the arriving glyph waits for the leaving one to be gone (never two at once)", /opacity \$\{SWAP_IN_MS\}ms \$\{EASE\} \$\{SWAP_OUT_MS\}ms/.test(bar) && /opacity \$\{SWAP_OUT_MS\}ms ease-out, scale 0s linear \$\{SWAP_OUT_MS\}ms/.test(bar) && outMs <= 120 && inMs <= 200, { outMs, inMs })
 }
 
+console.log("\nSHOW MORE: the next posts come up into view and arrive softly (item 7)")
+{
+  const reveal = code("components/community/member/reveal-more.ts")
+  const feed = code("components/community/member/feed.tsx")
+  const posts = code("components/account/account-posts.tsx")
+  check("the page goes down so the first new post sits just under the bar", revealScrollTarget(1700, 1200, 844, 100) === 1700 - 100 - REVEAL_GAP_PX)
+  check("never more than a share of the screen at once", revealScrollTarget(5000, 1200, 844, 100) === Math.round(1200 + 844 * REVEAL_SCROLL_MAX))
+  check("and never up", revealScrollTarget(1250, 1200, 844, 100) === null)
+  check("the new posts rise and fade in one after another, on the compositor, from the browser's own smooth scroll", /translate: `0 \$\{REVEAL_RISE_PX\}px`/.test(reveal) && /delay: i \* REVEAL_STAGGER_MS/.test(reveal) && /behavior: reduce \? "auto" : "smooth"/.test(reveal))
+  check("the feed's button scrolls; its own read ahead near the end only fades in", /onClick=\{\(\) => loadMore\("press"\)\}/.test(feed) && /scroll: how === "press"/.test(feed) && /void loadMore\(\), \{ rootMargin/.test(feed))
+  check("the account's Show more does the same", /revealMore\(items, \{ scroll: true \}\)/.test(posts))
+}
+
 console.log("\nCOPY")
 {
   const files = [
@@ -154,6 +168,8 @@ console.log("\nCOPY")
     "components/profile/profile-owner-pills.tsx",
     "components/community/member/chip-hit.ts",
     "components/community/member/ui.ts",
+    "components/community/member/reveal-more.ts",
+    "components/community/member/feed.tsx",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
