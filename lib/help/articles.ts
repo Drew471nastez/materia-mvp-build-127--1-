@@ -630,6 +630,57 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
   },
 
+  {
+    slug: "contact-storelib-support",
+    category: "account-and-billing",
+    title: "Get help from Storelib",
+    summary: "Open a request from your dashboard and a person at Storelib replies there and by email.",
+    keywords: ["support", "help", "contact", "ticket", "request", "problem", "bug", "question", "storelib team"],
+    body: [
+      { type: "steps", items: [
+        "Open Settings and press Contact Storelib support, or go to [Support](/app/support).",
+        "Press New request and choose what it's about: an order, payments, a dispute, payouts, shipping, your account, your website or something that isn't working.",
+        "Add a subject and the details. If it's about an order, add its number (the code after # on the order).",
+        "Press Send. You'll see it in Support, with whose turn it is.",
+      ] },
+      { type: "p", text: "When we reply you get an email, and the request says New reply. Reply right there to keep it all in one place. Press Mark resolved when you're sorted; writing again opens it back up." },
+      { type: "note", text: "We never ask for your password or card details. Don't send them in a request." },
+      { type: "p", text: "Rather email? Write to [support@storelib.com](mailto:support@storelib.com) with your username." },
+    ],
+  },
+  {
+    slug: "activity-log",
+    category: "account-and-billing",
+    title: "See every change to your store",
+    summary: "Settings, Activity lists who changed what and when: products, orders, settings and files.",
+    keywords: ["activity", "log", "history", "audit", "who changed", "changes", "record"],
+    body: [
+      { type: "p", text: "Open Settings, then Activity. Every change made to your store is there, newest first and grouped by day: a product added, renamed, repriced or archived, an order shipped or refunded, a tax region or location changed, an integration installed, a file deleted." },
+      { type: "table", head: ["It says", "Means"], rows: [
+        ["You", "You did it, signed in to your account."],
+        ["Storelib", "Storelib did it for you, like a scheduled change or a fix."],
+        ["A buyer", "A buyer did it, like asking to return items from their order page."],
+      ] },
+      { type: "p", text: "Use the filters to see only Products, Orders, Settings or Files, and Show more for older changes." },
+    ],
+  },
+  {
+    slug: "files-library",
+    category: "website-builder",
+    title: "Your files: every picture in one place",
+    summary: "Products, Files holds every picture you've uploaded, ready to use again anywhere on your website.",
+    keywords: ["files", "images", "pictures", "photos", "library", "media", "upload", "reuse"],
+    body: [
+      { type: "p", text: "Open Products, then Files. Every picture you've uploaded is there: your product photos, the pictures on your website and the ones you upload straight to Files. Search by name, or filter by where it came from." },
+      { type: "steps", items: [
+        "Press Upload, or drop pictures onto the page. JPG, PNG, GIF, WebP and AVIF, up to 5 MB each.",
+        "Press a picture to see its size, type and date, copy its link or delete it.",
+        "In the website builder, any image setting has Choose from your files. Pick one and it's in. No uploading the same picture twice.",
+      ] },
+      { type: "note", text: "Deleting a picture takes it off anything that still shows it, so check your website first." },
+    ],
+  },
+
   /* ── Policies ────────────────────────────────────────────────────────── */
   {
     slug: "refund-policy",
