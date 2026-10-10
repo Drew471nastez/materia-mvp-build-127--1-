@@ -151,6 +151,15 @@ console.log("\nSHOW MORE: the next posts come up into view and arrive softly (it
   check("the account's Show more does the same", /revealMore\(items, \{ scroll: true \}\)/.test(posts))
 }
 
+console.log("\nSETTINGS BACK: at once and smooth (item 8)")
+{
+  const sub = code("components/account/settings-subpage.tsx")
+  const out = Number(/SETTINGS_SHEET_OUT_MS = (\d+)/.exec(sub)?.[1])
+  check("the slide out starts on the compositor in the tap's own handler, from where the layer stands", /el\.animate\(\[\{ transform: from === "none" \? "translate3d\(0, 0, 0\)" : from \}, \{ transform: "translate3d\(100%, 0, 0\)" \}\], \{ duration: OUT_MS, easing: OUT_EASE, fill: "forwards" \}\)/.test(sub) && sub.indexOf("el.animate(") < sub.indexOf("setEntered(false)"))
+  check("about a third of a second, on a curve with a short settle, not the opening's long tail", out >= 280 && out <= 340 && /OUT_EASE = "cubic-bezier\(0\.3, 0\.7, 0\.2, 1\)"/.test(sub), out)
+  check("the CSS transition is only the way in, so the two never fight", /transition: reduce \|\| !entered \? "none" : `transform \$\{IN_MS\}ms \$\{EASE\}`/.test(sub))
+}
+
 console.log("\nCOPY")
 {
   const files = [
@@ -170,11 +179,12 @@ console.log("\nCOPY")
     "components/community/member/ui.ts",
     "components/community/member/reveal-more.ts",
     "components/community/member/feed.tsx",
+    "components/account/settings-subpage.tsx",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
-  /* The CSS property of that name in the tab bar's own style strings is a property, not a word of copy. */
-  const bad = files.filter((f) => banned.test(readSource(f).replace(/transform 0s|scale, transform"/g, "")))
+  /* The CSS property of that name, in style objects and strings, is a property, not a word of copy. */
+  const bad = files.filter((f) => banned.test(readSource(f).replace(/\btransform(?=\s*[:}]|\s+\$\{|\s+0s)|(?<=[.{(]\s?)transform\b|scale, transform"|"transform"/g, "")))
   check("no em dash and no banned word in this round's files", bad.length === 0, bad)
   const client = ["components/account/cover-warm.ts", "components/profile/profile-cover-image.tsx", "components/account/account-header-switch.tsx"]
   check("client modules import no server code", client.every((f) => !/from "(@\/lib\/communities\/server|next\/headers|server-only)/.test(readSource(f))))
