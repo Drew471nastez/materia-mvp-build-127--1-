@@ -104,9 +104,30 @@ export function exportShopifyTheme(rows: Record<string, string>, settings: unkno
     files[`templates/${suffix ? `${name}.${suffix}` : name}.json`] = JSON.stringify(template(parts.template), null, 2)
   }
   const home = pageParts(pages.home ?? [])
+  /*
+    A static section (an older theme's `{% section 'header' %}`) was imported
+    into a group under its own name; it goes back where that theme reads it,
+    settings_data.json's `sections`, and not into a group file it never draws.
+  */
+  const values = compatValues(settings) as O
+  const statics = values.sections && typeof values.sections === "object" ? { ...(values.sections as O) } : null
+  if (statics) {
+    for (const part of ["header", "footer"] as const) {
+      home[part] = home[part].filter((s) => {
+        if (!(s.id in statics)) return true
+        statics[s.id] = (template([s]).sections as O)[s.id]
+        return false
+      })
+    }
+  }
   if (home.header.length) files["sections/header-group.json"] = JSON.stringify({ type: "header", name: "Header group", ...template(home.header) }, null, 2)
   if (home.footer.length) files["sections/footer-group.json"] = JSON.stringify({ type: "footer", name: "Footer group", ...template(home.footer) }, null, 2)
-  files["config/settings_data.json"] = JSON.stringify({ current: compatValues(settings) }, null, 2)
+  /* The Overlay group goes back to the group files it came from. */
+  for (const slot of new Set(home.overlay.map((s) => s.slot).filter((x): x is string => typeof x === "string" && /^[a-z0-9_-]+$/i.test(x)))) {
+    const key = slot.replace(/-group$/, "")
+    files[`sections/${slot}.json`] = JSON.stringify({ type: key === "aside" ? "aside" : `custom.${key}`, name: `${key.replace(/[-_]/g, " ").replace(/^./, (c) => c.toUpperCase())} group`, ...template(home.overlay.filter((s) => s.slot === slot)) }, null, 2)
+  }
+  files["config/settings_data.json"] = JSON.stringify({ current: statics ? { ...values, sections: statics } : values }, null, 2)
 
   let media: Record<string, string> = {}
   try {

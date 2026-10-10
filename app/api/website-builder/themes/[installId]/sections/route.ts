@@ -1,4 +1,4 @@
-import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { blockTreeProblem } from "@/lib/website-builder/block-tree"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
@@ -11,6 +11,7 @@ import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
+import { SectionSaveSchema, saveIssue } from "@/lib/website-builder/section-save-schema"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -19,19 +20,8 @@ type Params = { params: Promise<{ installId: string }> }
 // ── Request schema ───────────────────────────────────────────
 // We keep `settings` as a free-form record (section schemas vary widely)
 // but cap it to reasonable shapes so callers can't inject crazy payloads.
-/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
-const BlockSchema = BlockInstanceSchema
 
-const SectionSchema = z.object({
-  id: z.string().min(1).max(128),
-  type: z.string().min(1).max(64),
-  name: z.string().max(256),
-  settings: z.record(z.unknown()),
-  blocks: z.array(BlockSchema).max(500).optional(),
-  hidden: z.boolean().optional(),
-  /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
-  group: z.enum(["header", "footer"]).optional(),
-})
+const SectionSchema = SectionSaveSchema
 
 const PutBodySchema = z.object({
   page_key: z.string().min(1).max(64),
@@ -202,7 +192,7 @@ export async function PUT(req: Request, { params }: Params) {
   const parsed = PutBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid body", issues: parsed.error.issues },
+      { error: saveIssue(parsed.error.issues), issues: parsed.error.issues },
       { status: 400 },
     )
   }

@@ -39,7 +39,7 @@ async function main() {
   const r = await convertShopifyTheme(await JSZip.loadAsync(readFileSync(zipPath)))
   if (!r.ok) throw new Error(r.error)
   const sources = Object.fromEntries(Object.entries(r.theme.files).filter(([p]) => p.endsWith(".storelib")))
-  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default\.json$)/.test(p)))
+  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default\.(schema\.)?json$)/.test(p)))
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
   const compat = { settings: r.theme.settings, pages, sources, files }
   console.log(`${r.theme.name} in the builder`)
@@ -80,6 +80,7 @@ async function main() {
     await page.evaluateOnNewDocument("window.__name = (f) => f")
     const frameErrors: string[] = []
     page.on("console", (m) => { if (m.type() === "error" && /frame|shopify|theme/i.test(m.text())) frameErrors.push(m.text().slice(0, 160)) })
+    page.on("console", (m) => { if (m.type() === "warn" && /\[compat\]/.test(m.text())) console.log("    warn:", m.text().slice(0, 200)) })
     page.on("pageerror", (e) => frameErrors.push(`editor: ${String(e).slice(0, 160)}`))
     await page.goto(base, { waitUntil: "domcontentloaded" })
 
@@ -170,6 +171,169 @@ async function main() {
     const kept = await frame.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false)
     check("the section was swapped in place: the page was not drawn again", kept)
     check("the frame kept its scroll", Math.abs(scrollAfter - scrollBefore) < 4, `${scrollBefore} to ${scrollAfter}`)
+    /*
+      THE PAGE'S SHAPE, CHANGED IN PLACE. The section is hidden, shown,
+      deleted and brought back by undo from the toolbar over the canvas: each
+      time the frame on screen is the same page (its mark holds), the
+      section goes and comes back, and the page is never seen empty.
+    */
+    const front = async () => (await (await page.$("[data-compat-frame='front']"))?.contentFrame()) ?? null
+    const watch = async (label: string, act: () => Promise<void>, expect: (has: boolean) => boolean) => {
+      let least = Infinity
+      let done = false
+      const sampling = (async () => {
+        while (!done) {
+          const f = await front()
+          const n = f ? await f.evaluate(() => document.querySelectorAll(".shopify-section").length).catch(() => 0) : 0
+          least = Math.min(least, n)
+          await sleep(25)
+        }
+      })()
+      await act()
+      let ok = false
+      for (let i = 0; i < 40 && !ok; i++) {
+        await sleep(100)
+        const f = await front()
+        ok = !!f && expect(await f.evaluate((id) => !!document.getElementById(`shopify-section-${id}`), target!.section).catch(() => false))
+      }
+      await sleep(300)
+      done = true
+      await sampling
+      const f = await front()
+      const same = !!f && (await f.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false))
+      check(label, ok && same && least > 0, `${ok ? "" : "not changed; "}${same ? "same page" : "the page was drawn again"}; at least ${least} sections on screen throughout`)
+    }
+    const press = (name: string) => async () => {
+      let ok = false
+      for (let i = 0; i < 30 && !ok; i++) {
+        ok = await page.evaluate((n) => { const b = document.querySelector<HTMLButtonElement>(`button[aria-label="${n}"]:not([disabled])`); b?.click(); return !!b }, name)
+        if (!ok) await sleep(100)
+      }
+      if (!ok) console.log(`    (no "${name}" button)`)
+    }
+    await watch("Hide takes the section off the page in place", press("Hide"), (has) => !has)
+    const undo = async () => { await page.keyboard.down("Control"); await page.keyboard.press("z"); await page.keyboard.up("Control") }
+    await watch("Undo shows it again in place", undo, (has) => has)
+    await watch("Delete takes it off in place", press("Delete"), (has) => !has)
+    await watch("Undo brings it back in place", undo, (has) => has)
+    /* Moved down one: the same page, the section now after the one that followed it. */
+    const orderNow = async () => (await (await front())!.evaluate(() => [...document.querySelectorAll(".shopify-section")].map((e) => e.getAttribute("data-section-id"))))
+    const before = await orderNow()
+    /* Deleting it let go of the selection; a click in the page picks it again. */
+    {
+      const f = (await front())!
+      const at = await f.evaluate((id) => { const el = document.getElementById(`shopify-section-${id}`)!; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(); return { x: r.left + 12, y: r.top + Math.min(40, r.height / 2) } }, target.section)
+      await sleep(300)
+      const box = await (await page.$("[data-compat-frame='front']"))!.boundingBox()
+      await page.mouse.click(box!.x + at.x, box!.y + at.y)
+      await sleep(600)
+    }
+    await press("Move down")()
+    await sleep(1200)
+    const after = await orderNow()
+    const i = before.indexOf(target.section)
+    const sameMark = await (await front())!.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1)
+    check("Move down moves it in place", i >= 0 && after.indexOf(target.section) === i + 1 && after[i] === before[i + 1] && sameMark, `${before.slice(i, i + 2).join(", ")} to ${after.slice(i, i + 2).join(", ")}`)
+    await undo()
+    await sleep(800)
+
+    /*
+      ADD SECTION draws the theme's own sections: each card a frame of the
+      theme's engine, with the section's markup in it, and a card picked
+      lands on the page in place.
+    */
+    {
+      const sectionsBefore = await (await front())!.evaluate(() => document.querySelectorAll(".shopify-section").length)
+      /* The page's list, and its own Add section. */
+      for (let i = 0; i < 20; i++) {
+        const opened = await page.evaluate(() => {
+          const add = document.querySelector<HTMLElement>("[data-section-group='template'] [data-add-section]")
+          if (add) { add.click(); return true }
+          const back = document.querySelector<HTMLElement>("[data-panel-back] button")
+          const tab = [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Sections")
+          ;(back ?? tab)?.click()
+          return false
+        })
+        if (opened) break
+        await sleep(250)
+      }
+      let drawnCards = 0
+      let cards = 0
+      for (let i = 0; i < 60 && drawnCards < 6; i++) {
+        await sleep(250)
+        /* Down the list, as somebody looking would: a card is drawn as it comes near. */
+        if (i % 4 === 3) await page.evaluate(() => { const c = [...document.querySelectorAll("[data-compat-preview='waiting']")][0]; c?.scrollIntoView({ block: "center" }) })
+        ;({ cards, drawnCards } = await page.evaluate(() => ({ cards: document.querySelectorAll("[data-library-card]").length, drawnCards: document.querySelectorAll("[data-compat-preview='drawn']").length })))
+      }
+      const filled = await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => {
+        const s = document.querySelector(".shopify-section")
+        return s ? (s.textContent ?? "").trim().length + s.querySelectorAll("img, svg, picture").length : -1
+      }).catch(() => -1)))
+      const withContent = filled.filter((n) => n > 0).length
+      if (process.env.DEBUG) console.log(await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => { let b = 0; document.querySelectorAll(".shopify-section").forEach((s) => { b = Math.max(b, s.getBoundingClientRect().bottom + scrollY) }); return `${b}/${innerWidth}x${innerHeight}` }).catch((e) => String(e).slice(0, 80)))))
+      if (process.env.DEBUG) console.log(await page.evaluate(() => [...document.querySelectorAll("[data-compat-preview]")].map((b) => `${b.getAttribute("data-compat-preview")}:${Math.round(b.getBoundingClientRect().top)}:${b.querySelector("iframe") ? "f" : "-"}`).join(" ")), filled.join(","))
+      await page.screenshot({ path: "/tmp/compat-editor-library.png" })
+      check("Add section's cards are the theme's sections, drawn", cards > 0 && drawnCards >= 6 && withContent >= 5, `${cards} cards, ${drawnCards} drawn, ${withContent} with content`)
+      const picked = await page.evaluate(() => { const c = document.querySelector<HTMLElement>("[data-library-card]"); c?.click(); return c?.getAttribute("data-library-card") ?? null })
+      let after = sectionsBefore
+      for (let i = 0; i < 30 && after <= sectionsBefore; i++) {
+        await sleep(150)
+        after = await (await front())!.evaluate(() => document.querySelectorAll(".shopify-section").length).catch(() => sectionsBefore)
+      }
+      const sameMark = await (await front())!.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false)
+      check("a card picked lands on the page in place", after === sectionsBefore + 1 && sameMark, `${picked}: ${sectionsBefore} to ${after} sections, ${sameMark ? "same page" : "drawn again"}`)
+      await undo()
+      await sleep(800)
+    }
+
+    /* A link in the header opens its page in the builder, as the site's own navigation does. */
+    {
+      const f = (await front())!
+      const link = await f.evaluate(() => {
+        const a = [...document.querySelectorAll<HTMLAnchorElement>(".shopify-section-group-header-group a[href]")].find((x) => {
+          const h = x.getAttribute("href") ?? ""
+          const r = x.getBoundingClientRect()
+          return /^\/(collections|products|search|cart|pages)/.test(h) && r.width > 0 && r.height > 0 && r.top >= 0 && r.top < innerHeight
+        })
+        if (!a) return null
+        scrollTo(0, 0)
+        const r = a.getBoundingClientRect()
+        return { href: a.getAttribute("href"), x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })
+      if (link) {
+        const box = await (await page.$("[data-compat-frame='front']"))!.boundingBox()
+        await page.mouse.click(box!.x + link.x, box!.y + link.y)
+        let opened = ""
+        for (let i = 0; i < 40 && !opened; i++) {
+          await sleep(150)
+          opened = await page.evaluate(() => [...document.querySelectorAll("button")].map((b) => (b.textContent ?? "").trim()).find((t) => /^(Collection|Products|All products|Search|Cart|Collections)/i.test(t)) ?? "")
+        }
+        check("a link in the header opens its page", !!opened, `${link.href} to ${opened || "nothing"}`)
+        /* Home again, for the checks after this. */
+        await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => /^(Collection|Products|All products|Search|Cart|Collections)/i.test((b.textContent ?? "").trim()))?.click())
+        await sleep(400)
+        await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[role='option'], [role='menuitem'], button")].find((b) => /^Home( page)?$/i.test((b.textContent ?? "").trim()))?.click())
+        await sleep(1500)
+        /* A page opened is a new page: the mark goes on it again, for the in-place checks after this. */
+        for (let i = 0; i < 20; i++) {
+          const marked = await (await front())?.evaluate(() => { (window as unknown as { __probeMark: number }).__probeMark = 1; return document.querySelectorAll(".shopify-section").length > 0 }).catch(() => false)
+          if (marked) break
+          await sleep(250)
+        }
+      } else {
+        check("a link in the header opens its page", false, `no header link to press: ${JSON.stringify(await f.evaluate(() => [...document.querySelectorAll(".shopify-section-group-header-group a[href]")].map((a) => { const r = a.getBoundingClientRect(); return `${a.getAttribute("href")}@${Math.round(r.top)}x${Math.round(r.width)}` }).slice(0, 12)))}`)
+      }
+    }
+
+    /* Every save the editor made is one the routes accept: their own schema, not a copy of it. */
+    await sleep(2500)
+    const saves = await page.evaluate(() => (window as unknown as { probeSaves?: { url: string; body: { sections?: unknown[]; page_key?: string } }[] }).probeSaves ?? [])
+    const { SectionSaveSchema } = await import("../lib/website-builder/section-save-schema")
+    const { z } = await import("zod")
+    const pageSaves = saves.filter((x) => /\/sections$/.test(x.url))
+    const refused = pageSaves.map((x) => z.array(SectionSaveSchema).safeParse(x.body.sections)).filter((r) => !r.success)
+    check("every page the editor saved is one the save route accepts", pageSaves.length > 0 && refused.length === 0, `${pageSaves.length} saves${refused.length ? `; refused: ${JSON.stringify((refused[0] as { error: { issues: unknown[] } }).error.issues.slice(0, 2))}` : ""}`)
+
     /* Theme settings: the theme's own groups, and a change to one draws the page with it. */
     const opened = await page.evaluate(() => {
       const tab = [...document.querySelectorAll<HTMLElement>("button, [role='tab']")].find((b) => (b.textContent ?? "").trim() === "Theme")
@@ -214,12 +378,43 @@ async function main() {
       let drawn = false
       for (let i = 0; i < 40 && typed && !drawn; i++) {
         await sleep(250)
-        const f = page.frames().find((x) => x !== page.mainFrame() && x.url() === "about:srcdoc")
+        const f = await front()
         drawn = !!f && (await f.evaluate(() => document.documentElement.outerHTML.includes("18,52,86") || document.documentElement.outerHTML.toLowerCase().includes("#123456")).catch(() => false))
       }
+      const f = await front()
+      const inPlace = !!f && (await f.evaluate(() => (window as unknown as { __probeMark?: number }).__probeMark === 1).catch(() => false))
+      check("  and the page took the new colour in place", inPlace)
       check(`a colour scheme's colour changed in "${schemeGroup.name}" is drawn in the frame`, typed && drawn, typed ? "" : "no colour field to type in")
     }
     await page.screenshot({ path: "/tmp/compat-editor-theme.png" })
+    /* A save the route refuses: a banner in words with one thing to do, never the route's "Invalid body". */
+    {
+      await page.evaluate(() => { (window as unknown as { PROBE_SAVE_FAIL: number }).PROBE_SAVE_FAIL = 400 })
+      await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => /^save$/i.test((b.textContent ?? "").trim()))?.click())
+      let banner = ""
+      for (let i = 0; i < 40 && !banner; i++) {
+        await sleep(150)
+        banner = await page.evaluate(() => document.querySelector("[data-save-problem]")?.textContent ?? "")
+      }
+      await page.screenshot({ path: "/tmp/compat-editor-save-problem.png" })
+      const seen = await page.evaluate(() => {
+        const el = document.querySelector<HTMLElement>("[data-save-problem]")
+        if (!el) return "none"
+        const r = el.getBoundingClientRect()
+        const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2)
+        return { r: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], onTop: !!top && el.contains(top), cover: top ? `${top.tagName}.${String(top.className).slice(0, 60)}` : null }
+      })
+      check("  and it is on top, where it can be seen", typeof seen === "object" && seen.onTop, JSON.stringify(seen))
+      check("a refused save shows a banner in words, with what to do", /did not save/.test(banner) && /Reload editor/.test(banner) && !/invalid body/i.test(banner), banner.slice(0, 160))
+      await page.evaluate(() => { (window as unknown as { PROBE_SAVE_FAIL: number }).PROBE_SAVE_FAIL = 0 })
+      await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => /^save$/i.test((b.textContent ?? "").trim()))?.click())
+      let gone = false
+      for (let i = 0; i < 40 && !gone; i++) {
+        await sleep(150)
+        gone = await page.evaluate(() => !document.querySelector("[data-save-problem]"))
+      }
+      check("  and it goes once a save lands", gone)
+    }
     await page.screenshot({ path: "/tmp/compat-editor.png" })
     check("no script errors", frameErrors.length === 0, frameErrors[0] ?? "")
   } finally {

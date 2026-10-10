@@ -94,7 +94,8 @@ export async function GET(req: Request, { params }: Params) {
   /**
    * AN IMPORTED SHOPIFY THEME'S OWN FILES, for the canvas that draws it
    * (components/website-builder/compat/compat-canvas.tsx): its templates,
-   * config, default locale and text assets under `shopify/`, drafts first.
+   * config, default locale (its words and its schema's words) and text
+   * assets under `shopify/`, drafts first.
    * Fonts (kept as base64) and the other languages' locales are left out:
    * the canvas loads fonts by address and draws in the default language.
    */
@@ -111,7 +112,7 @@ export async function GET(req: Request, { params }: Params) {
       if (readErr) break
       const rows = (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
       for (const r of rows) {
-        if (/^shopify\/locales\/(?!.*\.default\.json$)/.test(r.path)) continue
+        if (/^shopify\/locales\/(?!.*\.default\.(schema\.)?json$)/.test(r.path)) continue
         const text = r.draft_content ?? r.content
         if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
       }

@@ -1460,7 +1460,9 @@ check(
     /data-section-drag-list=""[\s\S]*?\n\s*\)\}\s*\n\s*<AddSectionButton onClick=\{\(\) => onAdd\(null, "template"\)\} \/>/.test(sectionsList) &&
     /<AddSectionButton onClick=\{\(\) => onAdd\(null, "footer"\)\} \/>/.test(sectionsList) &&
     /<InsertSectionDivider onClick=\{\(\) => onAdd\(0, "template"\)\} \/>/.test(sectionsList) &&
-    (sectionsList.match(/<AddSectionButton /g) ?? []).length === 3 &&
+    /* The Overlay group, when the theme has a floating section, has the fourth. */
+    (sectionsList.match(/<AddSectionButton /g) ?? []).length === 4 &&
+    /\{overlayAddable && <AddSectionButton onClick=\{\(\) => onAdd\(null, "overlay"\)\} \/>\}/.test(sectionsList) &&
     /setPendingInsertIndex\(at === null \|\| group !== "template" \? null : splitGroups\(sections\)\.header\.length \+ at\)/.test(editor),
 )
 
@@ -1879,7 +1881,8 @@ check(
   // phone, where nothing hovers, the list still reads as three parts.
   /data-insert-section=""/.test(sectionsList) &&
     /group-hover\/ins:bg-\[#8b5cf6\]\/60/.test(sectionsList) &&
-    (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 2,
+    /* Header, page, Footer, and the Overlay group when it shows. */
+    (sectionsList.match(/<div className="mx-1 my-2 h-px bg-\[#eceef1\]" aria-hidden \/>/g) ?? []).length === 3,
 )
 
 
@@ -2141,7 +2144,8 @@ check(
 
 check(
   "the header and the footer carry a badge saying which piece of chrome they are",
-  /const chrome = isKind\(s, role, kindOfType\) \? role : undefined/.test(sectionsList) &&
+  /* The Overlay group's rows are never the header or the footer. */
+  /const chrome = role !== "overlay" && isKind\(s, role, kindOfType\) \? role : undefined/.test(sectionsList) &&
     /\{groupRows\("header"\)\}/.test(sectionsList) &&
     /\{groupRows\("footer"\)\}/.test(sectionsList) &&
     /chrome === "header" \? <PanelTop/.test(sectionsList) &&

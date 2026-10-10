@@ -47,6 +47,8 @@ export interface Chrome {
   footer?: SectionInstance
   headerGroup?: SectionInstance[]
   footerGroup?: SectionInstance[]
+  /** What floats over every page (section-groups.ts): a popup, a bottom bar on a phone. */
+  overlayGroup?: SectionInstance[]
 }
 
 /**
@@ -69,6 +71,7 @@ export function chromeOf(homeSections: SectionInstance[] | null | undefined): Ch
     footer: g.footer.find((s) => s.type === "footer" && !s.hidden) ?? g.footer.find((s) => s.type === "footer") ?? g.footer.find((s) => !s.hidden),
     ...(g.header.length ? { headerGroup: g.header } : {}),
     ...(g.footer.length ? { footerGroup: g.footer } : {}),
+    ...(g.overlay.length ? { overlayGroup: g.overlay } : {}),
   }
 }
 
@@ -91,7 +94,8 @@ export function withUniversalChrome(
   const own = splitGroups(pageSections ?? [])
   const header = chrome.headerGroup ?? (chrome.header ? [chrome.header] : own.header)
   const footer = chrome.footerGroup ?? (chrome.footer ? [chrome.footer] : own.footer)
-  return [...header, ...own.template, ...footer]
+  const overlay = chrome.overlayGroup ?? own.overlay
+  return [...header, ...own.template, ...footer, ...overlay]
 }
 
 /**
@@ -116,7 +120,7 @@ export function applyUniversalChrome(
     ? Object.fromEntries(Object.entries(pages).map(([k, v]) => [k, repairChrome(v, kindOfType).sections]))
     : pages
   const chrome = chromeOf(held[homeKey])
-  if (!chrome.headerGroup && !chrome.footerGroup) return held
+  if (!chrome.headerGroup && !chrome.footerGroup && !chrome.overlayGroup) return held
   const out: Record<string, SectionInstance[]> = {}
   for (const [key, sections] of Object.entries(held)) {
     out[key] = CHROMELESS_PAGES.has(key) ? withoutChrome(sections) : withUniversalChrome(sections, chrome)

@@ -43,11 +43,11 @@ import { parseStorelib } from "./storelib/parse"
 /* One vocabulary: the group and kind names are the schema's own (schema/normalise.ts). */
 export type { SectionGroup, SectionKind }
 
-/** The three groups in the order a page and the sidebar show them. */
-export const GROUP_ORDER: readonly SectionGroup[] = ["header", "template", "footer"]
+/** The groups in the order a page and the sidebar show them; the overlay floats over the rest. */
+export const GROUP_ORDER: readonly SectionGroup[] = ["header", "template", "footer", "overlay"]
 
 /** What a group is called in the sidebar. The middle one is the page's own sections. */
-export const GROUP_LABELS: Record<SectionGroup, string> = { header: "Header", template: "Page", footer: "Footer" }
+export const GROUP_LABELS: Record<SectionGroup, string> = { header: "Header", template: "Page", footer: "Footer", overlay: "Overlay" }
 
 type SchemaLike = Record<string, unknown> | null | undefined
 
@@ -64,7 +64,7 @@ export interface GroupedSection {
 /** A section type's kind, or null. What the callers below are handed. */
 export type KindOfType = (type: string) => SectionKind | null
 
-const isGroup = (v: unknown): v is "header" | "footer" => v === "header" || v === "footer"
+const isGroup = (v: unknown): v is "header" | "footer" | "overlay" => v === "header" || v === "footer" || v === "overlay"
 
 // ── What a schema says ──────────────────────────────────────────────────────
 
@@ -108,12 +108,15 @@ const BUILT_IN_GROUPS: Record<string, SectionGroup[]> = {
   /* A marquee under the header is a header group section in Shopify's own themes; it is a band on a page too. */
   scrolling_text: ["template", "header", "footer"],
   /* Fixed to the top or the bottom of the screen, so where it sits in the page does not move it. */
-  sticky_bar: ["template", "header", "footer"],
+  sticky_bar: ["template", "header", "footer", "overlay"],
   social_proof_bar: ["template", "header"],
   /* An email sign up above the footer, as Dawn's footer group has one. */
   newsletter: ["template", "footer"],
   promo_newsletter: ["template", "footer"],
 }
+
+/* What floats over the page rather than sitting in it: a popup, a bar fixed to the bottom of a phone, back to top, a chat button. */
+const OVERLAY = /\b(pop[ _-]?up|modal|back[ _-]?to[ _-]?top|scroll[ _-]?to[ _-]?top|mobile[ _-]?(nav|navigation|bar|menu|tab[ _-]?bar|dock)|bottom[ _-]?(nav|navigation|bar|menu|dock)|tab[ _-]?bar|cookie[ _-]?(bar|banner|consent)?|age[ _-]?(gate|verification|check)|exit[ _-]?intent|floating|whats[ _-]?app|chat[ _-]?(button|bubble|widget)|quick[ _-]?view)\b/i
 
 const ANNOUNCEMENT = /\bannouncement(s)?\b|\bannouncement[ _-]?bar\b|\b(promo|notice|offer)[ _-]?bar\b|^announcement/i
 
@@ -151,6 +154,7 @@ export function sectionGroupsFor(
 
   const name = typeof s.name === "string" ? s.name : ""
   if (ANNOUNCEMENT.test(name) || ANNOUNCEMENT.test(type.replace(/_/g, " "))) return ["header"]
+  if (OVERLAY.test(name) || OVERLAY.test(type.replace(/_/g, " "))) return ["overlay", "template"]
   return ["template"]
 }
 
@@ -171,9 +175,9 @@ export function isKind(section: Pick<GroupedSection, "type">, kind: SectionKind,
   return kindOfType?.(section.type) === kind
 }
 
-/** The three groups, each in its own order. */
+/** The groups, each in its own order. */
 export function splitGroups<T extends GroupedSection>(list: readonly T[]): Record<SectionGroup, T[]> {
-  const out: Record<SectionGroup, T[]> = { header: [], template: [], footer: [] }
+  const out: Record<SectionGroup, T[]> = { header: [], template: [], footer: [], overlay: [] }
   for (const s of list) out[groupOf(s)].push(s)
   return out
 }
@@ -181,7 +185,7 @@ export function splitGroups<T extends GroupedSection>(list: readonly T[]): Recor
 /** Header group first, then the page, then the footer group, each keeping its order. */
 export function orderByGroup<T extends GroupedSection>(list: readonly T[]): T[] {
   const g = splitGroups(list)
-  return [...g.header, ...g.template, ...g.footer]
+  return [...g.header, ...g.template, ...g.footer, ...g.overlay]
 }
 
 /** The section, labelled for the group it is going into. The built-in header and footer need no label. */
@@ -260,7 +264,7 @@ export function placeSection<T extends GroupedSection>(
   }
 
   const next = { ...g, [target]: into } as Record<SectionGroup, T[]>
-  return { sections: [...next.header, ...next.template, ...next.footer], group: target, replaced }
+  return { sections: [...next.header, ...next.template, ...next.footer, ...next.overlay], group: target, replaced }
 }
 
 /** The header (or footer) a new one would take the place of, or null when none is drawn. */
@@ -279,7 +283,7 @@ export function toggleShown<T extends GroupedSection>(list: readonly T[], id: st
   const showing = !!target.hidden
   const group = groupOf(target)
   const kind: SectionKind | null =
-    showing && group !== "template" && isKind(target, group, kindOfType) ? group : null
+    showing && (group === "header" || group === "footer") && isKind(target, group, kindOfType) ? group : null
   return list.map((s) => {
     if (s.id === id) {
       if (!showing) return { ...s, hidden: true }
@@ -353,7 +357,7 @@ export function repairChrome<T extends GroupedSection>(list: readonly T[], kindO
     })
   }
 
-  const ordered = [...g.header, ...g.template, ...g.footer]
+  const ordered = [...g.header, ...g.template, ...g.footer, ...g.overlay]
   if (!changed && ordered.some((s, i) => s !== list[i])) changed = true
   return { sections: changed ? ordered : (list as T[]), changed, moved, hidden, kept }
 }

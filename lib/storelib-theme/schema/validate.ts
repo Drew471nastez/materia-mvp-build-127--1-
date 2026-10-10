@@ -332,8 +332,9 @@ function checkPlacement(s: Record<string, unknown>, err: (path: string, message:
     const v = s[key] as { groups?: unknown[] } | undefined
     if (!v) continue
     ;(v.groups ?? []).forEach((g, i) => {
-      if (g === "*" || (SECTION_GROUPS as readonly unknown[]).includes(g)) return
-      err(`${key}.groups[${i}]`, `"${String(g)}" is not a section group. The groups are ${SECTION_GROUPS.map((x) => `"${x}"`).join(", ")}, or "*" for all three`)
+      /* Shopify's own names for a floating group read as the overlay (normalise.ts, sectionGroupsOf). */
+      if (g === "*" || g === "aside" || (typeof g === "string" && /^custom\.[a-z0-9_-]+$/i.test(g)) || (SECTION_GROUPS as readonly unknown[]).includes(g)) return
+      err(`${key}.groups[${i}]`, `"${String(g)}" is not a section group. The groups are ${SECTION_GROUPS.map((x) => `"${x}"`).join(", ")}, or "*" for all of them`)
     })
   }
   if (s.kind === undefined) return

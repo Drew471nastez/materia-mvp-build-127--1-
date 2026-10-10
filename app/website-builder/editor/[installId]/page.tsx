@@ -127,9 +127,10 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { CompatCanvas } from "@/components/website-builder/compat/compat-canvas"
+import { CompatCanvas, useCompatPreviewDrawer } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
-import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
+import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
@@ -181,6 +182,8 @@ function compatPages(keys: string[], extra: string[]): SwitcherPage[] {
 /** The sections that show the creator's collections, offered only while collections are on. */
 const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
+import { saveProblem, type SaveFix, type SaveProblem } from "@/lib/website-builder/save-problem"
+import { SaveProblemBanner } from "@/components/website-builder/save-problem-banner"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -2757,11 +2760,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       creator's own header files, which Add section never offers for a page
       (customAddableSections leaves them out), and what else fits the group.
     */
+    /* The Overlay group: what floats over the page, and nothing that is a header or a footer. */
+    if (addGroup === "overlay") return all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
   }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
+  /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
+  const overlayAddable = useMemo(() => {
+    const all = compatInstall ? ownSectionTypes : [...ADDABLE_SECTIONS, ...ownSectionTypes]
+    return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
+  }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
   const [pendingReplace, setPendingReplace] = useState<{ type: string; presetIndex: number; kind: SectionKind; current: string; next: string } | null>(null)
   /**
@@ -2769,7 +2779,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * takes it off every other page too. Without it, a page with no header is
    * a page whose header has not been synced yet, and is left alone.
    */
-  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean }>({})
+  const chromeRemoved = useRef<{ header?: boolean; footer?: boolean; overlay?: boolean }>({})
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       // Same-origin only: the frame is our own page and nothing else may
@@ -3227,6 +3237,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setNotification({ message, type })
     notificationTimer.current = setTimeout(() => setNotification(null), 4000)
   }, [])
+  /* A save that did not land, until one does: lib/website-builder/save-problem.ts. */
+  const [saveProblemState, setSaveProblemState] = useState<SaveProblem | null>(null)
+  const saveRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const saveDraftRef = useRef<(options?: { quiet?: boolean }) => Promise<boolean>>(async () => false)
+  useEffect(() => () => { if (saveRetryTimer.current) clearTimeout(saveRetryTimer.current) }, [])
+  const fixSave = useCallback((fix: SaveFix) => {
+    if (fix === "retry") void saveDraftRef.current({ quiet: false })
+    else if (fix === "reload") window.location.reload()
+    else if (fix === "sign-in") window.open(`/login?next=${encodeURIComponent("/app")}`, "_blank", "noopener")
+    else if (fix === "themes") window.location.assign("/app/website-builder")
+    else setSaveProblemState(null)
+  }, [])
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
   /* Every page the install has a row for: an imported theme's switcher lists exactly these (compatPages). */
   const [rowPageKeys, setRowPageKeys] = useState<string[]>([])
@@ -3397,7 +3419,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const oldIdx = g.template.findIndex(s => s.id === fromId)
       const newIdx = g.template.findIndex(s => s.id === toId)
       if (oldIdx === -1 || newIdx === -1) return prev
-      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer]
+      return [...g.header, ...arrayMove(g.template, oldIdx, newIdx), ...g.footer, ...g.overlay]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -3432,7 +3454,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const to = from + step
       if (from === -1 || to < 0 || to >= list.length) return prev
       const next = { ...g, [group]: arrayMove(list, from, to) }
-      return [...next.header, ...next.template, ...next.footer]
+      return [...next.header, ...next.template, ...next.footer, ...next.overlay]
     })
     setIsDirty(true)
   }, [pushUndo])
@@ -4398,6 +4420,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   useEffect(() => {
     if (loading || sectionsLoading || switchingPage.current) return
+    /* An imported Shopify theme says where each section goes in its own group files: nothing here is a duplicate to hide. */
+    if (compatInstall) return
     const fixed = repairChrome(sections, kindOfType)
     if (!fixed.changed) return
     setSections(fixed.sections)
@@ -4410,7 +4434,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       showNotification(`Hid ${names(fixed.hidden).join(" and ")}, a duplicate`)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sections, kindOfType, loading, sectionsLoading])
+  }, [sections, kindOfType, loading, sectionsLoading, compatInstall])
 
   /*
     A SETTING SET TO WHAT IT ALREADY IS CHANGES NOTHING. Clicking the option
@@ -4836,6 +4860,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const others = sectionsRef.current.filter((s) => s.id !== sectionId && groupOf(s) === kind && isKind(s, kind, kindOfType))
         if (others.length === 0) chromeRemoved.current[kind] = true
       }
+      /* The last thing in the Overlay group gone: the other pages lose it too on the next save. */
+      if (groupOf(gone) === "overlay" && !sectionsRef.current.some((s) => s.id !== sectionId && groupOf(s) === "overlay")) chromeRemoved.current.overlay = true
     }
     setSections(prev => prev.filter(s => s.id !== sectionId))
     if (selectedSectionId === sectionId) {
@@ -5202,7 +5228,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const g = splitGroups(sections)
     const headerGroup = g.header.length > 0 ? g.header : chromeRemoved.current.header ? [] : null
     const footerGroup = g.footer.length > 0 ? g.footer : chromeRemoved.current.footer ? [] : null
-    if (!headerGroup && !footerGroup) return
+    /* The Overlay group is the site's too: a popup or a bottom bar is on every page, as Shopify's groups are. */
+    const overlayGroup = g.overlay.length > 0 ? g.overlay : chromeRemoved.current.overlay ? [] : null
+    if (!headerGroup && !footerGroup && !overlayGroup) return
 
     // Fetch all pages for this install
     const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
@@ -5213,6 +5241,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         footer: null,
         header_group: headerGroup,
         footer_group: footerGroup,
+        overlay_group: overlayGroup,
         current_page: currentPage,
         mode,
       }),
@@ -5253,6 +5282,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
+  /**
+   * A SAVE THAT DID NOT LAND stays on screen, in words, until one does:
+   * components/website-builder/save-problem-banner.tsx. One that a moment
+   * will fix (a dropped connection, a rate limit, a server hiccup) is tried
+   * again by itself, once per failure.
+   */
+  const failSave = async (res: Response | null, what: "page" | "settings" | "publish"): Promise<false> => {
+    const said = res ? ((await res.json().catch(() => ({}))) as { error?: unknown }).error : null
+    const problem = saveProblem(res?.status ?? 0, said, what)
+    setSaveProblemState(problem)
+    if (problem.retries && what !== "publish") {
+      if (saveRetryTimer.current) clearTimeout(saveRetryTimer.current)
+      saveRetryTimer.current = setTimeout(() => { saveRetryTimer.current = null; void saveDraftRef.current({ quiet: true }) }, 5000)
+    }
+    return false
+  }
+
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
     try {
       const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
@@ -5260,30 +5306,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ draft_settings: settingsDraft }),
       })
-      if (!settingsRes.ok) {
-        const d = await settingsRes.json().catch(() => ({}))
-        showNotification(d.error ?? "Failed to save settings", "error")
-        return false
-      }
+      if (!settingsRes.ok) return failSave(settingsRes, "settings")
 
       const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
       })
-      if (!sectionsRes.ok) {
-        const d = await sectionsRes.json().catch(() => ({}))
-        // A FAILED autosave is not quiet. Silence here is how somebody keeps
-        // working for an hour against a server that stopped accepting writes.
-        showNotification(d.error ?? "Failed to save sections", "error")
-        return false
-      }
+      // A FAILED autosave is not quiet. Silence here is how somebody keeps
+      // working for an hour against a server that stopped accepting writes.
+      if (!sectionsRes.ok) return failSave(sectionsRes, "page")
 
       // Sync header/footer to all other pages
       await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
       snapshotAfterSave()
+      setSaveProblemState(null)
       /**
        * Autosave says nothing. A toast every couple of seconds is noise that
        * trains somebody to ignore the one that matters — the bar already shows
@@ -5292,10 +5331,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (!options.quiet) showNotification("Saved")
       return true
     } catch {
-      showNotification("Failed to save", "error")
-      return false
+      return failSave(null, "page")
     }
   }
+
+  saveDraftRef.current = saveDraft
 
   const publishChanges = async () => {
     setPublishing(true)
@@ -5307,8 +5347,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         body: JSON.stringify({ draft_settings: settingsDraft }),
       })
       if (!settingsRes.ok) {
-        const d = await settingsRes.json().catch(() => ({}))
-        showNotification(d.error ?? "Failed to save settings", "error")
+        await failSave(settingsRes, "settings")
         setPublishing(false)
         return
       }
@@ -5319,8 +5358,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
       })
       if (!sectionsRes.ok) {
-        const d = await sectionsRes.json().catch(() => ({}))
-        showNotification(d.error ?? "Failed to save sections", "error")
+        await failSave(sectionsRes, "page")
         setPublishing(false)
         return
       }
@@ -5337,8 +5375,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
 
       if (!res.ok) {
-        const d = await res.json()
-        showNotification(d.error ?? "Failed to publish", "error")
+        await failSave(res, "publish")
         setPublishing(false)
         return
       }
@@ -5352,9 +5389,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setUnpublished(false)
       setHasPublished(true)
       snapshotAfterSave()
+      setSaveProblemState(null)
       showNotification("Changes saved and published")
     } catch {
-      showNotification("Failed to publish", "error")
+      await failSave(null, "publish")
     }
     setPublishing(false)
   }
@@ -6469,6 +6507,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 onRemove={removeSection}
                 onMove={moveSectionBy}
                 kindOfType={kindOfType}
+                overlayAddable={overlayAddable}
                 onAdd={(at, group = "template") => {
                   /* `at` counts the page's own sections; the list index is after the Header group. */
                   setAddGroup(group)
@@ -6961,6 +7000,40 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     () => Object.values(builderCollections?.cards ?? {}).map((c) => ({ id: c.id, title: c.title, handle: c.handle, description: c.description, image: c.image, url: c.url, products_count: c.products_count, products: c.products })),
     [builderCollections],
   )
+  /* The store's menus under the names a Shopify theme reads them by, as the live site gives them (lib/storelib-theme/compat/menus.ts). */
+  const compatCanvasMenus = useMemo(() => compatMenus(canvasMenus as never, rowPageKeys), [canvasMenus, rowPageKeys])
+  /* Add section, for an imported theme: each card drawn by the theme's own engine (compat-canvas.tsx). Read once the library opens. */
+  const [libraryOpened, setLibraryOpened] = useState(false)
+  useEffect(() => { if (addSectionOpen) setLibraryOpened(true) }, [addSectionOpen])
+  const drawCompatPreview = useCompatPreviewDrawer({
+    enabled: !!canvasCompat && libraryOpened,
+    installId,
+    sources: storelibSources,
+    theme: canvasThemeSettings as Record<string, unknown>,
+    products: shopCards,
+    collections: compatCollections,
+    menus: compatCanvasMenus,
+    shopName: typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store",
+  })
+  /*
+    A LINK PRESSED IN AN IMPORTED THEME'S PAGE opens that page here, as on the
+    live site: always from the header or the footer, which are the site's
+    navigation, and from anywhere while the inspector is off. A link with the
+    inspector on selects its section instead, as on a page of Storelib's own.
+  */
+  const rowPageKeysRef = useRef(rowPageKeys)
+  rowPageKeysRef.current = rowPageKeys
+  const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
+    if (inspectorRef.current && !chrome) return
+    const to = compatPageForHref(href, rowPageKeysRef.current)
+    if (!to) return
+    if (to.key === currentPageRef.current) {
+      if (!to.product) document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: 0 }, "*")
+      return
+    }
+    holdCanvasWhileOpening()
+    pageChangeRef.current(to.key as PageKey)
+  }, [holdCanvasWhileOpening])
   const selectFromCompatCanvas = useCallback(
     (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
     [selectSectionFromCanvas],
@@ -8383,6 +8456,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         document.body,
       )}
 
+      {/* ── A save that did not land: under the bar, above the canvas, until one does ── */}
+      {saveProblemState && (
+        <div className="pointer-events-none fixed inset-x-0 flex justify-center px-4" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>
+          <SaveProblemBanner problem={saveProblemState} onFix={fixSave} onClose={() => setSaveProblemState(null)} />
+        </div>
+      )}
+
       {/* ── Top notification bar ── */}
       <div
         className={cn(
@@ -9128,12 +9208,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
                   collections={compatCollections}
-                  menus={canvasMenus as never}
+                  menus={compatCanvasMenus}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
                   selectedSectionId={selectedSectionId}
                   selectedBlockId={selectedBlockId}
                   inspectorEnabled={canvasInspecting && !fullSettled}
                   onSelect={selectFromCompatCanvas}
+                  onNavigate={navigateCompatCanvas}
                 />
               ) : (
               <EditorCanvasPage
@@ -9192,7 +9273,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             const group = groupOf(current)
             const body = splitGroups(sections)[group]
             const idx = body.findIndex((x) => x.id === selectedSectionId)
-            const chrome = group !== "template" && isKind(current, group, kindOfType)
+            const chrome = (group === "header" || group === "footer") && isKind(current, group, kindOfType)
             return (
               <SectionToolbar
                 sectionId={selectedSectionId}
@@ -9269,6 +9350,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         ownTypes={libraryOwnTypes}
         sources={storelibSources}
         theme={settingsDraft}
+        drawCompat={canvasCompat ? (drawCompatPreview as never) : null}
+        ownLabel={canvasCompat?.theme || undefined}
       />
 
       {/* ── Add Custom Page Modal ── */}

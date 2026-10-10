@@ -47,7 +47,7 @@ import SectionRenderer from "../sections/SectionRenderer"
 import { useSiteMotion } from "./use-site-motion"
 import { splitGroups } from "@/lib/storelib-theme/section-groups"
 
-export type SectionRole = "header" | "body" | "footer"
+export type SectionRole = "header" | "body" | "footer" | "overlay"
 
 function str(value: unknown, fallback = ""): string {
   return typeof value === "string" && value !== "" ? value : fallback
@@ -438,7 +438,7 @@ export function ThemePage({
    * written as a section file), and the Footer group likewise
    * (lib/storelib-theme/section-groups.ts).
    */
-  const { header: headers, footer: footers, template: body } = splitGroups(sections)
+  const { header: headers, footer: footers, template: body, overlay: overlays } = splitGroups(sections)
 
   const render =
     renderSection ??
@@ -603,6 +603,8 @@ export function ThemePage({
       )}
 
       {footers.map((section) => render(section, "footer", false))}
+      {/* The Overlay group: what floats over every page (a popup, a bar fixed to the bottom of a phone), after everything it floats over. */}
+      {overlays.map((section) => render(section, "overlay", false))}
 
       <SiteCookieStyle theme={theme} />
       {/* Cart type Notification: what Add to cart just added (./cart-notice). */}

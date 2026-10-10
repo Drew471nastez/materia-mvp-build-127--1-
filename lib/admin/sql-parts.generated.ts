@@ -101,4 +101,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "105", file: "105_community_paid_events.sql", sha256: "379bffb7680beb1ebcb6bd134bf90f6ffe76d1d0a100855904af03aa42e0246a" },
   { part: "106", file: "106_ai_memory.sql", sha256: "b3c17e6371b0769c5bd5150d385999bfce3dad333675c8f2a983950246629d00" },
   { part: "107", file: "107_product_custom_fields.sql", sha256: "8f12fbc7812e39e9e15f89a0eda8f825bf475a02840acd373d9ea32713cdc295" },
+  { part: "108", file: "108_default_collections.sql", sha256: "ec362ede8e952806760a7163115fb8228bb85851fa40944c052cb93a603ea6b4" },
 ]

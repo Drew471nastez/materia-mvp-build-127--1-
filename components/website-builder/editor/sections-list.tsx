@@ -83,6 +83,8 @@ export interface SectionsListProps {
   onAdd: (at: number | null, group?: SectionGroup) => void
   /** Which section types are a header or a footer, so a header written as a section file wears the header's badge. */
   kindOfType?: KindOfType
+  /** Whether the theme has a section that floats over the page; the Overlay group shows when it does, or when it holds one. */
+  overlayAddable?: boolean
   dnd: SectionsDnd
   /**
    * A SECTION'S BLOCKS, UNDER IT IN THE TREE. The rows for this section's
@@ -364,6 +366,7 @@ export function SectionsList({
   onMove,
   onAdd,
   kindOfType,
+  overlayAddable,
   dnd,
   blocksOf,
   expanded,
@@ -407,10 +410,10 @@ export function SectionsList({
    * up and down inside it from the menu, since a drag across groups is not
    * a thing either group allows.
    */
-  const groupRows = (role: "header" | "footer") => {
+  const groupRows = (role: "header" | "footer" | "overlay") => {
     const list = groups[role]
     return list.map((s, i) => {
-      const chrome = isKind(s, role, kindOfType) ? role : undefined
+      const chrome = role !== "overlay" && isKind(s, role, kindOfType) ? role : undefined
       const t = tree(s)
       return (
         <div key={s.id}>
@@ -501,6 +504,23 @@ export function SectionsList({
         {/* What may go in the Footer group: a newsletter above the footer, or a footer. */}
         <AddSectionButton onClick={() => onAdd(null, "footer")} />
       </div>
+
+      {/*
+        THE OVERLAY GROUP: what floats over every page rather than sitting in
+        it, as Shopify's overlay and aside groups do. A popup, a bar fixed to
+        the bottom of a phone, back to top. Shown when the theme has such a
+        section, or the page holds one.
+      */}
+      {(overlayAddable || groups.overlay.length > 0) && (
+        <>
+          <div className="mx-1 my-2 h-px bg-[#eceef1]" aria-hidden />
+          <div data-section-group="overlay">
+            <GroupLabel>{GROUP_LABELS.overlay}</GroupLabel>
+            {groupRows("overlay")}
+            {overlayAddable && <AddSectionButton onClick={() => onAdd(null, "overlay")} />}
+          </div>
+        </>
+      )}
     </div>
   )
 }

@@ -41,6 +41,12 @@ export interface CompatSettings {
   theme_version?: string
   /** Section names the theme used that Storelib keeps for its own: header → theme-header. */
   renamed?: Record<string, string>
+  /**
+   * The theme's other section groups (overlay-group, aside-group…) whose
+   * sections the pages hold, in the builder's Overlay group. A group not
+   * named here is drawn from its file.
+   */
+  slots?: string[]
 }
 
 /** The install's compat marker, or null for a theme of Storelib's own. */
@@ -55,6 +61,7 @@ export function compatOf(settings: unknown): CompatSettings | null {
     theme: typeof o.theme === "string" ? o.theme : "",
     theme_version: typeof o.theme_version === "string" ? o.theme_version : undefined,
     renamed: o.renamed && typeof o.renamed === "object" ? (o.renamed as Record<string, string>) : undefined,
+    slots: Array.isArray(o.slots) ? o.slots.filter((x): x is string => typeof x === "string") : undefined,
   }
 }
 
@@ -92,6 +99,32 @@ export function compatPageKey(template: string): string | null {
   const m = template.match(/^page\.([a-z0-9][a-z0-9-]{0,62})$/)
   if (m && !TAKEN.has(m[1])) return m[1]
   return null
+}
+
+/**
+ * WHERE A LINK IN AN IMPORTED THEME GOES, in the builder: the page of the
+ * install it opens, or null for a link that leaves the site (or names a page
+ * the install has none of). Shopify's addresses: /products/<handle>,
+ * /collections, /collections/<handle>, /cart, /search, /pages/<handle>,
+ * /blogs/<blog>[/<article>].
+ */
+export function compatPageForHref(href: string, keys: readonly string[]): { key: string; product?: string } | null {
+  const raw = href.trim()
+  if (!raw || raw.startsWith("#") || /^(mailto|tel|javascript):/i.test(raw) || /^(https?:)?\/\//i.test(raw)) return null
+  const path = raw.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  const parts = path.split("/").filter(Boolean).map((p) => decodeURIComponent(p))
+  const has = (key: string) => (keys.includes(key) ? key : null)
+  let key: string | null = null
+  let product: string | undefined
+  if (parts.length === 0) key = has("home")
+  else if (parts[0] === "products" && parts[1]) { key = has("product"); product = parts[1] }
+  else if (parts[0] === "products") key = has("collection")
+  else if (parts[0] === "collections") key = parts[1] ? has("collection") : has("collections")
+  else if (parts[0] === "cart" && parts.length === 1) key = has("cart")
+  else if (parts[0] === "search") key = has("search")
+  else if (parts[0] === "pages" && parts[1]) key = has(parts[1]) ?? has("page")
+  else if (parts[0] === "blogs" && parts[1]) key = parts[2] ? has("article") : has("blog")
+  return key ? { key, ...(product ? { product } : {}) } : null
 }
 
 /** The template a page is drawn as: the theme's name for it, and a suffix for page.<suffix>. */

@@ -273,9 +273,12 @@ export interface SectionInstance {
    * The section group it sits in, when it is not on the page itself: an
    * announcement bar above the header, a header written as a section file.
    * The built-in header and footer are in theirs without it. See
-   * lib/storelib-theme/section-groups.ts.
+   * lib/storelib-theme/section-groups.ts. `overlay` is what floats over
+   * every page: a popup, a bar fixed to the bottom of a phone.
    */
-  group?: "header" | "footer"
+  group?: "header" | "footer" | "overlay"
+  /** An imported theme's Overlay group section: the theme's group file it is drawn in. */
+  slot?: string
 }
 
 export interface BlockInstance {

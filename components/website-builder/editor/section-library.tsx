@@ -588,6 +588,99 @@ const PreviewBox = memo(function PreviewBox({
   )
 })
 
+/* ── An imported theme's card: its own engine, in a frame of its own ─────── */
+
+/** Frames drawn one at a time, a moment apart, so opening the library never stalls the editor. */
+const compatQueue: (() => void)[] = []
+let compatPumping = false
+function queueCompatDraw(job: () => void) {
+  compatQueue.push(job)
+  if (compatPumping) return
+  compatPumping = true
+  const next = () => {
+    const run = compatQueue.shift()
+    if (!run) { compatPumping = false; return }
+    run()
+    setTimeout(next, 60)
+  }
+  setTimeout(next, 0)
+}
+
+const CompatPreviewBox = memo(function CompatPreviewBox({
+  draw,
+  width,
+  renderWidth,
+  ratio,
+}: {
+  draw: () => string | null
+  width: number
+  renderWidth: number
+  ratio: number
+}) {
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const frameRef = useRef<HTMLIFrameElement | null>(null)
+  const [html, setHtml] = useState<string | null>(null)
+  const [arrived, setArrived] = useState(false)
+  const [drawnHeight, setDrawnHeight] = useState<number | null>(null)
+  /* Drawn when it comes near the screen, and kept. */
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el || html !== null) return
+    const io = new IntersectionObserver((seen) => {
+      if (!seen.some((e) => e.isIntersecting)) return
+      io.disconnect()
+      queueCompatDraw(() => setHtml(draw() ?? ""))
+    }, { rootMargin: "400px 0px" })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [draw, html])
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      if (!frameRef.current || e.source !== frameRef.current.contentWindow) return
+      const h = (e.data as { storelibPreview?: number; h?: number })?.h
+      if (typeof h === "number" && h > 0) { setDrawnHeight(h); setArrived(true) }
+    }
+    window.addEventListener("message", onMessage)
+    return () => window.removeEventListener("message", onMessage)
+  }, [])
+  const scale = width > 0 ? width / renderWidth : 0.3
+  const crop = width * ratio
+  /* As tall as its section, between a floor and the crop. */
+  const height = width > 0 ? Math.round(drawnHeight ? Math.max(width * 0.22, Math.min(crop, drawnHeight * scale)) : crop) : 0
+  return (
+    <div
+      ref={boxRef}
+      data-preview-box=""
+      data-compat-preview={html === null ? "waiting" : arrived ? "drawn" : "drawing"}
+      className="relative w-full overflow-hidden bg-[#f3f4f6]"
+      style={{ height: height || undefined, aspectRatio: height ? undefined : `1 / ${ratio}` }}
+    >
+      {html ? (
+        <iframe
+          ref={frameRef}
+          srcDoc={html}
+          sandbox="allow-scripts"
+          tabIndex={-1}
+          aria-hidden
+          title=""
+          onLoad={() => setTimeout(() => setArrived(true), 300)}
+          /* The card's hover rule takes transforms off what is inside it; this one is the preview's size. */
+          data-keep-transform
+          className="absolute left-0 top-0 origin-top-left border-0 bg-white"
+          style={{
+            width: renderWidth,
+            height: Math.max(1, Math.ceil((height || crop) / scale)),
+            transform: `scale(${scale})`,
+            pointerEvents: "none",
+            opacity: arrived ? 1 : 0,
+            transition: "opacity 220ms ease-out",
+          }}
+        />
+      ) : null}
+    </div>
+  )
+})
+
 const LibraryCard = memo(function LibraryCard({
   entry,
   width,
@@ -598,6 +691,7 @@ const LibraryCard = memo(function LibraryCard({
   eager,
   phone,
   onAdd,
+  compatDraw,
 }: {
   entry: LibraryEntry
   width: number
@@ -608,6 +702,8 @@ const LibraryCard = memo(function LibraryCard({
   eager: boolean
   phone: boolean
   onAdd: (type: string, presetIndex: number) => void
+  /** An imported theme's card: drawn by the theme's own engine (CompatPreviewBox). */
+  compatDraw?: () => string | null
 }) {
   return (
     <button
@@ -630,7 +726,11 @@ const LibraryCard = memo(function LibraryCard({
           !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)] group-hover:-translate-y-px",
         )}
       >
-        <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
+        {compatDraw ? (
+          <CompatPreviewBox draw={compatDraw} width={width} renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} ratio={ratio} />
+        ) : (
+          <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
+        )}
       </div>
       {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}
       <span className="truncate px-0.5 text-[14px] font-medium leading-tight text-[#1a1a2e] sm:text-[13px]">{entry.title}</span>
@@ -639,6 +739,9 @@ const LibraryCard = memo(function LibraryCard({
 })
 
 /* ── The library ───────────────────────────────────────────────────────── */
+
+/** An imported theme is drawn at a laptop's width, where its sections were designed to be seen. */
+const COMPAT_RENDER_WIDTH = 1280
 
 interface LibraryEntry {
   type: string
@@ -672,6 +775,8 @@ export const SectionLibrary = memo(function SectionLibrary({
   ownTypes,
   sources,
   theme,
+  drawCompat,
+  ownLabel,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -690,6 +795,14 @@ export const SectionLibrary = memo(function SectionLibrary({
    * actually get.
    */
   theme?: ThemeSettingsValues
+  /**
+   * For a theme imported from Shopify: a section, drawn alone by the theme's
+   * own engine as a whole page (compat-canvas.tsx, useCompatPreviewDrawer).
+   * Its cards are frames of their own instead of Storelib's previews.
+   */
+  drawCompat?: ((section: SectionInstance) => string | null) | null
+  /** What the creator's own sections are called here: the imported theme's name, rather than Created. */
+  ownLabel?: string
 }) {
   const [phone, setPhone] = useState(false)
   useEffect(() => {
@@ -773,14 +886,14 @@ export const SectionLibrary = memo(function SectionLibrary({
     const themeOrder = SECTION_CATEGORY_ORDER.map((c) => c.id).filter((id) => counts.has(id))
     const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
-      ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? "Yours", count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
+      ? [{ key: CUSTOM_SECTION_CATEGORY, label: ownLabel || (SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? "Yours"), count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
     return [
       ...mine,
       { key: "all", label: "All", count: entries.length },
       ...[...themeOrder, ...rest].map((id) => ({ key: id, label: SECTION_CATEGORIES[id] ?? id, count: counts.get(id) ?? 0 })),
     ]
-  }, [entries])
+  }, [entries, ownLabel])
 
   /**
    * Typing searches the whole library rather than the category in front of
@@ -803,10 +916,18 @@ export const SectionLibrary = memo(function SectionLibrary({
   const ratio = phone ? PREVIEW_RATIO_MOBILE : PREVIEW_RATIO
 
   /* ── The previews, drawn ahead ── */
+  /* An imported theme's cards are drawn by its own engine, in frames, and not here. */
   const jobs = useMemo(
-    () => entries.map((e) => ({ key: e.keyFor(renderWidth), type: e.type, presetIndex: e.presetIndex, schema: e.schema, width: renderWidth, sources, theme: previewTheme })),
-    [entries, renderWidth, sources, previewTheme],
+    () => (drawCompat ? [] : entries.map((e) => ({ key: e.keyFor(renderWidth), type: e.type, presetIndex: e.presetIndex, schema: e.schema, width: renderWidth, sources, theme: previewTheme }))),
+    [entries, renderWidth, sources, previewTheme, drawCompat],
   )
+  /* One drawing function per card, the same one each render, so a card draws once. */
+  const compatDraws = useMemo(() => {
+    if (!drawCompat) return null
+    const out = new Map<string, () => string | null>()
+    for (const e of entries) out.set(cardKey(e), () => drawCompat(buildPreviewSection(e.type, e.presetIndex, e.schema)))
+    return out
+  }, [entries, drawCompat])
   /**
    * The cards are built the first time the library is opened, or once the
    * previews have been drawn in idle time, whichever is first. Until then
@@ -1045,6 +1166,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               eager={eager.has(k)}
               phone={phone}
               onAdd={handleAdd}
+              compatDraw={compatDraws?.get(k)}
             />
           )
         })}

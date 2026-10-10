@@ -120,18 +120,56 @@ inside a sandboxed frame that has no origin of its own: the theme's scripts
 run there exactly as on the website (its sliders, drawers and option
 pickers) and can reach nothing of the builder or the account.
 
+Nothing in the canvas loads again for an edit. A setting changed draws its
+section again and swaps it in place; a section added, hidden, deleted or
+moved, or a theme setting changed, is worked out by drawing the page as text
+and comparing it with the page on screen, and only what differs is changed
+in the frame (`components/website-builder/compat/compat-canvas.tsx`,
+`planPatch`). A page whose layout itself changed is loaded behind the one on
+screen and takes its place once its pictures are in, so the canvas is never
+seen empty. The toolbar over the canvas (move, duplicate, hide, delete)
+follows the selected section inside the frame.
+
+A link pressed in the page opens its page in the builder: always from the
+header and the footer, and from anywhere while the inspector is off. The
+store's menus reach the theme under Shopify's names (`main-menu`, `footer`),
+on the website and in the builder alike (`lib/storelib-theme/compat/menus.ts`).
+
 A click on the page selects the section and the block under it. A change in
 the sidebar draws that one section again and puts it in place, with the
 events Shopify's own editor sends (`shopify:section:load`,
 `shopify:section:select`, `shopify:block:select`), so a theme opens the slide
-or the tab that was chosen. Add section offers the theme's own sections, and
-Add block its own blocks.
+or the tab that was chosen. Add section offers the theme's own sections, each
+card drawn by the theme's own engine in a frame of its own as it scrolls into
+view, and Add block its own blocks.
+
+The sidebar has the theme's groups: Header, the page, Footer, and Overlay.
+An older theme's static `{% section 'header' %}` and `{% section 'footer' %}`
+come in as the Header and Footer groups' sections under their own names, so
+they are selected and edited like any other; the engine draws the page's copy
+where the tag stands, and an export puts them back in `settings_data.json`.
+Any other group the layout draws (`overlay-group`, `aside-group`, a custom
+one) comes into the Overlay group, each section remembering its group file.
+Native Storelib themes have the Overlay group too, for a popup, a bar fixed to
+the bottom of a phone or back to top: it shows when the theme has such a
+section, and it is on every page, as the header and footer are.
 
 Theme settings are the theme's groups from `settings_schema.json`, its words
 from its locale, each setting with the builder's control for its type.
 Colour schemes (Dawn) show each scheme the theme saved, with every colour
 its definition names; a colour palette (Horizon) shows each of its colours,
 and the settings that name a palette colour follow it.
+
+## Saving
+
+Every save of an imported theme's page goes through the same schema as any
+page (`lib/website-builder/section-save-schema.ts`). A Shopify group names
+none of its sections, and a missing name was refused as "Invalid body"; the
+import now names each one, and the routes read a missing name as empty. A save
+that does not land shows a small banner over the canvas, in words, with one
+thing to do (`lib/website-builder/save-problem.ts`): reload, sign in, open your
+themes, or nothing at all when a moment fixes it and it is tried again by
+itself. It stays until a save lands.
 
 ## The report
 
@@ -155,6 +193,11 @@ summary; the whole report is kept with the theme as
 npx tsx scripts/check-shopify-theme.ts horizon.zip dawn.zip
 npx tsx scripts/check-compat-editor.ts horizon.zip
 ```
+
+`check-compat-editor.ts` also hides, shows, deletes, undoes and moves a
+section, adds one from Add section, changes a colour, presses a header link
+and refuses a save, and checks each time that the page in the frame is the
+same page and never empty.
 
 The first serves each theme through the live site's own handler and drives
 it in Chromium at 1440 and 390 wide: every page type, Add to cart, choosing
