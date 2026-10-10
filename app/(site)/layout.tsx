@@ -5,6 +5,7 @@ import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
+import { SITE_PREFETCH_RULES } from "@/lib/website-builder/prefetch-rules"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -42,9 +43,13 @@ export const metadata: Metadata = {
  * So: no dynamic reads, nothing wrapped, and the pages below decide their own
  * caching. The product routes stay dynamic, because a cart is per visitor.
  */
+/* The next page fetched while the visitor rests on its link (lib/website-builder/prefetch-rules.ts). */
+const SPECULATION = JSON.stringify(SITE_PREFETCH_RULES)
+
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION }} />
       {children}
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}

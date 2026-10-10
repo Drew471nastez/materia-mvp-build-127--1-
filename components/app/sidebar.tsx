@@ -178,6 +178,13 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     has a OnePage has it fetched whole (prefetchAppPage), code included, and
     again when the app comes back after longer than the router keeps it.
   */
+  /* Settings fetched whole a moment after each page settles on a computer, so the sheet rises already filled (the phone's account menu does the same). */
+  useEffect(() => {
+    if (isPhoneShell() || pathname.startsWith("/app/settings")) return
+    const t = window.setTimeout(() => prefetchAppPage(router, "/app/settings"), 1500)
+    return () => window.clearTimeout(t)
+  }, [pathname, router])
+
   useEffect(() => {
     if (!onePagePublished || !isPhoneShell()) return
     let warmedAt = 0

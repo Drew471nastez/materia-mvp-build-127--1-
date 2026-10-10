@@ -2289,7 +2289,8 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
               maxWidth: logoMaxWidth ? `${logoMaxWidth}px` : undefined,
             }}
             loading="eager"
-            decoding="async"
+            /* Decoded with the page, not after it: an async decode let the first frame of every page paint without the logo, the blink between pages. It is small. */
+            decoding="sync"
             fetchPriority="high"
           />
         )}

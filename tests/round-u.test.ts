@@ -68,7 +68,8 @@ async function main() {
   console.log("\nSettings opens at the top and holds the page still\n")
   {
     const form = read("components/app/settings-form-new.tsx")
-    check("a section opens at its top, and the old height pin is cleared", /EVERY SECTION OPENS AT ITS TOP/.test(form) && /formRef\.current\.style\.minHeight = ""/.test(form) && /scroller\.scrollTo\(\{ top: 0, behavior: "instant"/.test(form) && !/form\.style\.minHeight = `\$\{Math\.max/.test(form))
+    /* Round V: on a phone the pill row stays put and a section opens just under it; anywhere else, at the very top. */
+    check("a section opens at its top (under the pill row on a phone), and the old height pin is cleared", /EVERY SECTION OPENS AT ITS TOP/.test(form) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(form) && /: 0\n/.test(form) && /scroller\.scrollTo\(\{ top: target, behavior: "instant"/.test(form) && !/form\.style\.minHeight = `\$\{Math\.max/.test(form))
     check("  a little wider on a computer", /lg:max-w-\[1200px\]/.test(form) && /lg:grid-cols-\[232px_minmax\(0,1fr\)\]/.test(form))
     const sheet = read("components/app/settings-sheet.tsx")
     check("the window is held while the sheet is up, its scroll bar's room kept", /html\.style\.overflow = "hidden"/.test(sheet) && /setProperty\("scrollbar-gutter", "stable"\)/.test(sheet) && /window\.innerWidth - html\.clientWidth/.test(sheet))

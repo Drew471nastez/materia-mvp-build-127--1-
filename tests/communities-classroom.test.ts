@@ -601,12 +601,14 @@ async function main() {
   check("webhook: a service not connected answers 404", /if \(!adapter\.connected\(\)\)/.test(hook))
   const pages = walk("app/(marketing)/community/[slug]/(member)").filter((f) => f.endsWith("page.tsx") && /\/(learn|events)\//.test(f))
   check("four pages", pages.length === 4, pages)
-  check("every page checks for itself (openMemberPage), not only the layout", pages.every((f) => /await openMemberPage\(db, slug, "(classroom|events)"/.test(code(f))))
+  /* Round 15: each page seeds the community's shell through PlacePage, which checks the member for itself, and the one place loader checks the section is on. */
+  const placesLoader = code("lib/communities/server/places.ts")
+  check("every page checks for itself (PlacePage and the place loader), not only the layout", pages.every((f) => /<PlacePage /.test(code(f))) && /page\.state !== "member" \|\| !page\.viewer\) notFound\(\)/.test(code("components/community/member/place-page.tsx")) && /if \(!community\.classroom_enabled\) return off/.test(placesLoader) && /if \(!community\.events_enabled\) return off/.test(placesLoader))
   const gate = code("lib/communities/server/classroom.ts")
   check("the page gate: switch, community, section, sign in, active member", /if \(!\(await on\(\)\)\) return notFound\(\)[\s\S]*communityOpen\(community\)[\s\S]*classroom_enabled[\s\S]*pageUser\([\s\S]*if \(!viewer\.active\) return redirect/.test(gate))
   /* Round 13: the course page is Learn's program page (tests/communities-learn.test.ts holds the rest). */
-  const coursePage = code("app/(marketing)/community/[slug]/(member)/learn/[programId]/page.tsx")
-  check("the program page finds only a program of this community, and shows a lock before the player", /programCard\(db, community, viewer, programId\)[\s\S]*if \(!card \|\| !row\) notFound\(\)[\s\S]*if \(card\.locked\)[\s\S]*loadCoursePlayer\(/.test(coursePage))
+  /* Round 15: the program page seeds the shell; what it shows is the place loader's (lib/communities/server/places.ts). */
+  check("the program page finds only a program of this community, and shows a lock before the player", /programCard\(db, community, viewer, place\.id\)[\s\S]*if \(!card \|\| !row\) return missing[\s\S]*if \(card\.locked\)[\s\S]*loadCoursePlayer\(/.test(placesLoader))
   const clients = [...walk("components/community/classroom"), ...walk("components/community/events"), ...walk("components/video"), "lib/video/upload-client.ts", "lib/video/types.ts"].filter((f) => /\.tsx?$/.test(f))
   check("nothing a browser loads imports server code", clients.every((f) => !/server-only|next\/headers|lib\/communities\/server|lib\/supabase\/(server|admin)|lib\/video\/(provider|storage|mux|cloudflare|bunny)/.test(code(f))), clients.filter((f) => /server-only|next\/headers|lib\/communities\/server/.test(code(f))))
   const servers = ["lib/video/provider.ts", "lib/video/storage.ts", "lib/video/mux.ts", "lib/video/cloudflare.ts", "lib/video/bunny.ts", "lib/communities/server/classroom.ts", "lib/communities/server/events.ts", "lib/communities/server/videos.ts", ...walk("lib/communities/server/jobs").filter((f) => /(event_reminder|fanout_event|video_poll)\.ts$/.test(f))]

@@ -24,7 +24,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { feedSpaceUrlsActive, FEED_SPACE_PARAM } from "@/lib/community/feed-space-address"
-import { placeFromUrl, placeHref, placeKey, type Place } from "./places"
+import { backThen } from "@/lib/navigation/go-back"
+import { placeFromUrl, placeHref, placeKey, slotKeyOf, type Place } from "./places"
 
 export interface GoOptions {
   /** Replace the history entry instead of adding one (a redirect-like move, never one the member made). */
@@ -51,7 +52,7 @@ export interface CommunityNavigator {
 /** What the shell plugs into the provider: the data side (place-cache) and the screen side (place-host). */
 export interface NavigatorHooks {
   /** Called synchronously before the place changes, so the screen being left can keep its scroll. */
-  beforeGo?: (from: Place, to: Place, opts: GoOptions) => void
+  beforeGo?: (from: Place, to: Place, opts: GoOptions & { history?: boolean }) => void
   prefetch?: (place: Place) => void
   refresh?: (place: Place) => Promise<void>
 }
@@ -101,6 +102,37 @@ export function useCommunityNavigator(): CommunityNavigator {
   return useContext(NavigatorContext) ?? INERT
 }
 
+/* ── Refresh, registered by the screen that holds a slot's data ── */
+
+const refreshers = new Map<string, Array<() => Promise<void>>>()
+
+/**
+ * A screen that holds a slot's data says how to patch it in place (the feed: read its lists again and merge them). A pull to
+ * refresh, or navigator.refresh(place), calls it; with nothing registered the shell reads the place's loader again itself.
+ * Unregistered on unmount. The latest registration for a slot wins.
+ */
+export function useRegisterPlaceRefresh(slotKey: string, refresh: () => Promise<void>) {
+  const run = useRef(refresh)
+  run.current = refresh
+  useEffect(() => {
+    const fn = () => run.current()
+    const list = refreshers.get(slotKey) ?? []
+    list.push(fn)
+    refreshers.set(slotKey, list)
+    return () => {
+      const now = (refreshers.get(slotKey) ?? []).filter((f) => f !== fn)
+      if (now.length) refreshers.set(slotKey, now)
+      else refreshers.delete(slotKey)
+    }
+  }, [slotKey])
+}
+
+/** The refresh registered for a slot, or null. */
+export function registeredRefresh(slotKey: string): (() => Promise<void>) | null {
+  const list = refreshers.get(slotKey)
+  return list && list.length ? list[list.length - 1] : null
+}
+
 /* ── History ── */
 
 /** Marks a history entry this navigator made, with how deep into the visit it is, so back() knows whether Back stays inside. */
@@ -141,7 +173,7 @@ function toTop() {
  * The provider, mounted once by the community's frame for the whole visit. `initial` is the place the server drew (from the
  * address the request asked for), so the first render on the server and in the browser agree.
  */
-export function CommunityNavigatorProvider({ slug, initial, hooks, children }: { slug: string; initial: Place; hooks?: NavigatorHooks; children: React.ReactNode }) {
+export function CommunityNavigatorProvider({ slug, initial, hooks, chatSpaces, children }: { slug: string; initial: Place; hooks?: NavigatorHooks; /** The community's chat spaces' slugs, so a refresh finds a chat space's own slot. */ chatSpaces?: ReadonlySet<string>; children: React.ReactNode }) {
   const [place, setPlace] = useState<Place>(initial)
   const placeRef = useRef(place)
   placeRef.current = place
@@ -154,7 +186,8 @@ export function CommunityNavigatorProvider({ slug, initial, hooks, children }: {
       const from = placeRef.current
       const href = addressFor(slug, to)
       const here = window.location.pathname + window.location.search
-      if (placeKey(from) === placeKey(to)) {
+      /* The same place, unless the address is not a place at all (a post's own page): then the tap goes there. */
+      if (placeKey(from) === placeKey(to) && placeFromUrl(window.location.pathname, window.location.search) !== null) {
         /* The place already on screen: the address catches up if it differs (All from ?space), a second tap goes to the top. */
         if (href !== here) window.history.replaceState({ ...(window.history.state ?? {}), [DEPTH_KEY]: entryDepth() }, "", href)
         if (opts.scroll !== "keep") window.scrollTo({ top: 0, behavior: "smooth" })
@@ -167,27 +200,28 @@ export function CommunityNavigatorProvider({ slug, initial, hooks, children }: {
         if (opts.replace) window.history.replaceState({ [DEPTH_KEY]: entryDepth() }, "", href)
         else window.history.pushState({ [DEPTH_KEY]: entryDepth() + 1 }, "", href)
       }
-      if (opts.scroll !== "keep") pendingTop.current = true
+      /* Without a host (nothing plugged in), a new place still starts at its top. The host keeps and restores scroll itself. */
+      if (!hooksRef.current?.beforeGo && opts.scroll !== "keep") toTop()
     },
     [slug],
   )
 
-  /* A new place starts at its top once it is drawn (place-host restores a kept one's own scroll instead, before paint). */
-  const pendingTop = useRef(false)
-  useEffect(() => {
-    if (!pendingTop.current) return
-    pendingTop.current = false
-    toTop()
-  }, [place])
-
   const back = useCallback(() => {
     if (typeof window === "undefined") return
-    if (entryDepth() > 0) window.history.back()
+    /* The app's watched back (lib/navigation/go-back.ts): when the browser's back does nothing, the feed instead. */
+    if (entryDepth() > 0) backThen(() => go({ kind: "feed" }, { replace: true }))
     else go({ kind: "feed" }, { replace: true })
   }, [go])
 
   const prefetch = useCallback((p: Place) => hooksRef.current?.prefetch?.(p), [])
-  const refresh = useCallback((p?: Place) => hooksRef.current?.refresh?.(p ?? placeRef.current) ?? Promise.resolve(), [])
+  const chatRef = useRef(chatSpaces)
+  chatRef.current = chatSpaces
+  const refresh = useCallback((p?: Place) => {
+    const target = p ?? placeRef.current
+    const own = registeredRefresh(slotKeyOf(target, chatRef.current))
+    if (own) return own()
+    return hooksRef.current?.refresh?.(target) ?? Promise.resolve()
+  }, [])
 
   /*
     THE ADDRESS IS THE TRUTH FOR EVERYTHING ELSE: Back and Forward (popstate), and a move Next made itself (a link this
@@ -200,7 +234,7 @@ export function CommunityNavigatorProvider({ slug, initial, hooks, children }: {
     const read = () => {
       const now = placeFromUrl(window.location.pathname, window.location.search)
       if (!now || placeKey(now) === placeKey(placeRef.current)) return
-      hooksRef.current?.beforeGo?.(placeRef.current, now, { scroll: "keep" })
+      hooksRef.current?.beforeGo?.(placeRef.current, now, { scroll: "keep", history: true })
       placeRef.current = now
       setPlace(now)
     }

@@ -18,6 +18,7 @@ import CheckoutPageClient from "./checkout-client"
 import { CheckoutSkeleton } from "./checkout-skeleton"
 import { getProductUrl } from "@/lib/url-helpers"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
+import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { providerFor } from "@/lib/payments/service"
@@ -49,6 +50,18 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
 
   if (error || !product) {
     notFound()
+  }
+
+  /*
+    A PRODUCT THAT SHIPS IS PAID FOR IN THE CART CHECKOUT, never this one: it
+    needs an address, a delivery choice and stock held, which only
+    /checkout/physical asks for. A Buy now from an older theme, a shared link
+    or a section that built its own address lands there, with the option
+    asked for and the page to come back to (checked again there).
+  */
+  if ((product as { type?: string }).type === "physical") {
+    const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    redirect(physicalCheckoutHref(product.creator_id, [{ productId: product.id, variantId: variantId && ID.test(variantId) ? variantId : null, quantity: 1 }], typeof cancel === "string" && cancel ? cancel : typeof returnTo === "string" ? returnTo : null))
   }
 
   /*

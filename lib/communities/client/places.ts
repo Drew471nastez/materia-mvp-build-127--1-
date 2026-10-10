@@ -221,15 +221,20 @@ export function placeFromUrl(pathname: string, search: string): Place | null {
 }
 
 /**
- * The places that are one screen with one another: All, a feed space and Saved are lists of the same feed
- * (components/community/member/feed.tsx switches them in place), so the shell keeps them as one kept-alive screen.
- * A chat space is a screen of its own; whether a space is a chat is the community's to say (`chatSpaces`).
+ * THE SLOT A PLACE IS DRAWN IN (the coordinator's rule for round 15). All, every feed space and Saved are lists of ONE
+ * feed: they share the slot "feed" and one CommunityFeed, which reads the list from useCommunityNavigator().place and
+ * switches it in place (the pill fill glides, the cards stay). A chat space is a slot of its own, "chat:<slug>"; whether a
+ * space is a chat is the community's to say (`chatSpaces`; left out, a space is a feed space). Everything else is keyed
+ * by its kind, and its id where it has one. The keep-alive limit counts slots.
  */
-export function screenKey(place: Place, chatSpaces?: ReadonlySet<string> | null): string {
+export function slotKeyOf(place: Place, chatSpaces?: ReadonlySet<string> | null): string {
   if (place.kind === "feed" || place.kind === "saved") return "feed"
   if (place.kind === "space") return chatSpaces?.has(place.slug.toLowerCase()) ? `chat:${place.slug.toLowerCase()}` : "feed"
   return placeKey(place)
 }
+
+/** The same rule under the host's older name. */
+export const screenKey = slotKeyOf
 
 /** The tab a place marks in the row of places: everything under the feed (a space, a profile, Saved, the inbox) is Community. */
 export function placeTab(place: Place): "home" | "classroom" | "events" | "members" | "leaderboard" | "about" {

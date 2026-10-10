@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { PhysicalCheckout } from "./physical-checkout"
 import { loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
+import { checkoutReturns } from "@/lib/checkout/site-hosts"
 
 export const dynamic = "force-dynamic"
 
@@ -19,7 +20,7 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
  */
 export default async function PhysicalCheckoutPage({ searchParams }: { searchParams: Promise<{ shop?: string; items?: string; return?: string }> }) {
   await requirePhysicalPage()
-  const { shop } = await searchParams
+  const { shop, return: asked } = await searchParams
   let shopName = "Checkout"
   let shopAvatar: string | null = null
   let config = DEFAULT_CHECKOUT
@@ -45,5 +46,7 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     } = await (await createClient()).auth.getUser()
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
-  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={shopName} shopAvatar={shopAvatar} config={config} buyer={buyer} />
+  /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
+  const backTo = shop && /^[0-9a-f-]{36}$/i.test(shop) && asked ? (await checkoutReturns({ creatorId: shop, cancel: asked })).cancel : null
+  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={shopName} shopAvatar={shopAvatar} config={config} buyer={buyer} backTo={backTo} />
 }

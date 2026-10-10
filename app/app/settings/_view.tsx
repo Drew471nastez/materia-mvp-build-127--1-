@@ -16,14 +16,15 @@ import { loadSettingsData } from "./_server"
 /**
  * What is in the sheet. Over a page the sheet itself is app/app/@sheet/
  * (.)settings/layout.tsx, so it rises the moment it is pressed and this
- * fills it as soon as the server has answered, fading in rather than
- * popping (settings-content-in, app/globals.css).
+ * fills it as soon as the server has answered. It is fetched ahead of the
+ * press (prefetchAppPage, from the rail and the phone's account menu), so it
+ * is normally there with the sheet; no fade, which made it arrive late.
  */
 export async function SettingsForm() {
   const data = await loadSettingsData()
   if (!data) return null
   return (
-    <div className="settings-content-in">
+    <div>
       <SettingsFormNew
         profile={data.profile}
         creator={data.creator}

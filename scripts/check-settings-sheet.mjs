@@ -59,7 +59,11 @@ writeFileSync(join(out, "index.html"), `<!doctype html><html><head><meta charset
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--force-device-scale-factor=1"] })
 const page = await browser.newPage()
-await page.setViewport({ width: 390, height: 780, hasTouch: true, isMobile: true })
+/* Closing goes Back through the back watch (lib/navigation/go-back), which calls the browser's own history.back: counted here as a Back, and the page stays. */
+await page.evaluateOnNewDocument(() => {
+  history.back = () => { if (window.__nav) window.__nav.back++; window.dispatchEvent(new PopStateEvent("popstate")) }
+})
+await page.setViewport({ width: 1280, height: 800, hasTouch: true })
 let bad = 0
 const say = (ok, line) => { if (!ok) bad++; console.log(`  ${ok ? "ok   " : "FAIL "} ${line}`) }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -101,21 +105,14 @@ await wait(500)
 
 console.log("\nThe top edge of the scroll")
 {
-  const rest = await page.evaluate(() => getComputedStyle(document.querySelector("[data-settings-sheet-fade]")).opacity)
-  say(rest === "0", `at rest there is no fade over the first row (opacity ${rest})`)
+  /* A hairline under the handle's strip once the content has moved, as an iOS sheet's bar sits over what scrolls under it. */
+  const line = () => page.evaluate(() => getComputedStyle(document.querySelector("[data-settings-sheet-handle]")).boxShadow)
+  const rest = await line()
+  say(rest === "none", `at rest no line under the handle (${rest})`)
   await page.evaluate(() => { document.querySelector("[data-settings-sheet-scroll]").scrollTop = 300 })
   await wait(300)
-  const f = await page.evaluate(() => {
-    const el = document.querySelector("[data-settings-sheet-fade]")
-    const cs = getComputedStyle(el)
-    const r = el.getBoundingClientRect()
-    const s = document.querySelector("[data-settings-sheet-scroll]").getBoundingClientRect()
-    return { opacity: cs.opacity, blur: cs.backdropFilter || cs.webkitBackdropFilter, mask: cs.maskImage || cs.webkitMaskImage, top: Math.round(r.top - s.top), h: Math.round(r.height) }
-  })
-  say(f.opacity === "1", `scrolled, the edge fades in (opacity ${f.opacity})`)
-  say(/blur\(6px\)/.test(f.blur), `with a soft blur behind it (${f.blur})`)
-  say(/gradient/.test(f.mask), "and a mask, so the blur itself has no hard bottom edge")
-  say(f.top === 0 && f.h >= 20 && f.h <= 28, `at the scroll's very top, ${f.h}px tall`)
+  const moved = await line()
+  say(moved !== "none", `scrolled, a hairline under it (${moved})`)
   await page.evaluate(() => { document.querySelector("[data-settings-sheet-scroll]").scrollTop = 0 })
   await wait(80)
 }
@@ -218,6 +215,41 @@ await wait(500)
   await wait(500)
   const n = await nav()
   say(n.push.includes("/app") || n.back === 0, `closing goes to the dashboard (push ${JSON.stringify(n.push)})`)
+}
+
+console.log("\nOn a phone it is a page")
+{
+  await page.evaluateOnNewDocument(() => { window.__mode = "over" })
+  await page.setViewport({ width: 390, height: 780, hasTouch: true, isMobile: true })
+  await page.evaluateOnNewDocument(() => {
+    const real = Element.prototype.animate
+    window.__anims = []
+    Element.prototype.animate = function (k, o) { if (this.hasAttribute?.("data-settings-sheet")) window.__anims.push(JSON.stringify(k)); return real.call(this, k, o) }
+  })
+  await page.goto(`file://${join(out, "index.html")}`)
+  await wait(500)
+  const p = await page.evaluate(() => {
+    const panel = document.querySelector("[data-settings-sheet]").getBoundingClientRect()
+    const vis = (sel) => { const el = document.querySelector(sel); return !!el && getComputedStyle(el).display !== "none" }
+    return { top: Math.round(panel.top), width: Math.round(panel.width), scrim: vis("[data-settings-sheet-scrim]"), back: vis("[data-settings-page-back]"), x: vis("[data-settings-sheet-close]"), radius: getComputedStyle(document.querySelector("[data-settings-sheet]")).borderTopLeftRadius, anims: window.__anims }
+  })
+  say(p.top === 0 && p.width === 390 && p.radius === "0px", `edge to edge from the very top, square (${p.top}px, ${p.width}px, ${p.radius})`)
+  say(!p.scrim && p.back && !p.x, `no dim behind it, Back at its top left, no X (dim ${p.scrim}, back ${p.back}, x ${p.x})`)
+  say(p.anims.length === 1 && /opacity/.test(p.anims[0]) && !/translate/.test(p.anims[0]), `it comes in with a short fade, not a slide up (${p.anims[0]})`)
+  await page.evaluate(() => { window.__nav.back = 0 })
+  await touch("touchStart", 200, 200)
+  for (let i = 1; i <= 12; i++) {
+    await touch("touchMove", 200, 200 + i * 20)
+    await wait(16)
+  }
+  const pulled = await ty()
+  await touch("touchEnd")
+  await wait(300)
+  say(pulled === 0 && (await nav()).back === 0, `a pull down does not drag a page (${pulled}px, back ${(await nav()).back})`)
+  await page.click("[data-settings-page-back]")
+  await wait(400)
+  const n = await nav()
+  say(n.back === 1 && n.push.length === 0, `Back fades it out and goes Back once (back ${n.back}, push ${n.push.length})`)
 }
 
 await browser.close()
