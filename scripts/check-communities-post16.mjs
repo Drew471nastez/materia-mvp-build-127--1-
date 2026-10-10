@@ -587,6 +587,95 @@ async function partSheet() {
   console.log(JSON.stringify({ label: LABEL, part: "sheet", out }))
 }
 
+
+/* ── THE COMPOSER: the same sheet, up and down, over the real feed ── */
+const CSAMPLE = () => {
+  window.__c = []
+  window.__crun = true
+  const num = (v) => (!v || v === "none" ? 1 : parseFloat(String(v).split(" ")[0]) || 1)
+  const tick = (t) => {
+    const sheet = document.querySelector('[data-composer="sheet"]')
+    const tb = sheet?.querySelector("[data-composer-toolbar]")
+    const head = sheet?.querySelector("[data-composer-cancel]")
+    const shell = document.querySelector("[data-community-shell]")
+    const bar = document.querySelector("[data-buyer-tab-bar]")
+    const sr = sheet?.getBoundingClientRect()
+    window.__c.push({
+      t: Math.round(t),
+      top: sr ? Math.round(sr.top) : null,
+      toolbarIn: sr && tb ? Math.round(tb.getBoundingClientRect().top - sr.top) : null,
+      headIn: sr && head ? Math.round(head.getBoundingClientRect().top - sr.top) : null,
+      scale: shell ? Math.round(num(getComputedStyle(shell).scale) * 1000) / 1000 : 1,
+      covered: document.documentElement.hasAttribute("data-tabs-covered"),
+      bar: !!bar && bar.getBoundingClientRect().top < innerHeight && getComputedStyle(bar).visibility !== "hidden",
+      scrollY: Math.round(scrollY),
+      overflow: document.documentElement.style.overflow,
+    })
+    if (window.__crun) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
+async function partCompose() {
+  console.log("\nTHE COMPOSER: up and down at 390x844, 4x CPU, over the real feed")
+  const out = {}
+  const s = await session()
+  await s.p.evaluate(() => window.scrollTo(0, 0))
+  await sleep(400)
+  const field = await s.p.evaluate(() => {
+    const r = document.querySelector("[data-composer-open]")?.getBoundingClientRect()
+    return r ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null
+  })
+  if (!field) {
+    expect(false, "the composer's field is on screen")
+    return
+  }
+  const feedY = await s.p.evaluate(() => Math.round(scrollY))
+  await s.p.evaluate(WATCH)
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const sample = async (name, act, ms) => {
+    const seq = await record(s, name, async () => {
+      await s.p.evaluate(CSAMPLE)
+      await act()
+    }, ms)
+    seq.c = await s.p.evaluate(() => ((window.__crun = false), window.__c))
+    return seq
+  }
+  const open = await sample("compose-open", () => s.tap(field.x, field.y), 1400)
+  const cancel = await s.p.evaluate(() => {
+    const r = document.querySelector('[data-composer="sheet"] [data-composer-cancel]').getBoundingClientRect()
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+  })
+  const close = await sample("compose-close", () => s.tap(cancel.x, cancel.y), 1400)
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  const w = await s.p.evaluate(() => ((window.__watch.on = false), window.__watch))
+  for (const seq of [open, close]) await sheetPng(seq, `${LABEL}-${seq.name}.png`)
+  const c = close.c
+  const up = open.c.filter((f) => f.top !== null).map((f) => f.top)
+  const goneAt = c.findIndex((f, i) => i > 0 && f.top === null && c.slice(i).every((g) => g.top === null))
+  const moving = c.filter((f) => f.top !== null && f.top > 2)
+  const toolbarSpots = [...new Set(moving.map((f) => f.toolbarIn))]
+  const headSpots = [...new Set(moving.map((f) => f.headIn))]
+  console.log(`    open: sheet top ${up.filter((_, i) => i % 3 === 0).join(" ")}`)
+  console.log(`    close: sheet top ${c.filter((f) => f.top !== null).map((f) => f.top).filter((_, i) => i % 3 === 0).join(" ")}`)
+  console.log(`    close: community scale ${c.map((f) => f.scale).filter((_, i) => i % 3 === 0).join(" ")}`)
+  expect(up.length > 4 && up[0] > 300 && up.at(-1) === 0, "COMPOSE OPEN: the screen rises from the foot to the top over several frames", up.filter((_, i) => i % 4 === 0))
+  expect(open.c.some((f) => f.scale < 0.99), "and the community eases back behind it as it rises", Math.min(...open.c.map((f) => f.scale)))
+  expect(moving.length >= 4 && toolbarSpots.length <= 1 && headSpots.length <= 1, "COMPOSE CLOSE: the screen goes down whole: its header and toolbar never move inside it", { frames: moving.length, toolbarSpots, headSpots })
+  expect(c.some((f) => f.scale < 0.99 && f.top !== null && f.top > 2), "and the community comes forward behind it", Math.min(...c.map((f) => f.scale)))
+  expect(goneAt > 0 && c[goneAt].bar && !c[goneAt].covered, "the tab bar is on screen and uncovered on the first frame after the screen has gone", c[goneAt])
+  expect(c.slice(Math.max(0, goneAt)).every((f) => f.scale === 1), "and the community is at its own size from then on", c.at(-1))
+  expect(c.concat(open.c).every((f) => f.scrollY === feedY), `the feed's scroll never moves (${feedY})`, [...new Set(c.concat(open.c).map((f) => f.scrollY))])
+  expect(c.concat(open.c).every((f) => f.overflow !== "hidden"), "the document's overflow is never switched off (an iOS restyle and a stuck scroll at the close)", null)
+  const count = (k) => w.frames.filter((x) => (typeof x[k] === "number" ? x[k] > 0 : x[k])).length
+  const r = { frames: w.frames.length, hidden: count("hidden"), swapped: count("swapped"), faded: count("faded"), decoded: count("decoded"), remounted: w.frames.at(-1)?.remounted ?? 0 }
+  out.feedUnder = r
+  expect(r.hidden + r.swapped + r.faded + r.decoded + r.remounted === 0, "THE FEED UNDER IT through the open and the close: never hidden, swapped, faded, decoded again or remounted", { ...r, kinds: w.kinds })
+  expect(!s.errors.length, "no page errors (composer)", s.errors.slice(0, 3))
+  await s.p.close()
+  console.log(JSON.stringify({ label: LABEL, part: "compose", out }))
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -596,6 +685,7 @@ try {
 
   if (PART === "all" || PART === "b") await partB()
   if (PART === "all" || PART === "sheet") await partSheet()
+  if (PART === "all" || PART === "compose") await partCompose()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()
