@@ -20,6 +20,7 @@ import type { MembershipPage } from "@/components/community/member/membership"
 import type { SalesPageData } from "@/components/community/public/types"
 import type { SpaceView } from "@/components/community/member/view-types"
 import type { ViewerView } from "@/lib/communities/types"
+import type { MemberProfileData } from "@/lib/communities/member-profile-view"
 
 type FeedProps = ComponentProps<typeof CommunityFeed>
 type ChatProps = ComponentProps<typeof ChatView>
@@ -38,7 +39,7 @@ export type PlaceData =
   | { kind: "about"; sales: SalesPageData }
   | ({ kind: "notifications" } & ComponentProps<typeof NotificationsList>)
   | ({ kind: "membership" } & ComponentProps<typeof MembershipPage>)
-  | { kind: "profile"; ref: string; data: unknown }
+  | { kind: "profile"; ref: string; data: MemberProfileData | null }
 
 /** What the JSON place route answers. */
 export type PlaceAnswer = { ok: true; key: string; data: PlaceData } | { ok: false; error: string }

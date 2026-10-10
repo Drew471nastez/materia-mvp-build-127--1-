@@ -35,6 +35,7 @@ import { aboutExtras } from "@/lib/communities/server/about"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { eventHrefFor } from "@/lib/communities/server/wall"
 import { loadCoursePlayer } from "@/lib/courses/load"
+import { loadMemberProfile } from "@/lib/communities/server/member-profile"
 import { isUuid } from "@/lib/courses/access"
 import { learnHref } from "@/lib/communities/learn"
 import type { CommunityRow } from "@/lib/communities/types"
@@ -188,7 +189,7 @@ export async function profileRef(db: Db, community: CommunityRow, viewer: Viewer
   return person?.username ? person.username.toLowerCase() : null
 }
 
-/* R's loader (lib/communities/server/member-profile.ts loadMemberProfile) is wired here once its contract is on its branch. */
-async function loadProfileData(_db: Db, _community: CommunityRow, _viewer: Viewer, _ref: string): Promise<unknown> {
-  return null
+/* Worker R's loader (lib/communities/server/member-profile.ts): the head, the first page of posts, my activity on my own. */
+async function loadProfileData(db: Db, community: CommunityRow, viewer: Viewer, ref: string) {
+  return loadMemberProfile(db, community, viewer, ref)
 }

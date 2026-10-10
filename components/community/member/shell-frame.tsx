@@ -115,6 +115,12 @@ import { CommunityNavigatorProvider, useCommunityNavigator, type CommunityNaviga
 import { placeFromUrl, placeKey, placeTab, slugFromPath, type Place } from "@/lib/communities/client/places"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
+import dynamic from "next/dynamic"
+import { withChunkRecovery } from "@/lib/communities/client/resume"
+import type { MemberProfileData } from "@/lib/communities/member-profile-view"
+
+/* A person's profile inside the community (?profile=<handle>, ?profile=me): worker R's place, its own chunk. */
+const MemberProfilePlace = dynamic(withChunkRecovery(() => import("./member-profile").then((m) => m.MemberProfilePlace)))
 
 /** Away this long (another app, a locked phone), the community reads itself again when it comes back (NOT EVERY TIME THE APP COMES BACK). */
 const AWAY_REFRESH_MS = 5 * 60_000
@@ -133,8 +139,6 @@ export interface ShellFrameProps {
   active?: ShellSection
   /** The community's chat spaces' slugs: a chat space is a place of its own, every feed space is the feed (place-host.tsx). */
   chatSpaces?: string[]
-  /** Draws a person's profile inside the community (?profile=<handle>): worker R's MemberProfilePlace, handed in by the layout. */
-  renderProfile?: (ref: string, data: unknown) => React.ReactNode
   children: React.ReactNode
 }
 
@@ -267,7 +271,7 @@ export function ShellFrame(props: ShellFrameProps) {
   )
 }
 
-function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, chatSpaces = NO_CHAT, renderProfile, hooksRef, children }: ShellFrameProps & { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
+function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, chatSpaces = NO_CHAT, hooksRef, children }: ShellFrameProps & { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
   const pathname = usePathname()
   const router = useRouter()
   const nav = useCommunityNavigator()
@@ -392,6 +396,10 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     it on that frame, before the place's data has arrived. The columns follow the place actually in the middle (`shown`),
     which changes on the same frame as the middle does.
   */
+  /* The profile place, drawn with the community and the viewer the frame already has. */
+  const profileCommunity = useMemo(() => ({ id: community.id, slug: community.slug, name: community.name }), [community.id, community.slug, community.name])
+  const profileViewer = useMemo(() => ({ userId: viewer.userId, signedIn: viewer.signedIn }), [viewer.userId, viewer.signedIn])
+  const renderProfile = useCallback((ref: string, data: unknown) => <MemberProfilePlace community={profileCommunity} viewer={profileViewer} profileRef={ref} data={data as MemberProfileData | null} />, [profileCommunity, profileViewer])
   const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, children })
   hooksRef.current = screens.hooks
   const shown = screens.shown
