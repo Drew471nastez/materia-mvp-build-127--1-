@@ -460,6 +460,36 @@ async function main() {
     /* A save the route refuses: a banner in words with one thing to do, never the route's "Invalid body". */
     {
       await page.evaluate(() => { (window as unknown as { PROBE_SAVE_FAIL: number }).PROBE_SAVE_FAIL = 400 })
+      /*
+        AN EDIT OF A SECTION, then its save. The last change before this
+        point is a theme colour, which saves through another route, and
+        autosave may already have sent it, so there was sometimes nothing for
+        Save to send and no refusal to show. The heading edited at the start
+        is selected again and given a few more words.
+      */
+      const fr = await front()
+      if (fr && target) {
+        const at = await fr.evaluate((id) => {
+          const el = document.querySelector<HTMLElement>(`[data-block-id="${id}"]`)
+          if (!el) return null
+          el.scrollIntoView({ block: "center" })
+          const r = el.getBoundingClientRect()
+          return { x: r.left + Math.min(20, r.width / 2), y: r.top + r.height / 2 }
+        }, target.block)
+        const box = await (await page.$("[data-compat-frame='front']"))?.boundingBox()
+        if (at && box) {
+          await page.mouse.click(box.x + at.x, box.y + at.y)
+          await sleep(700)
+          const field = await page.evaluateHandle(() => [...document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input[type='text'], textarea")].find((i) => /Linen for summer/.test(i.value)) ?? null)
+          const el = field.asElement() as import("puppeteer-core").ElementHandle<HTMLInputElement> | null
+          if (el) {
+            await el.click()
+            await page.keyboard.press("End")
+            await page.keyboard.type(" now", { delay: 20 })
+          }
+        }
+      }
+      await sleep(300)
       await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => /^save$/i.test((b.textContent ?? "").trim()))?.click())
       let banner = ""
       for (let i = 0; i < 40 && !banner; i++) {
