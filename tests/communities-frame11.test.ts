@@ -50,8 +50,9 @@ async function main() {
   {
     const feed = code("components/community/member/feed.tsx")
     check("the chips follow `target`, the list follows its own state (`list`)", /const \[list, setList\] = useState\(\{ id: targetId, sort \}\)/.test(feed) && /active=\{chipSpace\?\.slug \?\? null\}/.test(feed))
-    check("the list takes the new value two animation frames later, drawn in one go", /requestAnimationFrame\(\(\) => \{\s*second = requestAnimationFrame\(\(\) => flushSync\(\(\) => setList\(next\)\)\)/.test(feed))
-    check("a newer tap cancels the handover of an older one", /cancelAnimationFrame\(first\)\s*cancelAnimationFrame\(second\)/.test(feed))
+    /* Round 15: past the ink's fast part (chip-hit.ts LIST_AFTER_MS), so drawing the list lands on the glide's slow end. */
+    check("the list takes the new value LIST_AFTER_MS after the tap, drawn in one go", /window\.setTimeout\(\(\) => \{\s*frame = requestAnimationFrame\(\(\) => flushSync\(\(\) => setList\(next\)\)\)\s*\}, LIST_AFTER_MS\)/.test(feed))
+    check("a newer tap cancels the handover of an older one", /window\.clearTimeout\(wait\)\s*cancelAnimationFrame\(frame\)/.test(feed))
     check("round 15: no fade on a switch; only a list that takes the spinner's place comes up from nothing", !/OUT_MS|outAnim/.test(feed) && /if \(!fromSpinner \|\| !el/.test(feed))
     check("a space has its own address on every device, and the list still switches here", /window\.history\.pushState\(null, "", href\)/.test(feed) && /setPicked\(\{ target: next, from: href \}\)/.test(feed) && !/spaceKeepsAddress/.test(feed))
     check("everything under the chips is one memoised block", /const FeedBody = memo\(/.test(feed) && /<FeedBody/.test(feed))
@@ -60,7 +61,7 @@ async function main() {
     const chips = code("components/community/member/space-chips.tsx")
     check("a chip is touch-action: manipulation (no double tap to zoom swallowing a quick second tap)", /const CHIP =\s*[`"][^`"]*touch-manipulation/.test(chips))
     check("a chip never scales on press, and its hover is not a hover:border class (those lose their easing on touch)", !/scale-/.test(chips) && !/hover:border/.test(chips))
-    check("a little more depth: a two pixel soft shadow at rest, sunk when pressed", /shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /data-\[pressed\]:shadow-\[inset_/.test(chips))
+    check("a little more depth: a two pixel soft shadow at rest, sunk when pressed", /shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /* Round 15: the press is its own layer, sunk by an inset shadow. */ /const PRESS = "[^"]*shadow-\[inset_/.test(chips))
     const ui = code("components/community/member/ui.ts")
     check("the tabs, the buttons and the pills are touch-action: manipulation and never scale", /group\/tab[^"]*touch-manipulation/.test(ui) && !/active:scale/.test(ui))
   }

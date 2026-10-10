@@ -638,7 +638,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                 />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
-              <CardMedia media={media} priority={priority} className={several ? "mt-3" : "mt-3 sm:hidden"} />
+              <CardMedia media={media} priority={priority} phoneOnly={!several} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
             {several ? null : <PostThumb media={media} className="max-sm:hidden" />}
           </div>
