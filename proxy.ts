@@ -408,6 +408,10 @@ async function compatSiteFor(username: string): Promise<boolean> {
 /** The addresses of an imported theme's site that are still Storelib's own: a visitor's account, the API, the site's SEO files. */
 function compatAnswers(pathname: string, request: NextRequest): boolean {
   if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/_next/")) return false
+  /* The theme's /checkout is its own (its cart posts there); anything under
+     it, /checkout/physical a cart that ships is sent on to, is Storelib's
+     and goes to the apex like any other site's (PLATFORM_APEX_PATHS). */
+  if (pathname.startsWith("/checkout/")) return false
   /*
     The visitor's account and wishlist are Storelib's own pages. A visit to
     one is drawn by the theme, its header and footer around the page in a

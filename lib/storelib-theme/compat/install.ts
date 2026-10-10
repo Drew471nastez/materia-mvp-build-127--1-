@@ -47,6 +47,8 @@ export interface CompatSettings {
    * named here is drawn from its file.
    */
   slots?: string[]
+  /** A header or footer group under a name of the theme's own (main-header → header): its file says `"type": "header"`. */
+  chrome_groups?: Record<string, "header" | "footer">
 }
 
 /** The install's compat marker, or null for a theme of Storelib's own. */
@@ -62,6 +64,9 @@ export function compatOf(settings: unknown): CompatSettings | null {
     theme_version: typeof o.theme_version === "string" ? o.theme_version : undefined,
     renamed: o.renamed && typeof o.renamed === "object" ? (o.renamed as Record<string, string>) : undefined,
     slots: Array.isArray(o.slots) ? o.slots.filter((x): x is string => typeof x === "string") : undefined,
+    chrome_groups: o.chrome_groups && typeof o.chrome_groups === "object" && !Array.isArray(o.chrome_groups)
+      ? Object.fromEntries(Object.entries(o.chrome_groups as Record<string, unknown>).filter((e): e is [string, "header" | "footer"] => e[1] === "header" || e[1] === "footer"))
+      : undefined,
   }
 }
 

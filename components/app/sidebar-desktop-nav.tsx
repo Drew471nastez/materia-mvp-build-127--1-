@@ -35,7 +35,7 @@
  */
 
 import Link from "next/link"
-import { isPlainClick, useShownPath } from "@/lib/ui/app-navigation"
+import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
@@ -505,10 +505,20 @@ function NavIcon({
  * page being opened while a navigation is underway, the page showing
  * otherwise. So a clicked row is lit on the click, the row you left goes out
  * at the same moment, and both come from the one navigation record.
+ *
+ * A row whose address has a query (Settings › Integrations, each
+ * integration under it) is matched on the path, and every one of its
+ * params has to be in the query showing (`search`, useShownSearch); the
+ * whole href was compared to the path, so those rows never lit.
  */
-export function isRouteActive(pathname: string, href: string): boolean {
-  if (href === "/app") return pathname === "/app"
-  return pathname === href || pathname.startsWith(`${href}/`)
+export function isRouteActive(pathname: string, href: string, search: string | URLSearchParams | null = null): boolean {
+  const at = href.indexOf("?")
+  const path = at < 0 ? href : href.slice(0, at)
+  const onPath = path === "/app" ? pathname === "/app" : pathname === path || pathname.startsWith(`${path}/`)
+  if (!onPath || at < 0) return onPath
+  const showing = new URLSearchParams(search ?? "")
+  for (const [key, value] of new URLSearchParams(href.slice(at + 1))) if (showing.get(key) !== value) return false
+  return true
 }
 
 // ── The rows ────────────────────────────────────────────────────────────────
@@ -551,7 +561,8 @@ function SubNavItem({
   onNavigate?: (href: string) => void
 }) {
   const pathname = useShownPath()
-  const active = isRouteActive(pathname, child.href)
+  const search = useShownSearch()
+  const active = isRouteActive(pathname, child.href, search)
   const { hovered, handlers } = useHover()
 
   return (
@@ -588,7 +599,8 @@ export function DesktopNavItem({
   onItemClick?: () => void
 }) {
   const pathname = useShownPath()
-  const active = isRouteActive(pathname, item.href)
+  const search = useShownSearch()
+  const active = isRouteActive(pathname, item.href, search)
   const { hovered, handlers } = useHover()
   const style = rowStyle(active, hovered)
   const iconColor = active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : REST_TEXT

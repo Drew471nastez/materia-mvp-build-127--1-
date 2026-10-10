@@ -183,6 +183,8 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
     case "physical_setup_unfinished": {
       /* Home's physical card, read now (lib/home/physical-setup.ts): what stops a sale first, then the next step. */
       if (!creatorId || !store.physicalSetup) return false
+      /* Physical commerce turned off for all of Storelib: nothing to finish, no nudge to set it up. */
+      if (store.physicalCommerceEnabled && !(await store.physicalCommerceEnabled())) return false
       const s = await store.physicalSetup(creatorId)
       if (!s) return null
       const next = s.blockers[0] ?? s.steps.find((x) => !x.done)

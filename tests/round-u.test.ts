@@ -15,7 +15,7 @@ import { applyCatalogOverrides, readOverride, safeLogoUrl } from "@/lib/integrat
 import { CONTENT_SECURITY_POLICY } from "@/lib/security/csp"
 import { ALL_HELP_ARTICLES } from "@/lib/help/articles"
 import { replaceMemory, sameMemory, type MemoryDb } from "@/lib/ai-memory/store"
-import { describeRules, matchesRules, readRules } from "@/lib/email-campaigns/segments"
+import { describeRules, matchesRules, namesNoProducts, readRules } from "@/lib/email-campaigns/segments"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { purchaseTags } from "@/lib/store/tracking"
 import { physicalBlockers, physicalSetupDone, type PhysicalSetupFacts } from "@/lib/home/physical-setup"
@@ -53,6 +53,11 @@ async function main() {
     check("  a mixed cart goes on with every line, the download beside the hoodie", mixed.ok === true && mixed.ships.length === 2)
     const digital = await priceCart(fakeDb([ebook]), { items: [{ productId: ebook.id, quantity: 1 }] })
     check("  a cart with nothing that ships stays on the basket checkout", digital.ok === true && digital.ships.length === 0 && digital.lines.length === 1)
+    const pwywBook = { ...ebook, pay_what_you_want: true, pwyw_min_price_cents: 500 }
+    const pwyw = await priceCart(fakeDb([hoodie, pwywBook]), { items: [{ productId: hoodie.id, quantity: 1, customPriceCents: 900 }, { productId: ebook.id, quantity: 1, customPriceCents: 1200 }] })
+    check("  the amount a buyer named for a download goes on with it; a shipped line carries none", pwyw.ok === true && pwyw.ships.find((x) => x.productId === ebook.id)?.customPriceCents === 1200 && pwyw.ships.find((x) => x.productId === hoodie.id)?.customPriceCents === undefined, pwyw)
+    const off = await priceCart(fakeDb([hoodie, ebook]), { items: [{ productId: hoodie.id, quantity: 1 }, { productId: ebook.id, quantity: 1 }], handOff: false })
+    check("  while physical commerce is off nothing is handed on and the hoodie is left out", off.ok === true && off.ships.length === 0 && off.lines.length === 1 && off.dropped.includes("Hoodie"))
     const route = read("app/api/checkout/cart/route.ts")
     check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(route) && /physicalCheckoutHref\(creatorId, priced\.ships/.test(route) && /ships: true/.test(route))
     check("  and the old refusal is gone, with named items when something really can't be bought", !/"Nothing in the cart can be bought right now"/.test(route.replace(/\/\*[\s\S]*?\*\//g, "")) && /can't be bought right now/.test(route))
@@ -166,6 +171,8 @@ async function main() {
     check("  each rule narrows: joined lately, where they joined, what they bought", matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "website_builder_newsletter", email: "A@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-08-01T00:00:00Z", source: "store_builder", email: "a@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "onepage", email: "a@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "store_builder", email: "b@x.com" }, bought, now))
     check("  never bought is the opposite of bought", matchesRules(readRules({ purchased: "not_bought" }), { subscribedAt: null, source: null, email: "b@x.com" }, bought, now) && !matchesRules(readRules({ purchased: "not_bought" }), { subscribedAt: null, source: null, email: "a@x.com" }, bought, now))
     check("  said in a line", describeRules(readRules({})) === "Everyone on your list" && /Joined in the last 30 days/.test(describeRules(r)))
+    check("  bought a product you pick, with none picked, is not saved as everyone", namesNoProducts({ purchased: "products", productIds: [] }) && namesNoProducts({ purchased: "products", productIds: ["nope"] }) && !namesNoProducts({ purchased: "products", productIds: ["44444444-4444-4444-8444-444444444444"] }) && !namesNoProducts({ purchased: "any" }))
+    check("    refused by both saves with a 400, and Save is off in the editor until one is picked", ["app/api/email/segments/route.ts", "app/api/email/segments/[id]/route.ts"].every((f) => /namesNoProducts\(body\.rules\)\) return NextResponse\.json\(\{ error: NO_PRODUCTS_ERROR \}, \{ status: 400/.test(read(f))) && /disabled=\{busy \|\| !name\.trim\(\) \|\| noProducts\}/.test(read("components/email/compose/segment-editor.tsx")))
     const queue = read("lib/email-campaigns/queue.ts")
     check("  a rules segment is resolved when the email goes, and still only to people subscribed", /if \(data\.filters\?\.rules\) return segmentMemberIds\(db, creatorId, data\.filters\.rules\)/.test(queue) && /\.eq\("status", "subscribed"\)/.test(read("lib/email-campaigns/segments-server.ts")))
     check("  New segment in Send to, with a live count", /data-new-segment=""/.test(read("components/email/compose/audience-picker.tsx")) && /\/api\/email\/segments\/preview/.test(read("components/email/compose/segment-editor.tsx")))
