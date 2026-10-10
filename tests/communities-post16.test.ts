@@ -142,7 +142,7 @@ console.log("\nCLOSE: the order of operations")
   check("hidden, then the community let go, then gone", /layer\.style\.visibility = "hidden"\s*st\?\.release\(\)\s*done\.current\.onGone\(\)/.test(pf))
   check("one surface: the post is drawn once, the sheet moves by translate, the community by scale and translate (page-sheet-stage.tsx)", /sheetStage\(page, backdropRef\.current, communityFrame\(\)\)/.test(pf) && !/cloneNode|cardBox|coverMorph|morphFrames/.test(pf))
   const stage = read("components/community/member/page-sheet-stage.tsx")
-  check("the stage moves only translate, scale and opacity", !/(width|height|top|left|clip-path|filter):/.test(stage.slice(stage.indexOf("const parts = ")), stage.indexOf("/* Every move stopped")) && /translate: `0px \$\{f\.sheetY\}px`/.test(stage) && /scale: `\$\{f\.scale\}`/.test(stage))
+  check("the stage moves only translate, scale and opacity", !/(width|height|top|left|clip-path|filter):/.test(stage.slice(stage.indexOf("const parts = "), stage.indexOf("/* Every move stopped"))) && /translate: `0px \$\{f\.sheetY\}px`/.test(stage) && /scale: `\$\{f\.scale\}`/.test(stage))
   check("at rest the community carries nothing of ours (released once the sheet has arrived)", /if \(!closing\.current && !holding\.current && \(st\?\.at\(\) \?\? 1\) >= 1\) st\?\.release\(\)/.test(pf))
   check("the app's edge swipe and a pull drive the same p", /offset = edgeOffset\(edgeX, W\(\), H\(\)\)/.test(pf) && /stage\(\)\?\.set\(progressFromOffset\(offset, H\(\)\)\)/.test(pf))
 }
