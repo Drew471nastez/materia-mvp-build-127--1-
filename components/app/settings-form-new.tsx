@@ -4,6 +4,7 @@ import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
+import { glideScrollTop, type Glide } from "@/lib/ui/glide-scroll"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -125,6 +126,8 @@ const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 
 /* A pill's own fill fades in where it is, on one gentle ease out (as before the sheet). */
 const TAB_FADE_MS = 150
+/** From 1024px, how near the top a glide is when the new section shows (the page's own bottom margin, so no empty frame). */
+const GLIDE_SHOW_WITHIN = 120
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 
 /**
@@ -467,12 +470,25 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
    * empty pane that fills a beat after. Billing too.
    */
   useEffect(() => {
-    /* Right after the first draw, not when the browser is idle: a section pressed a second after opening must find its data here. */
-    const t = window.setTimeout(() => {
+    /*
+      Right after the first draw, not when the browser is idle: a section pressed a second after opening must find its
+      data here. In the sheet, once it has risen: nine answers landing during the rise each redrew the whole of
+      Settings while the sheet was moving.
+    */
+    let live = true
+    let t = 0
+    const go = () => {
+      if (!live) return
       prefetchGet([...new Set(Object.keys(TAB_DATA).flatMap((id) => tabData(id as TabId, physicalCommerce)))])
       void loadBilling()
-    }, 0)
-    return () => window.clearTimeout(t)
+    }
+    const rising = (formRef.current?.closest("[data-settings-sheet]") as HTMLElement | null)?.getAnimations?.() ?? []
+    if (rising.length) void Promise.all(rising.map((a) => a.finished.catch(() => null))).then(go)
+    else t = window.setTimeout(go, 0)
+    return () => {
+      live = false
+      window.clearTimeout(t)
+    }
   }, [physicalCommerce, loadBilling])
   const formRef = useRef<HTMLFormElement>(null)
   const pillRowRef = useRef<HTMLDivElement>(null)
@@ -510,6 +526,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     in after it; the new one fades in already complete.
   */
   const [panelTab, setPanelTab] = useState<TabId>(activeTab)
+  /** Each section's height when it was last drawn, for the glide below. */
+  const panelHeights = useRef<Partial<Record<TabId, number>>>({})
   useEffect(() => {
     if (panelTab === activeTab) return
     let live = true
@@ -517,8 +535,30 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const show = () => {
       if (live) startTransition(() => setPanelTab(activeTab))
     }
-    if (urls.length === 0) show()
-    else void Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, 450))]).then(show)
+    /*
+      WITH A GLIDE UNDER WAY, THE NEW SECTION COMES IN ONCE IT WOULD FILL THE
+      SCREEN: swapped in far down a long section, a short one left the screen
+      on empty space for the length of the glide. A section as long as the
+      way left shows at once; a short one as the glide nears the top (the
+      page's own bottom margin from it), and the glide carries it the rest.
+      How long a section is, is known from the last time it was drawn.
+    */
+    const nearTop = () =>
+      new Promise<void>((resolve) => {
+        const tick = () => {
+          const g = glide.current
+          const scroller = scrollerOf()
+          const panel = formRef.current?.querySelector<HTMLElement>("[data-settings-panel]")
+          if (!live || !g || g.done || !scroller || !panel) return resolve()
+          const top = panel.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
+          const fills = Math.max(GLIDE_SHOW_WITHIN, top + (panelHeights.current[activeTab] ?? 0) + 48 - scroller.clientHeight)
+          if (scroller.scrollTop <= fills) resolve()
+          else requestAnimationFrame(tick)
+        }
+        tick()
+      })
+    const ready = urls.length === 0 ? Promise.resolve() : Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, 450))])
+    void Promise.all([ready, nearTop()]).then(show)
     return () => {
       live = false
     }
@@ -689,11 +729,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }, [fetchDomains])
 
   // Fetch subscription plan on mount (for feature gating in Domains tab etc.)
+  /* A failed read keeps the plan the server drew the page with: an error never blurs a paid store's Domains. */
   useEffect(() => {
     fetch("/api/billing/subscription")
-      .then((r) => r.json())
-      .then((data) => setUserPlan(data.currentPlan?.id || "free"))
-      .catch(() => setUserPlan("free"))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUserPlan((plan) => data?.currentPlan?.id || (data ? "free" : plan ?? "free")))
+      .catch(() => setUserPlan((plan) => plan ?? "free"))
       .finally(() => setPlanLoading(false))
   }, [])
 
@@ -862,8 +903,15 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      * in one frame and without a smooth scroll, and any pin left by an older
      * build is cleared.
      */
-    /* Placed when the new section is shown (placeForPanel below), so the old one never jumps on its own first. */
-    scrollPending.current = true
+    /*
+      FROM 1024px, A GLIDE TO THE TOP, NOT A JUMP. "If I'm scrolled down and I
+      click a new thing in the sidebar, it should smooth scroll me to the top."
+      The glide starts on the press (lib/ui/glide-scroll), the content is held
+      at its height so nothing under the scroll can pull it short, and the new
+      section comes in as the glide nears the top (panelTab, above). Below
+      1024px the pills keep their own placing.
+    */
+    if (!startGlide()) scrollPending.current = true
     /* The new panel fades in, for a press only (not on load, not on a re-render). */
     setPanelEntrance(true)
     setActiveTab(newTab)
@@ -876,12 +924,47 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }
 
   const scrollPending = useRef(false)
+  const glide = useRef<Glide | null>(null)
+  /** The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
+  const scrollerOf = () => formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+  /* The held height comes off once the glide is over: the section is at its top by then, so nothing moves. */
+  const releaseHold = () => {
+    glide.current = null
+    if (formRef.current) formRef.current.style.minHeight = ""
+  }
+  /** Starts the glide to the top for a press on the sections' column; false where the pills place the section instead. */
+  const startGlide = (): boolean => {
+    const form = formRef.current
+    const scroller = scrollerOf()
+    const bar = pillRowRef.current
+    if (!form || !scroller || (bar && getComputedStyle(bar).display !== "none")) return false
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false
+    glide.current?.cancel()
+    const shown = form.querySelector<HTMLElement>("[data-settings-panel]")
+    if (shown) panelHeights.current[panelTab] = shown.offsetHeight
+    if (scroller.scrollTop <= 1) {
+      releaseHold()
+      return true
+    }
+    /* Held at the height it has now, so the glide's way up stays there whatever the new section's length. */
+    form.style.minHeight = `${form.offsetHeight}px`
+    const g = glideScrollTop(scroller, 0, () => {
+      if (glide.current === g) releaseHold()
+    })
+    glide.current = g
+    return true
+  }
+  useEffect(() => () => glide.current?.cancel(), [])
+  /* Each section's height as it is drawn, so the next glide to it knows whether it fills the screen (panelTab, above). */
+  useLayoutEffect(() => {
+    const panel = formRef.current?.querySelector<HTMLElement>("[data-settings-panel]")
+    if (panel) panelHeights.current[panelTab] = panel.offsetHeight
+  }, [panelTab])
   /* Before the new section is painted: the scroll goes to the section's top, under the pills. */
   useLayoutEffect(() => {
     if (!scrollPending.current) return
     scrollPending.current = false
-    /* The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
-    const scroller = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+    const scroller = scrollerOf()
     /*
       With the pill row held at the top (below 1024px), a section opens just
       under it: the row stays where the thumb left it instead of dropping
@@ -1375,11 +1458,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         onPointerEnter={() => prefetchGet(tabData(tab.id, physicalCommerce))}
                         aria-current={on ? "page" : undefined}
                         data-settings-side-tab={tab.id}
-                        className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
-                          on ? "bg-[#eceef1] font-medium text-[#1a1a2e]" : "font-normal text-[#4b5563] hover:bg-[#f0f1f3] hover:text-[#1a1a2e]"
+                        /*
+                          THE OPEN ONE SITS A HAIR ABOVE THE COLUMN, as the row you are on does in the dashboard's
+                          rail (sidebar-desktop-nav ACTIVE_DEPTH): its grey, a 1px contact shadow, a faint edge and a
+                          light top lip. A press gives under the finger (98%) and springs back; the fill, the shadow
+                          and the colour all ease in place, so nothing slides between rows.
+                        */
+                        className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-[10px] px-3 text-left text-[14px] outline-none transition-[background-color,box-shadow,color,scale] duration-150 ease-out active:scale-[0.98] active:duration-75 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent] ${
+                          on
+                            ? "bg-[#e9e9eb] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,18,27,0.08),inset_0_0_0_1px_rgba(16,18,27,0.05),inset_0_1px_0_rgba(255,255,255,0.7)] dark:bg-white/[0.10] dark:text-white dark:shadow-[0_1px_2px_rgba(0,0,0,0.4),inset_0_0_0_1px_rgba(255,255,255,0.06),inset_0_1px_0_rgba(255,255,255,0.08)]"
+                            : "font-normal text-[#4b5563] hover:bg-[#f1f1f3] hover:text-[#1a1a2e] active:bg-[#ececee] dark:text-white/70 dark:hover:bg-white/[0.06] dark:hover:text-white"
                         }`}
+                        data-settings-side-on={on ? "" : undefined}
                       >
-                        <Icon className={`h-4 w-4 shrink-0 ${on ? "text-[#1a1a2e]" : "text-[#9ca3af]"}`} aria-hidden />
+                        <Icon className={`h-4 w-4 shrink-0 transition-colors duration-150 ${on ? "text-[#1a1a2e] dark:text-white" : "text-[#9ca3af]"}`} strokeWidth={on ? 2.1 : 1.8} aria-hidden />
                         {labelOf(tab.id)}
                       </button>
                     )

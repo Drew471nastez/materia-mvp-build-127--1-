@@ -47,6 +47,16 @@ import { backThen } from "@/lib/navigation/go-back"
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 420
 const OUT_MS = 300
+/*
+  THE WAY OUT LEAVES AT SPEED. On the way in's curve (fast, then a long soft
+  landing) a close dropped most of the way in its first 100ms and then crept
+  the last of the sheet off the bottom for 200ms more, with the page waiting
+  under it: the owner's "laggy". Closed by the button, Escape or the dim, it
+  now gathers for a beat and goes, done in 260ms. A drag let go keeps the
+  speed it was let go at (EASE), so there is no stop between finger and fall.
+*/
+const OUT_EASE = "cubic-bezier(0.4, 0, 0.7, 0.2)"
+const CLOSE_MS = 260
 /** A release this fast downward closes the sheet whatever the distance (px per ms). */
 const FLICK = 0.55
 /** How far a finger must pull down on content at its top before the sheet, not the page, is what moves. */
@@ -122,7 +132,9 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       const motion = !!el && !reducedMotion() && typeof el.animate === "function"
       const h = el?.offsetHeight || window.innerHeight
       /* A flick leaves at the speed it was let go at, never slower than the plain close. */
-      const ms = speed > 0 ? Math.max(160, Math.min(OUT_MS, (h - from) / speed)) : OUT_MS
+      const ms = speed > 0 ? Math.max(160, Math.min(OUT_MS, (h - from) / speed)) : from > 0 ? OUT_MS : CLOSE_MS
+      /* From rest it leaves at speed; from a drag it carries on from the finger. */
+      const ease = from > 0 || speed > 0 ? EASE : OUT_EASE
 
       if (overlay) {
         /*
@@ -138,7 +150,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
         if (!el || !motion) return back()
         const a = asPage()
           ? el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PAGE_OUT_MS, easing: "ease-in", fill: "forwards" })
-          : el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${h}px, 0)` }], { duration: ms, easing: EASE, fill: "forwards" })
+          : el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${h}px, 0)` }], { duration: ms, easing: ease, fill: "forwards" })
         scrim.current?.animate([{ opacity: scrim.current.style.opacity || "1" }, { opacity: 0 }], { duration: ms, easing: "ease-out", fill: "forwards" })
         let done = false
         const finish = () => {
@@ -185,7 +197,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       go()
       const remove = () => ghost.remove()
       if (!ghostPanel) return remove()
-      const a = ghostPanel.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${Math.max(h, from + 1)}px, 0)` }], { duration: ms, easing: EASE, fill: "forwards" })
+      const a = ghostPanel.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${Math.max(h, from + 1)}px, 0)` }], { duration: ms, easing: ease, fill: "forwards" })
       ghostScrim?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, easing: "ease-out", fill: "forwards" })
       a.onfinish = remove
       window.setTimeout(remove, ms + 200)
@@ -223,6 +235,13 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
     if (!here) return
     const html = document.documentElement
     html.setAttribute("data-settings-sheet-up", overlay ? "over" : "page")
+    /*
+      Only a document that can scroll is held. /app's own never does (the
+      shell scrolls inside itself), and putting overflow on the root anyway
+      laid the whole page under the sheet out again, once in the frame the
+      sheet first draws and once more as it goes.
+    */
+    if (html.scrollHeight <= html.clientHeight) return () => html.removeAttribute("data-settings-sheet-up")
     const bar = window.innerWidth - html.clientWidth
     const was = { overflow: html.style.overflow, gutter: html.style.getPropertyValue("scrollbar-gutter") }
     if (bar > 0) html.style.setProperty("scrollbar-gutter", "stable")

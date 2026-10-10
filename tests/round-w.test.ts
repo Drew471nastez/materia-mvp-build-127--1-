@@ -115,7 +115,9 @@ console.log("\nIntegrations")
   check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["aftership", "hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon))
   check("every logo a card points at is a real file", INTEGRATIONS.every((i) => !i.logo || existsSync(join(process.cwd(), "public", i.logo))), INTEGRATIONS.filter((i) => i.logo && !existsSync(join(process.cwd(), "public", i.logo))).map((i) => i.logo))
   const ui = read("components/app/settings/integrations-directory.tsx")
-  check("Storelib's own carry Storelib's real mark, on light grey", /<StorelibLogo size=\{badge\}/.test(ui) && !/>S<\/span>/.test(ui) && !/violet/.test(ui))
+  /* The mark has its own file now (components/app/settings/integration-mark), shared with the provider cards and /admin. */
+  const markFile = read("components/app/settings/integration-mark.tsx")
+  check("Storelib's own carry Storelib's real mark, on light grey", /<StorelibLogo size=\{badge\}/.test(markFile) && !/>S<\/span>/.test(ui + markFile) && !/violet/.test(ui + markFile))
   check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
 }
 

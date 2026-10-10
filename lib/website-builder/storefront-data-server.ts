@@ -47,11 +47,15 @@ export async function creatorFacts(db: StorefrontDb, creatorId: string): Promise
     const { data: creator } = await db.from("creators").select("user_id, display_name, headline, bio").eq("id", creatorId).maybeSingle()
     if (!creator) return {}
     const userId = text(creator.user_id)
-    const { data: profile } = userId
-      ? await db.from("profiles").select("display_name, avatar_url").eq("id", userId).maybeSingle()
-      : { data: null }
+    const [{ data: profile }, store] = await Promise.all([
+      userId ? db.from("profiles").select("display_name, avatar_url").eq("id", userId).maybeSingle() : Promise.resolve({ data: null }),
+      /* Settings › Store details' name (store_settings, SQL part 109); a database without it reads as none. */
+      Promise.resolve(db.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle()).then((r) => r, () => ({ data: null })),
+    ])
     const avatar = text(profile?.avatar_url)
+    const storeName = text((store as { data?: { store_name?: unknown } | null })?.data?.store_name)
     return {
+      ...(storeName ? { storeName } : {}),
       name: text(profile?.display_name) || text(creator.display_name),
       headline: text(creator.headline),
       bio: text(creator.bio),

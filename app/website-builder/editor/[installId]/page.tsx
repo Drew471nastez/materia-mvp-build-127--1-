@@ -9354,7 +9354,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   productId={currentPage === "product" ? selectedProductId : null}
                   collections={compatCollections}
                   menus={compatCanvasMenus}
-                  shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
+                  shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : creatorFacts?.storeName || creatorFacts?.name || "My store"}
                   selectedSectionId={selectedSectionId}
                   selectedBlockId={selectedBlockId}
                   inspectorEnabled={canvasInspecting && !fullSettled}

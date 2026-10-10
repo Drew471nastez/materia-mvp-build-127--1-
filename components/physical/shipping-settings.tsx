@@ -856,7 +856,7 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
       <Card title="Locations" description="Where you keep stock, where orders ship from, and where buyers can pick up." help="locations" action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
         {notice ? <Notice tone="gray" className="mb-3">{notice}</Notice> : null}
         {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {editing === "new" ? <LocationForm onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} /> : null}
+        {editing === "new" ? <LocationForm startCountry={storeCountry()} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} /> : null}
         {data.locations.length === 0 && editing === null ? <Empty title="No locations yet">Add the place your stock is kept, even if it's your home.</Empty> : null}
         <ul className="space-y-2">
           {data.locations.map((l) =>
@@ -910,7 +910,12 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
   )
 }
 
-function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCancel: () => void; onSaved: () => void }) {
+/** Settings › Store details' country ("New locations and tax start here"), from what Settings read ahead; empty when none is saved. */
+function storeCountry(): string {
+  return peekGet<{ settings?: { defaultCountry?: string | null } }>("/api/store/settings")?.settings?.defaultCountry ?? ""
+}
+
+function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initial?: Location; startCountry?: string; onCancel: () => void; onSaved: () => void }) {
   const [f, setF] = React.useState({
     name: initial?.name ?? "",
     kind: initial?.kind ?? ("home" as LocationKind),
@@ -919,7 +924,7 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
     city: initial?.city ?? "",
     region: initial?.region ?? "",
     postalCode: initial?.postalCode ?? "",
-    country: initial?.country ?? "",
+    country: initial?.country ?? startCountry,
     phone: initial?.phone ?? "",
     email: initial?.email ?? "",
     active: initial?.active ?? true,

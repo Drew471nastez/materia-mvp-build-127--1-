@@ -33,6 +33,8 @@ import { ExternalLink } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { CATEGORY_LABEL, PROVIDERS, type ProviderCategory, type ProviderInfo } from "@/lib/physical/providers"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, CARD, Field, MUTED, Notice, Pill, TextInput, api } from "./ui"
+import { Mark } from "@/components/app/settings/integration-mark"
+import { integrationById } from "@/lib/integrations/catalog"
 
 export interface IntegrationState {
   provider: string
@@ -60,17 +62,14 @@ const CATEGORY_LINE: Record<ProviderCategory, string> = {
 
 const READY_WITHOUT_SETUP = new Set(["manual", "csv", "supplier_email"])
 
-/** The provider's mark: its own logo file when one is named, else its initial on a quiet tile. */
+/**
+ * The provider's mark: the directory's own (components/app/settings/integration-mark), so Printful, Shippo and the rest
+ * carry their logo here too and Storelib's built in ones their drawing. It drew the provider's own logo field, which no
+ * provider sets, so every card here was an initial while the same service's card in the directory had its logo.
+ */
 function ProviderMark({ provider }: { provider: ProviderInfo }) {
-  if (provider.logo) {
-    // eslint-disable-next-line @next/next/no-img-element
-    return <img src={provider.logo} alt="" className="h-11 w-11 shrink-0 rounded-xl border border-[#eceef1] bg-white object-contain p-1.5" />
-  }
-  return (
-    <span aria-hidden className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-[#eceef1] bg-[#f6f7f9] text-[17px] font-semibold text-[#1a1a2e]">
-      {provider.name.replace(/^(Your own |Ship it )/, "").charAt(0).toUpperCase()}
-    </span>
-  )
+  const id = provider.id.replace(/_/g, "-")
+  return <Mark item={{ id, name: provider.name, logo: provider.logo ?? integrationById(id)?.logo ?? null }} size={44} />
 }
 
 export function statusOf(provider: ProviderInfo, state: IntegrationState | null): { tone: "green" | "blue" | "amber" | "red" | "gray"; label: string } {

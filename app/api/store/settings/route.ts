@@ -4,6 +4,8 @@ import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { revalidateTag } from "next/cache"
+import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -48,5 +50,14 @@ export async function PUT(request: Request) {
   const saved = await saveStoreSettings(c.db, c.creatorId, body)
   if (!saved.ok) return physicalJson({ error: saved.error }, saved.status)
   await recordActivity(c.db, c, { action: "checkout" in body ? "settings.checkout" : "settings.store" })
+  /* The store's name and contact are the website's shop.name and shop.email: the live site shows a change now, not in a minute. */
+  if ("storeName" in body || "supportEmail" in body) {
+    try {
+      revalidateTag(creatorShopTag(c.creatorId), "max")
+      await revalidatePublishedSite(c.creatorId)
+    } catch {
+      /* The site catches up on its own within a minute. */
+    }
+  }
   return physicalJson({ settings: saved.settings })
 }

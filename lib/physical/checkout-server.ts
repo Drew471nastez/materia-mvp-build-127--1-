@@ -59,6 +59,7 @@ import { addOrderEvent } from "./events-server"
 import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
 import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { statementParams } from "@/lib/payments/platform-descriptor"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
 export const HOLD_MINUTES = 35
@@ -180,7 +181,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const { data: creator } = await db
     .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled")
+    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
     .eq("id", priced.creatorId)
     .maybeSingle()
   if (!creator) return { ok: false, status: 404, error: "Shop not found." }
@@ -364,6 +365,12 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     payment_intent_data: {
       application_fee_amount: fee!.platformFeeCents,
       transfer_data: { destination: creator.stripe_account_id },
+      /* Settings › Payments' name on the statement, as the digital and basket checkouts already put it (lib/payments/platform-descriptor). */
+      ...statementParams({
+        account: String(creator.stripe_account_id),
+        descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator.display_name as string | null) || "",
+        chargesEnabled: creator.charges_enabled as boolean | null,
+      }),
       metadata: { physical_checkout_id: checkoutId, creator_id: priced.creatorId },
       ...(address
         ? {
@@ -400,9 +407,17 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     try {
       session = await stripe.checkout.sessions.create(params, { idempotencyKey: `physical-checkout:${checkoutId}` })
     } catch (e) {
-      /* The shop's name over the form is a nicety: refused, the form opens with the platform's (a new key, as the parameters differ). */
-      if (!params.branding_settings || !/branding_settings/i.test(`${(e as Error)?.message ?? ""} ${(e as { param?: string })?.param ?? ""}`)) throw e
-      delete params.branding_settings
+      /* Two optional parts Stripe may refuse, each dropped on its own (a new key, as the parameters differ):
+         the shop's name over the form is a nicety, and a refused statement part sells on Storelib's own line, as the basket does. */
+      const said = `${(e as Error)?.message ?? ""} ${(e as { param?: string })?.param ?? ""}`
+      const branding = !!params.branding_settings && /branding_settings/i.test(said)
+      const statement = !!params.payment_intent_data && /statement_descriptor|on_behalf_of/i.test(said)
+      if (!branding && !statement) throw e
+      if (branding) delete params.branding_settings
+      if (statement && params.payment_intent_data) {
+        delete params.payment_intent_data.statement_descriptor_suffix
+        delete params.payment_intent_data.on_behalf_of
+      }
       session = await stripe.checkout.sessions.create(params, { idempotencyKey: `physical-checkout:${checkoutId}:plain` })
     }
     await db.from("commerce_checkouts").update({ stripe_session_id: session.id, updated_at: new Date().toISOString() }).eq("id", checkoutId)

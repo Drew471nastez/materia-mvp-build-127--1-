@@ -201,9 +201,50 @@ function addressKey(pathname: string, search: string): string {
   return q ? `${pathOf(pathname)}?${q}` : pathOf(pathname)
 }
 
+/*
+  THE PAGE SETTINGS IS UP OVER. Opened from a page of /app, Settings is a
+  sheet drawn over that page (app/app/@sheet/(.)settings), which stays
+  mounted and in sight above it. The address says /app/settings, so the rail
+  put out the row of the page you were on (the owner: "when I open the sheet,
+  that gray thing gets unhovered") and lit it again when the sheet closed.
+  The page under the sheet is still the page you are on: its row stays lit.
+*/
+const SETTINGS_SHEET_PATH = "/app/settings"
+/** The path the stage last committed, and the page Settings was opened over (null when it is not up over one). */
+let committedPath: string | null = null
+let underSheet: string | null = null
+const isShellPage = (path: string) => (path === "/app" || path.startsWith("/app/")) && path !== SETTINGS_SHEET_PATH
+
 /** The stage has committed this page (AppStage, before it is painted). */
 export function markCommitted(pathname: string, search: string) {
+  const path = pathOf(pathname)
+  if (path !== SETTINGS_SHEET_PATH) underSheet = null
+  else if (underSheet === null && committedPath && isShellPage(committedPath)) underSheet = committedPath
+  committedPath = path
   committed = addressKey(pathname, search)
+}
+
+/** The shell is gone (a page outside /app): whatever it last showed is not under anything opened next. */
+export function forgetCommitted() {
+  committedPath = null
+  underSheet = null
+}
+
+/**
+ * The page Settings is drawn over, while `shown` is Settings: the one it was
+ * opened on (recorded when it committed), or, on the press and the render
+ * before the stage commits it, the page still showing. Null when Settings
+ * stands on its own (a reload, a link from outside the shell).
+ */
+export function pageUnderSettingsSheet(shown: string): string | null {
+  if (pathOf(shown) !== SETTINGS_SHEET_PATH) return null
+  if (underSheet) return underSheet
+  return committedPath && isShellPage(committedPath) ? committedPath : null
+}
+
+/** From 1024px Settings is a sheet over the page; below it, a page of its own (components/app/settings-sheet.tsx). */
+function settingsIsSheet(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(min-width: 1024px)").matches
 }
 
 /** Is the address the window now shows the page already committed? */
@@ -421,7 +462,9 @@ export function pendingPath(nav: AppNavigation | null): string | null {
 export function useShownPath(): string {
   const pathname = usePathname()
   const nav = useAppNavigation()
-  return pendingPath(nav) ?? pathname
+  const shown = pendingPath(nav) ?? pathname
+  /* Settings up as a sheet over a page: that page's row stays lit, on the press, while it is up and as it closes. */
+  return (settingsIsSheet() && pageUnderSettingsSheet(shown)) || shown
 }
 
 /**
