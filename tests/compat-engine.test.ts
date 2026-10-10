@@ -234,10 +234,30 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   check("a view the theme does not have is the page as it is", noView.status === 200 && String(noView.body).includes("<main>"))
   const link = await call("GET", "/cart/add?id=v2s&quantity=2", null, [])
   check("a link to /cart/add?id=&quantity= adds and opens the cart", link.status === 303 && link.headers?.Location === "/cart" && link.cart?.[0]?.v === "v2s" && link.cart?.[0]?.q === 2, { status: link.status, cart: link.cart })
+  /* Checkout is one redirect to Storelib's branded basket checkout, the lines in its address (lib/checkout/basket-link). */
+  const lines = (r: { headers?: Record<string, string> }) => {
+    try {
+      const url = new URL(r.headers?.Location ?? "")
+      const raw = url.searchParams.get("items") ?? ""
+      return { url, rows: JSON.parse(Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as [string, string, number][] }
+    } catch {
+      return { url: null, rows: [] as [string, string, number][] }
+    }
+  }
   const perma = await call("GET", "/cart/v1l:2,v2s:1", null, [])
-  check("a cart permalink (/cart/<variant>:<quantity>,…) goes to checkout with those lines", String(perma.body).includes('"variantId":"v1l","quantity":2') && String(perma.body).includes('"variantId":"v2s","quantity":1'))
+  const permaTo = lines(perma)
+  check("a cart permalink (/cart/<variant>:<quantity>,…) goes to checkout with those lines", perma.status === 303 && permaTo.rows.some((r) => r[1] === "v1l" && r[2] === 2) && permaTo.rows.some((r) => r[1] === "v2s" && r[2] === 1), permaTo.rows)
   const checkout = await call("POST", "/cart", { checkout: "1" }, cart)
-  check("checkout goes to Storelib's own basket checkout with the lines", String(checkout.body).includes("/api/checkout/cart") && String(checkout.body).includes('"productId":"p1"'))
+  const to = lines(checkout)
+  check("checkout goes straight to Storelib's branded basket checkout with the lines, no page in between", checkout.status === 303 && to.url?.pathname === "/checkout/cart" && to.url?.searchParams.get("shop") === "c" && to.rows[0]?.[0] === "p1" && !String(checkout.body).includes("<script"), checkout.headers?.Location)
+  check("  Back from there is this site's cart, and the whole cart empties once paid", to.url?.searchParams.get("return") === "https://shop.test/cart" && to.url?.searchParams.get("cart") === "1" && to.url?.searchParams.get("site") === "shop.test")
+  const buyNow = await call("POST", "/cart/add", { id: "v2s", quantity: 1, checkout: "" }, cart)
+  const buyTo = lines(buyNow)
+  check("  Buy it now sends that item alone, and the cart stays (not emptied after paying)", buyNow.status === 303 && buyTo.rows.length === 1 && buyTo.rows[0][1] === "v2s" && buyTo.url?.searchParams.get("cart") === null && buyNow.cart === cart)
+  const empty = await call("GET", "/checkout", null, [])
+  check("  an empty cart's checkout is the cart page", empty.status === 303 && empty.headers?.Location === "/cart")
+  const paid = await call("GET", "/?sl_cart=clear&checkout=paid", null, cart)
+  check("back from paying the whole cart, the cart cookie empties and the address loses the flag", paid.status === 303 && paid.cart?.length === 0 && paid.headers?.Location === "/?checkout=paid", { status: paid.status, to: paid.headers?.Location })
 
   await sealChecks()
 

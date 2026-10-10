@@ -58,11 +58,13 @@ async function main() {
     check("  the amount a buyer named for a download goes on with it; a shipped line carries none", pwyw.ok === true && pwyw.ships.find((x) => x.productId === ebook.id)?.customPriceCents === 1200 && pwyw.ships.find((x) => x.productId === hoodie.id)?.customPriceCents === undefined, pwyw)
     const off = await priceCart(fakeDb([hoodie, ebook]), { items: [{ productId: hoodie.id, quantity: 1 }, { productId: ebook.id, quantity: 1 }], handOff: false })
     check("  while physical commerce is off nothing is handed on and the hoodie is left out", off.ok === true && off.ships.length === 0 && off.lines.length === 1 && off.dropped.includes("Hoodie"))
+    /* The route decides with lib/checkout/basket-decision, which the branded basket checkout page shares. */
     const route = read("app/api/checkout/cart/route.ts")
-    check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(route) && /physicalCheckoutHref\(creatorId, priced\.ships/.test(route) && /ships: true/.test(route))
-    check("  and the old refusal is gone, with named items when something really can't be bought", !/"Nothing in the cart can be bought right now"/.test(route.replace(/\/\*[\s\S]*?\*\//g, "")) && /can't be bought right now/.test(route))
+    const decide = read("lib/checkout/basket-decision.ts")
+    check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(decide) && /decision\.kind === "ships"/.test(route) && /physicalCheckoutHref\(creatorId, decision\.items/.test(route) && /ships: true/.test(route))
+    check("  and the old refusal is gone, with named items when something really can't be bought", !/"Nothing in the cart can be bought right now"/.test((route + decide).replace(/\/\*[\s\S]*?\*\//g, "")) && /can't be bought right now/.test(decide))
     check("  a code on a shipping cart is added on the next page, not refused", /Something in this cart ships/.test(read("app/api/coupons/validate/route.ts")))
-    check("  an imported theme's checkout follows the url it is given", /location\.replace\(x\.b\.url\)/.test(read("lib/storelib-theme/compat/site.ts")))
+    check("  an imported theme's checkout goes straight to the branded basket checkout, in one redirect", /return redirect\(\s*basketCheckoutHref\(/.test(read("lib/storelib-theme/compat/site.ts")) && !/location\.replace\(x\.b\.url\)/.test(read("lib/storelib-theme/compat/site.ts")))
   }
 
   console.log("\nSettings opens at the top and holds the page still\n")

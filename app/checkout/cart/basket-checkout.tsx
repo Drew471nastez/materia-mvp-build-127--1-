@@ -112,21 +112,50 @@ export function BasketCheckout({
     }
   }, [native, ask, attempt])
 
-  const fetchClientSecret = React.useCallback(async () => {
-    try {
-      const data = await ask("embedded")
-      if (!data) return new Promise<string>(() => {})
-      if (typeof data.clientSecret !== "string") throw new Error("The payment form did not load. Try again.")
-      setPhase({ kind: "ready" })
-      return data.clientSecret
-    } catch (e) {
-      setPhase({ kind: "error", message: e instanceof Error ? e.message : "The payment form did not load. Try again." })
-      throw e
+  /*
+    THE SESSION IS ASKED FOR AT ONCE, beside Stripe.js, not after it: Stripe's
+    provider asks for the secret only once its script is in, and waiting for
+    that before even starting the request was the slow way round. One request
+    per try, whoever asks first.
+  */
+  const started = React.useRef<{ attempt: number; secret: Promise<string> } | null>(null)
+  const secret = React.useCallback(() => {
+    if (!started.current || started.current.attempt !== attempt) {
+      const promise = ask("embedded").then((data) => {
+        if (!data) return new Promise<string>(() => {})
+        if (typeof data.clientSecret !== "string") throw new Error("The payment form did not load. Try again.")
+        return data.clientSecret
+      })
+      promise.catch((e: unknown) => setPhase({ kind: "error", message: e instanceof Error ? e.message : "The payment form did not load. Try again." }))
+      started.current = { attempt, secret: promise }
     }
-  }, [ask])
+    return started.current.secret
+  }, [ask, attempt])
+  const fetchClientSecret = React.useCallback(async () => {
+    const value = await secret()
+    setPhase({ kind: "ready" })
+    return value
+  }, [secret])
   const options = React.useMemo(() => ({ fetchClientSecret }), [fetchClientSecret])
-  /* Stripe.js on its way at once, beside the session. */
+  /* Stripe.js on its way at once too. A script that never comes (blocked, offline) says so, with Try again. */
   const stripe = React.useMemo(() => (native === false ? getStripePromise() : null), [native, attempt]) // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => {
+    if (native !== false || !stripe) return
+    void secret().catch(() => {})
+    let settled = false
+    const fail = () => setPhase((p) => (p.kind === "error" ? p : { kind: "error", message: "The payment form did not load. Check your connection and try again." }))
+    stripe.then((s) => {
+      settled = true
+      if (!s) fail()
+    }, () => {
+      settled = true
+      fail()
+    })
+    const slow = window.setTimeout(() => {
+      if (!settled) fail()
+    }, 20_000)
+    return () => window.clearTimeout(slow)
+  }, [native, stripe, secret])
 
   const retry = () => {
     resetStripePromise()

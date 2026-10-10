@@ -376,7 +376,7 @@ async function main() {
   const free = code("app/api/checkout/process/route.ts")
   check("the basket prices with priceCart, sending the code, and charges the server's total", /priceCart\(admin, \{ items: body\.items, couponCode: body\.couponCode/.test(cart) && /unit_amount: part\.unitCents/.test(cart) && /chargeUnits\(l\.item\)/.test(cart))
   check("the basket's session carries the code, its discount and whose place it is", /coupon_id: coupon\.id/.test(cart) && /coupon_code: coupon\.code/.test(cart) && /discount_cents: String\(priced\.discountCents\)/.test(cart) && /coupon_holder: holder/.test(cart) && /packItems\(lines\.map\(\(l\) => l\.item\)\)/.test(cart))
-  check("a basket still has to be one shop's", /priced\.creatorIds\.length !== 1/.test(cart))
+  check("a basket still has to be one shop's", /priced\.creatorIds\.length !== 1/.test(code("lib/checkout/basket-decision.ts")) && /const decision = basketDecision\(priced\)/.test(cart) && /decision\.kind === "refuse"/.test(cart))
   check("a basket a code takes to $0 goes to the free route, never to Stripe", /if \(coupon && totalCents === 0\) return freeBasket\(/.test(cart) && /fulfilFreeCart\(c\.admin/.test(cart) && cart.indexOf("freeBasket(request") < cart.indexOf("stripe.checkout.sessions.create"))
   check("the free basket asks for a name, an address and the Terms, and is limited like a free product", /needsDetails: true/.test(cart) && /buyer\.agreedToTerms !== true/.test(cart) && /bucket: "claim"/.test(cart))
   check("under $0.50 but above $0 is refused, not charged", /totalCents < MIN_CHARGE_CENTS/.test(cart))

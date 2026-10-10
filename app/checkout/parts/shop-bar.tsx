@@ -133,7 +133,7 @@ export function ShopBar({
         )}
 
         {shopUrl ? (
-          <a href={shopUrl} data-continue="" className="group/shop ml-auto mr-1 hidden min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent] min-[400px]:grid">
+          <a href={shopUrl} data-continue="" className="group/shop ml-auto mr-1 hidden min-h-[44px] shrink-0 place-items-center outline-none [-webkit-tap-highlight-color:transparent] sm:grid">
             <span className="inline-flex h-9 items-center rounded-[9px] border border-[#e1e3e7] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e] shadow-[0_1px_1px_rgba(17,17,19,0.04)] transition-[scale] duration-150 ease-out group-hover/shop:border-[#d2d5da] group-hover/shop:bg-[#fafafb] group-active/shop:scale-[0.97] group-active/shop:bg-[#f3f4f6] group-focus-visible/shop:outline-2 group-focus-visible/shop:outline-offset-2 group-focus-visible/shop:outline-[#1a1a2e] motion-reduce:transition-none">
               Continue shopping
             </span>
