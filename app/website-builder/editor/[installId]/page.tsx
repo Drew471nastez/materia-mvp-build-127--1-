@@ -7118,7 +7118,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!to) {
       /* A visitor's account and checkout are Storelib's own pages: said, rather than a click that does nothing. */
       const path = href.split(/[?#]/)[0]
-      if (/^\/(account|wishlist|checkout)(\/|$)/.test(path)) toast(path.startsWith("/checkout") ? "Checkout opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
+      if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) toast(path.startsWith("/checkout") ? "Checkout opens on your live site" : /wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
       return
     }
     /* A link to a product opens that product's page, as on the website, not the shop's first product. */
@@ -9348,6 +9348,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   inspectorEnabled={canvasInspecting && !fullSettled}
                   onSelect={selectFromCompatCanvas}
                   onNavigate={navigateCompatCanvas}
+                  siteUrl={websiteUrl}
                 />
               ) : (
               <EditorCanvasPage

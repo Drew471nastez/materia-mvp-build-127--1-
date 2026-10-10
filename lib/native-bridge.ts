@@ -13,7 +13,7 @@
  */
 
 import { GOOGLE_OAUTH_QUERY } from "@/lib/auth/google-oauth-params"
-import { needsDocumentLoad, nativeLinkFor } from "@/lib/native-links"
+import { isCreatorSite, needsDocumentLoad, nativeLinkFor } from "@/lib/native-links"
 import { forgetLastPlace } from "@/lib/native-resume"
 
 // ── Bridge accessor ──────────────────────────────────────────────────────────
@@ -584,7 +584,7 @@ export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
     /* From the creator's own tools, a Storelib page is their live site being checked: the real browser (openInBrowser). */
-    if (onCreatorTools()) return openInBrowser(url)
+    if (onCreatorTools() && isCreatorSite(nativeLinkFor(url))) return openInBrowser(url)
     if (navigateInApp(url)) return
     if (isIOS()) {
       // On iOS, open in the actual Safari browser (fully external).

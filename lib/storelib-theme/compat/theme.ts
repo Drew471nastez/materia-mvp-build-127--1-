@@ -721,7 +721,9 @@ export class CompatTheme {
     const page = ctx.registers.page as CompatPage
     const key = this.opts.chromeGroups?.[group] ?? group.replace(/-group$/, "")
     /* Another group the page holds (an overlay, an aside): its sections are the Overlay group's that name it. */
-    const own = key === "header" || key === "footer" ? page.groups?.[key] : this.opts.slots?.includes(group) ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
+    /* A group is the page's when the import said so (slots) or when the page holds its sections (an install whose Overlay group was filled in later). */
+    const isSlot = this.opts.slots?.includes(group) || (page.groups?.overlay ?? []).some((s) => s.slot === group)
+    const own = key === "header" || key === "footer" ? page.groups?.[key] : isSlot ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
     const list: CompatSectionInstance[] = own ?? groupSections(this.files[`sections/${group}.json`]).map((s) => ({ ...s, type: this.typeOf(s.type) }))
     return list.filter((s) => !s.disabled && !s.hidden).map((s, i) => this.renderSectionRaw(ctx, s, i, group).html).join("")
   }

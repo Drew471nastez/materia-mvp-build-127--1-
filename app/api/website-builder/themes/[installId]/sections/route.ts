@@ -2,6 +2,7 @@ import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/blo
 import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
+import { withOverlayFilledIn } from "@/lib/website-builder/compat-overlay-repair"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
 import { collectionSections, collectionsPageSections, notFoundSections, searchSections, shopSections } from "@/lib/website-builder/shop-page"
 import { accountPageSections } from "@/lib/website-builder/account-pages"
@@ -93,7 +94,8 @@ export async function GET(req: Request, { params }: Params) {
   }
 
   // Return draft_sections if present, else sections
-  const sections = (data?.draft_sections ?? data?.sections) as SectionInstance[] | null
+  /* An imported theme's Overlay group, filled in from its files when an earlier import left it empty (compat-overlay-repair.ts). */
+  const sections = await withOverlayFilledIn(supabase, installId, (data?.draft_sections ?? data?.sections) as SectionInstance[] | null)
 
   /*
     ═══════════════════════════════════════════════════════════════════════

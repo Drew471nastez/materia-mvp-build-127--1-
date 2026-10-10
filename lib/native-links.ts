@@ -171,3 +171,21 @@ export const DOCUMENT_LOAD_PREFIXES = ["/app", "/creator-page", "/store-builder"
 export function needsDocumentLoad(path: string): boolean {
   return DOCUMENT_LOAD_PREFIXES.some((p) => under(path.split(/[?#]/)[0], p))
 }
+
+/**
+ * WHAT GOES TO THE PHONE'S BROWSER FROM A CREATOR'S TOOLS, AND WHAT STAYS IN
+ * THE APP. Only a creator's own site (their subdomain, their page, their
+ * website's preview) is the world's view, checked in Safari or Chrome.
+ * Anything else a creator tool opens, Payouts' invoice and Stripe dashboard,
+ * a help page, the terms, stays in the app: in the sheet over it, closing
+ * back to where it was (components/platform/native-link-guard.tsx).
+ */
+export function isCreatorSite(link: NativeLink): boolean {
+  if (link.kind === "host") return true
+  if (link.kind !== "path") return false
+  const first = link.path.split(/[?#]/)[0].split("/")[1] ?? ""
+  if (!first) return false
+  if (first === "w" || first === "preview") return true
+  return !isReservedRootSegment(first)
+}
+
