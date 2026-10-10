@@ -20,7 +20,7 @@ const MISSING = new Set(["42P01", "PGRST205", "42703", "PGRST204"])
 
 const offerOf = (r: Row): Offer => ({ id: r.id, kind: r.kind, title: r.title, productIds: r.product_ids ?? [], triggerIds: r.trigger_product_ids ?? [], discountType: r.discount_type, discountValue: Number(r.discount_value) || 0, active: r.active !== false })
 
-/** The store's offers, in its order. A database without part 115 has none; a failed read has none too, so a checkout never stops on it. */
+/** The store's offers, in its order. A database without part 116 has none; a failed read has none too, so a checkout never stops on it. */
 export async function loadOffers(db: Db, creatorId: string, opts: { activeOnly?: boolean } = {}): Promise<{ offers: Offer[]; ready: boolean }> {
   try {
     let q = db.from("store_offers").select(COLUMNS).eq("creator_id", creatorId)
