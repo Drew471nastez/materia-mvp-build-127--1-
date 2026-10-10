@@ -67,6 +67,8 @@ export interface PendingClaims {
   h: string
   /** Where on the website to land once signed in, a path. */
   r: string
+  /** The name typed on a theme's Create account form, kept until the code proves the email (at most 120 characters). */
+  n?: string
   e: number
 }
 
@@ -188,12 +190,13 @@ export function sameHash(a: unknown, b: unknown): boolean {
 /* ─── Pending: the code step ────────────────────────────────────────────── */
 
 export function mintPending(
-  input: { codeId: string; email: string; creatorId: string; host: string; returnPath: string },
+  input: { codeId: string; email: string; creatorId: string; host: string; returnPath: string; name?: string | null },
   now = Date.now(),
 ): string | null {
   if (!UUID.test(input.codeId) || !UUID.test(input.creatorId) || !HOST.test(input.host)) return null
   if (cleanEmail(input.email) !== input.email || !isSitePath(input.returnPath)) return null
-  return sign({ t: "p", k: input.codeId, m: input.email, c: input.creatorId, h: input.host, r: input.returnPath, e: now + PENDING_TTL_MS })
+  const name = typeof input.name === "string" && input.name.length > 0 && input.name.length <= 120 ? input.name : undefined
+  return sign({ t: "p", k: input.codeId, m: input.email, c: input.creatorId, h: input.host, r: input.returnPath, ...(name ? { n: name } : {}), e: now + PENDING_TTL_MS })
 }
 
 export function readPending(token: unknown, now = Date.now()): PendingClaims | null {
@@ -206,6 +209,7 @@ export function readPending(token: unknown, now = Date.now()): PendingClaims | n
   if (!isSitePath(c.r)) return null
   if (typeof c.e !== "number" || !Number.isFinite(c.e) || c.e <= now) return null
   if (c.e > now + PENDING_TTL_MS + 5_000) return null
+  if (c.n !== undefined && (typeof c.n !== "string" || c.n.length > 120)) return null
   return c as unknown as PendingClaims
 }
 

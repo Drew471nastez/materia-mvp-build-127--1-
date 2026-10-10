@@ -145,6 +145,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "site-account/verify/route.ts": "the code emailed to the address is the credential: kept as an HMAC, ten minutes, five tries counted by a conditional update, used once, bound to the host, the creator and this browser's signed note; it makes a customer row for that website and nothing else",
   "site-account/profile/route.ts": "the website's own signed session cookie is the credential, for this host's creator, and the customer row must still be there; it changes that customer's name and nothing else",
   "site-account/wishlist/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; without it the answer is signedIn false and nothing is read",
+  "site-account/delete/route.ts": "the website's own signed session cookie is the credential, for this host's creator, from a same-origin form with confirm=delete; it deletes that customer's own account row (and what it saved) and nothing else, limited per customer",
   "site-password/route.ts": "a visitor typing a website's password on its password page (same-origin forms only, the host must be a creator's published website, limited per visitor and per website before any compare against the stored hash), or the owner's two minute signed note, spent once; it only ever sets a pass cookie for that host",
 
   // Reads of things that are already public.

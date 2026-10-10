@@ -10,10 +10,16 @@
  * `/preview/<token>/…` is the site with its unpublished changes, for the
  * person holding the install's preview link.
  */
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
-import { CART_COOKIE, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
+import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
+import { siteAccountOf } from "@/lib/site-accounts/theme-visitor"
+import { hostOf } from "@/lib/site-accounts/session"
+import { sameOriginForm } from "@/lib/site-accounts/respond"
+import { POST as sendSignInCode } from "@/app/api/site-account/code/route"
+import { POST as subscribeRoute } from "@/app/api/website-builder/subscribe/route"
+import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 
@@ -66,6 +72,20 @@ async function bodyOf(req: Request): Promise<Record<string, unknown> | null> {
   return null
 }
 
+/**
+ * The same request, sent on to one of Storelib's own routes on this host:
+ * its headers as the browser sent them (the Origin the route checks, the
+ * address its rate limits count, the cookies), with a new body. So a theme's
+ * form goes through exactly the checks a Storelib website's own form does.
+ */
+function onward(req: Request, path: string, body: FormData | string): NextRequest {
+  const headers = new Headers(req.headers)
+  headers.delete("content-length")
+  if (typeof body === "string") headers.set("content-type", "application/json")
+  else headers.delete("content-type")
+  return new NextRequest(new URL(path, req.url), { method: "POST", headers, body })
+}
+
 /** The page a script's request came from, as a path on this site: only which of the site's own pages its sections are drawn about. */
 function refererPath(referer: string | null): string | undefined {
   if (!referer) return undefined
@@ -113,15 +133,52 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note } = readCartCookie(cookie)
+  const sitePath = `/${segments.map(encodeURIComponent).join("/")}`
+  const fields = await bodyOf(req)
+  const ajax = req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json")
+
+  /*
+    A THEME'S ACCOUNT FORMS, carried out by Storelib's own account routes
+    (lib/storelib-theme/compat/site.ts accountFormPost): sign in, Create
+    account and Forgot password each email a code, through the very route a
+    Storelib website's sign in form posts to, with this request's headers, so
+    its Origin check, its three rate limits and its "the same answer for every
+    email" all apply. Never on a preview, which signs nobody in.
+  */
+  const accountPost = token ? null : accountFormPost(req.method, sitePath, fields)
+  if (accountPost?.kind === "back") return new NextResponse(null, { status: 303, headers: { Location: accountPost.to, "Cache-Control": "private, no-store" } })
+  if (accountPost?.kind === "code") {
+    const form = new FormData()
+    form.set("email", accountPost.email)
+    form.set("return", accountPost.returnPath)
+    if (accountPost.name) form.set("name", accountPost.name)
+    return sendSignInCode(onward(req, "/api/site-account/code", form))
+  }
+  /* A newsletter or contact form, from this website's own page only. */
+  const formPost = req.method === "POST" && (/^\/contact\/?$/.test(sitePath) || (sitePath === "/account" && fields?.form_type === "customer"))
+  if (formPost && !sameOriginForm(req, hostOf(req))) return NextResponse.json({ error: "Not allowed" }, { status: 403, headers: { "Cache-Control": "no-store" } })
+
+  /* Who is visiting: the website's own session, read only when there is one, with the orders on the account pages. */
+  const accountPath = sitePath === "/account" || sitePath.startsWith("/account/")
+  const page = (req.method === "GET" || req.method === "HEAD") && !ajax && !/\.(js|json)$/.test(sitePath)
+  const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath })
+
   const out = await answer(found.site, {
     method: req.method,
-    path: `/${segments.map(encodeURIComponent).join("/")}`,
+    path: sitePath,
     query: url.searchParams,
-    body: await bodyOf(req),
+    body: fields,
     cart,
     note,
-    ajax: req.headers.get("x-requested-with") === "XMLHttpRequest" || (req.headers.get("content-type") ?? "").includes("application/json") || (req.headers.get("accept") ?? "").includes("application/json"),
+    ajax,
     referer: refererPath(req.headers.get("referer")),
+    account,
+    submit: token
+      ? undefined
+      : async (kind, payload) => {
+          const r = await (kind === "subscribe" ? subscribeRoute : contactRoute)(onward(req, kind === "subscribe" ? "/api/website-builder/subscribe" : "/api/website-builder/contact", JSON.stringify(payload)))
+          return { ok: r.ok, status: r.status }
+        },
   })
   const headers = new Headers(out.headers ?? {})
   headers.set("Content-Type", out.type)

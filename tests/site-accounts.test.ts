@@ -47,7 +47,7 @@ import {
   readSession,
 } from "@/lib/site-accounts/token"
 import { checkCode, issueCode } from "@/lib/site-accounts/codes"
-import { cleanName, customerById, findOrCreateCustomer, renameCustomer } from "@/lib/site-accounts/customers"
+import { cleanName, customerById, deleteCustomer, findOrCreateCustomer, renameCustomer } from "@/lib/site-accounts/customers"
 import { requestCode, verifyCode, type SignInDeps } from "@/lib/site-accounts/sign-in"
 import { codeEmail } from "@/lib/site-accounts/code-email"
 import { pendingCookie, pendingCookieName, sessionCookie, sessionCookieName, visitorFrom } from "@/lib/site-accounts/session"
@@ -411,6 +411,36 @@ async function main() {
     check("a form from this website's own page is let through", sameOriginForm(req({ origin: `https://${HOST}` }), HOST))
     check("a form from another website, even a sibling on storelib.com, is not", !sameOriginForm(req({ origin: "https://otherone.storelib.com" }), HOST) && !sameOriginForm(req({ origin: "https://evil.test" }), HOST))
     check("a browser hiding the origin is let through only when it says same-origin", sameOriginForm(req({ origin: "null", "sec-fetch-site": "same-origin" }), HOST) && !sameOriginForm(req({ origin: "null" }), HOST) && !sameOriginForm(req({}), HOST) && !sameOriginForm(req({ "sec-fetch-site": "cross-site" }), HOST))
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("A theme's Create account form, and deleting an account")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const now = Date.parse("2026-10-10T10:00:00Z")
+    const db = sitesDb()
+    const { d, sent } = deps(db, now)
+    const asked = await requestCode({ host: HOST, email: "bea@mail.test", returnPath: "/account", name: " Bea   Lin " }, d)
+    const note = asked.ok ? readPending(asked.pending, now + 1000) : null
+    check("the name a Create account form asked for rides in the signed note, cleaned", note?.n === "Bea Lin", note)
+    check("and nothing is written about it before the code proves the email", db.rows("site_customers").length === 0)
+    const done = await verifyCode({ host: HOST, pending: asked.ok ? asked.pending : null, code: codeOf(sent[0]) }, { db, owner: d.owner, now: now + 30_000 })
+    check("the new account gets that name once the code is typed", done.ok === true && db.rows("site_customers")[0]?.name === "Bea Lin", db.rows("site_customers"))
+    const again = await requestCode({ host: HOST, email: "bea@mail.test", returnPath: "/account", name: "Somebody Else" }, d)
+    await verifyCode({ host: HOST, pending: again.ok ? again.pending : null, code: codeOf(sent[1]) }, { db, owner: d.owner, now: now + 90_000 })
+    check("an account that has a name keeps it: nobody renames an account by asking for a code", db.rows("site_customers")[0]?.name === "Bea Lin")
+    check("a name too long for the note is not put in it", mintPending({ codeId: CUSTOMER_A, email: "a@mail.test", creatorId: CREATOR, host: HOST, returnPath: "/", name: "x".repeat(121) }, now)?.length === mintPending({ codeId: CUSTOMER_A, email: "a@mail.test", creatorId: CREATOR, host: HOST, returnPath: "/" }, now)?.length)
+
+    const bea = db.rows("site_customers")[0]
+    db.table("site_customer_wishlist", {}, [{ customer_id: bea.id, product_id: P1 }, { customer_id: CUSTOMER_B, product_id: P1 }])
+    db.rows("site_customers").push({ id: CUSTOMER_B, creator_id: CREATOR, email: "other@mail.test", name: null, created_at: null })
+    check("somebody else's account cannot be deleted through another creator", (await deleteCustomer(db, { customerId: bea.id, creatorId: OTHER_CREATOR })) === false && db.rows("site_customers").some((r) => r.id === bea.id))
+    check("a customer deletes their own account", (await deleteCustomer(db, { customerId: bea.id, creatorId: CREATOR })) === true)
+    check("the row, what it saved and its waiting codes go; nobody else's", !db.rows("site_customers").some((r) => r.id === bea.id) && db.rows("site_customers").some((r) => r.id === CUSTOMER_B) && !db.rows("site_customer_wishlist").some((r) => r.customer_id === bea.id) && db.rows("site_customer_wishlist").some((r) => r.customer_id === CUSTOMER_B) && !db.rows("site_customer_codes").some((r) => r.email === "bea@mail.test"))
+    check("the session it had is nobody now", (await customerById(db, { customerId: bea.id, creatorId: CREATOR })) === null)
+    check("deleting twice deletes nothing", (await deleteCustomer(db, { customerId: bea.id, creatorId: CREATOR })) === false)
+    const del = code("app/api/site-account/delete/route.ts")
+    check("the delete route: same-origin form, the session's customer for this host's creator, confirm=delete, limited, every cookie cleared", /sameOriginForm\(request, host\)/.test(del) && /visitorOfRequest\(request, \{ creatorId: owner\.creatorId \}\)/.test(del) && /form\?\.get\("confirm"\) !== "delete"/.test(del) && /"site-account-delete"/.test(del) && /sessionCookieName\(host\), ""/.test(del) && /HINT_COOKIE, ""/.test(del) && !/form\?\.get\("(id|customer|email)"\)/.test(del))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

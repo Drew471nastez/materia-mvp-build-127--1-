@@ -553,7 +553,7 @@ const F: Record<string, FilterFn> = {
   sort_by: (v, [sort]) => { const u = str(v); const sep = u.includes("?") ? "&" : "?"; return `${u}${sep}sort_by=${encodeURIComponent(str(sort))}` },
   customer_login_link: (v) => `<a href="/account/login" id="customer_login_link">${str(v)}</a>`,
   customer_logout_link: (v) => `<a href="/account/logout" id="customer_logout_link">${str(v)}</a>`,
-  customer_register_link: (v) => `<a href="/account/login" id="customer_register_link">${str(v)}</a>`,
+  customer_register_link: (v) => `<a href="/account/register" id="customer_register_link">${str(v)}</a>`,
 
   /* HTML */
   image_tag: (v, _a, kw) => imageTag(v, kw),
@@ -570,7 +570,7 @@ const F: Record<string, FilterFn> = {
   external_video_url: (v) => externalVideoUrl(v),
   model_viewer_tag: (v, _a, kw) => imageTag((v as Record<string, unknown>)?.preview_image ?? v, kw),
   structured_data: () => "",
-  default_errors: (v) => { const msgs = toList(v).map(str).filter(Boolean); return msgs.length ? `<div class="errors"><ul>${msgs.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul></div>` : "" },
+  default_errors: (v) => { const messages = v && typeof v === "object" && (v as Record<string, unknown>).messages && typeof (v as Record<string, unknown>).messages === "object" ? ((v as Record<string, unknown>).messages as Record<string, unknown>) : null; const msgs = toList(v).map((x) => (messages && messages[str(x)] !== undefined ? str(messages[str(x)]) : str(x))).filter(Boolean); return msgs.length ? `<div class="errors"><ul>${msgs.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul></div>` : "" },
   default_pagination: (v) => defaultPagination(v),
   /* A card's mark as a picture (paymentMark below), for themes that use an <img> rather than inline SVG. */
   payment_type_img_url: (v) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(paymentMark(str(v), ""))}`,

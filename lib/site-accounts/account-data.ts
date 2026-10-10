@@ -47,12 +47,17 @@ export interface CustomerOrder {
   number: string
   /** "Sep 21, 2026". */
   date: string
+  /** When it was placed, as the database wrote it (ISO 8601), for a theme that formats dates itself. */
+  created_at?: string
   /** In words: Complete, Confirmed, Shipped, Delivered, Partly refunded, Refunded, Processing, On hold. */
   status: string
   /** open, pending, refunded or held (lib/receipts/rules.ts), for a template that styles by it. */
   state: AccessState
   /** "$93.00", or "Free". */
   total: string
+  /** The same total in the currency's smallest unit, and the currency, for a theme that formats money itself (`| money`). */
+  total_cents?: number
+  currency?: string
   items: CustomerOrderItem[]
   item_count: number
   /** Download for something to download, Access for a course or community, View order for anything else. */
@@ -257,9 +262,12 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         id: first.id,
         number: orderNumberOf(first.id),
         date: orderDate(first.created_at),
+        created_at: String(first.created_at ?? ""),
         status: statusWords(state, lines, physical, money.refunded),
         state,
         total,
+        total_cents: money.total,
+        currency: normaliseCurrency(first.currency),
         items,
         item_count: items.length,
         action_label,

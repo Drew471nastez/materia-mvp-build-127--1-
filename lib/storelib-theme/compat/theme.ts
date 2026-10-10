@@ -157,6 +157,8 @@ export interface CompatPage {
   cart?: CartLineLike[]
   shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[]; id?: string }
   customer?: O | null
+  /** Why a form on this page did not go through, by form type (`customer_login`, `customer`, `contact`): what its `form.errors` says. */
+  formErrors?: Record<string, string> | null
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
   pageObject?: { title: string; content: string; handle: string; url: string } | null
@@ -429,7 +431,9 @@ export class CompatTheme {
       types: [],
       vendors: [],
     }
-    const template = { [OUTPUT]: page.suffix ? `${page.template}.${page.suffix}` : page.template, name: page.template, suffix: page.suffix ?? null, directory: null }
+    /* customers/login is `template.name` "login" in the "customers" directory, as Shopify writes it. */
+    const [templateDir, templateName] = page.template.includes("/") ? [page.template.split("/")[0], page.template.split("/").slice(1).join("/")] : [null, page.template]
+    const template = { [OUTPUT]: page.suffix ? `${page.template}.${page.suffix}` : page.template, name: templateName, suffix: page.suffix ?? null, directory: templateDir }
 
     const globals: O = {
       settings,
@@ -443,7 +447,7 @@ export class CompatTheme {
       page_description: page.description ?? page.shop.description ?? "",
       canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
-      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id }),
+      content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer }),
       collections,
       all_products,
       linklists,
@@ -933,7 +937,45 @@ let formSeq = 0
  * contact form and a newsletter form reach the creator's inbox and
  * Subscribers (/contact), a sign in form is the site's account sign in.
  */
-function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: string; close: string; form: O } {
+/** The sign in forms: on Storelib each is "email me a code" (lib/site-accounts), so each shows why the last try stopped. */
+const SIGN_IN_FORMS = new Set(["customer_login", "create_customer", "recover_customer_password", "guest_login"])
+
+/**
+ * `form.errors` as Shopify gives it: a list of field names (here only
+ * "form", a drop that is a list by `__list__`), with `messages` and
+ * `translated_fields` by name, so a theme's
+ * `{% for field in form.errors %}`, `form.errors.messages.form` and
+ * `form.errors | default_errors` all read one sentence.
+ */
+function formErrorsObject(message: string): O {
+  /* Under "email" too: a newsletter form (Horizon's) prints form.errors.messages.email. */
+  return { __list__: ["form"], messages: { form: message, email: message }, translated_fields: { form: "", email: "" } }
+}
+
+/**
+ * A sign in or sign up form without its password field. Storelib's website
+ * accounts have no passwords (an emailed code proves the email), so a
+ * password typed into a theme's Create account form would be read by
+ * nothing: the field, its label and its now empty wrapper go.
+ */
+export function withoutPasswordFields(html: string): string {
+  const ids: string[] = []
+  let out = html.replace(/<input\b[^>]*\btype\s*=\s*["']?password\b["']?[^>]*>/gi, (tag) => {
+    const id = tag.match(/\bid\s*=\s*["']?([^"'\s>]+)/i)?.[1]
+    if (id) ids.push(id)
+    return ""
+  })
+  for (const id of ids) {
+    const safe = id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    out = out.replace(new RegExp(`<label\\b[^>]*\\bfor\\s*=\\s*["']?${safe}["']?[^>]*>[\\s\\S]*?<\\/label>`, "gi"), "")
+  }
+  if (ids.length) out = out.replace(/<(div|p)\b[^>]*\bclass\s*=\s*["'][^"']*\b(?:field|form-group|form-field|password)\b[^"']*["'][^>]*>\s*<\/\1>/gi, "")
+  /* "Forgot your password?" inside the form: there is no password to forget (the recover form, sent anyway, emails a sign in code). */
+  out = out.replace(/<a\b[^>]*\bhref\s*=\s*["']#recover["'][^>]*>[\s\S]*?<\/a>/gi, "")
+  return out
+}
+
+function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: string; close: string; form: O; body?: (html: string) => string } {
   const section = ctx.registers.section as O | undefined
   const id = typeof args.id === "string" && args.id ? args.id : `${type.replace(/_/g, "-")}-${toOutput(section?.id ?? "x")}-${++formSeq}`
   const action: Record<string, string> = {
@@ -942,11 +984,11 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
     contact: "/contact",
     customer: "/contact#contact_form",
     customer_login: "/account/login",
-    create_customer: "/account/login",
-    recover_customer_password: "/account/login",
+    create_customer: "/account",
+    recover_customer_password: "/account/recover",
     reset_customer_password: "/account/login",
     activate_customer_password: "/account/login",
-    customer_address: "/account",
+    customer_address: "/account/addresses",
     localization: "/localization",
     new_comment: "#",
     guest_login: "/account/login",
@@ -967,10 +1009,14 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
     if (variant?.id) hidden.push(`<input type="hidden" name="product-id" value="${escapeHtml(toOutput((obj as O).id))}">`)
   }
   if (typeof args.return_to === "string") hidden.push(`<input type="hidden" name="return_to" value="${escapeHtml(args.return_to)}">`)
+  const page = ctx.registers.page as CompatPage | undefined
+  const errorText = page?.formErrors?.[SIGN_IN_FORMS.has(type) ? "customer_login" : type]
   return {
     open: `<form ${attrs.join(" ")}>${hidden.join("")}`,
     close: `</form>`,
-    form: { id, posted_successfully: (ctx.registers.page as CompatPage | undefined)?.query?.[`${type}_posted`] === "true", errors: null, email: "", body: "", name: "", phone: "", password_needed: false },
+    /* A contact or newsletter form's `form.id` is the id the theme gave it, blank when none, as on Shopify: Horizon shows its thank you only `if form.posted_successfully? and form.id == blank`. */
+    form: { id: (type === "customer" || type === "contact") && !(typeof args.id === "string" && args.id) ? "" : id, posted_successfully: !errorText && page?.query?.[`${type}_posted`] === "true", errors: errorText ? formErrorsObject(errorText) : null, email: "", body: "", name: "", phone: "", password_needed: false },
+    ...(SIGN_IN_FORMS.has(type) ? { body: withoutPasswordFields } : {}),
   }
 }
 

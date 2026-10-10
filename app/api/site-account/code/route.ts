@@ -92,7 +92,8 @@ export async function POST(request: Request) {
 
   /* "Send a new code" on the code step posts the same email again, marked. */
   const again = form?.get("again") === "1"
-  const result = await requestCode({ host, email: form?.get("email"), returnPath }, deps)
+  /* `name`: a theme's Create account form's first and last name, saved once the code proves the email (lib/site-accounts/sign-in.ts). */
+  const result = await requestCode({ host, email: form?.get("email"), returnPath, name: form?.get("name") }, deps)
   /* A new code that could not be sent leaves the visitor on the code step; a first one, on the email step. */
   if (result.ok === false) return back(host, again ? { error: result.why } : { error: result.why, step: "email", return: keep })
 
