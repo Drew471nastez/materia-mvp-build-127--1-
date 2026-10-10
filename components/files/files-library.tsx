@@ -72,10 +72,11 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
 
   const load = React.useCallback(async () => {
     const r = await api<{ files: LibraryFile[] }>("/api/files")
-    if (r.ok) {
+    if ("error" in r) setError(r.error)
+    else {
       setFiles(r.data.files)
       setError(null)
-    } else setError(r.error)
+    }
   }, [])
   React.useEffect(() => {
     void load()
@@ -113,7 +114,7 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
 
   const remove = async (f: LibraryFile) => {
     const r = await api("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
-    if (!r.ok) return toast.error(r.error)
+    if ("error" in r) return toast.error(r.error)
     setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
     setOpen(null)
     toast.success("Deleted")
