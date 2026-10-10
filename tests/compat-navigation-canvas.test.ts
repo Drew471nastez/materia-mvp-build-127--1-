@@ -40,7 +40,7 @@ async function main() {
   {
     const empty = cartObject([], "USD")
     check("an empty cart is `empty` (Dawn and Posturex draw their empty cart on this)", liquid("{% if cart == empty %}E{% else %}F{% endif %}{% if cart != empty %}x{% endif %}", { cart: empty }) === "E")
-    const one = cartObject([{ key: "k", quantity: 1, product: { id: "p1", title: "Shirt", price: 4000, variants: [], url: "/products/shirt" } as never }], "USD")
+    const one = cartObject([{ key: "k", productId: "p1", variantId: null, quantity: 1, product: { id: "p1", title: "Shirt", price: 4000, variants: [], url: "/products/shirt" } } as never], "USD")
     check("a cart with a line is not", liquid("{% if cart == empty %}E{% else %}F{% endif %}", { cart: one }) === "F")
     check("`assign x = blank` is blank and prints nothing (no preload of \" 800w\")", liquid("{% assign x = blank %}[{{ x }}]{% if x != blank %}NOT{% endif %}{% if x == blank %}B{% endif %}{% if x == empty %}E{% endif %}") === "[]BE")
     check("an object with keys is still not empty", liquid("{% if o == empty %}E{% else %}F{% endif %}", { o: { a: 1 } }) === "F")
