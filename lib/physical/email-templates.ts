@@ -53,22 +53,90 @@ const INK = "#1a1a2e"
 const MUTED = "#6b7280"
 const LINE = "#eceef1"
 
-function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string } = {}): string {
-  const top = opts.aside
-    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;"><tr><td style="font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</td><td align="right" style="font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};">${esc(opts.aside)}</td></tr></table>`
-    : `<p style="margin:0 0 20px 0;font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</p>`
+/**
+ * THE STORE, AS ITS BUYERS KNOW IT: the logo from Settings › Store details
+ * (else the website's logo, else the profile photo; lib/store/identity-
+ * server.ts), and the ways to reach a person there. Every buyer email takes
+ * it; an email without it still reads, with the store's name on top.
+ */
+export interface EmailBrand {
+  logoUrl?: string | null
+  email?: string | null
+  phone?: string | null
+  websiteUrl?: string | null
+  /** The buyer's order page, for "Get help with this order". */
+  helpUrl?: string | null
+}
+
+function brandTop(shopName: string, brand: EmailBrand | undefined, aside: string | undefined): string {
+  const logo = brand?.logoUrl && /^https:\/\//.test(brand.logoUrl) ? brand.logoUrl : null
+  const name = logo
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:10px;vertical-align:middle;"><img src="${esc(logo)}" height="36" alt="${esc(shopName)}" style="display:block;height:36px;width:auto;max-width:160px;border-radius:8px;border:0;"></td><td style="vertical-align:middle;font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</td></tr></table>`
+    : `<span style="font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</span>`
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;"><tr><td style="vertical-align:middle;">${name}</td>${
+    aside ? `<td align="right" style="vertical-align:middle;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};white-space:nowrap;">${esc(aside)}</td>` : ""
+  }</tr></table>`
+}
+
+/** Where a question goes: reply, or the store's own address, phone and website, and the order page's help. */
+function brandFooter(shopName: string, brand: EmailBrand | undefined, footer: string | undefined): string {
+  const reach: string[] = []
+  if (brand?.email) reach.push(`<a href="mailto:${esc(brand.email)}" style="color:${INK};text-decoration:underline;white-space:nowrap;">${esc(brand.email)}</a>`)
+  if (brand?.phone) reach.push(`<a href="tel:${esc(brand.phone.replace(/[^+\d]/g, ""))}" style="color:${INK};text-decoration:none;white-space:nowrap;">${esc(brand.phone)}</a>`)
+  if (brand?.websiteUrl && /^https:\/\//.test(brand.websiteUrl)) reach.push(`<a href="${esc(brand.websiteUrl)}" style="color:${INK};text-decoration:underline;white-space:nowrap;">${esc(brand.websiteUrl.replace(/^https:\/\//, "").replace(/\/$/, ""))}</a>`)
+  const first = footer ?? `Questions about this order? Reply to this email and it goes to ${esc(shopName)}.`
+  const help = brand?.helpUrl ? `<br>Something wrong with your order? <a href="${esc(brand.helpUrl)}" style="color:${INK};text-decoration:underline;">Get help with this order</a>.` : ""
+  return `${first}${reach.length ? `<br>${reach.join(`<span style="color:#c4c8cf;">&nbsp;&nbsp;·&nbsp;&nbsp;</span>`)}` : ""}${help}`
+}
+
+function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string; brand?: EmailBrand } = {}): string {
   const html = `<div style="background:#f8f9fa;padding:24px 12px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:${INK};">
-<style>@media only screen and (max-width:480px){td.col{display:block !important;width:100% !important;}}</style>
+<style>@media only screen and (max-width:480px){td.col{display:block !important;width:100% !important;}td.step{font-size:11px !important;}}</style>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;">
 <tr><td style="padding:28px 28px 8px 28px;">
-${top}
+${brandTop(shopName, opts.brand, opts.aside)}
 <h1 style="margin:0 0 8px 0;font-size:22px;line-height:28px;font-weight:700;color:${INK};">${esc(heading)}</h1>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:22px;color:${MUTED};">${intro}</p>
 </td></tr>
 ${body}
-<tr><td style="padding:24px 28px 28px 28px;font-size:12px;line-height:18px;color:${MUTED};">${opts.footer ?? `Questions about this order? Reply to this email and it goes to ${esc(shopName)}.`}</td></tr>
+<tr><td style="padding:24px 28px 28px 28px;"><p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:12.5px;line-height:20px;color:${MUTED};">${brandFooter(shopName, opts.brand, opts.footer)}</p></td></tr>
 </table></div>`
   return finalizeEmailHtml(html, subject)
+}
+
+/** Plain-text footer lines: the same ways to reach the store. */
+function brandText(brand: EmailBrand | undefined): string[] {
+  const out = [brand?.email, brand?.phone, brand?.websiteUrl].filter((x): x is string => !!x)
+  return [...(out.length ? ["", ...out] : []), ...(brand?.helpUrl ? ["", `Get help with this order: ${brand.helpUrl}`] : [])]
+}
+
+/**
+ * Where the parcel is, as four steps: confirmed, on its way, out for
+ * delivery, delivered. Done steps in ink, the rest grey; a table, so every
+ * inbox draws it.
+ */
+function progressBar(at: 0 | 1 | 2 | 3): string {
+  const steps = ["Confirmed", "On its way", "Out for delivery", "Delivered"]
+  const cells = steps
+    .map((label, i) => {
+      const done = i <= at
+      return `<td class="step" width="25%" style="padding:0 ${i < 3 ? 4 : 0}px 0 0;vertical-align:top;font-size:12px;line-height:16px;color:${done ? INK : "#9ca3af"};${i === at ? "font-weight:600;" : ""}"><div style="height:4px;border-radius:2px;background:${done ? INK : "#e5e7eb"};margin:0 0 8px 0;line-height:4px;font-size:0;">&nbsp;</div>${label}</td>`
+    })
+    .join("")
+  return `<tr><td style="padding:0 28px 8px 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${cells}</tr></table></td></tr>`
+}
+
+/** A grey box holding the carrier and the number, with the number large enough to read off. */
+function trackingBox(carrier: string | null, number: string | null, url: string | null): string {
+  if (!number && !url) return ""
+  return `<tr><td style="padding:16px 28px 0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border:1px solid ${LINE};border-radius:12px;"><tr><td style="padding:14px 16px;"><p style="margin:0 0 2px 0;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};">${esc(carrier || "Tracking")}</p>${
+    number ? `<p style="margin:0;font-size:15px;font-weight:600;color:${INK};font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">${esc(number)}</p>` : ""
+  }</td>${url ? `<td align="right" style="padding:14px 16px;"><a href="${esc(url)}" style="font-size:14px;font-weight:600;color:${INK};text-decoration:underline;white-space:nowrap;">Track</a></td>` : ""}</tr></table></td></tr>`
+}
+
+/** A second way on, as a link under the button. */
+function textLink(href: string, label: string): string {
+  return `<tr><td style="padding:12px 28px 0 28px;font-size:14px;color:${MUTED};">or <a href="${esc(href)}" style="color:${INK};text-decoration:underline;">${esc(label)}</a></td></tr>`
 }
 
 function linesTable(lines: EmailLine[], currency: string, prices = true, ruled = true): string {
@@ -130,6 +198,7 @@ export interface OrderEmailModel {
   paymentLabel?: string | null
   /** Where a question goes, said in the footer as well as by replying. */
   supportEmail?: string | null
+  brand?: EmailBrand
 }
 
 function pickupBlock(p: { name: string; address: string[]; ready: string | null; instructions: string | null }): string {
@@ -203,9 +272,17 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     "",
     `View your order: ${m.statusUrl}`,
     ...(m.storeUrl ? [`Visit our store: ${m.storeUrl}`] : []),
+    ...brandText(m.brand),
   ].join("\n")
-  const footer = m.supportEmail ? `If you have any questions, reply to this email or write to ${esc(m.supportEmail)}.` : undefined
-  return { subject, html: shell(m.shopName, "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer }), text }
+  const brand: EmailBrand = { ...m.brand, email: m.brand?.email ?? m.supportEmail ?? null }
+  const footer = brand.email ? "If you have any questions, reply to this email or write to the store:" : undefined
+  return { subject, html: shell(m.shopName, "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand }), text }
+}
+
+/** "Get directions": the pickup address in a maps search, which opens the phone's maps app. */
+function directionsUrl(p: { name: string; address: string[] }): string | null {
+  const q = p.address.filter(Boolean).join(", ")
+  return q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : null
 }
 
 /** Ready to collect, or collected. */
@@ -217,23 +294,34 @@ export function pickupEmail(m: {
   kind: "ready" | "picked_up"
   pickup: { name: string; address: string[]; ready: string | null; instructions: string | null }
   statusUrl: string
+  brand?: EmailBrand
 }): { subject: string; html: string; text: string } {
   const heading = m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up"
   const subject = heading.replace("Your order", `Order ${m.orderNumber}`)
   const intro =
     m.kind === "ready"
-      ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is ready. Bring your order number, ${esc(m.orderNumber)}.`
-      : "Thanks for picking up your order. We hope you love it."
-  const body = [linesTable(m.lines, "USD", false), m.kind === "ready" ? pickupBlock({ ...m.pickup, ready: null }) : "", button(m.statusUrl, "View your order")].join("")
+      ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is waiting for you. Bring your order number, ${esc(m.orderNumber)}, and we'll hand it over.`
+      : `${m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : ""}Your order was collected. We hope you love it.`
+  const directions = m.kind === "ready" ? directionsUrl(m.pickup) : null
+  const body = [
+    m.kind === "ready" ? pickupBlock({ ...m.pickup, ready: null }) : "",
+    m.kind === "ready" && directions ? button(directions, "Get directions") : button(m.statusUrl, "View your order"),
+    m.kind === "ready" && directions ? textLink(m.statusUrl, "View your order") : "",
+    sectionHeading(m.kind === "ready" ? "Ready for you" : "Picked up"),
+    linesTable(m.lines, "USD", false, false),
+  ].join("")
   const text = [
     `${m.shopName}: ${subject}`,
     "",
+    intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
+    "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
-    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])] : []),
+    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `Directions: ${directions}`] : [])] : []),
     "",
     `View your order: ${m.statusUrl}`,
+    ...brandText(m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
 }
 
 /** To the seller: these sold down to their low stock line. */
@@ -266,37 +354,85 @@ export interface ShipmentEmailModel {
   trackingUrl: string | null
   address: Partial<Address> | null
   statusUrl: string
-  kind: "shipped" | "delivered" | "out_for_delivery"
+  /** tracking: the parcel already left and its tracking number changed. */
+  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking"
+  /** How it is coming, as the buyer chose it at checkout ("Standard, 3 to 5 business days"). */
+  deliveryName?: string | null
+  /** Some items of the order, not all: say so, so the buyer isn't left waiting on the rest by surprise. */
+  partial?: boolean
+  brand?: EmailBrand
 }
 
+/**
+ * SHIPPED, OUT FOR DELIVERY, DELIVERED, OR A NEW TRACKING NUMBER. Where the
+ * parcel is (the four steps), the carrier and the number with a Track link
+ * that opens the carrier's own live tracking, where it's going, and what is
+ * in it. A part-shipment says the rest follows.
+ */
 export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: string; text: string } {
-  const heading = m.kind === "delivered" ? "Your order was delivered" : m.kind === "out_for_delivery" ? "Your order is out for delivery" : "Your order is on the way"
-  const subject = `${heading.replace("Your order", `Order ${m.orderNumber}`)}`
+  const heading =
+    m.kind === "delivered"
+      ? "Your order was delivered"
+      : m.kind === "out_for_delivery"
+        ? "Your order is out for delivery"
+        : m.kind === "tracking"
+          ? "Your tracking number changed"
+          : m.partial
+            ? "Part of your order is on the way"
+            : "Your order is on the way"
+  const subject = m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : heading.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`)
+  const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
   const intro =
     m.kind === "delivered"
-      ? "Your package was delivered. We hope you love it."
+      ? `${hi ? `${hi}your` : "Your"} package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
       : m.kind === "out_for_delivery"
-        ? "Your package is out for delivery today."
-        : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your items have shipped.`
-  const tracking = m.trackingNumber ? `${m.carrier ? `${esc(m.carrier)} ` : ""}tracking number ${esc(m.trackingNumber)}` : undefined
+        ? `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
+        : m.kind === "tracking"
+          ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
+          : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`
+  const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
+  const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, "View your order")
+  const info: { label: string; html: string }[] = []
+  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
+  if (m.deliveryName) info.push({ label: "Shipping method", html: esc(m.deliveryName) })
   const body = [
-    linesTable(m.lines, "USD", false),
-    tracking ? addressBlock("Tracking", null, tracking) : "",
-    m.kind !== "delivered" && m.address?.line1 ? addressBlock("Shipping to", m.address) : "",
-    m.trackingUrl ? button(m.trackingUrl, "Track your package") : button(m.statusUrl, "View your order"),
+    progressBar(at),
+    m.kind === "delivered" ? "" : trackingBox(m.carrier, m.trackingNumber, m.trackingUrl),
+    primary,
+    sectionHeading(m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : "Items in this shipment"),
+    linesTable(m.lines, "USD", false, false),
+    info.length ? sectionHeading("Delivery") + infoGrid(info) : "",
   ].join("")
+  const tracking = m.trackingNumber ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
   const text = [
     `${m.shopName}: ${subject}`,
     "",
-    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
-    ...(tracking ? ["", tracking.replace(/&amp;/g, "&")] : []),
+    intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
     "",
-    m.trackingUrl ? `Track: ${m.trackingUrl}` : `View your order: ${m.statusUrl}`,
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
+    ...(tracking ? ["", tracking] : []),
+    ...(m.trackingUrl ? [`Track: ${m.trackingUrl}`] : []),
+    "",
+    `View your order: ${m.statusUrl}`,
+    ...brandText(m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
 }
 
-export function returnEmail(m: { shopName: string; orderNumber: string; status: "approved" | "rejected" | "received" | "completed"; note: string | null; refundedCents: number; currency: string; statusUrl: string }): {
+export function returnEmail(m: {
+  shopName: string
+  orderNumber: string
+  status: "approved" | "rejected" | "received" | "completed"
+  note: string | null
+  refundedCents: number
+  currency: string
+  statusUrl: string
+  /** What is coming back, when the return named it. */
+  lines?: EmailLine[]
+  /** Where to send it, for an approved return: the store's return address. */
+  returnAddress?: string[] | null
+  brand?: EmailBrand
+}): {
   subject: string
   html: string
   text: string
@@ -305,21 +441,78 @@ export function returnEmail(m: { shopName: string; orderNumber: string; status: 
     m.status === "approved" ? "Your return was approved" : m.status === "rejected" ? "About your return" : m.status === "received" ? "We received your return" : "Your return is complete"
   const intro =
     m.status === "approved"
-      ? "Send the items back using the details below."
+      ? m.returnAddress?.length
+        ? "Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives."
+        : "Pack the items securely and follow the store's note below. Keep the shipping receipt until your refund arrives."
       : m.status === "rejected"
-        ? "The shop could not accept this return."
+        ? "The store couldn't accept this return. Their note says why. If you think it's a mistake, reply to this email."
         : m.status === "received"
-          ? "Your items arrived back at the shop."
+          ? "Your items arrived back at the store. They'll check them and send your refund."
           : m.refundedCents > 0
-            ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your payment method.`
+            ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.`
             : "Your return is closed."
   const subject = `${heading} (order ${m.orderNumber})`
-  const body = [m.note ? addressBlock("From the shop", null, esc(m.note)) : "", button(m.statusUrl, "View your order")].join("")
+  const body = [
+    m.note ? addressBlock("From the store", null, esc(m.note).replace(/\n/g, "<br>")) : "",
+    m.status === "approved" && m.returnAddress?.length ? addressBlock("Send it to", null, m.returnAddress.map(esc).join("<br>")) : "",
+    button(m.statusUrl, "View your order"),
+    m.lines?.length ? sectionHeading("Items in this return") + linesTable(m.lines, m.currency, false, false) : "",
+  ].join("")
   return {
     subject,
-    html: shell(m.shopName, heading, intro, body, subject),
-    text: [`${m.shopName}: ${heading}`, "", intro.replace(/&amp;/g, "&"), ...(m.note ? ["", m.note] : []), "", `View your order: ${m.statusUrl}`].join("\n"),
+    html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }),
+    text: [
+      `${m.shopName}: ${heading}`,
+      "",
+      intro.replace(/&amp;/g, "&"),
+      ...(m.note ? ["", m.note] : []),
+      ...(m.status === "approved" && m.returnAddress?.length ? ["", "Send it to:", ...m.returnAddress] : []),
+      "",
+      `View your order: ${m.statusUrl}`,
+      ...brandText(m.brand),
+    ].join("\n"),
   }
+}
+
+/** The order was cancelled before it shipped: what was cancelled, and the money. */
+export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand }): {
+  subject: string
+  html: string
+  text: string
+} {
+  const subject = `Order ${m.orderNumber} was cancelled`
+  const money =
+    m.refundedCents >= m.totalCents && m.totalCents > 0
+      ? `Your payment of ${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method. Banks usually take 5 to 10 business days to show it.`
+      : m.refundedCents > 0
+        ? `${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method.`
+        : "If you were charged, the store will refund you and we'll email you when it's sent."
+  const intro = `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, your` : "Your"} order was cancelled and won't be shipped. ${money}`
+  const body = [
+    m.reason ? addressBlock("Reason", null, esc(m.reason)) : "",
+    button(m.statusUrl, "View your order"),
+    sectionHeading("Cancelled items"),
+    linesTable(m.lines, m.currency, true, false),
+  ].join("")
+  const text = [`${m.shopName}: ${subject}`, "", intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+}
+
+/** Money went back: how much this time, how much in all, and when it shows. */
+export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand }): {
+  subject: string
+  html: string
+  text: string
+} {
+  const full = m.refundedCents >= m.totalCents && m.totalCents > 0
+  const subject = `Refund for order ${m.orderNumber}`
+  const intro = `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, we` : "We"} sent you a refund of ${esc(formatMoney(m.amountCents, m.currency))}${m.paymentLabel ? ` to your ${esc(m.paymentLabel)}` : " to your original payment method"}. Banks usually take 5 to 10 business days to show it.`
+  const row = (label: string, value: string, strong = false) =>
+    `<tr><td style="padding:4px 0;font-size:14px;color:${strong ? INK : MUTED};${strong ? "font-weight:600;" : ""}">${esc(label)}</td><td align="right" style="padding:4px 0;font-size:14px;color:${INK};${strong ? "font-weight:600;" : ""}">${esc(value)}</td></tr>`
+  const table = `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${LINE};padding-top:8px;">${row("This refund", formatMoney(m.amountCents, m.currency), true)}${m.refundedCents !== m.amountCents ? row("Refunded in all", formatMoney(m.refundedCents, m.currency)) : ""}${row("Order total", formatMoney(m.totalCents, m.currency))}</table></td></tr>`
+  const body = [table, button(m.statusUrl, "View your order")].join("")
+  const text = [`${m.shopName}: ${subject}`, "", intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, full ? "Your order was refunded" : "You were sent a refund", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
 }
 
 /** The order a supplier or dropshipper is asked to ship: what, how many, to whom. No prices. */

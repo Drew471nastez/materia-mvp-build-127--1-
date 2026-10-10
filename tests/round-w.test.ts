@@ -8,6 +8,8 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { CASE_REASONS, readNewCase, reasonsFor, statusAfterMessage, caseLink } from "@/lib/support/cases"
+import { orderCancelledEmail, refundEmail, returnEmail, shipmentEmail } from "@/lib/physical/email-templates"
+import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
 
 let passed = 0
 let failed = 0
@@ -61,6 +63,31 @@ const id = read("lib/store/identity-server.ts")
 check("logo: Store details, else the website's, else the photo", id.indexOf('"store"') < id.indexOf('"website"') && id.indexOf('"website"') < id.indexOf('"profile"'))
 check("email: Store details, else support email, else the owner's, never a relay", /contact_email/.test(id) && /support_email/.test(id) && /\\\+slb-/.test(id))
 check("SQL part 118 adds the logo and contact email", /logo_url/.test(read("supabase/sql/run-now/118_store_identity.sql")) && /contact_email/.test(read("supabase/sql/run-now/118_store_identity.sql")))
+
+console.log("\nEmails a buyer gets, signed by the store")
+{
+  const brand = { logoUrl: "https://cdn.example.com/logo.png", email: "hi@shop.ro", phone: "+40 712 345 678", websiteUrl: "https://shop.ro", helpUrl: "https://storelib.com/checkout/physical/order/t#get-help" }
+  const line = [{ title: "Mug", variantName: null, quantity: 1, cents: 0, imageUrl: null }]
+  const base = { shopName: "Shop", orderNumber: "#1", buyerFirstName: "Ana", lines: line, carrier: "DHL", trackingNumber: "JD01", trackingUrl: "https://www.dhl.com/track?id=JD01", address: { line1: "Str 1", city: "Cluj", country: "RO" }, statusUrl: "https://x" }
+  const shipped = shipmentEmail({ ...base, kind: "shipped", brand })
+  check("the store's logo on top", shipped.html.includes('src="https://cdn.example.com/logo.png"'))
+  check("its address, phone and website in the footer", /mailto:hi@shop\.ro/.test(shipped.html) && /tel:\+40712345678/.test(shipped.html) && /shop\.ro<\/a>/.test(shipped.html))
+  check("Get help goes to the order page's help form", /#get-help/.test(shipped.html) && /Get help with this order/.test(shipped.text))
+  check("where the parcel is: four steps, on its way lit", /On its way/.test(shipped.html) && /Out for delivery/.test(shipped.html))
+  check("a logo that isn't https is never drawn", !/<img[^>]+javascript/.test(shipmentEmail({ ...base, kind: "shipped", brand: { logoUrl: "javascript:x" } }).html))
+  check("part of an order says the rest follows", /The rest follow/.test(shipmentEmail({ ...base, kind: "shipped", partial: true }).html))
+  check("a changed tracking number has its own subject", /New tracking number/.test(shipmentEmail({ ...base, kind: "tracking" }).subject))
+  check("a cancelled order says the refund", /refunded/.test(orderCancelledEmail({ shopName: "Shop", orderNumber: "#1", buyerFirstName: null, reason: null, refundedCents: 500, totalCents: 500, currency: "EUR", lines: line, statusUrl: "https://x" }).html))
+  check("a refund says how much this time", /This refund/.test(refundEmail({ shopName: "Shop", orderNumber: "#1", buyerFirstName: null, amountCents: 200, refundedCents: 200, totalCents: 500, currency: "EUR", paymentLabel: null, statusUrl: "https://x" }).html))
+  const approved = returnEmail({ shopName: "Shop", orderNumber: "#1", status: "approved", note: null, refundedCents: 0, currency: "EUR", statusUrl: "https://x", returnAddress: ["Shop", "Str 1"] })
+  check("an approved return says where to send it", /Send it to/.test(approved.html))
+  check("every email in Settings › Customer emails previews", CUSTOMER_EMAILS.every((e) => !!previewCustomerEmail(e.id, { name: "Shop" })))
+  const job = read("lib/physical/jobs-server.ts")
+  check("the sender signs with the store's identity", /storeIdentity\(db, co\.creator_id\)/.test(job) && /brand/.test(job))
+  const orders = read("lib/physical/orders-server.ts")
+  check("cancelling emails the buyer; a refund does, once per total", /queueCancelledEmail\(db, checkoutId, creatorId\)/.test(orders) && (orders.match(/queueRefundEmail\(/g) ?? []).length >= 2 && /email:refund:\$\{checkoutId\}:\$\{refundedCents\}/.test(job))
+  check("no em dashes or filler words", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(shipped.html + approved.html))
+}
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

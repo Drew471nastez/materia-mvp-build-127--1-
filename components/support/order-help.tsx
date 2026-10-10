@@ -20,6 +20,11 @@ export function OrderHelp({ kind, token, storeName, openCase, className }: { kin
   const [error, setError] = React.useState<string | null>(null)
   const [sent, setSent] = React.useState<string | null>(null)
 
+  /* "Get help with this order" in an email lands here (#get-help) with the form already open. */
+  React.useEffect(() => {
+    if (window.location.hash === "#get-help") setOpen(true)
+  }, [])
+
   const send = async () => {
     setError(null)
     if (!reason) return setError("Choose what's wrong.")
@@ -38,7 +43,7 @@ export function OrderHelp({ kind, token, storeName, openCase, className }: { kin
 
   const link = sent ?? openCase?.link ?? null
   return (
-    <section className={cn("rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]", className)} data-order-help="">
+    <section id="get-help" className={cn("scroll-mt-6 rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)]", className)} data-order-help="">
       {link ? (
         <div>
           <p className="text-[15px] font-semibold text-[#1a1a2e]">{sent ? `Sent to ${storeName}` : `Your case with ${storeName} is open`}</p>

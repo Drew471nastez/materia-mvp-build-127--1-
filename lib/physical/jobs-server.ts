@@ -24,7 +24,9 @@ import { resolveCreatorIdentity, resolveSellerEmail } from "@/lib/email"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
-import { lowStockEmail, orderConfirmationEmail, pickupEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailLine } from "./email-templates"
+import { lowStockEmail, orderCancelledEmail, orderConfirmationEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
+import { storeIdentity } from "@/lib/store/identity-server"
+import { addressLines } from "./address"
 import { METHODS, readMethod } from "./fulfillment"
 import { PICKUP_READY_LABEL } from "./pickup"
 import type { PickupReady } from "./types"
@@ -54,8 +56,23 @@ export async function queueOrderConfirmation(db: Db, checkoutId: string, creator
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:confirmation:${checkoutId}`, payload: { template: "confirmation", checkoutId } })
 }
 
-export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered"): Promise<void> {
-  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
+export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking", key?: string): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: key ?? `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
+}
+
+/** Cancelled before it shipped: once per order. */
+export async function queueCancelledEmail(db: Db, checkoutId: string, creatorId: string): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:cancelled:${checkoutId}`, payload: { template: "cancelled", checkoutId } })
+}
+
+/**
+ * Money went back. Keyed by the order's refunded total, so the Refund button
+ * and Stripe's webhook for the same refund queue one email, and a second
+ * refund later queues its own. amountCents is this refund alone.
+ */
+export async function queueRefundEmail(db: Db, checkoutId: string, creatorId: string, refundedCents: number, amountCents: number): Promise<void> {
+  if (amountCents <= 0) return
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents } })
 }
 
 export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "approved" | "rejected" | "received" | "completed"): Promise<void> {
@@ -214,6 +231,8 @@ interface CheckoutForEmail {
   creator_id: string
   buyer_email: string | null
   buyer_name: string | null
+  cancel_reason?: string | null
+  refunded_cents?: number | null
   currency: string
   items_subtotal_cents: number
   discount_cents: number
@@ -276,26 +295,49 @@ function addressOf(a: Record<string, any> | null) {
   return a ? { name: a.name, line1: a.line1, line2: a.line2, city: a.city, region: a.region, postalCode: a.postalCode, country: a.country, phone: a.phone } : null
 }
 
+/** Item rows for an email from the order rows it names (a shipment's items, a return's items). */
+async function linesOfOrders(db: Db, checkoutId: string, items: { order_id: string; quantity: number }[]): Promise<EmailLine[]> {
+  if (items.length === 0) return []
+  const { data: orders } = await db.from("orders").select("id, product_snapshot").eq("checkout_id", checkoutId)
+  const snap = new Map(((orders ?? []) as { id: string; product_snapshot: Record<string, any> | null }[]).map((o) => [o.id, o.product_snapshot ?? {}]))
+  return items.map((i) => {
+    const s = snap.get(i.order_id) ?? {}
+    return { title: s.title ?? "Item", variantName: s.variant_name ?? null, quantity: i.quantity, cents: 0, imageUrl: s.image_url ?? null }
+  })
+}
+
+/** Where a return is sent: the store's default location when the store ships from it, as address lines. */
+async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | null> {
+  const { data: settings } = await db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle()
+  let q = db.from("inventory_locations").select("name, kind, address_line1, address_line2, city, region, postal_code, country, forwarding").eq("creator_id", creatorId).eq("active", true)
+  q = settings?.default_location_id ? q.eq("id", settings.default_location_id) : q.order("priority", { ascending: true })
+  const { data } = await q.limit(1).maybeSingle()
+  if (!data?.address_line1) return null
+  /* A partner's warehouse is theirs; the buyer is told by the store where to send it, in its note. */
+  if (["print_on_demand", "dropshipper", "supplier", "third_party_logistics"].includes(data.kind)) return null
+  return addressLines({ name: data.name, line1: data.address_line1, line2: data.address_line2, city: data.city, region: data.region, postalCode: data.postal_code, country: data.country })
+}
+
 async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   if (!co.buyer_email) return
-  const identity = await resolveCreatorIdentity(db, co.creator_id)
-  const shopName = identity.fromName || "Storelib"
+  const [identity, store] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id)])
+  const shopName = store.name || identity.fromName || "Storelib"
   const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
   const number = orderNumber(co.id)
+  const orderUrl = statusUrl(co.receipt_token)
+  /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
+  const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help` }
   let mail: { subject: string; html: string; text: string }
 
   if (p.template === "confirmation") {
-    /* The store to visit, how it was paid, and where questions go: each optional, the email reads without it. */
-    const [{ data: creatorRow }, { data: paidRow }] = await Promise.all([
-      db.from("creators").select("username, slug, support_email").eq("id", co.creator_id).maybeSingle(),
-      db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle(),
-    ])
-    const handle = (creatorRow?.username || creatorRow?.slug || "") as string
+    /* How it was paid: optional, the email reads without it. */
+    const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
     mail = orderConfirmationEmail({
-      storeUrl: handle ? `https://${getMainDomain()}/${encodeURIComponent(handle)}` : null,
+      storeUrl: store.websiteUrl,
       paymentLabel: paymentLabelOf(paidRow),
-      supportEmail: (creatorRow?.support_email as string | null) || identity.replyTo || null,
+      supportEmail: store.email || identity.replyTo || null,
+      brand: { ...brand, websiteUrl: null },
       shopName,
       orderNumber: number,
       buyerFirstName: firstName,
@@ -313,47 +355,69 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,
       deliveryEstimate: co.shipping_rate ? deliveryEstimate({ minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null }) || null : null,
-      statusUrl: statusUrl(co.receipt_token),
+      statusUrl: orderUrl,
       hasDownloads: co.lines.some((l) => l.type !== "physical"),
       pickup: pickupOf(co),
     })
   } else if (p.template === "shipment") {
-    const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer").eq("id", p.fulfillmentId).maybeSingle()
-    if (!f || f.notify_buyer === false) return
+    const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("id", p.fulfillmentId).maybeSingle()
+    if (!f || f.notify_buyer === false || f.status === "cancelled") return
     const { data: items } = await db.from("fulfillment_items").select("order_id, quantity").eq("fulfillment_id", f.id)
-    const { data: orders } = await db.from("orders").select("id, product_snapshot").eq("checkout_id", co.id)
-    const snap = new Map(((orders ?? []) as { id: string; product_snapshot: Record<string, any> | null }[]).map((o) => [o.id, o.product_snapshot ?? {}]))
+    const shipped = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
     const pickup = pickupOf(co)
-    const shipped = ((items ?? []) as { order_id: string; quantity: number }[]).map((i) => {
-      const s = snap.get(i.order_id) ?? {}
-      return { title: s.title ?? "Item", variantName: s.variant_name ?? null, quantity: i.quantity, cents: 0, imageUrl: s.image_url ?? null }
-    })
     if (pickup) {
-      if (p.kind === "out_for_delivery") return
-      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: statusUrl(co.receipt_token) })
-    } else
+      if (p.kind === "out_for_delivery" || p.kind === "tracking") return
+      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand })
+    } else {
+      /* Part of the order: what still has to ship after every live shipment so far. */
+      const { data: all } = await db.from("fulfillments").select("id, status, fulfillment_items ( quantity )").eq("checkout_id", co.id)
+      const sent = ((all ?? []) as { status: string; fulfillment_items: { quantity: number }[] | null }[]).filter((x) => x.status !== "cancelled").reduce((n, x) => n + (x.fulfillment_items ?? []).reduce((m, i) => m + i.quantity, 0), 0)
+      const owed = co.lines.filter((l) => l.requires_shipping).reduce((n, l) => n + (l.quantity ?? 0), 0)
       mail = shipmentEmail({
+        shopName,
+        orderNumber: number,
+        buyerFirstName: firstName,
+        lines: shipped,
+        carrier: f.carrier,
+        trackingNumber: f.tracking_number,
+        trackingUrl: f.tracking_url,
+        address: addressOf(co.shipping_address),
+        deliveryName: co.shipping_rate?.name ?? null,
+        partial: p.kind === "shipped" && owed > 0 && sent < owed,
+        statusUrl: orderUrl,
+        kind: p.kind,
+        brand,
+      })
+    }
+  } else if (p.template === "return") {
+    const [{ data: r }, { data: items }] = await Promise.all([
+      db.from("commerce_returns").select("merchant_note, refunded_cents").eq("id", p.returnId).maybeSingle(),
+      db.from("commerce_return_items").select("order_id, quantity").eq("return_id", p.returnId),
+    ])
+    mail = returnEmail({
       shopName,
       orderNumber: number,
-      buyerFirstName: firstName,
-      lines: shipped,
-      carrier: f.carrier,
-      trackingNumber: f.tracking_number,
-      trackingUrl: f.tracking_url,
-      address: addressOf(co.shipping_address),
-      statusUrl: statusUrl(co.receipt_token),
-      kind: p.kind,
+      status: p.status,
+      note: r?.merchant_note ?? null,
+      refundedCents: r?.refunded_cents ?? 0,
+      currency: co.currency,
+      statusUrl: orderUrl,
+      lines: await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[]),
+      returnAddress: p.status === "approved" ? await returnAddressOf(db, co.creator_id) : null,
+      brand,
     })
-  } else if (p.template === "return") {
-    const { data: r } = await db.from("commerce_returns").select("merchant_note, refunded_cents").eq("id", p.returnId).maybeSingle()
-    mail = returnEmail({ shopName, orderNumber: number, status: p.status, note: r?.merchant_note ?? null, refundedCents: r?.refunded_cents ?? 0, currency: co.currency, statusUrl: statusUrl(co.receipt_token) })
+  } else if (p.template === "cancelled") {
+    mail = orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand })
+  } else if (p.template === "refund") {
+    const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
+    mail = refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand })
   } else {
     return
   }
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
     to: co.buyer_email,
-    replyTo: identity.replyTo || identity.sellerEmail || undefined,
+    replyTo: identity.replyTo || store.email || identity.sellerEmail || undefined,
     subject: mail.subject,
     html: mail.html,
     text: mail.text,
@@ -373,9 +437,17 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
               : "Ready for pickup email sent to the buyer"
             : p.kind === "delivered"
               ? "Delivery email sent to the buyer"
-              : "Shipping email sent to the buyer"
-          : "Return update emailed to the buyer",
-    key: `email_sent:${p.template}:${p.fulfillmentId ?? p.returnId ?? co.id}:${p.kind ?? p.status ?? ""}`,
+              : p.kind === "out_for_delivery"
+                ? "Out for delivery email sent to the buyer"
+                : p.kind === "tracking"
+                  ? "New tracking number emailed to the buyer"
+                  : "Shipping email sent to the buyer"
+          : p.template === "cancelled"
+            ? "Cancellation emailed to the buyer"
+            : p.template === "refund"
+              ? "Refund emailed to the buyer"
+              : "Return update emailed to the buyer",
+    key: `email_sent:${p.template}:${p.fulfillmentId ?? p.returnId ?? co.id}:${p.kind ?? p.status ?? p.refundedCents ?? ""}`,
   })
 }
 
