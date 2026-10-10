@@ -1,7 +1,9 @@
 "use client"
 
 /**
- * SUPPORT: a store asking Storelib for help, and the answers.
+ * SUPPORT: two inboxes. From buyers: a buyer's problem with an order, which
+ * comes to the store first (./buyer-cases.tsx, lib/support/cases.ts).
+ * Storelib: the store asking Storelib for help, and the answers.
  *
  * The list of requests, newest activity first, with whose turn it is; one
  * opens into its thread (?ticket=<id>, so the email's Reply button lands
@@ -16,6 +18,8 @@ import { cn } from "@/lib/utils"
 import { BTN_PRIMARY, BTN_SECONDARY, Empty, FIELD, Field, Modal, Notice, Pill, SelectInput, TextInput, api, dateTime } from "@/components/physical/ui"
 import { STATUS_FOR_STORE, TOPICS, TOPIC_LABELS, type TicketMessage, type TicketStatus, type TicketSummary, type Topic } from "@/lib/support/tickets"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, card } from "../orders/order-parts"
+import { BuyerCaseThread, BuyerCasesList } from "./buyer-cases"
+import type { CaseSummary } from "@/lib/support/cases"
 
 const TONE: Record<TicketStatus, "blue" | "amber" | "gray"> = { open: "blue", waiting: "amber", resolved: "gray" }
 const AREA = cn(FIELD, "h-auto min-h-[132px] py-2.5 leading-[21px] sm:h-auto")
@@ -24,8 +28,13 @@ export function SupportClient() {
   const router = useRouter()
   const params = useSearchParams()
   const openId = params.get("ticket")
+  const caseId = params.get("case")
+  /* From buyers first: a buyer waiting on the store is the more urgent of the two. */
+  const view: "buyers" | "storelib" = params.get("view") === "storelib" || openId ? "storelib" : "buyers"
   const [tickets, setTickets] = React.useState<TicketSummary[] | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  const [cases, setCases] = React.useState<CaseSummary[] | null>(null)
+  const [casesError, setCasesError] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -34,11 +43,24 @@ export function SupportClient() {
     setError(null)
     setTickets(r.data.tickets)
   }, [])
+  const loadCases = React.useCallback(async () => {
+    const r = await api<{ cases: CaseSummary[] }>("/api/store/cases")
+    if ("error" in r) {
+      setCasesError(r.error)
+      return setCases([])
+    }
+    setCasesError(null)
+    setCases(r.data.cases)
+  }, [])
+  /* Both lists, at once: switching between them shows what is already there. */
   React.useEffect(() => {
     void load()
-  }, [load])
+    void loadCases()
+  }, [load, loadCases])
 
-  const go = (id: string | null) => router.replace(id ? `/app/support?ticket=${id}` : "/app/support", { scroll: false })
+  const go = (id: string | null) => router.replace(id ? `/app/support?view=storelib&ticket=${id}` : "/app/support?view=storelib", { scroll: false })
+  const goCase = (id: string | null) => router.replace(id ? `/app/support?case=${id}` : "/app/support", { scroll: false })
+  const waiting = (cases ?? []).filter((c) => c.status === "store" || c.unread).length
 
   return (
     <div className="orders-pane h-full overflow-y-auto overflow-x-hidden page-scroll bg-[#f8f9fa] app-page-enter" data-support="">
@@ -50,8 +72,26 @@ export function SupportClient() {
         </button>
       </PaneBar>
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
-        {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {openId ? (
+        <div role="tablist" aria-label="Support" className="mb-4 inline-flex rounded-xl bg-[#eef0f2] p-1" data-support-tabs="">
+          {([
+            ["buyers", waiting ? `From buyers (${waiting})` : "From buyers"],
+            ["storelib", "Storelib"],
+          ] as const).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              role="tab"
+              aria-selected={view === id}
+              onClick={() => router.replace(id === "storelib" ? "/app/support?view=storelib" : "/app/support", { scroll: false })}
+              className={cn("h-8 rounded-lg px-3.5 text-[13.5px] font-medium transition-colors", view === id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {view === "buyers" ? (
+          caseId ? <BuyerCaseThread id={caseId} onBack={() => goCase(null)} onChanged={loadCases} /> : <BuyerCasesList cases={cases} error={casesError} onOpen={goCase} />
+        ) : error ? <Notice className="mb-3">{error}</Notice> : openId ? (
           <Thread id={openId} onBack={() => go(null)} onChanged={load} />
         ) : tickets === null ? (
           <div className="min-h-[240px]" aria-busy="true" />

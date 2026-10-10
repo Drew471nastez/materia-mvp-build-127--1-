@@ -2764,5 +2764,33 @@ CREATE POLICY store_offers_owner_read ON public.store_offers FOR SELECT TO authe
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.store_offers FROM PUBLIC, anon, authenticated;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('116', '116_store_offers.sql', 'c0369e5053de39625af3fd0e48094e373bea4b1042002d7775d5da934b445209') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 117_order_cases.sql
+/* Buyers asking for help with an order, the way a marketplace handles it. `order_cases` is one buyer's case about one order: the store it is with, the order (a cart checkout that ships, `checkout_id`, or a digital purchase, `order_id`, and the number the buyer sees), the buyer's email and name as the order holds them, why they ask (not arrived, damaged, wrong item, missing item, return, refund, can't open what they bought, something else), whose turn it is (`store`, `buyer`, `storelib` once Storelib is asked to step in, then `resolved`), who asked Storelib in and when, and the hash of the private link the buyer reads it with. `order_case_messages` is the thread: the buyer, the store and Storelib, and Storelib's internal notes, which nobody else sees. A store reads its own cases and the messages on them that aren't notes; only the server writes. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.order_cases (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, checkout_id uuid REFERENCES public.commerce_checkouts(id) ON DELETE SET NULL, order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL, order_ref text CHECK (order_ref IS NULL OR length(order_ref) <= 60), buyer_email text NOT NULL CHECK (length(buyer_email) BETWEEN 3 AND 254), buyer_name text CHECK (buyer_name IS NULL OR length(buyer_name) <= 120), reason text NOT NULL DEFAULT 'other' CHECK (reason IN ('not_arrived', 'damaged', 'wrong_item', 'missing_item', 'return', 'refund', 'access', 'other')), status text NOT NULL DEFAULT 'store' CHECK (status IN ('store', 'buyer', 'storelib', 'resolved')), escalated boolean NOT NULL DEFAULT false, escalated_by text CHECK (escalated_by IS NULL OR escalated_by IN ('buyer', 'store')), escalated_at timestamptz, access_hash text NOT NULL CHECK (length(access_hash) = 64), store_unread boolean NOT NULL DEFAULT true, buyer_unread boolean NOT NULL DEFAULT false, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), last_message_at timestamptz NOT NULL DEFAULT now(), resolved_at timestamptz, resolved_by text CHECK (resolved_by IS NULL OR resolved_by IN ('buyer', 'store', 'storelib')), CONSTRAINT order_cases_has_order CHECK (checkout_id IS NOT NULL OR order_id IS NOT NULL));
+CREATE INDEX IF NOT EXISTS order_cases_creator_idx ON public.order_cases (creator_id, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS order_cases_queue_idx ON public.order_cases (escalated, status, last_message_at DESC);
+CREATE INDEX IF NOT EXISTS order_cases_checkout_idx ON public.order_cases (checkout_id) WHERE checkout_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS order_cases_order_idx ON public.order_cases (order_id) WHERE order_id IS NOT NULL;
+CREATE TABLE IF NOT EXISTS public.order_case_messages (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, case_id uuid NOT NULL REFERENCES public.order_cases(id) ON DELETE CASCADE, author text NOT NULL CHECK (author IN ('buyer', 'store', 'storelib')), internal boolean NOT NULL DEFAULT false, body text NOT NULL CHECK (length(btrim(body)) BETWEEN 1 AND 5000), created_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT order_case_messages_note_is_storelib CHECK (NOT internal OR author = 'storelib'));
+CREATE INDEX IF NOT EXISTS order_case_messages_case_idx ON public.order_case_messages (case_id, id);
+ALTER TABLE public.order_cases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.order_case_messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS order_cases_owner_read ON public.order_cases;
+CREATE POLICY order_cases_owner_read ON public.order_cases FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.creators c WHERE c.id = order_cases.creator_id AND c.user_id = auth.uid()));
+DROP POLICY IF EXISTS order_case_messages_owner_read ON public.order_case_messages;
+CREATE POLICY order_case_messages_owner_read ON public.order_case_messages FOR SELECT TO authenticated USING (NOT internal AND EXISTS (SELECT 1 FROM public.order_cases oc JOIN public.creators c ON c.id = oc.creator_id WHERE oc.id = order_case_messages.case_id AND c.user_id = auth.uid()));
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.order_cases, public.order_case_messages FROM PUBLIC, anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('117', '117_order_cases.sql', 'db120e575d88556d374de1cfa919b9e92e3516997ecd7e11999523081c1ab73c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 118_store_identity.sql
+/* What a store signs its receipts, order emails and buyer cases with. Two more columns on `store_settings` (part 109): `logo_url`, the picture at the top of every receipt and customer email (when empty, the website's logo, then the person's photo), and `contact_email`, where buyers' replies and questions go (when empty, the support email on the creator, then the owner's own). Safe to run again. */
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS logo_url text;
+ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS contact_email text;
+ALTER TABLE public.store_settings DROP CONSTRAINT IF EXISTS store_settings_logo_url_check;
+ALTER TABLE public.store_settings ADD CONSTRAINT store_settings_logo_url_check CHECK (logo_url IS NULL OR length(logo_url) BETWEEN 1 AND 600);
+ALTER TABLE public.store_settings DROP CONSTRAINT IF EXISTS store_settings_contact_email_check;
+ALTER TABLE public.store_settings ADD CONSTRAINT store_settings_contact_email_check CHECK (contact_email IS NULL OR (length(contact_email) BETWEEN 3 AND 254 AND position('@' in contact_email) > 1));
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('118', '118_store_identity.sql', '5e02ca469ad0fefa147e41149c14f5f9ea4975c6d29e7ed6c2e34c8634f77121') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

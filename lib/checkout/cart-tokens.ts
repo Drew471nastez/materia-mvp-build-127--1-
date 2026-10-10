@@ -17,3 +17,6 @@ function derived(kind: string, sessionId: string, index = 0): string {
 
 export const cartReceiptToken = (sessionId: string, index: number) => derived("cart-receipt", sessionId, index)
 export const cartFingerprint = (sessionId: string) => derived("cart-session", sessionId)
+
+/** A buyer's private link to their case about an order (lib/support/cases-server.ts): the same for every email about it, and only its hash is stored. */
+export const orderCaseSecret = (caseId: string) => derived("order-case", caseId)
