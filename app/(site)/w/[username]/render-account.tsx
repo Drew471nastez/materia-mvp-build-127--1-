@@ -37,6 +37,8 @@ import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { ACCOUNT_PAGE_PATHS, accountPageSections } from "@/lib/website-builder/account-pages"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { withoutChrome } from "@/lib/website-builder/universal-chrome"
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { pageTitleFromKey, templateForPage } from "@/lib/website-builder/site-pages"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -87,7 +89,13 @@ export async function renderAccountPage(
 
   const { site, products, productCount } = found
   const stored = site.pages[key]
-  const base = stored && stored.length > 0 ? stored : (accountPageSections(key, site.pages.home ?? site.sections) ?? [])
+  const own = stored && stored.length > 0 ? stored : (accountPageSections(key, site.pages.home ?? site.sections) ?? [])
+  /*
+    AN IMPORTED SHOPIFY THEME draws its own header and footer around this
+    page (lib/storelib-theme/compat/site.ts, accountShell), and this page is
+    shown inside it: the theme's chrome cannot be drawn here, so none is.
+  */
+  const base = compatOf(site.themeSettings) ? withoutChrome(own) : own
   /* Drawn like every other page: live links, then the shop's own facts (placeholders, menus, picked products). */
   const linked = pageWithLiveLinks(base, new Set(Object.keys(site.pages)))
   const template = templateForPage(key)

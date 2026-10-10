@@ -250,9 +250,11 @@ function drawOne(job: Job): string {
   }
   let html = ""
   const section = buildPreviewSection(job.type, job.presetIndex, job.schema)
+  /* A floating section (a popup, a phone tab bar, back to top) is hidden on a live page until it is scrolled to or its moment comes, so its card would be empty: it is drawn as the canvas draws it, in place and open. */
+  const floats = job.schema.enabled_on?.groups?.includes("overlay") === true
   flushSync(() => {
     root!.render(
-      <StorelibLiveProvider sources={job.sources}>
+      <StorelibLiveProvider sources={job.sources} inEditor={floats}>
         <Capture onCapture={(h) => { html = h }}>
           <SectionRenderer
             section={section}

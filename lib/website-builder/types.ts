@@ -484,6 +484,8 @@ export interface SectionPreset {
 export interface SectionSchema {
   type: string
   name: string
+  /** Read from an imported Shopify theme's file (lib/website-builder/storelib-schemas.ts). */
+  imported?: boolean
   description?: string
   icon?: string
   category?: string

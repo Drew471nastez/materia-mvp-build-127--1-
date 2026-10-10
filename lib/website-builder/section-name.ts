@@ -21,6 +21,8 @@
 
 export interface NamedSchema {
   name?: string | null
+  /** A section of an imported Shopify theme. */
+  imported?: boolean
 }
 
 export function sectionDisplayName(
@@ -30,6 +32,13 @@ export function sectionDisplayName(
   /* A name the creator gave this section, from the title of its settings, is theirs and comes first. */
   const given = typeof section.label === "string" ? section.label.trim() : ""
   if (given !== "") return given
+  /*
+    AN IMPORTED THEME NAMES EACH PLACED SECTION ITSELF. Horizon places one
+    generic section type many times ("Section"), each with its own name
+    ("Hero", "Featured collection"), which is what Shopify's editor lists.
+  */
+  const placed = typeof section.name === "string" ? section.name.trim() : ""
+  if (schemas?.[section.type]?.imported && placed !== "" && !placed.startsWith("t:")) return placed
   const fromCode = schemas?.[section.type]?.name
   if (typeof fromCode === "string" && fromCode.trim() !== "") return fromCode.trim()
   const stored = typeof section.name === "string" ? section.name.trim() : ""

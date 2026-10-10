@@ -14,6 +14,7 @@ import { renderTree } from "./runtime"
 import { parseCompat } from "./parser"
 import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
+import { overrideCss } from "./overrides"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -65,6 +66,8 @@ export function themeOfInstall(rows: Record<string, string>, settings: unknown, 
 export interface DrawOptions {
   /** The theme's own scripts: on the website, and in the builder's canvas, which is a sandbox of its own. */
   scripts: boolean
+  /** The page's content, drawn in the theme's layout instead of the page's own sections (a policy, the account pages). */
+  content?: string
   extraHead?: string
   extraBodyEnd?: string
 }
@@ -92,7 +95,9 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   const parts = pageParts(sections)
   let content = ""
   const liquidTemplate = theme.files[`templates/${page.suffix ? `${page.template}.${page.suffix}` : page.template}.liquid`] ?? (page.suffix ? undefined : theme.files[`templates/${page.template}.liquid`])
-  if (liquidTemplate !== undefined && parts.template.length === 0) {
+  if (opts.content !== undefined) {
+    content = opts.content
+  } else if (liquidTemplate !== undefined && parts.template.length === 0) {
     /* A template written in Liquid (gift_card.liquid, an older theme's product.liquid) is the page's content itself. */
     try {
       content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate), ctx)
@@ -111,7 +116,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   }
   /* The fonts the theme's settings name, from a public font library (font_face draws no rule of its own). */
   const fonts = theme.fontStylesheets(ctx).map((href) => `<link rel="stylesheet" href="${href.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}" data-storelib-font>`).join("")
-  const head = `${fonts ? `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>${fonts}` : ""}<style data-storelib-bundle>${theme.stylesheetBundle()}</style>${opts.extraHead ?? ""}`
+  const head = `${fonts ? `<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>${fonts}` : ""}<style data-storelib-bundle>${theme.stylesheetBundle()}</style>${opts.extraHead ?? ""}<style data-storelib-overrides>${overrideCss(theme.settingsValues)}</style>`
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
   let html = theme.renderDocument(ctx, content, { extraHead: head, extraBodyEnd: tail })

@@ -36,7 +36,7 @@ function main() {
     const proxy = read("proxy.ts")
     check("a subdomain page with no AI site goes to the website route", /const isWebsite = \(!looksLikeFile \|\| seoFile\) && !\(await hasLiveAiSite\(subdomain\)\)/.test(proxy) && /`\/w\/\$\{subdomain\}/.test(proxy))
     check("but an asset request never pays that lookup", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)/.test(proxy))
-    check("and a lookup that fails reads as no AI site, not as an error page", /async function hasLiveAiSite[\s\S]*?catch \{\s*return false/.test(proxy))
+    check("and a lookup that fails reads as the last answer, else no AI site, never an error page", /async function hasLiveAiSite[\s\S]*?return remembered\(/.test(proxy) && /ask\(\)\.catch\(\(\) => \(\{ value: false, failed: true \}\)\)/.test(proxy) && /if \(fresh\.failed\) return held\?\.value \?\? false/.test(proxy))
 
     const apex = read("app/(marketing)/[sellername]/page.tsx")
     check("the apex path is the creator page", /from "\.\.\/u\/\[username\]\/page"/.test(apex) && /return await StorefrontPage\(/.test(apex))

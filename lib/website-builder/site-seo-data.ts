@@ -43,11 +43,12 @@ export async function siteOrigin(creatorId: string, name: string): Promise<strin
   /* The website's primary domain, at the host it is served at (www.<apex>, or
      a connected subdomain as it is): one that answers, not one that
      redirects. A creator page domain is not the website's. */
-  const host = await primaryHostFor(creatorId, "website")
+  /* A lookup that fails is the name the site was reached by: a canonical address is never worth a page that does not draw. */
+  const host = await primaryHostFor(creatorId, "website").catch(() => null)
   /* Without a domain, the name the website was given, else the one it was reached by. */
   const handle = host
     ? null
-    : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: 300 })()
+    : await unstable_cache(() => websiteHandleOf(creatorId), ["site-handle", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: 300 })().catch(() => null)
   const origin = host ?? `${(handle ?? name).toLowerCase()}.${getMainDomain()}`
   const protocol = origin.includes("localhost") ? "http" : "https"
   return `${protocol}://${origin}`

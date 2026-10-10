@@ -106,7 +106,9 @@ const dispatcher = readFileSync(
 
 check(
   "the dispatcher wraps sections in a container",
-  /className=\{props\.boxClassName \? `@container \$\{props\.boxClassName\}` : "@container"\}/.test(dispatcher),
+  /* Every section but one in the Overlay group, whose `position: fixed` a container would hold inside its box. */
+  /className=\{overlay \? props\.boxClassName \|\| undefined : props\.boxClassName \? `@container \$\{props\.boxClassName\}` : "@container"\}/.test(dispatcher) &&
+    /const overlay = props\.section\.group === "overlay"/.test(dispatcher),
 )
 
 check(

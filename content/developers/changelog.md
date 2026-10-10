@@ -17,6 +17,8 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 **Added**
 
 - [The overlay group](/developers/header-and-footer#over-every-page-the-overlay-group): a fourth section group, `"overlay"`, for what floats over every page. `enabled_on: { "groups": ["overlay"] }` puts a section there; it is shared by every page like the header and footer, saved in `sections/overlay-group.json` in a theme package.
+- For a floating section, the page does what its own script cannot: `data-storelib-back-to-top`, `data-storelib-popup`, `data-storelib-popup-close` and `data-storelib-bottom-bar` ([what the page does](/developers/header-and-footer#what-the-page-does-for-a-floating-section)).
+- Three sections in the default theme's Overlay category: Back to top, Phone tab bar and Popup.
 - A section can be renamed from the title of its settings. The name is the page's own (`label` on the placed section) and wins over the schema's `name` in the sidebar and the canvas; clearing it goes back to the schema's.
 - Every store starts with two collections, All products (smart, every product) and Home page (picked by hand), so a `collection_picker` always has something to name.
 

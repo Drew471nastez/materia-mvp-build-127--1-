@@ -69,7 +69,8 @@ console.log("\nRound 3: the canvas, the apps, imported products, the sidebar\n")
 {
   check("full screen folds the editor and never takes the browser full screen", !/requestFullscreen/.test(editor) && /const toggleCanvasFullScreen = useCallback\(\(on: boolean\) => \{\s*if \(on\) setPreviewMode\("preview"\)\s*setFullScreen\(on\)\s*\}/.test(editor))
   const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
-  check("an imported theme's selection is Storelib's solid blue, never dashed purple", /outline:1\.5px solid #3b82f6/.test(bridge) && !/outline:[^;"]*dashed/.test(bridge) && !/139,92,246|8b5cf6/.test(bridge))
+  check("an imported theme's selection is Storelib's solid blue, never dashed purple", /* Drawn as boxes over the page so nothing in a section cuts them: a border, in the same blue. */
+    /\[data-sl-box=section\]\{border:1\.5px solid #3b82f6\}/.test(bridge) && !/(outline|border):[^;"]*dashed/.test(bridge) && !/139,92,246|8b5cf6/.test(bridge))
   const guard = read("components/platform/native-link-guard.tsx")
   const bridgeNative = read("lib/native-bridge.ts")
   check("in the apps, the creator's View live, Preview and View page open in the phone's browser", /export function openInBrowser/.test(bridgeNative) && /if \(onCreatorTools\(\)\) return openInBrowser\(url\)/.test(bridgeNative) && /\(newWindow && inCreatorTools\(\)\) \|\| a\.hasAttribute\("data-open-browser"\)/.test(guard))

@@ -46,7 +46,7 @@ import { LIMITS } from "../types"
 import { CompatSyntaxError } from "../compat/lexer"
 import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
-import { wrapCompatTemplate } from "../compat/theme"
+import { splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -343,6 +343,14 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     report.converted.push(path)
   }
   if (sectionTypes.size === 0) return { ok: false, error: "No section of this theme could be read" }
+  /* Each section's own name, in the theme's words, for the sections placed on its pages. */
+  const names = new Map<string, string>()
+  for (const type of sectionTypes.values()) {
+    const name = splitCompatFile(files[`sections/${type}.storelib`] ?? "").schema?.name
+    if (typeof name === "string" && name.trim()) names.set(type, name.trim())
+  }
+  SECTION_NAMES.set(sectionTypes, names)
+  SECTION_WORDS.set(sectionTypes, tr)
 
   /* ── assets ── */
   for (const [path, bytes] of src.binary) {
@@ -868,6 +876,11 @@ function groupList(json: string | undefined, group: "header" | "footer" | "overl
   return templateSections(g, types, report, path).map((s) => ({ ...s, group }))
 }
 
+/** The theme's name for each section type, beside the map of its types (set once the section files are written). */
+const SECTION_NAMES = new WeakMap<Map<string, string>, Map<string, string>>()
+/** The theme's locale, for a page's own section names written as t: keys ("t:names.hero"). */
+const SECTION_WORDS = new WeakMap<Map<string, string>, (value: unknown, fallback: string) => string>()
+
 function templateSections(t: Tree, types: Map<string, string>, report: Report, path: string): ImportedSection[] {
   const all = t.sections as Record<string, Tree>
   const order = (Array.isArray(t.order) ? (t.order as unknown[]) : Object.keys(all)).filter((id): id is string => typeof id === "string")
@@ -885,7 +898,9 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     }
     const section: ImportedSection = { id, type, settings: idsOf((s.settings as Tree) ?? {}, (v, f) => (typeof v === "string" ? v : f)) }
     /* Every save route reads a section's name; a group's sections usually come without one. */
-    section.name = typeof s.name === "string" && s.name.trim() ? s.name.slice(0, 80) : humanise(String(s.type))
+    /* What the page calls it, else what the theme calls the section, as Shopify's editor names it. */
+    const ownName = typeof s.name === "string" && s.name.trim() ? (SECTION_WORDS.get(types)?.(s.name, "") ?? (s.name.startsWith("t:") ? "" : s.name)) : ""
+    section.name = (ownName || SECTION_NAMES.get(types)?.get(type) || humanise(String(s.type))).slice(0, 80)
     if (s.disabled === true) section.hidden = true
     const blocks = blockList(s.blocks as Record<string, Tree> | undefined, s.block_order, 1)
     if (blocks.length) section.blocks = blocks

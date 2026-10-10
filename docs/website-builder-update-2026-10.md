@@ -1,7 +1,8 @@
 # Website builder and Shopify import: October 2026 update
 
-What changed, how it was checked, and what is still open. Live on `main` at
-commit `b01b1fe`.
+What changed, how it was checked, and what is still open. The first round
+went live at commit `b01b1fe`; the second round (10 October) is listed under
+its own heading below.
 
 ## Importing a Shopify theme
 
@@ -67,6 +68,67 @@ commit `b01b1fe`.
 - In the builder, the theme runs in a sealed frame that cannot reach the
   builder or the account.
 
+## Second round, 10 October
+
+### Imported themes
+
+- **Hover and focus.** Theme settings has a new group, Hover and focus, on
+  every imported theme: button colour, text and border on hover, a hover
+  effect (the theme's own, none, lift, darken, underline), link colour on
+  hover, and the border, focus colour and corners of input boxes. Empty
+  means the theme's own.
+- **Selection outline.** The outline around a hovered or selected section
+  in the canvas is drawn in one piece over the page, so it has no gaps,
+  cuts or seams where the theme clips or overlaps its sections.
+- **Add section cards.** No card is empty: blocks a section keeps fixed
+  (Horizon's carousel) are drawn, theme styles that load late are turned
+  on, and each card fades in once it is ready instead of popping in.
+- **Section names.** A section is called what the theme calls it (Image
+  banner, Featured collection), not by a generic word or a translation key.
+- **Product data.** A featured product, a featured collection or a
+  product tab left on the theme's placeholder shows the shop's own products
+  (All products, or its first product) on the canvas and the live site.
+- **Policy pages.** `/policies/refund-policy` and the other three draw the
+  store's own policy inside the theme's header and footer. On a Storelib
+  theme the same addresses go to the store's own policy pages.
+- **Account pages.** Sign in, sign up, account and wishlist pages on an
+  imported theme keep the theme's header and footer, with the account form
+  in between.
+
+### Every theme
+
+- **Overlay group, with three sections.** The Overlay group is always in
+  the sidebar after Footer, and its Add section offers:
+  - Back to top: a button in a corner, shown once the page is scrolled.
+  - Phone tab bar: up to five links fixed to the bottom of a phone (home,
+    shop, search, cart, account and more). A tab can open the cart, search
+    or the menu. Not shown on wider screens.
+  - Popup: opens after a few seconds with an email sign-up (into
+    Subscribers) or a button. Closed once, it stays closed for that visitor.
+  In the builder each is drawn in the page and visible so it can be edited.
+  On the live site they float over the page and above the header, and back
+  to top and a corner popup sit above the tab bar rather than under it.
+
+### Live sites stay up
+
+- A slow or failing database read is tried again once within a few seconds.
+- If it still fails, the site keeps serving the last good copy it had
+  instead of an error. A site that has never been read shows a short "back
+  in a moment" page that refreshes itself, never a "not found".
+- A custom domain whose lookup fails is answered the same way, never sent
+  to the wrong page.
+
+### SQL
+
+The three files in `supabase/sql/all-in-three/` hold every part, 01 to 108:
+
+- `1_of_3_core_library_checkout.sql`
+- `2_of_3_latest.sql`
+- `3_of_3_storage_policies_and_check.sql`
+
+Run them in that order in the Supabase SQL editor. Each part is safe to run
+again.
+
 ## How it was checked
 
 - **Browser tests on Dawn and Horizon**
@@ -83,7 +145,16 @@ commit `b01b1fe`.
     filters
 
   After each edit they confirm the canvas showed the same page, never went
-  blank, and kept its scroll. All pass on both themes.
+  blank, and kept its scroll. All pass on both themes. Since the second
+  round they also measure the selection outline, the hover and focus
+  settings on a hovered button, every Add section card, policy pages and
+  account pages.
+- **Overlay sections.** `scripts/check-overlay-sections.mjs` adds each one
+  through the real builder and measures it in the canvas and in its card;
+  `scripts/check-overlay-live.ts` measures them on a visitor's page at
+  phone and computer widths (scroll, delay, close, remembered, fixed
+  positions). All pass.
+- **Live site resilience.** `tests/site-resilience.test.ts`.
 - **Unit tests.** `tests/editor-groups-saves.test.ts`,
   `tests/compat-engine.test.ts`, `tests/shopify-import.test.ts`,
   `tests/section-groups.test.ts` and the other related suites pass.

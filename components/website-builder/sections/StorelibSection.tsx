@@ -28,6 +28,7 @@ import { signupMode, subscribeToCreator } from "@/lib/website-builder/subscribe-
 import { pageKeyOfTemplate, sendContactMessage } from "@/lib/website-builder/contact-client"
 import { useSiteWishlist } from "../site-wishlist"
 import { useSectionScript } from "./section-sandbox"
+import { useOverlayHooks } from "./overlay-hooks"
 import { morphInto } from "@/lib/website-builder/morph-html"
 import { StorefrontHooks, asksForDrawers } from "./site-chrome-hooks"
 
@@ -228,6 +229,9 @@ export function StorelibSection({
       : null,
     scriptRoot,
   )
+
+  /* Back to top and a popup: the page's scroll and the visitor's memory, which a section's script cannot reach (overlay-hooks.ts). */
+  useOverlayHooks(scriptRoot, { sectionId: section.id, inCanvas: !!(isEditing || insideEditor || inEditor), html: onPage })
 
   if (out.ok === false) {
     if (!isEditing && !insideEditor) return null

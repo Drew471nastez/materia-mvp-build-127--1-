@@ -15,6 +15,7 @@
  * and holds nothing.
  */
 import { unstable_cache } from "next/cache"
+import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorByName, creatorShopTag, siteCatalogue } from "@/lib/website-builder/published-site"
 import { catalogCards } from "@/lib/website-builder/shop-products"
@@ -24,7 +25,11 @@ import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/li
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
 import { drawPage, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
-import type { SiteData } from "@/lib/storelib-theme/compat/site"
+import { POLICY_HANDLES, type SiteData } from "@/lib/storelib-theme/compat/site"
+import { isBlankHtml, policyBodyOf } from "@/lib/website-builder/policy-editing"
+import { POLICY_PAGES, SHIPPING_POLICY } from "@/lib/website-builder/policy-pages"
+
+const POLICY_TITLES: Record<string, string> = Object.fromEntries([...POLICY_PAGES, SHIPPING_POLICY].map((p) => [p.key, p.title]))
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
@@ -48,6 +53,8 @@ export async function installFiles(admin: Admin, installId: string, draft: boole
       : await table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
     /* Before the file drafts SQL there is no draft column: the live half. */
     if (res.error && draft) res = await table().select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    /* A page of files that did not come is not a theme without them: thrown, so a half-read theme is never held as the theme (site-read.ts). */
+    if (res.error) throw new SiteReadError("theme files", (res.error as { message?: string }).message ?? "the read failed")
     const rows = (res.data ?? []) as Row[]
     for (const r of rows) {
       const text = draft ? (r.draft_content ?? r.content) : r.content
@@ -104,18 +111,45 @@ export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" 
  * The site for a name, when its published install is an imported theme.
  * `previewToken` reads the drafts, when it is the install's own token.
  */
+/**
+ * THE LAST GOOD SITE OF EACH NAME, kept by this server: a read that throws
+ * (the database did not answer) serves the site as it last was. A preview
+ * is never kept or served from here.
+ */
+const lastGoodSite = new Map<string, SiteData>()
+
 export async function compatSiteByName(name: string, host: string, previewToken: string | null = null): Promise<CompatLookup> {
+  const key = name.toLowerCase()
+  try {
+    const found = await compatSiteFresh(name, host, previewToken)
+    if (found.kind === "site" && previewToken === null) {
+      if (lastGoodSite.size >= 200 && !lastGoodSite.has(key)) lastGoodSite.delete(lastGoodSite.keys().next().value as string)
+      lastGoodSite.set(key, found.site)
+    }
+    return found
+  } catch (e) {
+    const held = previewToken === null ? lastGoodSite.get(key) : undefined
+    if (held) {
+      console.error(`[compat-site] served the last good copy of ${key}:`, e instanceof Error ? e.message : e)
+      return { kind: "site", site: { ...held, host } }
+    }
+    throw e
+  }
+}
+
+async function compatSiteFresh(name: string, host: string, previewToken: string | null): Promise<CompatLookup> {
   const creator = await creatorByName(name)
   if (!creator) return { kind: "missing" }
   const admin = createAdminClient()
-  const { data: install } = await admin
+  const install = await siteRead("published install", (signal) => admin
     .from("store_theme_installs")
     .select("id, published_at, preview_token, store_theme_settings ( settings, draft_settings )")
     .eq("creator_id", creator.creatorId)
     .eq("status", "published")
     .order("sort_order", { ascending: true })
     .limit(1)
-    .maybeSingle()
+    .abortSignal(signal)
+    .maybeSingle())
   if (!install) return { kind: "missing" }
   const row = install as { id: string; published_at?: string | null; preview_token?: string | null; store_theme_settings?: unknown }
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
@@ -127,7 +161,7 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const rowsKey = `${row.id}:${version}`
   let rows = draft ? null : rowsHeld.get(rowsKey) ?? null
   const [pageRows, products, catalog, collections, menus] = await Promise.all([
-    admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id),
+    siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
     catalogCards(admin as never, creator.creatorId).catch(() => []),
@@ -145,6 +179,12 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     const list = pageSections<StoredSection[]>(p as never, draft)
     if (Array.isArray(list) && list.length) pages[p.page_key] = list
   }
+  /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
+  const policies = POLICY_HANDLES.flatMap((handle) => {
+    const body = policyBodyOf((pages[handle] ?? []) as never)
+    if (isBlankHtml(body)) return []
+    return [{ handle, title: POLICY_TITLES[handle] ?? handle, body }]
+  })
   const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings)
 
   const site: SiteData = {
@@ -155,7 +195,7 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     pickable: catalog,
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
-    shop: { name: creator.displayName, currency: "USD", moneyFormat: "${{amount}}" },
+    shop: { name: creator.displayName, currency: "USD", moneyFormat: "${{amount}}", policies },
     host,
     designMode: false,
     product: async (handle) => {

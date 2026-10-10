@@ -22,11 +22,58 @@ export const CANVAS_BRIDGE = `
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
   var css = document.createElement("style");
   css.setAttribute("data-sl", "");
-  /* Storelib's own canvas selection (components/website-builder/sections/_shared.tsx): solid blue, never a dashed purple. */
-  css.textContent = "[data-sl-hover]{outline:1.5px solid rgba(59,130,246,.5)!important;outline-offset:-1.5px!important}" +
-    "[data-sl-selected]{outline:1.5px solid #3b82f6!important;outline-offset:-1.5px!important}" +
-    "[data-sl-selected-block]{outline:1.5px solid #3b82f6!important;outline-offset:2px!important}";
+  /*
+    THE OUTLINES ARE BOXES OVER THE PAGE, not outlines on the sections. An
+    outline is painted with its element, so a carousel, a picture or a
+    sticky child inside the section painted over it and the ring had gaps.
+    Each box is fixed over the page, above everything, follows its element
+    on every scroll, resize and change, and takes no pointer. Storelib's own
+    canvas selection (components/website-builder/sections/_shared.tsx):
+    solid blue, never a dashed purple.
+  */
+  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none}" +
+    "[data-sl-box=hover]{border:1.5px solid rgba(59,130,246,.5)}" +
+    "[data-sl-box=section]{border:1.5px solid #3b82f6}" +
+    "[data-sl-box=block]{border:1.5px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
   document.head.appendChild(css);
+  var boxOf = function (kind) {
+    var b = document.createElement("div");
+    b.setAttribute("data-sl-box", kind);
+    b.setAttribute("aria-hidden", "true");
+    (document.body || document.documentElement).appendChild(b);
+    return b;
+  };
+  var boxes = null;
+  var place = function (box, el, inset) {
+    if (!el || !el.isConnected) { box.style.display = "none"; return; }
+    var r = el.getBoundingClientRect();
+    if (r.width === 0 && r.height === 0) { box.style.display = "none"; return; }
+    var top = Math.max(r.top + inset, 0), bottom = Math.min(r.bottom - inset, innerHeight);
+    if (bottom <= top) { box.style.display = "none"; return; }
+    box.style.display = "block";
+    box.style.left = (r.left + inset) + "px";
+    box.style.width = Math.max(0, r.width - inset * 2) + "px";
+    box.style.top = top + "px";
+    box.style.height = (bottom - top) + "px";
+    /* A section running past the top or the foot of the screen has no line there. */
+    box.style.borderTopWidth = r.top + inset < 0 ? "0" : "";
+    box.style.borderBottomWidth = r.bottom - inset > innerHeight ? "0" : "";
+  };
+  var drawFrame = 0;
+  var drawBoxes = function () {
+    drawFrame = 0;
+    if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
+    var hov = document.querySelector("[data-sl-hover]");
+    var sec = document.querySelector("[data-sl-selected]");
+    var blk = document.querySelector("[data-sl-selected-block]");
+    place(boxes.hover, hov && hov !== sec ? hov : null, 0);
+    place(boxes.section, sec, 0);
+    place(boxes.block, blk, -2);
+  };
+  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
+  addEventListener("scroll", redraw, { passive: true, capture: true });
+  addEventListener("resize", redraw);
+  if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
   var sectionOf = function (el) { return el && el.closest ? el.closest(".shopify-section") : null; };
   var idOf = function (s) { return s ? s.getAttribute("data-section-id") || s.id.replace(/^shopify-section-/, "") : null; };
   var blockOf = function (el, section) {
@@ -40,7 +87,9 @@ export const CANVAS_BRIDGE = `
     if (hovered) hovered.removeAttribute("data-sl-hover");
     hovered = s;
     if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
+    redraw();
   }, true);
+  document.addEventListener("mouseleave", function () { if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
   document.addEventListener("click", function (e) {
     var s = sectionOf(e.target);
     var link = e.target.closest && e.target.closest("a[href]");
@@ -69,7 +118,7 @@ export const CANVAS_BRIDGE = `
     var r = el.getBoundingClientRect();
     post({ type: "box", id: selected.section, top: r.top, left: r.left, width: r.width, height: r.height });
   };
-  var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); };
+  var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); if (typeof redraw === "function") redraw(); };
   addEventListener("scroll", reportSoon, { passive: true });
   addEventListener("resize", reportSoon);
   var mark = function (sectionId, blockId, scroll) {
@@ -85,6 +134,7 @@ export const CANVAS_BRIDGE = `
     }
     selected = { section: sectionId, block: blockId };
     reportSoon();
+    redraw();
     if (!s) return;
     s.setAttribute("data-sl-selected", "");
     s.removeAttribute("data-sl-hover");
