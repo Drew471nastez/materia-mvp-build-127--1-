@@ -112,7 +112,9 @@ import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 import { CommunityNavigatorProvider, useCommunityNavigator, type CommunityNavigator, type NavigatorHooks } from "@/lib/communities/client/navigator-context"
-import { placeFromUrl, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
+import { isPostAddress, placeFromUrl, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
+import { openPostOver } from "@/lib/communities/client/open-post"
+import { parsePostParam } from "@/lib/communities/post-url"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
 import { holdLeavingStill } from "@/lib/navigation/leaving-still"
@@ -399,7 +401,7 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const profileCommunity = useMemo(() => ({ id: community.id, slug: community.slug, name: community.name }), [community.id, community.slug, community.name])
   const profileViewer = useMemo(() => ({ userId: viewer.userId, signedIn: viewer.signedIn }), [viewer.userId, viewer.signedIn])
   const renderProfile = useCallback((ref: string, data: unknown) => <MemberProfilePlace community={profileCommunity} viewer={profileViewer} profileRef={ref} data={data as MemberProfileData | null} />, [profileCommunity, profileViewer])
-  const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, children })
+  const screens = usePlaceScreens({ communityId: community.id, slug: community.slug, chatSpaces, entries, renderProfile, viewer, readOnly: community.archived || !!viewer.mutedUntil, children })
   hooksRef.current = screens.hooks
   const shown = screens.shown
   const tab = placeTab(nav.place)
@@ -515,6 +517,20 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       if ((slugFromPath(url.pathname) || "").toLowerCase() !== community.slug.toLowerCase()) return null
       return placeFromUrl(url.pathname, url.search)
     }
+    /* The post a link opens, by its id or its address's short id, when it is a post of this community. */
+    const postIdOf = (a: HTMLAnchorElement): string | null => {
+      if ((a.target && a.target !== "_self") || a.hasAttribute("download") || a.dataset.nativeNav !== undefined) return null
+      let url: URL
+      try {
+        url = new URL(a.href, window.location.href)
+      } catch {
+        return null
+      }
+      if (url.origin !== window.location.origin || url.hash) return null
+      if ((slugFromPath(url.pathname) || "").toLowerCase() !== community.slug.toLowerCase() || !isPostAddress(url.pathname)) return null
+      const parsed = parsePostParam(url.pathname.split("/").pop() || "")
+      return parsed ? (parsed.kind === "uuid" ? parsed.id : parsed.short) : null
+    }
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = anchor(e)
@@ -528,6 +544,15 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
         }
       }
       const p = a ? placeOf(a) : null
+      /*
+        A POST OF THIS COMMUNITY OPENS OVER THE PLACE (round 16): a notification, a mention, a link in a post. A card on screen
+        or the host's reader (post-opener.tsx) takes it, and the place under it stays; only a post neither can open loads its page.
+      */
+      if (!p && a) {
+        const id = postIdOf(a)
+        if (id && openPostOver(id, a)) e.preventDefault()
+        return
+      }
       if (!p) return
       const onScreen = placeFromUrl(window.location.pathname, window.location.search)
       if (onScreen && placeKey(onScreen) === placeKey(p)) return

@@ -92,7 +92,7 @@ import { postPath } from "@/lib/communities/post-url"
 import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
 import { SaveButton } from "./save-button"
-import { useOpenPostRequests } from "@/lib/communities/client/open-post"
+import { requestNames, useOpenPostRequests } from "@/lib/communities/client/open-post"
 import { intentOf, press, useIntent } from "./post-intent"
 import { toast } from "./toast"
 import { BTN_GHOST, CARD, ICON_BTN, STACK, STACK_FACE } from "./ui"
@@ -361,7 +361,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
 
   /* openPost(id) from anywhere (a search row, a notification; lib/communities/client/open-post.ts): the card on screen opens it. */
   useOpenPostRequests((r) => {
-    if (full || editing || r.postId !== post.id) return false
+    if (full || editing || !requestNames(r, post.id)) return false
     warmPostMedia(media, post.communityId, post.id)
     setOpened(true)
     return true

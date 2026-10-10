@@ -1,47 +1,39 @@
 /**
  * ===========================================================================
- *  AN OPENED POST ON A PHONE: THE RULES OF ITS MOVES (round 15)
+ *  AN OPENED POST ON A PHONE: THE RULES OF ITS MOVES (rounds 15 and 16)
  * ===========================================================================
  * The numbers and decisions of post-fullscreen.tsx, as plain functions with
- * no DOM and no React, so tests/communities-post15.test.ts holds them as they
- * are written.
+ * no DOM and no React, so tests/communities-post15.test.ts and
+ * tests/communities-post16.test.ts hold them as they are written.
  *
- * THE MODEL IS AN iOS PUSH. The post slides in from the right over the feed,
- * which stays where it is under a light dim, and slides back out to the
- * right (Back, Escape, the browser's back, the app's edge swipe), or drops
- * away downwards when it is pulled down. Why not the card growing into the
- * page (round 19 to 24): the card and the opened post are two different
- * layouts of the same post (a 17px title and a 19px one, a cropped picture
- * and a whole one, two lines of words and all of them), so a page that lands
- * on the card has to give way to it by a crossfade or a snap. The owner's
- * recording showed both: the title and the picture drawn twice for four
- * frames after everything looked settled, and the card snapping into place.
- * A push never lands on the card, so there is nothing to give way to: one
- * opaque page moves, by `translate` only, and when it has left the screen it
- * is simply gone. It is also what iOS does for a step into a list item, and
- * it keeps the composer's rise from the bottom (a task) reading differently.
+ * THE MODEL IS iOS's PAGE SHEET (round 16, page-sheet.ts says why). The post
+ * rises from the foot over the community, which eases back and stays where
+ * it was; every close (Back, Escape, the browser's Back, a pull, the app's
+ * edge swipe) is the same motion in reverse, down. Round 15 pushed it in
+ * from the right and let a pull drop it downwards: in one way, out another,
+ * which the owner read as wrong ("it opens sideways and closes downward").
  *
  * THE CLOSE, IN ORDER (closeSteps). The feed is put back to the scroll it had
  * when the post opened while the post still covers the screen, so it is
- * already exactly in place before anything moves; then the move; then the
- * page is hidden on the move's last frame, the layer let go, the post taken
- * out and the history step given back, in that order and nothing after.
+ * already exactly in place before anything moves; the community is then
+ * taken back to where a covered sheet leaves it (eased back, unseen); then
+ * the one move down; then the page is hidden on the move's last frame, the
+ * community let go (at that frame it is at its own size, so nothing shows),
+ * the layer let go, the post taken out and the history step given back, in
+ * that order and nothing after.
  */
 import { judgeMove, shouldComplete, completeMs, cancelMs, startsAtEdge, releaseVelocity } from "@/lib/navigation/edge-swipe"
 import { rubberBand } from "@/components/website-builder/sheet-gestures"
 import { keyboardInsetFrom } from "@/lib/ui/keyboard-safe-sheet"
+import { RECEDE_DIM } from "./page-sheet"
 
 export { judgeMove, shouldComplete, completeMs, cancelMs, startsAtEdge, releaseVelocity }
 
-/* ── THE PUSH ──────────────────────────────────────────────────────────── */
+/* ── THE SHEET ──────────────────────────────────────────────────────────── */
 
-/** In from the right: iOS's push is about a third of a second, on a curve that starts quick and settles long. */
-export const PUSH_MS = 380
-/** Back out to the right from rest. */
-export const POP_MS = 320
-export const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** The feed under an opened post is dimmed this much (black), as iOS dims the screen under a push. */
-export const DIM = 0.12
+export { OPEN_MS, CLOSE_MS } from "./page-sheet"
+/** The feed's dim at its deepest, under an opened post (page-sheet.ts RECEDE_DIM). */
+export { RECEDE_DIM as DIM } from "./page-sheet"
 
 /* ── THE CLOSE, IN ORDER ───────────────────────────────────────────────── */
 
@@ -63,14 +55,16 @@ export type CloseTrigger =
 export type CloseStep =
   /** The feed put back where it was when the post opened (instantly; the post still covers it). */
   | "hold-feed"
-  /** Out to the right. */
-  | "slide-right"
-  /** Down off the screen. */
+  /** The community taken back to where the covered sheet leaves it, eased back (unseen: the post still covers it). */
+  | "recede"
+  /** Down off the screen, the community coming forward with it. */
   | "slide-down"
   /** No move at all (reduced motion, or the browser has already drawn one). */
   | "cut"
   /** The page hidden, on the move's last frame. */
   | "hide-page"
+  /** The community let go of (no scale, no shift: at that frame it is at its own size). */
+  | "release-community"
   /** The tab bar's layer let go (lib/ui/layers.ts). */
   | "release-layer"
   /** The post and its comments taken out of the page. */
@@ -78,10 +72,10 @@ export type CloseStep =
   /** The post's history entry stepped back over (when it was not a Back that closed it). */
   | "step-back"
 
-/** The close, step by step: the feed first, then one move, then gone. Nothing animates after "hide-page". */
+/** The close, step by step: the feed first, then one move down, then gone. Nothing animates after "hide-page". */
 export function closeSteps(trigger: CloseTrigger, reduced = false): CloseStep[] {
-  const move: CloseStep = reduced || trigger === "browser-swipe" ? "cut" : trigger === "pull" ? "slide-down" : "slide-right"
-  const steps: CloseStep[] = ["hold-feed", move, "hide-page", "release-layer", "unmount"]
+  const cut = reduced || trigger === "browser-swipe"
+  const steps: CloseStep[] = cut ? ["hold-feed", "cut", "hide-page", "release-community", "release-layer", "unmount"] : ["hold-feed", "recede", "slide-down", "hide-page", "release-community", "release-layer", "unmount"]
   /* A Back has already stepped over the entry; anything else gives it back. */
   if (trigger !== "history" && trigger !== "browser-swipe") steps.push("step-back")
   return steps
@@ -132,12 +126,13 @@ export function pullVerdict(m: { dy: number; velocity: number; height: number })
 
 /** The dim under the page as it is pulled or swiped away: all of it at rest, none once it has gone. */
 export function dimFor(progress: number): number {
-  return DIM * Math.max(0, Math.min(1, 1 - progress))
+  return RECEDE_DIM * Math.max(0, Math.min(1, 1 - progress))
 }
 
-/** The rest of a close from where a finger let it go, at least as fast as the finger, inside a calm range. */
-export function finishMs(remaining: number, velocity: number): number {
-  return Math.round(Math.max(170, Math.min(POP_MS, remaining / Math.max(velocity, 1.2))))
+/** The app's edge swipe moves the sheet down by the finger's sideways travel, scaled so a swipe across is a close all the way. */
+export function edgeOffset(dx: number, width: number, height: number): number {
+  if (width <= 0) return 0
+  return Math.max(0, Math.min(height, (dx * height) / width))
 }
 
 /* ── THE BACK BUTTON ───────────────────────────────────────────────────── */
@@ -187,7 +182,7 @@ export type PostBox = {
   /** True when the tab bar is on screen under it (no keyboard): the page ends at the bar's top. */
   aboveTabs: boolean
   /** What the keyboard's place was read from. */
-  source: "screen" | "visual" | "table" | "floor"
+  source: "screen" | "visual" | "native" | "table" | "floor"
 }
 
 /**
@@ -197,14 +192,30 @@ export type PostBox = {
  *
  *   iPhone Safari, Android Chrome   the visual viewport (vvTop, vvH)
  *   the Android app                 the web view itself shrinks: vvH again
- *   the iOS app                     WKWebView says nothing (reported 0): the
- *                                   iPhone's own keyboard height when the
- *                                   screen is a known one, else the published
- *                                   floor (half the screen)
+ *   the iOS app                     the keyboard's own height from the
+ *                                   Capacitor Keyboard plugin when this build
+ *                                   has it (round 16), else the iPhone's
+ *                                   keyboard for this screen from the table,
+ *                                   else the published floor (half the screen)
  *   no keyboard                     the whole screen down to the tab bar
  *
- * A white skirt under the page (post-fullscreen.tsx) covers whatever is left
- * between the page and the keys when the platform's number is off.
+ * ROUND 16: THE PAGE iOS SCROLLED UP (images/76.jpg). With the web view not
+ * resized, iOS pans the page up under a focused field near the foot of the
+ * screen, and says so only as visualViewport.offsetTop. Round 15 put the box
+ * at the top of the layout viewport (top 0) in the app, so a pan of 62px
+ * left the comment box 62px above the keyboard's bar with the page showing
+ * through between (76.jpg on a 390x844 screen: the box's foot at about 402,
+ * the bar from 464). The visible part starts at offsetTop, whatever said how
+ * tall the keyboard is: box = [vvTop, vvTop + layoutH - keyboard], which for
+ * 76.jpg is 62 to 526 in the page, 0 to 464 on the screen, the box's foot on
+ * the bar. In the app the keyboard's own height leads (the plugin's, then
+ * the table's) and the visual viewport only gives the pan: a web view that
+ * reports a visual height at all may report it less the pan, which would
+ * put the box short by the pan again.
+ *
+ * Whatever is still off, the white block under the comment box
+ * (post-fullscreen.tsx THE BLOCK) and the skirt under the page keep the gap
+ * white, never the post or the feed behind.
  */
 export function postBox(m: {
   /** The fixed box's height (what a fixed element is laid out against). */
@@ -218,13 +229,19 @@ export function postBox(m: {
   publishedInset: number
   /** The iPhone keyboard for this screen, in the app; null elsewhere. */
   appKeyboard: number | null
+  /** The keyboard's height as the Capacitor Keyboard plugin said it (keyboardWillShow), in the app with the plugin; null or 0 elsewhere. */
+  nativeKeyboard?: number | null
 }): PostBox {
+  const top = Math.max(0, m.vvTop)
+  const native = m.nativeKeyboard && m.nativeKeyboard > 0 ? m.nativeKeyboard : null
+  /* The app: the keyboard's own height leads; the visual viewport gives only how far iOS panned the page. */
+  if (m.typing && native) return { top, height: Math.max(120, m.layoutH - native), aboveTabs: false, source: "native" }
+  if (m.typing && m.appKeyboard) return { top, height: Math.max(120, m.layoutH - m.appKeyboard), aboveTabs: false, source: "table" }
   const reported = keyboardInsetFrom({ layoutHeight: m.layoutH, innerHeight: m.innerH, vvTop: m.vvTop, vvHeight: m.vvH })
   /* The platform says where the keyboard is: what is visible is the visual viewport. */
   if (reported > 0 || m.layoutH - m.vvH > 80) return { top: m.vvTop, height: m.vvH, aboveTabs: false, source: "visual" }
   if (m.typing) {
-    if (m.appKeyboard) return { top: 0, height: Math.max(120, m.layoutH - m.appKeyboard), aboveTabs: false, source: "table" }
-    if (m.publishedInset > 0) return { top: 0, height: Math.max(120, m.layoutH - m.publishedInset), aboveTabs: false, source: "floor" }
+    if (m.publishedInset > 0) return { top, height: Math.max(120, m.layoutH - m.publishedInset), aboveTabs: false, source: "floor" }
     /* A web view that shrank itself (the Android app): it is all visible. */
     return { top: m.vvTop, height: m.vvH, aboveTabs: false, source: "visual" }
   }

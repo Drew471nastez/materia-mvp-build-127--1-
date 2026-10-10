@@ -3,8 +3,15 @@
 /**
  * A shared post address opens that post over the community feed, not as its
  * own page. Closing it, or Back, returns to the feed.
+ *
+ * ROUND 16: THE FEED UNDER IT IS NEVER DRAWN AGAIN. The page under the post
+ * is the shell's own feed (the post route seeds it, page.tsx), so closing
+ * only gives the address back, in place (history.replaceState, which Next
+ * follows without asking the server for anything): the feed already on
+ * screen is the one the member lands on. It used to be a router move (replace), a
+ * second page for the feed, every card and picture drawn again under the
+ * post as it went.
  */
-import { useRouter } from "next/navigation"
 import { useCallback, useState } from "react"
 import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 import type { PostUpdateFn } from "./post-overlay"
@@ -24,7 +31,6 @@ export function SharedPost({
   readOnly: boolean
   children: React.ReactNode
 }) {
-  const router = useRouter()
   const [open, setOpen] = useState(true)
   const update = useCallback<PostUpdateFn>((id, fn) => {
     void id
@@ -43,7 +49,8 @@ export function SharedPost({
           update={update}
           onClose={() => {
             setOpen(false)
-            router.replace(`/community/${slug}`, { scroll: false })
+            const home = `/community/${slug}`
+            if (window.location.pathname !== home) window.history.replaceState(window.history.state, "", home)
           }}
           renderPost={(p, u, focus) => <PostCard post={p} slug={slug} viewer={viewer} update={u} full readOnly={readOnly} onComment={focus} />}
         />
