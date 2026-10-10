@@ -142,8 +142,12 @@ function readNow(communityId: string, place: Place, chat: ReadonlySet<string>): 
   return null
 }
 
-/** The places read ahead once the community is on screen: every place in the row, the member's own profile, and Membership. */
-export function aheadPlaces(entries: { key: string }[], withProfile: boolean): Place[] {
+/**
+ * The places read ahead once the community is on screen: every place in the row, and Membership. Not the member's own
+ * profile (round 16): ?profile=me is the account page again (/account, outside the community), so reading it here was one
+ * wasted read per visit.
+ */
+export function aheadPlaces(entries: { key: string }[]): Place[] {
   const out: Place[] = []
   /* The places a member opens most come first (round 24): the Leaderboard, then Members, then the row in its order. */
   const rank = (k: string) => (k === "leaderboard" ? 0 : k === "members" ? 1 : 2)
@@ -155,7 +159,6 @@ export function aheadPlaces(entries: { key: string }[], withProfile: boolean): P
     else if (e.key === "leaderboard") out.push({ kind: "leaderboard" })
     else if (e.key === "about") out.push({ kind: "about" })
   }
-  if (withProfile) out.push({ kind: "profile", ref: "me" })
   /* The member's own Membership page, from the "..." menu, is read ahead with the places (round 13). */
   out.push({ kind: "membership" })
   return out
@@ -388,7 +391,7 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   )
 
   /* ── Reading ahead, once the first screen has painted and the phone is idle ── */
-  const aheadList = useMemo(() => aheadPlaces(entries, !!renderProfile), [entries, renderProfile])
+  const aheadList = useMemo(() => aheadPlaces(entries), [entries])
   useEffect(() => {
     let stopped = false
     const idle = (run: () => void) => {
