@@ -16,6 +16,7 @@ import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
@@ -33,7 +34,7 @@ export const runtime = "nodejs"
  *         lastName, email, emailOptIn?, agreedToTerms, origin? }
  * Answers { success, receiptToken, orderId, emailSent, redirectUrl }.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -318,3 +319,6 @@ export async function POST(request: Request) {
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, max) : ""
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/process", handlePOST)

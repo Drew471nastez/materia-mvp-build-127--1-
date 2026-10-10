@@ -30,6 +30,7 @@ import { randomUUID } from "node:crypto"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { timed } from "@/lib/perf/server-timing"
 
 /**
  * POST /api/checkout/stripe-session
@@ -50,7 +51,7 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
  * (lib/checkout/fulfil-payment.ts), by this buyer's browser or by Stripe's
  * webhook, whichever comes first.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: Record<string, unknown>
   try {
     body = await request.json()
@@ -411,3 +412,6 @@ function refusedDestination(error: unknown): boolean {
 function clean(value: unknown, max: number): string {
   return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, max) : ""
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/stripe-session", handlePOST)

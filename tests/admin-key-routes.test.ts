@@ -137,6 +137,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "onepage/track/route.ts": "a OnePage link click from a visitor; whose OnePage it is comes from the onepages row, and the analytics copy goes through lib/analytics/collect",
   "blog/track/route.ts": "records a blog page view",
   "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",
+  "perf/beacon/route.ts": "Storelib's own speed numbers from one page load in five, checked item by item (lib/perf/telemetry), capped per day by the database, limited per address, and answered 204 with nothing in it",
   "website-builder/contact/route.ts": "a visitor writing to a creator from a contact form on their website; a trap field, a timing check and the rate limiter per visitor, address and store, and it tells the caller nothing about the list",
 
   // A creator's website, signing a customer in with a credential of its own (lib/site-accounts).

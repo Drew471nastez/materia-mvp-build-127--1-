@@ -22,6 +22,7 @@ import { attributionForCheckout, attributionToMetadata, type Attribution } from 
 import { cookies } from "next/headers"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
@@ -101,7 +102,7 @@ async function safeReturnOrigin(origin: string | null, creatorId: string): Promi
   return null
 }
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
@@ -446,3 +447,6 @@ async function freeBasket(
     dropped: c.priced.dropped,
   })
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/cart", handlePOST)

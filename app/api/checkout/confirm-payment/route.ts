@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fulfilPaymentIntent } from "@/lib/checkout/fulfil-payment"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
@@ -15,7 +16,7 @@ export const runtime = "nodejs"
  *
  * Answers { success, receiptToken, redirectUrl } for the buyer's receipt.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   let body: { paymentIntentId?: unknown; clientSecret?: unknown }
   try {
     body = await request.json()
@@ -60,3 +61,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The order could not be finished. The payment is safe; refresh this page in a moment." }, { status: 500 })
   }
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/confirm-payment", handlePOST)
