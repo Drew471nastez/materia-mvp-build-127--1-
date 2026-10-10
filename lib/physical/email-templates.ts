@@ -53,21 +53,25 @@ const INK = "#1a1a2e"
 const MUTED = "#6b7280"
 const LINE = "#eceef1"
 
-function shell(shopName: string, heading: string, intro: string, body: string, subject: string): string {
+function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string } = {}): string {
+  const top = opts.aside
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px 0;"><tr><td style="font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</td><td align="right" style="font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};">${esc(opts.aside)}</td></tr></table>`
+    : `<p style="margin:0 0 20px 0;font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</p>`
   const html = `<div style="background:#f8f9fa;padding:24px 12px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:${INK};">
+<style>@media only screen and (max-width:480px){td.col{display:block !important;width:100% !important;}}</style>
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;">
 <tr><td style="padding:28px 28px 8px 28px;">
-<p style="margin:0 0 20px 0;font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</p>
+${top}
 <h1 style="margin:0 0 8px 0;font-size:22px;line-height:28px;font-weight:700;color:${INK};">${esc(heading)}</h1>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:22px;color:${MUTED};">${intro}</p>
 </td></tr>
 ${body}
-<tr><td style="padding:16px 28px 28px 28px;font-size:12px;line-height:18px;color:${MUTED};">Questions about this order? Reply to this email and it goes to ${esc(shopName)}.</td></tr>
+<tr><td style="padding:24px 28px 28px 28px;font-size:12px;line-height:18px;color:${MUTED};">${opts.footer ?? `Questions about this order? Reply to this email and it goes to ${esc(shopName)}.`}</td></tr>
 </table></div>`
   return finalizeEmailHtml(html, subject)
 }
 
-function linesTable(lines: EmailLine[], currency: string, prices = true): string {
+function linesTable(lines: EmailLine[], currency: string, prices = true, ruled = true): string {
   const rows = lines
     .map(
       (l) => `<tr>
@@ -81,7 +85,7 @@ function linesTable(lines: EmailLine[], currency: string, prices = true): string
 </tr>`,
     )
     .join("")
-  return `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${LINE};">${rows}</table></td></tr>`
+  return `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"${ruled ? ` style="border-top:1px solid ${LINE};"` : ""}>${rows}</table></td></tr>`
 }
 
 function totalsTable(t: EmailTotals): string {
@@ -120,6 +124,12 @@ export interface OrderEmailModel {
   hasDownloads: boolean
   /** Picked up instead of shipped: where, when it is usually ready, and what to bring. */
   pickup?: { name: string; address: string[]; ready: string | null; instructions: string | null } | null
+  /** The store, for "or visit our store": its creator page. */
+  storeUrl?: string | null
+  /** How it was paid, as the receipt says it ("Visa ending 4242"). */
+  paymentLabel?: string | null
+  /** Where a question goes, said in the footer as well as by replying. */
+  supportEmail?: string | null
 }
 
 function pickupBlock(p: { name: string; address: string[]; ready: string | null; instructions: string | null }): string {
@@ -128,32 +138,74 @@ function pickupBlock(p: { name: string; address: string[]; ready: string | null;
   return `<tr><td style="padding:16px 28px 0 28px;"><p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:${INK};">Pick up at</p><p style="margin:0;font-size:14px;line-height:21px;color:${MUTED};">${lines}${extra ? `<br><br>${extra}` : ""}</p></td></tr>`
 }
 
+/** A heading over a part of the email, with a rule above it, like Shopify's. */
+function sectionHeading(label: string): string {
+  return `<tr><td style="padding:24px 28px 4px 28px;"><p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:16px;font-weight:600;color:${INK};">${esc(label)}</p></td></tr>`
+}
+
+/** Two columns of label and lines, folding into one on a narrow screen. */
+function infoGrid(cells: { label: string; html: string }[]): string {
+  const cell = (c: { label: string; html: string }) =>
+    `<td class="col" width="50%" style="padding:12px 12px 0 0;vertical-align:top;"><p style="margin:0 0 4px 0;font-size:13px;font-weight:600;color:${INK};">${esc(c.label)}</p><p style="margin:0;font-size:14px;line-height:21px;color:${MUTED};">${c.html}</p></td>`
+  const rows: string[] = []
+  for (let i = 0; i < cells.length; i += 2) rows.push(`<tr>${cell(cells[i])}${cells[i + 1] ? cell(cells[i + 1]) : '<td class="col" width="50%"></td>'}</tr>`)
+  return `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows.join("")}</table></td></tr>`
+}
+
+/**
+ * ORDER CONFIRMED, THE WAY SHOPIFY'S READS. The shop's name with the order
+ * number across from it; a thank you and what happens next; the order page
+ * and the store as two ways on; the order summary with what was saved; and
+ * the customer information (where it goes, how, and how it was paid). The
+ * footer says where questions go. Only what the order has is drawn: no
+ * empty headings, no "Billing address" Storelib never asked for.
+ */
 export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; html: string; text: string } {
   const subject = `Order ${m.orderNumber} confirmed`
-  const hi = m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : "Thanks for your order. "
-  const intro = `${hi}${m.pickup ? "We'll email you when it's ready to pick up." : m.address?.line1 ? "We'll email you again when it ships." : "Everything is ready on your order page."}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
-  const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `, ${esc(m.deliveryEstimate)}` : ""}` : undefined
+  const hello = m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, ` : ""
+  const next = m.pickup ? "we're getting your order ready. We'll email you when it's ready to pick up." : m.address?.line1 ? "we're getting your order ready to be shipped. We'll let you know when it's on its way." : "your order is confirmed and everything is on your order page."
+  const intro = `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
+  const saved = m.totals.discount + m.totals.shippingDiscount
+  const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
+  const info: { label: string; html: string }[] = []
+  if (m.pickup) info.push({ label: "Pick up at", html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
+  else if (m.address?.line1) info.push({ label: "Shipping address", html: addressLines(m.address).map(esc).join("<br>") })
+  if (!m.pickup && delivery) info.push({ label: "Shipping method", html: delivery })
+  if (m.paymentLabel) info.push({ label: "Payment method", html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
+
+  const actions = `<tr><td style="padding:4px 28px 0 28px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>${emailButton({ href: m.statusUrl, label: "View your order", fill: INK, padding: "12px 20px", radius: 10, text: "font-size:14px;font-weight:600;" })}</td>${
+    m.storeUrl && /^https:\/\//.test(m.storeUrl) ? `<td style="padding-left:16px;font-size:14px;color:${MUTED};">or <a href="${esc(m.storeUrl)}" style="color:${INK};text-decoration:underline;">Visit our store</a></td>` : ""
+  }</tr></table></td></tr>`
+
   const body = [
-    linesTable(m.lines, m.totals.currency),
+    actions,
+    sectionHeading("Order summary"),
+    linesTable(m.lines, m.totals.currency, true, false),
     totalsTable(m.totals),
-    m.pickup ? pickupBlock(m.pickup) : m.address?.line1 ? addressBlock("Shipping to", m.address, delivery) : "",
-    button(m.statusUrl, "View your order"),
+    saved > 0 ? `<tr><td style="padding:6px 28px 0 28px;font-size:13px;color:#067647;">You saved ${esc(formatMoney(saved, m.totals.currency))}</td></tr>` : "",
+    info.length ? sectionHeading("Customer information") + infoGrid(info) : "",
   ].join("")
   const text = [
     `${m.shopName}: order ${m.orderNumber} confirmed`,
     "",
-    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
+    intro.replace(/<[^>]+>/g, ""),
     "",
+    "Order summary",
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
     `Total: ${formatMoney(m.totals.total, m.totals.currency)}`,
+    ...(saved > 0 ? [`You saved ${formatMoney(saved, m.totals.currency)}`] : []),
     ...(m.pickup
       ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
       : m.address?.line1
-        ? ["", "Shipping to:", ...addressLines(m.address)]
+        ? ["", "Shipping address:", ...addressLines(m.address), ...(m.deliveryName ? ["", `Shipping method: ${m.deliveryName}`] : [])]
         : []),
+    ...(m.paymentLabel ? ["", `Payment method: ${m.paymentLabel}`] : []),
     "",
     `View your order: ${m.statusUrl}`,
+    ...(m.storeUrl ? [`Visit our store: ${m.storeUrl}`] : []),
   ].join("\n")
-  return { subject, html: shell(m.shopName, `Order ${m.orderNumber} confirmed`, intro, body, subject), text }
+  const footer = m.supportEmail ? `If you have any questions, reply to this email or write to ${esc(m.supportEmail)}.` : undefined
+  return { subject, html: shell(m.shopName, "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer }), text }
 }
 
 /** Ready to collect, or collected. */

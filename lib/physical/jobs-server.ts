@@ -246,6 +246,17 @@ async function loadCheckout(db: Db, id: string): Promise<CheckoutForEmail> {
   return data as CheckoutForEmail
 }
 
+/** "Visa ending 4242", "PayPal", "Card": as the receipt says it. */
+function paymentLabelOf(row: { payment_method?: string | null; card_brand?: string | null; card_last4?: string | null } | null): string | null {
+  if (!row?.payment_method) return null
+  if (row.payment_method === "card") {
+    const brand = row.card_brand ? row.card_brand.charAt(0).toUpperCase() + row.card_brand.slice(1) : "Card"
+    return row.card_last4 ? `${brand} ending ${row.card_last4}` : brand
+  }
+  const named: Record<string, string> = { paypal: "PayPal", apple_pay: "Apple Pay", google_pay: "Google Pay", link: "Link", klarna: "Klarna" }
+  return named[row.payment_method] ?? row.payment_method.replace(/_/g, " ")
+}
+
 function statusUrl(token: string): string {
   return `https://${getMainDomain()}/checkout/physical/order/${encodeURIComponent(token)}`
 }
@@ -275,7 +286,16 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   let mail: { subject: string; html: string; text: string }
 
   if (p.template === "confirmation") {
+    /* The store to visit, how it was paid, and where questions go: each optional, the email reads without it. */
+    const [{ data: creatorRow }, { data: paidRow }] = await Promise.all([
+      db.from("creators").select("username, slug, support_email").eq("id", co.creator_id).maybeSingle(),
+      db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle(),
+    ])
+    const handle = (creatorRow?.username || creatorRow?.slug || "") as string
     mail = orderConfirmationEmail({
+      storeUrl: handle ? `https://${getMainDomain()}/${encodeURIComponent(handle)}` : null,
+      paymentLabel: paymentLabelOf(paidRow),
+      supportEmail: (creatorRow?.support_email as string | null) || identity.replyTo || null,
       shopName,
       orderNumber: number,
       buyerFirstName: firstName,
