@@ -179,6 +179,10 @@ async function measure(s: Scenario) {
 }
 
 async function main() {
+  if (process.env.SPEED18_LIST) {
+    console.log(JSON.stringify({ names: scenarios.map((s) => s.name) }))
+    return
+  }
   const only = (process.env.ONLY ?? "").split(",").filter(Boolean)
   const rows = []
   for (const s of scenarios) {

@@ -31,6 +31,8 @@ export interface Fixture {
   /** "parent>child" or "parent>child!hint" to how they join. */
   relations?: Record<string, Relation>
   rpc?: Record<string, (args: Record<string, unknown>) => unknown>
+  /** Tables whose every request answers a server error, for the "database did not answer" paths. */
+  fail?: string[]
 }
 
 let fixture: Fixture = { tables: {} }
@@ -300,6 +302,7 @@ export async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): P
   const table = name
   record(table, method, url.search)
   await wait()
+  if (fixture.fail?.includes(table)) return respond(503, { code: "XX000", message: "fixture: the database did not answer", details: null, hint: null })
 
   const rows = (fixture.tables[table] ??= [])
   const params = url.searchParams

@@ -94,18 +94,19 @@ if (process.env.BASE) {
 }
 builds.push({ label: "now (working tree)", file: await bundle("now", root) })
 
+/* One process per scenario, so what one page left in a server's memory never warms the next. */
+const run = (file, env) => {
+  const out = execFileSync(process.execPath, [file], { cwd: root, encoding: "utf8", maxBuffer: 1 << 26, env: { ...process.env, ...env }, stdio: ["ignore", "pipe", "inherit"] })
+  return JSON.parse(out.trim().split("\n").filter((l) => l.startsWith("{")).pop())
+}
 const results = []
 try {
   for (const b of builds) {
-    const json = execFileSync(process.execPath, [b.file], {
-      cwd: root,
-      encoding: "utf8",
-      maxBuffer: 1 << 26,
-      env: { ...process.env, SPEED18_JSON: "1" },
-      stdio: ["ignore", "pipe", "inherit"],
-    })
-    const line = json.trim().split("\n").filter((l) => l.startsWith("{")).pop()
-    results.push({ label: b.label, rows: JSON.parse(line).rows })
+    const wanted = (process.env.ONLY ?? "").split(",").filter(Boolean)
+    const names = run(b.file, { SPEED18_LIST: "1" }).names.filter((n) => !wanted.length || wanted.includes(n))
+    const rows = []
+    for (const name of names) rows.push(...run(b.file, { ONLY: name }).rows)
+    results.push({ label: b.label, rows })
   }
 } finally {
   if (!process.env.KEEP) rmSync(dir, { recursive: true, force: true })

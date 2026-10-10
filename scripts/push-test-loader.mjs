@@ -73,10 +73,18 @@ export const draftMode = async () => ({ isEnabled: false })
    * next/cache: a cached function is the function, and revalidation has
    * nothing to revalidate. lib/seo/sitemaps wraps its reads in
    * unstable_cache, and its pure helpers are what the suites test.
+   *
+   * A suite that is ABOUT the cache (tests/perf-speed18.test.ts: one site's
+   * cached page never holds another's, a publish purges its own) sets
+   * globalThis.__PUSH_TEST_NEXT_CACHE__ to a cache kept the way Next keeps
+   * it (scripts/speed18/shims/next-cache.ts), and every call goes there.
+   * Unset, nothing changes for anybody else.
    */
-  "next/cache": `export const unstable_cache = (fn) => fn
-export const revalidatePath = () => {}
-export const revalidateTag = () => {}
+  "next/cache": `const held = () => globalThis.__PUSH_TEST_NEXT_CACHE__
+export const unstable_cache = (fn, keys, options) => (held() ? held().unstable_cache(fn, keys, options) : fn)
+export const revalidatePath = (...a) => held()?.revalidatePath(...a)
+export const revalidateTag = (...a) => held()?.revalidateTag(...a)
+export const updateTag = (...a) => held()?.updateTag?.(...a)
 export const unstable_noStore = () => {}
 `,
   /**
