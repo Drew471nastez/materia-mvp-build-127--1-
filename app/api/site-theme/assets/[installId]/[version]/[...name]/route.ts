@@ -14,7 +14,8 @@
  */
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { assetType, binaryOf } from "@/lib/storelib-theme/compat/install"
+import { ASSET_MAP_PATH, assetType, binaryOf } from "@/lib/storelib-theme/compat/install"
+import { isOptimizableImage } from "@/lib/images/optimized-url"
 import { installFiles, compatThemeFor } from "@/lib/website-builder/compat-site"
 import { themeAsset } from "@/lib/storelib-theme/compat/site"
 import { compileScss } from "@/lib/storelib-theme/compat/scss"
@@ -22,7 +23,10 @@ import { compileScss } from "@/lib/storelib-theme/compat/scss"
 export const runtime = "nodejs"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const NAME = /^[A-Za-z0-9_][A-Za-z0-9_.@-]*$/
+/* Spaces and brackets too: "hero (1).png" is a name a theme ships. Never a slash or a dot first. */
+const NAME = /^[A-Za-z0-9_][A-Za-z0-9_.@ ()+-]*$/
+/* A picture in assets/ is stored in the media library at import, and the asset map says where. */
+const PICTURE = /\.(png|jpe?g|gif|webp|avif|ico|bmp)$/i
 
 interface Params {
   params: Promise<{ installId: string; version: string; name: string[] }>
@@ -45,6 +49,29 @@ const cors = {
 export async function GET(_req: Request, { params }: Params) {
   const { installId, version, name: parts } = await params
   const name = decodeURIComponent(parts.join("/"))
+  if (UUID.test(installId) && NAME.test(name) && PICTURE.test(name)) {
+    /*
+      A STYLESHEET'S url(bg.png) is relative to the stylesheet, so it lands
+      here; the picture lives in the media library. Sent on to it, and only
+      to an address of Storelib's own storage, never anywhere the map says.
+    */
+    const { data } = await createAdminClient().from("store_theme_custom_files").select("content").eq("install_id", installId).eq("path", ASSET_MAP_PATH).maybeSingle()
+    let to: unknown = null
+    try {
+      to = (JSON.parse(String((data as { content?: string } | null)?.content ?? "{}")) as Record<string, unknown>)[name]
+    } catch {
+      to = null
+    }
+    const ours = (u: string) => {
+      try {
+        return new URL(u).hostname === (process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com")
+      } catch {
+        return false
+      }
+    }
+    if (typeof to === "string" && /^https:\/\//.test(to) && (isOptimizableImage(to) || ours(to))) return NextResponse.redirect(to, { status: 302, headers: { ...cors, "Cache-Control": "public, max-age=3600" } })
+    return new NextResponse("Not found", { status: 404, headers: cors })
+  }
   const type = assetType(name)
   if (!UUID.test(installId) || !NAME.test(name) || !type) return new NextResponse("Not found", { status: 404, headers: cors })
   const draft = version === "edit" || version.startsWith("draft")

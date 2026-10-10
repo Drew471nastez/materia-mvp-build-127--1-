@@ -51,6 +51,8 @@ export const CHECK_EVERY_MS = 5 * 60_000
 export const ANSWER_FRESH_MS = 30_000
 /** A check that has not answered by then is no answer. */
 export const CHECK_TIMEOUT_MS = 2_500
+/** How long a tab's own deployment is surely still served by Vercel's skew protection (its window is longer). */
+export const SKEW_SAFE_MS = 6 * 60 * 60_000
 
 /** The deploy this code was built for, or "" where there is none. */
 export function thisDeployment(): string {
@@ -88,8 +90,20 @@ export function fullLoadFor(input: {
   newDeploy: boolean
   /** The page holds unsaved work it declared. */
   holdsWork: boolean
+  /** How long ago this tab's code was loaded. Left out, the tab counts as old. */
+  tabAgeMs?: number
 }): "assign" | "replace" | null {
   if (!input.newDeploy || input.holdsWork || input.type === "traverse") return null
+  /*
+    NOT WHILE SKEW PROTECTION STILL SERVES THIS TAB (round 15, the owner's "I leave the phone for a minute, tap Home, and it
+    goes white"). Every chunk and router request of this tab carries its deployment (?dpl=, x-deployment-id), so Vercel
+    answers it from the deployment it was built with for hours after a newer one goes live: nothing is missing, and a whole
+    page load (a white screen in the app's web view, for as long as the load takes) bought nothing. Main is deployed many
+    times a day (20 production deploys in eleven hours on 10 October), so a tab asked /api/version after five minutes away
+    almost always learned of a newer one and then threw itself away on the next tap. A tab older than SKEW_SAFE_MS is past
+    any window and still loads fully at a route change, as before; a chunk that fails is healed by lib/ui/stale-code.ts.
+  */
+  if (typeof input.tabAgeMs === "number" && input.tabAgeMs >= 0 && input.tabAgeMs < SKEW_SAFE_MS) return null
   let from: URL
   let to: URL
   try {
@@ -190,6 +204,8 @@ export function loadFullyIfBehind(href: string, type: NavigationType) {
     from: window.location.href,
     newDeploy: newDeployKnown(),
     holdsWork: !!leaveGuard(),
+    /* Wall clock since the page loaded: a suspended web view's performance.now() can stand still while the phone sleeps. */
+    tabAgeMs: typeof performance !== "undefined" && performance.timeOrigin ? Date.now() - performance.timeOrigin : undefined,
   })
   if (how === "assign") window.location.assign(href)
   else if (how === "replace") window.location.replace(href)

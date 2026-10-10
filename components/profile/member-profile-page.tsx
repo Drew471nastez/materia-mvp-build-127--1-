@@ -71,6 +71,7 @@ import { ProfileActivity, type ActivityItemView } from "./profile-activity"
 import { ProfileCommunityList } from "./profile-community-list"
 import { ProfileSocial } from "./profile-social"
 import { ProfileTopBar } from "./profile-top-bar"
+import { ProfileArrival } from "./profile-arrival"
 import { PersonAbout } from "./person-about"
 import { PersonOwnerActions } from "./person-owner-actions"
 import { SharedCommunityPosts } from "./shared-community-posts"
@@ -82,6 +83,8 @@ export interface ProfilePageExtras {
   /** Their contributions per community the viewer may read them in (round 13: with what they gave it, and the viewer's own posts editable). */
   shared?: (ContributionSection | { community: SharedCommunity; page: SharedPostsPage })[]
   backShown: boolean
+  /** Where the way back lands when there is no page of ours behind: the community place it was opened from (lib/profile/back communityBackTarget). */
+  backTarget?: string | null
   now: number
   /** Where they are from, one line (lib/profile/location.ts locationLine); null when they never said. */
   location?: string | null
@@ -197,9 +200,11 @@ export function MemberProfilePage({ profile, viewerId, viewerFollowing, extras }
 
   return (
     <RouterPullToRefresh scope={MEMBER_REFRESH_SCOPE}>
-    <div className="min-h-screen overflow-x-hidden" style={storefrontRootStyle(chrome)} data-storefront-root="" data-member-profile="" data-profile-self={isSelf ? "true" : "false"}>
+    <div className="min-h-screen overflow-x-clip" style={storefrontRootStyle(chrome)} data-storefront-root="" data-member-profile="" data-profile-self={isSelf ? "true" : "false"}>
+      {/* Arriving from a community: a native push, and the cover only once it is whole (round 15). */}
+      <ProfileArrival />
       {/* The page's own top bar: the photo and the name, and the way back in front of them when they came from somewhere. */}
-      <ProfileTopBar always initiallyShown={extras.backShown} name={profile.name} avatarUrl={profile.avatarUrl} width="max-w-[1150px]" />
+      <ProfileTopBar always initiallyShown={extras.backShown} name={profile.name} avatarUrl={profile.avatarUrl} width="max-w-[1150px]" fallback={extras.backTarget ?? undefined} />
 
       <ShopHeaderRenderer
         settings={personHeaderSettings(profile.coverUrl)}

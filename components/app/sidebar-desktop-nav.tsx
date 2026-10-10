@@ -35,7 +35,7 @@
  */
 
 import Link from "next/link"
-import { isPlainClick, useShownPath } from "@/lib/ui/app-navigation"
+import { isPlainClick, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { useEffect, useId, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 /*
@@ -69,6 +69,8 @@ import { LetterIcon as EmailsBold } from "@solar-icons/react/bold/letter"
 import { WindowFrameIcon as WebsiteBuilderLinear } from "@solar-icons/react/linear/window-frame"
 import { WindowFrameIcon as WebsiteBuilderBold } from "@solar-icons/react/bold/window-frame"
 import { SettingsIcon as SettingsLinear } from "@solar-icons/react/linear/settings"
+import { WidgetAddIcon as IntegrationsLinear } from "@solar-icons/react/linear/widget-add"
+import { WidgetAddIcon as IntegrationsBold } from "@solar-icons/react/bold/widget-add"
 import { SettingsIcon as SettingsBold } from "@solar-icons/react/bold/settings"
 /* Community: three people, drawn and filled, for the row that only shows while communities are switched on. */
 import { UsersGroupRoundedIcon as CommunityLinear } from "@solar-icons/react/linear/users-group-rounded"
@@ -109,6 +111,8 @@ const HOVER_TEXT = "#333333"
 const ACTIVE_BG = "#e8e8e8"
 const ACTIVE_TEXT = "#202020"
 const MUTED_TEXT = "#b1b1b1"
+/* The row you are on sits a hair above the rail: a 1px contact shadow and a faint edge, no more (round U, the owner's "a bit of depth"). */
+const ACTIVE_DEPTH = "0 1px 2px rgba(16,18,27,0.07), inset 0 0 0 1px rgba(16,18,27,0.045)"
 const LABEL_TEXT = "#a5a5a5"
 
 /**
@@ -138,7 +142,7 @@ const LABEL_TEXT = "#a5a5a5"
 const ROW =
   "relative flex h-[38px] w-full items-center gap-2 rounded-[12px] px-[14px] " +
   "font-sans text-[15px] leading-[24px] tracking-[-0.01em] " +
-  "transition-[background-color,color] duration-[140ms] ease-out"
+  "transition-[background-color,color,box-shadow] duration-[140ms] ease-out"
 
 /**
  * 470 and 575 — five per cent back off 495/605, and real values rather than
@@ -407,6 +411,8 @@ export const NAV_ICONS = {
 export const NAV_ICONS_EXTRA = {
   settings: { line: SettingsLinear, fill: SettingsBold },
   community: { line: CommunityLinear, fill: CommunityBold },
+  /* The store's installed integrations (components/app/sidebar.tsx), only once one is installed. */
+  integrations: { line: IntegrationsLinear, fill: IntegrationsBold },
 } as const satisfies Record<string, NavIconPair>
 
 /**
@@ -499,10 +505,20 @@ function NavIcon({
  * page being opened while a navigation is underway, the page showing
  * otherwise. So a clicked row is lit on the click, the row you left goes out
  * at the same moment, and both come from the one navigation record.
+ *
+ * A row whose address has a query (Settings › Integrations, each
+ * integration under it) is matched on the path, and every one of its
+ * params has to be in the query showing (`search`, useShownSearch); the
+ * whole href was compared to the path, so those rows never lit.
  */
-export function isRouteActive(pathname: string, href: string): boolean {
-  if (href === "/app") return pathname === "/app"
-  return pathname === href || pathname.startsWith(`${href}/`)
+export function isRouteActive(pathname: string, href: string, search: string | URLSearchParams | null = null): boolean {
+  const at = href.indexOf("?")
+  const path = at < 0 ? href : href.slice(0, at)
+  const onPath = path === "/app" ? pathname === "/app" : pathname === path || pathname.startsWith(`${path}/`)
+  if (!onPath || at < 0) return onPath
+  const showing = new URLSearchParams(search ?? "")
+  for (const [key, value] of new URLSearchParams(href.slice(at + 1))) if (showing.get(key) !== value) return false
+  return true
 }
 
 // ── The rows ────────────────────────────────────────────────────────────────
@@ -512,6 +528,7 @@ function rowStyle(active: boolean, hovered: boolean) {
     backgroundColor: active ? ACTIVE_BG : hovered ? HOVER_BG : "transparent",
     color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : REST_TEXT,
     fontWeight: active ? ACTIVE_WEIGHT : REST_WEIGHT,
+    boxShadow: active ? ACTIVE_DEPTH : "none",
   }
 }
 
@@ -544,7 +561,8 @@ function SubNavItem({
   onNavigate?: (href: string) => void
 }) {
   const pathname = useShownPath()
-  const active = isRouteActive(pathname, child.href)
+  const search = useShownSearch()
+  const active = isRouteActive(pathname, child.href, search)
   const { hovered, handlers } = useHover()
 
   return (
@@ -581,7 +599,8 @@ export function DesktopNavItem({
   onItemClick?: () => void
 }) {
   const pathname = useShownPath()
-  const active = isRouteActive(pathname, item.href)
+  const search = useShownSearch()
+  const active = isRouteActive(pathname, item.href, search)
   const { hovered, handlers } = useHover()
   const style = rowStyle(active, hovered)
   const iconColor = active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : REST_TEXT

@@ -66,13 +66,24 @@ export async function installFiles(admin: Admin, installId: string, draft: boole
   return out
 }
 
+function shopImage(media: Record<string, string>, v: string): string {
+  const name = v.match(/^shopify:\/\/shop_images\/([^?#]+)/)?.[1]
+  if (!name) return ""
+  try {
+    return media[decodeURIComponent(name)] ?? ""
+  } catch {
+    return ""
+  }
+}
+
 /** The theme an install draws, with its assets where they are served from. */
 export function compatThemeFor(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
   const media = assetAddresses(rows)
   return themeOfInstall(rows, settings, {
     assetUrl: (name) => media[name] ?? themeAssetUrl(installId, version, name),
     assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-    imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+    /* "shopify://shop_images/logo.png" is a file of the store the theme came from: the theme's own picture of that name where it brought one. */
+    imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : shopImage(media, v)),
   })
 }
 

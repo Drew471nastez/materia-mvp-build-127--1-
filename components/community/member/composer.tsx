@@ -128,6 +128,8 @@ import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD, DEPTH, DEPTH_PRESS, ICON_B
 import { hapticTap } from "@/lib/native-bridge"
 import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
 import type { ComposerSpace, LinkPreview } from "./view-types"
+import { useComposeRequests } from "@/lib/communities/client/compose-intent"
+import { useLayer } from "@/lib/ui/layers"
 
 export interface ComposerProps {
   communityId: string
@@ -395,6 +397,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const wasLink = was?.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link") ?? null
   const [open, setOpen] = useState(editing)
   const [sheetIn, setSheetIn] = useState(false)
+  /*
+    THE SCREEN FIRST, ITS FIELDS ON THE NEXT FRAME (round 15, the owner: "quicker to appear"). The tap drew the whole editor
+    (the fields, the mentions, the emoji and GIF tools, the space picker) before the screen could move: one task of 140 to
+    170ms at 4x CPU. Now the tap draws the screen's own frame (its header with Cancel and Post, and the white), the slide
+    starts on that frame, and the editor is drawn into it on the next one, while the compositor is already moving it: by the
+    time the body has come up into view it is filled.
+  */
+  const [filled, setFilled] = useState(editing)
   const [title, setTitle] = useState(was?.title ?? "")
   const [body, setBody] = useState(was?.bodyText ?? "")
   const [spaceId, setSpaceId] = useState<string | null>(was ? (was.space?.id ?? null) : (fixedSpaceId ?? (spaces.length === 1 ? spaces[0].id : null)))
@@ -646,19 +656,27 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       return
     }
     if (!spaceId) {
-      const btn = cardRef.current?.querySelector<HTMLButtonElement>("button[data-composer-space]")
+      /* On a phone the picker is on the screen (portalled), not in the card. */
+      const btn = (sheetRef.current ?? cardRef.current)?.querySelector<HTMLButtonElement>("button[data-composer-space]") ?? null
       nudgeRing(btn)
       btn?.focus({ preventScroll: true })
       return
     }
     if (!pollReady) {
-      const q = cardRef.current?.querySelector<HTMLElement>("[data-poll-question]")
+      const q = (sheetRef.current ?? cardRef.current)?.querySelector<HTMLElement>("[data-poll-question]") ?? null
       nudgeRing(q)
       q?.focus({ preventScroll: true })
     }
   }
   const sheet = open && phone
   openRef.current = open
+
+  /*
+    THE TAB BAR UNDER THE SCREEN (round 15). The phone's screen covers the tab bar while it is open, counted as a "composer"
+    layer (lib/ui/layers.ts): the bar holds still under it, never slid away, and is simply there again when it has gone. Held
+    from the commit that draws the screen to the one that takes it away, so no close, Leave or Back can leave it hidden.
+  */
+  useLayer("composer", sheet, sheetRef)
 
   const clear = useCallback(() => {
     setTitle("")
@@ -687,6 +705,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       leaving.current = false
       setSheetIn(false)
       setOpen(false)
+      if (!edit) setFilled(false)
       if (edit) {
         const then = editDone.current ?? edit.onClose
         editDone.current = null
@@ -786,13 +805,18 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     */
     const arrived = () => {
       setSheetIn(true)
-      focusFirst()
+      setFilled(true)
+      /* On the frame after, so a screen that had no move (reduced motion) has its fields drawn before the caret goes in. */
+      requestAnimationFrame(focusFirst)
     }
+    let fill = 0
     if (el && typeof el.animate === "function" && !reducedMotion()) {
       const a = el.animate([{ translate: "0 100%" }, { translate: "0 0" }], { duration: SHEET_OPEN_MS, easing: SHEET_EASE })
       a.onfinish = arrived
+      fill = requestAnimationFrame(() => setFilled(true))
     } else arrived()
     return () => {
+      cancelAnimationFrame(fill)
       html.style.overflow = prev
     }
   }, [sheet])
@@ -937,6 +961,25 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     /* In place, at once; a phone's screen takes it when it has arrived (THE FIELD TAKES THE CARET). */
     if (!phone) requestAnimationFrame(focusFirst)
   }
+
+  /*
+    CREATE POST, FROM ANYWHERE (round 15: the tab bar's Create post inside a community, lib/communities/client/compose-intent.ts).
+    The composer on screen opens for it, in the space asked for when this member may post there. Edit post never answers, and a
+    composer held to another space (a space's own page) leaves it to one that is not.
+  */
+  useComposeRequests((req) => {
+    if (editing || leaving.current) return false
+    const asked = req.spaceSlug ? spaces.find((s) => s.slug === req.spaceSlug) : undefined
+    if (req.spaceSlug && fixedSpaceId && asked?.id !== fixedSpaceId) return false
+    if (asked && !fixedSpaceId) setSpaceId(asked.id)
+    if (open) {
+      if (!phone) requestAnimationFrame(focusFirst)
+      return true
+    }
+    if (!phone) cardRef.current?.scrollIntoView({ block: "nearest", behavior: reducedMotion() ? "auto" : "smooth" })
+    openEditor()
+    return true
+  })
 
   const pickers = (
     <>
@@ -1246,16 +1289,20 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
                     <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} />
                   </div>
                 </div>
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="">
-                  <div className="mb-3 flex min-w-0 items-center gap-2">
-                    <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
-                    <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
-                    <span className="min-w-0">{spacePicker}</span>
-                  </div>
-                  {fields}
+                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
+                  {filled ? (
+                    <>
+                      <div className="mb-3 flex min-w-0 items-center gap-2">
+                        <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
+                        <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
+                        <span className="min-w-0">{spacePicker}</span>
+                      </div>
+                      {fields}
+                    </>
+                  ) : null}
                 </div>
-                {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. */}
-                <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{tools}</div>
+                {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. Its room is kept while the fields are on their way, so nothing moves when they come. */}
+                <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{filled ? tools : <div className="h-10" aria-hidden />}</div>
                 </div>
               </div>,
               document.body,

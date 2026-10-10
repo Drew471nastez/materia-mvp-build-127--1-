@@ -14,6 +14,7 @@ import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { FilesLibrary, FilesLibraryChooser } from "@/components/files/files-library"
+import { ActivityPanel } from "@/components/app/settings/activity-panel"
 import { SalesChannelsCard } from "@/app/app/products/new/sales-channels-card"
 import { Totals } from "@/app/checkout/parts/order-summary"
 import * as React from "react"
@@ -31,7 +32,7 @@ function TotalsProbe({ included }: { included: boolean }) {
   )
 }
 
-type W = Window & { __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => React.ReactElement> }
+type W = Window & { __gets?: string[]; __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => React.ReactElement> }
 const w = window as W
 w.__sent = []
 const realFetch = window.fetch.bind(window)
@@ -41,6 +42,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   const method = (init?.method || "GET").toUpperCase()
   if (!path.startsWith("/api/")) return realFetch(input, init)
   if (method !== "GET") w.__sent!.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : null })
+  else (w.__gets ??= []).push(url.replace(/^https?:\/\/[^/]+/, ""))
   const body = w.__api?.[`${method} ${path}`] ?? w.__api?.[path] ?? {}
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
@@ -65,6 +67,7 @@ const panels: Record<string, () => React.ReactElement> = {
   integrations: () => <IntegrationsDirectory />,
   emails: () => <CustomerEmailsPanel />,
   files: () => <FilesLibrary mode="manage" />,
+  activity: () => <ActivityPanel />,
   filesPick: () => <PickProbe />,
   channelCard: () => (
     <div style={{ maxWidth: 360 }}>

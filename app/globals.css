@@ -7862,6 +7862,15 @@ html.capacitor .home-card li > :is(a, button):active {
   html[data-buyer-tabs="shown"] [data-chat] {
     padding-bottom: calc(var(--buyer-tabs-h) + 12px);
   }
+  /* AN OPENED POST KEEPS THE BAR (round 15, lib/ui/layers.ts). The post is a
+     layer at z 130 that the bar stays over, Instagram's way, so while one is
+     open and nothing covering is, the bar is lifted over it; the post's
+     comment box stands on --buyer-tabs-h. The composer (125, 135) and the
+     picture viewer (160) cover the bar instead, and while one of them is
+     open data-tabs-over is off, so the bar is back under them. */
+  html[data-tabs-over] [data-buyer-tab-bar] {
+    z-index: 131;
+  }
 }
 
 /* Community join bars (data-community-fixed-foot) publish their height as
@@ -8154,4 +8163,21 @@ html[data-settings-sheet-up="page"] .app-content-scroll {
 }
 @media (prefers-reduced-motion: reduce) {
   .settings-content-in { animation: none; }
+}
+
+/*
+ * SETTINGS › INTEGRATIONS: a pill or a search swaps the cards
+ * (components/app/settings/integrations-directory.tsx). The new set fades and
+ * rises 4px over 180ms rather than popping in; with reduced motion it simply
+ * appears.
+ */
+@keyframes integration-grid-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.integration-grid-in {
+  animation: integration-grid-in 180ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .integration-grid-in { animation: none; }
 }

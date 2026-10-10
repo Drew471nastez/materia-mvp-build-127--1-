@@ -43,6 +43,7 @@ import { Play } from "lucide-react"
 import { CommunityFileAttachment, CommunityFileAttachmentSplit } from "./community-file-attachment"
 import { StorelibVideo } from "@/components/video/storelib-video"
 import { optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
+import { BLUR_QUALITY, BLUR_WIDTH, FEED_PICTURE_QUALITY, NO_PICTURE, feedSlot, loadPolicy, type FeedSlotName } from "@/lib/images/slots"
 import { MAX_COMMENT_EMBEDS, bodyEmbeds, cardPictures, cardThumb, fileSizeLabel, mediaKindOf, mediaLayout, viewerItems, type CardPicture, type ViewerItem } from "@/lib/communities/post-media"
 import type { PostMedia } from "@/lib/communities/types"
 import { apiBase } from "./api"
@@ -117,10 +118,10 @@ export function warmPostMedia(media: PostMedia[], communityId: string, postId: s
   }
 }
 
-/** The placeholder's copy: the optimizer's smallest file, for our own pictures only. */
+/** The placeholder's copy: the optimizer's smallest file at its lowest listed quality, for our own pictures only (slots.ts). */
 export function blurSrc(url: string, local: boolean): string | null {
   if (!local || !url || /^(data|blob):/.test(url)) return null
-  const tiny = optimizedImageUrl(url, 16)
+  const tiny = optimizedImageUrl(url, BLUR_WIDTH, BLUR_QUALITY)
   return tiny === url ? null : tiny
 }
 
@@ -141,6 +142,7 @@ export function SoftImg({
   onError,
   eager = false,
   fetchPriority,
+  hiddenFrom,
 }: {
   src: string
   srcSet?: string
@@ -154,6 +156,12 @@ export function SoftImg({
   onError?: () => void
   eager?: boolean
   fetchPriority?: "high" | "low" | "auto"
+  /**
+   * A media query where this picture is hidden by its parent (a phone only picture, `sm:hidden`): there the browser takes an
+   * empty source instead and fetches nothing. A hidden picture that is eager (the first screen's) was fetched on a computer
+   * for nothing, at a phone's width, ahead of the pictures that were on screen.
+   */
+  hiddenFrom?: string
 }) {
   const ref = useRef<HTMLImageElement>(null)
   /* In the page's HTML: shown as soon as the browser has it, never hidden until the scripts run (lib/ui/drawn-by-server.ts). */
@@ -186,13 +194,9 @@ export function SoftImg({
     return () => window.clearTimeout(t)
   }, [state])
   const shown = state !== "wait"
-  return (
-    <>
-      {blur && state !== "cached" ? (
-        <span aria-hidden className={`absolute inset-0 scale-110 bg-cover bg-center blur-[10px] ${SDR}`} style={{ backgroundImage: `url("${blur}")` }} data-soft-blur="" />
-      ) : null}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+  const img = (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
         ref={ref}
         src={src}
         srcSet={srcSet || undefined}
@@ -201,8 +205,12 @@ export function SoftImg({
         height={height}
         alt={alt}
         loading={eager ? "eager" : "lazy"}
-        /* A picture already drawn decodes with the frame it is painted in: a card scrolled away and back (content-visibility skips it while it is off screen) does not show an empty box for a frame. */
-        decoding={eager || state === "cached" ? "sync" : "async"}
+        /*
+          A picture already drawn decodes with the frame it is painted in, so a card drawn again never shows an empty box for a
+          frame. One arriving for the first time decodes off the page's thread (round 15: the first screen's pictures were
+          "sync" too, which held the frame they landed in while a 750px file was decoded) and fades in over its blur.
+        */
+        decoding={state === "cached" ? "sync" : "async"}
         fetchPriority={fetchPriority}
         referrerPolicy={referrerPolicy}
         onLoad={() => {
@@ -214,6 +222,20 @@ export function SoftImg({
         style={state === "in" ? { transitionDuration: `${FADE_MS}ms` } : undefined}
         data-soft-img={state}
       />
+  )
+  return (
+    <>
+      {blur && state !== "cached" ? (
+        <span aria-hidden className={`absolute inset-0 scale-110 bg-cover bg-center blur-[10px] ${SDR}`} style={{ backgroundImage: `url("${blur}")` }} data-soft-blur="" />
+      ) : null}
+      {hiddenFrom ? (
+        <picture>
+          <source media={hiddenFrom} srcSet={NO_PICTURE} />
+          {img}
+        </picture>
+      ) : (
+        img
+      )}
     </>
   )
 }
@@ -313,16 +335,19 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
   const thumb = cardThumb(media)
   const [failed, setFailed] = useState(false)
   if (!thumb || failed) return null
-  const srcSet = thumb.local ? optimizedSrcSet(thumb.url, [96, 128, 256]) : ""
+  /* The thumbnail is a square crop: the picture's own shape says how much wider than the square it is drawn. */
+  const shaped = media.find((m): m is Extract<PostMedia, { type: "image" | "video" }> => m.type === "image" || (m.type === "video" && !!m.poster))
+  const slot = feedSlot("cardThumb", shaped?.w && shaped?.h ? shaped.w / shaped.h : null)
+  const srcSet = thumb.local ? optimizedSrcSet(thumb.url, slot.widths, FEED_PICTURE_QUALITY) : ""
   return (
     <span className={`relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)] sm:h-24 sm:w-24 ${className}`} data-post-thumb={thumb.kind}>
       {thumb.kind === "gif" && thumb.motion ? (
         <GifImg still={thumb.url} motion={thumb.motion} className="h-full w-full object-cover" />
       ) : (
         <SoftImg
-          src={thumb.local ? optimizedImageUrl(thumb.url, 96) : thumb.url}
+          src={thumb.local ? optimizedImageUrl(thumb.url, slot.display, FEED_PICTURE_QUALITY) : thumb.url}
           srcSet={srcSet}
-          sizes="(min-width: 640px) 96px, 72px"
+          sizes={slot.sizes}
           blur={blurSrc(thumb.url, thumb.local)}
           referrerPolicy={thumb.local ? undefined : "no-referrer"}
           className="absolute inset-0 h-full w-full object-cover"
@@ -366,7 +391,7 @@ export function PostThumb({ media, className = "" }: { media: PostMedia[]; class
  * the feed shows them in one step rather than a grey box, then a blur, then the picture (round 24, measured: about ten grey
  * frames on a client arrival, because the first screenful was lazy too).
  */
-export function CardMedia({ media, className = "", priority = false }: { media: PostMedia[]; className?: string; priority?: boolean }) {
+export function CardMedia({ media, className = "", priority = false, phoneOnly = false }: { media: PostMedia[]; className?: string; priority?: boolean; /** Hidden from 640px (a card that shows a thumbnail there): nothing is fetched there. */ phoneOnly?: boolean }) {
   const pics = cardPictures(media)
   if (!pics.length) return null
   const box = "relative overflow-hidden rounded-xl bg-[#f1f2f4] shadow-[0_1px_2px_rgba(16,24,40,0.06)]"
@@ -375,7 +400,7 @@ export function CardMedia({ media, className = "", priority = false }: { media: 
     const ratio = p.w && p.h ? Math.min(Math.max(p.w / p.h, 1), 2) : 16 / 9
     return (
       <div className={`${box} ${className}`} style={{ aspectRatio: String(ratio) }} data-card-media="single">
-        <CardPictureImg p={p} widths={[390, 640, 828, 1080]} sizes="(min-width: 640px) 600px, 100vw" display={640} priority={priority} />
+        <CardPictureImg p={p} slot="cardSingle" priority={priority} hiddenFrom={phoneOnly ? "(min-width: 640px)" : undefined} />
         <span aria-hidden className={PICTURE_EDGE} />
       </div>
     )
@@ -387,7 +412,7 @@ export function CardMedia({ media, className = "", priority = false }: { media: 
     <div className={`${box} grid aspect-[2/1] grid-cols-2 gap-[3px] bg-white sm:aspect-[8/3] ${three ? "grid-rows-2" : ""} ${className}`} data-card-media={three ? "grid" : "pair"}>
       {shown.map((p, i) => (
         <div key={i} className={`relative min-h-0 overflow-hidden bg-[#f1f2f4] ${three && i === 0 ? "row-span-2" : ""}`} data-card-media-tile={p.kind}>
-          <CardPictureImg p={p} widths={three && i > 0 ? [256, 384, 640] : [256, 384, 640, 828]} sizes={three && i > 0 ? "(min-width: 640px) 300px, 50vw" : "(min-width: 640px) 360px, 50vw"} display={three && i > 0 ? 300 : 384} priority={priority} />
+          <CardPictureImg p={p} slot={three && i > 0 ? "cardSmall" : "cardHalf"} priority={priority} />
           {i === shown.length - 1 && more > 0 ? (
             <span className="absolute inset-0 flex items-center justify-center bg-[#0f1115]/45 text-[20px] font-semibold tabular-nums text-white" aria-label={`${more} more`} data-card-media-more="">
               +{more}
@@ -400,24 +425,33 @@ export function CardMedia({ media, className = "", priority = false }: { media: 
   )
 }
 
-function CardPictureImg({ p, widths, sizes, display, priority = false }: { p: CardPicture; widths: number[]; sizes: string; display: number; priority?: boolean }) {
+/*
+  A CARD'S PICTURE, ITS FILE AND ITS MOMENT (round 15, lib/images/slots.ts). The width the browser asks for is the slot's
+  measured box, scaled by how much wider than the box a cropped picture is drawn (a 3:2 photograph in a square tile is drawn
+  half again wider than the tile, and a file the tile's width came out soft); the quality is the feed's (75, AVIF 55), checked
+  by eye at 390px on a 3x screen. The first screen's are eager and high, everything under it lazy and low.
+*/
+function CardPictureImg({ p, slot, priority = false, hiddenFrom }: { p: CardPicture; slot: FeedSlotName; priority?: boolean; hiddenFrom?: string }) {
   const [failed, setFailed] = useState(false)
-  const srcSet = p.local ? optimizedSrcSet(p.url, widths) : ""
+  const fit = feedSlot(slot, p.w && p.h ? p.w / p.h : null)
+  const srcSet = p.local ? optimizedSrcSet(p.url, fit.widths, FEED_PICTURE_QUALITY) : ""
+  const policy = loadPolicy(priority)
   return (
     <>
       {failed ? null : p.kind === "gif" && p.motion ? (
         <GifImg still={p.url} motion={p.motion} width={p.w} height={p.h} className="absolute inset-0 h-full w-full object-cover" eager={priority} />
       ) : (
         <SoftImg
-          src={p.local ? optimizedImageUrl(p.url, display) : p.url}
+          src={p.local ? optimizedImageUrl(p.url, fit.display, FEED_PICTURE_QUALITY) : p.url}
           srcSet={srcSet}
-          sizes={sizes}
+          sizes={fit.sizes}
           blur={blurSrc(p.url, p.local)}
           referrerPolicy={p.local ? undefined : "no-referrer"}
           className="absolute inset-0 h-full w-full object-cover"
           onError={() => setFailed(true)}
-          eager={priority}
-          fetchPriority={priority ? "high" : undefined}
+          eager={policy.loading === "eager"}
+          fetchPriority={policy.fetchPriority}
+          hiddenFrom={hiddenFrom}
         />
       )}
       {p.kind === "video" ? (

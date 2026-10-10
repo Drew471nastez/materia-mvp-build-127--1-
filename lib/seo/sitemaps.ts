@@ -353,6 +353,8 @@ export async function productsSitemap(chunk: number): Promise<SitemapEntry[]> {
         .from("products")
         .select("slug, status, updated_at, creator_id, thumbnail_url, gallery_urls, creators!inner(user_id)")
         .eq("status", "published")
+        /* Physical products are the creator's own website's, never the marketplace's (lib/seo/creator-domain lists them there). */
+        .neq("type", "physical")
       if (skipCommunity) q = q.is("community_id", null)
       return q.order("id", { ascending: true }).range(a, b) as unknown as PromiseLike<Rows<ProductRow>>
     },
@@ -439,6 +441,7 @@ async function creatorChunk(chunk: number): Promise<{ creators: SitemapEntry[]; 
           .select("creator_id, updated_at")
           .in("creator_id", batch)
           .eq("status", "published")
+          .neq("type", "physical")
           .order("id", { ascending: true })
           .range(a, b),
       0,

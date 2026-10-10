@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations, loadPackages, loadProfiles, loadSettings, loadTaxRates, saveSettings } from "@/lib/physical/config-server"
 import { loadIntegrations } from "@/lib/physical/integrations-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -28,5 +29,6 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const saved = await saveSettings(c.db, c.creatorId, body)
   if (saved.ok === false) return physicalJson({ error: saved.error }, 400)
+  await recordActivity(c.db, c, { action: "settings.shipping" })
   return physicalJson({ settings: await loadSettings(c.db, c.creatorId) })
 }

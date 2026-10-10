@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { addReason, deleteReason, loadAllReasons, orderReasons, readKind, updateReason } from "@/lib/store/reasons-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -30,6 +31,7 @@ async function write(request: Request, run: (kind: "return" | "refund", body: Re
   if (!body || !kind) return physicalJson({ error: "Bad request." }, 400)
   const out = await run(kind, body, c.db, c.creatorId)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
+  await recordActivity(c.db, c, { action: "settings.reasons", meta: { kind } })
   return physicalJson({ kind, reasons: out.reasons })
 }
 

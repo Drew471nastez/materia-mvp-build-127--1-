@@ -39,13 +39,38 @@
  * back two pages. The guard lifts when this page is shown again (a back
  * that did nothing ends in the fallback, and bfcache can bring the page
  * back), so the chevron is never dead.
+ *
+ * ROUND 15: WHY THE ARROW DID NOT ANSWER, AND WHAT CHANGED.
+ *   THE CAUSE   in the phone app the creator page opened on its newsletter
+ *               bar, and the arrow was that bar's first thing. The app's
+ *               CSS puts that bar "in the flow under the app's own header"
+ *               (app/globals.css, html.capacitor .subscribe-bar-fixed), but
+ *               a page reached from a community has no Storelib header: so
+ *               the bar, and the arrow in it, sat at the very top of the
+ *               screen, under the clock, with nothing padding it down. iOS
+ *               keeps a touch on the status bar for itself (it scrolls to
+ *               the top), and the clock's band (html.capacitor::before) is
+ *               drawn over it, so a tap on the arrow never reached the page.
+ *               Scrolled down even a little, the bar was gone, and with it
+ *               the only way back on the page.
+ *   THE FIX     the newsletter bar is gone (lib/storefront/subscribe-bar-
+ *               visibility.ts) and the arrow lives here, in the page's own
+ *               top bar, which pads itself under the clock in the app
+ *               (.native-top-surface) and now STAYS at the top (sticky) as
+ *               the page scrolls. With nothing of ours behind (opened cold,
+ *               the app's resume, a shared link) the arrow no longer waits
+ *               900ms on a history back that cannot happen and then lands on
+ *               Explore: it goes straight to `fallback` (goBackOr), which a
+ *               page opened from a community profile is handed: the
+ *               community place it came from (lib/profile/back
+ *               communityBackTarget).
  */
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { ChevronLeft } from "lucide-react"
 import { AppAvatar } from "@/components/app/app-avatar"
-import { backThen } from "@/lib/navigation/go-back"
+import { goBackOr } from "@/lib/navigation/go-back"
 import { previousPath } from "@/lib/navigation/in-app-history"
 import { cameFromElsewhere } from "@/lib/profile/back"
 import { cn } from "@/lib/utils"
@@ -103,7 +128,8 @@ export function BackChevron({ fallback = "/explore", className }: { fallback?: s
         window.setTimeout(() => {
           leaving.current = false
         }, LEAVING_MS)
-        backThen(() => router.push(fallback))
+        /* A page of ours behind: back to it, where it was scrolled. Nothing behind: straight to the fallback, once. */
+        goBackOr(fallback, (href) => router.push(href))
       }}
       aria-label="Back"
       data-profile-back-button=""
@@ -166,8 +192,8 @@ export function ProfileTopBar({
     <div
       data-profile-top-bar=""
       data-profile-back={shown ? "" : undefined}
-      /* The page's top surface: in the app, when no Storelib header is above it, it pads itself under the clock (app/globals.css .native-top-surface); a hairline at its foot and no shadow, one surface with the white band. */
-      className="native-top-surface w-full border-b border-black/[0.06]"
+      /* The page's top surface: in the app, when no Storelib header is above it, it pads itself under the clock (app/globals.css .native-top-surface); a hairline at its foot and no shadow, one surface with the white band. Sticky (round 15): the way back stays in reach as the page scrolls. */
+      className="native-top-surface sticky top-0 z-30 w-full border-b border-black/[0.06]"
       style={{ backgroundColor: colors?.background || "#ffffff", color: colors?.text || "#1a1a2e" }}
     >
       <div className={cn("mx-auto flex h-14 w-full items-center gap-2.5 px-3 sm:px-4", width)}>

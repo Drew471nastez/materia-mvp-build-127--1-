@@ -17,7 +17,7 @@ import "server-only"
  * delivery and hold no stock. Something the buyer already owns is left out.
  */
 
-import { baseFor } from "@/lib/checkout/pricing"
+import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
@@ -26,6 +26,8 @@ import { methodOf, readMethod } from "./fulfillment"
 import { isPickupOptionId, pickupOptions } from "./pickup"
 import { quoteDelivery, pickOption, type Quote } from "./rates"
 import { physicalTotals, type PhysicalTotals, type TaxSettings } from "./totals"
+import { applyOffers, suggestionsFor, type AppliedOffer, type Offer } from "@/lib/offers/offers"
+import { loadOffers } from "@/lib/offers/offers-server"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 
 export const MAX_CHECKOUT_LINES = 50
@@ -35,6 +37,8 @@ export interface CheckoutItem {
   productId: string
   variantId: string | null
   quantity: number
+  /** A pay what you want amount the buyer named for a digital line; held to its minimum below (baseFor). */
+  customPriceCents?: number
 }
 
 export function readItems(input: unknown): CheckoutItem[] {
@@ -47,7 +51,13 @@ export function readItems(input: unknown): CheckoutItem[] {
     const quantity = Math.max(1, Math.min(MAX_LINE_QUANTITY, Math.floor(Number(r.quantity) || 1)))
     const key = `${r.productId}:${variantId ?? ""}`
     const had = merged.get(key)
-    merged.set(key, { productId: r.productId, variantId, quantity: Math.min(MAX_LINE_QUANTITY, (had?.quantity ?? 0) + quantity) })
+    const custom = wholeCents(r.customPriceCents, 0, MAX_PWYW_CENTS) ?? had?.customPriceCents ?? null
+    merged.set(key, {
+      productId: r.productId,
+      variantId,
+      quantity: Math.min(MAX_LINE_QUANTITY, (had?.quantity ?? 0) + quantity),
+      ...(custom !== null ? { customPriceCents: custom } : {}),
+    })
   }
   return [...merged.values()]
 }
@@ -68,6 +78,10 @@ export type PricedCheckout =
       stockIssues: StockIssue[]
       coupon: CouponRow | null
       couponLabel: string | null
+      /** The store's upsells and bundles this cart qualifies for (lib/offers), already in the lines' discounts. */
+      offers: AppliedOffer[]
+      /** Checkout offers to suggest: their product isn't in the cart yet. */
+      suggestions: Offer[]
       freeShipping: boolean
       settings: CommerceSettings
       tax: TaxSettings
@@ -192,8 +206,13 @@ export async function priceCheckout(
         dropped.push(p.title)
         continue
       }
-      const priced = baseFor(v ?? p, undefined)
-      const unit = priced.ok ? priced.cents : 0
+      /* Pay what you want is the amount the buyer named in the cart, held to
+         the product's (or the option's) minimum and the ceiling, as the
+         basket checkout holds it; none named is the minimum. Under it is
+         refused with the reason, never charged at a price nobody chose. */
+      const priced = baseFor(v ?? p, item.customPriceCents)
+      if (priced.ok === false) return { ok: false, status: 400, error: `${p.title}: ${priced.error}` }
+      const unit = priced.cents
       if (unit <= 0) {
         dropped.push(p.title)
         continue
@@ -273,7 +292,14 @@ export async function priceCheckout(
 
   const tax = await loadTaxSettings(db, creatorId, settings)
   const available = (variantId: string, locationId: string) => levelOf.get(`${variantId}:${locationId}`) ?? 0
-  const base = { ok: true as const, creatorId, lines, dropped, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available }
+  /*
+    Upsells and bundles (lib/offers): the store's own, applied to the lines this function just priced from the database, before any code.
+    A line's discountCents is then the offers' part, and a code adds its own on what's left.
+  */
+  const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
+  const fromOffers = applyOffers(lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity })), offers)
+  fromOffers.discounts.forEach((d, i) => (lines[i].discountCents = d))
+  const base = { ok: true as const, creatorId, lines, dropped, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
   if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: false }
@@ -320,8 +346,9 @@ export async function priceCheckout(
       .eq("buyer_email", req.buyerEmail.toLowerCase().trim())
     if ((count ?? 0) >= c.per_customer_limit) return { ok: false, status: 400, error: "You have already used this code." }
   }
-  const discounts = Number(c.discount_value) > 0 ? lineDiscounts(c, lines.map((l) => l.unitCents * l.quantity), applies) : lines.map(() => 0)
-  discounts.forEach((d, i) => (lines[i].discountCents = d))
+  /* On what each line costs after its offers, so a code and a bundle together never take a line below zero. */
+  const discounts = Number(c.discount_value) > 0 ? lineDiscounts(c, lines.map((l) => Math.max(0, l.unitCents * l.quantity - l.discountCents)), applies) : lines.map(() => 0)
+  discounts.forEach((d, i) => (lines[i].discountCents += d))
   const freeShipping = c.free_shipping === true
   if (!freeShipping && discounts.every((d) => d <= 0)) return { ok: false, status: 400, error: "That code takes nothing off this order." }
   const label = [Number(c.discount_value) > 0 ? couponLabel(c) : null, freeShipping ? "free shipping" : null].filter(Boolean).join(" and ")

@@ -71,6 +71,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   FIRST_PRODUCT_PUBLISHED: ["productTitle", "productId", "paymentsReady"],
   STORE_SETUP_UNFINISHED: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "stepsLeft"],
   STORE_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "stepsLeft"],
+  PHYSICAL_SETUP_UNFINISHED: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
+  PHYSICAL_SETUP_UNFINISHED_2: ["stepLabel", "stepPath", "stepsDone", "stepsTotal", "paymentsMissing"],
   PAYMENT_SETUP_REMINDER: [],
   PAYMENT_SETUP_REMINDER_2: [],
   PAYOUT_SETUP_UNFINISHED: ["started", "productTitle"],
@@ -746,6 +748,52 @@ export const CATALOG: Record<NotificationType, Entry> = {
       action: { label: step || "Open your setup", path },
       note: LAST_REMINDER_NOTE,
       inApp: { title: "Your store setup is still open", body: step ? `Next: ${lower(step)}.` : "The last setup steps are still open.", actionLabel: "Open setup", actionPath: path },
+    }
+  },
+
+  /*
+     Selling things that ship, begun and not ready (conditions.ts physical_setup_unfinished): the next of
+     Home's physical steps, or payments first when buyers can't pay yet. The button goes where it is done.
+  */
+  PHYSICAL_SETUP_UNFINISHED: (d) => {
+    const step = d.text("stepLabel", 60)
+    const done = d.count("stepsDone")
+    const total = d.count("stepsTotal")
+    const payments = d.bool("paymentsMissing") === true
+    const path = setupPath(d)
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: payments ? "Buyers can't pay for your products yet" : "Your store isn't ready to ship orders yet",
+      preview: step ? `Next: ${lower(step)}.` : "A few steps are still open.",
+      heading: payments ? "Set up payments to start selling" : "Finish setting up shipping",
+      paragraphs: [
+        payments ? "You've started selling products you ship, but payments aren't set up, so nobody can buy them yet." : done !== null && total ? `You have ${done} of ${total} steps done. The rest are what let a buyer order something you ship.` : "A few steps are still open before a buyer can order something you ship.",
+        step ? `The next one is to ${lower(step)}.` : "",
+      ],
+      action: { label: step || "Open your setup", path },
+      note: REMINDER_NOTE,
+      inApp: { title: payments ? "Buyers can't pay yet" : "Finish setting up shipping", body: step ? `Next: ${lower(step)}.` : "A few steps are still open.", actionLabel: "Open setup", actionPath: path },
+    }
+  },
+
+  PHYSICAL_SETUP_UNFINISHED_2: (d) => {
+    const step = d.text("stepLabel", 60)
+    const payments = d.bool("paymentsMissing") === true
+    const path = setupPath(d)
+    return {
+      family: "lifecycle",
+      audience: "creator",
+      subject: payments ? "Payments are still not set up" : "Your shipping setup is still open",
+      preview: step ? `One step to look at: ${lower(step)}.` : "The last steps are still open.",
+      heading: payments ? "Payments are still not set up" : "Your shipping setup is still open",
+      paragraphs: [
+        payments ? "It has been a week, and buyers still can't pay for the products you ship." : "It has been a week, and your store still can't take an order it would ship.",
+        step ? `The next step is to ${lower(step)}. It takes a few minutes.` : "Finishing the last steps takes a few minutes.",
+      ],
+      action: { label: step || "Open your setup", path },
+      note: LAST_REMINDER_NOTE,
+      inApp: { title: payments ? "Payments still not set up" : "Shipping setup still open", body: step ? `Next: ${lower(step)}.` : "The last steps are still open.", actionLabel: "Open setup", actionPath: path },
     }
   },
 

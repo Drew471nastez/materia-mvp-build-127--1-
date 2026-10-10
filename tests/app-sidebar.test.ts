@@ -144,6 +144,20 @@ section("Which item is active comes from the route, and only from the route")
       !isRouteActive("/app/emails-old", "/app/emails"),
   )
   check(
+    "a row whose address has a query lights on its path with those params showing",
+    /**
+     * Settings › Integrations and each integration under it are
+     * /app/settings?tab=integrations[&integration=…]: the whole href was
+     * compared to the path, so they never lit.
+     */
+    isRouteActive("/app/settings", "/app/settings?tab=integrations", "tab=integrations&integration=meta-pixel") &&
+      isRouteActive("/app/settings", "/app/settings?tab=integrations&integration=meta-pixel", "tab=integrations&integration=meta-pixel") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations&integration=ga4", "tab=integrations&integration=meta-pixel") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations", "tab=general") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations") &&
+      !isRouteActive("/app/orders", "/app/settings?tab=integrations", "tab=integrations"),
+  )
+  check(
     "there is no second copy of which page we are on",
     // A `selectedItem` state is a second answer to a question the router has
     // already answered, and it is wrong for as long as it takes to notice.
@@ -182,7 +196,7 @@ section("A row is the same size in every state")
       /rounded-\[12px\] px-\[14px\]/.test(navSource),
   )
   check(
-    "only colour and weight change between states",
+    "only colour, weight and a faint shadow change between states",
     /**
      * `rowStyle` is the entire difference between resting, hovered and
      * active. If it ever returns a fourth property, this stops being true.
@@ -190,7 +204,8 @@ section("A row is the same size in every state")
     (() => {
       const fn = navSource.slice(navSource.indexOf("function rowStyle"), navSource.indexOf("function useHover"))
       const keys = [...fn.matchAll(/^\s{4}(\w+):/gm)].map((m) => m[1])
-      return keys.length === 3 && keys.includes("backgroundColor") && keys.includes("color") && keys.includes("fontWeight")
+      /* Changed on purpose (round U): the active row has a faint depth too, a shadow that moves and resizes nothing. */
+      return keys.length === 4 && keys.includes("backgroundColor") && keys.includes("color") && keys.includes("fontWeight") && keys.includes("boxShadow")
     })(),
   )
   check(
@@ -212,8 +227,9 @@ section("A row is the same size in every state")
       !/Inter\(\{[^}]*weight:/.test(readFileSync(join(root, "app/layout.tsx"), "utf8")),
   )
   check(
-    "the transition names the two properties that change, and nothing else",
-    /transition-\[background-color,color\] duration-\[140ms\] ease-out/.test(navSource) &&
+    /* Changed on purpose (round U): the active row's faint shadow eases with its colours. */
+    "the transition names the three properties that change, and nothing else",
+    /transition-\[background-color,color,box-shadow\] duration-\[140ms\] ease-out/.test(navSource) &&
       !/hover:scale|active:scale|hover:translate|hover:shadow/.test(navSource),
   )
   check(
@@ -302,7 +318,7 @@ section("A row is the same size in every state")
       const icons = [...list.matchAll(/icon: ([\w.]+)/g)].map((m) => m[1])
       return (
         icons.length >= 8 &&
-        icons.every((name) => name.startsWith("NAV_ICONS.")) &&
+        icons.every((name) => name.startsWith("NAV_ICONS.") || name.startsWith("NAV_ICONS_EXTRA.")) &&
         /icon: NavIconPair/.test(shellSource)
       )
     })(),

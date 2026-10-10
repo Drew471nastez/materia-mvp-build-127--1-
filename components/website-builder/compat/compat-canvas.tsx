@@ -39,12 +39,12 @@ export interface CompatCanvasProps {
   /** The theme settings, `compat` and `shopify` among them. */
   theme: Record<string, unknown>
   pageKey: string
-  /** On the product page, the product opened in the page list; unset, the shop's first. */
-  productId?: string | null
   sections: StoredSection[]
   products: ProductCard[]
   /** Every product a picker may name (memberships and tiers included), for a featured product picked in the sidebar. */
   catalog?: ProductCard[]
+  /** The product a product page shows: the one picked in Pages or followed from a link. The shop's first when none. */
+  productId?: string | null
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shopName: string
@@ -122,14 +122,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
     again for every letter typed into a heading: the frame reloaded under the
     person typing, and the last letter went to the page being thrown away.
   */
+  const productId = props.productId ?? null
   const dataKey = JSON.stringify([products, catalog, collections, menus, shopName])
   const dataRef = useRef({ products, catalog, collections, menus, shopName })
   dataRef.current = { products, catalog, collections, menus, shopName }
   const page = useMemo((): CompatPage => {
     const { products, catalog, collections, menus, shopName } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
-    /* The product opened in the page list, found among memberships too; the shop's first when none was. */
-    const sample = (props.productId ? products.find((p) => p.id === props.productId) ?? catalog?.find((p) => p.id === props.productId) : undefined) ?? products[0] ?? null
+    const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
+    const sample = picked ?? products[0] ?? null
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
     return {
@@ -150,7 +151,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, props.productId, dataKey])
+  }, [pageKey, dataKey, productId])
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -173,7 +174,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKey = `${installId}:${pageKey}:${props.productId ?? ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
+  const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
@@ -184,6 +185,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
   type Slot = { n: number; key: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; leaving?: boolean; entering?: boolean }
   const [slots, setSlots] = useState<Slot[]>([])
+  /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
+  const [painted, setPainted] = useState(false)
   const slotsRef = useRef<Slot[]>([])
   slotsRef.current = slots
   const frames = useRef(new Map<number, HTMLIFrameElement>())
@@ -312,12 +315,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const isFront = slot === slotsRef.current[0]
       if (m.type === "ready") {
         slot.ready = true
+        if (isFront) setTimeout(() => setPainted(true), 900)
         syncSlot(slot)
         win.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
         /* A page behind that never says it has loaded still comes forward. */
         if (!isFront) setTimeout(() => promote(slot.n), 2500)
       } else if (m.type === "loaded") {
         slot.loaded = true
+        if (isFront) setPainted(true)
         if (!isFront) {
           win.postMessage({ storelib: 1, type: "scroll", top: scrollY.current }, "*")
           requestAnimationFrame(() => promote(slot.n))
@@ -345,9 +350,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const compat = compatOf(settings)
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
-      {slots.length === 0 ? (
-        <div className="flex h-full items-center justify-center text-[14px] text-[#6b7280]">Loading {compat?.theme ?? "the theme"}…</div>
-      ) : (
+      {/* Until the theme's first page has painted: the shape of a page, still, never a blank sheet or a line of text. */}
+      <CanvasPlaceholder hidden={painted && slots.length > 0} label={`Loading ${compat?.theme ?? "the theme"}`} />
+      {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
           {slots.map((slot, i) => (
             <iframe
@@ -368,6 +373,54 @@ export function CompatCanvas(props: CompatCanvasProps) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+/*
+  WHAT THE CANVAS SHOWS BEFORE THE THEME HAS PAINTED. An imported theme's
+  first page takes a moment: its files are read, the page is drawn, its
+  stylesheets and pictures load in the frame. That moment was a line of grey
+  text and then a white sheet. Now it is the outline of a page (a header, a
+  large picture, a row of cards) in the builder's lightest grey, not pulsing,
+  and it fades once the page under it has painted.
+*/
+function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }) {
+  const bar = "rounded-md bg-[#f1f2f4]"
+  return (
+    <div
+      aria-hidden={hidden || undefined}
+      aria-busy={!hidden || undefined}
+      aria-label={hidden ? undefined : label}
+      data-canvas-placeholder={hidden ? "gone" : "up"}
+      className="pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-white transition-opacity duration-[220ms] ease-out"
+      style={{ opacity: hidden ? 0 : 1, visibility: hidden ? "hidden" : "visible", transitionProperty: "opacity, visibility" }}
+    >
+      <div className="flex h-16 items-center gap-6 border-b border-[#f3f4f6] px-[4%]">
+        <div className={`${bar} h-5 w-24`} />
+        <div className="hidden gap-4 sm:flex">
+          <div className={`${bar} h-3 w-14`} />
+          <div className={`${bar} h-3 w-14`} />
+          <div className={`${bar} h-3 w-14`} />
+        </div>
+        <div className="ml-auto flex gap-3">
+          <div className={`${bar} h-5 w-5 rounded-full`} />
+          <div className={`${bar} h-5 w-5 rounded-full`} />
+        </div>
+      </div>
+      <div className="px-[4%] pt-6">
+        <div className={`${bar} h-[42vh] max-h-[460px] min-h-[220px] w-full rounded-xl`} />
+        <div className={`${bar} mt-8 h-5 w-48`} />
+        <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i}>
+              <div className={`${bar} aspect-[4/5] w-full rounded-lg`} />
+              <div className={`${bar} mt-3 h-3 w-3/4`} />
+              <div className={`${bar} mt-2 h-3 w-1/3`} />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

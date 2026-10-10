@@ -404,30 +404,161 @@ export const PHYSICAL_ARTICLES: HelpArticle[] = [
     ],
   },
 
-  /* ── Tax and units ────────────────────────────────────────────────── */
+  /* ── Taxes ────────────────────────────────────────────────────────── */
+  {
+    slug: "taxes",
+    category: C,
+    title: "Taxes: how Storelib charges tax on your orders",
+    summary: "Add a tax region for each place you have to charge tax, choose whether prices include it, and see exactly what a buyer pays.",
+    keywords: ["tax", "taxes", "vat", "sales tax", "gst", "hst", "tax region", "tax rate", "tax inclusive", "prices include tax", "tax on shipping", "reduced rate", "tax exempt", "eu vat", "oss"],
+    body: [
+      { type: "p", text: "Storelib charges the tax you set and nothing else. There are no rates switched on for you and nothing is guessed from where you live, because what you owe depends on where you are registered, and only you and your accountant know that." },
+      { type: "p", text: "So the setup is small: you tell Storelib where you collect tax and at what rate, and checkout does the maths for every order." },
+      { type: "h", text: "Set it up" },
+      {
+        type: "steps",
+        items: [
+          "Open Settings > Taxes.",
+          "Turn on Charge tax. While it is off, buyers pay your prices and nothing more.",
+          "Choose Added on top or Included. Added on top is how the US and Canada show prices. Included is how most of Europe, the UK and Australia show them.",
+          "Under Tax regions, press Add region. Pick the country, a state or province if the rate is different there, the rate, and the name receipts use (VAT, GST, Sales tax).",
+          "Repeat for every place where you are registered to collect tax.",
+          "If delivery is taxed where you sell, turn on Charge tax on shipping.",
+        ],
+      },
+      { type: "h", text: "Which rate a buyer pays" },
+      { type: "p", text: "At checkout Storelib reads the buyer's shipping address and looks for a region in this order:" },
+      {
+        type: "list",
+        items: [
+          "A region for their state or province, if you made one. California, CA and the full name are treated as the same place.",
+          "Otherwise the region for their whole country.",
+          "Otherwise no tax at all. A buyer in a country you have no region for pays no tax.",
+        ],
+      },
+      { type: "p", text: "Inside that region, a product with its own rate there uses its own rate. Every other product uses the region's rate." },
+      { type: "h", text: "Added on top or included" },
+      {
+        type: "table",
+        head: ["Setting", "Price", "Rate", "Buyer pays", "Tax on the receipt"],
+        rows: [
+          ["Added on top", "$100.00", "8%", "$108.00", "$8.00"],
+          ["Included", "€100.00", "19%", "€100.00", "€15.97"],
+        ],
+      },
+      { type: "p", text: "With Included the total never moves. Storelib works out the part of the price that was tax (100 minus 100 divided by 1.19) and shows it on the receipt." },
+      { type: "h", text: "A worked example" },
+      { type: "p", text: "A store in Germany with prices included, a Germany region at 19% VAT, a reduced 7% rate on one book, and Charge tax on shipping on. A buyer in Berlin orders a €30 hoodie and that €20 book, with €5 delivery:" },
+      {
+        type: "table",
+        head: ["Line", "Amount", "Rate", "Tax inside"],
+        rows: [
+          ["Hoodie", "€30.00", "19%", "€4.79"],
+          ["Book", "€20.00", "7%", "€1.31"],
+          ["Delivery", "€5.00", "19%", "€0.80"],
+          ["Total", "€55.00", "", "€6.90"],
+        ],
+      },
+      { type: "p", text: "The buyer pays €55.00. The order and the receipt show €6.90 of VAT. Delivery always uses the region's rate, never a product's own rate." },
+      { type: "h", text: "Different rates for some products" },
+      {
+        type: "steps",
+        items: [
+          "Open Settings > Taxes and open the region.",
+          "Under Product rates, choose the product and type its rate, for example 5% for books.",
+          "Save. It applies only in that region. Delete the region or the product and its rate goes with it.",
+        ],
+      },
+      { type: "p", text: "A product that should never be taxed, like a gift card in most places: open the product, Advanced, and turn off Charge tax on this product." },
+      { type: "h", text: "Discounts, free shipping and tips" },
+      {
+        type: "list",
+        items: [
+          "A discount code comes off before tax, so tax is worked out on what the buyer actually pays.",
+          "Free shipping means there is no delivery to tax.",
+          "A tip is never taxed.",
+        ],
+      },
+      { type: "h", text: "Digital products in the same store" },
+      { type: "p", text: "Downloads, courses and memberships are not taxed unless you turn on Charge tax on digital products. A digital sale has no shipping address, so it uses the buyer's country, and only country regions apply to it, never a state's." },
+      { type: "note", text: "In the EU, VAT on digital sales is charged at the rate of the buyer's country, not yours. If you sell digital products to EU buyers, add a region for each EU country you sell to, with that country's rate." },
+      { type: "h", text: "Where tax shows up" },
+      {
+        type: "list",
+        items: [
+          "Checkout shows the tax line before the buyer pays, worked out from the address they typed.",
+          "The order page in Orders shows the tax and the rate that was used.",
+          "The order confirmation email and the buyer's order page show it too, and Analytics counts the tax you collected.",
+          "Changing a rate later never changes orders already paid. They keep the tax they were charged.",
+        ],
+      },
+      { type: "h", text: "Registrations and exemptions" },
+      { type: "p", text: "A region is your registration in practice: add one only where you are registered or required to collect. Storelib does not file or pay tax for you, and it does not check registration numbers. Keep your numbers with your accountant and on your invoices." },
+      { type: "p", text: "Selling to a business that is exempt, or that handles VAT itself under the reverse charge: Storelib does not take tax IDs at checkout yet. For now, refund the tax part from the order when that happens." },
+      { type: "h", text: "When something looks wrong" },
+      {
+        type: "table",
+        head: ["What you see", "Why", "What to do"],
+        rows: [
+          ["No tax at checkout", "Charge tax is off, or the buyer's country has no region.", "Turn on Charge tax and add a region for that country."],
+          ["Tax on top when your prices already include it", "The store is set to Added on top.", "Switch to Included."],
+          ["Shipping is not taxed", "Charge tax on shipping is off.", "Turn it on if delivery is taxed where you sell."],
+          ["A state pays the country rate", "There is no region for that state.", "Add the state as its own region."],
+          ["One product has no tax", "Charge tax on this product is off in its Advanced settings.", "Turn it back on."],
+          ["Digital products have no tax", "Charge tax on digital products is off.", "Turn it on and add the countries you sell to."],
+        ],
+      },
+      { type: "note", text: "Automatic rates from a tax service are not available yet. Rates change, so check yours once a year." },
+    ],
+  },
+
+  /* ── Units ────────────────────────────────────────────────────────── */
   {
     slug: "tax-and-units",
     category: C,
-    title: "Tax and units for physical products",
-    summary: "Charge your own tax rates by country and state, choose whether prices include tax, and pick kilograms or pounds.",
-    keywords: ["tax", "vat", "sales tax", "gst", "units", "kg", "lb", "pounds", "kilograms", "metric", "imperial", "inches"],
+    title: "Units for physical products: kilograms or pounds",
+    summary: "Pick metric or imperial for weights and sizes. Tax has its own guide.",
+    keywords: ["units", "kg", "lb", "pounds", "kilograms", "metric", "imperial", "inches", "weight"],
     body: [
       { type: "h", text: "Units" },
       { type: "p", text: "In Settings > Shipping, choose Metric (kg, cm) or Imperial (lb, in). New products and weight based rates are typed in that system. A product can still use another unit: its weight card has its own unit picker." },
       { type: "h", text: "Tax" },
-      { type: "p", text: "Storelib only charges tax you set. Nothing is added until you do." },
-      {
-        type: "steps",
-        items: [
-          "Open Settings > Shipping > Taxes.",
-          "Choose Charge my own rates.",
-          "Add a rate: the country, optionally the state, the percentage and its name (VAT, GST, Sales tax).",
-          "Turn on Prices include tax if your prices already include it, as is common in Europe.",
-          "Turn on Charge tax on shipping if your country taxes delivery too.",
-        ],
-      },
-      { type: "p", text: "A state rate is used for that state; otherwise the country's rate. A product that shouldn't be taxed: open it, Advanced, and turn off Charge tax on this product." },
-      { type: "note", text: "Automatic tax calculation by a tax service is not available yet. Check what applies to your shop with an accountant." },
+      { type: "p", text: `Tax has its own guide now: ${link("taxes", "Taxes: how Storelib charges tax on your orders")}.` },
+    ],
+  },
+
+  /* ── Selling more ─────────────────────────────────────────────────── */
+  {
+    slug: "upsells-and-bundles",
+    category: C,
+    title: "Upsells and bundles: sell more to people already buying",
+    summary: "Bundle products at a better price on their pages, and suggest one more thing in the checkout.",
+    keywords: ["upsell", "bundle", "cross sell", "order bump", "frequently bought together", "add on", "offer", "aov", "average order"],
+    body: [
+      { type: "p", text: "Someone already buying from you is the easiest person to sell one more thing to. Storelib gives you two ways, under Products, Upsells and bundles." },
+      { type: "table", head: ["", "Bundle", "Checkout offer"], rows: [
+        ["What it is", "Two to five products bought together", "One product suggested before they pay"],
+        ["Where buyers see it", "Under the buy box on each of its products", "In the checkout, under their order"],
+        ["The discount", "A percent off every item in the set, or an amount off the whole set", "A percent or amount off one of it"],
+        ["When it applies", "For every complete set in the cart", "When the cart has something else, or one of the products you choose"],
+      ] },
+      { type: "h", text: "Make a bundle" },
+      { type: "steps", items: [
+        "Press Create offer and choose Bundle.",
+        "Give it a name buyers will see, like Breakfast set.",
+        "Tick two to five products.",
+        "Choose the discount: Percent, Amount or None. The preview shows what the set costs buyers.",
+        "Save. It's on each product's page straight away, with Add all to cart.",
+      ] },
+      { type: "h", text: "Make a checkout offer" },
+      { type: "steps", items: [
+        "Press Create offer and choose Checkout offer.",
+        "Name it, like Add a candle, and pick the one product to offer.",
+        "Choose Any order, or The cart has certain products and tick them. A candle offer that only shows to people buying honey reads like a good idea, not an ad.",
+        "Choose the discount and save.",
+      ] },
+      { type: "p", text: "Switch any offer off from the list without deleting it. The checkout works the saving out by itself, before any discount code, and the code then comes off what's left. A buyer's Discount line shows each offer's saving by name." },
+      { type: "note", text: "Offers work in the cart checkout, so they're here while physical products are on. A digital product can be in a bundle or offered at checkout too, as long as it's bought through the cart." },
     ],
   },
 

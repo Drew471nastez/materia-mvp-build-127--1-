@@ -91,7 +91,14 @@ function endOf(src: string, from: number, name: string): { start: number; end: n
   }
 }
 
-export function lex(src: string): Tok[] {
+/**
+ * `lax` reads as Shopify's own lenient parser does: an unclosed `{{` is
+ * text, a line of `{% liquid %}` that is not a tag is skipped, and an
+ * unclosed raw or comment runs to the end. The page always draws; the
+ * strict reading is what names the line in the import report and the code
+ * editor.
+ */
+export function lex(src: string, lax = false): Tok[] {
   const toks: Tok[] = []
   let i = 0
   let line = 1
@@ -119,7 +126,11 @@ export function lex(src: string): Tok[] {
     const startLine = line
     const closer = open.kind === "output" ? "}}" : "%}"
     const end = closeOf(src, open.at + 2, closer)
-    if (end < 0) throw new CompatSyntaxError(`"${src.slice(open.at, open.at + 2)}" is never closed`, startLine)
+    if (end < 0) {
+      if (!lax) throw new CompatSyntaxError(`"${src.slice(open.at, open.at + 2)}" is never closed`, startLine)
+      pushText(src.slice(open.at), startLine)
+      break
+    }
     let inner = src.slice(open.at + 2, end)
     const ltrim = inner.startsWith("-")
     const rtrim = inner.endsWith("-")
@@ -140,12 +151,16 @@ export function lex(src: string): Tok[] {
     /* `{% # a note %}` */
     if (body.startsWith("#")) { trimNext = rtrim; continue }
     const m = body.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*([\s\S]*)$/)
-    if (!m) throw new CompatSyntaxError(`"{% ${body.slice(0, 40)} %}" is not a tag`, startLine)
+    if (!m) {
+      if (!lax) throw new CompatSyntaxError(`"{% ${body.slice(0, 40)} %}" is not a tag`, startLine)
+      trimNext = rtrim
+      continue
+    }
     const name = m[1]
     const args = m[2].trim()
 
     if (VERBATIM.has(name) || DROPPED.has(name)) {
-      const close = endOf(src, i, name)
+      const close = endOf(src, i, name) ?? (lax ? { start: src.length, end: src.length } : null)
       if (!close) throw new CompatSyntaxError(`{% ${name} %} is never closed with {% end${name} %}`, startLine)
       const text = src.slice(i, close.start)
       const closeTag = src.slice(close.start, close.end)
@@ -169,12 +184,27 @@ export function lex(src: string): Tok[] {
     if (name === "liquid") {
       /* One tag a line; `echo` outputs. Comments start with #. */
       let l = startLine
+      /* A comment (or doc) inside the block runs to its own end line, and the prose between is not tags. */
+      let quiet = 0
       for (const raw of args.split("\n")) {
         const s = raw.trim()
+        const word = s.match(/^([A-Za-z_]+)\b/)?.[1]
+        if (quiet > 0) {
+          if (word === "comment" || word === "doc") quiet++
+          else if (word === "endcomment" || word === "enddoc") quiet--
+          l++
+          continue
+        }
+        if (word === "comment" || word === "doc") {
+          quiet = 1
+          l++
+          continue
+        }
         if (s && !s.startsWith("#")) {
           const mm = s.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*([\s\S]*)$/)
-          if (!mm) throw new CompatSyntaxError(`"${s.slice(0, 40)}" in {% liquid %} is not a tag`, l)
-          if (mm[1] === "echo") toks.push({ kind: "output", value: mm[2].trim(), line: l })
+          if (!mm && !lax) throw new CompatSyntaxError(`"${s.slice(0, 40)}" in {% liquid %} is not a tag`, l)
+          if (!mm) { /* skipped, as Shopify's lenient parser skips it */ }
+          else if (mm[1] === "echo") toks.push({ kind: "output", value: mm[2].trim(), line: l })
           else toks.push({ kind: "tag", name: mm[1], args: mm[2].trim(), line: l })
         }
         l++

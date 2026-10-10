@@ -127,9 +127,12 @@ function sized(src: string, width: unknown, height?: unknown): string {
   const h = Math.trunc(num(height))
   const want = w || h
   if (!want) return src
-  /* Storelib's optimizer sizes by width; a height alone asks for that many pixels across, at most. */
+  /* An SVG or a GIF goes as it is: the optimizer refuses the one and stills the other. */
+  if (/\.(svg|gif)(?:[?#]|$)/i.test(src)) return src
+  /* Storelib's optimizer sizes by width; a height alone asks for that many pixels across, at most.
+     75 is a quality next.config.mjs serves: any other is a 400, not a picture. */
   try {
-    return optimizedImageUrl(src, Math.min(3840, Math.max(16, w || h)), 80)
+    return optimizedImageUrl(src, Math.min(3840, Math.max(16, w || h)), 75)
   } catch {
     return src
   }
@@ -374,7 +377,16 @@ function translate(ctx: Ctx, key: string, vars: Record<string, unknown>): string
     const last = key.split(".").pop() ?? key
     return last.replace(/_html$/, "").replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase())
   }
-  return v.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, name: string) => str(vars[name]))
+  /* A name the call does not pass stays as written, as on Shopify: a theme's script fills `{{ amount }}` in later. */
+  const out = v.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (all, name: string) => (name in vars ? str(vars[name]) : all))
+  /*
+    AS SHOPIFY DOES: a translation is HTML escaped unless its key ends in
+    _html. A theme that writes markup into a plain key and prints it into an
+    attribute (data-text="{{ 'cart.free_shipping' | t }}", read back by its
+    script) relies on it; unescaped, the key's own quotes ended the attribute
+    and the rest of the tag showed on the page as text.
+  */
+  return /_html$/.test(key) ? out : out.replace(/&(?!(?:[a-z]+|#\d+|#x[0-9a-f]+);)/gi, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 }
 
 // ── Lists ────────────────────────────────────────────────────────────────────
@@ -560,9 +572,17 @@ const F: Record<string, FilterFn> = {
   structured_data: () => "",
   default_errors: (v) => { const msgs = toList(v).map(str).filter(Boolean); return msgs.length ? `<div class="errors"><ul>${msgs.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul></div>` : "" },
   default_pagination: (v) => defaultPagination(v),
-  payment_type_img_url: () => "",
-  payment_type_svg_tag: (v) => `<svg class="icon icon--full-color" viewBox="0 0 38 24" width="38" height="24" role="img" aria-label="${attr(v)}"><rect width="38" height="24" rx="3" fill="#eee"/><text x="19" y="15" font-size="7" text-anchor="middle" fill="#333">${escapeHtml(str(v).replace(/_/g, " ").slice(0, 10))}</text></svg>`,
-  payment_button: () => "",
+  /* A card's mark as a picture (paymentMark below), for themes that use an <img> rather than inline SVG. */
+  payment_type_img_url: (v) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(paymentMark(str(v), ""))}`,
+  payment_type_svg_tag: (v, _args, named) => paymentMark(str(v), str((named as Record<string, unknown> | undefined)?.class) || "icon icon--full-color"),
+  /*
+    Shopify's "Buy it now", unbranded, as a store without express wallets
+    shows it. It buys this item alone, straight to checkout, and leaves the
+    cart as it was (the page's handler: shims.ts BUY_NOW; the site's:
+    site.ts, a cart/add with `checkout`).
+  */
+  payment_button: () =>
+    `<div class="shopify-payment-button" data-shopify="payment-button"><button type="submit" name="checkout" value="1" formnovalidate class="shopify-payment-button__button shopify-payment-button__button--unbranded" data-storelib-buy-now>Buy it now</button></div>`,
   login_button: () => "",
   avatar: () => "",
   format_address: (v) => { const o = (v ?? {}) as Record<string, unknown>; return ["name", "company", "address1", "address2", "city", "province", "zip", "country"].map((k) => str(o[k])).filter(Boolean).map(escapeHtml).join("<br>") },
@@ -708,7 +728,8 @@ function placeholderSvg(name: string, cls: string): string {
  * `view-event-payload` (`payload.product.selectedVariant`).
  */
 function eventData(v: unknown, context: string, currency: string): Record<string, unknown> {
-  const o = (v ?? {}) as Record<string, unknown>
+  /* A string or a number (a theme's own guess at what to pass) is no event data, not an error. */
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>
   const money = (c: unknown) => ({ amount: (Number(c) || 0) / 100, currencyCode: currency })
   const image = (x: unknown) => { const src = imageSrc(x); return src ? { url: src } : null }
   if (Array.isArray(o.items) && "item_count" in o) {
@@ -746,4 +767,48 @@ export const COMPAT_FILTERS: Readonly<Record<string, FilterFn>> = F
 
 export function compatFilter(name: string): FilterFn | undefined {
   return Object.prototype.hasOwnProperty.call(F, name) ? F[name] : undefined
+}
+
+/**
+ * A payment method's mark, the way a footer's row of card logos shows it:
+ * a 38 by 24 card with a hairline and the brand's own colours, drawn here so
+ * nothing is fetched from Shopify. The common ones are drawn; anything else
+ * is its name on the same card.
+ */
+/*
+ * Each mark fits its 38 by 24 card whatever font the visitor has: words are
+ * held to a width (textLength), so "Apple Pay" never runs out of its box.
+ */
+const word = (x: number, y: number, size: number, width: number, fill: string, text: string, extra = "") =>
+  `<text x="${x}" y="${y}" font-family="Helvetica,Arial,sans-serif" font-size="${size}" font-weight="700" text-anchor="middle" textLength="${width}" lengthAdjust="spacingAndGlyphs" fill="${fill}"${extra}>${text}</text>`
+const APPLE = '<path transform="translate(5.2 5.6) scale(.5)" fill="#000" d="M15.6 13.2c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.7-1-2.7-4.1zM13.1 5.6c.7-.9 1.2-2.1 1.1-3.3-1 0-2.3.7-3 1.6-.7.8-1.3 2-1.1 3.2 1.2.1 2.3-.6 3-1.5z"/>'
+const PAYMENT_MARKS: Record<string, string> = {
+  visa: word(19, 15.8, 10, 25, "#1A1F71", "VISA", ' font-style="italic"'),
+  master: '<circle cx="15.5" cy="12" r="6.5" fill="#EB001B"/><circle cx="22.5" cy="12" r="6.5" fill="#F79E1B"/><path d="M19 6.5a6.5 6.5 0 0 1 0 11a6.5 6.5 0 0 1 0-11z" fill="#FF5F00"/>',
+  american_express: `<rect x="1" y="1" width="36" height="22" rx="2" fill="#2E77BC"/>${word(19, 15.4, 8, 26, "#fff", "AMEX")}`,
+  apple_pay: `${APPLE}${word(23.5, 15.6, 9, 15, "#000", "Pay", ' font-weight="600"')}`,
+  google_pay: `<text x="19" y="15.6" font-family="Helvetica,Arial,sans-serif" font-size="9" font-weight="600" text-anchor="middle" textLength="25" lengthAdjust="spacingAndGlyphs"><tspan fill="#4285F4">G</tspan><tspan fill="#5F6368"> Pay</tspan></text>`,
+  paypal: `<text x="19" y="15.6" font-family="Helvetica,Arial,sans-serif" font-size="9" font-weight="700" font-style="italic" text-anchor="middle" textLength="28" lengthAdjust="spacingAndGlyphs"><tspan fill="#003087">Pay</tspan><tspan fill="#009CDE">Pal</tspan></text>`,
+  shopify_pay: `<rect x="1" y="1" width="36" height="22" rx="2" fill="#5A31F4"/>${word(19, 15.4, 8.5, 26, "#fff", "shop Pay")}`,
+  discover: `${word(16.5, 14.8, 6.5, 24, "#231F20", "DISCOVER")}<circle cx="32" cy="12" r="2.6" fill="#F48120"/>`,
+  maestro: '<circle cx="15.5" cy="12" r="6.5" fill="#0099DF"/><circle cx="22.5" cy="12" r="6.5" fill="#EB001B"/><path d="M19 6.5a6.5 6.5 0 0 1 0 11a6.5 6.5 0 0 1 0-11z" fill="#6C6BBD"/>',
+  diners_club: `<circle cx="19" cy="12" r="7.5" fill="none" stroke="#0079BE" stroke-width="2"/>${word(19, 14.4, 6, 9, "#0079BE", "DC")}`,
+  jcb: `<rect x="7" y="5" width="7.5" height="14" rx="2" fill="#0E4C96"/><rect x="15.25" y="5" width="7.5" height="14" rx="2" fill="#E21836"/><rect x="23.5" y="5" width="7.5" height="14" rx="2" fill="#00A651"/>${word(19, 14.6, 6.5, 20, "#fff", "JCB")}`,
+  unionpay: `<rect x="5" y="4" width="10" height="16" rx="1.5" fill="#E21836"/><rect x="14" y="4" width="10" height="16" rx="1.5" fill="#00447C"/><rect x="23" y="4" width="10" height="16" rx="1.5" fill="#007B84"/>${word(19, 14.4, 5.5, 24, "#fff", "UnionPay")}`,
+  klarna: `<rect x="1" y="1" width="36" height="22" rx="2" fill="#FFB3C7"/>${word(19, 15.4, 8.5, 26, "#0A0B09", "Klarna.")}`,
+  afterpay: `<rect x="1" y="1" width="36" height="22" rx="2" fill="#B2FCE4"/>${word(19, 15, 7, 28, "#000", "afterpay")}`,
+  venmo: word(19, 15.6, 9, 26, "#3D95CE", "venmo", ' font-style="italic"'),
+  amazon: word(19, 15, 8.5, 26, "#000", "amazon"),
+  meta_pay: word(19, 15.6, 8.5, 26, "#0866FF", "Meta Pay"),
+  ideal: word(19, 15.6, 8.5, 22, "#CC0066", "iDEAL"),
+  bancontact: word(19, 15, 6, 28, "#005498", "Bancontact"),
+}
+
+function paymentMark(type: string, cls: string): string {
+  const raw = type.toLowerCase().replace(/[\s-]+/g, "_")
+  /* Shopify's other names for the same marks. */
+  const key = ({ shop_pay: "shopify_pay", mastercard: "master", amex: "american_express", union_pay: "unionpay", diners: "diners_club", googlepay: "google_pay", applepay: "apple_pay", facebook_pay: "meta_pay" } as Record<string, string>)[raw] ?? raw
+  const label = key.replace(/_/g, " ")
+  const inner = PAYMENT_MARKS[key] ?? word(19, 15, 6.5, Math.min(30, 3.2 * Math.min(12, label.length)), "#333", escapeHtml(label.slice(0, 12)))
+  return `<svg${cls ? ` class="${attr(cls)}"` : ""} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 38 24" width="38" height="24" role="img" aria-label="${attr(label)}"><rect x="0.5" y="0.5" width="37" height="23" rx="3" fill="#fff" stroke="#000" stroke-opacity=".07"/>${inner}</svg>`
 }

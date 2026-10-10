@@ -164,13 +164,14 @@ for f in sorted(os.listdir(TWO)):
 # when a part was added, so all four disagreed with each other and with
 # run-now/. The numbers come from the parts themselves now.
 import re as _re
-_numbered=sorted((p for p in parts if p.isdigit() and 1<=N(p)<90),key=N)
+# Every numbered part but 90 and 99, which each file runs last on their own (and three digits since part 100).
+_numbered=sorted((p for p in parts if p.isdigit() and N(p)>=1 and N(p) not in (90,99)),key=N)
 _span=f"{_numbered[0]} to {_numbered[-1]}"
 for _folder in ('run-four','all-last-three-days','all-last-14-days','all-in-three','all-in-two'):
     _path=ROOT+'supabase/sql/'+_folder+'/README.md'
     if not os.path.exists(_path): continue
     _text=open(_path).read()
-    _fixed=_re.sub(r"\(0[0-9] to [0-9]{2}([,)])", lambda m: f"({_span}{m.group(1)}", _text)
+    _fixed=_re.sub(r"\(0[0-9] to [0-9]{2,3}([,)])", lambda m: f"({_span}{m.group(1)}", _text)
     if _fixed!=_text:
         open(_path,'w').write(_fixed)
         print('readme:', _folder, _span)

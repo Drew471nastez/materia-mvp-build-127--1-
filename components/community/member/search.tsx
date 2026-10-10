@@ -39,7 +39,7 @@
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { createPortal, flushSync } from "react-dom"
-import { CalendarDays, GraduationCap, MessageSquareText, PlayCircle, Search, X } from "lucide-react"
+import { CalendarDays, GraduationCap, PlayCircle, Search, X } from "lucide-react"
 import { MemberAvatar } from "./member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { postPath } from "@/lib/communities/post-url"
@@ -235,6 +235,38 @@ function useCommunitySearch(communityId: string) {
 }
 
 const GROUP_TITLE = { posts: "Posts", members: "Members", spaces: "Spaces", lessons: "Learn", events: "Events" } as const
+
+/*
+  RESULTS THAT LOOK LIKE THIS COMMUNITY (round 15, the owner: "the results ... don't look that AI. The posts icon should feel
+  more great and clean"). Every row used to lead with the same grey square and a stock icon, so posts, lessons and events read
+  as one list of identical things. Now each kind has its own row:
+    a post     a small drawing of a post card (its title bar and two lines) on Storelib's white tile with a hairline, and
+               the author's face on its corner; its title, one line of the words around the match, and where it is: the
+               space's own icon and name, who wrote it, when
+    a person   their face, name and role, @handle
+    a space    the space's own icon on the same tile, its name, its line
+  Lessons and events keep their glyphs, on the same tile. The group names sit on a hairline, so the groups read as
+  sections of one sheet rather than a stack of lists.
+*/
+const TILE = "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-[11px] border border-[#e5e7eb] bg-white text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.05)]"
+
+/** A post, drawn: a small card with its title bar and two lines of words. Ink and greys, no stock icon. */
+function PostGlyph({ face, name }: { face: string | null; name: string }) {
+  return (
+    <span className={TILE} data-search-post-glyph="">
+      <svg viewBox="0 0 20 20" width="22" height="22" aria-hidden className="block -translate-x-[2px] -translate-y-[2px]">
+        <rect x="2.5" y="3" width="15" height="14" rx="3" fill="#f8f9fa" stroke="#d6d9de" strokeWidth="1" />
+        <rect x="5" y="6" width="9" height="2" rx="1" fill="#1a1a2e" />
+        <rect x="5" y="10" width="10" height="1.5" rx="0.75" fill="#b9bec6" />
+        <rect x="5" y="13" width="6.5" height="1.5" rx="0.75" fill="#b9bec6" />
+      </svg>
+      {/* Who wrote it, on the card's corner. */}
+      <span className="absolute -bottom-1 -right-1 rounded-full ring-2 ring-white">
+        <MemberAvatar src={face} name={name || "Member"} alt="" size={16} warm={false} />
+      </span>
+    </span>
+  )
+}
 const EVENT_DATE = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" })
 
 /** The grouped list, for the dropdown and the phone screen alike. */
@@ -263,7 +295,7 @@ function ResultList({
   stale?: boolean
 }) {
   const options = searchOptions(results, slug)
-  const row = `flex w-full cursor-pointer items-center gap-3 rounded-xl px-2.5 text-left outline-none ${touch ? "min-h-[56px] py-2" : "min-h-[52px] py-1.5"}`
+  const row = `flex w-full cursor-pointer select-none items-center gap-3 rounded-xl px-2.5 text-left outline-none transition-colors duration-150 [-webkit-tap-highlight-color:transparent] active:bg-[#f3f4f6] ${touch ? "min-h-[60px] py-2" : "min-h-[54px] py-1.5"}`
   const optionProps = (key: string) => {
     const i = options.findIndex((o) => o.key === key)
     const o = options[i]
@@ -293,32 +325,52 @@ function ResultList({
     return message(`Nothing here matches "${term}".`)
   }
 
-  const groupHead = (title: string) => <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{title}</p>
-  const tile = (icon: React.ReactNode) => <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280]">{icon}</span>
+  /* The first group's name sits at the top; every later one on a hairline, so the groups read as sections of one sheet. */
+  const firstGroup = results.posts.length ? "posts" : results.members.length ? "members" : results.spaces.length ? "spaces" : results.lessons?.length ? "lessons" : "events"
+  const groupHead = (title: string) => {
+    const first = GROUP_TITLE[firstGroup] === title
+    return (
+      <p className={`mx-2.5 pb-1 text-[12px] font-semibold text-[#8a8f98] ${first ? "pt-2" : "mt-1.5 border-t border-[#f0f1f3] pt-3"}`} data-search-group-head="">
+        {title}
+      </p>
+    )
+  }
+  const tile = (icon: React.ReactNode) => <span className={TILE}>{icon}</span>
   return (
     <div role="listbox" id={listId} aria-label="Search results" className={`transition-opacity duration-150 ${stale ? "opacity-60" : ""}`} data-search-results="" data-search-source={status === "done" ? "server" : "index"}>
       {results.posts.length ? (
         <div role="group" aria-label={GROUP_TITLE.posts} data-search-group="posts">
-          <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.posts}</p>
+          {groupHead(GROUP_TITLE.posts)}
           {results.posts.map((p) => {
             const main = p.title || p.snippet || "Post"
-            const meta = [p.author?.name, p.space ? `in ${p.space.name}` : null, relativeTime(p.createdAt)].filter(Boolean).join(" · ")
             return (
               <div key={p.id} {...optionProps(`post:${p.id}`)}>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[#6b7280]">
-                  <MessageSquareText className="h-4 w-4" strokeWidth={1.9} aria-hidden />
-                </span>
+                <PostGlyph face={p.author?.avatarUrl ?? null} name={p.author?.name ?? ""} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] text-[#262633]">
+                  <span className="block truncate text-[14.5px] font-medium text-[#1a1a2e]">
                     <Marked text={main} q={term} />
                   </span>
                   {p.title && p.snippet ? (
-                    <span className="block truncate text-[12.5px] text-[#6b7280]">
+                    <span className="block truncate text-[13px] text-[#6b7280]">
                       <Marked text={p.snippet} q={term} />
                     </span>
                   ) : null}
-                  <span className="block truncate text-[12px] text-[#9ca3af]" suppressHydrationWarning>
-                    {meta}
+                  {/* Where it is and whose: the space's own icon and name, the author, when. */}
+                  <span className="mt-0.5 flex min-w-0 items-center gap-1 text-[12px] text-[#8a8f98]" suppressHydrationWarning data-search-post-meta="">
+                    {p.space ? (
+                      <>
+                        <span aria-hidden className="text-[12px] leading-none">{spaceGlyph(p.space.icon ?? null, p.space.kind ?? "feed")}</span>
+                        <span className="shrink-0 font-medium text-[#6b7280]">{p.space.name}</span>
+                        <span aria-hidden>·</span>
+                      </>
+                    ) : null}
+                    {p.author?.name ? (
+                      <>
+                        <span className="min-w-0 truncate">{p.author.name}</span>
+                        <span aria-hidden>·</span>
+                      </>
+                    ) : null}
+                    <span className="shrink-0">{relativeTime(p.createdAt)}</span>
                   </span>
                 </span>
               </div>
@@ -328,18 +380,20 @@ function ResultList({
       ) : null}
       {results.members.length ? (
         <div role="group" aria-label={GROUP_TITLE.members} data-search-group="members">
-          <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.members}</p>
+          {groupHead(GROUP_TITLE.members)}
           {results.members.map((m) => {
             return (
               <div key={m.id} {...optionProps(`member:${m.id}`)}>
-                <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={32} />
+                <MemberAvatar src={m.avatarUrl} name={m.name} alt="" size={40} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14px] text-[#262633]">
-                    <Marked text={m.name} q={term} />
-                    <RoleBadge role={m.role} size="xs" className="ml-1.5 align-[-1px]" />
+                  <span className="flex min-w-0 items-center gap-1.5 text-[14.5px] font-medium text-[#1a1a2e]">
+                    <span className="truncate">
+                      <Marked text={m.name} q={term} />
+                    </span>
+                    <RoleBadge role={m.role} size="xs" />
                   </span>
                   {m.username ? (
-                    <span className="block truncate text-[12.5px] text-[#6b7280]">
+                    <span className="block truncate text-[13px] text-[#6b7280]">
                       @<Marked text={m.username} q={term} />
                     </span>
                   ) : null}
@@ -351,18 +405,18 @@ function ResultList({
       ) : null}
       {results.spaces.length ? (
         <div role="group" aria-label={GROUP_TITLE.spaces} data-search-group="spaces">
-          <p className="px-2.5 pb-1 pt-2 text-[12px] font-medium text-[#8a8f98]">{GROUP_TITLE.spaces}</p>
+          {groupHead(GROUP_TITLE.spaces)}
           {results.spaces.map((s) => (
             <div key={s.id} {...optionProps(`space:${s.id}`)}>
-              {/* The space's own icon, as its chip and the dashboard show it (space-glyph.ts, round 12). */}
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#f3f4f6] text-[15px] leading-none" data-space-glyph="">
+              {/* The space's own icon, as its pill and the dashboard show it (space-glyph.ts, round 12), on the same tile as a post. */}
+              <span className={`${TILE} text-[17px] leading-none`} data-space-glyph="">
                 {spaceGlyph(s.icon, s.kind)}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] text-[#262633]">
+                <span className="block truncate text-[14.5px] font-medium text-[#1a1a2e]">
                   <Marked text={s.name} q={term} />
                 </span>
-                {s.description ? <span className="block truncate text-[12.5px] text-[#6b7280]">{s.description}</span> : null}
+                {s.description ? <span className="block truncate text-[13px] text-[#6b7280]">{s.description}</span> : null}
               </span>
             </div>
           ))}
@@ -375,10 +429,10 @@ function ResultList({
             <div key={l.id} {...optionProps(`lesson:${l.id}`)}>
               {tile(l.kind === "course" ? <GraduationCap className="h-4 w-4" strokeWidth={1.9} aria-hidden /> : <PlayCircle className="h-4 w-4" strokeWidth={1.9} aria-hidden />)}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] text-[#262633]">
+                <span className="block truncate text-[14.5px] font-medium text-[#1a1a2e]">
                   <Marked text={l.title} q={term} />
                 </span>
-                <span className="block truncate text-[12.5px] text-[#6b7280]">{l.kind === "course" ? "Program" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
+                <span className="block truncate text-[13px] text-[#6b7280]">{l.kind === "course" ? "Program" : l.course ? `Lesson in ${l.course}` : "Lesson"}</span>
               </span>
             </div>
           ))}
@@ -391,10 +445,10 @@ function ResultList({
             <div key={e.id} {...optionProps(`event:${e.id}`)}>
               {tile(<CalendarDays className="h-4 w-4" strokeWidth={1.9} aria-hidden />)}
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[14px] text-[#262633]">
+                <span className="block truncate text-[14.5px] font-medium text-[#1a1a2e]">
                   <Marked text={e.title} q={term} />
                 </span>
-                <span className="block truncate text-[12.5px] text-[#6b7280]" suppressHydrationWarning>
+                <span className="block truncate text-[13px] text-[#6b7280]" suppressHydrationWarning>
                   {Number.isFinite(Date.parse(e.startsAt)) ? EVENT_DATE.format(Date.parse(e.startsAt)) : ""}
                 </span>
               </span>

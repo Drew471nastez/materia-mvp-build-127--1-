@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadTaxSetup, saveTaxSwitches } from "@/lib/tax/server"
 import { detectedCountry } from "@/lib/store/settings-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,5 +35,6 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const done = await saveTaxSwitches(c.db, c.creatorId, body)
   if (!done.ok) return physicalJson({ error: done.error }, done.status)
+  await recordActivity(c.db, c, { action: "settings.taxes" })
   return physicalJson(await loadTaxSetup(c.db, c.creatorId))
 }

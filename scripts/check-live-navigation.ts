@@ -4,8 +4,10 @@
  * ===========================================================================
  *   npx tsx scripts/check-live-navigation.ts
  *
- * Two pages of a site carrying lib/website-builder/live-navigation.ts, as an
- * imported theme's live pages and a Storelib site's do, in Chromium:
+ * Two pages of a site carrying the prefetch rules
+ * (lib/website-builder/prefetch-rules.ts) and the cross-fade
+ * (lib/website-builder/live-navigation.ts), as an imported theme's live
+ * pages and a Storelib site's do, in Chromium:
  *
  *   AHEAD     resting the pointer on a link fetches its page before the
  *             click (a request marked Sec-Purpose: prefetch), and the click
@@ -21,6 +23,7 @@
 import { createServer } from "node:http"
 import puppeteer from "puppeteer-core"
 import { liveNavigationMarkup } from "../lib/website-builder/live-navigation"
+import { SITE_PREFETCH_RULES } from "../lib/website-builder/prefetch-rules"
 
 const CHROMIUM = process.env.CHROMIUM ?? "/opt/pw-browsers/chromium"
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
@@ -30,7 +33,7 @@ const check = (label: string, ok: boolean, detail?: unknown) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${detail === undefined ? "" : `  (${JSON.stringify(detail)})`}`)
 }
 
-const page = (title: string) => `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title>${liveNavigationMarkup()}
+const page = (title: string) => `<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><script type="speculationrules">${JSON.stringify(SITE_PREFETCH_RULES)}</script>${liveNavigationMarkup()}
 <script>addEventListener("pagereveal", (e) => { window.__revealed = { transition: !!e.viewTransition } })</script></head>
 <body style="margin:0;font:16px system-ui"><header style="height:64px;background:#1a1a2e;color:#fff;display:flex;align-items:center;padding:0 20px">Shop</header>
 <nav style="padding:20px;display:flex;gap:24px"><a id="about" href="/about">About</a><a id="shop" href="/collections/all">Shop</a><a id="cart" href="/cart">Cart</a><a id="account" href="/account">Account</a></nav><h1 style="padding:0 20px">${title}</h1></body></html>`

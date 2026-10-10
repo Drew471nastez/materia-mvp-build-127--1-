@@ -281,16 +281,21 @@ function viewOf(site: SiteData, req: SiteRequest, template: string, sections: St
   return null
 }
 
-/** Sections for a page key, with the header and footer groups of the home page when the page has none of its own. */
+/**
+ * Sections for a page key, wearing the site's header, footer and overlay:
+ * the home page's, as the builder draws every page (universal-chrome.ts,
+ * withUniversalChrome). A page's own copy is used only where home has none
+ * of that group. Reading the page's own copy first drew a stale header, or
+ * a page with a header and no footer, where the builder showed home's.
+ */
 function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
   const own = site.pages[key]
   if (!own) return null
   const parts = pageParts(own)
-  const home = pageParts(site.pages.home ?? [])
-  /* The Overlay group is the site's, as the header and footer are: a page without its own wears the home page's. */
-  const overlay = parts.overlay.length ? [] : home.overlay
-  if (parts.header.length || parts.footer.length) return [...own, ...overlay]
-  return [...home.header, ...own, ...home.footer, ...overlay]
+  if (key === "home" || !site.pages.home) return [...parts.header, ...parts.template, ...parts.footer, ...parts.overlay]
+  const home = pageParts(site.pages.home)
+  const pick = (group: "header" | "footer" | "overlay") => (home[group].length ? home[group] : parts[group])
+  return [...pick("header"), ...parts.template, ...pick("footer"), ...pick("overlay")]
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
@@ -352,6 +357,8 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     return shell(site, req, path, policy.title, `<div class="page-width" style="max-width:72ch;margin:0 auto;padding:48px 20px"><h1>${escapeText(policy.title)}</h1><div class="rte">${policy.body}</div></div>`)
   }
 
+  /* A theme's wishlist page (page.wishlist, its phone tab bar's heart) is the visitor's wishlist, which Storelib keeps. */
+  if (path === "/pages/wishlist" && !site.pages.wishlist) return accountShell(site, req, "/wishlist")
   const pageMatch = path.match(/^\/pages\/([a-z0-9-]+)$/) ?? path.match(/^\/([a-z0-9][a-z0-9-]*)$/)
   if (pageMatch) {
     const handle = pageMatch[1]
@@ -561,7 +568,21 @@ function lineKey(p: string, v: string | null, props?: Record<string, string>): s
 
 /** Items a cart/add posts: `id` and `quantity`, or `items: [{ id, quantity, properties }]`. */
 function itemsOf(body: O | null): { id: string; quantity: number; properties?: Record<string, string> }[] {
-  const items = field(body, "items")
+  let items = field(body, "items")
+  /*
+    A multipart form posts the lines flat: items[0][id], items[0][quantity],
+    items[0][properties][Engraving]. Gathered into the list a JSON body
+    sends, whichever way the fields arrived.
+  */
+  const flat: O[] = Array.isArray(items) ? (items as O[]).map((x) => (x && typeof x === "object" ? { ...(x as O) } : {})) : []
+  for (const [k, v] of Object.entries(body ?? {})) {
+    const m = k.match(/^items\[(\d{1,2})\]\[(\w+)\](?:\[([^\]]{1,60})\])?$/)
+    if (!m || typeof v !== "string") continue
+    const at = (flat[Number(m[1])] ??= {})
+    if (m[3] && m[2] === "properties") at.properties = { ...((at.properties as O) ?? {}), [m[3]]: v }
+    else if (!m[3]) at[m[2]] = v
+  }
+  if (flat.some((x) => x && x.id !== undefined)) items = flat.filter((x) => x && x.id !== undefined)
   const props = (v: unknown) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v as O).filter(([, x]) => typeof x === "string").slice(0, 10)) as Record<string, string> : undefined)
   if (Array.isArray(items)) return items.filter((x) => x && typeof x === "object").map((x) => ({ id: String((x as O).id ?? ""), quantity: Number((x as O).quantity ?? 1) || 1, properties: props((x as O).properties) }))
   const id = field(body, "id")
@@ -612,6 +633,8 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     const items = itemsOf(req.body)
     if (!items.length) return error("Choose an option to add.")
     const added: CartEntry[] = []
+    /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
+    const asked: CartEntry[] = []
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
@@ -620,6 +643,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
+      asked.push({ k, p: hit.card.id, v, q: qty, ...(item.properties ? { props: item.properties } : {}) })
       if (existing) existing.q = Math.min(MAX_QTY, existing.q + qty)
       else {
         if (cart.length >= MAX_LINES) return error("The cart is full.")
@@ -627,6 +651,8 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       }
       added.push(cart.find((e) => e.k === k)!)
     }
+    /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked), cart: req.cart, note: req.note ?? "" }
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
@@ -777,7 +803,7 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx()) }
+      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
     } catch {
       return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
     }

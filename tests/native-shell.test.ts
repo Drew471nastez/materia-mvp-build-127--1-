@@ -104,7 +104,7 @@ console.log("\n2. THE HEADER AND THE BAND ARE ONE SURFACE")
   check("the bar and its stand in both leave it", /className="native-header-spacer"/.test(header) && /className="native-header-spacer"/.test(conditional))
   check("the stand in is the bar's white", /"sticky top-0 z-40 w-full bg-white"/.test(conditional))
   check("a page's own top bar (the profile's) pads under the clock when it is the top, and not under the Storelib header", /html\.capacitor \.native-top-surface \{\s*padding-top: env\(safe-area-inset-top, 0px\);/.test(cssCode) && /html\.capacitor \.native-header-spacer ~ \* \.native-top-surface \{\s*padding-top: 0;/.test(cssCode) || /html\.capacitor \.native-header-spacer ~ \.native-top-surface,\s*html\.capacitor \.native-header-spacer ~ \* \.native-top-surface \{\s*padding-top: 0;/.test(cssCode))
-  check("the profile bar is that surface: a hairline, no shadow", /className="native-top-surface w-full border-b border-black\/\[0\.06\]"/.test(readCode("components/profile/profile-top-bar.tsx")))
+  check("the profile bar is that surface: a hairline, no shadow", /className="native-top-surface sticky top-0 z-30 w-full border-b border-black\/\[0\.06\]"/.test(readCode("components/profile/profile-top-bar.tsx")))
 }
 
 console.log("\n3. NO VEIL UNDER A FINGER")

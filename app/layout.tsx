@@ -267,6 +267,10 @@ export default function RootLayout({
                   Inside the providers: its account menu reads the locale, and outside LocaleProvider it threw and took /account down. */}
               <AccountCommunityChrome />
               {children}
+              {/* Settings over the profile on a phone, an iPad and in the apps: no address of its own. Inside the providers
+                  (round 15): its Preferences tab reads the locale, and mounted outside LocaleProvider it threw "useLocale must be
+                  used within LocaleProvider", which took the whole page to "Something went wrong on this page". */}
+              <SettingsSubpageHost />
             </ExploreMarketplaceRoot>
           </LocaleProvider>
         </SWRProvider>
@@ -302,8 +306,6 @@ export default function RootLayout({
         <NativePlaceKeeper />
         {/* The strip under the clock, the browser's bar and the status bar's text in the page's own top colour; the launch screen down on the first steady frame. */}
         <NativeChrome />
-        {/* Settings over the profile on a phone, an iPad and in the apps: no address of its own. */}
-        <SettingsSubpageHost />
         {/* In the iPhone app only: a swipe from the left edge drags the page and goes back (lib/navigation/edge-swipe). */}
         <EdgeSwipeBack />
         <NativePushInit /> 

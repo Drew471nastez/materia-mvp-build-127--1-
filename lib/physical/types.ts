@@ -185,7 +185,7 @@ export interface PricedLine {
   type: string
   quantity: number
   unitCents: number
-  /** The line's code discount, already in cents. */
+  /** What comes off the line, in cents: its upsells and bundles (lib/offers), then its code. */
   discountCents: number
   requiresShipping: boolean
   taxable: boolean

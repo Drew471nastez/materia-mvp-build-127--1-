@@ -91,6 +91,8 @@ import { PollBlock, pollFitsInline } from "./poll"
 import { postPath } from "@/lib/communities/post-url"
 import { readAheadComments } from "./comments"
 import { PostOverlay } from "./post-overlay"
+import { SaveButton } from "./save-button"
+import { useOpenPostRequests } from "@/lib/communities/client/open-post"
 import { intentOf, press, useIntent } from "./post-intent"
 import { toast } from "./toast"
 import { BTN_GHOST, CARD, ICON_BTN, STACK, STACK_FACE } from "./ui"
@@ -356,6 +358,14 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
     warmPostMedia(media, post.communityId, post.id)
     setOpened(true)
   }
+
+  /* openPost(id) from anywhere (a search row, a notification; lib/communities/client/open-post.ts): the card on screen opens it. */
+  useOpenPostRequests((r) => {
+    if (full || editing || r.postId !== post.id) return false
+    warmPostMedia(media, post.communityId, post.id)
+    setOpened(true)
+    return true
+  })
 
   const like = () => {
     if (readOnly || !viewer.can.react) return
@@ -628,7 +638,7 @@ function PostCardView({ post, slug, viewer, update: given, full = false, readOnl
                 />
               ) : null}
               {/* A phone draws the pictures here, under the words; a computer too when there are two or more, else its thumbnail on the right. */}
-              <CardMedia media={media} priority={priority} className={several ? "mt-3" : "mt-3 sm:hidden"} />
+              <CardMedia media={media} priority={priority} phoneOnly={!several} className={several ? "mt-3" : "mt-3 sm:hidden"} />
             </div>
             {several ? null : <PostThumb media={media} className="max-sm:hidden" />}
           </div>
@@ -762,18 +772,6 @@ function LikeButton({ post, full, disabled, onPress }: { post: FeedPostView; ful
       <span className="tabular-nums" data-like-count="">
         {full ? (count > 0 ? count : "Like") : count}
       </span>
-    </button>
-  )
-}
-
-/** Save in the opened post: the one part a save draws again. */
-function SaveButton({ post, onPress, full = false }: { post: FeedPostView; onPress: () => void; full?: boolean }) {
-  const intent = useIntent(`save:${post.id}`)
-  const on = intent ? intent.on : post.bookmarked
-  return (
-    <button type="button" onClick={onPress} aria-pressed={on} aria-label={on ? "Remove from Saved" : "Save"} className={`${BTN_GHOST} ${full ? "ml-auto pr-1" : "-mr-2 ml-auto"} gap-2 touch-manipulation ${on ? "text-[#1a1a2e]" : ""}`} data-save="">
-      <Bookmark className={`h-[18px] w-[18px] ${on ? "fill-current" : ""}`} strokeWidth={1.75} aria-hidden />
-      <span>{on ? "Saved" : "Save"}</span>
     </button>
   )
 }

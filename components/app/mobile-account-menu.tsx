@@ -78,6 +78,22 @@ export const MobileAccountMenu = memo(function MobileAccountMenu({
     return () => window.clearTimeout(t)
   }, [avatarSrc, sheetAvatar])
   const router = useRouter()
+  /*
+    SETTINGS IS THERE BEFORE IT IS PRESSED (round V). Fetched whole a moment
+    after each page settles, so the press opens a page that is already
+    filled rather than one that fills in. The router keeps it five minutes
+    (next.config staleTimes); asking again within them costs nothing.
+  */
+  useEffect(() => {
+    if (pathname?.startsWith("/app/settings")) return
+    const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    const go = () => prefetchAppPage(router, "/app/settings")
+    const t = window.setTimeout(() => {
+      if (w.requestIdleCallback) w.requestIdleCallback(go, { timeout: 2000 })
+      else go()
+    }, 1500)
+    return () => window.clearTimeout(t)
+  }, [pathname, router])
   useEffect(() => {
     if (!mobileProfileDropdownOpen) return
     const t = window.setTimeout(() => {

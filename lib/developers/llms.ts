@@ -60,6 +60,7 @@ export function llmsTxt(): string {
     "",
     line("dynamic-values"),
     line("selling"),
+    line("physical-commerce"),
     "",
     "## Reference",
     "",

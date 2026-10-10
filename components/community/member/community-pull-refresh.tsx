@@ -9,6 +9,7 @@
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useRef } from "react"
 import { PullToRefresh, PULL_REFRESH_EVENT, dispatchPullRefresh, refreshRouterScope, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { placeKey, type Place } from "@/lib/communities/client/places"
 import { cancelAllPullToRefresh } from "@/hooks/use-pull-to-refresh"
 import {
   COMMUNITY_ABOUT_REFRESH_SCOPE,
@@ -61,17 +62,44 @@ export function communityPullUsesFeed(pathname: string | null, slug: string): bo
   address only says what a pull does there, and where there is none (a post, a space, Membership) the pull is turned off and
   the page under it is left exactly as it is.
 */
-export function CommunityPullRefresh({ slug, children }: { slug: string; children: React.ReactNode }) {
+export function CommunityPullRefresh(props: { slug: string; children: React.ReactNode } | { slug: string; /** A chat space: its list scrolls the other way and has no pull. */ off?: boolean; /** The place in the middle (round 15: places are drawn by the shell, not by the router). */ place: Place; /** navigator.refresh: patches the place in where it is. */ onRefresh: (place: Place) => Promise<void>; children: React.ReactNode }) {
+  /* A visitor's frame (public-frame.tsx) has no navigator: its pages are still the router's. */
+  if (!("place" in props)) return <RouterPullRefresh slug={props.slug}>{props.children}</RouterPullRefresh>
+  return <PlacePullRefresh {...props} />
+}
+
+function PlacePullRefresh({ slug, place, off = false, onRefresh: refreshPlace, children }: { slug: string; off?: boolean; place: Place; onRefresh: (place: Place) => Promise<void>; children: React.ReactNode }) {
+  /*
+    ROUND 15: THE PULL PATCHES THE PLACE, IT DOES NOT ASK THE ROUTER. A place is drawn from data by the shell now, so a pull
+    calls navigator.refresh(place): the feed's own refresh (it merges its lists in place), the members' and the leaderboard's
+    lists (their own listeners), or the place read again from its loader. router.refresh() is gone from here: it drew the
+    page the router last loaded, not the place on screen, and a failed one is a whole page load (lib/communities/client/
+    resume.ts). Off where the place brings its own pull or has none: a chat space, Membership, a lesson.
+  */
+  const disabled = off || place.kind === "membership" || place.kind === "program"
+  const key = placeKey(place)
+  useEffect(() => {
+    cancelAllPullToRefresh()
+  }, [key])
+  const now = useRef({ place, refreshPlace })
+  now.current = { place, refreshPlace }
+  const onRefresh = useCallback(() => now.current.refreshPlace(now.current.place), [])
+  return (
+    <PullToRefresh key={slug} onRefresh={onRefresh} disabled={disabled} spinnerYOffset={place.kind === "feed" || place.kind === "space" || place.kind === "saved" ? -2 : 0}>
+      {children}
+    </PullToRefresh>
+  )
+}
+
+/** The pull as it was before round 15, for the visitor's frame: the address says what a pull does there. */
+function RouterPullRefresh({ slug, children }: { slug: string; children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const feed = communityPullUsesFeed(pathname, slug)
   const scope = feed ? COMMUNITY_FEED_REFRESH_SCOPE : communityPullRouterScope(pathname, slug)
-
   useEffect(() => {
     cancelAllPullToRefresh()
   }, [pathname, scope])
-
-  /* Read when the pull is let go, so the handler stays the same function while the address moves. */
   const now = useRef({ feed, scope })
   now.current = { feed, scope }
   const onRefresh = useCallback(() => {
@@ -79,8 +107,6 @@ export function CommunityPullRefresh({ slug, children }: { slug: string; childre
     if (onFeed) return dispatchPullRefresh(COMMUNITY_FEED_REFRESH_SCOPE)
     if (here) return refreshRouterScope(router, here)
   }, [router])
-
-  /* Round 17: on the feed the circle sits a few pixels higher in the gap (-2, was 4). A space's own page brings its own pull (space/[space]/page.tsx); this one is off there, so its ring is the only one. */
   return (
     <PullToRefresh key={slug} onRefresh={onRefresh} disabled={!scope} spinnerYOffset={feed ? -2 : 0}>
       {children}

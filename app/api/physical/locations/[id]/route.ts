@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadSettings, locationFromRow, readLocation } from "@/lib/physical/config-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,6 +18,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data, error } = await c.db.from("inventory_locations").update(read.row).eq("id", id).eq("creator_id", c.creatorId).select("*").maybeSingle()
   if (error) return physicalJson({ error: "The location could not be saved." }, 500)
   if (!data) return physicalJson({ error: "Not found." }, 404)
+  await recordActivity(c.db, c, { action: "location.updated", subjectType: "location", subjectId: id, subjectLabel: String(data.name ?? "") })
   return physicalJson({ location: locationFromRow(data) })
 }
 
@@ -36,7 +38,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     await c.db.from("inventory_locations").update({ active: false, fulfills_orders: false, updated_at: new Date().toISOString() }).eq("id", id).eq("creator_id", c.creatorId)
     return physicalJson({ deactivated: true, message: "This location still holds stock, so it was switched off instead of deleted. Move or adjust its stock to delete it." })
   }
-  const { error } = await c.db.from("inventory_locations").delete().eq("id", id).eq("creator_id", c.creatorId)
+  const { data: gone, error } = await c.db.from("inventory_locations").delete().eq("id", id).eq("creator_id", c.creatorId).select("name").maybeSingle()
   if (error) return physicalJson({ error: "The location could not be deleted." }, 500)
+  await recordActivity(c.db, c, { action: "location.removed", subjectType: "location", subjectId: id, subjectLabel: (gone as { name?: string } | null)?.name ?? null })
   return physicalJson({ deleted: true })
 }

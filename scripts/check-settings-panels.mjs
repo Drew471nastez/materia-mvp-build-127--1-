@@ -320,6 +320,32 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
   const after = await page.evaluate(() => ({ picked: document.querySelector("[data-picked]")?.getAttribute("data-picked"), open: !!document.querySelector('[role="dialog"]') }))
   say(after.picked === "/integrations/shippo.png" && !after.open, `a press hands the picture back and closes: ${after.picked}`)
 
+  console.log(`\nActivity on ${name}`)
+  const now = Date.now()
+  const iso = (h) => new Date(now - h * 3600_000).toISOString()
+  const row = (id, h, action, subjectLabel, extra = {}) => ({ id, createdAt: iso(h), actor: "person", action, subjectType: null, subjectId: null, subjectLabel, meta: {}, ...extra })
+  const ACT = { "GET /api/store/activity": { more: true, missing: false, entries: [
+    row(50, 0, "product.renamed", "Wildflower honey from the hills above Sibiu, raw and unfiltered", { meta: { from: "Honey" } }),
+    row(49, 0.2, "order.fulfilled", "#1A2B3C4D"),
+    row(48, 0.4, "order.return_opened", "#1A2B3C4D", { actor: "buyer" }),
+    row(47, 30, "settings.checkout", null),
+    row(46, 31, "integration.installed", "Meta Pixel"),
+    row(45, 80, "file.deleted", "1760000000-hero.png", { actor: "system" }),
+  ] } }
+  await open("activity", vp, ACT)
+  const ac = await fits()
+  say(ac.over <= 0 && ac.cut.length === 0, `nothing runs off the side or is cut (${ac.over}px over${ac.cut.length ? `, cut: ${ac.cut.join(" | ")}` : ""})`)
+  const shown = await page.evaluate(() => ({ days: [...document.querySelectorAll("[data-activity-panel] h3")].map((h) => h.textContent), rows: [...document.querySelectorAll("[data-activity]")].map((r) => r.textContent.replace(/\s+/g, " ").trim()), more: !!document.querySelector("[data-activity-more]") }))
+  say(shown.days[0] === "Today" && shown.days[1] === "Yesterday" && shown.days.length === 3, `grouped by day: ${shown.days.join(" · ")}`)
+  say(/^Renamed Honey to Wildflower honey/.test(shown.rows[0]) && /^You · /.test(shown.rows[0].split("unfiltered")[1]?.trim() ?? ""), `a row says what, to what, who and when: "${shown.rows[0]}"`)
+  say(/A buyer ·/.test(shown.rows[2]) && /Storelib ·/.test(shown.rows[5]), `a buyer's return and Storelib's own change say so: "${shown.rows[2]}" / "${shown.rows[5]}"`)
+  say(shown.more, "Show more is there while there are more")
+  await page.evaluate(() => [...document.querySelectorAll("[data-activity-filters] button")].find((b) => b.textContent === "Orders").click())
+  await wait(150)
+  const asked = await page.evaluate(() => (window.__gets ?? []).filter((u) => u.startsWith("/api/store/activity")))
+  say(asked.length === 2 && asked[0] === "/api/store/activity" && asked[1] === "/api/store/activity?group=orders", `the Orders filter asks for orders only: ${asked.join(" then ")}`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/activity-${vp.width}.png`, fullPage: true })
+
   console.log(`\nThe checkout's tax line on ${name}`)
   await open("totals", vp)
   const k = await fits()

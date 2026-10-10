@@ -29,7 +29,7 @@ export const EXPLAINERS = {
       "Inside a profile, a zone is a list of countries or regions you ship to, and each zone has its rates: a flat price, free over an amount, or priced by weight or by order value.",
       "At checkout the buyer types their address. Storelib finds the zone it falls in and shows that zone's rates. An address in no zone cannot check out, so add every country you ship to.",
     ],
-    guide: "/help/physical-products/shipping-rates",
+    guide: "/help/physical-products/shipping-profiles-zones-and-rates",
   },
   locations: {
     title: "How locations work",
@@ -39,7 +39,7 @@ export const EXPLAINERS = {
       "Each product's stock is counted per location. When an order comes in, it is assigned to the default location, and its stock goes down there.",
       "Turn on local pickup for a location and buyers nearby can collect their order there for free.",
     ],
-    guide: "/help/physical-products/locations-and-pickup",
+    guide: "/help/physical-products/local-pickup",
   },
   taxes: {
     title: "How taxes work",
@@ -60,7 +60,7 @@ export const EXPLAINERS = {
       "They pick a reason from your list and the items. You get an email and approve or decline it from the order.",
       "Once the items are back, mark them received: you choose whether they go back into stock, and you refund the buyer from the same screen.",
     ],
-    guide: "/help/physical-products/returns",
+    guide: "/help/physical-products/returns-physical",
   },
   reasons: {
     title: "How reasons work",

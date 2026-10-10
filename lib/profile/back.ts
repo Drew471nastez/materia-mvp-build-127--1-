@@ -41,3 +41,22 @@ export function refererPath(referer: string | null | undefined, host: string | n
     return null
   }
 }
+
+/**
+ * WHERE THE WAY BACK LANDS WHEN THERE IS NO PAGE BEHIND (round 15). A
+ * person's full page opened from their profile inside a community carries
+ * that place in its address (`?from=community&back=/community/<slug>?profile=<handle>`,
+ * components/community/member/member-profile.tsx fullPageHref), so the back
+ * arrow returns to the community even when the page was opened cold (a
+ * reload, the app's resume, a link shared from it) instead of to Explore.
+ * Only a community address of ours is taken: a path, never a host, no
+ * `//`, no backslash, nothing but the characters a community place has.
+ */
+export function communityBackTarget(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const v = raw.trim()
+  if (!v || v.length > 200 || v.includes("//") || v.includes("\\")) return null
+  const m = /^\/community\/([a-z0-9][a-z0-9-]{0,47})(\/[a-z0-9/_-]{0,80})?(\?(?:profile|space)=[a-z0-9_.-]{1,40})?$/i.exec(v)
+  if (!m) return null
+  return v
+}

@@ -52,6 +52,8 @@ export const WORKFLOWS = {
   payoutSetup: "payout_setup",
   /* Getting started with steps left (unfinished.ts). */
   storeSetup: "store_setup",
+  /* Selling physical products begun and not ready for an order (unfinished.ts). */
+  physicalSetup: "physical_setup",
   /* Stripe still asking for details (unfinished.ts). */
   verification: "verification",
 } as const

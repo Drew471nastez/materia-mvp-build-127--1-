@@ -106,6 +106,30 @@ export function rubberBandInverse(offset: number, limit: number, tension: number
 const LATERAL = "[data-scroll-x], [data-chart-touch-shield]"
 /** How far such a touch moves before it is called a pull or a sideways swipe. */
 const LATERAL_DECIDE_PX = 3
+/**
+ * A TAP'S ROLL IS NOT A PULL (round 15). A finger always rolls a little as it
+ * presses, and Safari reports every pixel of it as a touchmove. A pull used to
+ * start on the first 3px down: it cancelled that move (Safari then sends no
+ * click, so the button or the space pill under the finger did nothing) and
+ * drew the page down by the rubber band, which sprang back when the finger
+ * lifted. That was the owner's "it bumps instead of clicking it" at the top
+ * of the feed (scripts/check-communities-feed15.mjs DRIFT measured 3.6px of
+ * page movement and two cancelled moves for a 4px roll). Now nothing moves
+ * and nothing is cancelled until the finger has travelled this far down; the
+ * pull then starts from zero there, so it never jumps. It is under the 10pt
+ * iOS waits before it scrolls on its own, so the page still never bounces
+ * natively under a pull.
+ */
+export const PULL_TAP_SLOP = 8
+
+/**
+ * What a touch that landed at the top of the page has become once its finger has gone `travel` px down (negative: up):
+ * still a tap (nothing moves, nothing is cancelled), a pull (it starts from zero at the slop), or a scroll (let go).
+ */
+export function rollOf(travel: number): "tap" | "pull" | "scroll" {
+  if (Math.abs(travel) < PULL_TAP_SLOP) return "tap"
+  return travel > 0 ? "pull" : "scroll"
+}
 
 /* ── The settle spring ─────────────────────────────────────────────────────
    Stepped in rAF, transform only. ζ = 24 / (2·√260) = 0.74, so it overshoots
@@ -761,6 +785,8 @@ export function usePullToRefresh(
      */
     let lateral = false
     let tracking = false
+    /* Whether this touch has travelled past PULL_TAP_SLOP (a pull caught mid settle has, from its start). */
+    let pastSlop = false
     let pendingDy = 0
     let queued = 0
     /** Whether the last painted frame was past the threshold. Haptics fire on
@@ -821,6 +847,7 @@ export function usePullToRefresh(
       if (held === 0 && axisFirst) lateral = true
       pendingDy = held > 0 ? rubberBandInverse(held, maxPull, tension) : 0
       startY = e.touches[0].clientY - pendingDy
+      pastSlop = held > 0
       tracking = true
       armed = held >= threshold
       if (!armed) heldTurnRef.current = null
@@ -858,6 +885,14 @@ export function usePullToRefresh(
           stopTracking()
           return
         }
+      }
+
+      /* A TAP'S ROLL: left alone, uncancelled and unpainted, until it has gone PULL_TAP_SLOP down (or as far up, a scroll). */
+      if (!pastSlop) {
+        const roll = rollOf(e.touches[0].clientY - downY)
+        if (roll === "tap") return
+        pastSlop = true
+        if (roll === "pull") startY = downY + PULL_TAP_SLOP
       }
 
       const dy = e.touches[0].clientY - startY

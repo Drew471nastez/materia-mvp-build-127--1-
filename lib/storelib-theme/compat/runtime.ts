@@ -155,7 +155,18 @@ export function prop(base: unknown, key: unknown): unknown {
       return n < 0 ? base[base.length + n] : base[n]
     }
   }
-  const k = String(key)
+  /*
+    AN OBJECT AS A KEY IS ITS HANDLE. A section's product or collection
+    setting is already the product or the collection, and themes still write
+    all_products[section.settings.product] and
+    collections[section.settings.collection], as they did when those settings
+    were handles. Shopify answers both; reading the object as its handle (or
+    what it prints as) does too, instead of a featured product that falls
+    back to its placeholder.
+  */
+  const k = key && typeof key === "object" && !Array.isArray(key) && !(key instanceof LFloat)
+    ? typeof (key as Record<string, unknown>).handle === "string" ? String((key as Record<string, unknown>).handle) : toOutput(key)
+    : String(key)
   if (UNREACHABLE.has(k)) return undefined
   if (k === "size") {
     if (typeof base === "string" || Array.isArray(base)) return base.length
@@ -286,7 +297,7 @@ export function evaluate(e: Expr, ctx: Ctx): unknown {
       else v = ctx.lookup(e.root)
       for (const s of segs) {
         if (v === undefined || v === null) return undefined
-        v = prop(v, s.k === "name" ? s.v : (() => { const k = evaluate(s.e, ctx); return typeof k === "number" ? k : toOutput(k) })())
+        v = prop(v, s.k === "name" ? s.v : (() => { const k = evaluate(s.e, ctx); return typeof k === "number" || (k !== null && typeof k === "object" && !Array.isArray(k) && !(k instanceof LFloat)) ? k : toOutput(k) })())
       }
       return v
     }
@@ -327,10 +338,28 @@ class Interrupt {
   constructor(public kind: "break" | "continue") {}
 }
 
+/**
+ * ONE TAG THAT FAILS IS ONE COMMENT, NOT A BLANK SECTION. Shopify draws a
+ * failing output or tag as "Liquid error (line n): ..." where it stood and
+ * goes on with the rest; a theme written against that (a filter given a
+ * value it does not take, a snippet that reads a missing object) drew a
+ * whole section, or the whole layout with its header and footer, as
+ * nothing here. A break or continue, and a page past its budget, still go
+ * through: those are not a tag failing.
+ */
 export function renderNodes(nodes: Node[], ctx: Ctx, out: string[]): void {
   for (const n of nodes) {
     ctx.tick()
-    renderNode(n, ctx, out)
+    try {
+      renderNode(n, ctx, out)
+    } catch (e) {
+      if (e instanceof Interrupt || e instanceof CompatRenderError || ctx.registers.strictErrors === true) throw e
+      const line = "line" in n && typeof n.line === "number" ? ` (line ${n.line})` : ""
+      const said = String((e as Error)?.message ?? e).replace(/--/g, "- -").replace(/[<>]/g, "").slice(0, 200)
+      push(out, ctx, `<!-- Liquid error${line}: ${said} -->`)
+      /* Kept for the editor's note on the section, as the error itself was. */
+      if (Array.isArray(ctx.registers.liquidErrors)) (ctx.registers.liquidErrors as string[]).push(`${said}${line}`)
+    }
   }
 }
 
@@ -581,6 +610,6 @@ export function renderTree(tree: Parsed | Node[], ctx: Ctx): string {
 }
 
 /** Parse and draw one string: for settings that hold the template language, and for tests. */
-export function renderString(src: string, ctx: Ctx): string {
-  return renderTree(parseCompat(src), ctx)
+export function renderString(src: string, ctx: Ctx, opts?: { lax?: boolean }): string {
+  return renderTree(parseCompat(src, opts), ctx)
 }

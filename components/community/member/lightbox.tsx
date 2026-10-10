@@ -53,6 +53,7 @@ import { EMBED_NAMES, embedPlayerSrc, type ViewerItem } from "@/lib/communities/
 import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
 import { ProviderMark } from "./media-providers"
 import { coverMorph, revealForReturn } from "./return-morph"
+import { useLayer } from "@/lib/ui/layers"
 /* The app's sheet arithmetic, so the slider is let go the way a sheet is (pure: no DOM, no React). */
 import { curveCss, releaseVelocity, rubberBand, snapMotion, snapTarget, type Sample } from "@/components/website-builder/sheet-gestures"
 
@@ -253,6 +254,8 @@ export function Lightbox({
   const [zooming, setZooming] = useState(false)
   const reduced = useReducedMotion()
   const rootRef = useRef<HTMLDivElement>(null)
+  /* Round 15: the viewer covers the tab bar while it is open, counted (lib/ui/layers.ts); the bar holds still under it and is there again when it goes. */
+  useLayer("viewer", true, rootRef)
   const backRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
@@ -641,6 +644,7 @@ export function Lightbox({
       aria-modal="true"
       aria-label={items.some((i) => i.kind !== "image" && i.kind !== "gif") ? "Pictures and videos" : "Pictures"}
       data-lightbox=""
+      data-layer-kind="viewer"
       data-lightbox-phase={phase}
       className="fixed inset-0 z-[160] touch-none select-none overflow-hidden overscroll-contain [-webkit-touch-callout:none]"
       style={{ WebkitUserSelect: "none", userSelect: "none", ...(phase === "closing" ? { pointerEvents: "none" } : {}) }}

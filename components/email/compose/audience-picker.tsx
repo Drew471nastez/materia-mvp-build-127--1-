@@ -6,11 +6,12 @@
  * are subscribed today. A popover on a computer, the sheet on a phone.
  */
 import * as React from "react"
-import { ChevronDown } from "lucide-react"
+import { ChevronDown, Plus } from "lucide-react"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { PickerDivider, PickerRow, onRowsKey, pickerSurface, usePhone } from "@/components/app/date-range-picker"
 import { cn } from "@/lib/utils"
+import { SegmentEditor } from "./segment-editor"
 
 export interface AudienceOption {
   type: string
@@ -39,7 +40,7 @@ export function audienceLabel(a: Audience, options: AudienceOption[], segments: 
   return { label: o?.label ?? "All subscribers", count: o?.count ?? null }
 }
 
-function Rows({ value, options, segments, compact, onPick }: { value: Audience; options: AudienceOption[]; segments: SegmentOption[]; compact: boolean; onPick: (a: Audience) => void }) {
+function Rows({ value, options, segments, compact, onPick, onNew }: { value: Audience; options: AudienceOption[]; segments: SegmentOption[]; compact: boolean; onPick: (a: Audience) => void; onNew?: () => void }) {
   return (
     <div role="menu" aria-label="Audience" onKeyDown={onRowsKey} className={compact ? "px-2 pb-3" : "max-h-[360px] overflow-y-auto p-1.5"}>
       {options.map((o) => (
@@ -58,6 +59,21 @@ function Rows({ value, options, segments, compact, onPick }: { value: Audience; 
           ))}
         </>
       ) : null}
+      {onNew ? (
+        <>
+          <PickerDivider compact={compact} />
+          <button
+            type="button"
+            role="menuitem"
+            onClick={onNew}
+            className={cn("flex w-full items-center gap-2 rounded-lg px-3 text-left font-medium text-[#1a1a2e] hover:bg-[#f6f7f9]", compact ? "h-12 text-[15px]" : "h-9 text-[14px]")}
+            data-new-segment=""
+          >
+            <Plus className="h-4 w-4 text-[#6b7280]" aria-hidden />
+            New segment
+          </button>
+        </>
+      ) : null}
     </div>
   )
 }
@@ -69,6 +85,8 @@ export function AudiencePicker({
   onChange,
   disabled,
   id,
+  products = [],
+  onSegmentCreated,
 }: {
   value: Audience
   options: AudienceOption[]
@@ -76,9 +94,20 @@ export function AudiencePicker({
   onChange: (a: Audience) => void
   disabled?: boolean
   id?: string
+  /** For New segment: the creator's products, and what to do with a saved one. Without it there is no New segment row. */
+  products?: { id: string; title: string }[]
+  onSegmentCreated?: (s: SegmentOption) => void
 }) {
   const phone = usePhone()
   const [open, setOpen] = React.useState(false)
+  const [making, setMaking] = React.useState(false)
+  const onNew = onSegmentCreated
+    ? () => {
+        setOpen(false)
+        setMaking(true)
+      }
+    : undefined
+  const editor = onSegmentCreated ? <SegmentEditor open={making} onClose={() => setMaking(false)} products={products} onSaved={onSegmentCreated} /> : null
   const { label, count } = audienceLabel(value, options, segments)
   const pick = (a: Audience) => {
     onChange(a)
@@ -104,17 +133,21 @@ export function AudiencePicker({
       <>
         {trigger}
         <BottomSheet isOpen={open} onClose={() => setOpen(false)} title="Send to" hideFrom="sm">
-          <Rows value={value} options={options} segments={segments} compact onPick={pick} />
+          <Rows value={value} options={options} segments={segments} compact onPick={pick} onNew={onNew} />
         </BottomSheet>
+        {editor}
       </>
     )
   }
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent align="start" className={cn(pickerSurface, "w-[340px]")}>
-        <Rows value={value} options={options} segments={segments} compact={false} onPick={pick} />
-      </PopoverContent>
-    </Popover>
+    <>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+        <PopoverContent align="start" className={cn(pickerSurface, "w-[340px]")}>
+          <Rows value={value} options={options} segments={segments} compact={false} onPick={pick} onNew={onNew} />
+        </PopoverContent>
+      </Popover>
+      {editor}
+    </>
   )
 }

@@ -54,6 +54,7 @@ import {
 } from "./objects"
 import { formatMoney, type CompatRegisters } from "./filters"
 import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
+import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
 
 type O = Record<string, unknown>
 
@@ -180,6 +181,8 @@ export interface CompatThemeOptions {
   themeName?: string
   /** Section groups besides the header and footer whose sections the page holds (install.ts, CompatSettings.slots). */
   slots?: string[]
+  /** A header or footer group under a name of the theme's own (install.ts, CompatSettings.chrome_groups). */
+  chromeGroups?: Record<string, "header" | "footer">
 }
 
 export interface RenderedSection {
@@ -193,6 +196,7 @@ export interface RenderedSection {
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
+  private staticCache = new Map<string, { type: string; id: string }[]>()
   private locale: O | null
   private schemaLocale: O | null
   readonly settingsSchema: O[]
@@ -220,7 +224,12 @@ export class CompatTheme {
       } catch (e) {
         const line = e instanceof CompatSyntaxError ? ` line ${e.line}` : ""
         this.warnings.push(`${path}${line}: ${(e as Error).message}`)
-        out = null
+        /* Read again as Shopify's lenient parser reads it: one bad tag in the layout no longer takes the header, the footer and the CSS with it. */
+        try {
+          out = parseCompat(markup, { lax: true })
+        } catch {
+          out = null
+        }
       }
     }
     this.parsed.set(path, out)
@@ -233,6 +242,25 @@ export class CompatTheme {
       if (this.files[p] !== undefined) return p
     }
     return null
+  }
+
+/** The static blocks a section's file places, read once. */
+  private staticsOf(path: string): { type: string; id: string }[] {
+    const key = `statics:${path}`
+    const hit = this.staticCache.get(key)
+    if (hit) return hit
+    const list = contentForStatics(this.files[path] ?? "")
+    this.staticCache.set(key, list)
+    return list
+  }
+
+  /** Whether a block of `owner`'s type can hold a block of `type`: named in its schema, or a public theme block where it takes "@theme". */
+  private blockTakes = (owner: string, type: string): boolean => {
+    const schema = this.schemaOf("blocks", owner)
+    const named = (Array.isArray(schema.blocks) ? (schema.blocks as O[]) : []).map((b) => String(b.type ?? ""))
+    if (named.includes(type)) return true
+    if (/^shopify:\/\/apps\//.test(type)) return named.includes("@app")
+    return !type.startsWith("_") && named.includes("@theme") && this.fileFor("blocks", type) !== null
   }
 
   schemaOf(folder: "sections" | "blocks", type: string): O {
@@ -278,20 +306,41 @@ export class CompatTheme {
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
       const t = this.tree(path)
-      if (t?.stylesheet.trim()) parts.push(`/* ${path} */\n${t.stylesheet}`)
+      /* A <style> tag written inside {% stylesheet %} would end the bundle's own. */
+      const css = t?.stylesheet.replace(/<\/?style\b[^>]*>/gi, "").trim()
+      if (css) parts.push(`/* ${path} */\n${css}`)
     }
     return parts.join("\n")
   }
 
-  /** The script of every {% javascript %}, once each. Drawn on the website only. */
+  /**
+   * The script of every {% javascript %}, once each. Drawn on the website only.
+   *
+   * ONE FILE'S MISTAKE IS ITS OWN. Every section's script shares one
+   * <script>, so a syntax error in any of them (a `<script>` tag written
+   * inside {% javascript %}, as themes do) stopped every other section's
+   * script on every page: the cart drawer, the variant picker, add to cart.
+   * The tags around a script are taken off, a script that still does not
+   * read is left out and named in the diagnostics, and each one runs in its
+   * own try, so one that throws as it starts stops only itself.
+   */
+  private jsBundle: string | null = null
   javascriptBundle(): string {
+    if (this.jsBundle !== null) return this.jsBundle
     const parts: string[] = []
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
       const t = this.tree(path)
-      if (t?.javascript.trim()) parts.push(`/* ${path} */\n(function(){\n${t.javascript}\n})();`)
+      const code = t?.javascript.replace(/<\/?script\b[^>]*>/gi, "").trim()
+      if (!code) continue
+      if (!readsAsScript(code)) {
+        this.diagnostics.add(`The script in ${path} does not read as JavaScript and was left out`)
+        continue
+      }
+      parts.push(`/* ${path} */\ntry{(function(){\n${code}\n})();}catch(e){console.error(${JSON.stringify(path)},e)}`)
     }
-    return parts.join("\n")
+    this.jsBundle = parts.join("\n")
+    return this.jsBundle
   }
 
   // ── The context ──
@@ -362,7 +411,8 @@ export class CompatTheme {
       money_format: moneyFormat,
       money_with_currency_format: `${moneyFormat} ${currency}`,
       enabled_currencies: [{ iso_code: currency, symbol: "$", name: currency }],
-      enabled_payment_types: ["visa", "master", "american_express", "paypal"],
+      /* What Storelib's checkout takes (Stripe): cards and the two wallets. No PayPal, which it does not take. */
+      enabled_payment_types: ["visa", "master", "american_express", "apple_pay", "google_pay"],
       locale: "en",
       published_locales: [{ iso_code: "en", name: "English", primary: true, root_url: "/" }],
       /* The creator's own policies (Website settings), as Shopify's shop.policies and shop.<name>_policy: a footer's policy links read these. */
@@ -435,6 +485,8 @@ export class CompatTheme {
     }
     const registers: CompatRegisters = {
       assetUrl: (name) => this.opts.assetUrl(name),
+      /* A file from Shopify's Files page never comes in the zip: the theme's own asset or media file by that name. */
+      fileUrl: (name) => this.opts.assetUrl(name) ?? "",
       assetText: (name) => this.opts.assetText?.(name) ?? null,
       moneyFormat,
       moneyWithCurrencyFormat: `${moneyFormat} ${currency}`,
@@ -486,10 +538,18 @@ export class CompatTheme {
   private renderSectionRaw(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
     const path = this.fileFor("sections", instance.type)
     const tree = path ? this.tree(path) : null
+    if (!tree && instance.type === "rich_text" && group === undefined) {
+      const drawn = this.renderAsThemePage(ctx, instance, index)
+      if (drawn) return drawn
+    }
     if (!tree) {
       this.diagnostics.add(`A page names the section "${instance.type}", which this theme does not have`)
       return { html: "", errors: [`There is no section called ${instance.type}`] }
     }
+    /* A product section's blocks are drawn in its Details column, never under the product (lib/website-builder/product-details-rule.ts). */
+    const homed = blocksIntoDetails(instance.type, instance.blocks, this.blockTakes, this.staticsOf(path!))
+    if (homed) instance = { ...instance, blocks: homed }
+    ;(ctx.registers.drawnIds as Set<string> | undefined)?.add(instance.id)
     const schema = this.schemaOf("sections", instance.type)
     const res = ctx.registers.res as Resources
     let holder: Ctx | null = null
@@ -504,11 +564,17 @@ export class CompatTheme {
     child.registers.closest = closest
     const errors: string[] = []
     let html = ""
+    /* Each section has the page's markup budget of its own: one long listing no longer blanks every section after it, the footer included. */
+    const charsBefore = child.out.chars
+    const said = Array.isArray(child.registers.liquidErrors) ? (child.registers.liquidErrors as string[]) : (child.registers.liquidErrors = [] as string[])
+    const from = said.length
     try {
       html = renderTree(tree, child)
     } catch (e) {
       errors.push((e as Error).message)
     }
+    errors.push(...said.slice(from, from + 5))
+    child.out.chars = charsBefore
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
@@ -528,7 +594,7 @@ export class CompatTheme {
       index: index + 1,
       index0: index,
       /* Shopify's own words: header, footer, aside, custom.<name>, or template. */
-      location: !group ? "template" : /^(header|footer|aside)(-group)?$/.test(group) ? group.replace(/-group$/, "") : `custom.${group.replace(/-group$/, "")}`,
+      location: !group ? "template" : this.opts.chromeGroups?.[group] ?? (/^(header|footer|aside)(-group)?$/.test(group) ? group.replace(/-group$/, "") : `custom.${group.replace(/-group$/, "")}`),
       __instance: instance,
     }
   }
@@ -614,6 +680,30 @@ export class CompatTheme {
     }
   }
 
+  /**
+   * STORELIB'S OWN TEXT SECTION ON AN IMPORTED THEME'S PAGE. The refund,
+   * privacy, terms and shipping pages every site is given hold their words
+   * in a `rich_text` section, which an imported theme does not have, so the
+   * page drew as nothing between the header and the footer. It is drawn as
+   * the theme draws a page: the main section of templates/page.json (or the
+   * theme's page section), with `page.title` and `page.content` the
+   * section's heading and words, under the section's own id so it is
+   * selected in the builder as itself.
+   */
+  private renderAsThemePage(ctx: Ctx, instance: CompatSectionInstance, index: number): RenderedSection | null {
+    const settings = (instance.settings ?? {}) as O
+    const body = typeof settings.body === "string" ? settings.body : ""
+    const title = typeof settings.heading === "string" ? settings.heading : ""
+    const fromTemplate = groupSections(this.files["templates/page.json"]).find((s) => !s.disabled && this.fileFor("sections", this.typeOf(s.type)))
+    const fallback = ["main-page", "page-default", "page"].find((t) => this.fileFor("sections", t))
+    const main: CompatSectionInstance | null = fromTemplate ? { ...fromTemplate, type: this.typeOf(fromTemplate.type) } : fallback ? { id: "main", type: fallback, settings: {} } : null
+    if (!main) return null
+    const handle = String((ctx.registers.page as CompatPage | undefined)?.path ?? "").replace(/^\/+/, "") || "page"
+    const page = { [OUTPUT]: title, title, content: body, handle, id: handle, url: `/${handle}`, template_suffix: null, metafields: {} }
+    const drawn = this.renderSectionRaw(ctx.child({ page }), { ...main, id: instance.id }, index)
+    return drawn.html ? drawn : null
+  }
+
   /** `{% section 'x' %}` in a layout: a section with no instance on a page, drawn from its defaults. */
   private renderStaticSection(ctx: Ctx, name: string): string {
     /* The page's own copy first: an older theme's header, imported into the Header group under its name so it can be edited. */
@@ -629,7 +719,7 @@ export class CompatTheme {
   /** `{% sections 'header-group' %}`: the group's sections, from the page's own copy when it has one. */
   private renderGroup(ctx: Ctx, group: string): string {
     const page = ctx.registers.page as CompatPage
-    const key = group.replace(/-group$/, "")
+    const key = this.opts.chromeGroups?.[group] ?? group.replace(/-group$/, "")
     /* Another group the page holds (an overlay, an aside): its sections are the Overlay group's that name it. */
     const own = key === "header" || key === "footer" ? page.groups?.[key] : this.opts.slots?.includes(group) ? (page.groups?.overlay ?? []).filter((s) => s.slot === group) : undefined
     const list: CompatSectionInstance[] = own ?? groupSections(this.files[`sections/${group}.json`]).map((s) => ({ ...s, type: this.typeOf(s.type) }))
@@ -645,7 +735,29 @@ export class CompatTheme {
     const tree = path ? this.tree(path) : null
     if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content
-    let html = this.finish(renderTree(tree, ctx))
+    const drawnIds = new Set<string>()
+    ctx.registers.drawnIds = drawnIds
+    let drawn: string
+    try {
+      drawn = renderTree(tree, ctx)
+    } catch (e) {
+      /* Past the page's budget: the page's own content still shows, never a server error. */
+      this.diagnostics.add(`The layout could not be drawn: ${(e as Error).message}`)
+      drawn = `<!doctype html><html><head><meta charset="utf-8"></head><body>${content}</body></html>`
+    }
+    /*
+      THE OVERLAY GROUP'S OTHER SECTIONS. A section added to the Overlay
+      group in the builder (a phone tab bar, a popup, a back to top button)
+      names no group file of the theme's, so no {% sections %} in the layout
+      draws it. Every one the layout did not draw goes at the end of the
+      body, where a fixed bar or a popup sits anyway.
+    */
+    const overlay = ((ctx.registers.page as CompatPage | undefined)?.groups?.overlay ?? []).filter((s) => !s.hidden && !s.disabled && !drawnIds.has(s.id))
+    if (overlay.length) {
+      const rest = overlay.map((s, i) => this.renderSectionRaw(ctx, { ...s, type: this.typeOf(s.type) }, i, s.slot || "overlay-group").html).join("")
+      drawn = /<\/body>/i.test(drawn) ? drawn.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${rest}</body>`) : `${drawn}${rest}`
+    }
+    let html = this.finish(drawn)
     /* A layout without a </head> (or without a </body>) still gets what goes there: at the top of the body, at the end of the page. */
     if (head.extraHead) html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, `${head.extraHead}</head>`) : /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, (m) => `${m}${head.extraHead}`) : `${head.extraHead}${html}`
     if (head.extraBodyEnd) html = /<\/body>/i.test(html) ? html.replace(/<\/body>(?![\s\S]*<\/body>)/i, `${head.extraBodyEnd}</body>`) : `${html}${head.extraBodyEnd}`
@@ -697,6 +809,16 @@ function resolverFor(get: () => Ctx | null): DynamicResolver {
       if (!c) return src
       try { return renderString(src, c) } catch { return src }
     },
+  }
+}
+
+/** Whether a script parses. Only a syntax error says no: where eval is not allowed (a page's policy), every script is taken as it is. */
+function readsAsScript(code: string): boolean {
+  try {
+    new Function(code)
+    return true
+  } catch (e) {
+    return !(e instanceof SyntaxError)
   }
 }
 

@@ -220,7 +220,7 @@ function main() {
   check("and the footer", /pathname\.startsWith\("\/developers"\)/.test(read("components/marketing/conditional-footer.tsx")))
   check("with the blog's header, not the marketplace search strip laid over the page on a phone",
     /isDevelopersRoute = pathname === "\/developers" \|\| pathname\.startsWith\("\/developers\/"\)/.test(read("components/platform/platform-header-client.tsx"))
-      && /!isFaqRoute && !isDevelopersRoute && !isSellerOrProductPage/.test(read("components/platform/platform-header-client.tsx")))
+      && /!isFaqRoute && !isDevelopersRoute && (!isReadRoute && )?!isSellerOrProductPage/.test(read("components/platform/platform-header-client.tsx")))
   check("and a link to it in every page's footer", /\{ label: "Developers", href: "\/developers" \}/.test(read("components/marketing/footer.tsx")))
 
   const hub = read("components/developers/hub-page.tsx")

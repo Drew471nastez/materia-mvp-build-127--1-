@@ -20,8 +20,7 @@ import { loadCommunityBlocks } from "@/lib/communities/server/blocks"
 import { SectionRenderer, ShopHeaderRenderer, type ProductData } from "@/components/store-builder/section-renderer"
 import type { AboutSettings, ShopHeaderSettings, GlobalStoreSettings, Section } from "@/lib/store-builder/types"
 import { defaultAboutSettings, defaultShopHeaderSettings, themePresets } from "@/lib/store-builder/defaults"
-import { SubscribeBar } from "@/components/store-builder/subscribe-bar"
-import { LiveSubscribeBar } from "@/components/store-builder/live-subscribe-bar"
+import { showsSubscribeBar } from "@/lib/storefront/subscribe-bar-visibility"
 import { DynamicFavicon } from "@/components/store-builder/dynamic-favicon"
 import { SellerFooter } from "@/components/storefront/seller-footer"
 import { EditProfileButton } from "@/components/storefront/edit-profile-button"
@@ -43,7 +42,8 @@ import { missingColumn } from "@/lib/reviews/store"
 import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
-import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
+import { ProfileArrival } from "@/components/profile/profile-arrival"
+import { cameFromElsewhere, communityBackTarget, refererPath } from "@/lib/profile/back"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { profileShareImageUrl, profileShareVersion } from "@/lib/profile/profile-seo"
 import type { ActionScheme } from "@/components/profile/follow-button"
@@ -133,14 +133,14 @@ export const dynamic = "force-dynamic"
 /**
  * THERE IS NO WHITE HEADER SHEET. Read this before adding one back.
  *
- * The first attempt at giving this page some depth put the subscribe bar, the
+ * The first attempt at giving this page some depth put the top bar, the
  * cover, the profile and the tab strip on one white surface above a grey page.
  * What that produced was a hard horizontal seam across the middle, white above
  * and grey below, which looked like a rendering fault rather than a design.
  *
  * The whole page is the light grey. White is reserved for the things that are
- * meant to sit ON it — the subscribe bar and the product cards — so those read
- * as raised objects and everything else reads as background.
+ * meant to sit ON it (the top bar and the product cards), so those read as
+ * raised objects and everything else reads as background.
  *
  * The second seam came from the other direction: the theme presets set white
  * EXPLICITLY (`pageBackgroundColor` and `featuredProductsBackgroundColor` are
@@ -152,7 +152,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string; back?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -198,6 +198,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
           .select("id", { count: "exact", head: true })
           .eq("creator_id", creator.id)
           .eq("status", "published")
+          .neq("type", "physical")
           .then(({ count }) => count ?? 0)
       : Promise.resolve(0),
     /* Cached (lib/custom-domains/store.ts), and needs only the creator. */
@@ -352,7 +353,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from } = await searchParams
+  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from, back } = await searchParams
   /**
    * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
@@ -497,6 +498,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     `)
       .eq("creator_id", creator.id)
       .eq("status", "published")
+      /* The marketplace profile sells what Storelib sells; shipped products live on the creator's own website. */
+      .neq("type", "physical")
       .order("created_at", { ascending: false }),
     getPublishedConfig(creator.id, "shop"),
     /**
@@ -612,7 +615,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const requestHost = (requestHeaders.get("host") || "").toLowerCase()
   const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
   if (requestHost && !/^(www\.)?storelib\.com$|^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(requestHost)) ownPaths.push("/")
-  const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
+  /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
+  const backTarget = communityBackTarget(back)
+  const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
   const offPage = catalogue && catalogue.length ? await offChannel(createAdminClient(), creator.id, "creator_page") : new Set<string>()
@@ -852,121 +857,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       reviews_average: p.reviews_average,
     })) || []
 
-  // Helper function to build subscribe bar settings from published config or defaults
-  /**
-   * `bar` is the scheme's answer for the four colours, already reconciled
-   * with whatever the creator typed. It is a parameter rather than something
-   * read in here because the scheme is only known inside the published-config
-   * branch, and the fallback branch below has no scheme at all.
-   */
-  const buildSubscribeBarSettings = (headerSettings?: ShopHeaderSettings, bar?: StorefrontBarColors) => {
-    const savedSettings = headerSettings?.subscribeBar
-
-    /**
-     * The sticky default, and why it is not just `?? true`.
-     *
-     * The builder writes the whole settings object out on every save whether
-     * or not anyone touched the sticky switch, and that switch defaulted to
-     * OFF for as long as it existed — so essentially every stored config on
-     * the platform carries an explicit `false` that never represented a
-     * decision. `?? true` cannot see past it: `false ?? true` is `false`.
-     * That is why the last two attempts at this changed nothing on the live
-     * page.
-     *
-     * `stickyBarChoiceMade` is the flag that separates a real choice from a
-     * default that got saved past. Absent -> nobody has chosen, the platform
-     * default (sticky, revealed on scroll up) applies. Present -> this
-     * creator moved the switch themselves, and their value is honoured
-     * exactly, `false` included. The builder sets it on either sticky
-     * toggle; the migration backfills it for configs that predate it.
-     */
-    const stickyDefaults = (saved?: ShopHeaderSettings["subscribeBar"]) =>
-      saved?.stickyBarChoiceMade
-        ? {
-            enableStickyBar: saved.enableStickyBar ?? true,
-            enableStickyOnScrollUp: saved.enableStickyOnScrollUp ?? true,
-          }
-        : { enableStickyBar: true, enableStickyOnScrollUp: true }
-
-    // If there are saved settings from store builder, use them
-    if (savedSettings) {
-      return {
-        /**
-         * ALWAYS VISIBLE. The "Show Subscribe Bar" toggle was deleted from the
-         * builder — the bar is the one control on a creator page with a job to
-         * do, and it is not optional. Old configs still hold `visible: false`;
-         * this ignores them on purpose.
-         */
-        visible: true,
-
-        // ✅ IMPORTANT:
-        // - if customCtaText is empty -> bar uses style text
-        // - if customCtaText has value -> bar uses that
-        customCtaText: savedSettings.customCtaText || "",
-
-        // ✅ keep text only for backward compatibility (don’t force a sentence)
-        text: savedSettings.text || "",
-
-        placeholder: savedSettings.placeholder || "Enter your email",
-        buttonText: savedSettings.buttonText || "",
-        /**
-         * The flag that separates "the creator typed this" from "the builder
-         * wrote the default out". getButtonText needs it, and without it the
-         * "Or your own label" field saves and changes nothing.
-         */
-        buttonTextPreset: savedSettings.buttonTextPreset,
-        dismissible: false,
-        position: savedSettings.position || ("top" as const),
-        showAvatar: savedSettings.showAvatar ?? true,
-        avatarUrl:
-  headerSettings?.avatarUrl === ""
-    ? undefined
-    : headerSettings?.avatarUrl !== undefined
-      ? headerSettings.avatarUrl
-      : profile.avatar_url || undefined,
-        creatorName: profile.display_name || username,
-        /**
-         * THE FOUR COLOURS COME FROM THE SCHEME when the creator has not
-         * chosen. These were hardcoded white / black / blue / white, below
-         * the scheme entirely, which is why the bar stayed a white strip
-         * across the top of a black page. Every preset carries a
-         * `subscribeBar` block built against its own palette; `bar` is that,
-         * with the creator's own values already layered over it.
-         */
-        backgroundColor: bar?.backgroundColor || savedSettings.colors?.backgroundColor || "#ffffff",
-        textColor: bar?.textColor || savedSettings.colors?.textColor || "#000000",
-        buttonColor: bar?.buttonColor || savedSettings.buttonColor || "#2563eb",
-        buttonTextColor: bar?.buttonTextColor || savedSettings.buttonTextColor || "#ffffff",
-        style: savedSettings.style || "style1",
-        ...stickyDefaults(savedSettings),
-        buttonStyle: savedSettings.buttonStyle || "style1",
-      }
-    }
-
-    return {
-      // Always visible — see the note above.
-      visible: true,
-      customCtaText: "",
-      text: "",
-      placeholder: "Enter your email",
-      buttonText: "",
-      dismissible: false,
-      position: "top" as const,
-      showAvatar: true,
-      avatarUrl: profile.avatar_url || undefined,
-      creatorName: profile.display_name || username,
-      backgroundColor: bar?.backgroundColor || "#ffffff",
-      textColor: bar?.textColor || "#000000",
-      buttonColor: bar?.buttonColor || "#2563eb",
-      buttonTextColor: bar?.buttonTextColor || "#ffffff",
-      style: "style1" as const,
-      // A storefront with no saved config has certainly made no choice, so it
-      // gets the platform default like everyone else.
-      ...stickyDefaults(undefined),
-      buttonStyle: "style1" as const,
-    }
-  }
-
   // Use published config if it exists and has sections
   if (publishedConfig && publishedConfig.sections && publishedConfig.sections.length > 0) {
     const headerSettings = (publishedConfig.headerSettings as ShopHeaderSettings) || defaultShopHeaderSettings
@@ -1087,7 +977,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     const savedPreset = previewScheme ? resolveStorefrontChrome(savedGlobalSettings?.themePreset).preset : chrome.preset
     /* What each scheme paints the page's root with, so a press shows at once. Owner only. */
     const schemeRoots = viewerIsOwner ? schemeRootPaints(storedChrome) : undefined
-    const subscribeBarSettings = buildSubscribeBarSettings(headerSettings, chrome.bar)
     /* The exact URL the header will request; see the preload below. */
     const headerAvatarPreload = headerAvatar(headerSettings, profile.avatar_url)
     // Calculate total sales for About section
@@ -1258,8 +1147,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         {/*
           THE PAGE IS A VERY LIGHT GREY, not white.
 
-          Everything on a creator page is white — the subscribe bar, the header,
-          the tab strip, every product card — so on a white page there was
+          Everything on a creator page is white: the top bar, the header, the
+          tab strip, every product card. So on a white page there was
           nothing to see them against and the whole thing read as one
           undifferentiated sheet. A grey barely darker than the cards is enough
           to give each surface an edge without drawing a single border.
@@ -1268,7 +1157,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           only the default.
         */}
         <div
-          className="min-h-screen overflow-x-hidden"
+          /* clip, not hidden: hidden makes this a scroll box of its own, and the top bar's sticky would stick to it rather than the window. */
+          className="min-h-screen overflow-x-clip"
           /* The element a scheme press repaints before the render lands (scheme-preview). */
           data-storefront-root=""
           /**
@@ -1286,51 +1176,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           {embedded && <EmbeddedNavigation />}
         <TrackView type="store" creatorId={creator.id} />
 
-        {subscribeBarSettings.visible && (
-          /**
-           * THE BAR EDITS ITSELF, and only for its owner.
-           *
-           * The pencil used to sit here as a sibling and edit two strings; the
-           * bar's colours were a panel in the workspace's toolbar. Both halves
-           * are one control now, and it lives INSIDE LiveSubscribeBar because
-           * a draft that repaints as somebody types is state, and two siblings
-           * in a Server Component cannot share state.
-           *
-           * It is seeded with what the bar ACTUALLY SHOWS rather than the raw
-           * stored value: the bar generates its own sentence from a preset
-           * when nothing is stored, and opening a dialog onto an empty box is
-           * not editing what you are looking at.
-           *
-           * A visitor gets the plain bar, with no listener, no draft state and
-           * no editor in the payload at all.
-           */
-          viewerIsOwner ? (
-            <LiveSubscribeBar
-              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
-              creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
-              editor={{
-                values: {
-                  text: subscribeBarSettings.customCtaText || subscribeBarSettings.text || "",
-                  buttonText:
-                    storedBar.buttonTextPreset === "custom" ? subscribeBarSettings.buttonText || "" : "",
-                  style: subscribeBarSettings.style || "style1",
-                  buttonStyle: subscribeBarSettings.buttonStyle || "style1",
-                  backgroundColor: subscribeBarSettings.backgroundColor || "",
-                  textColor: subscribeBarSettings.textColor || "",
-                  buttonColor: subscribeBarSettings.buttonColor || "",
-                  buttonTextColor: subscribeBarSettings.buttonTextColor || "",
-                },
-              }}
-            />
-          ) : (
-            <SubscribeBar
-              settings={{ ...subscribeBarSettings, creatorUserId: profile.id }}
-              creatorId={creator.id}
-              leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
-            />
-          )
-        )}
 
         {/*
           ===================================================================
@@ -1348,14 +1193,17 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           helper the header itself calls: one character of difference and this
           downloads the avatar a second time and shows it no sooner.
         */}
-        {/* No newsletter bar to carry it: the way back gets a slim bar of its own, in the bar's scheme colours. */}
-        {!embedded && !subscribeBarSettings.visible ? (
+        {/* Arriving from a community: a native push, and the cover only once it is whole (round 15, components/profile/profile-arrival). */}
+        <ProfileArrival />
+        {/* No bar above the cover (lib/storefront/subscribe-bar-visibility.ts), so the way back is this slim one, in the scheme's colours. */}
+        {!embedded && !showsSubscribeBar() ? (
           <ProfileTopBar
             initiallyShown={backShown}
             name={profile.display_name || username}
             avatarUrl={profile.avatar_url ?? null}
             colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }}
             width="max-w-[1150px]"
+            fallback={backTarget ?? undefined}
           />
         ) : null}
 
@@ -1626,8 +1474,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   /* The same sum the configured branch makes for its About block. */
   const fallbackTotalSales = products?.reduce((acc, p) => acc + (p.sales_count || 0), 0) || 0
 
-  // Use default subscribe bar settings for stores without published config
-  const defaultSubscribeSettings = buildSubscribeBarSettings()
 
   const defaultBreadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -1653,7 +1499,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         </>
       )}
       <div
-        className="min-h-screen overflow-x-hidden"
+        className="min-h-screen overflow-x-clip"
         style={{ background: STOREFRONT_PAGE_BACKGROUND }}
       >
         <CaptureTouch creatorId={creator.id} property="creator_page" />
@@ -1661,13 +1507,6 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         <BackLabelSetter label={profile.display_name || username} />
       <TrackView type="store" creatorId={creator.id} />
 
-      {defaultSubscribeSettings.visible && (
-        <SubscribeBar
-          settings={{ ...defaultSubscribeSettings, creatorUserId: profile.id }}
-          creatorId={creator.id}
-          leading={!embedded ? <TopBarBack initiallyShown={backShown} /> : undefined}
-        />
-      )}
 
       {/*
         THE SAME HEADER AS THE CONFIGURED PAGE, not a second hand-written one.
@@ -1684,8 +1523,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         renderer passes no editor callbacks, so nothing editor-only leaks onto a
         public page.
       */}
-      {!embedded && !defaultSubscribeSettings.visible ? (
-        <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" />
+      <ProfileArrival />
+      {!embedded && !showsSubscribeBar() ? (
+        <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
       ) : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}

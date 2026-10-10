@@ -11,6 +11,8 @@ import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
 import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
 import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
 import { getMainDomain } from "@/lib/url-helpers"
+import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
 import { chargeUnits, packItems } from "@/lib/checkout/cart-items"
 import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
@@ -124,7 +126,8 @@ export async function POST(request: Request) {
   } = await supabase.auth.getUser()
 
   /* Every price, every line left out, and the code, from the database (lib/checkout/pricing). */
-  const priced = await priceCart(admin, { items: body.items, couponCode: body.couponCode, buyerId: user?.id ?? null })
+  const handOff = await isPhysicalCommerceEnabled().catch(() => false)
+  const priced = await priceCart(admin, { items: body.items, couponCode: body.couponCode, buyerId: user?.id ?? null, handOff })
   if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
   const { lines, dropped, coupon } = priced
 
@@ -143,16 +146,41 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Shop not found" }, { status: 404 })
   }
 
-  if (lines.length === 0) {
-    return NextResponse.json(
-      { error: priced.ownedAny ? "You already own everything in this cart" : "Nothing in the cart can be bought right now" },
-      { status: 400 },
-    )
-  }
-
   const platformOrigin = `https://${getMainDomain()}`
   const siteOrigin = (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
   const returnPath = typeof body.returnPath === "string" && body.returnPath.startsWith("/") ? body.returnPath : "/cart"
+
+  /*
+    SOMETHING IN IT SHIPS. Whichever button sent it here (a theme's own add
+    to cart, an imported Shopify theme's checkout, a cart saved before lines
+    knew they ship), a shipped product needs an address and a delivery, so
+    the whole cart goes on to the physical checkout, which takes digital
+    lines beside it. This used to drop the shipped lines and refuse a cart
+    of nothing else with "Nothing in the cart can be bought right now".
+    Absolute, on storelib.com: an imported Shopify theme answers every
+    address on its own site, so a relative /checkout/physical could land on
+    the theme's 404. While physical commerce is off nothing is handed over
+    (priceCart, handOff) and the shipped lines are dropped, as before it
+    existed.
+  */
+  if (priced.ships.length > 0) {
+    return NextResponse.json({ url: physicalCheckoutHref(creatorId, priced.ships, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
+  }
+
+  if (lines.length === 0) {
+    const named = priced.dropped.filter((d) => !/^[0-9a-f-]{36}$/i.test(d))
+    return NextResponse.json(
+      {
+        error: priced.ownedAny
+          ? "You already own everything in this cart"
+          : named.length > 0
+            ? `${named.slice(0, 3).join(", ")} can't be bought right now. Remove ${named.length === 1 ? "it" : "them"} and try again.`
+            : "These products are no longer on sale. Remove them and try again.",
+        dropped: priced.dropped,
+      },
+      { status: 400 },
+    )
+  }
 
   /* A basket is a website's. Which website is the one the request came
      from, checked above as this creator's; the page adds where its visit

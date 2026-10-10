@@ -48,3 +48,13 @@ export const SEARCH_FIELD_SURFACE =
 export const SEARCH_FIELD_FOCUS =
   "outline-none transition-[box-shadow,border-color] focus:border-neutral-300 focus:shadow-[0_1px_3px_rgba(15,23,42,0.054),0_11px_27px_-16px_rgba(15,23,42,0.36)] " +
   HEADER_DEPTH_FOCUS
+
+/**
+ * THE HEADER'S FIELD ON THE DARK BAR. A white field on the near black bar
+ * read as two different headers stuck together. On the dark bar the field
+ * is the bar's own surface, a step lighter, with white text; on the light
+ * bar it stays the hero's white field above. Applied after the two above,
+ * so it only replaces colours, never the size, the corner or the focus.
+ */
+export const HEADER_FIELD_ON_DARK =
+  "bg-white/[0.08] border-white/[0.12] text-white placeholder:text-white/50 shadow-none in-[[data-header-search-field]]:shadow-none hover:bg-white/[0.11] focus:bg-white/[0.12] focus:border-white/25 in-[[data-header-search-field]]:focus:shadow-none focus-visible:border-white/25"

@@ -5,7 +5,8 @@ import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
-import { SPECULATION_RULES, VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
+import { SITE_PREFETCH_RULES } from "@/lib/website-builder/prefetch-rules"
+import { VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -43,11 +44,14 @@ export const metadata: Metadata = {
  * So: no dynamic reads, nothing wrapped, and the pages below decide their own
  * caching. The product routes stay dynamic, because a cart is per visitor.
  */
+/* The next page fetched while the visitor rests on its link (lib/website-builder/prefetch-rules.ts). */
+const SPECULATION = JSON.stringify(SITE_PREFETCH_RULES)
+
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
-      {/* Links fetched ahead while the pointer rests on them, and pages that cross-fade with no white flash (lib/website-builder/live-navigation.ts). First, so the next page has it before it is drawn. */}
-      <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION_RULES }} />
+      <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION }} />
+      {/* The page being left stays until the next is drawn, then they cross-fade (lib/website-builder/live-navigation.ts). Before the page, so the next one has it when it is drawn. */}
       <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
       {children}
       {/* A link to checkout carries which website and where its visit came

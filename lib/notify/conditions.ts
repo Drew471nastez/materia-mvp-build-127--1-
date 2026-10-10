@@ -105,6 +105,7 @@ export const CONDITION_NAMES: readonly ConditionName[] = [
   "payment_setup_incomplete",
   "payment_setup_action_required",
   "store_setup_unfinished",
+  "physical_setup_unfinished",
   "verification_still_needed",
   "payout_still_failed",
   "dispute_still_open",
@@ -176,6 +177,24 @@ export async function checkCondition(store: NotifyStore, name: ConditionName, jo
         facts.stepsDone = progress.completed
         facts.stepsTotal = progress.total
         facts.stepsLeft = Math.max(0, progress.total - progress.completed)
+      }
+      return true
+    }
+    case "physical_setup_unfinished": {
+      /* Home's physical card, read now (lib/home/physical-setup.ts): what stops a sale first, then the next step. */
+      if (!creatorId || !store.physicalSetup) return false
+      /* Physical commerce turned off for all of Storelib: nothing to finish, no nudge to set it up. */
+      if (store.physicalCommerceEnabled && !(await store.physicalCommerceEnabled())) return false
+      const s = await store.physicalSetup(creatorId)
+      if (!s) return null
+      const next = s.blockers[0] ?? s.steps.find((x) => !x.done)
+      if (!next) return false
+      if (facts) {
+        facts.stepLabel = next.label
+        facts.stepPath = next.href
+        facts.stepsDone = s.steps.filter((x) => x.done).length
+        facts.stepsTotal = s.steps.length
+        facts.paymentsMissing = s.blockers.length > 0
       }
       return true
     }

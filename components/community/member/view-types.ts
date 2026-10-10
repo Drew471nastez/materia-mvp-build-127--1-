@@ -311,6 +311,8 @@ export interface PersonCardView {
 export interface ComposerSpace {
   id: string
   name: string
+  /** Its address word, so Create post can ask for a space by it (lib/communities/client/compose-intent.ts). */
+  slug?: string
   kind: SpaceKind
   /** The admin's emoji or icon word (space-glyph.ts spaceGlyph), round 13: the composer's space picker shows it. */
   icon?: string | null

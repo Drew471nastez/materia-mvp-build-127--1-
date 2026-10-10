@@ -10,6 +10,8 @@ import { admin } from "@/lib/communities/server/db"
 import { leaveReasonsReady } from "@/lib/communities/server/leave-reasons"
 import { CommunitySalesPage } from "@/components/community/public/sales-page"
 import { communityMetadata } from "@/components/community/public/seo"
+import { memberPage } from "@/components/community/member/data"
+import { PlacePage } from "@/components/community/member/place-page"
 
 /**
  * storelib.com/community/<slug>/about: the community's page for everyone,
@@ -36,6 +38,12 @@ export default async function CommunityAboutPage({ params }: { params: Promise<{
   if (!load) notFound()
   if (load.community.slug !== slug) permanentRedirect(`/community/${load.community.slug}/about`)
   await scheduleCommunityView({ communityId: load.community.id, status: load.community.status, userId: user?.id ?? null, isOwner: load.viewer.isOwner })
+  /*
+    ABOUT, FOR A MEMBER, IS A PLACE IN THE SHELL (round 15): the same sheet, drawn by the community's frame from the one
+    loader (lib/communities/server/places.ts), so moving to About and back never leaves the frame. Everybody else gets the
+    sales page around the visitor's bar, as before.
+  */
+  if ((await memberPage(load.community.slug)).state === "member") return <PlacePage slug={load.community.slug} place={{ kind: "about" }} />
   /* The About page's extra facts: who runs it, how alive it is, the classroom (round 10, lib/communities/server/about.ts). */
   /* Leaving asks why once part 98 is in (round 12), for a member who can leave; the check is remembered by the server. */
   const [extras, askWhy] = await Promise.all([aboutExtras(admin(), load.community), load.data.join.canLeave ? leaveReasonsReady(admin()) : Promise.resolve(false)])

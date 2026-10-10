@@ -18,7 +18,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react"
-import { Trash2 } from "lucide-react"
+import { Pencil, Trash2 } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 
@@ -40,6 +40,9 @@ export function AiMemoryPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [removing, setRemoving] = useState<string | null>(null)
+  /* The memory being corrected, and its words while they are typed. */
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const read = useCallback(async () => {
     setLoad({ state: "loading" })
@@ -89,6 +92,34 @@ export function AiMemoryPanel() {
       setError("That could not be deleted. Try again.")
     } finally {
       setRemoving(null)
+    }
+  }
+
+  const save = async () => {
+    if (!editing || saving) return
+    const content = editing.text.replace(/\s+/g, " ").trim()
+    if (!content) return
+    setSaving(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/ai-memory/${encodeURIComponent(editing.id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) })
+      const data = (await res.json().catch(() => null)) as { memory?: Memory; error?: string } | null
+      if (!res.ok || !data?.memory) {
+        setError(data?.error ?? "That could not be kept. Try again.")
+        return
+      }
+      const kept = data.memory
+      const old = editing.id
+      setLoad((l) =>
+        l.state === "ready"
+          ? { ...l, memories: l.memories.some((m) => m.id === kept.id && m.id !== old) ? l.memories.filter((m) => m.id !== old) : l.memories.map((m) => (m.id === old ? kept : m)) }
+          : l,
+      )
+      setEditing(null)
+    } catch {
+      setError("That could not be kept. Try again.")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -155,21 +186,68 @@ export function AiMemoryPanel() {
             ) : (
               load.memories.map((m) => (
                 <li key={m.id} className="flex min-h-12 items-start justify-between gap-3 py-3" data-ai-memory={m.id}>
-                  <div className="min-w-0">
-                    <p className="break-words text-[14px] leading-[1.45] text-[#1a1a2e]">{m.content}</p>
-                    <p className="mt-0.5 text-[12px] text-[#9ca3af]">
-                      {m.source === "assistant" ? "Kept by Storelib AI" : "Added by you"} · {new Date(m.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void remove(m.id)}
-                    disabled={removing === m.id}
-                    aria-label={`Delete: ${m.content}`}
-                    className="-mr-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#6b7280] transition-colors hover:bg-[#f6f7f9] hover:text-[#b42318] disabled:opacity-50"
-                  >
-                    <Trash2 className="h-4 w-4" aria-hidden />
-                  </button>
+                  {editing?.id === m.id ? (
+                    <form
+                      className="min-w-0 flex-1"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        void save()
+                      }}
+                    >
+                      <textarea
+                        autoFocus
+                        value={editing.text}
+                        maxLength={MAX}
+                        rows={2}
+                        aria-label="Correct this memory"
+                        onChange={(e) => setEditing({ id: m.id, text: e.target.value })}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") setEditing(null)
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            void save()
+                          }
+                        }}
+                        className="w-full resize-none rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-[14px] leading-[1.45] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+                      />
+                      <div className="mt-2 flex gap-2">
+                        <button type="submit" disabled={saving || !editing.text.trim()} className={cn(primaryDepth, "h-9 rounded-xl px-4 text-[13px] disabled:opacity-60")}>
+                          {saving ? "Saving" : "Save"}
+                        </button>
+                        <button type="button" onClick={() => setEditing(null)} className={cn(secondaryDepth, "h-9 rounded-xl px-4 text-[13px]")}>
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="min-w-0">
+                        <p className="break-words text-[14px] leading-[1.45] text-[#1a1a2e]">{m.content}</p>
+                        <p className="mt-0.5 text-[12px] text-[#9ca3af]">
+                          {m.source === "assistant" ? "Kept by Storelib AI" : "Added by you"} · {new Date(m.createdAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                        </p>
+                      </div>
+                      <div className="-mr-2 flex shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setEditing({ id: m.id, text: m.content })}
+                          aria-label={`Edit: ${m.content}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6b7280] transition-colors hover:bg-[#f6f7f9] hover:text-[#1a1a2e]"
+                        >
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void remove(m.id)}
+                          disabled={removing === m.id}
+                          aria-label={`Delete: ${m.content}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full text-[#6b7280] transition-colors hover:bg-[#f6f7f9] hover:text-[#b42318] disabled:opacity-50"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </li>
               ))
             )}

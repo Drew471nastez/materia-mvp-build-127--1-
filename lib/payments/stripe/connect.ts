@@ -497,7 +497,8 @@ export async function syncStripeAccountFull(creatorId: string, _actor: "webhook"
       .catch(() => ({ ok: false as const, data: [] as Stripe.ExternalAccount[] })),
     stripe.payouts.list({ limit: 1 }, { stripeAccount: accountId }).catch(() => ({ data: [] as Stripe.Payout[] })),
   ])
-  if (!read.ok) {
+  /* `in`, not `!read.ok`: it narrows under the test build's looser settings too (scripts/run-push-tests.mjs). */
+  if ("error" in read) {
     /* A blip is a blip: thrown, so nothing is cleared and the caller shows the last known state. */
     if (!accountIsGone(read.error)) throw read.error
     /* Not reachable from the current platform: let go, so the creator can reconnect instead of being stuck. */
@@ -773,7 +774,7 @@ export async function beginStripeOnboarding(
   input: { kind: string; country: string; firstName: string; lastName: string; businessName?: string },
 ) {
   const parsed = parsePersonal(input)
-  if (!parsed.ok) throw new PaymentsProblem(parsed.error)
+  if ("error" in parsed) throw new PaymentsProblem(parsed.error)
   const profile = parsed.value
   const accountId = await ensureStripeAccount(creator, { kind: profile.kind, country: profile.country })
   const row = await readCreatorStripe(creator.id)

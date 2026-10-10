@@ -115,8 +115,10 @@ check(
     })(),
   )
   check(
-    "a switch keeps the scroll, so the tab bar does not jump under the finger",
-    /form\.style\.minHeight = `\$\{Math\.max\(0, Math\.ceil\(scroller\.scrollTop \+ scroller\.clientHeight - formTop\)\)\}px`/.test(settings)
+    /* Changed on purpose (round U): the owner asked for every section to open at its top, and the old pin was never released. */
+    /* Round V: with the pills held at the top (below 1024px) a section opens just under them, and a short one is given a screen's height so the row stays put; from 1024px, the very top and no pin. */
+    "a switch opens the new section at its top, under the pills when they are held, with no pin from 1024px",
+    /scroller\.scrollTo\(\{ top: target, behavior: "instant" as ScrollBehavior \}\)/.test(settings) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(settings)
       && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}( className=\{[^}]+\})?>/.test(settings),
   )
   check(
@@ -145,8 +147,9 @@ check(
   )
   check(
     /* Changed on purpose (round T): the pill row is gone. Under 1024px Settings opens on a list of its sections in their groups, and a row opens one. */
-    "under 1024px a grouped list replaces the pill row, and a section has a way back to it",
-    !/data-settings-tab-fill=""/.test(settings) && /className="space-y-5 pb-6 lg:hidden" data-settings-list=""/.test(settings) && /data-settings-back=""/.test(settings),
+    /* Changed on purpose (round V, the owner): the pill row is back under 1024px, in the groups' order, and the list of rows is gone. */
+    "under 1024px a row of pills in the groups' order, held at the top; no list of rows",
+    !/data-settings-tab-fill=""/.test(settings) && /data-settings-tabs=""/.test(settings) && /className="sticky top-0 z-\[4\]/.test(settings) && !/data-settings-list=""/.test(settings),
   )
   check(
     "no tab is scaled under the finger, and the selected tab is announced",
@@ -858,14 +861,14 @@ check(
   )
   check(
     "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
-    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1120px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
+    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1200px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
       && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),
   )
   check(
-    "the Settings list under 1024px sits in the shell's own gutter, no copy of 16px of its own",
-    /* Changed on purpose (round T): no strip to bleed to the glass; the phone's list of sections sits in the gutter like every card. */ /className="space-y-5 pb-6 lg:hidden" data-settings-list=""/.test(code("components/app/settings-form-new.tsx")) && !/data-settings-tabs=""/.test(code("components/app/settings-form-new.tsx")),
+    "the pill row under 1024px runs to the screen's edges and lines its first pill up with the cards",
+    /* Changed on purpose (round V): the pill row is back, bleeding to the edges by the gutter it sits in (-mx-4 px-4, -mx-6 px-6 from 640px). */ /data-settings-tabs=""[\s\S]{0,200}-mx-4 mb-5 overflow-x-auto[^"]*px-4[^"]*sm:-mx-6 sm:px-6/.test(code("components/app/settings-form-new.tsx")),
   )
   check(
     "no Settings or billing card writes its own sideways padding any more: `p-4 sm:p-6` is gone from both",

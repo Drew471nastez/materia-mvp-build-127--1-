@@ -124,6 +124,21 @@ export const unfinished: Workflow = (event, ctx) => {
         job("STORE_SETUP_UNFINISHED_2", event, ctx, { ...on, step: "day_12", delayMs: 12 * DAY_MS }),
       ])
     }
+    /*
+     * "How do you fulfil your physical orders?" answered. Two days later, and
+     * once more five days after that, if the store still can't take an order
+     * it would ship: the next of Home's physical steps, read again from the
+     * store the moment each is due (conditions.ts physical_setup_unfinished),
+     * so a store that finished in between gets nothing. Keyed by the creator
+     * alone: answering the question twice plans the same two jobs.
+     */
+    case "physical_setup.started": {
+      const on = { workflow: WORKFLOWS.physicalSetup, entityType: "creator" as const, entityId: ctx.creatorId, expiresInMs: LIFECYCLE_WINDOW_MS }
+      return plan([
+        job("PHYSICAL_SETUP_UNFINISHED", event, ctx, { ...on, step: "day_2", delayMs: 2 * DAY_MS }),
+        job("PHYSICAL_SETUP_UNFINISHED_2", event, ctx, { ...on, step: "day_7", delayMs: 7 * DAY_MS }),
+      ])
+    }
     case "payout.action_required": {
       /*
        * Stripe says this over and over while it waits (every account.updated

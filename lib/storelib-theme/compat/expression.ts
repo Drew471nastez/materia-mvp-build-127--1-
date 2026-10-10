@@ -254,6 +254,14 @@ export function parseValueList(src: string, line: number): Expr[] {
   }
   for (const t of toks) {
     if ((t.t === "p" && t.v === ",") || (t.t === "id" && t.v === "or")) flush()
+    /*
+      Liquid reads a `when` as values joined by `or` and commas, and stops at
+      anything else: `{% when 'collection' and collection.handle %}` is the
+      value 'collection', the rest ignored, as on Shopify. Read as one
+      expression it compared the template with the collection's handle, and
+      a theme's collection script was never loaded.
+    */
+    else if (t.t === "id" && t.v === "and") break
     else cur.push(t)
   }
   flush()

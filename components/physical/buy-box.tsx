@@ -23,6 +23,8 @@ import { useSiteCart } from "@/components/website-builder/site-cart"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { BundleOffers } from "@/components/offers/bundle-offers"
+import type { CartLine } from "@/lib/website-builder/cart"
 
 interface Variant {
   id: string
@@ -135,19 +137,23 @@ export function PhysicalBuyBox({
     quantity,
   })
 
+  /* Into the website's own cart when there is one, else this browser's cart for the shop, which the checkout reads (the storelib.com product page). */
+  const putInCart = (lines: CartLine[]) => {
+    if (site.live) {
+      for (const l of lines) site.add(l)
+      return
+    }
+    try {
+      const key = cartStorageKey(data.product.creatorId)
+      window.localStorage.setItem(key, serializeCart(lines.reduce((cart, l) => addLine(cart, l), parseCart(window.localStorage.getItem(key)))))
+    } catch {
+      /* Storage refused: Buy now still works. */
+    }
+  }
+
   const addToCart = () => {
     if (!canBuy) return
-    if (site.live) {
-      site.add(line())
-    } else {
-      /* No website cart here (the storelib.com product page): this browser's cart for the shop, which the checkout reads. */
-      try {
-        const key = cartStorageKey(data.product.creatorId)
-        window.localStorage.setItem(key, serializeCart(addLine(parseCart(window.localStorage.getItem(key)), line())))
-      } catch {
-        /* Storage refused: Buy now still works. */
-      }
-    }
+    putInCart([line()])
     setAdded(true)
     window.setTimeout(() => setAdded(false), 2400)
   }
@@ -241,6 +247,22 @@ export function PhysicalBuyBox({
           </a>
         ) : null}
       </div>
+
+      {/* The store's bundles with this product in (lib/offers): the option chosen above goes in with the rest. */}
+      <BundleOffers
+        productId={data.product.id}
+        chosen={canBuy && variant ? { variantId: variant.id, variantName: data.options.length ? variant.name : null, priceCents: variant.priceCents, imageUrl: variant.imageUrl ?? data.product.imageUrl } : null}
+        onAdd={(lines) => {
+          putInCart(lines)
+          setAdded(true)
+          window.setTimeout(() => setAdded(false), 2400)
+        }}
+        ink={ink}
+        muted={muted}
+        accent={accent}
+        radius={radius}
+        disabled={inEditor}
+      />
     </div>
   )
 }

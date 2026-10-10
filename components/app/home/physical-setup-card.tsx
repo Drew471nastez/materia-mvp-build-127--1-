@@ -16,14 +16,19 @@ import type { PhysicalStep } from "@/lib/home/physical-setup"
 export function PhysicalSetupCard() {
   const physical = usePhysicalCommerceEnabled()
   const [steps, setSteps] = React.useState<PhysicalStep[] | null>(null)
+  /* What stops a sale beyond the five steps (payments), shown first and keeping the card up until it is done. */
+  const [blockers, setBlockers] = React.useState<PhysicalStep[]>([])
 
   React.useEffect(() => {
     if (!physical) return
     let live = true
     fetch("/api/home/physical-setup", { cache: "no-store", credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { steps?: PhysicalStep[] } | null) => {
-        if (live && d && Array.isArray(d.steps)) setSteps(d.steps)
+      .then((d: { steps?: PhysicalStep[]; blockers?: PhysicalStep[] } | null) => {
+        if (live && d && Array.isArray(d.steps)) {
+          setSteps(d.steps)
+          setBlockers(Array.isArray(d.blockers) ? d.blockers : [])
+        }
       })
       .catch(() => undefined)
     return () => {
@@ -31,9 +36,9 @@ export function PhysicalSetupCard() {
     }
   }, [physical])
 
-  if (!physical || !steps || steps.every((s) => s.done)) return null
+  if (!physical || !steps || (steps.every((s) => s.done) && blockers.length === 0)) return null
   const done = steps.filter((s) => s.done).length
-  const ordered = [...steps.filter((s) => !s.done), ...steps.filter((s) => s.done)]
+  const ordered = [...blockers, ...steps.filter((s) => !s.done), ...steps.filter((s) => s.done)]
   const next = ordered[0]
 
   return (
@@ -51,7 +56,7 @@ export function PhysicalSetupCard() {
               {done} of {steps.length}
             </span>
           </div>
-          <p className="mt-0.5 text-[13px] text-[#6b7280]">Five steps and your store can take orders it ships.</p>
+          <p className="mt-0.5 text-[13px] text-[#6b7280]">{blockers.length ? "Payments first: buyers can't pay until they are set up." : "Five steps and your store can take orders it ships."}</p>
         </div>
       </div>
       <div className="mx-5 mt-3 h-[5px] overflow-hidden rounded-full bg-[#eef0f3]" role="progressbar" aria-valuemin={0} aria-valuemax={steps.length} aria-valuenow={done} aria-label="Physical setup progress">
@@ -61,7 +66,7 @@ export function PhysicalSetupCard() {
         {ordered.map((s) => (
           <li key={s.id} data-physical-step={s.id} data-done={s.done ? "" : undefined}>
             <AppLink href={s.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-[#f8f9fa]">
-              <span aria-hidden className={s.done ? "grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white" : "h-5 w-5 shrink-0 rounded-full border-[1.5px] border-[#d1d5db]"}>
+              <span aria-hidden className={s.done ? "grid h-5 w-5 shrink-0 place-items-center rounded-full bg-[#1a1a2e] text-white" : s.id === "payments" ? "h-5 w-5 shrink-0 rounded-full border-[1.5px] border-[#f79009] bg-[#fffaeb]" : "h-5 w-5 shrink-0 rounded-full border-[1.5px] border-[#d1d5db]"}>
                 {s.done ? <Check className="h-3 w-3" strokeWidth={3} /> : null}
               </span>
               <span className="min-w-0 flex-1">

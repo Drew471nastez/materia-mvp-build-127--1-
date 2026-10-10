@@ -15,6 +15,7 @@
  *   and the header's count says so
  *   choosing another option changes the price on the page
  *   the cart page lists the line, and its quantity can be changed
+ *   Buy it now sends that item alone to checkout and leaves the cart as it was
  *   the search box finds a product (/search/suggest, section rendering)
  *   nothing is requested from Shopify's servers
  *
@@ -33,6 +34,8 @@ import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
+/** What the page last sent to the basket checkout. */
+let lastCheckout: { items?: unknown[] } | null = null
 mkdirSync(OUT, { recursive: true })
 let failed = 0
 const check = (label: string, ok: boolean, detail = "") => {
@@ -108,6 +111,9 @@ async function serve(zipPath: string) {
       return
     }
     if (url.pathname.startsWith("/api/checkout/cart")) {
+      const sent: Buffer[] = []
+      for await (const c of req) sent.push(c as Buffer)
+      try { lastCheckout = JSON.parse(Buffer.concat(sent).toString("utf8")) } catch { lastCheckout = null }
       res.writeHead(200, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ url: "http://127.0.0.1/__checkout_opened" }))
       return
@@ -165,7 +171,8 @@ async function run(zipPath: string) {
       await page.setRequestInterception(true)
       page.on("request", (r) => {
         const u = r.url()
-        if (/shopify(cdn|cloud)?\.com/.test(u)) { shopifyHits.push(u); return r.abort() }
+        /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
+        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); return r.abort() }
         if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
         if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
         if (process.env.DEBUG && u.startsWith(base) && !/assets/.test(u)) console.log("    >", r.method(), u.slice(base.length, base.length + 140), (r.postData() ?? "").slice(0, 200))
@@ -237,7 +244,9 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 1200))
       const priceAfter = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer']")?.textContent ?? "").replace(/\s+/g, " ").trim())
-      check("choosing Large changes the price", !!picked && priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked || "no picker"}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
+      /* A product template with no picker (a bundle selector instead, as Posturex's demo) has nothing to choose. */
+      if (picked) check("choosing Large changes the price", priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
+      else console.log("  --    this product template has no variant picker")
 
       if (process.env.DEBUG_CART) page.on("response", async (r) => { if (/\/cart\/add/.test(r.url())) { const b = await r.text().catch(() => ""); console.log("ADD", r.status(), (r.request().postData() ?? "").replace(/\s+/g, " ").slice(0, 400), "=>", b.slice(0, 200), "sections:", Object.entries(JSON.parse(b).sections ?? {}).map(([k, v]) => `${k}:${String(v).length}:${/Linen shirt/.test(String(v))}`).join(" ")) } })
       const clicked = await page.evaluate(() => {
@@ -248,14 +257,16 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 2000))
       const cart = await page.evaluate(async () => (await fetch("/cart.js")).json())
-      check("Add to cart puts it in the cart", clicked && cart.item_count === 1, `clicked ${clicked}, item_count ${cart.item_count}, ${cart.items?.[0]?.title ?? ""}`)
+      /* A bundle preselected by the theme adds its products together: at least the one, and it is in the cart. */
+      const added = cart.item_count ?? 0
+      check("Add to cart puts it in the cart", clicked && added >= 1 && (cart.items ?? []).some((i: { title?: string }) => /Linen shirt 2/.test(i.title ?? "")), `clicked ${clicked}, item_count ${added}, ${cart.items?.[0]?.title ?? ""}`)
       const bubble = await page.evaluate(() => {
-        const el = document.querySelector(".cart-count-bubble, cart-icon .cart-bubble__text-count, .cart-bubble__text-count, [ref='cartBubbleCount']")
+        const el = document.querySelector(".cart-count-bubble, cart-icon .cart-bubble__text-count, .cart-bubble__text-count, [ref='cartBubbleCount'], header .cart-count")
         /* Dawn writes the number twice: once to see, once for a screen reader ("1 item"). The one to see. */
         const shown = el?.querySelector("[aria-hidden='true']") ?? el
         return (shown?.textContent ?? "").trim()
       })
-      check("the header's cart count says 1", bubble === "1", `"${bubble}"`)
+      check("the header's cart count says what the cart holds", bubble === String(added), `"${bubble}" for ${added}`)
       /*
         What the theme opens after an add, as on Shopify: its cart drawer, or
         its notification, on screen with the product in it. A theme set not
@@ -294,7 +305,24 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 2000))
       const after = await page.evaluate(async () => (await fetch("/cart.js")).json())
-      check("+ makes the quantity 2", plus && after.item_count === 2, `clicked ${plus}, item_count ${after.item_count}`)
+      check("+ adds one", plus && after.item_count === added + 1, `clicked ${plus}, item_count ${added} to ${after.item_count}`)
+
+      /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
+      await visit("/products/linen-shirt-3")
+      lastCheckout = null
+      const buyNow = await page.evaluate(() => {
+        const b = document.querySelector<HTMLButtonElement>("[data-storelib-buy-now]")
+        if (!b) return false
+        b.click()
+        return true
+      })
+      /* The handoff page posts the lines to the basket checkout and follows the address it answers. */
+      for (let t = 0; t < 40 && !lastCheckout; t++) await new Promise((r) => setTimeout(r, 200))
+      await visit("/cart")
+      const kept = await page.evaluate(async () => (await fetch("/cart.js")).json())
+      const sentItems = (lastCheckout as { items?: { quantity?: number }[] } | null)?.items ?? []
+      check("Buy it now goes straight to checkout with that item alone", buyNow && sentItems.length === 1 && sentItems[0]?.quantity === 1, `button ${buyNow}, sent ${JSON.stringify(sentItems).slice(0, 120)}`)
+      check("  and the cart is left as it was", kept.item_count === after.item_count, `item_count ${after.item_count} then ${kept.item_count}`)
 
       /* The search box. */
       await visit("/")

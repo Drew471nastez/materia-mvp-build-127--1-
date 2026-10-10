@@ -1,8 +1,11 @@
 import Link from "next/link"
-import { Compass } from "lucide-react"
+import { Suspense } from "react"
 
 import { NotFoundBody } from "@/components/platform/not-found-body"
 import { SiteNotFound } from "@/components/website-builder/site-not-found"
+import { PlatformHeaderClient } from "@/components/platform/platform-header-client"
+import { NotFoundActions } from "@/components/platform/not-found-actions"
+import { getMainDomain } from "@/lib/url-helpers"
 
 /**
  * Two answers, one route. See components/platform/not-found-body.tsx: on
@@ -14,6 +17,24 @@ import { SiteNotFound } from "@/components/website-builder/site-not-found"
  */
 export default function NotFound() {
   return <NotFoundBody platform={<PlatformNotFound />} site={<SiteNotFound fallback={<PlainSiteNotFound />} />} />
+}
+
+/**
+ * NEVER STORELIB'S HEADER ON SOMEBODY'S SITE, NOT EVEN FOR A FRAME. The
+ * server draws the platform's answer (it cannot know the host without
+ * turning every missing page dynamic), and the browser swaps in the site's
+ * as it hydrates. Until then, on any host that is not Storelib's own, the
+ * platform's answer is drawn but not shown.
+ */
+function HideOnSites() {
+  const main = getMainDomain().toLowerCase()
+  const hosts = JSON.stringify([main, `www.${main}`, "localhost", "127.0.0.1"])
+  return (
+    <>
+      <script dangerouslySetInnerHTML={{ __html: `if(${hosts}.indexOf(location.hostname.toLowerCase())<0)document.documentElement.setAttribute("data-site-404","")` }} />
+      <style>{`html[data-site-404] [data-platform-404]{visibility:hidden}`}</style>
+    </>
+  )
 }
 
 /** A page that is not there, on somebody's own website, when their own 404 page cannot be drawn. */
@@ -36,45 +57,39 @@ function PlainSiteNotFound() {
 }
 
 function PlatformNotFound() {
+  /**
+   * STORELIB'S OWN 404, FOR ANY PART OF STORELIB. Under the same header every
+   * Storelib page has (the root layout draws none, so it is drawn here), and
+   * with the two ways on that fit wherever the link came from: back, and home.
+   * There used to be one button, Explore Storelib, which only fits a shopper.
+   */
   return (
-    <main className="flex-1 flex items-center justify-center px-4 py-16 sm:py-24">
-      <div className="text-center max-w-lg mx-auto">
-        {/* Big 404 */}
-        <p className="text-[120px] sm:text-[160px] font-black text-[#f3f4f6] leading-none tracking-tight mb-6 select-none">
-          404
-        </p>
-
-        <h1 className="text-[26px] sm:text-[32px] font-bold text-[#1a1a2e] tracking-tight mb-3">
-          Page not found
-        </h1>
-        <p className="text-[15px] sm:text-[16px] text-[#6b7280] leading-relaxed mb-10 max-w-sm mx-auto">
-          The page you&apos;re looking for doesn&apos;t exist or has been moved to a different URL.
-        </p>
-
-        {/* Action buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/explore"
-            className="inline-flex items-center gap-2 h-11 px-6 rounded-xl bg-[#1a1a2e] text-white text-[14px] font-semibold hover:bg-[#2d2d4e] transition-colors"
-          >
-            <Compass className="h-4 w-4" />
-            Explore Storelib
-          </Link>
+    <div className="flex min-h-svh flex-col bg-white" data-platform-404="">
+      <HideOnSites />
+      <Suspense fallback={<div className="h-[65px] md:h-[72px]" aria-hidden />}>
+        <PlatformHeaderClient />
+      </Suspense>
+      <main className="flex flex-1 items-center justify-center px-4 py-16 sm:py-24">
+        <div className="mx-auto max-w-md text-center">
+          <p className="mb-3 text-[13px] font-semibold tracking-wide text-[#9ca3af]">404</p>
+          <h1 className="mb-3 text-[26px] font-bold tracking-tight text-[#1a1a2e] sm:text-[30px]">This page isn&apos;t here</h1>
+          <p className="mx-auto mb-8 max-w-sm text-[15px] leading-relaxed text-[#6b7280]">
+            The link may be old, or the page may have moved. Check the address, or go back to where you were.
+          </p>
+          <NotFoundActions />
+          <div className="mt-10 flex flex-wrap items-center justify-center gap-x-6 gap-y-2 border-t border-[#f3f4f6] pt-6">
+            <Link href="/help" className="text-[13px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+              Help Center
+            </Link>
+            <Link href="/privacy" className="text-[13px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+              Privacy
+            </Link>
+            <Link href="/terms" className="text-[13px] text-[#6b7280] transition-colors hover:text-[#1a1a2e]">
+              Terms
+            </Link>
+          </div>
         </div>
-
-        {/* Help links */}
-        <div className="mt-10 pt-8 border-t border-[#f3f4f6] flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-          <Link href="/help" className="text-[13px] text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-            Help Center
-          </Link>
-          <Link href="/privacy" className="text-[13px] text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-            Privacy Policy
-          </Link>
-          <a href="https://storelib.com/terms" className="text-[13px] text-[#9ca3af] hover:text-[#6b7280] transition-colors">
-            Terms of Service
-          </a>
-        </div>
-      </div>
-    </main>
+      </main>
+    </div>
   )
 }

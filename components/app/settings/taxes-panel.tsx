@@ -207,6 +207,17 @@ export function TaxesPanel() {
   )
 }
 
+/**
+ * What the tax is called where the region is, for receipts: a starting word
+ * the merchant can change, never a rate. GST in Australia, New Zealand,
+ * India, Singapore and Canada (HST in some provinces, so it says both),
+ * Sales tax in the US, Consumption tax in Japan, VAT almost everywhere else.
+ */
+const TAX_NAME: Record<string, string> = { US: "Sales tax", CA: "GST/HST", AU: "GST", NZ: "GST", IN: "GST", SG: "GST", MY: "SST", JP: "Consumption tax", CH: "MWST/TVA", NO: "MVA" }
+function taxNameFor(country: string | null | undefined): string {
+  return (country && TAX_NAME[country.toUpperCase()]) || "VAT"
+}
+
 function CreateRegion({ country, onClose, onCreated, taken }: { country: string | null; onClose: () => void; onCreated: (s: Setup) => void; taken: Region[] }) {
   const [c, setC] = React.useState("")
   const [state, setState] = React.useState("")
@@ -219,7 +230,7 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
     setC(country)
     setState("")
     setRate("")
-    setName(country === "US" || country === "CA" ? "Sales tax" : "VAT")
+    setName(taxNameFor(country))
     setError(null)
   }, [country])
   const states = c ? regionsOf(c) : []
@@ -253,7 +264,7 @@ function CreateRegion({ country, onClose, onCreated, taken }: { country: string 
     >
       <div className="space-y-3" data-create-region-form="">
         <Field label="Country" htmlFor="tax-country">
-          <SelectInput id="tax-country" value={c} onChange={(v) => { setC(v); setState(""); setName(v === "US" || v === "CA" ? "Sales tax" : "VAT") }}>
+          <SelectInput id="tax-country" value={c} onChange={(v) => { setC(v); setState(""); setName(taxNameFor(v)) }}>
             <option value="">Select country</option>
             {COUNTRIES.map((x) => (
               <option key={x.code} value={x.code}>

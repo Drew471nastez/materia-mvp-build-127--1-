@@ -21,6 +21,7 @@
  *                        the page and named in the theme's diagnostics, never
  *                        dropped without a word.
  */
+import { SITE_PREFETCH_RULES } from "@/lib/website-builder/prefetch-rules"
 
 /** The storefront events module. Plain ES2020; it runs in the visitor's browser. */
 export const STANDARD_EVENTS_MODULE = `
@@ -214,6 +215,18 @@ export interface BootstrapInput {
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
 
 /** `{{ content_for_header }}`: window.Shopify, as Shopify's own head script leaves it. */
+/*
+  BUY IT NOW, WHATEVER THE THEME'S OWN SCRIPT DOES WITH A SUBMIT. A theme
+  like Horizon catches every submit of its product form and adds to the cart
+  by fetch, so the button would only ever add. Caught first (capture phase),
+  the press posts the form's own fields with \`checkout\` to /cart/add, which
+  sends that item alone to checkout (site.ts). Not in the builder's canvas.
+*/
+const BUY_NOW = `if(!S.designMode)document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-storelib-buy-now]");if(!b)return;var src=b.form||b.closest("form")||document.querySelector('form[action*="/cart/add"]');if(!src)return;e.preventDefault();e.stopImmediatePropagation();var f=document.createElement("form");f.method="post";f.action="/cart/add";f.style.display="none";new FormData(src).forEach(function(v,k){if(typeof v!=="string"||k==="checkout")return;var i=document.createElement("input");i.type="hidden";i.name=k;i.value=v;f.appendChild(i)});var c=document.createElement("input");c.type="hidden";c.name="checkout";c.value="1";f.appendChild(c);document.body.appendChild(f);f.submit()},true);`
+
+/* The next page fetched while the visitor rests on its link, as on a Storelib theme's site (lib/website-builder/prefetch-rules.ts). */
+const PREFETCH = `if(!S.designMode&&HTMLScriptElement.supports&&HTMLScriptElement.supports("speculationrules")){var sr=document.createElement("script");sr.type="speculationrules";sr.textContent=${JSON.stringify(JSON.stringify(SITE_PREFETCH_RULES))};document.head.appendChild(sr)}`
+
 export function shopifyBootstrap(i: BootstrapInput): string {
   const data = {
     shop: i.host ?? "",
@@ -225,7 +238,7 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     designMode: i.designMode,
     storelib: true,
   }
-  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};})();</script>`
+  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};${BUY_NOW}${PREFETCH}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */
