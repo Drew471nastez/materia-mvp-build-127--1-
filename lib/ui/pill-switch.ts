@@ -119,3 +119,34 @@ export function landContent(el: HTMLElement | null): Animation | null {
   anim.id = "pill-land"
   return anim
 }
+
+/*
+  THE HEIGHT, HELD WHILE ONE PILL'S CONTENT REPLACES ANOTHER'S. A shorter page than where the window is scrolled is answered by
+  the browser scrolling it up, which moves the pills under the finger. So the box keeps the height it had for the landing, and
+  then lets go of all of it the scroll does not need.
+*/
+
+/** Keep `box` at least as tall as it is now. Read before the content changes (a press, or getSnapshotBeforeUpdate). */
+export function holdHeight(box: HTMLElement | null) {
+  if (!box) return
+  box.style.minHeight = `${Math.ceil(box.getBoundingClientRect().height)}px`
+}
+
+/**
+ * Let `box` go back to its content's own height (`content`, a child that is never held), keeping only what the scroll needs:
+ * the page may not end above the bottom of the window.
+ */
+export function letGoHeight(box: HTMLElement | null, content: HTMLElement | null) {
+  if (!box || typeof window === "undefined") return
+  if (!content) {
+    box.style.minHeight = ""
+    return
+  }
+  const top = box.getBoundingClientRect().top + window.scrollY
+  const below = document.documentElement.scrollHeight - (top + box.offsetHeight)
+  const need = Math.ceil(window.scrollY + window.innerHeight - below - top)
+  box.style.minHeight = content.offsetHeight >= need ? "" : `${need}px`
+}
+
+/** How long the height is held after the content lands: the landing, and a frame or two. */
+export const HOLD_MS = CONTENT_IN_MS + 60

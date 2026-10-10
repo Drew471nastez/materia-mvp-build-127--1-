@@ -21,10 +21,11 @@
  *
  *   THE SECTIONS   the library's pills, to the letter (components/library/
  *                  library-tabs.tsx, which are Explore's chips): white on a
- *                  hairline, the chosen one pressed into a grey fill that
- *                  fades in and grows from 96% where it is over 150ms.
- *                  They scroll sideways on a narrow phone. Five sections,
- *                  because five is what there is:
+ *                  hairline, the chosen one on a grey fill that fades in
+ *                  where it is over 140ms, the way a community's space pills
+ *                  switch (round 17, lib/ui/pill-switch.ts). They scroll
+ *                  sideways on a narrow phone. Five sections, because five
+ *                  is what there is:
  *
  *                    Profile        the photo, the name, the username, the bio
  *                    Account        email, password, logging out, deleting
@@ -55,7 +56,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { Loader2 } from "lucide-react"
 import { BackControl } from "@/components/navigation/back-control"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
@@ -76,9 +77,12 @@ import { SOUNDS_DETAIL, useSounds } from "@/components/community/member/heart"
 import { useLocale } from "@/components/locale-provider"
 import { secondaryDepth } from "@/components/ui/depth-button"
 import { AccountAvatar, useAccountPhoto } from "@/components/account/account-photo"
-import { NotificationSettings } from "@/components/account/notification-settings"
+import { NotificationSettings, warmNotifications } from "@/components/account/notification-settings"
 import { CoverField } from "@/components/account/cover-field"
 import { SaveBar } from "@/components/account/save-bar"
+import { useFirstTap } from "@/lib/navigation/first-tap"
+import { BeforeChange } from "@/components/ui/before-change"
+import { HOLD_MS, PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, holdHeight, landContent, letGoHeight, pressPill, releasePill } from "@/lib/ui/pill-switch"
 import { primeSettingsFromProfile, SETTINGS_SHEET_OUT_MS } from "@/components/account/settings-subpage"
 import { pauseAccountScrollPin } from "@/lib/navigation/tab-scroll"
 import { useShellAvatar } from "@/lib/account/avatar-store"
@@ -128,12 +132,10 @@ const SECTIONS = [
 
 type SectionKey = (typeof SECTIONS)[number]["key"]
 
-/** The library's own numbers (components/library/library-tabs.tsx). */
-const PILL_FADE_MS = 150
-const PILL_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+/* White on a hairline, the same size chosen or not; the fill, the press and the words are layers inside it (lib/ui/pill-switch.ts). The ::before reaches 8px past it for a finger. */
 const PILL =
-  "relative inline-flex h-9 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap rounded-full border bg-white px-3.5 text-[14px] font-medium outline-none " +
-  "transition-[color,background-color,border-color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] " +
+  "group/pill relative isolate inline-flex h-9 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap rounded-full border border-[#e4e7ec] bg-white px-3.5 text-[14px] font-medium outline-none " +
+  "focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] " +
   "before:absolute before:-inset-2 before:rounded-full before:content-['']"
 
 function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: SectionKey) => void }) {
@@ -141,38 +143,54 @@ function SectionPills({ active, onPick }: { active: SectionKey; onPick: (key: Se
     <nav aria-label="Settings" className="-mx-4 mt-4 sm:mx-0">
       <div data-account-sections="" className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
         <div className="flex w-max items-center gap-2">
-          {SECTIONS.map((section) => {
-            const on = section.key === active
-            return (
-              <button
-                key={section.key}
-                type="button"
-                onClick={() => onPick(section.key)}
-                aria-current={on ? "page" : undefined}
-                data-account-section={section.key}
-                data-active={on ? "true" : "false"}
-                style={{ transitionDuration: `${PILL_FADE_MS}ms`, transitionTimingFunction: PILL_EASE }}
-                className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#6b7280] hover:text-[#1a1a2e]")}
-              >
-                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
-                <span
-                  aria-hidden="true"
-                  data-account-section-fill=""
-                  style={{ transitionDuration: `${PILL_FADE_MS}ms`, transitionTimingFunction: PILL_EASE }}
-                  className={cn(
-                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8]",
-                    "shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)]",
-                    "transition-[opacity,scale] motion-reduce:transition-none",
-                    on ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span className="relative">{section.label}</span>
-              </button>
-            )
-          })}
+          {SECTIONS.map((section) => (
+            <SectionPill key={section.key} section={section} on={section.key === active} onPick={onPick} />
+          ))}
         </div>
       </div>
     </nav>
+  )
+}
+
+/**
+ * ONE PILL, ANSWERING THE FIRST TAP (round 17). It was a button on `click`, which a phone sends only when nothing else claimed
+ * the touch: a finger landing while the row still glided sideways was spent stopping the glide, and the section needed a
+ * second tap. It decides on the lift now (lib/navigation/first-tap.ts), as the library's and the profile's pills do.
+ */
+function SectionPill({ section, on, onPick }: { section: (typeof SECTIONS)[number]; on: boolean; onPick: (key: SectionKey) => void }) {
+  const tap = useFirstTap<HTMLButtonElement>(() => {
+    if (!on) onPick(section.key)
+    return true
+  })
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => {
+        if (e.button === 0 && !on) pressPill(e.currentTarget)
+        tap.onPointerDown(e)
+      }}
+      onPointerUp={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerUp(e)
+      }}
+      onPointerCancel={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerCancel()
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === "mouse") releasePill(e.currentTarget)
+      }}
+      onClick={tap.onClick}
+      aria-current={on ? "page" : undefined}
+      data-account-section={section.key}
+      data-active={on ? "true" : "false"}
+      className={PILL}
+    >
+      <span aria-hidden="true" data-pill-press="" className={PILL_PRESS} />
+      {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+      <span aria-hidden="true" data-account-section-fill="" className={cn(PILL_FILL, on ? "opacity-100" : "opacity-0")} />
+      <span className={cn(PILL_WORDS, on ? PILL_WORDS_ON : PILL_WORDS_OFF)}>{section.label}</span>
+    </button>
   )
 }
 
@@ -192,7 +210,7 @@ function SectionList({ active, onPick }: { active: SectionKey; onPick: (key: Sec
                 data-account-section={section.key}
                 data-active={on ? "true" : "false"}
                 className={cn(
-                  "flex h-10 w-full cursor-pointer items-center rounded-[10px] px-3 text-left text-[14.5px] outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
+                  "flex h-10 w-full cursor-pointer items-center rounded-[10px] px-3 text-left text-[14.5px] outline-none transition-colors duration-[140ms] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15",
                   on ? "bg-[#eceef1] font-semibold text-[#1a1a2e]" : "font-medium text-[#6b7280] hover:bg-[#f3f4f6] hover:text-[#1a1a2e]",
                 )}
               >
@@ -1049,6 +1067,7 @@ export function AccountSettings({
   location,
   initialSection = "profile",
   onBack,
+  onSection,
 }: {
   userId: string
   email: string
@@ -1078,12 +1097,30 @@ export function AccountSettings({
   initialSection?: SectionKey
   /** Set when Settings is a layer over the profile: the chevron closes it instead of leaving the address. */
   onBack?: () => void
+  /** Told of each section picked, so a layer that builds this screen again (its full read landing) opens it where it was. */
+  onSection?: (key: SectionKey) => void
 }) {
   /* Edit profile lands on the profile's own fields, which is what it promised. */
-  const [section, setSection] = useState<SectionKey>(initialSection)
+  /*
+    THE PILL FIRST, THEN ITS SECTION (round 17). Both were one state, so the chosen pill's fill only began to fade once the
+    whole next section had been built and laid out: at a quarter speed Notifications took about 200ms, and the pill sat on
+    the old section that long and then lit late. The pill is its own state now and lights on the press; the section follows
+    in a transition, which React builds after the pill's frame has been painted, so the fill is already under way on the
+    compositor while the section is made. A community's space pills do the same (feed.tsx, LIST_AFTER_MS).
+  */
+  const [pill, setPill] = useState<SectionKey>(initialSection)
+  const [section, setShown] = useState<SectionKey>(initialSection)
+  const onSectionRef = useRef(onSection)
+  onSectionRef.current = onSection
+  const setSection = useCallback((key: SectionKey) => {
+    setPill(key)
+    startTransition(() => setShown(key))
+    onSectionRef.current?.(key)
+  }, [])
   const router = useRouter()
   useEffect(() => {
-    setSection(initialSection)
+    setPill(initialSection)
+    setShown(initialSection)
   }, [initialSection])
 
   /*
@@ -1097,6 +1134,13 @@ export function AccountSettings({
     control's own (components/navigation/back-control.tsx).
   */
   useEffect(() => prefetchOnIdle(router, [BACK_TO]), [router])
+  /* The Notifications pill's switches, read while another section is up, so that pill draws them at once (round 17). */
+  useEffect(() => {
+    if (section === "notifications") return
+    const t = window.setTimeout(warmNotifications, 700)
+    return () => window.clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     /* One readable column on a computer (round 14): the fields, and the cover in the profile band's own shape, at a settings width rather than across the whole screen. */
@@ -1131,45 +1175,49 @@ export function AccountSettings({
       {/* A phone and a tablet: the pills in a row. A computer: the sections as a list beside the one open (round 15). */}
       <div className="lg:mt-7 lg:grid lg:grid-cols-[188px_minmax(0,1fr)] lg:items-start lg:gap-10">
       <div className="lg:hidden">
-        <SectionPills active={section} onPick={setSection} />
+        <SectionPills active={pill} onPick={setSection} />
       </div>
-      <SectionList active={section} onPick={setSection} />
+      <SectionList active={pill} onPick={setSection} />
       <div className="min-w-0">
 
       {/*
-        ONE SECTION DISSOLVES INTO THE NEXT. It used to fade the arriving
-        section in from nothing while the one leaving was taken away in the
-        same frame, so the eye saw the old screen vanish and a new one
-        brighten into the gap: "not so direct, smooth clean". Now the one
-        leaving fades out first and the next fades in behind it
-        (SectionSwap), which is one dissolve rather than a cut and a fade.
+        ONE SECTION IN PLACE OF THE LAST, AND EVERY ONE KEPT (round 17). It faded the leaving section out over 100ms, then
+        the next in from nothing over 150ms: a quarter of a second of a half drawn page, and every section built again on
+        every visit, Notifications from its skeleton each time. Now the section picked is there on the frame the pill is
+        pressed and lands the way every row of pills lands its content, and a section once opened stays built (hidden while
+        another is up), so going back to it is instant and keeps what was typed (KeptSections).
       */}
-      <SectionSwap section={section}>
-        {section === "profile" ? (
-          <ProfileSection
-            userId={userId}
-            name={name}
-            bio={bio ?? ""}
-            bioSupported={bioSupported !== false}
-            avatarUrl={avatarUrl ?? null}
-            username={username}
-            usernameEditable={usernameEditable}
-            cover={cover}
-            location={location}
-            onCloseAfterSave={onBack}
-          />
-        ) : null}
-        {section === "account" ? (
-          <>
-            <EmailCard email={email} />
-            <PasswordCard email={email} hasPassword={hasPassword} via={via} />
-            <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
-          </>
-        ) : null}
-        {section === "privacy" ? <PrivacySection username={username} privacy={privacy} creator={creator} /> : null}
-        {section === "notifications" ? <NotificationSettings /> : null}
-        {section === "preferences" ? <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} /> : null}
-      </SectionSwap>
+      <KeptSections
+        section={section}
+        render={(key) =>
+          key === "profile" ? (
+            <ProfileSection
+              userId={userId}
+              name={name}
+              bio={bio ?? ""}
+              bioSupported={bioSupported !== false}
+              avatarUrl={avatarUrl ?? null}
+              username={username}
+              usernameEditable={usernameEditable}
+              cover={cover}
+              location={location}
+              onCloseAfterSave={onBack}
+            />
+          ) : key === "account" ? (
+            <>
+              <EmailCard email={email} />
+              <PasswordCard email={email} hasPassword={hasPassword} via={via} />
+              <LeaveCard email={email} createdAt={createdAt} isSeller={isSeller} />
+            </>
+          ) : key === "privacy" ? (
+            <PrivacySection username={username} privacy={privacy} creator={creator} />
+          ) : key === "notifications" ? (
+            <NotificationSettings />
+          ) : (
+            <PreferencesSection email={email} newsletter={newsletter} personalized={personalized} />
+          )
+        }
+      />
       </div>
       </div>
     </div>
@@ -1178,76 +1226,61 @@ export function AccountSettings({
 
 /**
  * ===========================================================================
- *  THE SECTION LEAVING GOES BEFORE THE ONE ARRIVING COMES
+ *  EVERY SECTION OPENED STAYS BUILT, AND THE ONE PICKED IS THERE AT ONCE
  * ===========================================================================
- * The pills answer the press at once, as they always did; only what is
- * under them takes these few frames. What is on screen is held and faded
- * to nothing over OUT_MS, then the section picked is put in and brought up
- * over IN_MS. The whole move is under a quarter of a second, and because
- * the two never overlap the page's height is never fought over by two
- * sections of different lengths, which is what a true cross fade would
- * cost here and what made the first attempt at this jump.
- *
- * Under reduced motion, and where a browser cannot animate, the section
- * simply changes: no wait, no fade.
+ * Round 17. A section is built the first time its pill is pressed and kept
+ * from then on, hidden while another is up: Notifications reads its switches
+ * once rather than on every visit, a half typed name is still there when
+ * Profile comes back, and no section is ever built twice. The one picked is
+ * shown on the frame of the press and lands with the short soft fade every
+ * row of pills shares (lib/ui/pill-switch.ts), the one before it gone in the
+ * same frame. The box keeps its height for the landing, so a shorter section
+ * does not pull the page up under the finger. Under reduced motion it simply
+ * changes.
  */
-const SWAP_OUT_MS = 100
-const SWAP_IN_MS = 150
+function KeptSections({ section, render }: { section: SectionKey; render: (key: SectionKey) => ReactNode }) {
+  const [opened, setOpened] = useState<SectionKey[]>([section])
+  /* The section picked is built in the same render that shows it, not an effect later. */
+  if (!opened.includes(section)) setOpened([...opened, section])
+  const box = useRef<HTMLDivElement | null>(null)
+  const panes = useRef(new Map<SectionKey, HTMLDivElement>())
+  const shown = useRef(section)
+  const release = useRef<number | null>(null)
 
-function SectionSwap({ section, children }: { section: SectionKey; children: React.ReactNode }) {
-  /* What is drawn: behind the pills' own state, so it lags by exactly one fade. */
-  const [drawn, setDrawn] = useState(section)
-  const [held, setHeld] = useState<React.ReactNode>(children)
-  const ref = useRef<HTMLDivElement | null>(null)
-  const entered = useRef(false)
-
-  useEffect(() => {
-    if (section === drawn) {
-      setHeld(children)
-      return
-    }
-    const el = ref.current
-    const still = !el || typeof el.animate !== "function" || (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
-    if (still) {
-      setDrawn(section)
-      setHeld(children)
-      return
-    }
-    let done = false
-    const land = () => {
-      if (!done) {
-        done = true
-        setDrawn(section)
-        setHeld(children)
-      }
-    }
-    const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "both" })
-    out.onfinish = land
-    window.setTimeout(land, SWAP_OUT_MS + 160)
-    return () => {
-      out.cancel()
-    }
-  }, [section, children, drawn])
-
-  /* Brought up from nothing on the frame the new section is first painted. */
   useLayoutEffect(() => {
-    const el = ref.current
-    if (!el || typeof el.animate !== "function") return
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      el.style.opacity = "1"
-      return
-    }
-    if (!entered.current) {
-      entered.current = true
-      el.style.opacity = "1"
-      return
-    }
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: "ease-out", fill: "both" })
-  }, [drawn])
+    if (shown.current === section) return
+    shown.current = section
+    landContent(panes.current.get(section) ?? null)
+    if (release.current) window.clearTimeout(release.current)
+    release.current = window.setTimeout(() => {
+      release.current = null
+      letGoHeight(box.current, panes.current.get(shown.current) ?? null)
+    }, HOLD_MS)
+  }, [section])
+  useEffect(
+    () => () => {
+      if (release.current) window.clearTimeout(release.current)
+    },
+    [],
+  )
 
   return (
-    <div ref={ref} data-account-panel={drawn} data-account-panel-swap="" className="mt-5 space-y-4 sm:space-y-5 lg:mt-0">
-      {held}
+    <div ref={box} data-account-panel={section} data-account-sections-kept="" className="mt-5 lg:mt-0">
+      <BeforeChange value={section} onBefore={() => holdHeight(box.current)} />
+      {SECTIONS.filter((s) => opened.includes(s.key) || s.key === section).map((s) => (
+        <div
+          key={s.key}
+          ref={(el) => {
+            if (el) panes.current.set(s.key, el)
+            else panes.current.delete(s.key)
+          }}
+          hidden={s.key !== section}
+          data-account-section-pane={s.key}
+          className="space-y-4 sm:space-y-5"
+        >
+          {render(s.key)}
+        </div>
+      ))}
     </div>
   )
 }

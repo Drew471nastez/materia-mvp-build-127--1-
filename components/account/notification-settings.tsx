@@ -149,13 +149,46 @@ function browserZone(): string | null {
   }
 }
 
+/*
+  READ AHEAD, USED ONCE (round 17). Settings reads these switches while the person is still on another section
+  (warmNotifications, account-settings.tsx), so pressing the Notifications pill draws them at once instead of a skeleton and
+  a jump when they arrive. A warm answer is used by one screen only and only while it is fresh: every later visit reads again,
+  so a switch changed on another device is never shown as it was.
+*/
+const WARM_MS = 60_000
+let warm: { at: number; value: Loaded | null; done: boolean; promise: Promise<Loaded | null> } | null = null
+
+function readPush(): Promise<Loaded | null> {
+  return fetch(PUSH_ROUTE, { credentials: "include", cache: "no-store" })
+    .then(async (res) => loadedFrom(res.status, await res.json().catch(() => null)))
+    .catch(() => null)
+}
+
+/** Read the switches ahead of the pill, once a minute at most. */
+export function warmNotifications() {
+  if (warm && Date.now() - warm.at < WARM_MS) return
+  const entry: NonNullable<typeof warm> = { at: Date.now(), value: null, done: false, promise: readPush() }
+  entry.promise.then((v) => {
+    entry.value = v
+    entry.done = true
+  })
+  warm = entry
+}
+
+/** The warm read, for one screen: its answer if it is here, its promise if it is on its way, else nothing. */
+function takeWarm(): { value: Loaded | null; done: boolean; promise: Promise<Loaded | null> } | null {
+  const w = warm
+  if (!w || Date.now() - w.at >= WARM_MS) return null
+  warm = null
+  return w
+}
+
 export function NotificationSettings() {
-  const [state, setState] = useState<Loaded | "loading" | "none">("loading")
+  const [took] = useState(() => (typeof window === "undefined" ? null : takeWarm()))
+  const [state, setState] = useState<Loaded | "loading" | "none">(() => (took?.done ? (took.value ?? "none") : "loading"))
   useEffect(() => {
     let live = true
-    fetch(PUSH_ROUTE, { credentials: "include", cache: "no-store" })
-      .then(async (res) => loadedFrom(res.status, await res.json().catch(() => null)))
-      .catch(() => null)
+    ;(took ? took.promise : readPush())
       .then((v) => {
         if (!live) return
         setState(v ?? "none")

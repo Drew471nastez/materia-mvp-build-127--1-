@@ -38,6 +38,17 @@
  *
  * AND A PRESS THAT NEVER ARRIVES IS SENT AGAIN (lib/nav/stuck-navigation.ts):
  * the Library pill that spun for ten seconds and left you on the profile.
+ *
+ * ROUND 17: THE SPACE PILLS' QUIET SWITCH, AND EVERY PILL'S PAGE ALREADY HERE.
+ * The owner: "switching in between pill shapes is not smooth there". Each
+ * pill's own fill fades in where it is over 140ms, the words turn in one
+ * step, a finger tints the pill lightly (lib/ui/pill-switch.ts), as a
+ * community's space pills do. And the press no longer waits on the server:
+ * Posts was never read ahead (its link said prefetch false and the idle pass
+ * skipped it), so a press sat on the old page for a whole server answer and
+ * then cut. Every pill's page is read whole once the profile is idle, Posts
+ * and Communities included, so the next panel is in place in the frame after
+ * the press (components/account/account-hub.tsx lands it).
  */
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -49,17 +60,15 @@ import { startRouteLoading } from "@/components/navigation/route-loading-bar"
 import { useFirstTap } from "@/lib/navigation/first-tap"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
 import { cn } from "@/lib/utils"
+import { PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 import type { OwnerPill as OwnerPillLink } from "@/lib/profile/owner-pills"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
 
-/** The library's numbers (components/library/library-tabs.tsx TAB_FADE_MS, TAB_EASE). */
-const FADE_MS = 150
-const EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-
+/* White on a hairline, the same size chosen or not; the fill, the press and the words are layers inside it (lib/ui/pill-switch.ts). The ::before reaches 8px past it for a finger. */
 const PILL =
-  "relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center whitespace-nowrap rounded-full border bg-white px-4 text-[14px] font-medium outline-none " +
-  "transition-[color,background-color,border-color] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] " +
+  "group/pill relative isolate inline-flex h-10 shrink-0 touch-manipulation select-none items-center whitespace-nowrap rounded-full border border-[#e4e7ec] bg-white px-4 text-[14px] font-medium outline-none " +
+  "focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] " +
   "before:absolute before:-inset-2 before:rounded-full before:content-['']"
 
 export function ProfileOwnerPills({ communities, creator = false, active: fixed, className }: { communities: boolean; /** A live store: no Activity pill, /account is their Communities. */ creator?: boolean; active?: OwnerPillKey | null; className?: string }) {
@@ -71,11 +80,15 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
   const router = useRouter()
   const pills = ownerPillLinks(communities, creator)
 
-  /* Read ahead once the page is idle: Settings first (the pill, then Edit profile's address), then the pills Next does not read itself. */
+  /*
+    Read ahead once the page is idle, whole: Settings first (the pill, then Edit profile's address), then the profile's own
+    panels (Posts, Communities, Activity), then the library. Every pill but the one you are on, so a press lands at once.
+  */
+  const order: OwnerPillKey[] = ["settings", "posts", "communities", "activity", "library"]
   const ahead = [
     ...pills.filter((p) => p.key === "settings" && p.key !== fromPath).map((p) => p.href),
     ...(fromPath === "settings" ? [] : [EDIT_PROFILE_HREF]),
-    ...pills.filter((p) => p.key === "activity" && p.key !== fromPath).map((p) => p.href),
+    ...order.filter((k) => k !== "settings" && k !== fromPath).flatMap((k) => pills.filter((p) => p.key === k && p.href !== pathname).map((p) => p.href)),
   ].join(" ")
   useEffect(() => {
     if (!ahead) return
@@ -130,31 +143,35 @@ function OwnerPill({ pill: p, on, current, onPress, onDown }: { pill: OwnerPillL
   return (
     <Link
       href={p.href}
-      prefetch={p.key === "library" || p.key === "communities" ? true : false}
+      /* The profile's panels and the library, whole, as soon as the row is on screen (and again on idle, above); Settings has its own warm path. */
+      prefetch={p.key === "library" || p.key === "communities" || p.key === "posts" ? true : false}
       scroll={false}
       aria-current={current ? "page" : undefined}
       data-profile-owner-pill={p.key}
       data-active={on ? "true" : "false"}
       onPointerDown={(e) => {
+        if (e.button === 0 && !on) pressPill(e.currentTarget)
         tap.onPointerDown(e)
         onDown()
       }}
-      onPointerUp={tap.onPointerUp}
-      onPointerCancel={tap.onPointerCancel}
+      onPointerUp={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerUp(e)
+      }}
+      onPointerCancel={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerCancel()
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === "mouse") releasePill(e.currentTarget)
+      }}
       onClick={tap.onClick}
-      style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
-      className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
+      className={PILL}
     >
+      <span aria-hidden data-pill-press="" className={PILL_PRESS} />
       {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
-      <span
-        aria-hidden
-        style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
-        className={cn(
-          "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
-          on ? "opacity-100" : "opacity-0",
-        )}
-      />
-      <span className="relative">{p.label}</span>
+      <span aria-hidden data-profile-owner-pill-fill="" className={cn(PILL_FILL, on ? "opacity-100" : "opacity-0")} />
+      <span className={cn(PILL_WORDS, on ? PILL_WORDS_ON : PILL_WORDS_OFF)}>{p.label}</span>
     </Link>
   )
 }

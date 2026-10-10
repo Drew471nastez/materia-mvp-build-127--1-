@@ -55,6 +55,8 @@ import { AccountColumn } from "@/components/account/account-column"
 import { RouterPullToRefresh } from "@/components/ui/pull-to-refresh"
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { SettingsWarm } from "@/components/account/settings-subpage"
+import { HOLD_MS, holdHeight, landContent, letGoHeight } from "@/lib/ui/pill-switch"
+import { BeforeChange } from "@/components/ui/before-change"
 
 export interface AccountIdentity {
   /** Whose profile: Settings uploads a new photo under this folder. */
@@ -77,19 +79,35 @@ export function AccountHub({ identity, communities = false, children }: { identi
   const shown = useShellAvatar(identity.avatarUrl)
   const name = personName({ name: identity.name, username: identity.username })
   /*
-    A PILL PRESS CHANGES THE PANEL, NOT THE PAGE. Activity and Communities share the cover, the avatar and the pills
-    (one key in account-nav-fade.tsx, so none of them is built again or plays its entrance), and the panel under the
-    pills cross fades in on its own: opacity only, on the compositor, never on the first paint.
+    A PILL PRESS CHANGES THE PANEL, NOT THE PAGE. Activity, Posts and Communities share the cover, the avatar and the pills
+    (one key in account-nav-fade.tsx, so none of them is built again or plays its entrance).
+
+    ROUND 17: THE NEXT PANEL IS IN PLACE ON ITS FRAME. It faded in from nothing over 180ms, a blank frame and then a slow
+    rise, after a press that had waited on the server. Every pill's page is read ahead now (profile-owner-pills.tsx), and the
+    panel lands the way every row of pills lands its content (lib/ui/pill-switch.ts: from 0.6 to whole over 120ms, the old
+    panel gone in that same frame, never two at once). Its height is held from the commit until it has landed, so a shorter
+    panel does not pull the page up under the finger. Never on the first paint.
   */
   const panelRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   const lastPanel = useRef(pathname)
+  const release = useRef<number | null>(null)
   useLayoutEffect(() => {
     if (lastPanel.current === pathname) return
     lastPanel.current = pathname
-    const el = panelRef.current
-    if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, easing: "cubic-bezier(0.2, 0.7, 0.2, 1)" })
+    landContent(contentRef.current)
+    if (release.current) window.clearTimeout(release.current)
+    release.current = window.setTimeout(() => {
+      release.current = null
+      letGoHeight(panelRef.current, contentRef.current)
+    }, HOLD_MS)
   }, [pathname])
+  useLayoutEffect(
+    () => () => {
+      if (release.current) window.clearTimeout(release.current)
+    },
+    [],
+  )
 
   if (!showsProfileHeader(pathname)) return <AccountColumn>{children}</AccountColumn>
 
@@ -133,8 +151,12 @@ export function AccountHub({ identity, communities = false, children }: { identi
       />
       <AccountColumn top={false}>
         <ProfileOwnerPills communities={communities} creator={!!identity.creator} className="mt-3" />
+        {/* The old panel's height, read in the commit that brings the next one, before it is changed. */}
+        <BeforeChange value={pathname} onBefore={() => holdHeight(panelRef.current)} />
         <div ref={panelRef} className="mt-6 min-w-0 sm:mt-8" data-account-panel="">
-          {children}
+          <div ref={contentRef} className="min-w-0" data-account-panel-content="">
+            {children}
+          </div>
         </div>
       </AccountColumn>
     </div>
