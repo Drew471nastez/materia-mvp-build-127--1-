@@ -267,7 +267,7 @@ async function main() {
   const overlay = code("components/community/member/post-overlay.tsx")
   check("the opened post takes the post's own address without loading a page; Back closes it", /* Changed on purpose: the overlay's own open state, so the entry is stepped back over once it has closed. */ /useHistoryLayer\(history, close, postPath\(slug, given\), open\)/.test(overlay))
   /* Round 9 changed this on purpose (the owner asked): the phone's sheet is the app's own draggable one. */
-  check("the opened post: a panel on a computer; on a phone the card grows into a full screen page (round 19)", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(code("components/community/member/post-fullscreen.tsx")) && /<PostFullscreen\s[\s\S]{0,120}open=\{open\}/.test(overlay) && /origin=\{\(\) => cardRef\.current\}/.test(code("components/community/member/post-card.tsx")))
+  check("the opened post: a panel on a computer; on a phone a full screen page pushed in over the feed (round 15)", /data-post-overlay="panel"/.test(overlay) && /data-post-overlay="phone"/.test(code("components/community/member/post-fullscreen.tsx")) && /<PostFullscreen\s[\s\S]{0,120}open=\{open\}/.test(overlay) && /origin=\{\(\) => cardRef\.current\}/.test(code("components/community/member/post-card.tsx")))
   check("it reads the comments itself and passes changes to the card underneath", /<CommentsSection\s+post=\{post\}\s+slug=\{slug\}\s+viewer=\{viewer\}\s+initial=\{null\}/.test(overlay) && /update\(id, fn\)/.test(overlay))
   check("its moves are opacity, translate and scale only", !/transition:[^`"]*\b(top|left|height|width|margin)\b/.test(overlay))
   const lb = code("components/community/member/lightbox.tsx")
