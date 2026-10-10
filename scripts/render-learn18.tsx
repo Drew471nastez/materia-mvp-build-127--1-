@@ -5,11 +5,19 @@
  * middle across both columns). The bar on top is a grey block of the bar's real height. The probe answers the play and
  * progress routes, serves a real video and a stand in for a YouTube embed, and draws the program's cover in a loud
  * colour so a frame that shows it is easy to see.
+ *
+ * window.__MODE = "flow" draws Learn's shelf in the community's real navigator and place host instead, so a program can
+ * be opened from its card and left by its arrow the way a member does it.
  */
 import React from "react"
 import { createRoot } from "react-dom/client"
 import { ProgramPlayer } from "@/components/community/learn/program-page"
 import type { PlayerData, PlayerLesson } from "@/lib/courses/types"
+import type { ProgramCard } from "@/components/community/learn/model"
+import { PlaceSeed, usePlaceScreens } from "@/components/community/member/place-host"
+import { CommunityNavigatorProvider, useCommunityNavigator, type NavigatorHooks } from "@/lib/communities/client/navigator-context"
+import { placeFromUrl, placeKey } from "@/lib/communities/client/places"
+import type { PlaceData } from "@/lib/communities/client/place-data"
 
 const lesson = (id: string, moduleId: string, title: string, kind: PlayerLesson["kind"], extra: Partial<PlayerLesson> = {}): PlayerLesson => ({
   id,
@@ -30,7 +38,7 @@ const L = (n: number) => `00000000-0000-4000-8000-0000000000${String(n).padStart
 const NOTES =
   "Before the first pull, wedge the clay until a cut face shows no air at all. Twenty turns is usually enough.\n\nKeep your elbows on your knees and let the wheel do the work. If the clay wobbles, slow the wheel down before you add pressure, never after.\n\nThe tools I use are in the list below. https://example.com/tools"
 
-export const PLAYER: PlayerData = {
+const PLAYER: PlayerData = {
   productId: "prog-1",
   courseId: "course-1",
   title: "Wheel throwing, from clay to cup",
@@ -77,8 +85,96 @@ function Frame({ children }: { children: React.ReactNode }) {
   )
 }
 
+/* ── The way into a program and back: the community's real navigator and place host, over a Learn shelf ── */
+
+const COMMUNITY = "c0ffee00-0000-4000-8000-000000000001"
+const SLUG = "salajanywood"
+const card = (n: number, title: string): ProgramCard => ({
+  id: `prog-${n}`,
+  kind: "program",
+  title,
+  summary: null,
+  coverUrl: "/__img/cover.svg",
+  lessons: 7,
+  completedLessons: 1,
+  percent: 14,
+  status: "in_progress",
+  totalSeconds: 1560,
+  draft: false,
+  mode: "free",
+  priceLabel: null,
+  owned: false,
+  locked: null,
+  href: `/community/${SLUG}/learn/prog-${n}`,
+})
+const SHELF = [card(1, PLAYER.title), card(2, "Glazes you can trust"), card(3, "Trimming feet"), card(4, "Pricing your work"), card(5, "Kiln loading"), card(6, "Photographing pots")]
+const LEARN_DATA = { kind: "learn", programs: SHELF, manageHref: null } as unknown as PlaceData
+
+/** The frame's link catching (shell-frame.tsx A LINK TO A PLACE IN THIS COMMUNITY IS A MOVE), the part this probe needs. */
+function Links() {
+  const nav = useCommunityNavigator()
+  const navRef = React.useRef(nav)
+  navRef.current = nav
+  React.useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0) return
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || a.dataset.nativeNav !== undefined) return
+      const url = new URL(a.href, location.href)
+      const p = placeFromUrl(url.pathname, url.search)
+      if (!p) return
+      const here = placeFromUrl(location.pathname, location.search)
+      if (here && placeKey(here) === placeKey(p)) return
+      e.preventDefault()
+      navRef.current.go(p)
+    }
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
+  }, [])
+  return null
+}
+
+function Host({ hooksRef }: { hooksRef: React.MutableRefObject<NavigatorHooks> }) {
+  const screens = usePlaceScreens({
+    communityId: COMMUNITY,
+    slug: SLUG,
+    chatSpaces: [],
+    entries: [{ key: "classroom" }],
+    children: <PlaceSeed communityId={COMMUNITY} slug={SLUG} place={{ kind: "learn" }} data={LEARN_DATA} />,
+  })
+  hooksRef.current = screens.hooks
+  return <>{screens.middle}</>
+}
+
+function Flow() {
+  const hooksRef = React.useRef<NavigatorHooks>({})
+  const hooks = React.useMemo<NavigatorHooks>(
+    () => ({
+      beforeGo: (from, to, opts) => hooksRef.current.beforeGo?.(from, to, opts),
+      prefetch: (p) => hooksRef.current.prefetch?.(p),
+      refresh: (p) => hooksRef.current.refresh?.(p) ?? Promise.resolve(),
+    }),
+    [],
+  )
+  return (
+    <CommunityNavigatorProvider slug={SLUG} initial={{ kind: "learn" }} hooks={hooks}>
+      <Links />
+      <Frame>
+        <Host hooksRef={hooksRef} />
+      </Frame>
+    </CommunityNavigatorProvider>
+  )
+}
+
+const mode = (window as unknown as { __MODE?: string }).__MODE ?? "player"
+;(window as unknown as { __PROGRAM?: unknown }).__PROGRAM = { kind: "program", mode: "player", data: PLAYER, learnHref: `/community/${SLUG}/learn` }
+
 createRoot(document.getElementById("app")!).render(
-  <Frame>
-    <ProgramPlayer data={PLAYER} learnHref="/community/salajanywood/learn" />
-  </Frame>,
+  mode === "flow" ? (
+    <Flow />
+  ) : (
+    <Frame>
+      <ProgramPlayer data={PLAYER} learnHref="/community/salajanywood/learn" />
+    </Frame>
+  ),
 )

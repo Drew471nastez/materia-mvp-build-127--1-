@@ -117,6 +117,15 @@ window.fetch = async (input, init) => {
     return json({ kind: "text", access: "owner" })
   }
   if (url.includes("/api/courses/progress")) return json({ kept: true })
+  /* The community's place route: any program is the fixture's; anything else read ahead is not there. */
+  if (/\\/api\\/community\\/[^/]+\\/place\\?/.test(url)) {
+    const p = new URL(url, location.href).searchParams.get("p") || ""
+    if (p.startsWith("program:")) {
+      await new Promise((r) => setTimeout(r, 300))
+      return json({ ok: true, data: window.__PROGRAM })
+    }
+    return json({ ok: false, error: "not here" }, 404)
+  }
   return realFetch(input, init)
 }
 navigator.sendBeacon = () => true
@@ -189,7 +198,7 @@ async function film(page, name, vp, act, ms = 1400, keep = 16) {
   return after.length
 }
 
-async function open(vp, throttle) {
+async function open(vp, throttle, mode = "player") {
   const page = await browser.newPage()
   await page.setViewport(vp)
   const errors = []
@@ -200,7 +209,7 @@ async function open(vp, throttle) {
       localStorage.clear()
     } catch {}
   })
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>${fetchStub}${SAMPLER}</script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style><script>window.__MODE=${JSON.stringify(mode)};${fetchStub}${SAMPLER}</script></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   await page.setRequestInterception(true)
   page.on("request", (r) => {
     const u = new URL(r.url())
@@ -312,6 +321,46 @@ for (const [label, vp, phone] of VIEWPORTS) {
   const embedH = f.filter((x) => x.title === "Opening the form" && x.h > 0).map((x) => x.h)
   expect(new Set(embedH).size <= 1, `${label} previous: the embed's box is one size from its first frame`, [...new Set(embedH)])
 
+  expect(errors.length === 0, `${label}: no page errors`, errors)
+  await page.close()
+}
+
+/*
+  BACK TO LEARN THE WAY THE MEMBER CAME: a program opened from a card on the shelf, its video playing, then its arrow. The
+  shelf must come back where it was left, with no new step in the history (the browser's Back, not a push), and the
+  video must stop.
+*/
+for (const [label, vp] of VIEWPORTS) {
+  console.log(`\n${label}: Learn, a program, and back`)
+  const { page, errors } = await open(vp, true, "flow")
+  await page.goto("https://storelib.com/community/salajanywood/learn", { waitUntil: "domcontentloaded" })
+  await page.waitForSelector("[data-program-card='prog-5']")
+  await page.$eval("[data-program-card='prog-5']", (c) => c.scrollIntoView({ block: "center" }))
+  await sleep(300)
+  const before = await page.evaluate(() => ({ y: Math.round(scrollY), steps: history.length }))
+  await page.$eval("[data-program-card='prog-5']", (c) => c.click())
+  await page.waitForFunction(() => {
+    const el = document.querySelector("[data-course-player]")
+    return el && el.getBoundingClientRect().height > 0
+  })
+  await sleep(1500)
+  const inside = await page.evaluate(async () => {
+    const v = document.querySelector("[data-course-player] video")
+    if (v) await v.play().catch(() => {})
+    return { url: location.pathname, steps: history.length, playing: v ? !v.paused : null }
+  })
+  expect(inside.url === "/community/salajanywood/learn/prog-5" && inside.steps === before.steps + 1, `${label}: the card opens the program as one step, in place`, inside)
+  await frames(page)
+  await film(page, `${label}-7-back`, vp, () => page.$eval("[data-lesson-back]", (a) => a.click()), 1200)
+  const back = await page.evaluate(() => {
+    const learn = document.querySelector("[data-learn]")
+    const v = document.querySelector("video")
+    return { url: location.pathname, y: Math.round(scrollY), steps: history.length, learn: !!learn && learn.getBoundingClientRect().height > 0, paused: v ? v.paused : true }
+  })
+  expect(back.url === "/community/salajanywood/learn" && back.learn, `${label}: the arrow brings Learn back`, back)
+  expect(back.steps === inside.steps, `${label}: going back adds no step to the history (the browser's Back, not a push)`, { before: inside.steps, after: back.steps })
+  expect(Math.abs(back.y - before.y) <= 2, `${label}: Learn is where it was left`, { left: before.y, back: back.y })
+  expect(back.paused, `${label}: the lesson's video stops once it is put away`, back.paused)
   expect(errors.length === 0, `${label}: no page errors`, errors)
   await page.close()
 }
