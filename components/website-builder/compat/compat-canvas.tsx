@@ -62,6 +62,8 @@ export interface CompatCanvasProps {
   siteUrl?: string
   /** Something pressed in the page that only the live site does (checkout, Buy it now): the builder says so. */
   onLiveOnly?: (what: "checkout") => void
+  /** The theme's first page has painted: the editor's loader over the canvas can go (editor page.tsx, compatFirstPaint). */
+  onPainted?: () => void
 }
 
 /*
@@ -74,6 +76,9 @@ const canvasCarts = new Map<string, CanvasCart>()
 const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
 
 const loading = new Map<string, Promise<Record<string, string>>>()
+
+/** From the page saying it is ready to the placeholder going, unless its pictures are all in first. */
+const FIRST_PAINT_MS = 250
 
 /** The theme's own files (`shopify/…`), read once per install for the canvas and the settings panel together. */
 export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
@@ -102,6 +107,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const [compatFiles, setCompatFiles] = useState<Record<string, string> | null>(null)
   const [height, setHeight] = useState(800)
   const scrollY = useRef(0)
+  /* Whether the inspector is on, for a page drawn from now: it knows before its first paint (canvas-bridge.ts, window.__slInspect). */
+  const inspecting = useRef(props.inspectorEnabled)
+  inspecting.current = props.inspectorEnabled
 
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
   useEffect(() => {
@@ -203,7 +211,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     } catch {
       site = ""
     }
-    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
+    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
@@ -214,6 +222,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
+  const onPainted = useRef(props.onPainted)
+  onPainted.current = props.onPainted
+  const shown = painted && slots.length > 0
+  useEffect(() => { if (shown) onPainted.current?.() }, [shown])
   const slotsRef = useRef<Slot[]>([])
   slotsRef.current = slots
   const frames = useRef(new Map<number, HTMLIFrameElement>())
@@ -300,11 +312,24 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* The selection, outlined in the page and announced to the theme. */
   const selectedBlock = props.selectedBlockId ? props.selectedBlockId.split(/[/>]/).pop() ?? null : null
-  const select = useRef({ sectionId: props.selectedSectionId, blockId: selectedBlock })
-  select.current = { sectionId: props.inspectorEnabled ? props.selectedSectionId : null, blockId: props.inspectorEnabled ? selectedBlock : null }
+  const select = useRef({ sectionId: props.selectedSectionId, blockId: selectedBlock, inspect: props.inspectorEnabled })
+  select.current = { sectionId: props.inspectorEnabled ? props.selectedSectionId : null, blockId: props.inspectorEnabled ? selectedBlock : null, inspect: props.inspectorEnabled }
+  /*
+    EVERY PAGE HEARS IT, NOT ONLY THE ONE IN FRONT. A page loading behind the
+    one on screen that had already said it was ready kept the inspector as it
+    was when it said so, and came forward outlining sections with the
+    inspector off. And only a new selection scrolls to itself: switching the
+    inspector back on leaves the page where it is.
+  */
+  const lastPicked = useRef<string>("")
   useEffect(() => {
-    if (!front()?.ready) return
-    frontWindow()?.postMessage({ storelib: 1, type: "select", ...select.current }, "*")
+    const picked = `${select.current.sectionId ?? ""}|${select.current.blockId ?? ""}`
+    const scroll = select.current.inspect && picked !== lastPicked.current && lastPicked.current !== ""
+    if (select.current.inspect) lastPicked.current = picked
+    slotsRef.current.forEach((slot, i) => {
+      if (!slot.ready) return
+      frames.current.get(slot.n)?.contentWindow?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: i === 0 && scroll }, "*")
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.selectedSectionId, selectedBlock, props.inspectorEnabled])
 
@@ -361,8 +386,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }
   const answerRequestRef = useRef(answerRequest)
   answerRequestRef.current = answerRequest
-  const inspecting = useRef(props.inspectorEnabled)
-  inspecting.current = props.inspectorEnabled
   /* The page behind takes the front's place: drawn, its pictures in, and where the front was scrolled to. */
   /*
     ANOTHER PAGE CROSS-FADES IN. The same page drawn again (an edit it could
@@ -403,7 +426,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const isFront = slot === slotsRef.current[0]
       if (m.type === "ready") {
         slot.ready = true
-        if (isFront) setTimeout(() => setPainted(true), 900)
+        /*
+          READY IS DRAWABLE. The bridge says so at the end of the page's
+          markup, after the theme's stylesheets (a script waits for the
+          stylesheets above it), so the page can paint now; its pictures
+          arrive as they do on any website. It waited 900ms here for them,
+          which was most of what the placeholder cost on a quick load.
+        */
+        if (isFront) setTimeout(() => setPainted(true), FIRST_PAINT_MS)
         syncSlot(slot)
         win.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
         /* A page behind that never says it has loaded still comes forward. */
@@ -464,7 +494,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
       {/* Until the theme's first page has painted: the shape of a page, still, never a blank sheet or a line of text. */}
-      <CanvasPlaceholder hidden={painted && slots.length > 0} label={`Loading ${compat?.theme ?? "the theme"}`} />
+      <CanvasPlaceholder hidden={shown} label={`Loading ${compat?.theme ?? "the theme"}`} />
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
           {slots.map((slot, i) => (
@@ -481,7 +511,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
               style={i === 0 ? { zIndex: 1 } : slot.leaving ? { zIndex: 0, pointerEvents: "none" } : { visibility: "hidden", pointerEvents: "none" }}
             />
           ))}
-          {ghost && props.selectedSectionId === ghost.id && (
+          {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
             <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
           )}
         </div>

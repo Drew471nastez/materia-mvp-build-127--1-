@@ -31,7 +31,8 @@ export const CANVAS_BRIDGE = `
     canvas selection (components/website-builder/sections/_shared.tsx):
     solid blue, never a dashed purple.
   */
-  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none}" +
+  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none;transition:opacity .2s cubic-bezier(.4,0,.2,1)}" +
+    "@media (prefers-reduced-motion:reduce){[data-sl-box]{transition:none}}" +
     "[data-sl-box=hover]{border:1.5px solid rgba(59,130,246,.5)}" +
     "[data-sl-box=section]{border:1.5px solid #3b82f6}" +
     "[data-sl-box=block]{border:1.5px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
@@ -74,6 +75,15 @@ export const CANVAS_BRIDGE = `
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
+  /*
+    THE INSPECTOR, ON OR OFF. Off, this page is the website: nothing under
+    the pointer is outlined, a click selects nothing, and links still open
+    their pages in the builder. Known before the first paint (the builder
+    writes window.__slInspect into the page it draws) and told again with
+    every selection, so a page drawn while it was switched cannot show the
+    old state.
+  */
+  var inspect = window.__slInspect !== false;
   var sectionOf = function (el) { return el && el.closest ? el.closest(".shopify-section") : null; };
   var idOf = function (s) { return s ? s.getAttribute("data-section-id") || s.id.replace(/^shopify-section-/, "") : null; };
   var blockOf = function (el, section) {
@@ -81,15 +91,20 @@ export const CANVAS_BRIDGE = `
     return b && section && section.contains(b) ? b : null;
   };
   var hovered = null;
-  document.addEventListener("mouseover", function (e) {
-    var s = sectionOf(e.target);
+  /* What the pointer is over, kept while the inspector is off too, so switching it on outlines that section without waiting for the pointer to move. */
+  var pointerAt = null;
+  var hover = function (s) {
     if (s === hovered) return;
     if (hovered) hovered.removeAttribute("data-sl-hover");
     hovered = s;
     if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
     redraw();
+  };
+  document.addEventListener("mouseover", function (e) {
+    pointerAt = e.target;
+    if (inspect) hover(sectionOf(e.target));
   }, true);
-  document.addEventListener("mouseleave", function () { if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
+  document.addEventListener("mouseleave", function () { pointerAt = null; if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
   /*
     THE SITE'S OWN ADDRESS UNDER THE POINTER. The page is drawn on the
     builder's host, so a link's address read as storelib.com/pages/wishlist
@@ -133,7 +148,7 @@ export const CANVAS_BRIDGE = `
       var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
       post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
     }
-    if (!s) return;
+    if (!s || !inspect) return;
     /* The block and every block around it, outermost first: the path the sidebar's tree reads. */
     var path = [];
     var at = blockOf(e.target, s);
@@ -146,7 +161,7 @@ export const CANVAS_BRIDGE = `
   var boxFrame = 0;
   var report = function () {
     boxFrame = 0;
-    var el = selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
+    var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     if (!el) { post({ type: "box", id: null }); return; }
     var r = el.getBoundingClientRect();
     post({ type: "box", id: selected.section, top: r.top, left: r.left, width: r.width, height: r.height });
@@ -154,9 +169,29 @@ export const CANVAS_BRIDGE = `
   var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); if (typeof redraw === "function") redraw(); };
   addEventListener("scroll", reportSoon, { passive: true });
   addEventListener("resize", reportSoon);
-  var mark = function (sectionId, blockId, scroll) {
+  /* Every selection outline off the page; what is selected, for the theme, is unchanged. */
+  var unmark = function () {
     document.querySelectorAll("[data-sl-selected],[data-sl-selected-block]").forEach(function (el) { el.removeAttribute("data-sl-selected"); el.removeAttribute("data-sl-selected-block"); });
+  };
+  /*
+    \`quiet\`: outlined again, not selected again. The inspector coming back on
+    marks what was already selected without telling the theme a second time:
+    a theme that scrolls to a section it is told was selected, or opens its
+    first slide, moved the page under somebody who only flipped a switch.
+    While the inspector is off nothing is outlined, though the theme still
+    hears what the builder selects.
+  */
+  var mark = function (sectionId, blockId, scroll, quiet) {
+    unmark();
     var s = sectionId ? document.getElementById("shopify-section-" + sectionId) : null;
+    if (quiet) {
+      if (s && inspect) { s.setAttribute("data-sl-selected", ""); s.removeAttribute("data-sl-hover"); }
+      var qb = s && blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
+      if (qb && inspect) qb.setAttribute("data-sl-selected-block", "");
+      reportSoon();
+      redraw();
+      return;
+    }
     if (selected.section && selected.section !== sectionId) {
       var old = document.getElementById("shopify-section-" + selected.section);
       if (old) fire(old, "shopify:section:deselect", { sectionId: selected.section, load: false });
@@ -169,12 +204,11 @@ export const CANVAS_BRIDGE = `
     reportSoon();
     redraw();
     if (!s) return;
-    s.setAttribute("data-sl-selected", "");
-    s.removeAttribute("data-sl-hover");
+    if (inspect) { s.setAttribute("data-sl-selected", ""); s.removeAttribute("data-sl-hover"); }
     fire(s, "shopify:section:select", { sectionId: sectionId, load: false });
     var b = blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
     if (b) {
-      b.setAttribute("data-sl-selected-block", "");
+      if (inspect) b.setAttribute("data-sl-selected-block", "");
       fire(b, "shopify:block:select", { blockId: blockId, sectionId: sectionId, load: false });
     }
     if (scroll) {
@@ -335,6 +369,31 @@ export const CANVAS_BRIDGE = `
     if (selected.section) mark(selected.section, selected.block, false);
     reportSoon();
   };
+  /*
+    SWITCHED OFF, every mark goes: the hover and the selection fade where they
+    are (200ms, the builder's own rings) and are then taken off the page, so
+    nothing is left behind. Switched on, the selection the builder sends is
+    marked again and fades up.
+  */
+  var letGo = 0;
+  var fadeBoxes = function (on) { if (boxes) Object.keys(boxes).forEach(function (k) { boxes[k].style.opacity = on ? "" : "0"; }); };
+  var setInspect = function (on) {
+    on = on !== false;
+    if (on === inspect) return;
+    inspect = on;
+    clearTimeout(letGo);
+    if (on) {
+      if (selected.section) mark(selected.section, selected.block, false, true);
+      hover(pointerAt && pointerAt.isConnected ? sectionOf(pointerAt) : null);
+      redraw();
+      requestAnimationFrame(function () { requestAnimationFrame(function () { if (inspect) fadeBoxes(true); }); });
+      return;
+    }
+    if (hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; }
+    fadeBoxes(false);
+    var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
@@ -345,7 +404,11 @@ export const CANVAS_BRIDGE = `
       /* In order: a swap that waits for a stylesheet holds the ones after it. */
       queue = queue.then(function () { return swap(m.id, m.html); }).catch(function () {});
     } else if (m.type === "select") {
-      mark(m.sectionId || null, m.blockId || null, m.scroll !== false);
+      if ("inspect" in m) setInspect(m.inspect);
+      /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
+      if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
+    } else if (m.type === "inspect") {
+      setInspect(m.on);
     } else if (m.type === "scroll") {
       scrollTo({ top: m.top || 0 });
     }

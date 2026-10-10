@@ -141,8 +141,10 @@ try {
       await page.mouse.move(heading.x, heading.y)
       await sleep(200)
       const hover = await page.evaluate(() => {
-        const o = document.querySelector("[data-wb-hover-outline]")
-        const c = document.querySelector("[data-wb-hover-chip]")
+        /* Always in the page, shown or hidden (canvas-hover.tsx): only a shown one counts. */
+        const shown = (el) => (el && getComputedStyle(el).display !== "none" ? el : null)
+        const o = shown(document.querySelector("[data-wb-hover-outline]"))
+        const c = shown(document.querySelector("[data-wb-hover-chip]"))
         const h = document.querySelector('#wb-preview-root [data-section-type="hero_centered"] [data-sl-setting="heading"]').getBoundingClientRect()
         const r = o ? o.getBoundingClientRect() : null
         return { outline: !!o, chip: c ? c.textContent : null, dx: r ? Math.round(r.left - h.left) : null, dw: r ? Math.round(r.width - h.width) : null, shadow: o ? getComputedStyle(o).boxShadow : null }

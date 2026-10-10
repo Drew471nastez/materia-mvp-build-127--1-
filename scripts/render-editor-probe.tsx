@@ -108,6 +108,9 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   calls.push(`${init?.method ?? "GET"} ${url}`)
   const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } })
   if (!url.startsWith("/api/")) return realFetch(input, init)
+  /* PROBE_API_DELAY_MS: every route answers after this long, a signed-in round trip (scripts/check-editor-inspector.ts times the opening with it). */
+  const apiDelay = (window as unknown as { PROBE_API_DELAY_MS?: number }).PROBE_API_DELAY_MS
+  if (apiDelay) await new Promise((r) => setTimeout(r, apiDelay))
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
   }

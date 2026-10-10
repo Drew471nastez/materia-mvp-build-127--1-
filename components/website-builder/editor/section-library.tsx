@@ -338,11 +338,57 @@ const MEASURE_ROOM_MS = 30
  * than drawing alone took before anything was measured, since the sheets
  * are small now as well.
  */
+/*
+  ===========================================================================
+   AND NOT WHILE SOMEBODY IS USING THE EDITOR
+  ===========================================================================
+  Each preview is a section laid out in the editor's own document, 60 to
+  130ms on a computer however it is sliced, and the warm-up ran for the
+  first thirteen seconds the editor was open: half of every second in long
+  tasks, while somebody was already pointing at the canvas, typing in the
+  sidebar or scrolling (measured in the real editor, through
+  scripts/editor-probe-harness.mjs). The idle callback's timeout ran a
+  slice whether or not anybody was in the middle of something.
+
+  So drawing ahead waits until the pointer, the keys, the wheel and every
+  scroll have been still for INPUT_QUIET_MS, and steps aside again the
+  moment they are not. Previews asked for by an open library (`urgent`) are
+  what somebody is waiting for, and are drawn as before.
+*/
+const INPUT_QUIET_MS = 1200
+let lastInput = 0
+let urgent = false
+let waiting = 0
+let watching = false
+function watchInput() {
+  if (watching || typeof window === "undefined") return
+  watching = true
+  const seen = () => { lastInput = performance.now() }
+  const o = { capture: true, passive: true } as const
+  for (const type of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(type, seen, o)
+  document.addEventListener("scroll", seen, o)
+}
+/** How much longer warm work has to wait, or 0 when it may run. */
+function busyFor(): number {
+  if (urgent || typeof performance === "undefined") return 0
+  return Math.max(0, INPUT_QUIET_MS - (performance.now() - lastInput))
+}
+
 function pump() {
   if (running) return
+  watchInput()
+  const wait = busyFor()
+  if (wait > 0) {
+    if (!waiting) waiting = window.setTimeout(() => { waiting = 0; pump() }, wait)
+    return
+  }
   running = true
   idle((deadline) => {
     running = false
+    if (busyFor() > 0) {
+      pump()
+      return
+    }
     if (unmeasured.length) {
       /* After the styles are in, so each is measured as it will look. */
       flushStyles()
@@ -380,6 +426,7 @@ function pump() {
       } while (queue.length && deadline.timeRemaining() > 12)
     }
     if (queue.length || unmeasured.length) pump()
+    else urgent = false
   })
 }
 
@@ -389,7 +436,12 @@ export function requestPreviews(jobs: Job[], front = false) {
   for (const j of fresh) queued.add(j.key)
   if (front) queue.unshift(...fresh)
   else queue.push(...fresh)
-  if (queue.length) pump()
+  /* An open library is waited on: drawn now, input or not. */
+  if (front && (queue.length || unmeasured.length)) {
+    urgent = true
+    if (waiting) { window.clearTimeout(waiting); waiting = 0 }
+  }
+  if (queue.length || (urgent && unmeasured.length)) pump()
 }
 
 /** Only the card whose preview just landed renders again: the snapshot is its own string. */

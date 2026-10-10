@@ -49,8 +49,16 @@ function clip(a: DOMRect, b: DOMRect): DOMRect | null {
  * panel's box is cut out of the outline, and a chip that would sit on the
  * panel is not drawn.
  */
+/*
+  THE PANEL, NOT THE BOX IT SITS IN. `[data-ask-dock]` is a layer the size of
+  the whole canvas (it takes no pointer; the pill and the conversation are
+  placed inside it), so measuring it cut the entire outline away and kept
+  every chip off the page: hover drew nothing at all. What covers the page is
+  the open conversation and the pill.
+*/
+const PANELS = '[data-ask-dock][data-state="open"] [data-ask-card], [data-ask-dock]:not([data-state="hidden"]) [data-ask-pill]'
 function panelBoxes(): DOMRect[] {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-ask-dock]"), (el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+  return Array.from(document.querySelectorAll<HTMLElement>(PANELS), (el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
 }
 
 /** A clip-path for `box` with every panel that crosses it cut out, or undefined when none does. */
@@ -84,6 +92,8 @@ function overlaps(a: DOMRect, panels: DOMRect[]): boolean {
  * markup or stacking can clip them. Pointer only: on a phone there is no
  * hover, and a tap goes straight to the field.
  */
+const HIDDEN = { display: "none" } as const
+
 export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (sectionId: string) => string }) {
   const [box, setBox] = useState<{ el: DOMRect | null; section: DOMRect; area: DOMRect; name: string; panels: DOMRect[] } | null>(null)
   const nameRef = useRef(nameOf)
@@ -158,27 +168,34 @@ export function CanvasHover({ enabled, nameOf }: { enabled: boolean; nameOf: (se
     }
   }, [enabled])
 
-  if (!mounted || !box) return null
+  /*
+    THE TWO MARKS ARE ALWAYS IN THE PAGE, SHOWN OR HIDDEN. They were put in
+    and taken out as the pointer moved, and an element put into or taken out
+    of the document is checked against every :has() whose subject is <html>
+    (app/globals.css has several): Chromium's own trace showed each one
+    restyling all of the editor, 1,360 elements, 70 to 240ms a time, several
+    times a second while the pointer crossed the canvas. Hidden with
+    `display: none` they cost a restyle of themselves alone.
+  */
+  if (!mounted) return null
+  const outline = box?.el && box.el.width > 0 && box.el.height > 0 ? box.el : null
+  const chip = box && box.section.height > 24 && !overlaps(new DOMRect(box.section.left + 8, box.section.top + 8, 220, 24), box.panels) ? box : null
   return createPortal(
     <>
-      {box.el && box.el.width > 0 && box.el.height > 0 && (
-        <span
-          aria-hidden
-          className="wb-hover-outline"
-          data-wb-hover-outline=""
-          style={{ left: box.el.left, top: box.el.top, width: box.el.width, height: box.el.height, clipPath: holesFor(box.el, box.panels) }}
-        />
-      )}
-      {box.section.height > 24 && !overlaps(new DOMRect(box.section.left + 8, box.section.top + 8, 220, 24), box.panels) && (
-        <span
-          aria-hidden
-          className="wb-hover-chip"
-          data-wb-hover-chip=""
-          style={{ left: box.section.left + 8, top: box.section.top + 8, maxWidth: Math.max(0, Math.min(220, box.area.right - box.section.left - 16)) }}
-        >
-          {box.name}
-        </span>
-      )}
+      <span
+        aria-hidden
+        className="wb-hover-outline"
+        data-wb-hover-outline=""
+        style={outline ? { left: outline.left, top: outline.top, width: outline.width, height: outline.height, clipPath: holesFor(outline, box!.panels) } : HIDDEN}
+      />
+      <span
+        aria-hidden
+        className="wb-hover-chip"
+        data-wb-hover-chip=""
+        style={chip ? { left: chip.section.left + 8, top: chip.section.top + 8, maxWidth: Math.max(0, Math.min(220, chip.area.right - chip.section.left - 16)) } : HIDDEN}
+      >
+        {chip ? chip.name : ""}
+      </span>
     </>,
     document.body,
   )
