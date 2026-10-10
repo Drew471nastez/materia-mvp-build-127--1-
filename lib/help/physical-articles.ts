@@ -527,6 +527,41 @@ export const PHYSICAL_ARTICLES: HelpArticle[] = [
     ],
   },
 
+  /* ── Selling more ─────────────────────────────────────────────────── */
+  {
+    slug: "upsells-and-bundles",
+    category: C,
+    title: "Upsells and bundles: sell more to people already buying",
+    summary: "Bundle products at a better price on their pages, and suggest one more thing in the checkout.",
+    keywords: ["upsell", "bundle", "cross sell", "order bump", "frequently bought together", "add on", "offer", "aov", "average order"],
+    body: [
+      { type: "p", text: "Someone already buying from you is the easiest person to sell one more thing to. Storelib gives you two ways, under Products, Upsells and bundles." },
+      { type: "table", head: ["", "Bundle", "Checkout offer"], rows: [
+        ["What it is", "Two to five products bought together", "One product suggested before they pay"],
+        ["Where buyers see it", "Under the buy box on each of its products", "In the checkout, under their order"],
+        ["The discount", "A percent off every item in the set, or an amount off the whole set", "A percent or amount off one of it"],
+        ["When it applies", "For every complete set in the cart", "When the cart has something else, or one of the products you choose"],
+      ] },
+      { type: "h", text: "Make a bundle" },
+      { type: "steps", items: [
+        "Press Create offer and choose Bundle.",
+        "Give it a name buyers will see, like Breakfast set.",
+        "Tick two to five products.",
+        "Choose the discount: Percent, Amount or None. The preview shows what the set costs buyers.",
+        "Save. It's on each product's page straight away, with Add all to cart.",
+      ] },
+      { type: "h", text: "Make a checkout offer" },
+      { type: "steps", items: [
+        "Press Create offer and choose Checkout offer.",
+        "Name it, like Add a candle, and pick the one product to offer.",
+        "Choose Any order, or The cart has certain products and tick them. A candle offer that only shows to people buying honey reads like a good idea, not an ad.",
+        "Choose the discount and save.",
+      ] },
+      { type: "p", text: "Switch any offer off from the list without deleting it. The checkout works the saving out by itself, before any discount code, and the code then comes off what's left. A buyer's Discount line shows each offer's saving by name." },
+      { type: "note", text: "Offers work in the cart checkout, so they're here while physical products are on. A digital product can be in a bundle or offered at checkout too, as long as it's bought through the cart." },
+    ],
+  },
+
   /* ── FAQ ──────────────────────────────────────────────────────────── */
   {
     slug: "physical-products-questions",

@@ -307,6 +307,8 @@ export interface NotifyStore {
    * test need not have it; null when it could not be read.
    */
   physicalSetup?(creatorId: string): Promise<{ steps: { id: string; label: string; href: string; done: boolean }[]; blockers: { id: string; label: string; href: string; done: boolean }[] } | null>
+  /** Physical commerce is on for all of Storelib (/admin, lib/platform/physical-commerce). Optional, like physicalSetup. */
+  physicalCommerceEnabled?(): Promise<boolean>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
@@ -854,6 +856,16 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
       } catch (error) {
         fail("read physical setup", error as PgError)
         return null
+      }
+    },
+
+    async physicalCommerceEnabled() {
+      try {
+        const { isPhysicalCommerceEnabled } = await import("@/lib/platform/physical-commerce")
+        return await isPhysicalCommerceEnabled()
+      } catch {
+        /* Unread is off, as the switch itself reads it. */
+        return false
       }
     },
 

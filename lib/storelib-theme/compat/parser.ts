@@ -54,10 +54,59 @@ const ENDS: Record<string, string[]> = {
   comment: ["endcomment"],
 }
 
+/** Where a lenient reading met something it could not read: a comment in the page, as Shopify writes one. */
+const syntaxNote = (e: unknown, line: number): Node => ({
+  k: "text",
+  v: `<!-- Liquid syntax error (line ${e instanceof CompatSyntaxError ? e.line : line}): ${String((e as Error)?.message ?? e).replace(/--/g, "- -").slice(0, 200)} -->`,
+})
+
+/**
+ * An expression read leniently: `x | append:` is x, `a and` is a, as
+ * Shopify's lenient parser reads them. What still does not read is "" (an
+ * output) or false (a condition).
+ */
+function laxExpr(src: string, line: number, cond: boolean): Expr {
+  let s = src
+  for (let n = 0; n < 6; n++) {
+    try {
+      return parseOutput(s, line)
+    } catch {
+      const next = s
+        .replace(/\s*(?:\band\b|\bor\b|==|!=|<=|>=|<|>|\bcontains\b)\s*$/, "")
+        .replace(/\s*\|\s*[\w-]*\s*:?\s*(?:,\s*)?$/, "")
+        .replace(/[\s,:|]+$/, "")
+      if (next === s || !next) break
+      s = next
+    }
+  }
+  return { t: "lit", v: cond ? false : "" }
+}
+
 class TreeBuilder {
   private i = 0
   readonly out: Parsed = { nodes: [], schema: null, stylesheet: "", javascript: "", unknown: [] }
-  constructor(private toks: Tok[]) {}
+  constructor(private toks: Tok[], private lax = false) {}
+
+  private cond(args: string, line: number): Expr {
+    return this.lax ? laxExpr(args, line, true) : parseCondition(args, line)
+  }
+
+  private values(args: string, line: number): Expr[] {
+    if (!this.lax) return parseValueList(args, line)
+    try {
+      return parseValueList(args, line)
+    } catch {
+      return [laxExpr(args, line, false)]
+    }
+  }
+
+  /** The tag that closed a block, or null where a lenient reading ran out of file. */
+  private closer(): Extract<Tok, { kind: "tag" }> | null {
+    const next = this.toks[this.i]
+    if (!next || next.kind !== "tag") return null
+    this.i++
+    return next
+  }
 
   build(): Parsed {
     this.out.nodes = this.block([])
@@ -72,23 +121,36 @@ class TreeBuilder {
       if (t.kind === "tag" && stops.includes(t.name)) return nodes
       this.i++
       if (t.kind === "text") { nodes.push({ k: "text", v: t.value }); continue }
-      if (t.kind === "output") { nodes.push({ k: "out", e: parseOutput(t.value, t.line), line: t.line }); continue }
+      if (t.kind === "output") { nodes.push({ k: "out", e: this.lax ? laxExpr(t.value, t.line, false) : parseOutput(t.value, t.line), line: t.line }); continue }
       if (t.kind === "verbatim") {
         if (t.name === "schema") this.out.schema = t.body
         else if (t.name === "stylesheet") this.out.stylesheet += t.body + "\n"
         else if (t.name === "javascript") this.out.javascript += t.body + "\n"
         continue
       }
-      const n = this.tag(t)
-      if (n) nodes.push(n)
+      if (!this.lax) {
+        const n = this.tag(t)
+        if (n) nodes.push(n)
+        continue
+      }
+      /* Lenient: a tag that does not read is a comment in the page, and the rest of the file still draws. */
+      try {
+        const n = this.tag(t)
+        if (n) nodes.push(n)
+      } catch (e) {
+        nodes.push(syntaxNote(e, t.line))
+      }
     }
-    if (stops.length) throw new CompatSyntaxError(`a block is never closed: expected {% ${stops[stops.length - 1]} %}`, this.toks[this.toks.length - 1]?.line ?? 1)
+    if (stops.length && !this.lax) throw new CompatSyntaxError(`a block is never closed: expected {% ${stops[stops.length - 1]} %}`, this.toks[this.toks.length - 1]?.line ?? 1)
     return nodes
   }
 
   private expectEnd(name: string) {
     const t = this.toks[this.i]
-    if (!t || t.kind !== "tag" || t.name !== name) throw new CompatSyntaxError(`expected {% ${name} %}`, t?.line ?? 1)
+    if (!t || t.kind !== "tag" || t.name !== name) {
+      if (this.lax) return
+      throw new CompatSyntaxError(`expected {% ${name} %}`, t?.line ?? 1)
+    }
     this.i++
   }
 
@@ -99,14 +161,14 @@ class TreeBuilder {
       case "unless": {
         const end = name === "if" ? "endif" : "endunless"
         const branches: { cond: Expr; body: Node[] }[] = []
-        let cond = parseCondition(args, line)
+        let cond = this.cond(args, line)
         let elseBody: Node[] | undefined
         for (;;) {
           const body = this.block(ENDS[name])
           branches.push({ cond, body })
-          const next = this.toks[this.i] as Extract<Tok, { kind: "tag" }>
-          this.i++
-          if (next.name === "elsif") { cond = parseCondition(next.args, next.line); continue }
+          const next = this.closer()
+          if (!next) break
+          if (next.name === "elsif") { cond = this.cond(next.args, next.line); continue }
           if (next.name === "else") { elseBody = this.block([end]); this.expectEnd(end) }
           break
         }
@@ -119,10 +181,9 @@ class TreeBuilder {
         const whens: { values: Expr[]; body: Node[] }[] = []
         let elseBody: Node[] | undefined
         for (;;) {
-          const next = this.toks[this.i] as Extract<Tok, { kind: "tag" }>
-          this.i++
-          if (next.name === "endcase") break
-          if (next.name === "when") { whens.push({ values: parseValueList(next.args, next.line), body: this.block(ENDS.case) }); continue }
+          const next = this.closer()
+          if (!next || next.name === "endcase") break
+          if (next.name === "when") { whens.push({ values: this.values(next.args, next.line), body: this.block(ENDS.case) }); continue }
           if (next.name === "else") { elseBody = this.block(ENDS.case); continue }
         }
         return { k: "case", subject, whens, else: elseBody }
@@ -133,9 +194,8 @@ class TreeBuilder {
         const p = loopParams(m[2], line)
         const body = this.block(ENDS.for)
         let elseBody: Node[] | undefined
-        const next = this.toks[this.i] as Extract<Tok, { kind: "tag" }>
-        this.i++
-        if (next.name === "else") { elseBody = this.block(["endfor"]); this.expectEnd("endfor") }
+        const next = this.closer()
+        if (next?.name === "else") { elseBody = this.block(["endfor"]); this.expectEnd("endfor") }
         return { k: "for", v: m[1], list: p.list, limit: p.limit, offset: p.offset, reversed: p.reversed, body, else: elseBody, line }
       }
       case "tablerow": {
@@ -262,6 +322,7 @@ function loopParams(src: string, line: number): { list: Expr; limit?: Expr; offs
 }
 
 /** A file of the compatible profile, read and built. Throws CompatSyntaxError with a line. */
-export function parseCompat(src: string): Parsed {
-  return new TreeBuilder(lex(src)).build()
+export function parseCompat(src: string, opts?: { lax?: boolean }): Parsed {
+  const lax = opts?.lax === true
+  return new TreeBuilder(lex(src, lax), lax).build()
 }
