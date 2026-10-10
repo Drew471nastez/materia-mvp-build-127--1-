@@ -156,14 +156,24 @@ const drawn = new Map<string, SpaceView[]>()
  * finish its glide (round 10: no fight with a fling). Already in view, it
  * does nothing.
  */
-export function followChosenChip(root: HTMLElement | null) {
+export function followChosenChip(root: HTMLElement | null, afterPaint = true) {
   const track = root?.querySelector<HTMLElement>("[data-space-chips-track]")
   const on = track?.querySelector<HTMLElement>("[aria-current=page]")
   if (!track || !on) return
+  /*
+    ROUND 18: NEVER A LAYOUT INSIDE THE COMMIT THAT DRAWS THE FEED. Filmed in a real Next build at 4x CPU, this measure was
+    one of four reads in the community's arrival (Home from the profile) that each restyled the whole freshly mounted page
+    (40 to 170ms apiece). It is measured after the next paint now, when the page's own layout is already done and the read
+    costs nothing; the row's smooth scroll starting a frame later is not something an eye can tell.
+  */
+  if (afterPaint) {
+    requestAnimationFrame(() => window.setTimeout(followChosenChip, 0, root, false))
+    return
+  }
   const now = performance.now()
   const last = Number(track.dataset.scrolledAt || 0)
   if (now - last < 140) {
-    window.setTimeout(followChosenChip, 140, root)
+    window.setTimeout(followChosenChip, 140, root, false)
     return
   }
   const left = on.getBoundingClientRect().left - track.getBoundingClientRect().left + track.scrollLeft

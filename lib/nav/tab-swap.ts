@@ -49,6 +49,27 @@ function arrived(target: string): boolean {
   return true
 }
 
+/*
+  A PAGE A TAB WAS PRESSED FOR (round 18). A tab is not a push: a phone's own tab bar shows the next screen whole, where it
+  is, with no slide. The community plays a push when it is entered from outside (Explore, a card), and in a browser, where
+  there is no tab swap, it played that push for Home pressed on the profile too: the feed slid in from 36px at 60% for 300ms
+  after the profile had gone (filmed at 4x CPU). The tab bar notes where a press is going; the page that arrives there asks.
+*/
+let tabArrival: { target: string; at: number } | null = null
+const TAB_ARRIVAL_MS = 8000
+const pathKey = (href: string) => href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+
+/** The tab bar is sending the page to `href` (lib/nav/buyer-tabs.ts): the page that lands there is a tab's, not a push. */
+export function noteTabArrival(href: string) {
+  tabArrival = { target: pathKey(href), at: typeof performance === "undefined" ? 0 : performance.now() }
+}
+
+/** Whether the page on screen now was opened by a press on the tab bar a moment ago. */
+export function arrivedByTab(): boolean {
+  if (typeof window === "undefined" || !tabArrival) return false
+  return pathKey(window.location.pathname) === tabArrival.target && performance.now() - tabArrival.at < TAB_ARRIVAL_MS
+}
+
 /** Whether a tab swap is holding the screen right now: a page arriving under it plays no entrance of its own (it would be a second fade). */
 export function tabSwapInProgress(): boolean {
   return typeof document !== "undefined" && document.documentElement.hasAttribute("data-tab-swap")

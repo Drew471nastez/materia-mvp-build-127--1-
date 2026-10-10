@@ -15,10 +15,16 @@
  *             was the community "emptying" before the account landed); the
  *             app's tab swap waits for the cover and then cuts, never a
  *             dissolve showing two pages at once
+ *   SPEED     Home and Profile: the other tab's page read again as soon as
+ *             the router would hold it stale and when the app comes back, no
+ *             push animation for a page a tab opened, no layout forced inside
+ *             the commit that draws the feed, no attribute on <html> taken
+ *             off and put back by the two layouts' bars
  *
  * Run with:  pnpm run test:push
  */
 import { readCode, readSource } from "./_source"
+import { arrivedByTab, noteTabArrival } from "@/lib/nav/tab-swap"
 
 let passed = 0
 let failed = 0
@@ -69,6 +75,31 @@ console.log("\nHANDOVER: the community stays until the account lands whole (item
   check("the tab bar is still its own picture through the swap", /html\[data-tab-swap\] \[data-buyer-tab-bar\] \{\s*view-transition-name: buyer-tab-bar;/.test(css))
 }
 
+console.log("\nSPEED: Home and Profile, prefetched, kept and shown whole (item 2)")
+{
+  const bar = code("components/nav/buyer-tab-bar.tsx")
+  const config = readSource("next.config.mjs")
+  const stale = Number(/staleTimes:\s*\{[^}]*static:\s*(\d+)/.exec(config)?.[1] ?? NaN)
+  const keep = Number(/TAB_KEEP_MS = (\d[\d_]*) \+ ([\d_]+)/.exec(bar)?.slice(1).reduce((a, x) => a + Number(x.replace(/_/g, "")), 0) ?? NaN)
+  check("the other tabs are read again just after the router would hold them stale, never sooner (a sooner read is not made)", keep > stale * 1000 && keep - stale * 1000 <= 15_000, { keep, stale })
+  check("on an interval while the page is shown, and at once when it is shown again", /setInterval\(again, TAB_KEEP_MS\)/.test(bar) && /addEventListener\("visibilitychange", again\)/.test(bar) && /visibilityState !== "visible"/.test(bar) && /clearInterval\(keep\)/.test(bar))
+  check("the bar's html attribute is handed from one bar to the next, not taken off and put back", /queueMicrotask\(\(\) => \{\s*if \(tabsAttrTurn === mine\)/.test(bar) && /getAttribute\("data-buyer-tabs"\) !== \(away \? "away" : "shown"\)/.test(bar))
+  check("a press notes where it is going before it pushes", /noteTabArrival\(href\)[\s\S]{0,400}router\.push\(href/.test(bar))
+  const frame = code("components/community/member/shell-frame.tsx")
+  check("the community plays its push for an entrance from outside, never for a page a tab opened", /!tabSwapInProgress\(\) && !arrivedByTab\(\)/.test(frame))
+  const g = globalThis as unknown as { window?: unknown }
+  const had = g.window
+  g.window = { location: { pathname: "/community/clay-studio" } }
+  noteTabArrival("/community/clay-studio?space=general")
+  const yes = arrivedByTab()
+  ;(g.window as { location: { pathname: string } }).location.pathname = "/explore"
+  const no = arrivedByTab()
+  g.window = had
+  check("arrivedByTab: the page a tab was pressed for, by its path; any other page is not", yes && !no, { yes, no })
+  const chips = code("components/community/member/space-chips.tsx")
+  check("the chosen pill is measured after the next paint, never inside the commit that draws the feed", /requestAnimationFrame\(\(\) => window\.setTimeout\(followChosenChip, 0, root, false\)\)/.test(chips))
+}
+
 console.log("\nCOPY")
 {
   const files = [
@@ -79,6 +110,8 @@ console.log("\nCOPY")
     "components/account/account-header-switch.tsx",
     "components/nav/buyer-tab-bar.tsx",
     "lib/nav/tab-swap.ts",
+    "components/community/member/space-chips.tsx",
+    "components/community/member/shell-frame.tsx",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")

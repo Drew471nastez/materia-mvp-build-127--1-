@@ -102,7 +102,7 @@ import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
-import { swapTabPage } from "@/lib/nav/tab-swap"
+import { noteTabArrival, swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
@@ -333,6 +333,16 @@ function QueryWatch({ onChange, onProfile }: { onChange: (query: string) => void
 /* ── The bar ─────────────────────────────────────────────────────────────── */
 
 /**
+ * How often the other tabs' pages are read again while this one is on screen: just past the router's staleTimes (300s in
+ * next.config.mjs), because a read ahead of a page the router still holds fresh is not made at all, so a pass any sooner
+ * would do nothing and the page would then sit stale until the next. Past prefetchHref's own KEEP_MS too, so it reads.
+ */
+export const TAB_KEEP_MS = 300_000 + 5_000
+
+/** Which bar last wrote data-buyer-tabs (ONE BAR HANDS THE ATTRIBUTE TO THE NEXT, below). */
+let tabsAttrTurn = 0
+
+/**
  * Mounted by the layouts; draws nothing where the bar does not belong. The
  * question is asked here, where it is mounted, rather than inside the bar,
  * so the bar's own hooks are never behind a return.
@@ -545,6 +555,8 @@ function TabBar({
          made Profile and Home feel stuck. The hairline still appears if the
          next page is actually slow. */
       startRouteLoading({ lineOnly: true })
+      /* The page that lands is a tab's: it is shown whole, never pushed in (lib/nav/tab-swap.ts noteTabArrival). */
+      noteTabArrival(href)
       /* In the app, a tab between the community and the account changes page in one piece (lib/nav/tab-swap.ts). */
       const crosses = !!communityOf(href) !== !!communityOf(pathname)
       if (!(crosses && swapTabPage(() => router.push(href, { scroll: false }), href))) router.push(href, { scroll: false })
@@ -586,16 +598,41 @@ function TabBar({
        Idle-only reads were still in flight when Home or Profile was tapped,
        so the router fetched again and the spinner sat on a blank page. */
     for (const href of hrefs) prefetchHref(router, href, "press")
+    return prefetchOnIdle(router, hrefs)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefetchKey, current, router, !!navHere])
+
+  useEffect(() => {
+    if (!window.matchMedia?.("(max-width: 767px)").matches) return
+    const hrefs = tabs.flatMap((tab, i) =>
+      tab.key === "search" || tab.key === "compose" || i === current || (navHere && tab.key === "home") ? [] : [hrefOf(i)],
+    )
     /*
       AND THE PROFILE'S COVER, DECODED AND KEPT (round 18, components/account/cover-warm.ts): the account page then draws it
       whole on its first frame instead of fading it in over a grey band. Once the page has settled, never in its way.
     */
     const profileAhead = signedIn && tabs.some((tab, i) => tab.key === "profile" && i !== current)
     const warm = profileAhead ? window.setTimeout(() => void warmAccountCover(), 600) : 0
-    const stopIdle = prefetchOnIdle(router, hrefs)
+    /*
+      AND KEPT FRESH (round 18, the owner: "switching between Home and Profile in the nav bar takes too much: make it fast,
+      prefetched and kept"). The router keeps a page it read ahead for staleTimes (five minutes, next.config.mjs); past that
+      a press asks the server again and waits for it, which is the slow switch after a while on one tab or after the app
+      comes back from the background. So the other tabs' pages are read again as soon as they go stale while this page is on
+      screen, and at once when the page is shown again (prefetchHref itself never reads one twice inside KEEP_MS).
+    */
+    const again = () => {
+      if (document.visibilityState !== "visible") return
+      for (const href of hrefs) prefetchHref(router, href, "press")
+      if (profileAhead) void warmAccountCover()
+    }
+    const keep = window.setInterval(again, TAB_KEEP_MS)
+    document.addEventListener("visibilitychange", again)
+    window.addEventListener("pageshow", again)
     return () => {
       window.clearTimeout(warm)
-      stopIdle()
+      window.clearInterval(keep)
+      document.removeEventListener("visibilitychange", again)
+      window.removeEventListener("pageshow", again)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefetchKey, current, router, !!navHere, signedIn])
@@ -633,10 +670,21 @@ function TabBar({
   const away = typing && !layers.covered
   /* A route change lets go of any layer left over (an element that left without its cleanup, a class the server printed). */
   useEffect(() => sweepLayers(), [pathname])
+  /*
+    ONE BAR HANDS THE ATTRIBUTE TO THE NEXT (round 18). Each layout mounts its own bar, so a tab between the community and the
+    profile took the attribute off (the old bar's cleanup) and put it back (the new bar's effect) in the same commit, and an
+    attribute on <html> restyles the whole page each time it changes: two full restyles of the page being built, filmed in a
+    real Next build. The cleanup now waits a microtask and only takes it off when no bar has said anything since.
+  */
   useEffect(() => {
     const root = document.documentElement
-    root.setAttribute("data-buyer-tabs", away ? "away" : "shown")
-    return () => root.removeAttribute("data-buyer-tabs")
+    const mine = ++tabsAttrTurn
+    if (root.getAttribute("data-buyer-tabs") !== (away ? "away" : "shown")) root.setAttribute("data-buyer-tabs", away ? "away" : "shown")
+    return () => {
+      queueMicrotask(() => {
+        if (tabsAttrTurn === mine) root.removeAttribute("data-buyer-tabs")
+      })
+    }
   }, [away])
 
   return (
