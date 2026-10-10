@@ -473,6 +473,7 @@ const SUITES = [
   "tests/communities-feed15.test.ts",
   "tests/account-pills16.test.ts",
   "tests/pills17.test.ts",
+  "tests/nav18.test.ts",
   "tests/communities-frame12.test.ts",
   "tests/communities-about11.test.ts",
   "tests/communities-frame13.test.ts",

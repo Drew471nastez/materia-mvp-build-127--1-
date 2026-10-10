@@ -159,7 +159,12 @@ async function main() {
     const down = el.attrs.has("data-pressed")
     PRESS_PROPS.onPointerCancel({ currentTarget: el as never })
     check("a press marks the element at once and a scroll taking the touch clears it", down && !el.attrs.has("data-pressed"))
-    check("tabs, places and chips carry it", /\{\.\.\.PRESS_PROPS\}/.test(frame) && /\{\.\.\.PRESS_PROPS\}/.test(code("components/community/member/wall.tsx")) && /* Round 15: the chips' press is their own eased layer (space-chips.tsx pressChip, on the pointer landing). */ /onPointerDown: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{\s*if \(e\.button !== 0\) return\s*pressChip\(e\.currentTarget\)/.test(code("components/community/member/space-chips.tsx")) && /data-\[pressed\]:opacity-55/.test(code("components/community/member/ui.ts")))
+    /*
+      Round 18 (the owner: "when I only hover with the touch over a space pill, make sure no fade applies", and the tabs taken
+      on the lift): a mouse's press still shows on the frame it lands; a finger's shows nothing before the lift, because it may
+      be a scroll (chip-hit.ts pressShowsAtOnce). The tabs carry it through their own handlers (shell-frame.tsx tabPress).
+    */
+    check("tabs, places and chips carry it", /if \(pressShowsAtOnce\(ev\.pointerType\)\) press\(ev\)/.test(frame) && /\{\.\.\.tabPress\}/.test(frame) && /\{\.\.\.PRESS_PROPS\}/.test(code("components/community/member/wall.tsx")) && /* Round 15: the chips' press is their own eased layer (space-chips.tsx pressChip, on the pointer landing). */ /onPointerDown: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{\s*if \(e\.button !== 0\) return\s*if \(pressShowsAtOnce\(e\.pointerType\)\) pressChip\(e\.currentTarget\)/.test(code("components/community/member/space-chips.tsx")) && /data-\[pressed\]:opacity-55/.test(code("components/community/member/ui.ts")))
     check("the chips' scroll handler only where the row switches in place (a server page hands it no function)", /\{\.\.\.\(onPick \? \{ onScroll:/.test(code("components/community/member/space-chips.tsx")))
     /* Round 12: a place lands with a fade and a 6px rise; the join bar that a move would have held is portalled to the body. */
     check("what arrives fades in and rises, and no fixed bar rides it", /animate-\[community-place-in_260ms/.test(frame) && /translate:0 6px/.test(frame) && /animate-\[fade-in_200ms/.test(code("components/community/public/public-frame.tsx")) && /createPortal\(bar, document\.body\)/.test(code("components/community/public/join-controls.tsx")))

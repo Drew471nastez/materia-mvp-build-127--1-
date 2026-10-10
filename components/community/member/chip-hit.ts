@@ -155,3 +155,25 @@ export function pressAt(ms: number): number {
   const eased = 1 - Math.pow(1 - t, 3)
   return PRESS_FROM + (1 - PRESS_FROM) * eased
 }
+
+/*
+  ROUND 18: THE ROW OF PLACES TAKES A TAP THE SAME WAY (shell-frame.tsx SectionTabs, ui.ts TAB). The tabs are words 40px tall
+  with 24px between them (28px from 640px): measured at 390px, 82% of the row's width took a tap and nothing 20px or more from
+  a tab's middle line did.
+*/
+/** The space between two tabs on a phone, and from 640px. */
+export const TAB_GAP = 24
+export const TAB_GAP_SM = 28
+/** How far a tab's hit area reaches into each gap: half of it and half a pixel, so neighbours overlap by a hair. */
+export const TAB_HIT_X = TAB_GAP / 2 + 0.5
+export const TAB_HIT_X_SM = TAB_GAP_SM / 2 + 0.5
+/** And above and below, into the row's 2px of padding: 40 + 2 + 2, Apple's 44. */
+export const TAB_H = 40
+export const TAB_HIT_Y = 2
+export const TAB_TOUCH_H = TAB_H + 2 * TAB_HIT_Y
+
+/** Whether a press should show anything before it is a tap: a mouse's does at once, a finger's never (it may be a scroll). */
+export function pressShowsAtOnce(pointerType: string): boolean {
+  return pointerType === "mouse"
+}
+

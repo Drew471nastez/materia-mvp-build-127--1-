@@ -4421,17 +4421,21 @@ html[data-page-swap]::view-transition-new(root) {
 }
 
 /* A TAB IN THE APP CHANGES PAGE IN ONE PIECE (lib/nav/tab-swap.ts, round 20). The page being left is held as a picture
-   until the next one is drawn, then the new page fades in over it in 180ms; the picture stays whole under it (no dip). The
-   tab bar is its own picture, the same on both sides, so it does not fade or move. */
+   until the next one is drawn, then the new page takes its place. The tab bar is its own picture, the same on both sides,
+   so it does not fade or move.
+   ROUND 18: A CUT, NOT A DISSOLVE. The new page used to fade in over the held picture in 180ms; filmed at 4x CPU, those
+   frames were two pages at once, the feed's words and pills showing through the profile's cover and the cover through the
+   feed (the owner: "the cover photo glitches"). The next page is now whole when it is let go (its cover decoded, its bar
+   decided), so it is shown the way a phone's own tab bar shows the next screen: at once. */
 html[data-tab-swap]::view-transition-group(root) {
   animation: none;
 }
 html[data-tab-swap]::view-transition-old(root) {
   animation: none;
-  opacity: 1;
+  opacity: 0;
 }
 html[data-tab-swap]::view-transition-new(root) {
-  animation: page-swap-in 180ms cubic-bezier(0.33, 1, 0.68, 1) both;
+  animation: none;
 }
 html[data-tab-swap] [data-buyer-tab-bar] {
   view-transition-name: buyer-tab-bar;
