@@ -7,7 +7,7 @@ import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Package, GraduationCap, Users, ArrowRight, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
 
 interface DashboardOverviewProps {
   searchParams: Promise<{ purchase?: string; already_owned?: string }>
@@ -35,6 +35,8 @@ export default async function DashboardOverview({ searchParams }: DashboardOverv
     .order("created_at", { ascending: false })
 
   /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  /* The sellers' faces are their own read (lib/security/public-columns attachCreatorProfiles). */
+  await attachCreatorProfiles(createAdminClient(), (entitlements ?? []).map((e: any) => e.creator))
   const owned = await fillOwnedProducts(createAdminClient(), entitlements)
   const products = owned.filter((e) => e.product?.type === "digital") || []
   const courses = owned.filter((e) => e.product?.type === "course") || []

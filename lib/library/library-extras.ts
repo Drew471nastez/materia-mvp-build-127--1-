@@ -12,11 +12,20 @@ import { EMPTY_EXTRAS, type ExtrasCreator, type ExtrasOrder, type ExtrasReview, 
  * so the page is no deeper than it was (tests/library-depth.test.ts):
  *
  *   wave 1   every order of theirs, with its product and that product's
- *            seller and the seller's profile, embedded in the one read;
- *            their reviews by account; their own creator row, if they sell
+ *            seller embedded in the one read; their reviews by account;
+ *            their own creator row, if they sell
  *   wave 2   reviews written on one of those orders from a receipt link
  *            before they had an account; which files each option they bought
- *            includes; the support address each seller chose to be written to
+ *            includes; the support address each seller chose to be written
+ *            to; each seller's face (name and photo)
+ *
+ * THE SELLER'S FACE IS ITS OWN READ. It was embedded as
+ * `profiles!creators_user_id_fkey`, but creators.user_id points at
+ * auth.users, not at profiles, so PostgREST knows no relationship between
+ * the two and refused the whole orders read ("Could not find a relationship
+ * between 'creators' and 'profiles' in the schema cache", the error Explore
+ * logged on every load): the library lost every order, so its receipts and
+ * what each row says about the purchase. It is read by user id in wave 2.
  *
  * Every read is on its own: one that fails (a column an older database does
  * not have) leaves its part empty and the library still draws.
@@ -25,7 +34,7 @@ import { EMPTY_EXTRAS, type ExtrasCreator, type ExtrasOrder, type ExtrasReview, 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = { from: (table: string) => any }
 
-const SELLER = "id, slug, display_name, user_id, profile:profiles!creators_user_id_fkey(display_name, avatar_url)"
+const SELLER = "id, slug, display_name, user_id"
 
 export async function getLibraryExtras(userId: string, db?: Db): Promise<LibraryExtras> {
   const admin: Db = db ?? createAdminClient()
@@ -54,17 +63,19 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
 
     /* The sellers, from the products the orders embed. */
     const sellers = new Map<string, ExtrasCreator>()
+    /* Whose account each seller is, for their face (wave 2). */
+    const sellerUser = new Map<string, string>()
     for (const o of rawOrders) {
       const c = o.product?.creator
       if (!c?.id || sellers.has(c.id)) continue
-      const profile = Array.isArray(c.profile) ? c.profile[0] : c.profile
       sellers.set(c.id, {
         id: c.id,
-        name: profile?.display_name || c.display_name || c.slug || null,
+        name: c.display_name || c.slug || null,
         slug: c.slug || null,
-        avatarUrl: profile?.avatar_url || null,
+        avatarUrl: null,
         supportEmail: null,
       })
+      if (c.user_id) sellerUser.set(c.id, c.user_id)
     }
 
     const reviewed = new Set(reviews.map((r) => r.order_id).filter(Boolean))
@@ -75,7 +86,8 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
     /* A membership's payments, for what each one was per (a month or a year); in the same wave, and only when there is one. */
     const membershipOrderIds = rawOrders.filter((o) => o.product?.type === "membership").map((o) => o.id)
 
-    const [byOrderRes, variantRes, supportRes, intervalRes] = await Promise.all([
+    const sellerUserIds = [...new Set(sellerUser.values())]
+    const [byOrderRes, variantRes, supportRes, intervalRes, faceRes] = await Promise.all([
       orderIds.length ? admin.from("reviews").select("*").in("order_id", orderIds.slice(0, 500)) : Promise.resolve({ data: [] }),
       variantIds.length
         ? admin.from("product_variant_files").select("variant_id, digital_asset_id").in("variant_id", variantIds)
@@ -85,7 +97,18 @@ export async function getLibraryExtras(userId: string, db?: Db): Promise<Library
       membershipOrderIds.length
         ? admin.from("membership_invoices").select("order_id, membership:memberships(billing_interval)").in("order_id", membershipOrderIds.slice(0, 500))
         : Promise.resolve({ data: [] }),
+      sellerUserIds.length ? admin.from("profiles").select("id, display_name, avatar_url").in("id", sellerUserIds) : Promise.resolve({ data: [] }),
     ])
+
+    /* The seller's own name and photo, where their account has them. */
+    const faces = new Map<string, { display_name?: string | null; avatar_url?: string | null }>()
+    for (const f of (faceRes?.error ? [] : faceRes?.data ?? []) as Array<{ id: string; display_name?: string | null; avatar_url?: string | null }>) faces.set(f.id, f)
+    for (const [id, seller] of sellers) {
+      const face = faces.get(sellerUser.get(id) ?? "")
+      if (!face) continue
+      if (face.display_name) seller.name = face.display_name
+      if (face.avatar_url) seller.avatarUrl = face.avatar_url
+    }
 
     const intervals = new Map<string, "month" | "year">()
     for (const row of (intervalRes?.error ? [] : intervalRes?.data ?? []) as Array<{ order_id?: string | null; membership?: { billing_interval?: string } | { billing_interval?: string }[] | null }>) {

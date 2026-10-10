@@ -11,7 +11,7 @@ import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
 /**
  * WHICH ADDRESSES ARE ONE PAGE. The wrapper below is keyed, so a new key
  * builds everything inside it again and plays its entrance from nothing.
- * The library's pill screens are one page whose screens cross fade under a
+ * The library's pill screens are one page whose screens change under a
  * row that holds still (components/library/library-panel.tsx), so they
  * share a key: keyed by the address, every pill press rebuilt the title,
  * the pills and the stage, and faded all of it in from blank, which was
@@ -59,7 +59,7 @@ export function AccountNavFade({ children }: { children: React.ReactNode }) {
   const onLibrary = showsLibraryTabs(pathname)
   const landingOnMove = useLandingOnMove(navFadeKey(pathname))
   /*
-    The library cross fades under its own pills (library-panel.tsx), and they share one key, so this lands nothing between them.
+    The library lands each screen under its own pills (library-panel.tsx), and they share one key, so this lands nothing between them.
     Arriving at the library from another account page is a new key, and it lands the way every other page does (round 15: "the
     transition to the library is too direct").
   */

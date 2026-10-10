@@ -11,7 +11,7 @@ import { DownloadButton } from "@/components/download-button"
 import { ArrowLeft, Download, FileIcon, ExternalLink } from "lucide-react"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { pageUser } from "@/lib/auth/page-user"
-import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
 
 interface ProductAccessPageProps {
   params: Promise<{ id: string }>
@@ -46,6 +46,8 @@ export default async function ProductAccessPage({ params }: ProductAccessPagePro
     .eq("product_id", id)
     .single()
   /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  /* The seller's face is its own read (lib/security/public-columns attachCreatorProfiles). */
+  await attachCreatorProfiles(createAdminClient(), [(read as any)?.creator])
   const entitlement = await fillOwnedProduct(createAdminClient(), read)
 
   if (!entitlement) notFound()
