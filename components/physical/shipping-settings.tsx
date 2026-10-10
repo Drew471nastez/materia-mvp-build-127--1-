@@ -4,16 +4,19 @@
  * ===========================================================================
  *  SETTINGS > SHIPPING: HOW A SHOP SHIPS, FROM WHERE, FOR HOW MUCH
  * ===========================================================================
- * Only while physical commerce is on in /admin (the tab is filtered out
- * otherwise). One panel, four parts, chosen with ?section=:
+ * Only while physical commerce is on in /admin (the tabs are filtered out
+ * otherwise). Four parts, each its own section of Settings so a person finds
+ * each where its name says it is (components/app/settings-form-new.tsx):
  *
- *   delivery      units, the General shipping profile and custom ones, their
- *                 zones (countries or states) and rates (flat, free, by
- *                 order price, by order weight, by item weight)
- *   locations     where stock is kept, where orders ship from, who ships
- *                 them, and local pickup (instructions, preparation time)
- *   taxes         none, or the shop's own rates per country and state
- *   advanced      low stock emails, returns, packages and integrations
+ *   delivery      Shipping and delivery: how orders are fulfilled, units,
+ *                 the General shipping profile and custom ones, their zones
+ *                 (countries or states) and rates (flat, free, by order
+ *                 price, by order weight, by item weight), and packages
+ *   locations     Locations: where stock is kept, where orders ship from,
+ *                 who ships them, local pickup, and low stock emails
+ *   taxes         Taxes: none, or the shop's own rates per country and state
+ *   returns       Returns and refunds: whether returns are accepted, and for
+ *                 how long
  *
  * The first visit asks one question, "How do you fulfil your physical
  * orders?", and sets up a first location of that kind.
@@ -92,20 +95,6 @@ const MODELS: { id: FulfillmentModel; title: string; line: string }[] = [
   { id: "hybrid", title: "A mix of these", line: "Different products ship from different places." },
 ]
 
-const SECTIONS = [
-  { id: "delivery", label: "Shipping" },
-  { id: "locations", label: "Locations and pickup" },
-  { id: "taxes", label: "Taxes" },
-  { id: "advanced", label: "Advanced" },
-] as const
-type Section = (typeof SECTIONS)[number]["id"]
-
-/** Older links (?section=rates, packages, returns, integrations) land where those now live. */
-function sectionOf(s: string | null): Section {
-  if (s === "rates") return "delivery"
-  if (s === "packages" || s === "returns" || s === "integrations" || s === "stock") return "advanced"
-  return SECTIONS.some((x) => x.id === s) ? (s as Section) : "delivery"
-}
 
 const KIND_LABEL: Record<LocationKind, string> = {
   home: "Home or studio",
@@ -186,13 +175,11 @@ function stopEnter(e: React.KeyboardEvent) {
   if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault()
 }
 
-export function ShippingSettings() {
+export type ShippingPart = "delivery" | "locations" | "taxes" | "returns"
+
+export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart }) {
   const [data, setData] = React.useState<Data | null>(null)
   const [error, setError] = React.useState<string | null>(null)
-  const [section, setSection] = React.useState<Section>(() => {
-    if (typeof window === "undefined") return "delivery"
-    return sectionOf(new URLSearchParams(window.location.search).get("section"))
-  })
 
   const load = React.useCallback(async () => {
     const res = await api<Data>("/api/physical/settings")
@@ -205,13 +192,6 @@ export function ShippingSettings() {
     void load()
   }, [load])
 
-  const pick = (s: Section) => {
-    setSection(s)
-    const url = new URL(window.location.href)
-    url.searchParams.set("section", s)
-    window.history.replaceState({}, "", url.pathname + url.search)
-  }
-
   if (error && !data) return <Notice>{error}</Notice>
   if (!data) {
     return (
@@ -223,49 +203,32 @@ export function ShippingSettings() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6" onKeyDown={stopEnter} data-shipping-settings="">
+    <div className="space-y-4 sm:space-y-6" onKeyDown={stopEnter} data-shipping-settings={part}>
+      {/* The first question, wherever the first visit lands: everything after it reads its answer. */}
       {!data.settings.onboardedAt ? <Onboarding onDone={load} /> : null}
+
+      {part === "delivery" ? (
+        <>
+          <FulfilmentCard data={data} reload={load} />
+          <Delivery data={data} reload={load} setData={setData} />
+          <Packages data={data} setData={setData} />
+        </>
+      ) : null}
+      {part === "locations" ? (
+        <>
+          <Locations data={data} reload={load} />
+          <StockAlerts data={data} reload={load} />
+        </>
+      ) : null}
+      {part === "taxes" ? <Taxes data={data} reload={load} setData={setData} /> : null}
+      {part === "returns" ? <ReturnsPolicy data={data} reload={load} /> : null}
+
       <p className="text-[13px] text-[#6b7280]">
         New to selling physical products?{" "}
         <a href="/help/physical-products/how-physical-products-work" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
           Read the step by step guide
         </a>
       </p>
-
-      <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1">
-          {SECTIONS.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => pick(s.id)}
-              aria-current={section === s.id ? "page" : undefined}
-              className={cn(
-                "h-8 whitespace-nowrap rounded-lg px-3 text-[13px] font-medium transition-colors sm:h-9 sm:text-[13.5px]",
-                section === s.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]",
-              )}
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {section === "delivery" ? <Delivery data={data} reload={load} setData={setData} /> : null}
-      {section === "locations" ? <Locations data={data} reload={load} /> : null}
-      {section === "taxes" ? <Taxes data={data} reload={load} setData={setData} /> : null}
-      {section === "advanced" ? (
-        <div className="space-y-4">
-          <Returns data={data} reload={load} />
-          <Packages data={data} setData={setData} />
-          {/* Integrations have their own section now (Settings › Integrations, components/physical/integrations-marketplace.tsx). */}
-          <Card title="Integrations" description="Shippo, Printful, Gelato and the other services that ship or make your orders.">
-            <a href="/app/settings?tab=integrations" className={BTN_SECONDARY}>
-              Open Integrations
-            </a>
-          </Card>
-        </div>
-      ) : null}
     </div>
   )
 }
@@ -285,7 +248,7 @@ function Onboarding({ onDone }: { onDone: () => void }) {
     onDone()
   }
   return (
-    <Card title="How do you fulfil your physical orders?" description="We'll set up your first location to match. You can change this any time.">
+    <Card title="How do you fulfil your physical orders?" description="We'll set up your first location to match. You can change this any time." help="fulfilment">
       <div className="grid gap-2 sm:grid-cols-2">
         {MODELS.map((m) => (
           <button
@@ -882,7 +845,7 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
   }
   return (
     <div className="space-y-4">
-      <Card title="Locations" description="Where you keep stock, where orders ship from, and where buyers can pick up." action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
+      <Card title="Locations" description="Where you keep stock, where orders ship from, and where buyers can pick up." help="locations" action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
         {notice ? <Notice tone="gray" className="mb-3">{notice}</Notice> : null}
         {error ? <Notice className="mb-3">{error}</Notice> : null}
         {editing === "new" ? <LocationForm onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} /> : null}
@@ -1089,7 +1052,7 @@ function Packages({ data, setData }: { data: Data; setData: React.Dispatch<React
   const [error, setError] = React.useState<string | null>(null)
   const put = (packages: Pack[]) => setData((d) => (d ? { ...d, packages } : d))
   return (
-    <Card title="Packages" description="The boxes and mailers you ship in. Used for labels and package weight." action={!adding ? <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Add package</button> : null}>
+    <Card title="Packages" description="The boxes and mailers you ship in. Used for labels and package weight." help="packages" action={!adding ? <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Add package</button> : null}>
       {adding ? (
         <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1187,7 +1150,7 @@ function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setD
   }
   return (
     <div className="space-y-4">
-      <Card title="Tax" description="Storelib only charges tax you set here. Check what applies to you with an accountant.">
+      <Card title="Tax" description="Storelib only charges tax you set here. Check what applies to you with an accountant." help="taxes">
         <div className="space-y-2">
           {[
             { id: "none", title: "Don't charge tax", line: "Prices are what buyers pay, plus delivery." },
@@ -1288,71 +1251,123 @@ function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setD
   )
 }
 
-/* ── Returns and stock ─────────────────────────────────────────────────── */
+/* ── Saving a few fields of the shop's settings ─────────────────────────── */
 
-function Returns({ data, reload }: { data: Data; reload: () => void }) {
-  const [days, setDays] = React.useState(String(data.settings.returnWindowDays))
-  const [low, setLow] = React.useState(String(data.settings.lowStockDefault))
-  const [enabled, setEnabled] = React.useState(data.settings.returnsEnabled)
-  const [alerts, setAlerts] = React.useState(data.settings.lowStockAlerts !== false)
-  const [model, setModel] = React.useState<FulfillmentModel | "">(data.settings.fulfillmentModel ?? "")
+function useSettingsSave(reload: () => void) {
   const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
   const [error, setError] = React.useState<string | null>(null)
-  const save = async () => {
+  const save = async (patch: Partial<Settings>) => {
     setState("saving")
-    const r = await api("/api/physical/settings", { method: "PUT", body: { returnsEnabled: enabled, returnWindowDays: Number(days || 0), lowStockDefault: Number(low || 0), lowStockAlerts: alerts, ...(model ? { fulfillmentModel: model } : {}) } })
+    const r = await api("/api/physical/settings", { method: "PUT", body: patch })
     if (!r.ok) {
       setError(r.error)
       setState("idle")
-      return
+      return false
     }
     setError(null)
     setState("saved")
     reload()
     setTimeout(() => setState("idle"), 1600)
+    return true
   }
+  return { state, error, save }
+}
+
+function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "saved"; onClick: () => void; disabled?: boolean }) {
   return (
-    <Card title="Stock alerts and returns">
+    <button type="button" className={BTN_PRIMARY} onClick={onClick} disabled={disabled || state === "saving"}>
+      {state === "saved" ? (
+        <>
+          <Check className="h-4 w-4" />
+          Saved
+        </>
+      ) : state === "saving" ? (
+        "Saving"
+      ) : (
+        "Save"
+      )}
+    </button>
+  )
+}
+
+/* ── How orders are fulfilled ──────────────────────────────────────────── */
+
+function FulfilmentCard({ data, reload }: { data: Data; reload: () => void }) {
+  const [model, setModel] = React.useState<FulfillmentModel | "">(data.settings.fulfillmentModel ?? "")
+  const { state, error, save } = useSettingsSave(reload)
+  const changed = model !== (data.settings.fulfillmentModel ?? "")
+  return (
+    <Card title="How you fulfil orders" description="Who packs and ships what you sell. A mix is fine: each location says who ships from it." help="fulfilment">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {MODELS.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            onClick={() => setModel(m.id)}
+            aria-pressed={model === m.id}
+            data-fulfil-model={m.id}
+            className={cn("flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors", model === m.id ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]")}
+          >
+            <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", model === m.id ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{model === m.id ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
+            <span className="min-w-0">
+              <span className="block text-[14px] font-medium text-[#1a1a2e]">{m.title}</span>
+              <span className="block text-[13px] leading-[18px] text-[#6b7280]">{m.line}</span>
+            </span>
+          </button>
+        ))}
+      </div>
+      {error ? <Notice className="mt-3">{error}</Notice> : null}
+      {changed ? (
+        <div className="mt-4 flex justify-end">
+          <SaveButton state={state} onClick={() => model && save({ fulfillmentModel: model })} />
+        </div>
+      ) : null}
+    </Card>
+  )
+}
+
+/* ── Low stock emails ──────────────────────────────────────────────────── */
+
+function StockAlerts({ data, reload }: { data: Data; reload: () => void }) {
+  const [low, setLow] = React.useState(String(data.settings.lowStockDefault))
+  const [alerts, setAlerts] = React.useState(data.settings.lowStockAlerts !== false)
+  const { state, error, save } = useSettingsSave(reload)
+  return (
+    <Card title="Low stock" description="So you reorder before something sells out.">
       <div className="space-y-4">
         <Toggle label="Email me when stock runs low" description="One email a day at most, listing what sold down to its low stock line." checked={alerts} onChange={setAlerts} />
-        <Toggle label="Accept returns" description="Buyers can ask for a return from their order page. You approve each one." checked={enabled} onChange={setEnabled} />
-        <div className="grid gap-3 sm:grid-cols-2">
-          {enabled ? (
-            <Field label="Return window" hint="Days after it ships">
-              <NumberInput value={days} onChange={setDays} />
-            </Field>
-          ) : null}
-          <Field label="Low stock line" hint="For products without their own. At or below it is low.">
-            <NumberInput value={low} onChange={setLow} />
-          </Field>
-          <Field label="How you fulfil" className="sm:col-span-2">
-            <SelectInput value={model} onChange={(v) => setModel(v as FulfillmentModel)}>
-              <option value="">Not set</option>
-              {MODELS.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.title}
-                </option>
-              ))}
-            </SelectInput>
-          </Field>
-        </div>
+        <Field label="Low stock line" hint="For products without their own. At or below it is low.">
+          <NumberInput value={low} onChange={setLow} />
+        </Field>
         {error ? <Notice>{error}</Notice> : null}
         <div className="flex justify-end">
-          <button type="button" className={BTN_PRIMARY} onClick={save} disabled={state === "saving"}>
-            {state === "saved" ? (
-              <>
-                <Check className="h-4 w-4" />
-                Saved
-              </>
-            ) : state === "saving" ? (
-              "Saving"
-            ) : (
-              "Save"
-            )}
-          </button>
+          <SaveButton state={state} onClick={() => save({ lowStockDefault: Number(low || 0), lowStockAlerts: alerts })} />
         </div>
       </div>
     </Card>
   )
 }
 
+/* ── Returns ───────────────────────────────────────────────────────────── */
+
+function ReturnsPolicy({ data, reload }: { data: Data; reload: () => void }) {
+  const [days, setDays] = React.useState(String(data.settings.returnWindowDays))
+  const [enabled, setEnabled] = React.useState(data.settings.returnsEnabled)
+  const { state, error, save } = useSettingsSave(reload)
+  return (
+    <Card title="Returns" description="Buyers ask for a return from their order page, and you approve each one." help="returns">
+      <div className="space-y-4">
+        <Toggle label="Accept returns" description="Off, the order page has no return button." checked={enabled} onChange={setEnabled} />
+        {enabled ? (
+          <Field label="Return window" hint="Days after the order is delivered, or shipped when there is no tracking">
+            <NumberInput value={days} onChange={setDays} />
+          </Field>
+        ) : null}
+        {error ? <Notice>{error}</Notice> : null}
+        <div className="flex justify-end">
+          <SaveButton state={state} onClick={() => save({ returnsEnabled: enabled, returnWindowDays: Number(days || 0) })} />
+        </div>
+      </div>
+    </Card>
+  )
+}

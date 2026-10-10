@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils"
 import { Switch } from "@/components/ui/switch"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
+import { HowItWorks } from "@/components/app/settings/how-it-works"
+import type { ExplainerId } from "@/lib/settings/explainers"
 
 export const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 export const CARD_PAD = "px-4 py-4 sm:px-6 sm:py-5"
@@ -33,7 +35,8 @@ export const BTN_GHOST =
 export const BTN_DANGER =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#fecaca] bg-white px-4 text-[14px] font-medium text-[#b42318] outline-none transition-colors hover:bg-[#fef2f2] disabled:pointer-events-none disabled:opacity-50"
 
-export function Card({ title, description, action, children, className, id }: { title?: React.ReactNode; description?: React.ReactNode; action?: React.ReactNode; children?: React.ReactNode; className?: string; id?: string }) {
+/** `help` puts a "How it works" under the card's line, opening that explanation (lib/settings/explainers.ts). */
+export function Card({ title, description, action, help, children, className, id }: { title?: React.ReactNode; description?: React.ReactNode; action?: React.ReactNode; help?: ExplainerId; children?: React.ReactNode; className?: string; id?: string }) {
   return (
     <section id={id} className={cn(CARD, CARD_PAD, "scroll-mt-4", className)}>
       {title || action ? (
@@ -41,6 +44,7 @@ export function Card({ title, description, action, children, className, id }: { 
           <div className="min-w-0">
             {title ? <h2 className={CARD_TITLE}>{title}</h2> : null}
             {description ? <p className={cn(MUTED, "mt-0.5")}>{description}</p> : null}
+            {help ? <HowItWorks id={help} className="-ml-2 mt-1" /> : null}
           </div>
           {action ? <div className="shrink-0">{action}</div> : null}
         </div>

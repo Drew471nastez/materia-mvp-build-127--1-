@@ -8138,6 +8138,20 @@ html[data-settings-sheet-up] [data-settings-save-bar] {
   z-index: 57;
   left: 0;
 }
-html[data-settings-sheet-up] .app-content-scroll {
+/* Opened on its own, the sheet is inside the page's scroll and the page is held. Over a page it is outside it, and the
+   page keeps its scroll bar so nothing under the sheet moves sideways when it opens. */
+html[data-settings-sheet-up="page"] .app-content-scroll {
   overflow: hidden;
+}
+
+/* Settings filling a sheet that is already up (app/app/settings/_view.tsx): in, not popped. */
+@keyframes settings-content-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.settings-content-in {
+  animation: settings-content-in 180ms cubic-bezier(0.2, 0, 0, 1) backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-content-in { animation: none; }
 }

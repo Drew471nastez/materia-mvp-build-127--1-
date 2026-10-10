@@ -117,7 +117,7 @@ check(
   check(
     "a switch keeps the scroll, so the tab bar does not jump under the finger",
     /form\.style\.minHeight = `\$\{Math\.max\(0, Math\.ceil\(scroller\.scrollTop \+ scroller\.clientHeight - formTop\)\)\}px`/.test(settings)
-      && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}>/.test(settings),
+      && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}( className=\{[^}]+\})?>/.test(settings),
   )
   check(
     "and a refresh of the domain list keeps the list on screen",
@@ -144,17 +144,14 @@ check(
     !/data-settings-tab-ring|tabRingRef|ring\.animate\(|TAB_SLIDE_MS/.test(settings),
   )
   check(
-    /* Changed on purpose: a scaled icon and label are drawn again when the move ends, the flash the owner saw. Opacity only. */
-    "each tab carries its own fill, faded in place on opacity only, 150ms on a plain ease out",
-    /data-settings-tab-fill=""/.test(settings)
-      && /pointer-events-none absolute -inset-px rounded-full border border-\[#d1d5db\] bg-\[#f3f4f6\][^`]*\$\{panelEntrance \? "transition-opacity" : "transition-none"\} motion-reduce:transition-none/.test(settings)
-      && /activeTab === tab\.id \? "opacity-100" : "opacity-0"/.test(settings)
-      && /const TAB_FADE_MS = 150/.test(settings) && /const TAB_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings),
+    /* Changed on purpose (round T): the pill row is gone. Under 1024px Settings opens on a list of its sections in their groups, and a row opens one. */
+    "under 1024px a grouped list replaces the pill row, and a section has a way back to it",
+    !/data-settings-tab-fill=""/.test(settings) && /className="space-y-5 pb-6 lg:hidden" data-settings-list=""/.test(settings) && /data-settings-back=""/.test(settings),
   )
   check(
     "no tab is scaled under the finger, and the selected tab is announced",
     !/active:scale-\[0\.97\]/.test(settings)
-      && /aria-current=\{activeTab === tab\.id \? "page" : undefined\}/.test(settings),
+      && /aria-current=\{on \? "page" : undefined\}/.test(settings),
   )
   /* The Notifications tab's rows used to load as 48px grey bars and grow to their real height when they landed: a jump after the fade. */
   const prefs = code("components/app/settings/notification-preferences.tsx")
@@ -867,8 +864,8 @@ check(
       && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),
   )
   check(
-    "the Settings tab strip still reaches the glass, out by whatever the shell put in rather than by its own copy of 16px",
-    /* Changed on purpose: the pill row is for under 1024px; the grouped column takes over from there. */ /data-settings-tabs="" className="mb-6 sm:mb-8 lg:hidden overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0/.test(code("components/app/settings-form-new.tsx")),
+    "the Settings list under 1024px sits in the shell's own gutter, no copy of 16px of its own",
+    /* Changed on purpose (round T): no strip to bleed to the glass; the phone's list of sections sits in the gutter like every card. */ /className="space-y-5 pb-6 lg:hidden" data-settings-list=""/.test(code("components/app/settings-form-new.tsx")) && !/data-settings-tabs=""/.test(code("components/app/settings-form-new.tsx")),
   )
   check(
     "no Settings or billing card writes its own sideways padding any more: `p-4 sm:p-6` is gone from both",
