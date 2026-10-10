@@ -252,11 +252,72 @@ async function onePage() {
   check("and the page still renders for every visitor (its products are live)", /export const dynamic = "force-dynamic"/.test(route))
 }
 
+async function explore() {
+  section("Explore's catalogue is one copy for everybody (lib/explore/catalogue-cache.ts)")
+  const { EXPLORE_CATALOGUE_TAG, cachedExploreCatalogue } = await import("@/lib/explore/catalogue-cache")
+  const { purgeProductCaches } = await import("@/lib/products/forget-product")
+  const pageModule = await import("@/app/(marketing)/explore/page")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const render = () => pageModule.default({ searchParams: Promise.resolve({}) } as never)
+  const products = (tree: unknown) => {
+    const found: unknown[] = []
+    const walk = (n: unknown) => {
+      if (!n || typeof n !== "object") return
+      const props = (n as { props?: Record<string, unknown> }).props
+      if (props && Array.isArray(props.initialProducts)) found.push(...(props.initialProducts as unknown[]))
+      if (props) for (const v of Object.values(props)) Array.isArray(v) ? v.forEach(walk) : walk(v)
+    }
+    walk(tree)
+    return found as { id: string; title: string; status: string }[]
+  }
+
+  const first = await visit(render)
+  const again = await visit(render, { cookies: { "sb-fixture-auth-token": "someone" } })
+  const listed = products(first.value)
+  check("the grid is drawn from it: products are there", listed.length > 50, listed.length)
+  check("the second visitor, signed in or not, costs no catalogue read", !again.trips.some((t) => t.table === "products" || t.table === "profiles"), again.trips.map((t) => t.table))
+  check("and is shown the same catalogue", JSON.stringify(products(again.value)) === JSON.stringify(listed))
+  const catalogueTrips = first.trips.filter((t) => t.table === "products" || t.table === "profiles" || t.table === "membership_plans")
+  check("read as a stranger: the anon key, no session", catalogueTrips.length >= 2 && catalogueTrips.every((t) => t.key === "anon"), catalogueTrips.map((t) => `${t.table}:${t.key}`))
+  const held = JSON.stringify(nextCache.cacheEntries().filter((e) => e.key.includes("explore-catalogue")).map((e) => e.value))
+  check("never a draft, and nothing private of a creator", !held.includes(DRAFT_MARKER) && !held.includes(PRIVATE_MARKER) && !held.includes("stripe"))
+  check("tagged so the writes that change it can clear it", nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue") && e.tags.includes(EXPLORE_CATALOGUE_TAG)))
+
+  /* An operator takes a product down: purgeProductCaches (the moderation route, a delete, an archive) expires it at once. */
+  const taken = listed[0]
+  fixture.tables.products.find((p) => p.id === taken.id)!.status = "unpublished"
+  purgeProductCaches({ creatorId: SITE.creatorId, productId: taken.id, slug: null })
+  const next = await visit(render)
+  check("a product taken down is gone for the very next visitor", !products(next.value).some((p) => p.id === taken.id) && next.trips.some((t) => t.table === "products" && !t.background))
+
+  const search = await visit(() => pageModule.default({ searchParams: Promise.resolve({ q: "market product 1" }) } as never))
+  const searchAgain = await visit(() => pageModule.default({ searchParams: Promise.resolve({ q: "market product 1" }) } as never))
+  check("a search is one person's words: read live each time, never held", search.trips.some((t) => t.table === "products") && searchAgain.trips.some((t) => t.table === "products"))
+
+  nextCache.resetCache()
+  useFixture(fixtureWith((f) => {
+    f.fail = ["products"]
+  }))
+  const blinked = await visit(render)
+  check("a database that did not answer is never held as an empty Explore", products(blinked.value).length === 0 && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+  const empty = await visit(() => cachedExploreCatalogue(async () => [] as unknown[]))
+  check("nor is an empty answer", !!empty.error && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
+
+  const saveRoute = code("app/api/revalidate/route.ts")
+  check("a product save clears Explore and the creator's website shop", /exploreCatalogueChanged\(\)/.test(saveRoute) && /revalidateTag\(creatorShopTag\(owned\.creator_id\), "max"\)/.test(saveRoute) && /\.eq\("creator_id", creator\.id\)/.test(saveRoute))
+  check("a ban and a closed account take their products off it at once", /exploreCatalogueTakenDown\(\)/.test(code("app/api/admin/creators/moderate/route.ts")) && /exploreCatalogueTakenDown\(\)/.test(code("lib/account/delete-account.ts")))
+  const page = code("app/(marketing)/explore/page.tsx")
+  check("For you and the visitor stay outside it, per visit", /cachedExploreCatalogue\(\(\) => readCatalog\(createPublicReadClient\(\)/.test(page) && !/cachedExploreCatalogue\([^\n]*(interests|getUser|cookies)/.test(page))
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
   await collectionPages()
   await onePage()
+  await explore()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

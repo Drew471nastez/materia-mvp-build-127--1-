@@ -70,4 +70,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database round trips a visitor waits on per OnePage visit", value: 6, unit: "queries" },
     note: "The view count's two reads run after the page is sent (next/server after), the owner's creator, profile, product count and domain are read together when the page names them, and the page's live products are read once per request for the metadata and the body. Products are still read live on every visit, so a deleted product leaves at once. At 20ms a round trip: 186ms to 71ms.",
   },
+  {
+    id: "explore-catalogue-shared",
+    title: "Explore's grid is one shared copy instead of 4 database reads for every visitor",
+    area: "explore",
+    shippedAt: "2026-10-10",
+    before: { metric: "database round trips per Explore visit for the catalogue", value: 4, unit: "queries" },
+    after: { metric: "database round trips per Explore visit for the catalogue", value: 0, unit: "queries" },
+    note: "Browsing reads the newest hundred products as a signed out visitor would, held for a minute under one tag (lib/explore/catalogue-cache.ts). A product save in the editor clears it, a delete, archive, moderation, ban or closed account expires it at once, an empty or failed read is never held, and a search stays live. For you and the visitor stay per visit. Server time to the answer at 20ms a round trip: 70ms to 2ms.",
+  },
 ]

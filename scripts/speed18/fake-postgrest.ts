@@ -255,9 +255,9 @@ function respond(status: number, body: unknown, headers: Record<string, string> 
   })
 }
 
-function record(table: string, method: string, query: string) {
+function record(table: string, method: string, query: string, key?: string) {
   const state = current()
-  const trip = { table, method, query: decodeURIComponent(query).slice(0, 240), at: performance.now(), background: !!state?.background }
+  const trip = { table, method, query: decodeURIComponent(query).slice(0, 240), at: performance.now(), background: !!state?.background, key }
   if (state) state.trips.push(trip)
   else orphanTrips.push(trip)
 }
@@ -300,7 +300,9 @@ export async function fakeFetch(input: RequestInfo | URL, init?: RequestInit): P
   }
 
   const table = name
-  record(table, method, url.search)
+  const apikey = headers.get("apikey") ?? ""
+  const bearer = (headers.get("authorization") ?? "").replace(/^Bearer /, "")
+  record(table, method, url.search, bearer && bearer !== apikey ? "user" : apikey === process.env.SUPABASE_SERVICE_ROLE_KEY ? "service" : apikey === process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "anon" : "other")
   await wait()
   if (fixture.fail?.includes(table)) return respond(503, { code: "XX000", message: "fixture: the database did not answer", details: null, hint: null })
 

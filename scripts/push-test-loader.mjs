@@ -107,6 +107,25 @@ export const unstable_noStore = () => {}
 export class NextRequest extends Request {}
 export const after = () => {}
 `,
+  /**
+   * next/image, next/dynamic and next/script, so a suite can import a page
+   * whose components use them (tests/perf-speed18.test.ts imports Explore's
+   * to read what its server half hands the grid). Nothing is drawn: an image
+   * is the img it renders, a dynamic component draws nothing, a script tag
+   * runs nothing.
+   */
+  "next/image": `import { createElement } from "react"
+export default function Image({ src, alt, fill, priority, quality, placeholder, blurDataURL, loader, unoptimized, ...rest }) {
+  return createElement("img", { src: typeof src === "string" ? src : src?.src, alt, ...rest })
+}
+export const getImageProps = () => ({ props: {} })
+`,
+  "next/dynamic": `export default function dynamic() {
+  return function Nothing() { return null }
+}
+`,
+  "next/script": `export default function Script() { return null }
+`,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })
 export const useSearchParams = () => new URLSearchParams()

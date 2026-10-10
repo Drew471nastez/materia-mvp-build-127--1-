@@ -22,6 +22,8 @@ import { cookies } from "next/headers"
 import { DISCOVER_MODE_COOKIE, parseDiscoverModeCookie } from "@/lib/explore/discover-mode-cookie"
 import { isExploreDiscoverModeSwitcherEnabled } from "@/lib/platform/explore-discover-mode-switcher"
 import { exploreCategoryFrom } from "@/lib/explore/explore-address"
+import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
+import { createPublicReadClient } from "@/lib/supabase/public-read"
 
 // SEO-optimized metadata
 export const metadata: Metadata = {
@@ -220,7 +222,11 @@ export default async function ExplorePage({
     after the sum of them.
   */
   const supabasePromise = createClient()
-  const catalogPromise = supabasePromise.then((supabase) => readCatalog(supabase, searchQuery)).catch((error: unknown) => {
+  /* Browsing is the same catalogue for everybody, read as a stranger and held for a minute, cleared by a product save (lib/explore/catalogue-cache.ts); a search stays a live read. */
+  const catalogRead = searchQuery
+    ? supabasePromise.then((supabase) => readCatalog(supabase, searchQuery))
+    : cachedExploreCatalogue(() => readCatalog(createPublicReadClient() as unknown as Supabase, ""))
+  const catalogPromise = catalogRead.catch((error: unknown) => {
     console.error("[ExplorePage] Exception:", (error as { message?: string })?.message || error)
     return [] as any[]
   })

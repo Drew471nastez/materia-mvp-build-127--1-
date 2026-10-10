@@ -18,6 +18,8 @@ export interface Trip {
   query: string
   at: number
   background: boolean
+  /** Which key asked: "anon" (a stranger's), "service" (the server's own) or "user". */
+  key?: string
 }
 
 export interface VisitState {

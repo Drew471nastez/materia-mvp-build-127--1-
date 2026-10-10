@@ -133,6 +133,8 @@ export function buildFixture(): Fixture {
     community_id: null,
     pay_what_you_want: false,
   }))
+  /* A draft on the marketplace, which no public list may show. */
+  marketProducts.push({ ...marketProducts[0], id: uuid("34", 1), slug: "market-draft", title: `Draft ${DRAFT_MARKER}`, status: "draft", created_at: iso(0) })
   const onepage = {
     id: ONEPAGE.id,
     slug: ONEPAGE.slug,

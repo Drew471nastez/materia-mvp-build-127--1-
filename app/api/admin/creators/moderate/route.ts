@@ -7,6 +7,7 @@ import { adminFailure } from "@/lib/admin/gate"
 import { recordAdminAction } from "@/lib/admin/audit"
 import { plainReason } from "@/lib/admin/plain-reason"
 import { UUID_RE } from "@/lib/admin/platform-metrics"
+import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -367,6 +368,8 @@ async function must<T extends { error: { message: string } | null }>(
             .eq("status", "published"),
           "unpublish the products",
         )
+        /* Off Explore's shared catalogue now, not in a minute (lib/explore/catalogue-cache.ts). */
+        exploreCatalogueTakenDown()
       } else if (action === "unban") {
         await must(
           admin
