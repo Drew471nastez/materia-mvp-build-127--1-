@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson } from "@/lib/physical/auth"
 import { readPhysicalSetup } from "@/lib/home/physical-setup-server"
-import { physicalSteps } from "@/lib/home/physical-setup"
+import { physicalBlockers, physicalSteps } from "@/lib/home/physical-setup"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -10,5 +10,6 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const c = await physicalCaller()
   if (c instanceof NextResponse) return c
-  return physicalJson({ steps: physicalSteps(await readPhysicalSetup(c.db, c.creatorId)) })
+  const facts = await readPhysicalSetup(c.db, c.creatorId)
+  return physicalJson({ steps: physicalSteps(facts), blockers: physicalBlockers(facts) })
 }

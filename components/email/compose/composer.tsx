@@ -121,6 +121,8 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
   const doc = useDoc([newBlock("rich")])
   const [options, setOptions] = React.useState<AudienceOption[]>([])
   const [segments, setSegments] = React.useState<SegmentOption[]>([])
+  /* The creator's products, for New segment's "bought a product you pick". */
+  const [segmentProducts, setSegmentProducts] = React.useState<{ id: string; title: string }[]>([])
   const [plan, setPlan] = React.useState<{ limit: number; used: number } | null>(null)
   /* The look the email is sent in, read by the server as it is now (lib/email-campaigns/brand-server). */
   const [brand, setBrand] = React.useState<(Brand & { avatarUrl?: string | null; creatorName?: string }) | null>(null)
@@ -189,6 +191,7 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
           afterLayerMove(() => {
             setOptions(d.options ?? [])
             setSegments(d.segments ?? [])
+            setSegmentProducts(Array.isArray(d.products) ? d.products : [])
             setPlan(d.plan ?? null)
             setBrand(d.brand ?? null)
             setCanSetOpens(d.upgraded === true)
@@ -808,7 +811,18 @@ export function EmailComposer({ campaignId, onExit }: ComposerProps) {
                 <>
                   <section aria-label="Envelope" className={cn(card, "divide-y divide-[#eef0f2]")}>
                     <Row label="To" htmlFor="compose-to" error={fieldError.audience}>
-                      <AudiencePicker id="compose-to" value={audience} options={options} segments={segments} onChange={setAudience} />
+                      <AudiencePicker
+                        id="compose-to"
+                        value={audience}
+                        options={options}
+                        segments={segments}
+                        onChange={setAudience}
+                        products={segmentProducts}
+                        onSegmentCreated={(s) => {
+                          setSegments((list) => [...list.filter((x) => x.id !== s.id), s].sort((a, b) => a.name.localeCompare(b.name)))
+                          setAudience({ type: "segment", segmentId: s.id })
+                        }}
+                      />
                     </Row>
                     <Row label="From">
                       <p className="flex h-11 min-w-0 items-center truncate text-[16px] text-[#1a1a2e] sm:h-9 sm:text-[14px]">

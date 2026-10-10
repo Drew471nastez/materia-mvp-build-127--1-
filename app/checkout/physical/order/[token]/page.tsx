@@ -8,6 +8,7 @@ import { returnableQuantities } from "@/lib/physical/status"
 import { progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
 import { reasonsFor } from "@/lib/store/reasons-server"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -38,7 +39,11 @@ export default async function OrderStatusPage({ params, searchParams }: { params
   const since = Date.parse(order.lines.some((l) => l.requiresShipping) ? (order.shipments.find((s) => s.shippedAt)?.shippedAt ?? "") : (order.paidAt ?? ""))
   const windowOpen = settings.returnsEnabled && (!Number.isFinite(since) || Date.now() - since <= settings.returnWindowDays * 86_400_000)
   const openReturn = order.returns.some((r) => ["requested", "approved", "in_transit"].includes(r.status))
+  /* The store's pixels hear about the purchase once: on this page as it opens straight from paying (?paid=1), never on a later visit. */
+  const purchase = paid === "1" && order.status === "paid" ? { id: order.id, valueCents: order.totalCents, currency: order.currency, quantity: order.lines.reduce((n, l) => n + l.quantity, 0) } : null
   return (
+    <>
+    {purchase ? <StoreTracking creatorId={order.creatorId} purchase={purchase} /> : null}
     <OrderStatusView
       token={token}
       justPaid={paid === "1"}
@@ -63,5 +68,6 @@ export default async function OrderStatusPage({ params, searchParams }: { params
       reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
     />
+    </>
   )
 }

@@ -25,10 +25,12 @@ export interface PhysicalSetupFacts {
   physicalProducts: number
   stockedProducts: number
   packages: number
+  /** Whether a buyer can pay this store today (lib/payments/service). Null when it could not be read: then nothing is claimed either way. */
+  paymentsReady?: boolean | null
 }
 
 export interface PhysicalStep {
-  id: "fulfilment" | "location" | "delivery" | "product" | "package"
+  id: "fulfilment" | "location" | "delivery" | "product" | "package" | "payments"
   label: string
   line: string
   done: boolean
@@ -45,6 +47,16 @@ export function physicalSteps(f: PhysicalSetupFacts): PhysicalStep[] {
   ]
 }
 
+/**
+ * WHAT STILL STOPS A SALE, beside the five steps. Not a step of shipping, so
+ * it is not counted in "N of 5", but while it is open the setup is not done:
+ * a store with every shipping step ticked and no way to take payment cannot
+ * sell anything, and the card says so first.
+ */
+export function physicalBlockers(f: PhysicalSetupFacts): PhysicalStep[] {
+  return f.paymentsReady === false ? [{ id: "payments" as PhysicalStep["id"], label: "Set up payments to get paid", line: "Buyers can't pay for anything until this is done.", done: false, href: "/app/payouts" }] : []
+}
+
 export function physicalSetupDone(f: PhysicalSetupFacts): boolean {
-  return physicalSteps(f).every((s) => s.done)
+  return physicalSteps(f).every((s) => s.done) && physicalBlockers(f).length === 0
 }

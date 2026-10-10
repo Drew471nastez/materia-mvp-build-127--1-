@@ -301,6 +301,12 @@ export interface NotifyStore {
    * creator row.
    */
   setupProgress(userId: string): Promise<ProgressFacts | null>
+  /**
+   * Home's physical selling card for a store (lib/home/physical-setup.ts):
+   * its five steps and what stops a sale. Optional, so a store made for a
+   * test need not have it; null when it could not be read.
+   */
+  physicalSetup?(creatorId: string): Promise<{ steps: { id: string; label: string; href: string; done: boolean }[]; blockers: { id: string; label: string; href: string; done: boolean }[] } | null>
   payoutStatus(payoutId: string): Promise<string | null | undefined>
   disputeClosed(disputeId: string): Promise<boolean | null>
   domainStatus(domainId: string): Promise<{ status: string | null; sslStatus: string | null } | null | undefined>
@@ -836,6 +842,17 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         return await readProgressFacts(db, { userId })
       } catch (error) {
         fail("read setup progress", error as PgError)
+        return null
+      }
+    },
+
+    async physicalSetup(creatorId) {
+      try {
+        const [{ readPhysicalSetup }, { physicalSteps, physicalBlockers }] = await Promise.all([import("@/lib/home/physical-setup-server"), import("@/lib/home/physical-setup")])
+        const facts = await readPhysicalSetup(db, creatorId)
+        return { steps: physicalSteps(facts), blockers: physicalBlockers(facts) }
+      } catch (error) {
+        fail("read physical setup", error as PgError)
         return null
       }
     },

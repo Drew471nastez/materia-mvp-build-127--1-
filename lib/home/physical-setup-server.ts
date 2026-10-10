@@ -7,6 +7,7 @@ import "server-only"
  * ever asks for one more step than needed, never hides one.
  */
 import { loadLocations, loadPackages, loadProfiles, loadSettings } from "@/lib/physical/config-server"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
 import type { PhysicalSetupFacts } from "./physical-setup"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -14,12 +15,14 @@ type Db = any
 
 export async function readPhysicalSetup(db: Db, creatorId: string): Promise<PhysicalSetupFacts> {
   const safe = <T,>(p: Promise<T>, fallback: T) => p.catch(() => fallback)
-  const [settings, locations, profiles, packages, products] = await Promise.all([
+  const [settings, locations, profiles, packages, products, paymentsReady] = await Promise.all([
     safe(loadSettings(db, creatorId), null),
     safe(loadLocations(db, creatorId), []),
     safe(loadProfiles(db, creatorId), []),
     safe(loadPackages(db, creatorId), []),
     safe(Promise.resolve(db.from("products").select("id, track_inventory, continue_selling").eq("creator_id", creatorId).eq("type", "physical").limit(500)).then((r: { data: unknown[] | null }) => (r.data ?? []) as { id: string; track_inventory: boolean | null; continue_selling: boolean | null }[]), []),
+    /* Not knowing is not "not ready": a failed read claims nothing. */
+    safe(checkoutReadyForCreator(creatorId) as Promise<boolean | null>, null),
   ])
   let stocked = products.filter((p) => p.track_inventory === false || p.continue_selling === true).length
   const tracked = products.filter((p) => p.track_inventory !== false && p.continue_selling !== true).map((p) => p.id)
@@ -40,5 +43,6 @@ export async function readPhysicalSetup(db: Db, creatorId: string): Promise<Phys
     physicalProducts: products.length,
     stockedProducts: stocked,
     packages: packages.length,
+    paymentsReady,
   }
 }

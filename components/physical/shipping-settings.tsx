@@ -32,6 +32,7 @@ import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
 import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
+import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money } from "./ui"
@@ -919,6 +920,8 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
+  const format = addressFormat(f.country)
+  const postalOff = !!f.postalCode.trim() && !postalLooksRight(f.country, f.postalCode)
   return (
     <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -934,23 +937,9 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
             ))}
           </SelectInput>
         </Field>
-        <Field label="Address" className="sm:col-span-2">
-          <TextInput value={f.addressLine1} maxLength={200} onChange={(e) => set({ addressLine1: e.target.value })} autoComplete="address-line1" />
-        </Field>
-        <Field label="Apartment, suite" className="sm:col-span-2">
-          <TextInput value={f.addressLine2} maxLength={200} onChange={(e) => set({ addressLine2: e.target.value })} autoComplete="address-line2" />
-        </Field>
-        <Field label="City">
-          <TextInput value={f.city} maxLength={120} onChange={(e) => set({ city: e.target.value })} />
-        </Field>
-        <Field label="Region">
-          <TextInput value={f.region} maxLength={120} onChange={(e) => set({ region: e.target.value })} />
-        </Field>
-        <Field label="Postal code">
-          <TextInput value={f.postalCode} maxLength={20} onChange={(e) => set({ postalCode: e.target.value })} />
-        </Field>
-        <Field label="Country">
-          <SelectInput value={f.country} onChange={(v) => set({ country: v })}>
+        {/* COUNTRY FIRST, then the address the way that country writes it (lib/address/format): a State and ZIP code in the US, a Postcode and no state in the UK, a County in Romania. */}
+        <Field label="Country" className="sm:col-span-2">
+          <SelectInput value={f.country} onChange={(v) => set({ country: v, region: regionsOf(v).some((r) => r.code === f.region || r.name === f.region) ? f.region : "" })}>
             <option value="">Choose</option>
             {COUNTRIES.map((c) => (
               <option key={c.code} value={c.code}>
@@ -959,7 +948,35 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
             ))}
           </SelectInput>
         </Field>
-        <Field label="Phone">
+        <Field label="Address" className="sm:col-span-2">
+          <TextInput value={f.addressLine1} maxLength={200} onChange={(e) => set({ addressLine1: e.target.value })} autoComplete="address-line1" />
+        </Field>
+        <Field label="Apartment, suite (optional)" className="sm:col-span-2">
+          <TextInput value={f.addressLine2} maxLength={200} onChange={(e) => set({ addressLine2: e.target.value })} autoComplete="address-line2" />
+        </Field>
+        <Field label="City">
+          <TextInput value={f.city} maxLength={120} onChange={(e) => set({ city: e.target.value })} autoComplete="address-level2" />
+        </Field>
+        {format.region ? (
+          <Field label={format.region.required ? format.region.label : `${format.region.label} (optional)`}>
+            {regionsOf(f.country).length ? (
+              <SelectInput value={regionsOf(f.country).find((r) => r.code === f.region || r.name === f.region)?.code ?? ""} onChange={(v) => set({ region: v })}>
+                <option value="">Choose</option>
+                {regionsOf(f.country).map((r) => (
+                  <option key={r.code} value={r.code}>
+                    {r.name}
+                  </option>
+                ))}
+              </SelectInput>
+            ) : (
+              <TextInput value={f.region} maxLength={120} onChange={(e) => set({ region: e.target.value })} autoComplete="address-level1" />
+            )}
+          </Field>
+        ) : null}
+        <Field label={format.postal.required ? format.postal.label : `${format.postal.label} (optional)`} hint={postalOff ? `That doesn't look like a ${format.postal.label.replace(/ \(.*\)$/, "")}${format.postal.example ? `, like ${format.postal.example}` : ""}.` : undefined}>
+          <TextInput value={f.postalCode} maxLength={20} onChange={(e) => set({ postalCode: e.target.value })} autoComplete="postal-code" placeholder={format.postal.example} />
+        </Field>
+        <Field label="Phone (optional)">
           <TextInput value={f.phone} maxLength={40} inputMode="tel" onChange={(e) => set({ phone: e.target.value })} />
         </Field>
         <Field label="Email" hint={f.forwarding === "email" ? "New orders for this location go here" : undefined}>
@@ -976,44 +993,59 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
       </div>
       {f.forwarding === "webhook" ? <Notice tone="gray">Set your webhook address and secret in Integrations.</Notice> : null}
       {f.forwarding === "provider" ? <Notice tone="amber">Storelib can't send orders to providers yet. Orders from here are flagged for you to send yourself.</Notice> : null}
-      <Toggle label="Ships orders" description="Off to keep stock here without shipping from it." checked={f.fulfillsOrders} onChange={(v) => set({ fulfillsOrders: v })} />
-      <div className="rounded-xl border border-[#eceef1] bg-white p-3">
-        <Toggle
-          label={
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="h-4 w-4 text-[#6b7280]" />
-              Offer local pickup here
-            </span>
-          }
-          description="Buyers can choose to collect their order here instead of having it shipped. Free for them."
-          checked={f.pickupEnabled}
-          onChange={(v) => set({ pickupEnabled: v })}
-        />
-        {f.pickupEnabled ? (
-          <div className="mt-3 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)]">
-            <Field label="Usually ready in" hint="Shown at checkout">
-              <SelectInput value={f.pickupReady} onChange={(v) => set({ pickupReady: v as PickupReady })}>
-                {PICKUP_READY.map((r) => (
-                  <option key={r} value={r}>
-                    {PICKUP_READY_SHORT[r]}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field label="Pickup instructions" hint="Sent with the order confirmation and when it's ready">
-              <textarea
-                value={f.pickupInstructions}
-                maxLength={1000}
-                rows={3}
-                onChange={(e) => set({ pickupInstructions: e.target.value })}
-                placeholder="Ring the bell at the side door. Open weekdays 10am to 6pm. Bring your order number."
-                className={cn(FIELD, "h-auto min-h-[84px] py-2 leading-5")}
-              />
-            </Field>
+      {/*
+        WHAT HAPPENS HERE, in one list rather than a toggle, a card with a
+        toggle in it and another toggle under it. Pickup's details open
+        under its own switch. Active is for a location that already exists:
+        a new one is active, and turning one off is how it is kept without
+        being used.
+      */}
+      <div className="divide-y divide-[#eceef1] rounded-xl border border-[#eceef1] bg-white px-3" data-location-uses="">
+        <div className="py-3">
+          <Toggle label="Ships orders from here" description="Off to keep stock here without shipping from it." checked={f.fulfillsOrders} onChange={(v) => set({ fulfillsOrders: v })} />
+        </div>
+        <div className="py-3">
+          <Toggle
+            label={
+              <span className="inline-flex items-center gap-1.5">
+                <MapPin className="h-4 w-4 text-[#6b7280]" aria-hidden />
+                Local pickup
+              </span>
+            }
+            description="Buyers can collect their order here for free instead of having it shipped."
+            checked={f.pickupEnabled}
+            onChange={(v) => set({ pickupEnabled: v })}
+          />
+          {f.pickupEnabled ? (
+            <div className="mt-3 grid gap-3 sm:grid-cols-[200px_minmax(0,1fr)]">
+              <Field label="Usually ready in" hint="Shown at checkout">
+                <SelectInput value={f.pickupReady} onChange={(v) => set({ pickupReady: v as PickupReady })}>
+                  {PICKUP_READY.map((r) => (
+                    <option key={r} value={r}>
+                      {PICKUP_READY_SHORT[r]}
+                    </option>
+                  ))}
+                </SelectInput>
+              </Field>
+              <Field label="Pickup instructions" hint="Sent with the order confirmation and when it's ready">
+                <textarea
+                  value={f.pickupInstructions}
+                  maxLength={1000}
+                  rows={3}
+                  onChange={(e) => set({ pickupInstructions: e.target.value })}
+                  placeholder="Which door, opening hours, what to bring"
+                  className={cn(FIELD, "h-auto min-h-[84px] py-2 leading-5")}
+                />
+              </Field>
+            </div>
+          ) : null}
+        </div>
+        {initial ? (
+          <div className="py-3">
+            <Toggle label="In use" description="Off to keep this location without shipping from it or offering pickup." checked={f.active} onChange={(v) => set({ active: v })} />
           </div>
         ) : null}
       </div>
-      <Toggle label="Active" checked={f.active} onChange={(v) => set({ active: v })} />
       {error ? <Notice>{error}</Notice> : null}
       <div className="flex justify-end gap-2">
         <button type="button" className={BTN_SECONDARY} onClick={onCancel}>

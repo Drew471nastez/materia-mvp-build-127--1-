@@ -110,6 +110,8 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
   const [locations, setLocations] = React.useState<Loc[]>([])
   const [error, setError] = React.useState<string | null>(null)
   const [dialog, setDialog] = React.useState<{ fulfil: string[] } | "return" | "cancel" | { tracking: Shipment } | null>(null)
+  /* The newest five events, the rest one press away: a long history buried the actions on a phone. */
+  const [allEvents, setAllEvents] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
 
   const load = React.useCallback(async () => {
@@ -175,13 +177,13 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
                   <span className={cn("grid h-5 w-5 shrink-0 place-items-center rounded-full text-[10px] font-semibold", done ? "bg-[#1a1a2e] text-white" : here ? "border-2 border-[#1a1a2e] text-[#1a1a2e]" : "border border-[#d1d5db] text-[#9ca3af]")}>
                     {done ? <Check className="h-3 w-3" strokeWidth={3} /> : i + 1}
                   </span>
-                  <span className={cn("truncate text-[12px] font-medium sm:text-[12.5px]", here || done ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{pickup ? st.pickup : st.ship}</span>
+                  <span className={cn("truncate text-[13px] sm:text-[12px] font-medium sm:text-[12.5px]", here || done ? "text-[#1a1a2e]" : "text-[#9ca3af]")}>{pickup ? st.pickup : st.ship}</span>
                   {i < ORDER_STEPS.length - 1 ? <span className={cn("hidden h-px flex-1 sm:block", i < step ? "bg-[#1a1a2e]" : "bg-[#e5e7eb]")} /> : null}
                 </li>
               )
             })}
           </ol>
-          {order.fulfillmentStatus === "partially_fulfilled" ? <p className="mt-2 text-[12.5px] text-[#6b7280]">Part of this order has {pickup ? "been made ready" : "shipped"}. The rest is below.</p> : null}
+          {order.fulfillmentStatus === "partially_fulfilled" ? <p className="mt-2 text-[14px] sm:text-[12.5px] text-[#6b7280]">Part of this order has {pickup ? "been made ready" : "shipped"}. The rest is below.</p> : null}
         </section>
       ) : null}
 
@@ -192,18 +194,18 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
             <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 px-4 pt-3">
               <div className="flex items-center gap-2">
                 <Pill tone={fs.tone}>{gi === 0 ? fs.label : "Unfulfilled"}</Pill>
-                <span className="text-[12px] text-[#6b7280]">
+                <span className="text-[13px] sm:text-[12px] text-[#6b7280]">
                   {g.lines.reduce((n, l) => n + l.quantity - l.fulfilled, 0)} {pickup ? "to get ready" : "to ship"}
                 </span>
               </div>
-              <span className="truncate text-[12px] text-[#6b7280]">{pickup ? `Pickup at ${order.pickup?.name ?? "your location"}` : g.method === "self" ? (locName(g.locationId) ? `Shipped by you from ${locName(g.locationId)}` : "Shipped by you") : shippedByLabel(g.method, locName(g.locationId))}</span>
+              <span className="truncate text-[13px] sm:text-[12px] text-[#6b7280]">{pickup ? `Pickup at ${order.pickup?.name ?? "your location"}` : g.method === "self" ? (locName(g.locationId) ? `Shipped by you from ${locName(g.locationId)}` : "Shipped by you") : shippedByLabel(g.method, locName(g.locationId))}</span>
             </div>
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
               {g.lines.map((l) => (
                 <LineRow key={l.orderId} line={l} quantity={l.quantity - l.fulfilled} />
               ))}
             </ul>
-            {g.method !== "self" && !pickup ? <p className="mx-4 mt-2 rounded-lg bg-[#f7f7f8] px-3 py-2 text-[12.5px] text-[#4b5563]">{METHODS[g.method].afterSale}</p> : null}
+            {g.method !== "self" && !pickup ? <p className="mx-4 mt-2 rounded-lg bg-[#f7f7f8] px-3 py-2 text-[14px] sm:text-[12.5px] text-[#4b5563]">{METHODS[g.method].afterSale}</p> : null}
             <div className="flex flex-wrap justify-end gap-2 px-4 py-3">
               {gi === 0 && order.shipments.length === 0 ? (
                 <button type="button" className={BTN_SECONDARY} onClick={() => setDialog("cancel")} disabled={busy}>
@@ -246,20 +248,20 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
             <div className="flex min-h-[48px] flex-wrap items-center justify-between gap-2 px-4 pt-3">
               <div className="flex items-center gap-2">
                 <Pill tone={st.tone}>{st.label}</Pill>
-                <span className="text-[12px] text-[#6b7280]">{dateTime(s.shippedAt)}</span>
+                <span className="text-[13px] sm:text-[12px] text-[#6b7280]">{dateTime(s.shippedAt)}</span>
               </div>
               {pickup ? (
-                <span className="truncate text-[12.5px] text-[#6b7280]">{order.pickup?.name ?? "Pickup"}</span>
+                <span className="truncate text-[14px] sm:text-[12.5px] text-[#6b7280]">{order.pickup?.name ?? "Pickup"}</span>
               ) : s.trackingNumber ? (
                 s.trackingUrl ? (
-                  <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="truncate text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
+                  <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="truncate text-[15px] sm:text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
                     {[s.carrier, s.trackingNumber].filter(Boolean).join(" ")}
                   </a>
                 ) : (
-                  <span className="truncate text-[13px] text-[#1a1a2e]">{[s.carrier, s.trackingNumber].filter(Boolean).join(" ")}</span>
+                  <span className="truncate text-[15px] sm:text-[13px] text-[#1a1a2e]">{[s.carrier, s.trackingNumber].filter(Boolean).join(" ")}</span>
                 )
               ) : (
-                <span className="text-[12.5px] text-[#9ca3af]">No tracking</span>
+                <span className="text-[14px] sm:text-[12.5px] text-[#9ca3af]">No tracking</span>
               )}
             </div>
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
@@ -326,20 +328,20 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
         <div className="grid gap-4 sm:grid-cols-2">
           {pickup && order.pickup ? (
             <div>
-              <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Picked up at</h3>
-              <p className="mt-1 text-[13px] leading-[19px] text-[#4b5563]">
+              <h3 className="text-[15px] sm:text-[13px] font-semibold text-[#1a1a2e]">Picked up at</h3>
+              <p className="mt-1 text-[15px] sm:text-[13px] leading-[19px] text-[#4b5563]">
                 {[order.pickup.name, ...order.pickup.address].map((l) => (
                   <span key={l} className="block">
                     {l}
                   </span>
                 ))}
               </p>
-              <p className="mt-1 text-[12.5px] text-[#6b7280]">{PICKUP_READY_LABEL[order.pickup.ready]}</p>
+              <p className="mt-1 text-[14px] sm:text-[12.5px] text-[#6b7280]">{PICKUP_READY_LABEL[order.pickup.ready]}</p>
             </div>
           ) : (
             <div>
-              <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Ship to</h3>
-              <p className="mt-1 text-[13px] leading-[19px] text-[#4b5563]">
+              <h3 className="text-[15px] sm:text-[13px] font-semibold text-[#1a1a2e]">Ship to</h3>
+              <p className="mt-1 text-[15px] sm:text-[13px] leading-[19px] text-[#4b5563]">
                 {addressLines(order.address as any).map((l) => (
                   <span key={l} className="block">
                     {l}
@@ -349,15 +351,15 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
             </div>
           )}
           <div>
-            <h3 className="text-[13px] font-semibold text-[#1a1a2e]">Delivery</h3>
-            <p className="mt-1 text-[13px] text-[#4b5563]">
+            <h3 className="text-[15px] sm:text-[13px] font-semibold text-[#1a1a2e]">Delivery</h3>
+            <p className="mt-1 text-[15px] sm:text-[13px] text-[#4b5563]">
               {pickup ? "Local pickup, free" : order.delivery ? `${order.delivery.name}, ${order.shippingCents - order.shippingDiscountCents === 0 ? "free" : money(order.shippingCents - order.shippingDiscountCents)}` : "Not chosen"}
             </p>
-            {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12.5px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
+            {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[14px] sm:text-[12.5px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
             {order.buyerNote ? (
               <>
-                <h3 className="mt-3 text-[13px] font-semibold text-[#1a1a2e]">Buyer's note</h3>
-                <p className="mt-1 whitespace-pre-wrap text-[13px] text-[#4b5563]">{order.buyerNote}</p>
+                <h3 className="mt-3 text-[15px] sm:text-[13px] font-semibold text-[#1a1a2e]">Buyer's note</h3>
+                <p className="mt-1 whitespace-pre-wrap text-[15px] sm:text-[13px] text-[#4b5563]">{order.buyerNote}</p>
               </>
             ) : null}
           </div>
@@ -367,7 +369,7 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
       <section className={cn(CARD, "min-w-0")}>
         <div className="flex min-h-[48px] items-center justify-between gap-3 px-4 pt-3">
           <div className="flex items-center gap-2">
-            <h3 className="text-[14px] font-semibold text-[#1a1a2e]">Returns</h3>
+            <h3 className="text-[16px] sm:text-[14px] font-semibold text-[#1a1a2e]">Returns</h3>
             {order.returnStatus !== "none" ? <Pill tone={RETURN_LABEL[order.returnStatus].tone}>{RETURN_LABEL[order.returnStatus].label}</Pill> : null}
           </div>
           {order.status !== "refunded" && order.lines.some((l) => (l.requiresShipping ? l.fulfilled : l.quantity) - l.returned > 0) ? (
@@ -377,7 +379,7 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
             </button>
           ) : null}
         </div>
-        {order.returns.length === 0 ? <p className="px-4 pb-4 text-[13px] text-[#6b7280]">No returns.</p> : null}
+        {order.returns.length === 0 ? <p className="px-4 pb-4 text-[15px] sm:text-[13px] text-[#6b7280]">No returns.</p> : null}
         <ul className="space-y-3 px-4 pb-4">
           {order.returns.map((r) => (
             <ReturnBlock key={r.id} r={r} nameOfLine={nameOfLine} busy={busy} onMove={async (status, extra) => setError(await act({ action: "return_move", returnId: r.id, status, ...extra }))} />
@@ -388,19 +390,24 @@ export function PhysicalOrderPanel({ orderRowId, revision = 0, className }: { or
       <NoteCard order={order} onSave={(note) => act({ action: "note", note })} />
 
       <section className={cn(CARD, "min-w-0 px-4 py-4")}>
-        <h3 className="mb-2 text-[14px] font-semibold text-[#1a1a2e]">Order history</h3>
+        <h3 className="mb-2 text-[16px] sm:text-[14px] font-semibold text-[#1a1a2e]">Order history</h3>
         <ol className="space-y-2.5">
-          {order.events.map((e) => (
+          {(allEvents ? order.events : order.events.slice(0, 5)).map((e) => (
             <li key={e.id} className="flex gap-3">
               <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[#c4c8cf]" />
               <div className="min-w-0">
-                <p className="text-[13px] text-[#1a1a2e]">{e.message}</p>
-                <p className="text-[12px] text-[#9ca3af]">{dateTime(e.createdAt)}</p>
+                <p className="text-[15px] sm:text-[13px] text-[#1a1a2e]">{e.message}</p>
+                <p className="text-[13px] sm:text-[12px] text-[#9ca3af]">{dateTime(e.createdAt)}</p>
               </div>
             </li>
           ))}
-          {order.events.length === 0 ? <li className="text-[13px] text-[#6b7280]">Nothing yet.</li> : null}
+          {order.events.length === 0 ? <li className="text-[15px] sm:text-[13px] text-[#6b7280]">Nothing yet.</li> : null}
         </ol>
+        {order.events.length > 5 ? (
+          <button type="button" onClick={() => setAllEvents((v) => !v)} className="mt-3 text-[14px] font-medium text-[#4b5563] hover:text-[#1a1a2e] sm:text-[13px]" data-order-history-more="">
+            {allEvents ? "Show fewer" : `Show all ${order.events.length}`}
+          </button>
+        ) : null}
       </section>
 
       {dialog && typeof dialog === "object" && "fulfil" in dialog ? <FulfilDialog order={order} only={dialog.fulfil} onClose={() => setDialog(null)} onSubmit={async (body) => { const e = await act({ action: "fulfil", ...body }); if (!e) setDialog(null); return e }} /> : null}
@@ -425,10 +432,10 @@ function LineRow({ line, quantity }: { line: Line; quantity: number }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.title}</p>
-        <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? `SKU ${line.sku}` : null].filter(Boolean).join(" · ") || "Physical"}</p>
+        <p className="truncate text-[15px] sm:text-[13px] font-medium text-[#1a1a2e]">{line.title}</p>
+        <p className="truncate text-[13px] sm:text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? `SKU ${line.sku}` : null].filter(Boolean).join(" · ") || "Physical"}</p>
       </div>
-      <span className="text-[13px] font-medium tabular-nums text-[#1a1a2e]">&times; {quantity}</span>
+      <span className="text-[15px] sm:text-[13px] font-medium tabular-nums text-[#1a1a2e]">&times; {quantity}</span>
     </li>
   )
 }
@@ -484,8 +491,8 @@ function FulfilDialog({ order, only, onClose, onSubmit }: { order: Order; only?:
           {open.map((l) => (
             <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="min-w-0">
-                <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
-                <p className="text-[12px] text-[#6b7280]">{[l.variantName, `${l.quantity - l.fulfilled} ${pickup ? "to get ready" : "to ship"}`].filter(Boolean).join(" · ")}</p>
+                <p className="truncate text-[16px] sm:text-[14px] text-[#1a1a2e]">{l.title}</p>
+                <p className="text-[13px] sm:text-[12px] text-[#6b7280]">{[l.variantName, `${l.quantity - l.fulfilled} ${pickup ? "to get ready" : "to ship"}`].filter(Boolean).join(" · ")}</p>
               </div>
               <NumberInput value={qty[l.orderId] ?? ""} onChange={(v) => setQty((q) => ({ ...q, [l.orderId]: v }))} className="w-[80px] text-right" aria-label={`Units of ${l.title}`} />
             </li>
@@ -636,13 +643,13 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
             <li key={l.orderId} className="space-y-2 px-3 py-2.5">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate text-[14px] text-[#1a1a2e]">{l.title}</p>
-                  <p className="text-[12px] text-[#6b7280]">{[l.variantName, `${(l.requiresShipping ? l.fulfilled : l.quantity) - l.returned} can be returned`].filter(Boolean).join(" · ")}</p>
+                  <p className="truncate text-[16px] sm:text-[14px] text-[#1a1a2e]">{l.title}</p>
+                  <p className="text-[13px] sm:text-[12px] text-[#6b7280]">{[l.variantName, `${(l.requiresShipping ? l.fulfilled : l.quantity) - l.returned} can be returned`].filter(Boolean).join(" · ")}</p>
                 </div>
                 <NumberInput value={qty[l.orderId] ?? ""} placeholder="0" onChange={(v) => setQty((q) => ({ ...q, [l.orderId]: v }))} className="w-[80px] text-right" aria-label={`Units of ${l.title} to return`} />
               </div>
               {l.type === "physical" && Number(qty[l.orderId]) > 0 ? (
-                <label className="flex items-center gap-2 text-[13px] text-[#4b5563]">
+                <label className="flex items-center gap-2 text-[15px] sm:text-[13px] text-[#4b5563]">
                   <input type="checkbox" checked={restock[l.orderId] !== false} onChange={(e) => setRestock((r) => ({ ...r, [l.orderId]: e.target.checked }))} className="h-4 w-4 accent-[#1a1a2e]" />
                   Put back in stock when received
                 </label>
@@ -669,9 +676,9 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
           </Field>
         </div>
         <Field label="Instructions for the buyer" hint="Emailed with the approval">
-          <textarea value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[14px] outline-none focus:border-[#9ca3af]" />
+          <textarea value={note} maxLength={1000} onChange={(e) => setNote(e.target.value)} rows={3} className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[16px] sm:text-[14px] outline-none focus:border-[#9ca3af]" />
         </Field>
-        <p className="text-[12.5px] text-[#6b7280]">Refund the money with Refund on this order when you're ready. A return doesn't refund by itself.</p>
+        <p className="text-[14px] sm:text-[12.5px] text-[#6b7280]">Refund the money with Refund on this order when you're ready. A return doesn't refund by itself.</p>
         {error ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
@@ -685,14 +692,14 @@ function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine
   return (
     <li className="rounded-xl border border-[#eceef1] px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="flex items-center gap-2 text-[13.5px] font-medium text-[#1a1a2e]">
+        <p className="flex items-center gap-2 text-[15px] sm:text-[13.5px] font-medium text-[#1a1a2e]">
           <Pill tone={tone}>{label[r.status] ?? r.status}</Pill>
           {reasonLabel(r.reason, "return", reasons)}
-          {r.requestedBy === "buyer" ? <span className="text-[12px] font-normal text-[#6b7280]">asked by the buyer</span> : null}
+          {r.requestedBy === "buyer" ? <span className="text-[13px] sm:text-[12px] font-normal text-[#6b7280]">asked by the buyer</span> : null}
         </p>
-        <span className="text-[12px] text-[#9ca3af]">{dateTime(r.createdAt)}</span>
+        <span className="text-[13px] sm:text-[12px] text-[#9ca3af]">{dateTime(r.createdAt)}</span>
       </div>
-      <ul className="mt-1.5 text-[13px] text-[#4b5563]">
+      <ul className="mt-1.5 text-[15px] sm:text-[13px] text-[#4b5563]">
         {r.items.map((i) => (
           <li key={i.id}>
             {i.quantity} &times; {nameOfLine(i.orderId)}
@@ -700,7 +707,7 @@ function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine
           </li>
         ))}
       </ul>
-      {r.customerNote ? <p className="mt-1.5 text-[13px] italic text-[#4b5563]">&ldquo;{r.customerNote}&rdquo;</p> : null}
+      {r.customerNote ? <p className="mt-1.5 text-[15px] sm:text-[13px] italic text-[#4b5563]">&ldquo;{r.customerNote}&rdquo;</p> : null}
       <div className="mt-2 flex flex-wrap gap-2">
         {r.status === "requested" ? (
           <>
@@ -752,7 +759,7 @@ function CancelDialog({ onClose, onSubmit }: { onClose: () => void; onSubmit: (r
         </>
       }
     >
-      <p className="text-[14px] leading-[21px] text-[#4b5563]">Its stock goes back on sale. The payment isn't refunded by this: use Refund on the order for that.</p>
+      <p className="text-[16px] sm:text-[14px] leading-[21px] text-[#4b5563]">Its stock goes back on sale. The payment isn't refunded by this: use Refund on the order for that.</p>
       <Field label="Reason" hint="Optional, for your history" className="mt-3">
         <TextInput value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
       </Field>
@@ -767,8 +774,8 @@ function NoteCard({ order, onSave }: { order: Order; onSave: (note: string) => P
   const changed = note !== (order.merchantNote ?? "")
   return (
     <section className={cn(CARD, "min-w-0 px-4 py-4")}>
-      <h3 className="mb-2 text-[14px] font-semibold text-[#1a1a2e]">Notes</h3>
-      <textarea value={note} maxLength={4000} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Only you can see this" className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[14px] outline-none focus:border-[#9ca3af]" />
+      <h3 className="mb-2 text-[16px] sm:text-[14px] font-semibold text-[#1a1a2e]">Notes</h3>
+      <textarea value={note} maxLength={4000} onChange={(e) => setNote(e.target.value)} rows={2} placeholder="Only you can see this" className="w-full rounded-lg border border-[#e5e7eb] px-3 py-2 text-[16px] sm:text-[14px] outline-none focus:border-[#9ca3af]" />
       {changed || state === "saved" ? (
         <div className="mt-2 flex justify-end">
           <button

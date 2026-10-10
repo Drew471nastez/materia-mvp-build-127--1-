@@ -25,6 +25,7 @@ import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/w
 import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { regionsOf } from "@/lib/physical/regions"
+import { addressFormat } from "@/lib/address/format"
 import { countryName } from "@/lib/checkout/countries"
 import { actionKey } from "@/components/physical/ui"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
@@ -620,14 +621,15 @@ export function PhysicalCheckout({
                 {config.company !== "off" ? field("company", config.company === "required" ? "Company" : "Company (optional)", { autoComplete: "organization" }) : null}
                 {field("line1", "Address", { autoComplete: "address-line1" })}
                 {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite (optional)", { autoComplete: "address-line2" }) : null}
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
+                {/* The country's own words and fields (lib/address/format): no state where nobody writes one, a ZIP code in the US, a Postcode in the UK. */}
+                <div className={cn("grid gap-3", addressFormat(address.country).region ? "grid-cols-2 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1" : "grid-cols-2")}>
                   {field("city", "City", { autoComplete: "address-level2" })}
-                  {regionsOf(address.country).length ? (
+                  {!addressFormat(address.country).region ? null : regionsOf(address.country).length ? (
                     <label className="block">
-                      <span className="sr-only">State</span>
+                      <span className="sr-only">{addressFormat(address.country).region?.label}</span>
                       <div className="relative">
                         <select value={address.region} onChange={(e) => setAddress((a) => ({ ...a, region: e.target.value }))} autoComplete="address-level1" className={cn(INPUT, "appearance-none pr-9")}>
-                          <option value="">{address.country === "CA" ? "Province" : "State"}</option>
+                          <option value="">{addressFormat(address.country).region?.label}</option>
                           {regionsOf(address.country).map((r) => (
                             <option key={r.code} value={r.code}>
                               {r.name}
@@ -638,9 +640,9 @@ export function PhysicalCheckout({
                       </div>
                     </label>
                   ) : (
-                    field("region", "State or region", { autoComplete: "address-level1" })
+                    field("region", addressFormat(address.country).region?.required ? addressFormat(address.country).region!.label : `${addressFormat(address.country).region?.label ?? "Region"} (optional)`, { autoComplete: "address-level1" })
                   )}
-                  {field("postalCode", postalCodeRequired(address.country || "US") ? "Postal code" : "Postal code (optional)", { autoComplete: "postal-code" })}
+                  {field("postalCode", postalCodeRequired(address.country || "US") ? addressFormat(address.country || "US").postal.label : `${addressFormat(address.country).postal.label} (optional)`, { autoComplete: "postal-code" })}
                 </div>
                 {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone, for the courier" : "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" }) : null}
               </div>
