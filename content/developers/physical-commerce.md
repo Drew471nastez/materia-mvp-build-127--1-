@@ -58,6 +58,8 @@ A cart with anything that ships goes to Storelib's cart checkout:
 /checkout/physical?shop=<store id>&items=<cart>&return=<page to come back to>
 ```
 
+A product that ships is never paid for in the digital checkout: a `/checkout?productId=` link for one (an older theme's Buy button, a shared link) is sent on to the cart checkout with the option it named. The cart checkout's Back link is the page the buyer came from only when that page is one of the store's own websites.
+
 `items` is the cart as ids and quantities only: a JSON list of `[productId, variantId, quantity]`, base64url encoded, up to 50 lines. Nothing else in it is read, and nothing in it is trusted beyond being well formed. The website's own checkout button builds this for you; a section only needs it to make a Buy now link of its own.
 
 ## What the checkout does
