@@ -101,7 +101,8 @@ import { enterCommunityContext } from "@/lib/nav/community-context"
 import { rememberCommunityChrome } from "@/lib/nav/community-chrome-cache"
 import { InviteSheet } from "./invite-sheet"
 import { preloadSearchIndex } from "./search"
-import { PRESS_PROPS, TAB, TAB_OFF, TAB_ON } from "./ui"
+import { press, TAB, TAB_OFF, TAB_ON } from "./ui"
+import { CLICK_AFTER_MS, isTap, pressShowsAtOnce, type Press } from "./chip-hit"
 import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-types"
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
@@ -699,6 +700,37 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
   const touching = useRef(false)
   const lastScroll = useRef(0)
   const drawn = useRef(false)
+  /*
+    THE TAP IS TAKEN ON THE LIFT (round 18, the space pills' rule, chip-hit.ts). A tab was a link answered by the browser's
+    click, and a phone sends none for a tap that stopped the row's scroll or rolled a little: the tap did nothing and the
+    second one worked. A finger that lands on a tab and lifts within TAP_SLOP and TAP_MS is that tab, whatever the browser
+    does with the click; the click it may still send after is the same tap and is let go (CLICK_AFTER_MS). A mouse, a pen
+    on a computer and the keyboard keep the click. Nothing changes on the tab before the lift (ui.ts TAB).
+  */
+  const tabDown = useRef<(Press & { id: number }) | null>(null)
+  const tookAt = useRef(0)
+  const tabPress = {
+    onPointerDown: (ev: React.PointerEvent<HTMLAnchorElement>) => {
+      if (pressShowsAtOnce(ev.pointerType)) press(ev)
+      tabDown.current = ev.button === 0 && !pressShowsAtOnce(ev.pointerType) ? { x: ev.clientX, y: ev.clientY, t: performance.now(), id: ev.pointerId } : null
+    },
+    onPointerUp: (ev: React.PointerEvent<HTMLAnchorElement>) => {
+      ev.currentTarget.removeAttribute("data-pressed")
+      const started = tabDown.current?.id === ev.pointerId ? tabDown.current : null
+      tabDown.current = null
+      if (!started || !isTap(started, { x: ev.clientX, y: ev.clientY, t: performance.now() })) return
+      tookAt.current = performance.now()
+      /* The same path a click takes (the frame's link handler: the navigator's go), so the two can never differ. */
+      ev.currentTarget.click()
+    },
+    onPointerCancel: (ev: React.PointerEvent<HTMLAnchorElement>) => {
+      ev.currentTarget.removeAttribute("data-pressed")
+      tabDown.current = null
+    },
+    onPointerLeave: (ev: React.PointerEvent<HTMLAnchorElement>) => {
+      if (ev.pointerType === "mouse") ev.currentTarget.removeAttribute("data-pressed")
+    },
+  }
   const measure = () => {
     const el = trackRef.current
     if (!el) return
@@ -736,7 +768,18 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
     return () => window.clearTimeout(timer)
   }, [current])
   return (
-    <nav aria-label="Community sections" data-community-tabs="" className="relative w-full">
+    <nav
+      aria-label="Community sections"
+      data-community-tabs=""
+      className="relative w-full"
+      onClickCapture={(ev) => {
+        /* The browser's own click after a tap already taken on the lift (above): the same tap, not a second one. */
+        if (ev.nativeEvent.isTrusted && performance.now() - tookAt.current < CLICK_AFTER_MS && (ev.target as Element | null)?.closest?.("[data-community-nav]")) {
+          ev.preventDefault()
+          ev.stopPropagation()
+        }
+      }}
+    >
       {/* The row lines up with the page under it (1360px, About's 1080px). */}
       <div className={`mx-auto flex w-full items-stretch ${wide ? "lg:max-w-[1360px]" : "lg:max-w-[1080px]"}`}>
         <div className="relative min-w-0 flex-1">
@@ -749,14 +792,15 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
             onTouchStart={() => (touching.current = true)}
             onTouchEnd={() => (touching.current = false)}
             onTouchCancel={() => (touching.current = false)}
-            className="overflow-x-auto overscroll-x-contain scrollbar-hide [-webkit-overflow-scrolling:touch]"
+            className="-my-[2px] overflow-x-auto overscroll-x-contain scrollbar-hide [-webkit-overflow-scrolling:touch]"
             data-community-tabs-track=""
           >
-            <div className="flex w-max min-w-full items-end gap-6 px-4 sm:gap-7 sm:px-6 lg:px-8">
+            {/* 2px above and below, taken back by the track's margin: room inside the scroll box for the tabs' 44px hit areas (ui.ts TAB). */}
+            <div className="flex w-max min-w-full items-end gap-6 px-4 py-[2px] sm:gap-7 sm:px-6 lg:px-8">
               {entries.map((e) => {
                 const on = current === e.key
                 return (
-                  <Link key={e.key} href={e.href} {...FULL_ON_HOVER} {...PRESS_PROPS} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
+                  <Link key={e.key} href={e.href} {...FULL_ON_HOVER} {...tabPress} onClick={(ev) => { if (plainClick(ev)) onGo?.(e.key) }} data-on={on ? "true" : "false"} data-community-nav={e.label} aria-current={on ? "page" : undefined} className={`${TAB} ${on ? TAB_ON : TAB_OFF}`}>
                     {/* The chosen word a step heavier; its heavier twin (::after, unseen and unread) holds the width, so nothing in the row moves. */}
                     <span className="inline-grid after:invisible after:col-start-1 after:row-start-1 after:font-semibold after:content-[attr(data-label)]" data-label={e.label}>
                       <span className={`col-start-1 row-start-1 ${on ? "font-semibold" : "font-medium"}`}>{e.label}</span>

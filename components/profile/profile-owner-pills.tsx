@@ -163,7 +163,8 @@ function OwnerPill({ pill: p, on, current, onPress, onDown }: { pill: OwnerPillL
       data-profile-owner-pill={p.key}
       data-active={on ? "true" : "false"}
       onPointerDown={(e) => {
-        if (e.button === 0 && !on) pressPill(e.currentTarget)
+        /* A finger shows nothing before the lift (round 18, as the space pills: a touch that only rested to scroll faded the tint in and out). */
+        if (e.button === 0 && !on && e.pointerType === "mouse") pressPill(e.currentTarget)
         tap.onPointerDown(e)
         onDown()
       }}

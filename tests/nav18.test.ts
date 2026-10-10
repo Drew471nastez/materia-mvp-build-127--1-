@@ -26,6 +26,7 @@
 import { readCode, readSource } from "./_source"
 import { arrivedByTab, noteTabArrival } from "@/lib/nav/tab-swap"
 import { KEEP_FRESH_MS } from "@/components/nav/keep-fresh"
+import { pressShowsAtOnce, TAB_GAP, TAB_GAP_SM, TAB_HIT_X, TAB_HIT_X_SM, TAB_HIT_Y, TAB_TOUCH_H } from "@/components/community/member/chip-hit"
 
 let passed = 0
 let failed = 0
@@ -111,6 +112,22 @@ console.log("\nPILLS AND POSTS: the account's pages and its posts are already re
   check("and the moment a finger lands on it; the router's own partial read ahead is not made as well", /prefetch=\{false\}\s*onPointerDown=\{\(\) => prefetchHref\(router, post\.href, "press"\)\}/.test(posts))
 }
 
+console.log("\nTOUCH: nothing changes before a real press; the row of places takes a tap like the pills (items 5 and 9)")
+{
+  const chips = code("components/community/member/space-chips.tsx")
+  const pills = code("components/profile/profile-owner-pills.tsx")
+  const frame = code("components/community/member/shell-frame.tsx")
+  const ui = code("components/community/member/ui.ts")
+  check("a finger shows nothing before the lift, a mouse shows its press at once", !pressShowsAtOnce("touch") && !pressShowsAtOnce("pen") && pressShowsAtOnce("mouse"))
+  check("the space pills' press tint is a mouse's only", /if \(pressShowsAtOnce\(e\.pointerType\)\) pressChip\(e\.currentTarget\)/.test(chips))
+  check("the account's pills too", /e\.pointerType === "mouse"\) pressPill\(e\.currentTarget\)/.test(pills))
+  check("a tab's dim on :active is for a device that hovers, not a finger", /\[@media\(hover:hover\)\]:active:opacity-55/.test(ui) && !/ active:opacity-55/.test(ui))
+  check("a tab's hit area covers the gaps on both sides (24px, and 28px from 640px), the neighbours meeting", 2 * TAB_HIT_X >= TAB_GAP && 2 * TAB_HIT_X_SM >= TAB_GAP_SM && /after:-inset-x-\[12\.5px\]/.test(ui) && /sm:after:-inset-x-\[14\.5px\]/.test(ui))
+  check("and is 44px tall, inside 2px of the row's own padding that the track's margin takes back", TAB_TOUCH_H >= 44 && TAB_HIT_Y === 2 && /after:-inset-y-\[2px\]/.test(ui) && /items-end gap-6 px-4 py-\[2px\]/.test(frame) && /-my-\[2px\] overflow-x-auto/.test(frame))
+  check("a tab is taken on the lift when the finger stayed (isTap), through the same click the frame handles", /isTap\(started, \{ x: ev\.clientX, y: ev\.clientY, t: performance\.now\(\) \}\)/.test(frame) && /ev\.currentTarget\.click\(\)/.test(frame) && /\{\.\.\.tabPress\}/.test(frame))
+  check("and the browser's own click after it is let go (trusted, inside CLICK_AFTER_MS)", /ev\.nativeEvent\.isTrusted && performance\.now\(\) - tookAt\.current < CLICK_AFTER_MS/.test(frame))
+}
+
 console.log("\nCOPY")
 {
   const files = [
@@ -126,6 +143,8 @@ console.log("\nCOPY")
     "components/nav/keep-fresh.ts",
     "components/account/account-posts.tsx",
     "components/profile/profile-owner-pills.tsx",
+    "components/community/member/chip-hit.ts",
+    "components/community/member/ui.ts",
   ]
   /* The words are spelled out in pieces here so this file does not hold them itself. */
   const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")

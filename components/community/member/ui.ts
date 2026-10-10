@@ -69,7 +69,16 @@ export const PILL_OFF = "border-[#e4e7ec] bg-white text-[#6b7280] shadow-[0_1px_
  * from 1024px the places are the list in the left column (wall.tsx).
  */
 export const TAB =
-  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px]"
+  "group/tab relative inline-flex h-10 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap px-0.5 text-[14.5px] font-medium outline-none transition-colors duration-150 [@media(hover:hover)]:active:opacity-55 data-[pressed]:opacity-55 focus-visible:text-[#1a1a2e] focus-visible:underline focus-visible:decoration-[#1a1a2e]/30 focus-visible:underline-offset-4 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent] sm:text-[14px] " +
+  /*
+    ROUND 18, THE OWNER: "the Community, Learn, Calendar, Members, Leaderboard, About tabs: on phones make them easier to tap,
+    no double taps, no exact touch needed". The space pills' rules (chip-hit.ts): a tab's hit area (the ::after, which draws
+    nothing) reaches TAB_HIT_X into each gap, so the 24px between two tabs (28px from 640px) is all theirs and the two meet in
+    the middle, and TAB_HIT_Y above and below, into the row's own padding (shell-frame.tsx SectionTabs), so the place that
+    takes a tap is 44px tall. The dim on a press is a mouse's: on a touch screen :active and the press mark waited for no tap
+    at all, so a finger that only rested on a tab to scroll the row dimmed it.
+  */
+  "after:absolute after:-inset-x-[12.5px] after:-inset-y-[2px] after:content-[''] sm:after:-inset-x-[14.5px]"
 export const TAB_ON = "text-[#1a1a2e]"
 export const TAB_OFF = "text-[#6b7280] hover:text-[#1a1a2e]"
 
