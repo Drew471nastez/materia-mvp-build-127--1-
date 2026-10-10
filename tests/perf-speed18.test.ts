@@ -237,7 +237,7 @@ async function onePage() {
     Here: both sides go through the one cached reader, keyed by the blocks.
   */
   const lib = code("lib/onepage/published-page.ts")
-  check("the metadata and the body share one read of the page's products, per request", /const liveBlocksOnce = cache\(/.test(lib) && /liveProducts \? await liveBlocksFor\(/.test(lib) && /await liveBlocksFor\(transformedOnepage\.seller_id/.test(code("app/(marketing)/l/[slug]/page.tsx")))
+  check("the metadata and the body share one read of the page's products, per request", /const liveBlocksOnce = cache\(/.test(lib) && /liveProducts \? await liveBlocksFor\(/.test(lib) && /\.blocks = await liveBlocksFor\(\w+\.seller_id/.test(code("app/(marketing)/l/[slug]/page.tsx")))
   const first = await visit(() => liveBlocksFor(SITE.creatorId, blocks))
   const productReads = (r: typeof first) => r.trips.filter((t) => t.table === "products").length
   check("and it answers what withLiveProducts answers", JSON.stringify(first.value) === JSON.stringify(await (await import("@/lib/onepage/live-products")).withLiveProducts((await import("@/lib/supabase/admin")).createAdminClient() as never, SITE.creatorId, blocks)))
