@@ -10,6 +10,7 @@
  *   /account/library         the library's sub pills over the products list
  *   /account/library/<tab>   the sub pills over that tab's shape
  *   /account/settings        Settings
+ *   /account/posts           your posts from every community (round 16)
  *
  * Globals a probe may set before load: __signedIn, __seller (true, or
  * "seller", "started", "none"), __oauthOnly, __emptyLibrary, __username
@@ -28,6 +29,8 @@ import { LibraryHome } from "@/components/library/library-home"
 import { skeletonFor } from "@/components/library/library-skeletons"
 import type { SellerState } from "@/lib/account/seller-access"
 import type { LibraryItem } from "@/lib/library/library-view"
+import { AccountPosts } from "@/components/account/account-posts"
+import type { ProfilePostView } from "@/lib/communities/member-profile-view"
 
 const flag = (k: string) => (window as unknown as Record<string, unknown>)[k]
 
@@ -83,7 +86,18 @@ const COVER =
   "data:image/svg+xml;utf8," +
   encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 600" width="1600" height="600"><rect width="1600" height="600" fill="#d9d2c5"/><path d="M0 430 C 420 320, 860 520, 1600 380 L1600 600 L0 600 Z" fill="#8a7f6c"/><circle cx="300" cy="170" r="70" fill="#f4efe6"/></svg>`)
 
+const CLAY = { id: "c1", slug: "clay-studio", name: "Clay Studio", logoUrl: thumb("#1a1a2e", "#f4efe6") }
+const RETOUCH = { id: "c2", slug: "retouch-club", name: "Retouch Club", logoUrl: null }
+const POSTS: ProfilePostView[] = [
+  { id: "p1", title: "First firing of the new glaze", excerpt: "Came out greener than the test tile. Anyone else seeing that with the celadon?", space: "Show and tell", at: ago(3), reactions: 4, comments: 2, href: "/community/clay-studio/post/p1", imageUrl: thumb("#bbf7d0", "#065f46"), community: CLAY, canEdit: true, canDelete: true },
+  { id: "p2", title: "Where do you buy brushes for frequency separation?", excerpt: null, space: "General", at: ago(30), reactions: 0, comments: 5, href: "/community/retouch-club/post/p2", imageUrl: null, community: RETOUCH, canEdit: true, canDelete: true },
+  { id: "p3", title: "Studio hours over the holidays", excerpt: "We open late on the 24th and stay closed on the 25th.", space: null, at: ago(120), reactions: 11, comments: 0, href: "/community/clay-studio/post/p3", imageUrl: null, community: CLAY, canEdit: false, canDelete: true },
+]
+
 function Page({ path }: { path: string }) {
+  if (path === "/account/posts") {
+    return <AccountPosts initial={flag("__noPosts") ? { posts: [], next: null } : { posts: POSTS, next: "more" }} now={NOW} />
+  }
   if (path === "/account") {
     return <ProfileActivity userId="u1" initial={ACTIVITY} initialNext={null} now={NOW} emptyText="Nothing here yet." />
   }

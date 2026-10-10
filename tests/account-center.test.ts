@@ -85,11 +85,12 @@ console.log("\nThe new places")
 console.log("\nThe profile center's pills")
 {
   /* Round 5: Edit profile left the pills for a button on the cover. */
-  check("Activity, Communities, Library, Settings (Edit profile is on the cover now)", ownerPillLinks(true).map((p) => `${p.label} ${p.href}`).join() === "Activity /account,Communities /account/communities,Library /account/library,Settings /account/settings?section=profile")
-  check("Communities only while the switch is on", ownerPillLinks(false).map((p) => p.key).join() === "activity,library,settings")
+  /* Round 16: Posts, your posts from every community (app/account/posts), after Activity (tests/account-pills16.test.ts). */
+  check("Activity, Posts, Communities, Library, Settings (Edit profile is on the cover now)", ownerPillLinks(true).map((p) => `${p.label} ${p.href}`).join() === "Activity /account,Posts /account/posts,Communities /account/communities,Library /account/library,Settings /account/settings?section=profile")
+  check("Posts and Communities only while the switch is on", ownerPillLinks(false).map((p) => p.key).join() === "activity,library,settings")
   check("every library address lights Library", ["/account/library", "/account/library/courses", "/account/library/products/x"].every((p) => ownerPillFor(p) === "library"))
   /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them". */
-  check("the person's header stands over Activity and Communities only: not over the library, not over Settings", showsProfileHeader("/account") && showsProfileHeader("/account/communities") && !showsProfileHeader("/account/library") && !showsProfileHeader("/account/library/wishlist") && !showsProfileHeader("/account/library/courses/c1") && !showsProfileHeader("/account/settings"))
+  check("the person's header stands over Activity, Posts and Communities only: not over the library, not over Settings", showsProfileHeader("/account") && showsProfileHeader("/account/posts") && showsProfileHeader("/account/communities") && !showsProfileHeader("/account/library") && !showsProfileHeader("/account/library/wishlist") && !showsProfileHeader("/account/library/courses/c1") && !showsProfileHeader("/account/settings"))
   const pills = read("components/profile/profile-owner-pills.tsx")
   check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /transition-\[opacity/.test(pills) && /opacity-100" : "opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")

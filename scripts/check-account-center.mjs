@@ -239,7 +239,7 @@ try {
       expect(!m.camera, "  and nothing beside it: no camera button for the cover (it is placed in Settings)", m.camera)
       /* Round 13: the button is pinned 12px under the real header at every width and holds that place while the cover is on screen (scripts/check-profile-band.mjs measures the whole travel). */
       expect(m.edit.top - m.cover.top <= 16 && m.edit.right <= (m.width + 960) / 2, "  pinned just inside the band's top, inside the profile's column", { edit: m.edit, cover: m.cover, avatar: m.avatar })
-      expect(m.owner.map((x) => x[0]).join() === "Activity,Communities,Library,Settings" && m.owner[0][1] === "true", "the four owner pills, Activity lit, no Edit profile pill", m.owner)
+      expect(m.owner.map((x) => x[0]).join() === "Activity,Posts,Communities,Library,Settings" && m.owner[0][1] === "true", "the five owner pills (Posts since round 16), Activity lit, no Edit profile pill", m.owner)
       expect(!m.follow, "no Follow on your own page", m.follow)
       /* Round 13: the list carries only things somebody did. The day you joined is a row under About instead (components/profile/person-about.tsx). */
       expect(m.last !== "joined_storelib", "the activity has no Joined Storelib row", m.last)
