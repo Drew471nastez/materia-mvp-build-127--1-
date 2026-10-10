@@ -4,4 +4,4 @@
  * tests read it without React; the hooks live in navigator-context.tsx. Both are here, under one name.
  */
 export * from "./places"
-export { addressFor, CommunityNavigatorProvider, useCommunityNavigator, useNavigatorOutsideCommunity, type CommunityNavigator, type GoOptions, type NavigatorHooks } from "./navigator-context"
+export { addressFor, CommunityNavigatorProvider, registeredRefresh, useCommunityNavigator, useRegisterPlaceRefresh, useNavigatorOutsideCommunity, type CommunityNavigator, type GoOptions, type NavigatorHooks } from "./navigator-context"
