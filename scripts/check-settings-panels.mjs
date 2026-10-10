@@ -261,6 +261,17 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     say(sent.length === 1 && sent[0].body.id === "ga4" && sent[0].body.value === "ua-123", `Install sends the ID as typed; the server checks it: ${JSON.stringify(sent[0]?.body)}`)
   }
 
+  console.log(`\nCustomer emails on ${name}`)
+  await open("emails", vp, { ...API, "GET /api/store/emails/preview": { subject: "Order #1042 confirmed", html: `<!doctype html><html><body style="margin:0"><div style="height:900px;background:#fff">Thank you for your purchase!</div></body></html>` } })
+  const e1 = await fits()
+  say(e1.over <= 0 && e1.cut.length === 0, `nothing runs off the side or is cut (${e1.over}px over${e1.cut.length ? `, cut: ${e1.cut.join(" | ")}` : ""})`)
+  const mails = await page.evaluate(() => [...document.querySelectorAll("[data-customer-email]")].map((b) => b.getAttribute("data-customer-email")))
+  say(mails.includes("receipt") && mails.includes("order_confirmation") && mails.includes("shipping_confirmation") && mails.includes("return_completed"), `every email a buyer gets, grouped: ${mails.length} (${mails.slice(0, 4).join(", ")}…)`)
+  await page.evaluate(() => document.querySelector('[data-customer-email="order_confirmation"]').click())
+  await wait(400)
+  const pv = await page.evaluate(() => { const f = document.querySelector("[data-email-preview] iframe"); return { subject: document.querySelector("[data-email-preview]")?.textContent?.includes("Order #1042 confirmed"), frame: !!f, sandbox: f?.getAttribute("sandbox"), h: f ? Math.round(f.getBoundingClientRect().height) : 0 } })
+  say(pv.subject && pv.frame && pv.sandbox === "allow-same-origin" && pv.h >= 800, `the preview: its subject, the email in a frame that runs no script, as tall as the email (${pv.h}px)`)
+
   console.log(`\nThe checkout's tax line on ${name}`)
   await open("totals", vp)
   const k = await fits()

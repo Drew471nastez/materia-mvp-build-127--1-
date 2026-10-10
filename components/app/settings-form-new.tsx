@@ -57,6 +57,7 @@ import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
+import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -81,6 +82,8 @@ const TABS = [
   { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
   /* Where products are listed: the Online store, the Creator page, Explore and the store's own (components/app/settings/channels-panel.tsx). */
   { id: "channels", label: "Sales channels", icon: Share2, group: "store", line: "Where your products are listed" },
+  /* Every email a buyer gets from the store, with a preview (components/app/settings/customer-emails-panel.tsx). */
+  { id: "emails", label: "Customer emails", icon: Mail, group: "store", line: "What buyers get from you, and when" },
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
   { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
@@ -1841,6 +1844,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
           {panelTab === "taxes" && <TaxesPanel />}
           {panelTab === "channels" && <ChannelsPanel />}
+          {panelTab === "emails" && <CustomerEmailsPanel />}
           {panelTab === "returns" && (
             <div className="space-y-4 sm:space-y-6">
               {physicalCommerce && <ShippingSettings part="returns" />}
