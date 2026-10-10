@@ -125,17 +125,19 @@ async function main() {
     const open = await timeOpening(page, "/")
     console.log(`  --    opening, from the editor's first render: squares at ${since(open, "squares")}, loader leaving at ${since(open, "leaving")}, page shown at ${since(open, "frameShown")}, loader gone at ${since(open, "gone")}; the frame put in at ${since(open, "frame")}, ready at ${since(open, "ready")}, loaded at ${since(open, "loaded")}`)
     check("one wait: no outline of a page after the loader has gone", open.placeholderAfterLoader === 0, `${open.placeholderAfterLoader} frames of it`)
-    check("the loader fades onto the theme's page, not before it is there", open.leaving >= 0 && open.frameShown >= 0 && open.frameShown <= open.leaving + 60, `leaving ${open.leaving}ms, page ${open.frameShown}ms`)
+    check("the loader fades onto the theme's page, not before it is there", open.leaving >= 0 && open.frameShown >= 0 && open.frameShown <= open.leaving + 60, `leaving ${since(open, "leaving")}, page ${since(open, "frameShown")}`)
     const front = async (): Promise<Frame | null> => (await (await page.$("[data-compat-frame='front']"))?.contentFrame()) ?? null
     const frameBox = async () => (await (await page.$("[data-compat-frame='front']"))!.boundingBox())!
     await sleep(800)
     /* Two body sections on screen, to point at. */
     const spots = await (await front())!.evaluate(() => {
-      /* Scrolled until a second section shows, the way somebody looks down a page. */
-      const body = [...document.querySelectorAll<HTMLElement>(".shopify-section[data-section-id]:not([class*='shopify-section-group'])")]
-      scrollTo(0, body[1] ? Math.max(0, body[1].getBoundingClientRect().top + scrollY - innerHeight / 2) : 0)
+      /* Scrolled until the seam between two sections of some height is mid screen, the way somebody looks down a page; body sections first. */
+      const all = [...document.querySelectorAll<HTMLElement>(".shopify-section[data-section-id]")].filter((x) => x.getBoundingClientRect().height >= 60)
+      const body = all.filter((x) => !/shopify-section-group/.test(x.className))
+      const list = body.length >= 2 ? body : all
+      scrollTo(0, list[1] ? Math.max(0, list[1].getBoundingClientRect().top + scrollY - innerHeight / 2) : 0)
       const out: { id: string; x: number; y: number }[] = []
-      for (const s of document.querySelectorAll<HTMLElement>(".shopify-section[data-section-id]:not([class*='shopify-section-group'])")) {
+      for (const s of list) {
         const r = s.getBoundingClientRect()
         const top = Math.max(r.top, 0), bottom = Math.min(r.bottom, innerHeight)
         if (bottom - top < 40) continue
@@ -243,13 +245,18 @@ async function main() {
         check("on again: a click selects", m.selectedAttr >= 1 && m.section, JSON.stringify(m))
         /* Off and on with the selection scrolled away: the page stays where it is. */
         await (await front())!.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
+        /* Long enough for what loads as it comes into view to have loaded, so only the switch could move it. */
+        await sleep(1500)
+        await (await front())!.evaluate(() => scrollTo(0, document.documentElement.scrollHeight))
         await sleep(300)
         const y0 = await (await front())!.evaluate(() => scrollY)
+        if (process.env.DEBUG) await (await front())!.evaluate(() => { const w = window as unknown as { __log: string[]; __mark: number }; w.__log = []; w.__mark = 1; addEventListener("scroll", () => w.__log.push(`scroll ${Math.round(scrollY)} h=${document.documentElement.scrollHeight} @${Math.round(performance.now())}`), true); addEventListener("message", (e) => w.__log.push(`msg ${(e.data as { type?: string })?.type} @${Math.round(performance.now())}`)); const orig = Element.prototype.scrollIntoView; Element.prototype.scrollIntoView = function (...a: unknown[]) { w.__log.push(`scrollIntoView ${(this as Element).className} ${new Error().stack?.split("\n").slice(2, 4).join(" | ")}`); return orig.apply(this, a as never) } })
         await toggle(page, "off")
         await sleep(400)
         await toggle(page, "on")
         await sleep(900)
         const y1 = await (await front())!.evaluate(() => scrollY)
+        if (process.env.DEBUG) console.log(await (await front())!.evaluate(() => JSON.stringify({ mark: (window as unknown as { __mark?: number }).__mark, log: (window as unknown as { __log?: string[] }).__log })))
         check("switching it back on does not scroll the page to the selection", Math.abs(y1 - y0) < 4, `${y0} to ${y1}`)
       }
     } else {

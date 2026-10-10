@@ -170,9 +170,29 @@ export const CANVAS_BRIDGE = `
   var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); if (typeof redraw === "function") redraw(); };
   addEventListener("scroll", reportSoon, { passive: true });
   addEventListener("resize", reportSoon);
-  var mark = function (sectionId, blockId, scroll) {
+  /* Every selection outline off the page; what is selected, for the theme, is unchanged. */
+  var unmark = function () {
     document.querySelectorAll("[data-sl-selected],[data-sl-selected-block]").forEach(function (el) { el.removeAttribute("data-sl-selected"); el.removeAttribute("data-sl-selected-block"); });
+  };
+  /*
+    \`quiet\`: outlined again, not selected again. The inspector coming back on
+    marks what was already selected without telling the theme a second time:
+    a theme that scrolls to a section it is told was selected, or opens its
+    first slide, moved the page under somebody who only flipped a switch.
+    While the inspector is off nothing is outlined, though the theme still
+    hears what the builder selects.
+  */
+  var mark = function (sectionId, blockId, scroll, quiet) {
+    unmark();
     var s = sectionId ? document.getElementById("shopify-section-" + sectionId) : null;
+    if (quiet) {
+      if (s && inspect) { s.setAttribute("data-sl-selected", ""); s.removeAttribute("data-sl-hover"); }
+      var qb = s && blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
+      if (qb && inspect) qb.setAttribute("data-sl-selected-block", "");
+      reportSoon();
+      redraw();
+      return;
+    }
     if (selected.section && selected.section !== sectionId) {
       var old = document.getElementById("shopify-section-" + selected.section);
       if (old) fire(old, "shopify:section:deselect", { sectionId: selected.section, load: false });
@@ -185,12 +205,11 @@ export const CANVAS_BRIDGE = `
     reportSoon();
     redraw();
     if (!s) return;
-    s.setAttribute("data-sl-selected", "");
-    s.removeAttribute("data-sl-hover");
+    if (inspect) { s.setAttribute("data-sl-selected", ""); s.removeAttribute("data-sl-hover"); }
     fire(s, "shopify:section:select", { sectionId: sectionId, load: false });
     var b = blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
     if (b) {
-      b.setAttribute("data-sl-selected-block", "");
+      if (inspect) b.setAttribute("data-sl-selected-block", "");
       fire(b, "shopify:block:select", { blockId: blockId, sectionId: sectionId, load: false });
     }
     if (scroll) {
@@ -365,6 +384,7 @@ export const CANVAS_BRIDGE = `
     inspect = on;
     clearTimeout(letGo);
     if (on) {
+      if (selected.section) mark(selected.section, selected.block, false, true);
       hover(pointerAt && pointerAt.isConnected ? sectionOf(pointerAt) : null);
       redraw();
       requestAnimationFrame(function () { requestAnimationFrame(function () { if (inspect) fadeBoxes(true); }); });
@@ -373,7 +393,7 @@ export const CANVAS_BRIDGE = `
     if (hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; }
     fadeBoxes(false);
     var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-    letGo = setTimeout(function () { if (!inspect) mark(null, null, false); }, still ? 0 : 200);
+    letGo = setTimeout(function () { if (!inspect) { unmark(); redraw(); reportSoon(); } }, still ? 0 : 200);
   };
   window.addEventListener("message", function (e) {
     var m = e.data;
@@ -386,8 +406,8 @@ export const CANVAS_BRIDGE = `
       queue = queue.then(function () { return swap(m.id, m.html); }).catch(function () {});
     } else if (m.type === "select") {
       if ("inspect" in m) setInspect(m.inspect);
-      /* Off, nothing is selected, whatever was asked; the marks leave after their fade (setInspect). */
-      if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false);
+      /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
+      if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
     } else if (m.type === "inspect") {
       setInspect(m.on);
     } else if (m.type === "scroll") {

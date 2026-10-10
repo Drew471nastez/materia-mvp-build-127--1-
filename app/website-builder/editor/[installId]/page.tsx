@@ -2723,6 +2723,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
   }, [installId])
   useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
+  /*
+    AN IMPORTED THEME'S FILES, FROM THE FIRST FRAME, the second time. Which
+    installs are imported is remembered in this browser (a convenience only:
+    a wrong or missing answer just means the files are asked for when the
+    install says so, in loadData), so reopening one asks for its files beside
+    everything else instead of a round trip later.
+  */
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(`wb-compat:${installId}`) === "1") void loadCompatFiles(installId)
+    } catch {
+      /* no storage: the files are asked for once the install is in */
+    }
+  }, [installId])
 
   /**
    * THE LIBRARY THIS INSTALL CAN ADD FROM: the theme's ten categories, plus
@@ -3655,6 +3669,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       importedTheme.current = true
       /* An imported theme's own files are the canvas's next wait: asked for now, beside the sections, not once the canvas mounts. */
       void loadCompatFiles(installId)
+      try { window.localStorage.setItem(`wb-compat:${installId}`, "1") } catch { /* see the prefetch above */ }
+    } else {
+      try { window.localStorage.removeItem(`wb-compat:${installId}`) } catch { /* see the prefetch above */ }
     }
     /* Every theme shows the store's menus. Until the store has any, the live theme's are offered, or this theme's own when nothing is live yet. */
     const offered = data.storeMenus as { available?: boolean; stored?: boolean; menus?: unknown } | undefined
