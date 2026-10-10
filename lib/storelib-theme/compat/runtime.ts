@@ -31,6 +31,8 @@ export interface Env {
   section?(ctx: Ctx, name: string): string
   sections?(ctx: Ctx, group: string): string
   contentFor?(ctx: Ctx, what: string, args: Record<string, unknown>): string
+  /** `{% block 'name', … %}…{% endblock %}`: blocks/<name>, with what was between the tags as its `content`. */
+  placedBlock?(ctx: Ctx, name: string, args: Record<string, unknown>, content: string): string
   /** `{% form %}`: the opening and closing markup around the body, and what the body sees as `form`. */
   form?(ctx: Ctx, type: string, obj: unknown, args: Record<string, unknown>): { open: string; close: string; form: Record<string, unknown> }
   /** `{% paginate %}`: the page of the list the body sees, and the `paginate` object. */
@@ -266,6 +268,7 @@ export function toList(v: unknown): unknown[] {
 
 export function evaluate(e: Expr, ctx: Ctx): unknown {
   switch (e.t) {
+    case "array": return e.items.map((x) => evaluate(x, ctx))
     case "lit": return e.float && typeof e.v === "number" ? new LFloat(e.v) : e.v
     case "empty": return EMPTY
     case "blank": return BLANK
@@ -389,6 +392,24 @@ function renderNode(n: Node, ctx: Ctx, out: string[]): void {
     case "render": return renderSnippet(n, ctx, out)
     case "section": if (ctx.env.section) push(out, ctx, ctx.env.section(ctx, n.name)); return
     case "sections": if (ctx.env.sections) push(out, ctx, ctx.env.sections(ctx, n.group)); return
+    case "partial": {
+      /* Marked so `partials.refresh(name)` finds it again; display: contents keeps the theme's layout as written. */
+      const name = String(toOutput(evaluate(n.name, ctx))).replace(/[^\w.-]/g, "")
+      push(out, ctx, `<div data-shopify-partial="${name}" style="display:contents">`)
+      renderNodes(n.body, ctx, out)
+      push(out, ctx, "</div>")
+      return
+    }
+    case "block": {
+      /* What is between the tags is drawn first, where it stands, and handed to the block as `content`. */
+      const inner: string[] = []
+      renderNodes(n.body, ctx, inner)
+      if (!ctx.env.placedBlock) { push(out, ctx, inner.join("")); return }
+      const args: Record<string, unknown> = {}
+      for (const [k, v] of n.args) args[k] = evaluate(v, ctx)
+      push(out, ctx, ctx.env.placedBlock(ctx, toOutput(evaluate(n.name, ctx)), args, inner.join("")))
+      return
+    }
     case "content_for": {
       if (!ctx.env.contentFor) return
       const args: Record<string, unknown> = {}

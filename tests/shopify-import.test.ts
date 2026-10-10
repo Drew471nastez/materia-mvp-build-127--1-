@@ -346,6 +346,40 @@ console.log("\nA real Shopify download is let in at upload, and nothing else get
   check("any other blocked type in a Shopify theme is still refused", verdict([...dawn, "assets/run.exe"]).refusal?.code === "zip_blocked_entry")
   check("a .js in a zip that is not a Shopify theme is still refused", verdict(["theme.json", "sections/a.storelib", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
   check("a zip that only pretends (sections but no Shopify shell) gets no exemption", verdict(["sections/a.liquid", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+  /* Shopify's Skeleton and an older theme like Timber have no sections folder at all. */
+  const skeleton = ["layout/theme.liquid", "templates/index.liquid", "blocks/header.liquid", "config/settings_schema.json", "assets/liquid-tips.js"]
+  check("a theme with no sections (Skeleton, Timber) is let in at upload, its assets/*.js too", verdict(skeleton).refusal === null, verdict(skeleton).refusal)
+  check("  but a layout alone, with no home page, gets no exemption", verdict(["layout/theme.liquid", "assets/a.js"]).refusal?.code === "zip_blocked_entry")
+}
+
+console.log("\nA theme with no sections: its layout and templates are the theme\n")
+{
+  const zip = new JSZip()
+  zip.file("layout/theme.liquid", `<html><head>{{ content_for_header }}</head><body>{% block 'header', tag: 'nav' %}{% endblock %}<main>{{ content_for_layout }}</main></body></html>`)
+  zip.file("blocks/header.liquid", `<{{ tag | default: 'header' }} class="hdr">{{ block.settings.title }} {{ content }}</{{ tag | default: 'header' }}>{% schema %}{"name":"Header","settings":[{"type":"text","id":"title","default":"Shop name"}]}{% endschema %}`)
+  zip.file("blocks/tips.liquid", `<ul>{% for t in tips %}<li>{{ t }}</li>{% endfor %}</ul>{{ content }}{% schema %}{"name":"Tips","settings":[]}{% endschema %}`)
+  zip.file("templates/index.liquid", `{% block 'tips', tips: ['one', 'two'] %}<p>inside</p>{% endblock %}{% partial 'note' %}<em>fresh</em>{% endpartial %}`)
+  zip.file("templates/cart.drawer.liquid", `{% layout none %}<div class="d">{{ cart.item_count }}</div>`)
+  zip.file("config/settings_schema.json", "[]")
+  check("a theme with a layout and a home page but no sections is a Shopify theme", isShopifyTheme(zip))
+  const r = await convertShopifyTheme(zip)
+  check("  and it imports", r.ok === true, r.ok ? "" : r.error)
+  if (r.ok) {
+    const theme = themeOfInstall(r.theme.files, r.theme.settings, { assetUrl: (n) => `/a/${n}` })
+    const home = r.theme.pages.find((p) => p.page_key === "home")
+    const html = drawPage(theme, { template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "S" } }, home?.sections ?? [], { scripts: true }).html
+    check("{% block 'header', tag: 'nav' %} in the layout draws blocks/header with its defaults, so the header shows", html.includes('<nav class="hdr">Shop name'), html.match(/<body>[\s\S]{0,160}/)?.[0])
+    check("a list written out (tips: ['one', 'two']) reaches the block, and what stood between the tags is its content", html.includes("<li>one</li><li>two</li></ul><p>inside</p>"))
+    check("{% partial %} draws its content, marked so a script can draw it again", html.includes('<div data-shopify-partial="note" style="display:contents"><em>fresh</em></div>'))
+    check("the page can import @shopify/partial-rendering by name", /<script type="importmap">[^<]*@shopify\/partial-rendering/.test(html))
+  }
+}
+
+console.log("\nAn older theme's SCSS is compiled, as Shopify compiled it\n")
+{
+  const { compileScss } = await import("../lib/storelib-theme/compat/scss")
+  check("nesting and variables come out as plain CSS", compileScss("$c: #123456; .a { .b { color: $c; } }") === ".a .b{color:#123456}")
+  check("a stylesheet that does not compile is served as written, with the reason", /^\/\* This stylesheet could not be compiled/.test(compileScss(".a { color: ")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

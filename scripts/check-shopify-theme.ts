@@ -29,6 +29,7 @@ import puppeteer from "puppeteer-core"
 import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
+import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
@@ -100,7 +101,7 @@ async function serve(zipPath: string) {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
     if (url.pathname.startsWith("/api/site-theme/assets/")) {
       const name = decodeURIComponent(url.pathname.split("/").pop() ?? "")
-      const a = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }))
+      const a = themeAsset(theme, name, () => theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } }), { scss: compileScss })
       if (!a) { res.writeHead(404); res.end(); return }
       res.writeHead(200, { "Content-Type": a.type, "Access-Control-Allow-Origin": "*" })
       res.end(a.body)

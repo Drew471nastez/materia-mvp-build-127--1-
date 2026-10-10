@@ -15,6 +15,7 @@ import { parseCompat } from "./parser"
 import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance, type CompatPage, type CompatSectionInstance, type CompatThemeOptions } from "./theme"
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
+import { withShopifyModules } from "./shims"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -130,6 +131,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   /* A theme preloads its font files by font_url; a font library's address is a stylesheet, which the head above already loads. */
   html = html.replace(/<link\b[^>]*rel=["']?preload["']?[^>]*as=["']?font["']?[^>]*href=["']https:\/\/fonts\.googleapis\.com[^>]*>|<link\b[^>]*href=["']https:\/\/fonts\.googleapis\.com[^"']*["'][^>]*rel=["']?preload["']?[^>]*>/gi, "")
   if (!opts.scripts) html = withoutScripts(html)
+  else html = withShopifyModules(html)
   return { html, errors, ctx }
 }
 

@@ -124,7 +124,7 @@ export function shopifyRoot(zip: JSZip): string | null {
   const names = Object.keys(zip.files)
   const candidates = new Set<string>([""])
   for (const n of names) {
-    const m = n.match(/^([^/]+\/)sections\//)
+    const m = n.match(/^([^/]+\/)(?:sections\/|layout\/theme\.liquid$)/)
     if (m) candidates.add(m[1])
   }
   for (const root of candidates) {
@@ -132,6 +132,15 @@ export function shopifyRoot(zip: JSZip): string | null {
     const hasSections = names.some((n) => n.startsWith(`${root}sections/`) && n.endsWith(".liquid") && !n.slice(root.length + 9).includes("/"))
     const hasShell = !!zip.file(`${root}config/settings_schema.json`) || !!zip.file(`${root}layout/theme.liquid`)
     if (hasSections && hasShell) return root
+    /*
+      A THEME WITH NO SECTIONS AT ALL. Shopify's newest themes (Skeleton)
+      compose the header and footer as blocks in the layout
+      (`{% block 'header' %}`) and each page as blocks in a Liquid template;
+      an older one (Timber) writes them into the layout as markup. A layout
+      and a home page template make it a theme.
+    */
+    const hasHome = !!zip.file(`${root}templates/index.liquid`) || !!zip.file(`${root}templates/index.json`)
+    if (zip.file(`${root}layout/theme.liquid`) && hasHome) return root
   }
   return null
 }
@@ -276,7 +285,7 @@ interface SourceFiles {
 
 async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<ConvertResult> {
   const root = shopifyRoot(zip)
-  if (root === null) return { ok: false, error: "This is not a Shopify theme: it needs sections/*.liquid and config/settings_schema.json or layout/theme.liquid" }
+  if (root === null) return { ok: false, error: "This is not a Shopify theme: it needs layout/theme.liquid and a home page (templates/index.json or templates/index.liquid)" }
 
   const entries = Object.values(zip.files).filter((f) => !f.dir && f.name.startsWith(root))
   if (entries.length > MAX_ENTRIES) return { ok: false, error: `This theme has ${entries.length} files; the most Storelib reads is ${MAX_ENTRIES}` }
@@ -342,7 +351,8 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     files[`${folder}/${type}.storelib`] = out
     report.converted.push(path)
   }
-  if (sectionTypes.size === 0) return { ok: false, error: "No section of this theme could be read" }
+  /* A theme drawn by its layout and Liquid templates alone (Skeleton, Timber) has no sections, and needs none. */
+  if (sectionTypes.size === 0 && !src.text.has("layout/theme.liquid")) return { ok: false, error: "No section of this theme could be read" }
   /* Each section's own name, in the theme's words, for the sections placed on its pages. */
   const names = new Map<string, string>()
   for (const type of sectionTypes.values()) {

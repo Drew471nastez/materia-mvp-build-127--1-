@@ -19,6 +19,8 @@ export type Expr =
   | { t: "empty" }
   | { t: "blank" }
   | { t: "range"; from: Expr; to: Expr }
+  /* `['a', 'b']`: a list written out, as a newer theme passes one to a block (`{% block 'tips', tips: ['a', 'b'] %}`). */
+  | { t: "array"; items: Expr[] }
   | { t: "path"; root: string; segs: Seg[] }
   | { t: "cmp"; op: CmpOp; l: Expr; r: Expr }
   | { t: "logic"; op: "and" | "or"; l: Expr; r: Expr }
@@ -154,8 +156,19 @@ class Parser {
       return inner
     }
     if (t.t === "p" && t.v === "[") {
-      /* `['a', 'b']` is not Liquid, but `[key]` at the start is a variable named by key. */
+      /* `[]` and `['a', 'b']` are lists written out; `[key]` alone at the start is a variable named by key, as Liquid always read it. */
+      if (this.is("p", "]")) { this.take(); return { t: "array", items: [] } }
       const e = this.output()
+      if (this.is("p", ",")) {
+        const items: Expr[] = [e]
+        while (this.is("p", ",")) {
+          this.take()
+          if (this.is("p", "]")) break
+          items.push(this.output())
+        }
+        this.expect("]")
+        return this.trail({ t: "array", items })
+      }
       this.expect("]")
       return this.trail({ t: "path", root: "", segs: [{ k: "index", e }] })
     }

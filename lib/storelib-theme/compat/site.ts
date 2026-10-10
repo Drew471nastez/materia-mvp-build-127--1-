@@ -753,10 +753,20 @@ export function writeCartCookie(cart: CartEntry[], note: string): string {
  * drawn first when it is a `.liquid` asset (`theme.css.liquid` is served as
  * `theme.css`, with the theme's settings in it).
  */
-export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => import("./runtime").Ctx): { type: string; body: string | Uint8Array } | null {
+export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => import("./runtime").Ctx, opts: { scss?: (source: string) => string } = {}): { type: string; body: string | Uint8Array } | null {
   if (!/^[A-Za-z0-9_][A-Za-z0-9_.@-]*$/.test(name)) return null
   const type = assetType(name)
   if (!type) return null
+  /* `theme.scss.css`: an older theme's `theme.scss.liquid` (or `.scss`), its Liquid filled in and its SCSS compiled, as Shopify served it (./scss.ts). */
+  const scssName = name.match(/^(.+\.scss)\.css$/)?.[1]
+  if (scssName && opts.scss) {
+    const source = theme.files[`assets/${scssName}.liquid`] ?? theme.files[`assets/${scssName}`]
+    if (source !== undefined) {
+      let filled: string
+      try { filled = renderString(source, settingsCtx()) } catch { filled = source.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
+      return { type: "text/css; charset=utf-8", body: opts.scss(filled) }
+    }
+  }
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)

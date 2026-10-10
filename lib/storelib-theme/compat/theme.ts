@@ -459,6 +459,7 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
+      placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
     }
@@ -582,6 +583,35 @@ export class CompatTheme {
     if ((instance.blocks ?? []).some((c) => c.id === id && (c.hidden || c.disabled))) return ""
     const found = children.find((b) => b.id === id) ?? { id, type, settings: {}, static: true }
     return draw(found)
+  }
+
+  /**
+   * `{% block 'header', tag: 'div' %}…{% endblock %}`: Shopify's newest
+   * themes (Skeleton) place their header, footer and each page's parts this
+   * way, in the layout and the templates, with no section around them. The
+   * block is drawn by blocks/<name>, from its schema's defaults or the
+   * values settings_data.json keeps for it by name, with the tag's own
+   * arguments as variables and what stood between the tags as `content`.
+   * A name the theme has no file for draws only that content.
+   */
+  private placedBlock(ctx: Ctx, name: string, args: O, content: string): string {
+    const path = this.fileFor("blocks", name)
+    const tree = path ? this.tree(path) : null
+    if (!tree) return content
+    const res = ctx.registers.res as Resources
+    const stored = (this.settingsValues.blocks as Record<string, O> | undefined)?.[name]
+    const instance: CompatBlockInstance = { id: name, type: name, settings: (stored?.settings as O | undefined) ?? {}, blocks: [] }
+    let holder: Ctx | null = null
+    const block = this.blockObject(instance, [], res, resolverFor(() => holder))
+    const c = ctx.child({ ...args, block, content })
+    holder = c
+    c.registers.block = block
+    try {
+      return renderTree(tree, c)
+    } catch (e) {
+      this.warnings.push(`blocks/${name}: ${(e as Error).message}`)
+      return content
+    }
   }
 
   /** `{% section 'x' %}` in a layout: a section with no instance on a page, drawn from its defaults. */
