@@ -208,6 +208,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Data and logic",
   },
   {
+    slug: "physical-commerce",
+    title: "Physical products, the cart and checkout",
+    nav: "Physical products and cart",
+    summary: "Products that ship, Add to cart, the cart checkout, bundles and pixels.",
+    description:
+      "What a section needs to know about products that ship on Storelib: their fields, the add to cart attributes, the cart checkout link, what checkout works out on the server (stock, upsells and bundles, codes, shipping, pickup, tax), the bundles API, order steps, pixels and the tables behind it.",
+    group: "Data and logic",
+  },
+  {
     slug: "ai",
     title: "Building with AI agents",
     nav: "AI agents",
