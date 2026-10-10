@@ -377,14 +377,225 @@ async function partB() {
   return results
 }
 
+
+/* ── THE SHEET: frame sequences of the open and the close, and their numbers ── */
+const SAMPLE = () => {
+  window.__s = []
+  window.__srun = true
+  const num = (v, i = 0) => {
+    if (!v || v === "none") return i === 0 ? 1 : 0
+    return parseFloat(String(v).split(" ")[i] ?? "0") || 0
+  }
+  const tick = (t) => {
+    const layer = document.querySelector("[data-post-fullscreen]")
+    const page = layer?.querySelector("[role=dialog]")
+    const shell = document.querySelector("[data-community-shell]")
+    const cs = shell ? getComputedStyle(shell) : null
+    const dim = layer?.querySelector("[data-sheet-dim]")
+    const posts = document.querySelectorAll("[data-post-fullscreen] [data-post-overlay-post] article").length
+    const pr = page?.getBoundingClientRect()
+    const tab = document.querySelector("[data-buyer-tab-bar]")
+    window.__s.push({
+      t: Math.round(t),
+      layer: !!layer && getComputedStyle(layer).visibility !== "hidden",
+      top: pr ? Math.round(pr.top) : null,
+      scale: cs ? Math.round(num(cs.scale) * 1000) / 1000 : 1,
+      shiftY: cs ? Math.round(num(cs.translate, 1)) : 0,
+      dim: dim ? Math.round(Number(getComputedStyle(dim).opacity) * 100) / 100 : 0,
+      posts,
+      scrollY: Math.round(scrollY),
+      tab: !!tab && tab.getBoundingClientRect().top < innerHeight,
+      anims: document.getAnimations().filter((a) => a.playState === "running").length,
+    })
+    if (window.__srun) requestAnimationFrame(tick)
+  }
+  requestAnimationFrame(tick)
+}
+
+async function record(s, name, act, ms) {
+  const frames = []
+  const onFrame = (f) => {
+    frames.push({ data: f.data, ts: f.metadata.timestamp })
+    void s.cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+  }
+  s.cdp.on("Page.screencastFrame", onFrame)
+  await s.cdp.send("Page.startScreencast", { format: "jpeg", quality: 70, maxWidth: 390, maxHeight: 844, everyNthFrame: 1 })
+  await s.p.evaluate(SAMPLE)
+  await sleep(80)
+  await act()
+  await sleep(ms)
+  const samples = await s.p.evaluate(() => ((window.__srun = false), window.__s))
+  await s.cdp.send("Page.stopScreencast")
+  s.cdp.off("Page.screencastFrame", onFrame)
+  return { name, frames, samples }
+}
+
+let reader = null
+async function sheetPng(seq, file, max = 30) {
+  reader ??= await browser.newPage()
+  /* FRAMES=1: every painted frame of the sequence too, to look at one by one. */
+  if (process.env.FRAMES === "1") {
+    const dir = join(shots, file.replace(/\.png$/, ""))
+    mkdirSync(dir, { recursive: true })
+    seq.frames.forEach((f, i) => writeFileSync(join(dir, `${String(i).padStart(3, "0")}.jpg`), Buffer.from(f.data, "base64")))
+  }
+  const pick = seq.frames.length <= max ? seq.frames : Array.from({ length: max }, (_, i) => seq.frames[Math.round((i * (seq.frames.length - 1)) / (max - 1))])
+  const png = await reader.evaluate(async (list) => {
+    const W = 130
+    const H = Math.round((844 / 390) * W)
+    const cols = 6
+    const rows = Math.ceil(list.length / cols)
+    const c = new OffscreenCanvas(cols * (W + 4), rows * (H + 4))
+    const g = c.getContext("2d")
+    g.fillStyle = "#444"
+    g.fillRect(0, 0, c.width, c.height)
+    for (let i = 0; i < list.length; i++) {
+      const img = new Image()
+      img.src = `data:image/jpeg;base64,${list[i]}`
+      await img.decode()
+      g.drawImage(img, (i % cols) * (W + 4), Math.floor(i / cols) * (H + 4), W, H)
+      g.fillStyle = "#e11"
+      g.font = "11px sans-serif"
+      g.fillText(String(i), (i % cols) * (W + 4) + 3, Math.floor(i / cols) * (H + 4) + 12)
+    }
+    const blob = await c.convertToBlob({ type: "image/png" })
+    const buf = new Uint8Array(await blob.arrayBuffer())
+    let out = ""
+    for (let i = 0; i < buf.length; i += 0x8000) out += String.fromCharCode(...buf.subarray(i, i + 0x8000))
+    return btoa(out)
+  }, pick.map((f) => f.data))
+  writeFileSync(join(shots, file), Buffer.from(png, "base64"))
+}
+
+function judgeSheet(seq, feedY, closing) {
+  const s = seq.samples
+  const seen = s.filter((f) => f.layer)
+  const twice = s.filter((f) => f.posts > 1)
+  const moved = s.filter((f) => f.scrollY !== feedY)
+  const noTab = s.filter((f) => !f.tab)
+  let longest = 0
+  for (let i = 1; i < s.length; i++) longest = Math.max(longest, s[i].t - s[i - 1].t)
+  const tops = seen.map((f) => f.top)
+  const scales = seen.map((f) => f.scale)
+  console.log(`  ${seq.name}: ${seq.frames.length} painted frames, ${s.length} sampled, longest frame ${longest}ms`)
+  console.log(`    sheet top ${tops.filter((_, i) => i % 3 === 0).join(" ")}`)
+  console.log(`    community scale ${scales.filter((_, i) => i % 3 === 0).join(" ")}`)
+  expect(twice.length === 0, `${seq.name}: ONE COPY: never two copies of the post on screen`, twice.length)
+  expect(moved.length === 0, `${seq.name}: FEED: the feed's scroll never moves (${feedY})`, moved.slice(0, 3).map((f) => f.scrollY))
+  expect(noTab.length === 0, `${seq.name}: TAB BAR on screen on every frame`, noTab.length)
+  const inStep = seen.filter((f) => f.top !== null && f.scale < 0.999).every((f) => Math.abs((1 - f.top / 844) - (1 - f.scale) / 0.06) < 0.12)
+  expect(inStep, `${seq.name}: the community's scale and the sheet move together (one p)`, seen.slice(0, 6).map((f) => [f.top, f.scale]))
+  if (closing) {
+    const goneAt = s.findIndex((f, i) => i > 0 && !f.layer && s.slice(i).every((g) => !g.layer))
+    const after = s.slice(goneAt)
+    expect(goneAt > 0 && after.every((f) => f.scale === 1 && f.shiftY === 0), `${seq.name}: once the sheet has gone the community is at its own size, untouched`, { goneAt, last: s.at(-1) })
+  } else {
+    const last = s.at(-1)
+    expect(last.layer && last.top <= 1 && last.scale === 1, `${seq.name}: arrived covering the screen, and the community let go of under it`, last)
+  }
+  return { painted: seq.frames.length, sampled: s.length, longestFrameMs: longest, twice: twice.length, feedMoved: moved.length, tabHidden: noTab.length }
+}
+
+async function partSheet() {
+  console.log("\nTHE SHEET: open and close at 390x844, 4x CPU")
+  const out = {}
+  const s = await session()
+  const pic = 'article[data-post="a0000000-0000-4000-8000-000000000002"] [data-post-excerpt]'
+  const at = await centerOf(s, pic)
+  await sleep(400)
+  const feedY = await s.p.evaluate(() => Math.round(scrollY))
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const open = await record(s, "open", () => s.tap(at.x, at.y), 1300)
+  const backAt = await s.p.evaluate(() => {
+    const r = document.querySelector("[data-post-fullscreen] [data-post-overlay-close]").getBoundingClientRect()
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+  })
+  const close = await record(s, "close-back", () => s.tap(backAt.x, backAt.y), 1400)
+  await sleep(300)
+  await record(s, "open-2", () => s.tap(at.x, at.y), 1300)
+  const pull = await record(
+    s,
+    "close-pull",
+    async () => {
+      await s.touch("touchStart", 200, 300)
+      for (let i = 1; i <= 14; i++) {
+        await s.touch("touchMove", 200, 300 + i * 22)
+        await sleep(16)
+      }
+      await s.touch("touchEnd", 200, 300 + 14 * 22)
+    },
+    1400,
+  )
+  await sleep(300)
+  await record(s, "open-3", () => s.tap(at.x, at.y), 1300)
+  /* A short pull let go slowly: the sheet goes back up and the community is let go of again under it. */
+  const short = await record(
+    s,
+    "pull-short",
+    async () => {
+      await s.touch("touchStart", 200, 300)
+      for (let i = 1; i <= 4; i++) {
+        await s.touch("touchMove", 200, 300 + i * 12)
+        await sleep(40)
+      }
+      await sleep(120)
+      await s.touch("touchEnd", 200, 348)
+    },
+    900,
+  )
+  const browserBack = await record(s, "close-browser-back", () => s.p.evaluate(() => history.back()), 1400)
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  for (const seq of [open, close, pull, browserBack]) {
+    out[seq.name] = judgeSheet(seq, feedY, seq.name.startsWith("close"))
+    await sheetPng(seq, `${LABEL}-${seq.name}.png`)
+  }
+  const sl = short.samples.at(-1)
+  expect(sl.layer && sl.top <= 1 && sl.scale === 1, "pull-short: a short slow pull springs back up, the community let go of under it", sl)
+  const mid = pull.samples.filter((f) => f.layer && f.scale < 0.999 && f.scale > 0.941)
+  expect(mid.length >= 3, "close-pull: the community comes forward while the finger has the sheet", mid.length)
+  expect(!s.errors.length, "no page errors (sheet)", s.errors.slice(0, 3))
+  await s.p.close()
+
+  /* The app: the edge swipe takes the sheet down by its sideways travel. */
+  const a = await session({ app: true })
+  const at2 = await centerOf(a, pic)
+  await sleep(300)
+  const feedY2 = await a.p.evaluate(() => Math.round(scrollY))
+  await a.tap(at2.x, at2.y)
+  await sleep(1400)
+  await a.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const edge = await record(
+    a,
+    "close-edge",
+    async () => {
+      await a.touch("touchStart", 6, 420)
+      for (let i = 1; i <= 12; i++) {
+        await a.touch("touchMove", 6 + i * 22, 422)
+        await sleep(16)
+      }
+      await a.touch("touchEnd", 6 + 12 * 22, 422)
+    },
+    1400,
+  )
+  await a.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  out[edge.name] = judgeSheet(edge, feedY2, true)
+  const tops = edge.samples.filter((f) => f.layer && f.top !== null).map((f) => f.top)
+  expect(tops.some((t) => t > 60 && t < 700), "close-edge: the sheet follows the finger down", tops.filter((_, i) => i % 4 === 0))
+  await sheetPng(edge, `${LABEL}-close-edge.png`)
+  expect(!a.errors.length, "no page errors (app)", a.errors.slice(0, 3))
+  await a.p.close()
+  console.log(JSON.stringify({ label: LABEL, part: "sheet", out }))
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
     const fonts = interFaces(root)
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Clay Studio</title><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   })()
-  if (PART === "debug") { const s = await session(); console.log(s.errors.map((e) => e.split("\n").slice(0, 4).join(" / ")), await s.p.evaluate(() => document.body.innerHTML.slice(0, 600))); await s.p.screenshot({ path: join(shots, "debug.png") }) }
+
   if (PART === "all" || PART === "b") await partB()
+  if (PART === "all" || PART === "sheet") await partSheet()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()

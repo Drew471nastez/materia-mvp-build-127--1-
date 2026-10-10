@@ -1,47 +1,39 @@
 /**
  * ===========================================================================
- *  AN OPENED POST ON A PHONE: THE RULES OF ITS MOVES (round 15)
+ *  AN OPENED POST ON A PHONE: THE RULES OF ITS MOVES (rounds 15 and 16)
  * ===========================================================================
  * The numbers and decisions of post-fullscreen.tsx, as plain functions with
- * no DOM and no React, so tests/communities-post15.test.ts holds them as they
- * are written.
+ * no DOM and no React, so tests/communities-post15.test.ts and
+ * tests/communities-post16.test.ts hold them as they are written.
  *
- * THE MODEL IS AN iOS PUSH. The post slides in from the right over the feed,
- * which stays where it is under a light dim, and slides back out to the
- * right (Back, Escape, the browser's back, the app's edge swipe), or drops
- * away downwards when it is pulled down. Why not the card growing into the
- * page (round 19 to 24): the card and the opened post are two different
- * layouts of the same post (a 17px title and a 19px one, a cropped picture
- * and a whole one, two lines of words and all of them), so a page that lands
- * on the card has to give way to it by a crossfade or a snap. The owner's
- * recording showed both: the title and the picture drawn twice for four
- * frames after everything looked settled, and the card snapping into place.
- * A push never lands on the card, so there is nothing to give way to: one
- * opaque page moves, by `translate` only, and when it has left the screen it
- * is simply gone. It is also what iOS does for a step into a list item, and
- * it keeps the composer's rise from the bottom (a task) reading differently.
+ * THE MODEL IS iOS's PAGE SHEET (round 16, page-sheet.ts says why). The post
+ * rises from the foot over the community, which eases back and stays where
+ * it was; every close (Back, Escape, the browser's Back, a pull, the app's
+ * edge swipe) is the same motion in reverse, down. Round 15 pushed it in
+ * from the right and let a pull drop it downwards: in one way, out another,
+ * which the owner read as wrong ("it opens sideways and closes downward").
  *
  * THE CLOSE, IN ORDER (closeSteps). The feed is put back to the scroll it had
  * when the post opened while the post still covers the screen, so it is
- * already exactly in place before anything moves; then the move; then the
- * page is hidden on the move's last frame, the layer let go, the post taken
- * out and the history step given back, in that order and nothing after.
+ * already exactly in place before anything moves; the community is then
+ * taken back to where a covered sheet leaves it (eased back, unseen); then
+ * the one move down; then the page is hidden on the move's last frame, the
+ * community let go (at that frame it is at its own size, so nothing shows),
+ * the layer let go, the post taken out and the history step given back, in
+ * that order and nothing after.
  */
 import { judgeMove, shouldComplete, completeMs, cancelMs, startsAtEdge, releaseVelocity } from "@/lib/navigation/edge-swipe"
 import { rubberBand } from "@/components/website-builder/sheet-gestures"
 import { keyboardInsetFrom } from "@/lib/ui/keyboard-safe-sheet"
+import { RECEDE_DIM } from "./page-sheet"
 
 export { judgeMove, shouldComplete, completeMs, cancelMs, startsAtEdge, releaseVelocity }
 
-/* ── THE PUSH ──────────────────────────────────────────────────────────── */
+/* ── THE SHEET ──────────────────────────────────────────────────────────── */
 
-/** In from the right: iOS's push is about a third of a second, on a curve that starts quick and settles long. */
-export const PUSH_MS = 380
-/** Back out to the right from rest. */
-export const POP_MS = 320
-export const PUSH_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** The feed under an opened post is dimmed this much (black), as iOS dims the screen under a push. */
-export const DIM = 0.12
+export { OPEN_MS, CLOSE_MS } from "./page-sheet"
+/** The feed's dim at its deepest, under an opened post (page-sheet.ts RECEDE_DIM). */
+export { RECEDE_DIM as DIM } from "./page-sheet"
 
 /* ── THE CLOSE, IN ORDER ───────────────────────────────────────────────── */
 
@@ -63,14 +55,16 @@ export type CloseTrigger =
 export type CloseStep =
   /** The feed put back where it was when the post opened (instantly; the post still covers it). */
   | "hold-feed"
-  /** Out to the right. */
-  | "slide-right"
-  /** Down off the screen. */
+  /** The community taken back to where the covered sheet leaves it, eased back (unseen: the post still covers it). */
+  | "recede"
+  /** Down off the screen, the community coming forward with it. */
   | "slide-down"
   /** No move at all (reduced motion, or the browser has already drawn one). */
   | "cut"
   /** The page hidden, on the move's last frame. */
   | "hide-page"
+  /** The community let go of (no scale, no shift: at that frame it is at its own size). */
+  | "release-community"
   /** The tab bar's layer let go (lib/ui/layers.ts). */
   | "release-layer"
   /** The post and its comments taken out of the page. */
@@ -78,10 +72,10 @@ export type CloseStep =
   /** The post's history entry stepped back over (when it was not a Back that closed it). */
   | "step-back"
 
-/** The close, step by step: the feed first, then one move, then gone. Nothing animates after "hide-page". */
+/** The close, step by step: the feed first, then one move down, then gone. Nothing animates after "hide-page". */
 export function closeSteps(trigger: CloseTrigger, reduced = false): CloseStep[] {
-  const move: CloseStep = reduced || trigger === "browser-swipe" ? "cut" : trigger === "pull" ? "slide-down" : "slide-right"
-  const steps: CloseStep[] = ["hold-feed", move, "hide-page", "release-layer", "unmount"]
+  const cut = reduced || trigger === "browser-swipe"
+  const steps: CloseStep[] = cut ? ["hold-feed", "cut", "hide-page", "release-community", "release-layer", "unmount"] : ["hold-feed", "recede", "slide-down", "hide-page", "release-community", "release-layer", "unmount"]
   /* A Back has already stepped over the entry; anything else gives it back. */
   if (trigger !== "history" && trigger !== "browser-swipe") steps.push("step-back")
   return steps
@@ -132,12 +126,13 @@ export function pullVerdict(m: { dy: number; velocity: number; height: number })
 
 /** The dim under the page as it is pulled or swiped away: all of it at rest, none once it has gone. */
 export function dimFor(progress: number): number {
-  return DIM * Math.max(0, Math.min(1, 1 - progress))
+  return RECEDE_DIM * Math.max(0, Math.min(1, 1 - progress))
 }
 
-/** The rest of a close from where a finger let it go, at least as fast as the finger, inside a calm range. */
-export function finishMs(remaining: number, velocity: number): number {
-  return Math.round(Math.max(170, Math.min(POP_MS, remaining / Math.max(velocity, 1.2))))
+/** The app's edge swipe moves the sheet down by the finger's sideways travel, scaled so a swipe across is a close all the way. */
+export function edgeOffset(dx: number, width: number, height: number): number {
+  if (width <= 0) return 0
+  return Math.max(0, Math.min(height, (dx * height) / width))
 }
 
 /* ── THE BACK BUTTON ───────────────────────────────────────────────────── */

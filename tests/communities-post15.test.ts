@@ -35,7 +35,6 @@ import {
   closedByBrowserSwipe,
   dimFor,
   feedRestore,
-  finishMs,
   iosKeyboardFor,
   postBox,
   postBoxHeightCss,
@@ -66,16 +65,17 @@ console.log("\nCLOSE: the order of operations")
   const all: CloseTrigger[] = ["back", "escape", "history", "browser-swipe", "pull", "edge"]
   for (const t of all) {
     const s = closeSteps(t)
-    const move = s.findIndex((x) => x === "slide-right" || x === "slide-down" || x === "cut")
+    /* Round 16: the page sheet. Every close is the same move down; the community is eased back, unseen, before it. */
+    const move = s.findIndex((x) => x === "slide-down" || x === "cut")
+    const hide = s.indexOf("hide-page")
     check(
       `${t}: the feed is put back first, then one move, hidden on its last frame, then let go and taken out`,
-      s[0] === "hold-feed" && move === 1 && s[2] === "hide-page" && s[3] === "release-layer" && s[4] === "unmount" && s.filter((x) => x === "slide-right" || x === "slide-down" || x === "cut").length === 1,
+      s[0] === "hold-feed" && move > 0 && hide === move + 1 && s.indexOf("release-layer") > hide && s.indexOf("unmount") > s.indexOf("release-layer") && s.filter((x) => x === "slide-down" || x === "cut").length === 1,
       s,
     )
-    check(`${t}: nothing moves after it is hidden`, !s.slice(s.indexOf("hide-page")).some((x) => x === "slide-right" || x === "slide-down"), s)
+    check(`${t}: nothing moves after it is hidden`, !s.slice(hide).some((x) => x === "slide-down" || x === "recede"), s)
   }
-  check("Back, Escape and the edge swipe slide it out to the right", ["back", "escape", "edge", "history"].every((t) => closeSteps(t as CloseTrigger)[1] === "slide-right"))
-  check("a pull drops it away downwards", closeSteps("pull")[1] === "slide-down")
+  check("round 16: Back, Escape, the browser's Back, a pull and the edge swipe all slide it down (one line in and out)", ["back", "escape", "edge", "history", "pull"].every((t) => closeSteps(t as CloseTrigger).includes("slide-down")))
   check("a Back the browser drew itself is not moved a second time", closeSteps("browser-swipe")[1] === "cut")
   check("reduced motion: no move at all", all.every((t) => closeSteps(t, true)[1] === "cut"))
   check("a close by Back gives no step back (the browser took it); any other close gives it back, last", !closeSteps("history").includes("step-back") && !closeSteps("browser-swipe").includes("step-back") && ["back", "escape", "pull", "edge"].every((t) => closeSteps(t as CloseTrigger).at(-1) === "step-back"))
@@ -93,7 +93,6 @@ console.log("\nPULL DOWN TO CLOSE")
   check("a flick down closes from a short pull", pullVerdict({ dy: 30, velocity: 0.9, height: 788 }) === "close")
   check("but a flick from almost nothing does not", pullVerdict({ dy: 6, velocity: 2, height: 788 }) === "stay")
   check("the dim lifts as it goes", dimFor(0) === DIM && dimFor(0.5) === DIM / 2 && dimFor(1) === 0 && dimFor(2) === 0)
-  check("the rest of a close is at least as fast as the finger, inside 170 to 320ms", finishMs(600, 3) === 200 && finishMs(10, 0) === 170 && finishMs(800, 0) === 320)
 }
 
 console.log("\nEDGE SWIPE (the app on iOS)")
@@ -188,17 +187,14 @@ console.log("\nOPEN POST: from anywhere in a community")
   resetOpenPost()
 }
 
-console.log("\nSOURCE: the push")
+console.log("\nSOURCE: the sheet (round 16; round 15's push from the right is replaced, tests/communities-post16.test.ts)")
 {
   const pf = read("components/community/member/post-fullscreen.tsx")
   const ov = read("components/community/member/post-overlay.tsx")
-  const animations = pf.match(/page\.animate\(\[[^\]]*\]/g) ?? []
-  check("the page moves by translate only: no scale, no opacity, no clip on it", animations.length >= 3 && animations.every((a) => /translate/.test(a) && !/scale|opacity|clip/i.test(a)), animations)
-  check("it comes in from the right", /page\.animate\(\[\{ translate: `\$\{W\}px 0px` \}, \{ translate: "0px 0px" \}\]/.test(pf))
   check("it never lands on the card: no card box, no morph, no reveal", !/cardBox|coverMorph|revealForReturn|morphFrames/.test(pf))
   check("the tab bar stays over it (a 'post' layer)", /useLayer\("post", true, layerRef\)/.test(pf) && /data-layer-kind="post"/.test(pf))
-  check("the close puts the feed back before it moves", pf.indexOf("feedRestore(noted.current") < pf.indexOf("const main = page.animate"))
-  check("hidden on the move's last frame, then taken out", /layer\.style\.visibility = "hidden"[\s\S]{0,40}done\.current\.onGone\(\)/.test(pf))
+  check("the close puts the feed back before it moves", pf.indexOf("feedRestore(noted.current") < pf.indexOf("st.run(from, 0"))
+  check("hidden on the move's last frame, then taken out", /layer\.style\.visibility = "hidden"[\s\S]{0,80}done\.current\.onGone\(\)/.test(pf))
   check("a white skirt runs on under the page", /data-post-skirt/.test(pf) && /top-full h-\[100lvh\] bg-white/.test(pf))
   check("the back bar is inside the page, so it moves with it (never a second header over the community's)", pf.indexOf("data-post-fullscreen-top") > pf.indexOf('role="dialog"') && pf.indexOf("data-post-fullscreen-top") < pf.indexOf("</div>,\n    document.body"))
   const vb = read("components/community/member/visible-box.ts")
