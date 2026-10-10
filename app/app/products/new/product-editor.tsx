@@ -65,6 +65,7 @@ import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
+import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { cleanCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
@@ -348,6 +349,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  /* The Sales channels card, saved after the product (./sales-channels-card). */
+  const channelsRef = useRef<SalesChannelsHandle>(null)
   /* Every question the editor asks (leave, delete a file, a very large upload). */
   const [ask, confirmSheet] = useConfirm()
 
@@ -962,6 +965,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       if (finalProductId) {
         const { error: fieldsError } = await supabase.from("products").update({ custom_fields: cleanCustomFields(customFields) }).eq("id", finalProductId)
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
+      }
+
+      /* SALES CHANNELS, after the product exists, so a new product's choice is kept too. Never fails the save. */
+      if (finalProductId) {
+        const channelsError = await channelsRef.current?.save(finalProductId)
+        if (channelsError) console.warn("Sales channels were not saved:", channelsError)
       }
 
       setHasUnsavedChanges(false)
@@ -2958,6 +2967,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   </div>
                 ) : null}
               </div>
+
+              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} cardClass={CARD} titleClass={CARD_TITLE} onChange={() => setHasUnsavedChanges(true)} />
 
               {/* Settings Section */}
               <div

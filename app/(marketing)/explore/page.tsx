@@ -2,6 +2,7 @@ import { Metadata } from "next"
 import { Suspense } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { offChannelAmong } from "@/lib/store/channel-filter"
 import { EMPTY_INTERESTS, type Interests } from "@/lib/explore/interests"
 import { readInterests } from "@/lib/explore/read-interests"
 import { ExplorePageClient } from "@/components/explore/explore-page-client"
@@ -125,6 +126,9 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   }
   if (error) console.error("[ExplorePage] Products error:", error.message)
   if (!products || products.length === 0) return []
+  /* Settings › Sales channels: a product its creator took off Explore is not here. */
+  const offExplore = await offChannelAmong(createAdminClient(), products.map((p) => p.id), "marketplace")
+  if (offExplore.size) products = products.filter((p) => !offExplore.has(p.id))
 
   /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
   const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))

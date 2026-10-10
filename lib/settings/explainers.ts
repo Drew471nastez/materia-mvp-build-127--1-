@@ -84,9 +84,9 @@ export const EXPLAINERS = {
     title: "How sales channels work",
     art: "channels",
     lines: [
-      "A sales channel is a place your products are sold: your online store, a marketplace, or a pop up shop.",
-      "Each product is listed in the channels you choose. Your online store reads its products through the channel marked Storefront, so that one is always there.",
-      "Turn a channel off and its products stop selling there, without being deleted.",
+      "A sales channel is a place your products are listed. Storelib runs three: your online store, your creator page and Explore.",
+      "Every product is on every channel until you take it off one, from the product's Sales channels card. It disappears from that place's lists and search; its own link keeps working.",
+      "Channels you create are for keeping track, like a market stall or a wholesale list. Storelib doesn't show anything there.",
     ],
   },
   integrations: {

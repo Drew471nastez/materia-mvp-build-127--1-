@@ -35,6 +35,7 @@
 import { isPubliclyVisible, type VisibilityFields } from "@/lib/products/visibility"
 import { sellsCommunity } from "@/lib/communities/listing"
 import { planIntervals } from "@/lib/memberships/intervals"
+import { offChannel } from "@/lib/store/channel-filter"
 
 /** What a live product contributes to a block. */
 export type LiveProduct = {
@@ -212,13 +213,14 @@ export async function answersForBlocks(db: ProductsDb, creatorId: string, blocks
   const asked = ids.slice(0, 200)
   for (const cols of [COLUMNS_WITH_COMMUNITY, COLUMNS, COLUMNS_WITHOUT_FLAG]) {
     try {
-      const { data, error } = await db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked)
+      const [{ data, error }, offPage] = await Promise.all([db.from("products").select(cols).eq("creator_id", creatorId).in("id", asked), offChannel(db, creatorId, "creator_page")])
       if (error) continue
       const answers = new Map<string, LiveProduct | null>(asked.map((id) => [id, null]))
       for (const row of data ?? []) {
         const id = idOf(row.id)
         if (!id || !answers.has(id)) continue
-        answers.set(id, live(row) && !sellsCommunity(row) ? (row as LiveProduct) : null)
+        /* Settings › Sales channels: a product taken off the Creator page leaves its one page too. */
+        answers.set(id, live(row) && !sellsCommunity(row) && !offPage.has(id) ? (row as LiveProduct) : null)
       }
       /* A yearly only membership says "/year" (lib/memberships/intervals); asked only when a block names a membership. */
       const memberships = [...answers.values()].filter((p): p is LiveProduct => !!p && p.type === "membership")

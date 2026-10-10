@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 110: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 111: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3014,6 +3014,13 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_cents integer NOT NULL DE
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_country text;
 DO $do$ BEGIN ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_tax_cents_range, ADD CONSTRAINT orders_tax_cents_range CHECK (tax_cents >= 0) NOT VALID; ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_tax_country_code, ADD CONSTRAINT orders_tax_country_code CHECK (tax_country IS NULL OR tax_country ~ '^[A-Z]{2}$') NOT VALID; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('110', '110_taxes.sql', 'd92087784da56763e0a0488b19bff9fdf6e481de515eabae4a61dd221baddd0c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 111_sales_channel_kinds.sql
+/* Sales channels by kind, run after part 109. A store sells in three places Storelib runs, and now each is a channel a product can be taken off: `storefront` (the store's website, its collections and its search), `creator_page` (storelib.com/name and the one page) and `marketplace` (Explore). Any other channel a store makes is `custom`: a name and a note for its own use, such as a market stall or a wholesale list. A store has at most one channel of each built-in kind; the old `is_storefront` row becomes the `storefront` one. Nothing is hidden by this part: a product leaves a channel only when someone takes it off. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.sales_channels') IS NULL THEN RAISE NOTICE 'sales channel kinds: sales_channels is not there yet (part 109).'; RETURN; END IF; ALTER TABLE public.sales_channels ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'custom'; ALTER TABLE public.sales_channels DROP CONSTRAINT IF EXISTS sales_channels_kind_check, ADD CONSTRAINT sales_channels_kind_check CHECK (kind IN ('storefront', 'creator_page', 'marketplace', 'custom')); UPDATE public.sales_channels SET kind = 'storefront' WHERE is_storefront AND kind <> 'storefront'; END $do$;
+DO $do$ BEGIN IF to_regclass('public.sales_channels') IS NULL THEN RETURN; END IF; CREATE UNIQUE INDEX IF NOT EXISTS sales_channels_one_of_kind ON public.sales_channels (creator_id, kind) WHERE kind <> 'custom'; END $do$;
+DO $do$ BEGIN IF to_regclass('public.product_channel_listings') IS NULL THEN RETURN; END IF; CREATE INDEX IF NOT EXISTS product_channel_listings_off_idx ON public.product_channel_listings (creator_id, product_id) WHERE NOT listed; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('111', '111_sales_channel_kinds.sql', 'ee72c9fa10eaab15a95d7dda664d605d3403375a3fb369a0d87dc72fcd714093') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

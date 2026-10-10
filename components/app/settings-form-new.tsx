@@ -19,7 +19,7 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2
 } from "lucide-react"
 import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
@@ -56,6 +56,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
+import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -78,7 +79,9 @@ const TABS = [
   { id: "store", label: "Store details", icon: Store, group: "store", line: "Name, contact, phone and country" },
   { id: "payments", label: "Payments", icon: Wallet, group: "store", line: "How buyers pay you and payouts" },
   { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
-  /* The shop's own tax rates: only while physical commerce is on, until checkout reads them for every product. */
+  /* Where products are listed: the Online store, the Creator page, Explore and the store's own (components/app/settings/channels-panel.tsx). */
+  { id: "channels", label: "Sales channels", icon: Share2, group: "store", line: "Where your products are listed" },
+  /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
   { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
@@ -1837,6 +1840,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
           {panelTab === "taxes" && <TaxesPanel />}
+          {panelTab === "channels" && <ChannelsPanel />}
           {panelTab === "returns" && (
             <div className="space-y-4 sm:space-y-6">
               {physicalCommerce && <ShippingSettings part="returns" />}

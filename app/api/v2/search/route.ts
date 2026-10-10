@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { offChannelAmong } from "@/lib/store/channel-filter"
 
 /**
  * GET /api/v2/search?q=term&category=design&sort=relevance&limit=30
@@ -97,6 +98,9 @@ export async function GET(request: Request) {
     }
     /* Physical products are sold on the creator's own website, not found in Storelib's search. */
     results = results.filter((r) => (r as { type?: unknown } | null)?.type !== "physical")
+    /* Settings › Sales channels: a product its creator took off Explore is not found here. */
+    const offExplore = await offChannelAmong(admin, results.map((r) => String((r as { id?: unknown } | null)?.id ?? "")), "marketplace")
+    if (offExplore.size) results = results.filter((r) => !offExplore.has(String((r as { id?: unknown } | null)?.id ?? "")))
 
     return NextResponse.json({
       results,

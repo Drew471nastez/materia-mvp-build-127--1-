@@ -10,6 +10,8 @@ import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
+import { ChannelsPanel } from "@/components/app/settings/channels-panel"
+import { SalesChannelsCard } from "@/app/app/products/new/sales-channels-card"
 import { Totals } from "@/app/checkout/parts/order-summary"
 import * as React from "react"
 import { digitalTax } from "@/lib/tax/rules"
@@ -44,6 +46,12 @@ const panels: Record<string, () => JSX.Element> = {
   store: () => <StoreDetailsPanel />,
   checkout: () => <CheckoutPanel />,
   taxes: () => <TaxesPanel />,
+  channels: () => <ChannelsPanel />,
+  channelCard: () => (
+    <div style={{ maxWidth: 360 }}>
+      <SalesChannelsCard productId={null} cardClass="space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]" titleClass="text-[16px] font-semibold text-[#1a1a2e]" />
+    </div>
+  ),
   reasons: () => (
     <div style={{ display: "grid", gap: 16 }}>
       <ReasonsPanel kinds={["return", "refund"]} />

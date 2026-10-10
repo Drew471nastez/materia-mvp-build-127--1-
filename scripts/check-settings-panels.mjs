@@ -173,6 +173,37 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     say(!form.remove && form.stays, "Other can be renamed, never removed, and says why")
   }
 
+  console.log(`\nSales channels on ${name}`)
+  const OWN = { id: "11111111-1111-4111-8111-111111111111", kind: "custom", name: "Saturday market", description: "The stall at the Obor market", enabled: true, off: 0 }
+  const CH = { ready: true, defaultKey: null, channels: [
+    { id: null, kind: "storefront", name: "Online store", description: "Your website: its product lists, collections and search.", enabled: true, off: 2 },
+    { id: null, kind: "creator_page", name: "Creator page", description: "storelib.com/you and your one page.", enabled: true, off: 0 },
+    { id: null, kind: "marketplace", name: "Explore", description: "Storelib's marketplace, where buyers find new creators.", enabled: true, off: 0 },
+    OWN ] }
+  await open("channels", vp, { ...API, "GET /api/store/channels": CH, "PATCH /api/store/channels": { ...CH, defaultKey: OWN.id }, "GET /api/store/channels/product": { ...CH, defaultKey: OWN.id, off: [] } })
+  const c1 = await fits()
+  say(c1.over <= 0 && c1.cut.length === 0, `nothing runs off the side or is cut (${c1.over}px over${c1.cut.length ? `, cut: ${c1.cut.join(" | ")}` : ""})`)
+  const list = await page.evaluate(() => [...document.querySelectorAll("[data-channel]")].map((li) => ({ kind: li.getAttribute("data-channel"), text: li.textContent.replace(/\s+/g, " ").trim(), button: !!li.querySelector("button") })))
+  say(list.length === 4 && list.slice(0, 3).every((l) => /Built in/.test(l.text) && !l.button) && list[3].button, `three built in (not editable), one of the store's own (editable): ${list.map((l) => l.kind).join(", ")}`)
+  say(/2 off/.test(list[0].text), `a channel says how many products are off it: "${list[0].text.slice(0, 60)}"`)
+  await page.select("#channel-default", OWN.id)
+  await wait(150)
+  const patch = await page.evaluate(() => window.__sent.filter((x) => x.method === "PATCH"))
+  say(patch.length === 1 && patch[0].body.defaultKey === "11111111-1111-4111-8111-111111111111", `New products: one channel is saved: ${JSON.stringify(patch[0]?.body)}`)
+  if (name === "a phone") {
+    await page.click("[data-create-channel]")
+    await wait(250)
+    const m = await fits()
+    say(m.over <= 0 && m.cut.length === 0, `Create channel fits (${m.over}px over${m.cut.length ? `, cut: ${m.cut.join(" | ")}` : ""})`)
+  }
+  console.log(`\nThe product editor's Sales channels card on ${name}`)
+  await open("channelCard", vp, { ...API, "GET /api/store/channels/product": { ...CH, defaultKey: OWN.id, off: [] } })
+  const ticks = await page.evaluate(() => [...document.querySelectorAll("[data-sales-channels] input[type=checkbox]")].map((i) => i.checked))
+  const line = await page.evaluate(() => document.querySelector("[data-sales-channels] p")?.textContent ?? "")
+  say(ticks.length === 4 && ticks.filter(Boolean).length === 1 && ticks[3], `a new product starts on the chosen channel alone: ${ticks.join(", ")} ("${line}")`)
+  const c2 = await fits()
+  say(c2.over <= 0 && c2.cut.length === 0, `nothing runs off the side or is cut (${c2.over}px over)`)
+
   console.log(`\nThe checkout's tax line on ${name}`)
   await open("totals", vp)
   const k = await fits()
