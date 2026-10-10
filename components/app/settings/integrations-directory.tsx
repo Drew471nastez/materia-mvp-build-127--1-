@@ -19,7 +19,7 @@
  */
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, ExternalLink, Search, Check, Truck, Mail, Webhook, FileSpreadsheet, type LucideIcon } from "lucide-react"
+import { ArrowLeft, ExternalLink, Search, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
@@ -45,16 +45,54 @@ function writeIntegrationParam(id: string | null) {
 }
 
 /* Storelib's own, built in: its icons, on the app's quiet tile. */
-const BUILT_IN_ICON: Record<string, LucideIcon> = { manual: Truck, "supplier-email": Mail, "custom-webhook": Webhook, csv: FileSpreadsheet }
+/*
+  STORELIB'S OWN, DRAWN FOR IT. Four small line drawings in the same hand as
+  the How it works art: a taped parcel, a letter with an order slip, two
+  systems joined by a signed request, a sheet of rows. Ink on light grey.
+*/
+const BUILT_IN_ART: Record<string, React.ReactNode> = {
+  manual: (
+    <>
+      <path d="M4 8.5 12 4.5l8 4v8L12 20.5l-8-4z" />
+      <path d="M4 8.5 12 12.5l8-4M12 12.5v8" />
+      <path d="M8 6.5l8 4v3" />
+    </>
+  ),
+  "supplier-email": (
+    <>
+      <rect x="3.5" y="6" width="17" height="12.5" rx="2" />
+      <path d="m4 7 8 6 8-6" />
+      <path d="M14.5 3.5h5v4" />
+    </>
+  ),
+  "custom-webhook": (
+    <>
+      <rect x="3" y="4" width="7" height="7" rx="2" />
+      <rect x="14" y="13" width="7" height="7" rx="2" />
+      <path d="M10 7.5h3.5a3 3 0 0 1 3 3V13" />
+      <path d="m14.5 11 2 2 2-2" />
+    </>
+  ),
+  csv: (
+    <>
+      <rect x="4" y="3.5" width="16" height="17" rx="2" />
+      <path d="M4 9h16M4 14.5h16M10 9v11.5" />
+    </>
+  ),
+}
 
 export function Mark({ item, size = 44 }: { item: Pick<Integration, "logo" | "name"> & { id?: string }; size?: number }) {
-  const Icon = item.id ? BUILT_IN_ICON[item.id] : undefined
-  if (Icon) {
-    /* Storelib's own: its violet on a pale tile, with the S in the corner, so a built in reads as Storelib's at a glance. */
+  const art = item.id ? BUILT_IN_ART[item.id] : undefined
+  if (art) {
+    /* Storelib's own: a drawing on light grey, with Storelib's real mark in the corner, so a built in reads as Storelib's at a glance. */
+    const badge = Math.round(size * 0.4)
     return (
-      <span aria-hidden style={{ width: size, height: size }} className="relative flex shrink-0 items-center justify-center rounded-xl border border-[#e9e3ff] bg-[#f5f2ff] text-[#6d28d9]" data-integration-mark="storelib">
-        <Icon style={{ width: size * 0.45, height: size * 0.45 }} strokeWidth={1.75} />
-        <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-[6px] bg-[#8b5cf6] text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_#fff]">S</span>
+      <span aria-hidden style={{ width: size, height: size }} className="relative flex shrink-0 items-center justify-center rounded-xl border border-[#eceef1] bg-[#f6f7f9] text-[#1a1a2e]" data-integration-mark="storelib">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: size * 0.5, height: size * 0.5 }}>
+          {art}
+        </svg>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/storelib-mark.svg" alt="" width={badge} height={badge} decoding="async" style={{ width: badge, height: badge }} className="absolute -bottom-1 -right-1 rounded-[6px] shadow-[0_0_0_2px_#fff]" />
       </span>
     )
   }
@@ -207,7 +245,7 @@ export function IntegrationsDirectory() {
               aria-selected={on}
               onClick={() => setFilter(f)}
               className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none",
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color] duration-200 ease-out motion-reduce:transition-none",
                 on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] hover:bg-[#f8f9fa]",
               )}
             >
@@ -228,8 +266,8 @@ export function IntegrationsDirectory() {
           </button>
         </div>
       ) : (
-        /* Keyed by the pill and the search, so a switch fades the new cards in (globals.css .integration-grid-in) instead of popping them. */
-        <ul key={`${filter}:${query.trim().toLowerCase()}`} className="integration-grid-in grid gap-3 sm:grid-cols-2" data-integration-grid="">
+        /* One list for every pill: a switch only adds and removes cards, each keeping its place, so nothing flashes or zooms. */
+        <ul className="grid gap-3 sm:grid-cols-2" data-integration-grid="">
           {shown.map((i) => {
             const status = statusOf(i)
             return (
@@ -238,7 +276,7 @@ export function IntegrationsDirectory() {
                   type="button"
                   onClick={() => open(i.id)}
                   data-integration-card={i.id}
-                  className={cn(CARD, "group flex h-full w-full flex-col gap-3 p-4 text-left transition-[box-shadow,transform,border-color] duration-200 hover:-translate-y-px hover:border-[#e5e7eb] hover:shadow-[0_6px_18px_-8px_rgba(17,24,39,0.18)] motion-reduce:transition-none motion-reduce:hover:translate-y-0")}
+                  className={cn(CARD, "group flex h-full w-full flex-col gap-3 p-4 text-left transition-[box-shadow,border-color,background-color] duration-200 ease-out hover:border-[#dfe2e6] hover:shadow-[0_2px_10px_-4px_rgba(17,24,39,0.10)] motion-reduce:transition-none")}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <Mark item={i} />
@@ -261,13 +299,12 @@ export function IntegrationsDirectory() {
   )
 }
 
-type Tone = "gray" | "green" | "amber" | "red" | "violet"
+type Tone = "gray" | "green" | "amber" | "red"
 const TONE: Record<Tone, string> = {
   gray: "bg-[#f3f4f6] text-[#4b5563]",
   green: "bg-[#ecfdf3] text-[#067647]",
   amber: "bg-[#fffaeb] text-[#b54708]",
   red: "bg-[#fef3f2] text-[#b42318]",
-  violet: "bg-[#f5f2ff] text-[#6d28d9]",
 }
 function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: Tone }) {
   return (
@@ -281,7 +318,7 @@ function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: 
 /** Available has no badge: a card with nothing on it is one you can install. */
 function StatusBadge({ status }: { status: IntegrationStatus }) {
   if (status === "available") return null
-  const tone: Tone = status === "built_in" ? "violet" : status === "installed" ? "green" : status === "needs_attention" ? "amber" : status === "error" ? "red" : "gray"
+  const tone: Tone = status === "built_in" ? "gray" : status === "installed" ? "green" : status === "needs_attention" ? "amber" : status === "error" ? "red" : "gray"
   return <Badge tone={tone}>{status === "built_in" ? "Storelib" : STATUS_LABEL[status]}</Badge>
 }
 

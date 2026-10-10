@@ -11,6 +11,8 @@ import { CASE_REASONS, readNewCase, reasonsFor, statusAfterMessage, caseLink } f
 import { orderCancelledEmail, refundEmail, returnEmail, shipmentEmail } from "@/lib/physical/email-templates"
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { quoteDelivery } from "@/lib/physical/rates"
+import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { existsSync } from "node:fs"
 
 let passed = 0
 let failed = 0
@@ -101,6 +103,17 @@ console.log("\nThe box counts toward a weight based rate")
   check("900 g of items alone is in the first tier", price(q(0)) === 500, price(q(0)))
   check("with a 200 g box it's 1.1 kg, the next tier", price(q(200)) === 900, price(q(200)))
   check("checkout reads the default package's weight", /defaultPackageGrams\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-pricing-server.ts")))
+}
+
+console.log("\nIntegrations")
+{
+  const n = (c: string) => INTEGRATIONS.filter((i) => i.category === c).length
+  check("three more shipping tools, two more dropshippers, one more print on demand, one more analytics, two more ad pixels", ["aftership", "easyship", "sendcloud", "bigbuy", "dropified", "prodigi", "hotjar", "snapchat-pixel", "reddit-pixel"].every((id) => INTEGRATIONS.some((i) => i.id === id)), { shipping: n("shipping"), drop: n("dropshipping") })
+  check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["aftership", "hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon))
+  check("every logo a card points at is a real file", INTEGRATIONS.every((i) => !i.logo || existsSync(join(process.cwd(), "public", i.logo))), INTEGRATIONS.filter((i) => i.logo && !existsSync(join(process.cwd(), "public", i.logo))).map((i) => i.logo))
+  const ui = read("components/app/settings/integrations-directory.tsx")
+  check("Storelib's own carry Storelib's real mark, on light grey", /\/storelib-mark\.svg/.test(ui) && !/>S<\/span>/.test(ui) && !/violet/.test(ui))
+  check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
