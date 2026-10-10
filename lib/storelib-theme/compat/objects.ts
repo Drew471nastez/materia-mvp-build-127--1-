@@ -408,14 +408,33 @@ export interface Resources {
   currentPath: string
   /** Product objects by id, made once per draw. */
   productCache?: Map<string, O>
+  /** The product the page is about, on a product page: what a picker set to "This page's product" (`@current`) names. */
+  current?: CardLike | null
 }
 
-function productById(r: Resources, idOrHandle: string): O | null {
+/**
+ * A product picker's value, as the key it names. Storelib's picker stores
+ * the product's address (`/products/<handle>`, the same value native
+ * sections read), a Shopify theme's own JSON its handle, and an older save
+ * its id; a full address or one with `?variant=` names the same product.
+ */
+function productKey(value: string): string {
+  let v = value.trim()
+  try { if (/^https?:\/\//i.test(v)) v = new URL(v).pathname } catch { /* not an address: a handle or an id */ }
+  v = v.split(/[?#]/)[0].replace(/\/+$/, "")
+  const path = v.match(/^\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?products\/([^/]+)$/i)
+  return path ? decodeURIComponent(path[1]) : v
+}
+
+function productById(r: Resources, value: string): O | null {
+  if (!value) return null
+  if (value.trim() === "@current") return r.current ? productById(r, r.current.id) : null
+  const idOrHandle = productKey(value)
   if (!idOrHandle) return null
   r.productCache ??= new Map()
   const hit = r.productCache.get(idOrHandle)
   if (hit) return hit
-  const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle
+  const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle || String(p.settings.url ?? "") === value.trim()
   const card = r.products.find(matches) ?? r.catalog?.find(matches)
   if (!card) return null
   const obj = productObject(card)

@@ -3223,6 +3223,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
+  /* WHICH product page is open, by id: two products can share a title, and the title alone drew one of them for the other. */
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
+  /**
+   * THE LAST PAGE ASKED FOR WINS. Opening a page waits for its sections (and
+   * a product page for its product); open product A, then product B, and A's
+   * answer could land after B's and put A's page back on the canvas. Each
+   * opening takes a number, and only the latest one may change the page.
+   */
+  const openRequest = useRef(0)
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
@@ -3929,6 +3938,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       await saveDraft({ quiet: true })
     }
     switchingPage.current = true
+    const mine = ++openRequest.current
     // The history describes the page being left. See `clearHistory`.
     clearHistory()
     /** Arriving somewhere answers "that page does not exist". */
@@ -3972,6 +3982,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       ])
       /* Home included, for the reason on the initial load above. */
       const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
+      /* Another page was opened while this one loaded: that one is drawn, not this. */
+      if (mine !== openRequest.current) return
 
       /**
        * ═══════════════════════════════════════════════════════════════════
@@ -3996,6 +4008,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        */
       setCurrentPage(page)
       setSelectedProductPage(null)
+      setSelectedProductId(null)
       setEditAllProductPages(false)
       setSections(merged)
       updatePageUrl(page)
@@ -4003,7 +4016,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSectionsLoading(false)
       setCanvasLoading(false)
     } finally {
-      switchingPage.current = false
+      if (mine === openRequest.current) switchingPage.current = false
     }
   }
 
@@ -4055,6 +4068,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
+    const mine = ++openRequest.current
     setSectionsLoading(true)
     // A product page is another page: the history describes the one being
     // left. See `clearHistory`.
@@ -4120,6 +4134,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
     ])
 
+    /* Another product, or another page, was opened while this one loaded: that one is drawn, not this. */
+    if (mine !== openRequest.current) return
+
     // Use API response first, fall back to list data
     const productData = productRes?.product ?? fallbackData
 
@@ -4144,6 +4161,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     /** One commit: the page, the product it is showing, and its sections. */
     setSelectedProductPage(productTitle)
+    setSelectedProductId(productId)
     setCurrentPage("product")
     setSections(merged)
     updatePageUrl("product", slugForUrl)
@@ -7142,11 +7160,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
-    const p = products.find((x) => x.title === selectedProductPage) ?? products[0]
+    const p = (selectedProductId ? products.find((x) => x.id === selectedProductId) : undefined) ?? products.find((x) => x.title === selectedProductPage) ?? products[0]
     return p
       ? productFacts({ id: p.id, title: p.title, slug: p.slug, description: p.description, price_cents: p.price_cents, compare_at_cents: p.compare_at_cents, thumbnail_url: p.thumbnail_url, gallery_urls: p.gallery_urls, whats_included: p.whats_included })
       : null
-  }, [currentPage, products, selectedProductPage])
+  }, [currentPage, products, selectedProductPage, selectedProductId])
   const canvasDynamic = useMemo(
     () => dynamicContext({
       theme: activeThemeSettings,
@@ -9245,6 +9263,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sources={storelibSources}
                   theme={canvasThemeSettings as Record<string, unknown>}
                   pageKey={currentPage}
+                  productId={currentPage === "product" ? selectedProductId : null}
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
                   catalog={catalogCardsForCanvas}
@@ -9457,6 +9476,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setEditAllProductPages(true)
                 setEditAllConfirmOpen(false)
                 setSelectedProductPage(null)
+                setSelectedProductId(null)
               }}
             >
               Start Editing All

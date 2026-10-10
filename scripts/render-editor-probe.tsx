@@ -154,6 +154,13 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     ;(window as unknown as { probeMenusSaved: unknown[] }).probeMenusSaved = [...((window as unknown as { probeMenusSaved?: unknown[] }).probeMenusSaved ?? []), JSON.parse(String(init.body)).menus]
     return json({ menus: JSON.parse(String(init.body)).menus })
   }
+  /* One product, as the product route answers it, after PROBE_PRODUCT_DELAY_MS[id] (scripts/check-product-switch.mjs: the first asked answering last). */
+  const one = new URL(url, location.href).searchParams.get("id")
+  if (/\/website-builder\/products/.test(url) && one) {
+    const delays = (window as unknown as { PROBE_PRODUCT_DELAY_MS?: Record<string, number> }).PROBE_PRODUCT_DELAY_MS ?? {}
+    await new Promise((r) => setTimeout(r, delays[one] ?? 0))
+    return json({ product: (probeGlobals.PROBE_PRODUCTS ?? []).find((x) => x.id === one) ?? null })
+  }
   if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
   return json({})

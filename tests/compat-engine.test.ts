@@ -118,6 +118,7 @@ const files: Record<string, string> = {
   "sections/main-product.storelib": `${wrapCompatTemplate(`<div class="p">{% content_for 'block', type: 'price', id: 'price' %}{% content_for 'block', type: 'price', id: 'gone' %}</div>`)}\n\n<schema>\n${JSON.stringify({ type: "main-product", name: "Product", settings: [], shopify: { name: "Product", settings: [{ type: "range", id: "padding-top", min: 0, max: 40, default: 4 }] } })}\n</schema>\n`,
   "blocks/price.storelib": `${wrapCompatTemplate(`<b data-block-id="{{ block.id }}">{{ closest.product.title }} {{ closest.product.price | money }}</b>`)}\n\n<schema>\n${JSON.stringify({ name: "Price", settings: [] })}\n</schema>\n`,
   "sections/cart-count.storelib": `${wrapCompatTemplate(`<span class="count">{{ cart.item_count }}</span>`)}\n\n<schema>\n${JSON.stringify({ type: "cart-count", name: "Cart", settings: [] })}\n</schema>\n`,
+  "sections/featured-product.storelib": `${wrapCompatTemplate(`<p class="fp">{% if section.settings.product == blank %}Example product title{% else %}{{ section.settings.product.title }}{% endif %}</p>`)}\n\n<schema>\n${JSON.stringify({ type: "featured-product", name: "Featured product", settings: [], shopify: { name: "Featured product", settings: [{ type: "product", id: "product" }] } })}\n</schema>\n`,
   "sections/hero.storelib": `${wrapCompatTemplate(`<h1 style="padding-top:{{ section.settings.padding-top }}px">{{ section.settings.heading }}</h1>`)}\n\n<schema>\n${JSON.stringify({ type: "hero", name: "Hero", settings: [], shopify: { name: "Hero", settings: [{ type: "text", id: "heading", default: "Hi" }, { type: "range", id: "padding-top", min: 0, max: 40, default: 4 }] } })}\n</schema>\n`,
 }
 const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` })
@@ -141,6 +142,12 @@ console.log("\nThe page\n")
   check("a setting with no value draws the theme's default", defaults.html.includes("padding-top:4px") && defaults.html.includes(">Hi<"))
   const missing = drawPage(theme, { ...base, template: "index", path: "/" }, [{ id: "x", type: "nope" }], { scripts: false })
   check("a section the theme does not have is an error for that section, not the page", (missing.errors.x ?? []).length === 1 && missing.html.includes("<main>"))
+  /* "When I pick a product for a featured product section it does not show": the picker stores the product's address. */
+  const featured = (value: string, page: Record<string, unknown> = {}) => drawPage(theme, { ...base, template: "index", path: "/", ...page }, [{ id: "f", type: "featured-product", settings: { product: value } }], { scripts: false }).html.match(/<p class="fp">([^<]*)</)?.[1]
+  check("a product picked in the builder (its address) is the product the section draws", featured("/products/shirt-2") === "Shirt 2", featured("/products/shirt-2"))
+  check("and so is its id, its handle, a full address and one with a variant", featured("p2") === "Shirt 2" && featured("shirt-2") === "Shirt 2" && featured("https://shop.example/products/shirt-2/") === "Shirt 2" && featured("/products/shirt-2?variant=v2s") === "Shirt 2")
+  check("a product that is only in the catalogue (a membership) can be picked", drawPage(theme, { ...base, template: "index", path: "/", products: [card(1)], pickable: [card(1), card(2)] }, [{ id: "f", type: "featured-product", settings: { product: "/products/shirt-2" } }], { scripts: false }).html.includes("Shirt 2"))
+  check("This page's product is the product page's own", featured("@current", { template: "product", path: "/products/shirt-1", product: card(1) }) === "Shirt 1")
 }
 
 console.log("\nFilters, from the products themselves\n")

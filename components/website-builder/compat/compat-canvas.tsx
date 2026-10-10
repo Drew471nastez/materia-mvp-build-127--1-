@@ -39,6 +39,8 @@ export interface CompatCanvasProps {
   /** The theme settings, `compat` and `shopify` among them. */
   theme: Record<string, unknown>
   pageKey: string
+  /** On the product page, the product opened in the page list; unset, the shop's first. */
+  productId?: string | null
   sections: StoredSection[]
   products: ProductCard[]
   /** Every product a picker may name (memberships and tiers included), for a featured product picked in the sidebar. */
@@ -126,7 +128,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const page = useMemo((): CompatPage => {
     const { products, catalog, collections, menus, shopName } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
-    const sample = products[0] ?? null
+    /* The product opened in the page list, found among memberships too; the shop's first when none was. */
+    const sample = (props.productId ? products.find((p) => p.id === props.productId) ?? catalog?.find((p) => p.id === props.productId) : undefined) ?? products[0] ?? null
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
     return {
@@ -140,14 +143,14 @@ export function CompatCanvas(props: CompatCanvasProps) {
       collections,
       menus,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
-      /* A product page and a collection page are drawn about the first of each, as Shopify's editor does. */
+      /* A product page is drawn about the product opened, a collection page about the first collection, as Shopify's editor does. */
       product: template === "product" ? sample : null,
       collection: template === "collection" ? firstCollection ?? { id: "all", title: "Products", handle: "all", url: "/collections/all", products, products_count: products.length } : null,
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, dataKey])
+  }, [pageKey, props.productId, dataKey])
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -170,7 +173,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKey = `${installId}:${pageKey}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
+  const docKey = `${installId}:${pageKey}:${props.productId ?? ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
