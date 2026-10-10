@@ -276,7 +276,9 @@ async function main() {
     check("who has a storefront is read once per page of people (finished onboarding, as /<handle> checks)", /from\("creators"\)\.select\("user_id"\)\.in\("user_id", list\)\.eq\("onboarding_completed", true\)/.test(dir) && (dir.match(/storefrontsOf\(db,/g) || []).length >= 3)
     const M = "app/(marketing)/community/[slug]/(member)/members/[userId]"
     const old = code(`${M}/page.tsx`)
-    check("the member page inside a community is gone", !existsSync("components/community/member/member-profile.tsx") && !existsSync(`${M}/loading.tsx`) && !/MemberProfile|memberProfile\(/.test(old))
+    /* Round 15, the owner: a person's profile inside a community is the shell's place (?profile=<handle>), drawn by
+       components/community/member/member-profile.tsx; the old /members/<id> address draws no page of its own. */
+    check("the old member page draws nothing of its own; the profile is the shell's place", existsSync("components/community/member/member-profile.tsx") && !existsSync(`${M}/loading.tsx`) && !/MemberProfile|memberProfile\(/.test(old))
     check("its old address redirects to the person's own page (a member asking; no handle, the member list)", /page\.state !== "member" \|\| !page\.community \|\| !page\.viewer\) notFound\(\)/.test(old) && /personHref\(\{ username: person\.username, hasStorefront: !!person\.hasStorefront \}\)/.test(old) && /redirect\(href === "\/" \? `\$\{base\}\/members` : href\)/.test(old))
     check("and an old ?message=1 link opens the conversation in the community instead", /query\.message === "1" && userId !== page\.viewer\.userId\) redirect\(`\$\{base\}\?dm=\$\{userId\}`\)/.test(old))
     check("names come with a handle: anybody without one is given one when a page of people is read", /ensureUsernames\(db, unnamed\)/.test(code("lib/communities/server/directory.ts")))
