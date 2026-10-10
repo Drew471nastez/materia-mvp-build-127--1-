@@ -194,12 +194,8 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
 
   if (error && !data) return <Notice>{error}</Notice>
   if (!data) {
-    return (
-      <div className="space-y-4" aria-busy="true">
-        <div className="h-[120px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" />
-        <div className="h-[220px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" />
-      </div>
-    )
+    /* No outline of itself: the settings fade in when they come (settings-content-in). */
+    return <div className="min-h-[360px]" aria-busy="true" />
   }
 
   return (
@@ -1134,6 +1130,26 @@ function Packages({ data, setData }: { data: Data; setData: React.Dispatch<React
 }
 
 /* ── Taxes ─────────────────────────────────────────────────────────────── */
+
+function useSettingsSave(reload: () => void) {
+  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  const save = async (patch: Partial<Settings>) => {
+    setState("saving")
+    const r = await api("/api/physical/settings", { method: "PUT", body: patch })
+    if (!r.ok) {
+      setError(r.error)
+      setState("idle")
+      return false
+    }
+    setError(null)
+    setState("saved")
+    reload()
+    setTimeout(() => setState("idle"), 1600)
+    return true
+  }
+  return { state, error, save }
+}
 
 function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "saved"; onClick: () => void; disabled?: boolean }) {
   return (

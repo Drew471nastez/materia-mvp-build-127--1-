@@ -100,7 +100,8 @@ async function main() {
       }),
     }
     const got = await pickedProducts(fake as never, "creator-1", { ids: ["3f2a9c1e-0000-4000-8000-000000000001"], slugs: ["old-one", "bad slug; drop"] })
-    check("picked products are read for this creator, published only", calls.every((f) => f.includes("creator_id=creator-1") && f.includes("status=published")))
+    /* Changed on purpose (round T): the products taken off the Online store are read beside them (lib/store/channel-filter), for the same creator. */
+    check("picked products are read for this creator, published only", calls.filter((f) => f[0] === "products").every((f) => f.includes("creator_id=creator-1") && f.includes("status=published")) && calls.filter((f) => f[0] !== "products").every((f) => f[0] === "product_channel_listings" && f.includes("creator_id=creator-1")))
     check("a slug that is not a slug is never sent", !calls.some((f) => f.some((x) => x.includes("bad slug"))))
     check("and come back as cards", got.length === 2 && got[0].settings.url === "/products/old-one")
     check("no creator id reads nothing", (await pickedProducts(fake as never, "", { ids: ["3f2a9c1e-0000-4000-8000-000000000001"], slugs: [] })).length === 0)

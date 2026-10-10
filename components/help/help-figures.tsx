@@ -220,9 +220,9 @@ const FIGURES: Record<string, (label: string) => ReactNode> = {
     <Frame label={label}>
       <Card title="Fulfillment" sub="How will this product be fulfilled?">
         <div className="grid gap-2 sm:grid-cols-2">
-          <Radio on title="I'll ship it myself" line="You pack each order and send it." />
-          <Radio title="Fulfillment warehouse / 3PL" line="A warehouse holds your stock and ships." />
-          <Radio title="Dropshipping supplier" line="Your supplier ships to the buyer." />
+          <Radio on title="I'll ship it myself" line="From home, a shop or your own warehouse." />
+          <Radio title="A fulfillment center (3PL)" line="They store, pack and ship it for you." />
+          <Radio title="A supplier or manufacturer" line="They ship straight to the buyer." />
           <Radio title="Print on demand" line="Printed and shipped after it sells." />
         </div>
       </Card>

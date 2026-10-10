@@ -285,7 +285,7 @@ try {
       const { page, errors } = await open("shipping")
       console.log(`\nShipping settings, ${label}px`)
       const q = await page.evaluate(() => document.body.innerText)
-      expect(/How do you fulfil your physical orders\?/.test(q), "the first question")
+      expect(/How do you fulfil your physical orders\?/.test(q), "the first question", q.slice(0, 300) + " :: " + errors.join(" | "))
       await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.innerText.startsWith("I ship orders myself")).click())
       await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === "Continue").click())
       await wait(500)
@@ -311,21 +311,22 @@ try {
       const tr = posted.find((p) => p.url === "/api/physical/shipping/rates")
       expect(!!tr && tr.body.kind === "weight" && JSON.stringify(tr.body.tiers) === JSON.stringify([{ from: 0, priceCents: 500 }, { from: 2000, priceCents: 900 }]), "a rate by order weight is saved as steps in grams and cents", JSON.stringify(tr?.body ?? null).slice(0, 200))
       expect(/0 kg to 2 kg \$35\.00/.test(await page.evaluate(() => document.body.innerText)), "a tiered rate reads as its steps")
-      for (const s of ["Locations and pickup", "Taxes", "Advanced"]) {
-        await page.evaluate((s) => [...document.querySelectorAll("button")].find((b) => b.innerText.trim() === s).click(), s)
-        await wait(150)
-        if (s === "Locations and pickup") {
-          expect(/Local pickup/.test(await page.evaluate(() => document.body.innerText)), "a pickup location says so")
-          await page.evaluate(() => document.querySelector("[aria-label='Edit Studio']").click())
-          await wait(150)
-          const lf = await page.evaluate(() => document.body.innerText)
-          expect(/Offer local pickup here/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
-          await shot(page, `settings-pickup-${label}`)
-        }
-      }
-      const adv = await page.evaluate(() => document.body.innerText)
-      expect(/Your own system \(webhook\)/.test(adv) && /Not available yet/.test(adv) && /Email me when stock runs low/.test(adv), "Advanced: low stock emails, and integrations say what is live and what isn't")
       expect(await sideways(page) === 0, "nothing scrolls sideways")
+      await shot(page, `settings-${label}`)
+      expect(errors.length === 0, "no errors", errors.join(" | "))
+      await page.close()
+    }
+    /* Locations is its own section of Settings now (round T): pickup and low stock emails live there. */
+    {
+      const { page, errors } = await open("shipping", "&part=locations")
+      console.log(`\nLocations, ${label}px`)
+      expect(/Local pickup/.test(await page.evaluate(() => document.body.innerText)), "a pickup location says so")
+      await page.evaluate(() => document.querySelector("[aria-label='Edit Studio']").click())
+      await wait(150)
+      const lf = await page.evaluate(() => document.body.innerText)
+      expect(/Offer local pickup here/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
+      await shot(page, `settings-pickup-${label}`)
+      expect(/Email me when stock runs low/.test(lf), "low stock emails sit with the locations")
       await shot(page, `settings-${label}`)
       expect(errors.length === 0, "no errors", errors.join(" | "))
       await page.close()
@@ -361,7 +362,7 @@ try {
       expect(await page.evaluate(() => !!document.querySelector("[data-variant-row] img")), "a product photo picked becomes the variant's")
       const card = await page.evaluate(() => document.body.innerText)
       expect(/How will this product be fulfilled\?/.test(card) && /I'll ship it myself/.test(card) && /Print on demand/.test(card) && /Track inventory/.test(card) && /Advanced/.test(card), "inventory, fulfillment and advanced cards")
-      await page.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => /Dropshipping supplier/.test(b.innerText)).click())
+      await page.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => /A supplier or manufacturer/.test(b.innerText)).click())
       await wait(150)
       expect(await page.evaluate(() => !!document.querySelector("[data-partner-form]")), "dropshipping with no supplier yet asks for one in place")
       posted = []

@@ -28,7 +28,7 @@ function TotalsProbe({ included }: { included: boolean }) {
   )
 }
 
-type W = Window & { __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => JSX.Element> }
+type W = Window & { __panel?: string; __api?: Record<string, unknown>; __sent?: { method: string; path: string; body: unknown }[]; __panels?: Record<string, () => React.ReactElement> }
 const w = window as W
 w.__sent = []
 const realFetch = window.fetch.bind(window)
@@ -42,7 +42,7 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
-const panels: Record<string, () => JSX.Element> = {
+const panels: Record<string, () => React.ReactElement> = {
   store: () => <StoreDetailsPanel />,
   checkout: () => <CheckoutPanel />,
   taxes: () => <TaxesPanel />,
