@@ -1,5 +1,6 @@
 "use client"
 
+import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
@@ -5255,22 +5256,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
     try {
-      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_settings: settingsDraft }),
-      })
+      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
       if (!settingsRes.ok) {
         const d = await settingsRes.json().catch(() => ({}))
         showNotification(d.error ?? "Failed to save settings", "error")
         return false
       }
 
-      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-      })
+      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
         // A FAILED autosave is not quiet. Silence here is how somebody keeps
@@ -5301,11 +5294,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setPublishing(true)
     try {
       // 1. Save current editor state as draft (settings + current page sections)
-      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_settings: settingsDraft }),
-      })
+      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
       if (!settingsRes.ok) {
         const d = await settingsRes.json().catch(() => ({}))
         showNotification(d.error ?? "Failed to save settings", "error")
@@ -5313,11 +5302,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return
       }
 
-      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-      })
+      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
         showNotification(d.error ?? "Failed to save sections", "error")

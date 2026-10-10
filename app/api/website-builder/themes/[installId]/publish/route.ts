@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { announce, websiteAddresses } from "@/lib/seo/announce"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -22,20 +23,24 @@ export async function POST(req: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators")
     .select("id")
     .eq("user_id", user.id)
-    .maybeSingle()
+    .maybeSingle())
+
+  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
 
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs")
     .select("id, creator_id, status")
     .eq("id", installId)
     .eq("creator_id", creator.id)
-    .maybeSingle()
+    .maybeSingle())
+
+  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
 
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 

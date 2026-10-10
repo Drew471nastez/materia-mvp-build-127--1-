@@ -1,4 +1,5 @@
 import { websiteHandleOf } from "@/lib/website-builder/site-address-data"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { ensurePolicyPages, type PagesTable } from "@/lib/website-builder/ensure-policy-pages"
@@ -65,20 +66,24 @@ async function getCreatorAndInstall(installId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized", status: 401, supabase, creator: null, install: null }
 
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators")
     .select("id")
     .eq("user_id", user.id)
-    .maybeSingle()
+    .maybeSingle())
+
+  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase, creator: null, install: null }
 
   if (!creator) return { error: "Creator not found", status: 404, supabase, creator: null, install: null }
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs")
     .select("id, creator_id")
     .eq("id", installId)
     .eq("creator_id", creator.id)
-    .maybeSingle()
+    .maybeSingle())
+
+  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase, creator, install: null }
 
   if (!install) return { error: "Theme not found", status: 404, supabase, creator, install: null }
 

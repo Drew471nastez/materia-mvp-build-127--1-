@@ -8,6 +8,7 @@
 //   manifest.json image_map field maps original_url -> images/<sha>.<ext>
 // ============================================================
 import { createAdminClient } from "@/lib/supabase/admin"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import JSZip from "jszip"
@@ -105,11 +106,12 @@ export async function GET(_req: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: creator } = await supabase
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
     .from("creators")
     .select("id")
     .eq("user_id", user.id)
-    .maybeSingle()
+    .maybeSingle())
+  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
   const { data: install, error: installErr } = await supabase

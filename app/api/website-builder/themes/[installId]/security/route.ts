@@ -13,6 +13,7 @@
  * same as every other route beside it.
  */
 import { NextResponse } from "next/server"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { scanSiteSecurity, SECURITY_ISSUE_LIMIT } from "@/lib/website-builder/security-scan"
@@ -28,16 +29,18 @@ export async function GET(_req: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
   /** RLS decides as well: a theme somebody else owns reads as absent. */
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs")
     .select("id")
     .eq("id", installId)
     .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle()
+    .maybeSingle())
+  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 
   /* It reads every page of the site, so it is a press rather than a poll: LIMITS.siteAction. */

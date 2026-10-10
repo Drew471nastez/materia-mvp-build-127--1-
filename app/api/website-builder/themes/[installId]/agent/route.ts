@@ -102,7 +102,8 @@ const BlockSchema = BlockInstanceSchema
 const SectionSchema = z.object({
   id: z.string().min(1).max(128),
   type: z.string().min(1).max(64),
-  name: z.string().max(256),
+  /* An imported Shopify theme's sections carry no name (the theme names them by type); one sent without is saved with none, not refused. */
+  name: z.string().max(256).optional().default(""),
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),

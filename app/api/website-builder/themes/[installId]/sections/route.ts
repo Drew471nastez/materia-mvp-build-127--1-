@@ -1,4 +1,5 @@
 import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
@@ -25,7 +26,8 @@ const BlockSchema = BlockInstanceSchema
 const SectionSchema = z.object({
   id: z.string().min(1).max(128),
   type: z.string().min(1).max(64),
-  name: z.string().max(256),
+  /* An imported Shopify theme's sections carry no name (the theme names them by type); one sent without is saved with none, not refused. */
+  name: z.string().max(256).optional().default(""),
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),
@@ -44,13 +46,15 @@ async function getCreatorInstall(installId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized", status: 401, supabase: null }
 
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
+    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!creator) return { error: "Creator not found", status: 404, supabase: null }
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs").select("id")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
+    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
+  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
   // The creator id comes back too: a write that lands on the LIVE columns
