@@ -40,6 +40,7 @@ import { actionKey } from "@/components/physical/ui"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
 import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
+import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 
 interface QuoteLine {
@@ -574,7 +575,7 @@ export function PhysicalCheckout({
                 </div>
               ) : null}
             </dl>
-            <button type="button" onClick={() => (window.history.state?.physicalStep === "payment" ? window.history.back() : void change())} disabled={changing} className="shrink-0 text-[13.5px] font-medium text-[#1a1a2e] underline underline-offset-4 disabled:opacity-50">
+            <button type="button" onClick={() => (window.history.state?.physicalStep === "payment" ? backThen(() => void change()) : void change())} disabled={changing} className="shrink-0 text-[13.5px] font-medium text-[#1a1a2e] underline underline-offset-4 disabled:opacity-50">
               Change
             </button>
           </div>

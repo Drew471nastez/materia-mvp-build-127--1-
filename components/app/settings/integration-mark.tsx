@@ -55,7 +55,7 @@ const BUILT_IN_ART: Record<string, React.ReactNode> = {
 export const hasBuiltInArt = (id: string | null | undefined) => !!id && id in BUILT_IN_ART
 
 /** The initial a tile falls back to: the service's name, without the words Storelib puts in front of its own. */
-export const markInitial = (name: string) => (name.replace(/^(Your own |Ship it )/, "").trim().charAt(0) || "?").toUpperCase()
+export const markInitial = (name: string) => (name.replace(/^(Your own |Ship it )/, "").trim().charAt(0) || name.trim().charAt(0) || "S").toUpperCase()
 
 export function Mark({ item, size = 44 }: { item: { logo: string | null; name: string; id?: string }; size?: number }) {
   const art = item.id ? BUILT_IN_ART[item.id] : undefined

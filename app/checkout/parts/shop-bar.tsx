@@ -22,6 +22,7 @@ import { ArrowLeft, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { Spinner } from "./ui"
+import { backThen } from "@/lib/navigation/go-back"
 
 export interface ShopBrand {
   name: string
@@ -76,7 +77,8 @@ export function ShopBar({
     onLeave?.()
     if (behindIs(backTo)) {
       e.preventDefault()
-      window.history.back()
+      /* A back that does nothing (a replaced entry, a web view) lands on the cart's own address instead. */
+      backThen(() => window.location.assign(backTo))
     }
   }
   /* Back from the browser's cache: the press is over. */

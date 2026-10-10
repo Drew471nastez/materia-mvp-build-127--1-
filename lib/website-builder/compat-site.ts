@@ -131,8 +131,9 @@ const collectionsOf = (creatorId: string) =>
   name whatever the store was called, and never had an email for a theme's
   contact line. Cached with the shop and cleared when Store details is saved.
 */
-const storeOf = (creatorId: string) =>
-  unstable_cache(
+const storeOf = async (creatorId: string): Promise<{ name: string | null; email: string | null }> => {
+  try {
+    return await unstable_cache(
     async (): Promise<{ name: string | null; email: string | null }> => {
       const admin = createAdminClient()
       const [{ data }, identity] = await Promise.all([
@@ -144,7 +145,11 @@ const storeOf = (creatorId: string) =>
     },
     ["compat-store", creatorId],
     { tags: [creatorShopTag(creatorId)], revalidate: 60 },
-  )().catch(() => ({ name: null, email: null }))
+  )()
+  } catch {
+    return { name: null, email: null }
+  }
+}
 
 /*
   ═══════════════════════════════════════════════════════════════════════
