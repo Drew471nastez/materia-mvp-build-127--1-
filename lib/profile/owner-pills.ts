@@ -7,6 +7,7 @@
  * its own sub pills), Edit profile, Settings."
  *
  *   Activity       /account                 what everybody sees first
+ *   Posts          /account/posts           what you posted in any community
  *   Communities    /account/communities     the ones you run and are in
  *   Library        /account/library/...     what you bought, its own page
  *   Settings       /account/settings?section=profile (same tab as Edit profile)
@@ -16,7 +17,13 @@
  * (components/profile/profile-hero.tsx), so it sits where the thing it
  * edits is. It still opens /account/settings, at the profile's fields.
  *
- * Communities only while the communities switch is on. Pure, so the pills,
+ * POSTS (round 16, the owner: "the account user profile page should be how
+ * it was before, but optimized for our things"): your posts from every
+ * community you are in, newest first, each with Edit and Delete where you
+ * may (app/account/posts). Round 15 drew them on a card of its own inside
+ * the community; here they are a pill of the page they belong to.
+ *
+ * Posts and Communities only while the communities switch is on. Pure, so the pills,
  * the hub, the site header and tests/account-center.test.ts ask the same
  * questions.
  *
@@ -28,7 +35,10 @@
  */
 import { ACCOUNT_COMMUNITIES, LIBRARY_HOME } from "@/lib/library/paths"
 
-export type OwnerPillKey = "activity" | "communities" | "library" | "settings"
+export type OwnerPillKey = "activity" | "posts" | "communities" | "library" | "settings"
+
+/** Your posts from every community (the Posts pill). */
+export const ACCOUNT_POSTS = "/account/posts"
 
 /** Where the cover's Edit profile button goes: Settings, opened on the profile's own fields. */
 export const EDIT_PROFILE_HREF = "/account/settings"
@@ -42,6 +52,7 @@ export interface OwnerPill {
 export function ownerPillLinks(communities: boolean, creator = false): OwnerPill[] {
   return [
     ...(creator ? [] : [{ key: "activity" as const, label: "Activity", href: "/account" }]),
+    ...(communities ? [{ key: "posts" as const, label: "Posts", href: ACCOUNT_POSTS }] : []),
     ...(communities ? [{ key: "communities" as const, label: "Communities", href: creator ? "/account" : ACCOUNT_COMMUNITIES }] : []),
     { key: "library", label: "Library", href: LIBRARY_HOME },
     { key: "settings", label: "Settings", href: "/account/settings?section=profile" },
@@ -54,6 +65,7 @@ const clean = (p: string | null | undefined) => (p || "").split(/[?#]/)[0].repla
 export function ownerPillFor(pathname: string | null | undefined, creator = false): OwnerPillKey | null {
   const path = clean(pathname)
   if (path === "/account") return creator ? "communities" : "activity"
+  if (path === ACCOUNT_POSTS) return "posts"
   if (path === ACCOUNT_COMMUNITIES || path.startsWith(`${ACCOUNT_COMMUNITIES}/`)) return "communities"
   if (path === LIBRARY_HOME || path.startsWith(`${LIBRARY_HOME}/`)) return "library"
   if (path === "/account/settings" || path.startsWith("/account/settings/")) return "settings"
@@ -62,8 +74,8 @@ export function ownerPillFor(pathname: string | null | undefined, creator = fals
 
 /**
  * Whether the profile's own header (cover, photo, name, the pills) is drawn
- * over this address: your Activity and your Communities, which are your
- * profile. Not over Settings, which has its own top row and its own photo,
+ * over this address: your Activity, your Posts and your Communities, which
+ * are your profile. Not over Settings, which has its own top row and its own photo,
  * and not over the library at all: "Library opens as its own page", with
  * its own title and its sub pills (components/library/library-tabs.tsx),
  * the way Settings is its own page. The pill on the profile still leads
@@ -75,5 +87,5 @@ export function ownerPillFor(pathname: string | null | undefined, creator = fals
  */
 export function showsProfileHeader(pathname: string | null | undefined): boolean {
   const pill = ownerPillFor(clean(pathname))
-  return pill === "activity" || pill === "communities"
+  return pill === "activity" || pill === "posts" || pill === "communities"
 }

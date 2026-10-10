@@ -19,7 +19,7 @@ import { LANDING_CLASS, useLandingOnMove } from "@/lib/ui/landing"
  */
 export function navFadeKey(pathname: string | null): string {
   if (showsLibraryTabs(pathname)) return "library-tabs"
-  /* The profile's two pills (Activity, Communities) are one page under one header: a pill press changes the panel, never the cover, the avatar and the pills (components/account/account-hub.tsx). */
+  /* The profile's own pills (Activity, Posts, Communities) are one page under one header: a pill press changes the panel, never the cover, the avatar and the pills (components/account/account-hub.tsx). */
   if (showsProfileHeader(pathname)) return "profile"
   return pathname || ""
 }
