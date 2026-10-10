@@ -50,7 +50,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { useRouter } from "next/navigation"
 
-import { BuilderLoader, useLinger } from "@/components/website-builder/builder-loader"
+import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
+import { SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
 import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { CreatorPageShare } from "@/components/app/creator-page-share"
 import { SaveNotification } from "@/components/ui/save-notification"
@@ -238,6 +239,8 @@ export function CreatorPageWorkspace({
   const [firstLoad, setFirstLoad] = useState(true)
   /** Mounted while loading AND for the length of its own fade afterwards. */
   const loaderVisible = useLinger(firstLoad, 320)
+  /* The squares only for a load that is genuinely slow (SPINNER_WAIT_MS, as everywhere else): a quick one is a plain surface, then the page. */
+  const loaderShown = useDelayedFlag(firstLoad, SPINNER_WAIT_MS)
   const version = useRef(0)
   const frames = useRef<Array<HTMLIFrameElement | null>>([null, null])
 
@@ -251,6 +254,36 @@ export function CreatorPageWorkspace({
       return next
     })
   }, [front, handle]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  /*
+    THE PAGE IS SHOWN WHEN IT CAN PAINT, NOT WHEN ITS LAST PICTURE IS IN.
+    The frame's load event waits for every image, font and tag on the page,
+    and the loader stayed up for all of it. The page is the same origin, so
+    its document can be read: once its markup is parsed and its stylesheets
+    are applied it is drawn, and the loader fades onto it. A frame that is
+    not readable (a sign-in redirect elsewhere) is left to its load event.
+  */
+  useEffect(() => {
+    if (!firstLoad) return
+    let raf = 0
+    const look = () => {
+      try {
+        const f = frames.current[0]
+        const doc = f?.contentDocument
+        const href = f?.contentWindow?.location.href ?? ""
+        const styled = !!doc && Array.from(doc.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).every((l) => !!l.sheet)
+        if (doc && href && href !== "about:blank" && doc.readyState !== "loading" && doc.body?.childElementCount && styled) {
+          setFirstLoad(false)
+          return
+        }
+      } catch {
+        return
+      }
+      raf = requestAnimationFrame(look)
+    }
+    raf = requestAnimationFrame(look)
+    return () => cancelAnimationFrame(raf)
+  }, [firstLoad])
 
   const onFrameLoad = (index: 0 | 1) => {
     if (firstLoad) setFirstLoad(false)
@@ -428,7 +461,7 @@ export function CreatorPageWorkspace({
               data-leaving={!firstLoad}
               aria-hidden={!firstLoad}
             >
-              <BuilderLoader tone="light" lines={["Loading your page"]} />
+              {loaderShown && <BuilderLoader tone="light" lines={["Loading your page"]} />}
             </div>
           )}
           {([0, 1] as const).map((i) =>

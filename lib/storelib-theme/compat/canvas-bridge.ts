@@ -31,7 +31,8 @@ export const CANVAS_BRIDGE = `
     canvas selection (components/website-builder/sections/_shared.tsx):
     solid blue, never a dashed purple.
   */
-  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none}" +
+  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none;transition:opacity .2s cubic-bezier(.4,0,.2,1)}" +
+    "@media (prefers-reduced-motion:reduce){[data-sl-box]{transition:none}}" +
     "[data-sl-box=hover]{border:1.5px solid rgba(59,130,246,.5)}" +
     "[data-sl-box=section]{border:1.5px solid #3b82f6}" +
     "[data-sl-box=block]{border:1.5px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
@@ -74,6 +75,15 @@ export const CANVAS_BRIDGE = `
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
+  /*
+    THE INSPECTOR, ON OR OFF. Off, this page is the website: nothing under
+    the pointer is outlined, a click selects nothing, and links still open
+    their pages in the builder. Known before the first paint (the builder
+    writes window.__slInspect into the page it draws) and told again with
+    every selection, so a page drawn while it was switched cannot show the
+    old state.
+  */
+  var inspect = window.__slInspect !== false;
   var sectionOf = function (el) { return el && el.closest ? el.closest(".shopify-section") : null; };
   var idOf = function (s) { return s ? s.getAttribute("data-section-id") || s.id.replace(/^shopify-section-/, "") : null; };
   var blockOf = function (el, section) {
@@ -81,15 +91,20 @@ export const CANVAS_BRIDGE = `
     return b && section && section.contains(b) ? b : null;
   };
   var hovered = null;
-  document.addEventListener("mouseover", function (e) {
-    var s = sectionOf(e.target);
+  /* What the pointer is over, kept while the inspector is off too, so switching it on outlines that section without waiting for the pointer to move. */
+  var pointerAt = null;
+  var hover = function (s) {
     if (s === hovered) return;
     if (hovered) hovered.removeAttribute("data-sl-hover");
     hovered = s;
     if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
     redraw();
+  };
+  document.addEventListener("mouseover", function (e) {
+    pointerAt = e.target;
+    if (inspect) hover(sectionOf(e.target));
   }, true);
-  document.addEventListener("mouseleave", function () { if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
+  document.addEventListener("mouseleave", function () { pointerAt = null; if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
   /*
     THE SITE'S OWN ADDRESS UNDER THE POINTER. The page is drawn on the
     builder's host, so a link's address read as storelib.com/pages/wishlist
@@ -133,7 +148,7 @@ export const CANVAS_BRIDGE = `
       var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
       post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
     }
-    if (!s) return;
+    if (!s || !inspect) return;
     /* The block and every block around it, outermost first: the path the sidebar's tree reads. */
     var path = [];
     var at = blockOf(e.target, s);
@@ -147,7 +162,7 @@ export const CANVAS_BRIDGE = `
   var boxFrame = 0;
   var report = function () {
     boxFrame = 0;
-    var el = selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
+    var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
     if (!el) { post({ type: "box", id: null }); return; }
     var r = el.getBoundingClientRect();
     post({ type: "box", id: selected.section, top: r.top, left: r.left, width: r.width, height: r.height });
@@ -336,6 +351,30 @@ export const CANVAS_BRIDGE = `
     if (selected.section) mark(selected.section, selected.block, false);
     reportSoon();
   };
+  /*
+    SWITCHED OFF, every mark goes: the hover and the selection fade where they
+    are (200ms, the builder's own rings) and are then taken off the page, so
+    nothing is left behind. Switched on, the selection the builder sends is
+    marked again and fades up.
+  */
+  var letGo = 0;
+  var fadeBoxes = function (on) { if (boxes) Object.keys(boxes).forEach(function (k) { boxes[k].style.opacity = on ? "" : "0"; }); };
+  var setInspect = function (on) {
+    on = on !== false;
+    if (on === inspect) return;
+    inspect = on;
+    clearTimeout(letGo);
+    if (on) {
+      hover(pointerAt && pointerAt.isConnected ? sectionOf(pointerAt) : null);
+      redraw();
+      requestAnimationFrame(function () { requestAnimationFrame(function () { if (inspect) fadeBoxes(true); }); });
+      return;
+    }
+    if (hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; }
+    fadeBoxes(false);
+    var still = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    letGo = setTimeout(function () { if (!inspect) mark(null, null, false); }, still ? 0 : 200);
+  };
   window.addEventListener("message", function (e) {
     var m = e.data;
     if (!m || m.storelib !== 1) return;
@@ -346,7 +385,11 @@ export const CANVAS_BRIDGE = `
       /* In order: a swap that waits for a stylesheet holds the ones after it. */
       queue = queue.then(function () { return swap(m.id, m.html); }).catch(function () {});
     } else if (m.type === "select") {
-      mark(m.sectionId || null, m.blockId || null, m.scroll !== false);
+      if ("inspect" in m) setInspect(m.inspect);
+      /* Off, nothing is selected, whatever was asked; the marks leave after their fade (setInspect). */
+      if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false);
+    } else if (m.type === "inspect") {
+      setInspect(m.on);
     } else if (m.type === "scroll") {
       scrollTo({ top: m.top || 0 });
     }

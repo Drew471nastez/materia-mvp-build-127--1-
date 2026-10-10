@@ -112,7 +112,7 @@ check("on Storelib themes' sites", /type="speculationrules"/.test(read("app/(sit
 check("and imported themes' sites (not in the canvas)", /speculationrules/.test(boot) && /if\(!S\.designMode&&HTMLScriptElement\.supports/.test(boot))
 check("the logo is decoded with the page, no blank first frame", /decoding="sync"/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")))
 const canvas2 = read("components/website-builder/compat/compat-canvas.tsx")
-check("an imported theme's canvas shows a page's outline until it has painted, then fades", /function CanvasPlaceholder/.test(canvas2) && /<CanvasPlaceholder hidden=\{painted && slots\.length > 0\}/.test(canvas2) && !/Loading \{compat\?\.theme \?\? "the theme"\}…<\/div>/.test(canvas2))
+check("an imported theme's canvas shows a page's outline until it has painted, then fades", /function CanvasPlaceholder/.test(canvas2) && /const shown = painted && slots\.length > 0/.test(canvas2) && /<CanvasPlaceholder hidden=\{shown\}/.test(canvas2) && !/Loading \{compat\?\.theme \?\? "the theme"\}…<\/div>/.test(canvas2))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

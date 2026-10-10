@@ -35,6 +35,7 @@ import { useEchoedValue } from "@/components/website-builder/echo-field"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { hapticTap } from "@/lib/native-bridge"
 import { BuilderLoader, useDelayedFlag, useLinger } from "@/components/website-builder/builder-loader"
+import { SPINNER_WAIT_MS } from "@/components/ui/activity-spinner"
 import { CanvasScrollbar } from "@/components/website-builder/canvas-scrollbar"
 import { usePhoneChromeTone } from "@/components/website-builder/native-chrome"
 import { LeaveConfirm, hasSomethingToLose, type LeaveReason } from "@/components/website-builder/leave-confirm"
@@ -132,7 +133,7 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { CompatCanvas } from "@/components/website-builder/compat/compat-canvas"
+import { CompatCanvas, loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
@@ -236,6 +237,9 @@ function BackWithBarIcon({ className }: { className?: string }) {
 // on an ease-out curve (never looping). When `active` flips false, the
 // bar snaps to 100% and fades out. There is NO repeating / double
 // animation — one clean sweep per load.
+/** How long a wait goes before the bar shows. */
+const BAR_AFTER_MS = 220
+
 function WbLoadProgressBar({ active }: { active: boolean }) {
   const [progress, setProgress] = useState(0)
   const [visible, setVisible] = useState(false)
@@ -249,7 +253,8 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
 
     if (active) {
       clearTimers()
-      setVisible(true)
+      /* Only a wait worth seeing: a page that answers within a fifth of a second shows no bar at all, as on the rest of Storelib (components/navigation/route-loading-bar.tsx). */
+      timersRef.current.push(setTimeout(() => setVisible(true), BAR_AFTER_MS))
       // Kick off the ease-out creep: 0 → 30 → 60 → 80 → 90.
       // We never touch 100 while active so the bar can't visually "restart".
       setProgress(0)
@@ -273,6 +278,8 @@ function WbLoadProgressBar({ active }: { active: boolean }) {
       setProgress(100)
       timersRef.current.push(setTimeout(() => setVisible(false), 260))
       timersRef.current.push(setTimeout(() => setProgress(0), 560))
+    } else {
+      setProgress(0)
     }
 
     return clearTimers
@@ -2609,6 +2616,8 @@ function newBlockId(): string {
 
 /** How long the inspector's rings take to fade, either way. globals.css fades `.wb-ring` over the same. */
 const INSPECT_FADE_MS = 200
+/** The longest the editor's loader waits for an imported theme's first page to paint. */
+const COMPAT_PAINT_CAP_MS = 8000
 
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
   const { installId } = use(params)
@@ -3594,6 +3603,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // forever, which is exactly what the user reported.
   const loadData = useCallback(async () => {
     setLoading(true)
+    /*
+      ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
+      install to come back before they were even asked for, which put two
+      signed-in round trips end to end in front of every opening of the
+      editor (the "Fetching your sections" that stayed up). Neither needs the
+      other, so both are asked for now. Caught here and read below, so an
+      install that fails leaves nothing unhandled.
+    */
+    const sectionsAsked = Promise.all([
+      fetchPageSections(currentPage),
+      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
+    ]).then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }))
     try {
     const res = await fetch(`/api/website-builder/themes/${installId}`)
     if (!res.ok) { setLoading(false); return }
@@ -3630,7 +3651,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Load settings
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
-    if (compatOf(loadedSettings)) importedTheme.current = true
+    if (compatOf(loadedSettings)) {
+      importedTheme.current = true
+      /* An imported theme's own files are the canvas's next wait: asked for now, beside the sections, not once the canvas mounts. */
+      void loadCompatFiles(installId)
+    }
     /* Every theme shows the store's menus. Until the store has any, the live theme's are offered, or this theme's own when nothing is live yet. */
     const offered = data.storeMenus as { available?: boolean; stored?: boolean; menus?: unknown } | undefined
     if (offered?.available) {
@@ -3669,10 +3694,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Load sections for current page. If not on home, fetch home's
     // header/footer in parallel and splice them in — home is the universal
     // source of truth for header/footer.
-    const [loadedRaw, homeHF] = await Promise.all([
-      fetchPageSections(currentPage),
-      currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
-    ])
+    const asked = await sectionsAsked
+    if (!asked.ok) throw asked.e
+    const [loadedRaw, homeHF] = asked.v
     /**
      * HOME GETS THE RULE TOO, and that is not a no-op.
      *
@@ -7301,14 +7325,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     </>
   )
 
-  /** See `useDelayedFlag`: a fast load should show nothing at all. */
-  const showCanvasLoader = useDelayedFlag(loading || canvasLoading)
+  const canvasBusy = loading || canvasLoading
+  /*
+    AN IMPORTED THEME'S FIRST PAGE IS PART OF THE SAME WAIT. Its canvas is a
+    frame that still has the theme's files to read and its page to draw once
+    the editor has loaded, and that used to be a second loading screen after
+    the first: the squares, then a grey outline of a page, then the page. Now
+    the one loader stays over the canvas until the theme's page has painted
+    (CompatCanvas, onPainted) and fades straight onto it. Never for longer
+    than COMPAT_PAINT_CAP_MS: a theme that never says it has drawn falls back
+    to the canvas's own placeholder rather than a loader that stays.
+  */
+  const [compatPainted, setCompatPainted] = useState(false)
+  const onCompatPainted = useCallback(() => setCompatPainted(true), [])
+  const compatFirstPaint = !compatPainted && !!compatOf(settingsDraft)
+  useEffect(() => {
+    if (!compatFirstPaint || canvasBusy) return
+    const id = window.setTimeout(() => setCompatPainted(true), COMPAT_PAINT_CAP_MS)
+    return () => window.clearTimeout(id)
+  }, [compatFirstPaint, canvasBusy])
+  const canvasLoaderUp = canvasBusy || compatFirstPaint
+  /**
+   * See `useDelayedFlag`: a fast load should show nothing at all. Half a
+   * second, the wait every other loader in Storelib keeps before it shows
+   * (SPINNER_WAIT_MS): only a load that is genuinely slow gets one.
+   */
+  const showCanvasLoader = useDelayedFlag(canvasLoaderUp, SPINNER_WAIT_MS)
   /**
    * The loader's surface stays for a beat after the page has arrived, so it
    * can fade over the page rather than vanish from in front of it.
    */
-  const canvasBusy = loading || canvasLoading
-  const canvasLoaderLingers = useLinger(canvasBusy, 280)
+  const canvasLoaderLingers = useLinger(canvasLoaderUp, 280)
   /** Light chrome on a phone, wherever the clock can still be read. */
   /**
    * THE BAR IS DARK, EVERYWHERE.
@@ -8526,7 +8573,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           comparable inside one stacking context, and this has to cover sheets
           that render into the body. From in here it could not. */}
       {/* The outline and the section's name under the pointer: components/website-builder/canvas-hover.tsx. */}
-      <CanvasHover enabled={canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
+      <CanvasHover enabled={inspectorEnabled && canvasInspecting && !fullView && !isMobileView && previewMode === "preview"} nameOf={hoverNameOf} />
 
       {/* A header (or footer) chosen while one is drawn: see addSection. */}
       <ReplaceChromeConfirm
@@ -9270,11 +9317,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               * across it while the page rises in underneath — the swap used
               * to happen in one frame, which is the cut that read as cheap.
               */}
-            {(canvasBusy || canvasLoaderLingers) && (
+            {(canvasLoaderUp || canvasLoaderLingers) && (
               <div
                 className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"
-                data-leaving={!canvasBusy}
-                aria-hidden={!canvasBusy}
+                data-leaving={!canvasLoaderUp}
+                aria-hidden={!canvasLoaderUp}
               >
                 {showCanvasLoader && (
                   <BuilderLoader
@@ -9345,9 +9392,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
                   selectedSectionId={selectedSectionId}
                   selectedBlockId={selectedBlockId}
-                  inspectorEnabled={canvasInspecting && !fullSettled}
+                  /* The switch itself, not the fade behind it: the frame fades its own marks (canvas-bridge.ts), and a page that has stopped selecting must stop outlining on the same press. */
+                  inspectorEnabled={inspectorEnabled && !fullView}
                   onSelect={selectFromCompatCanvas}
                   onNavigate={navigateCompatCanvas}
+                  onPainted={onCompatPainted}
                   siteUrl={websiteUrl}
                 />
               ) : (
@@ -9607,7 +9656,8 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
    * sidebar's divider once did.
    */
   return (
-    <div className="relative isolate z-20 h-0 w-full">
+    /* `wb-ring`: it fades and stops taking a press with the inspector's rings (globals.css, [data-wb-inspect]). */
+    <div className="wb-ring relative isolate z-20 h-0 w-full">
     <div
       className="group absolute inset-x-0 -top-1.5 flex h-3 cursor-pointer select-none items-center justify-center"
       onClick={(e) => {

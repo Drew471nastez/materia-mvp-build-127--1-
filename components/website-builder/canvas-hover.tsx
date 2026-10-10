@@ -49,8 +49,16 @@ function clip(a: DOMRect, b: DOMRect): DOMRect | null {
  * panel's box is cut out of the outline, and a chip that would sit on the
  * panel is not drawn.
  */
+/*
+  THE PANEL, NOT THE BOX IT SITS IN. `[data-ask-dock]` is a layer the size of
+  the whole canvas (it takes no pointer; the pill and the conversation are
+  placed inside it), so measuring it cut the entire outline away and kept
+  every chip off the page: hover drew nothing at all. What covers the page is
+  the open conversation and the pill.
+*/
+const PANELS = '[data-ask-dock][data-state="open"] [data-ask-card], [data-ask-dock]:not([data-state="hidden"]) [data-ask-pill]'
 function panelBoxes(): DOMRect[] {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-ask-dock]"), (el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
+  return Array.from(document.querySelectorAll<HTMLElement>(PANELS), (el) => el.getBoundingClientRect()).filter((r) => r.width > 0 && r.height > 0)
 }
 
 /** A clip-path for `box` with every panel that crosses it cut out, or undefined when none does. */

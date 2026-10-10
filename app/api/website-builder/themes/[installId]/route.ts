@@ -87,15 +87,38 @@ async function getCreatorAndInstall(installId: string) {
 
   if (!install) return { error: "Theme not found", status: 404, supabase, creator, install: null }
 
-  return { error: null, status: 200, supabase, creator, install }
+  return { error: null, status: 200, supabase, creator, install, userId: user.id }
 }
 
 // GET /api/website-builder/themes/[installId]
 // Returns full install data with settings, pages, and username
 export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
-  const { error, status, supabase, install, creator } = await getCreatorAndInstall(installId)
+  const { error, status, supabase, install, creator, userId } = await getCreatorAndInstall(installId)
   if (error) return NextResponse.json({ error }, { status })
+
+  /*
+    WHAT DOES NOT HANG ON THE INSTALL'S ROW IS ASKED FOR NOW, beside it.
+    These were read one after another after the row (the username, the slug,
+    the site's own name, then the rest), each a round trip to the database,
+    and with the editor waiting on this answer before it draws anything every
+    one of them was time on the loader. None of them throws: each answers
+    with nothing when its read fails, as before. The ownership check above
+    still comes first.
+  */
+  const besides = Promise.all([
+    supabase!.from("profiles").select("username").eq("id", userId!).maybeSingle(),
+    supabase!.from("creators").select("slug").eq("id", creator!.id).maybeSingle(),
+    /* The name the website is at, when its creator gave it one of its own. */
+    websiteHandleOf(creator!.id),
+    creatorFacts(supabase! as never, creator!.id),
+    creatorCommunitiesForBuilder(creator!.id),
+    creatorCollectionsForBuilder(creator!.id),
+    /* The store's menus, which every theme shares (lib/website-builder/store-menus-server.ts). */
+    builderStoreMenus(creator!.id, installId),
+  ])
+  /* Handled at once, so a read that fails while the row is still on its way is never an unhandled rejection; awaited below as before. */
+  besides.catch(() => {})
 
   /**
    * EVERY SITE HAS ITS POLICY PAGES BY THE TIME IT IS READ.
@@ -133,20 +156,18 @@ export async function GET(_req: Request, { params }: Params) {
     return NextResponse.json({ error: "Could not load this website. Try again." }, { status: 500 })
   }
 
-  // Get username for URL display
-  const { data: { user } } = await supabase!.auth.getUser()
-  const { data: profile } = await supabase!
-    .from("profiles")
-    .select("username")
-    .eq("id", user!.id)
-    .maybeSingle()
+  /*
+    A section the creator wrote is cleaned by the schema its own file
+    declares (lib/website-builder/custom-schemas.ts), and the creator's
+    public profile comes along for the canvas to fill `{{ creator.name }}`
+    the way the live site will: the same four public facts, nothing else.
+  */
+  const [lookup, [{ data: profile }, { data: creatorData }, siteHandle, facts, communities, collections, storeMenus]] = await Promise.all([
+    customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
+    besides,
+  ])
 
-  const { data: creatorData } = await supabase!
-    .from("creators")
-    .select("slug")
-    .eq("id", creator!.id)
-    .maybeSingle()
-
+  // Username for URL display
   const username = profile?.username || creatorData?.slug || ""
 
   /*
@@ -155,22 +176,6 @@ export async function GET(_req: Request, { params }: Params) {
     is signed in, so a row written by an import or by hand must not reach it
     as written. See lib/website-builder/sanitize-sections.ts.
   */
-  /* The name the website is at, when its creator gave it one of its own. */
-  const siteHandle = await websiteHandleOf(creator!.id)
-  /*
-    A section the creator wrote is cleaned by the schema its own file
-    declares (lib/website-builder/custom-schemas.ts), and the creator's
-    public profile comes along for the canvas to fill `{{ creator.name }}`
-    the way the live site will: the same four public facts, nothing else.
-  */
-  const [lookup, facts, communities, collections, storeMenus] = await Promise.all([
-    customSchemaLookup(supabase! as never, installId, sectionsOfInstallRow(data), { draft: true }),
-    creatorFacts(supabase! as never, creator!.id),
-    creatorCommunitiesForBuilder(creator!.id),
-    creatorCollectionsForBuilder(creator!.id),
-    /* The store's menus, which every theme shares (lib/website-builder/store-menus-server.ts). */
-    builderStoreMenus(creator!.id, installId),
-  ])
   return NextResponse.json({ install: sanitizeInstallRow(data, lookup), username, siteHandle, creatorFacts: facts, communities, collections, storeMenus })
 }
 

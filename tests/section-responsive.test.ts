@@ -972,7 +972,8 @@ check(
    * Measured: 0px between the sections against 24px before, with a 12px band.
    * `node scripts/check-canvas-insert.mjs`
    */
-  /<div className="relative isolate z-20 h-0 w-full">/.test(editor) &&
+  /* `wb-ring`: it fades with the inspector's rings and takes no press while they do. */
+  /<div className="wb-ring relative isolate z-20 h-0 w-full">/.test(editor) &&
     /className="group absolute inset-x-0 -top-1\.5 flex h-3 cursor-pointer select-none items-center justify-center"/.test(editor) &&
     !/group relative isolate z-20 flex h-6 w-full/.test(editor) &&
     // the visible parts never take the pointer, so the band owns the hover
@@ -2706,7 +2707,9 @@ check(
    */
   /className="wb-canvas-loader absolute inset-0 z-10 flex items-center justify-center bg-white"/.test(editor) &&
     !/h-\[50vh\] flex items-center justify-center bg-neutral-50\/40/.test(editor) &&
-    /const showCanvasLoader = useDelayedFlag\(loading \|\| canvasLoading\)/.test(editor) &&
+    /* Half a second, the wait every Storelib loader keeps, and over an imported theme until its first page has painted. */
+    /const canvasLoaderUp = canvasBusy \|\| compatFirstPaint/.test(editor) &&
+    /const showCanvasLoader = useDelayedFlag\(canvasLoaderUp, SPINNER_WAIT_MS\)/.test(editor) &&
     /export function useDelayedFlag\(active: boolean, delay = 350\)/.test(loaderSrc) &&
     // and it clears the instant the work does, so nothing lingers
     /if \(!active\) \{\s*setShown\(false\)/.test(loaderSrc),
@@ -2726,9 +2729,9 @@ check(
    * without. The rise-in still plays exactly once, when this mounts as the
    * editor finishes loading, which is the arrival worth animating.
    */
-  /const canvasLoaderLingers = useLinger\(canvasBusy, 280\)/.test(editor) &&
-    /\(canvasBusy \|\| canvasLoaderLingers\) && \(/.test(editor) &&
-    /data-leaving=\{!canvasBusy\}/.test(editor) &&
+  /const canvasLoaderLingers = useLinger\(canvasLoaderUp, 280\)/.test(editor) &&
+    /\(canvasLoaderUp \|\| canvasLoaderLingers\) && \(/.test(editor) &&
+    /data-leaving=\{!canvasLoaderUp\}/.test(editor) &&
     /<div className="wb-canvas-in flex w-full flex-1 flex-col">/.test(editor) &&
     !/key=\{currentPage\} className="wb-canvas-in/.test(editor) &&
     /export function useLinger\(active: boolean, ms = 280\)/.test(loaderSrc) &&
