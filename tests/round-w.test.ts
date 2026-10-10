@@ -14,6 +14,7 @@ import { quoteDelivery } from "@/lib/physical/rates"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS, isCategoryFor, searchCategories } from "@/lib/products/category-groups"
 import { keywordSuggestion, parseSuggestRequest } from "@/lib/products/category-suggest"
+import { HELP_TOPICS, helpTopicsFor } from "@/lib/help/questions"
 import { existsSync } from "node:fs"
 
 let passed = 0
@@ -138,6 +139,17 @@ console.log("\nThe physical product editor")
   check("advanced fields show an example", /placeholder="MUG-BLK-11"/.test(cards) && /placeholder="5901234123457"/.test(cards))
   const ch = read("app/app/products/new/sales-channels-card.tsx")
   check("creator page and Explore are shown as not for things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
+}
+
+console.log("\nWhat happens if... (/help/questions)")
+{
+  const all = HELP_TOPICS.flatMap((t) => t.questions)
+  check("the question asked first: an order with no stock, answered for the store and the buyer", all.some((q) => q.id === "order-without-stock" && (q.store?.length ?? 0) > 0 && (q.buyer?.length ?? 0) > 0))
+  check("every id is its own, for #links", new Set(all.map((q) => q.id)).size === all.length)
+  check("physical questions hide with physical commerce off", helpTopicsFor(false).every((t) => t.questions.every((q) => !q.physical)) && helpTopicsFor(true).flatMap((t) => t.questions).length === all.length)
+  check("every drawing it names exists", all.every((q) => !q.figure || new RegExp(`"?${q.figure.figure}"?: \\(label\\)`).test(read("components/help/help-figures.tsx"))), all.filter((q) => q.figure).map((q) => q.figure!.figure))
+  check("no em dashes or filler", !/—|unlock|elevate|seamless|effortless|supercharge|transform/i.test(JSON.stringify(HELP_TOPICS)))
+  check("linked from the help index and in the sitemap", /href="\/help\/questions"/.test(read("app/help/page.tsx")) && /\/help\/questions/.test(read("lib/seo/sitemaps.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
