@@ -18,14 +18,16 @@
  *                band's foot; the name, their role here, @handle, where they
  *                are from, a short bio, the counts; then Follow (the one
  *                Follow, calm both ways, at one fixed size) and the door to
- *                their full page. On my own: Edit profile instead of Follow.
+ *                their full page.
  *   SOMEBODY     their posts in this community that I may read here, newest
  *                first, a page at a time as the list nears its end.
- *   ME           Posts and Activity, two tabs that both stay mounted: my
- *                posts in EVERY community I am in, each with its community,
- *                each with Edit and Delete where I may (behind the dots, a
- *                menu on a computer and a sheet on a phone); and what I did
- *                lately, each line opening where it happened.
+ *   ME           NOT HERE ANY MORE (round 16). The owner: "I didn't mean for
+ *                the profile account user page to be changed from how it was
+ *                before." My own profile is the account page, so ?profile=me
+ *                (and my own handle) goes there (AccountRedirect below; the
+ *                server page redirects a fresh load before anything is
+ *                drawn), and my posts from every community, with Edit and
+ *                Delete, are its Posts pill (app/account/posts).
  *
  * A post here opens over the community the way the feed opens one
  * (openPost); a post of mine in another community opens there. Deleting
@@ -35,6 +37,8 @@
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { swapTabPage } from "@/lib/nav/tab-swap"
+import { communityContext, enterCommunityContext } from "@/lib/nav/community-context"
 import { Heart, MessageCircle } from "lucide-react"
 import { MenuDotsIcon } from "@solar-icons/react/linear/menu-dots"
 import { PenIcon } from "@solar-icons/react/linear/pen"
@@ -46,14 +50,11 @@ import { coverCropStyle } from "@/lib/images/cover-crop"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { relativeTime } from "@/lib/communities/format"
 import { openPost } from "@/lib/communities/client/open-post"
-import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { useCommunityNavigator } from "@/lib/communities/client/navigator"
 import {
-  activityVerb,
   fullPageHref,
   postEditHref,
   type MemberProfileData,
-  type ProfileActivityView,
   type ProfileCommunity,
   type ProfilePostView,
   type ProfilePostsPage,
@@ -174,13 +175,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
           </p>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2" data-member-profile-actions="">
-          {self ? (
-            <Link href="/account/settings?section=profile" className={SECONDARY} data-member-profile-edit="">
-              Edit profile
-            </Link>
-          ) : (
-            <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} name={person.name} data-member-profile-follow="" />
-          )}
+          {self ? null : <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} name={person.name} data-member-profile-follow="" />}
           {person.pageHref ? (
             <Link href={fullPageHref(person.pageHref, community.slug, profileRef)} className={SECONDARY} data-member-profile-page="">
               {person.hasStorefront ? "Visit page" : "Full profile"}
@@ -433,95 +428,30 @@ function PostList({
   )
 }
 
-/* ── My activity ──────────────────────────────────────────────────────── */
+/* ── My own profile is the account page ───────────────────────────────── */
 
-function ActivityList({ items, now }: { items: ProfileActivityView[]; now: number }) {
-  if (!items.length)
-    return (
-      <div className={cn(CARD, "px-5 py-8 text-center text-[14px] text-[#6b7280]")} data-profile-activity-empty="">
-        Nothing yet. Comments, events and courses you finish show up here.
-      </div>
-    )
-  return (
-    <ul className={cn(CARD, "divide-y divide-[#f0f1f3] overflow-hidden")} data-profile-activity="">
-      {items.map((a) => {
-        const line = (
-          <>
-            <span className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-black/[0.06] bg-[#f3f4f6] text-[12px] font-semibold text-[#6b7280]" aria-hidden>
-              {a.community.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={optimizedImageUrl(a.community.logoUrl, 64)} alt="" width={32} height={32} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-              ) : (
-                (a.community.name.trim()[0] || "·").toUpperCase()
-              )}
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14px] leading-[1.45] text-[#374151] [overflow-wrap:anywhere]">
-                {activityVerb(a.kind, a.level)} <span className="font-semibold text-[#1a1a2e]">{a.title ?? a.community.name}</span>
-              </span>
-              <span className="mt-0.5 block truncate text-[12.5px] text-[#6b7280]">
-                {a.title ? `${a.community.name} · ` : ""}
-                <time dateTime={a.at}>{relativeTime(a.at, now, "UTC")}</time>
-              </span>
-            </span>
-          </>
-        )
-        return (
-          <li key={a.id} data-profile-activity-kind={a.kind}>
-            {a.href ? (
-              <Link href={a.href} className="flex gap-3 px-4 py-3 outline-none transition-colors duration-150 pointer-fine:hover:bg-[#f7f7f8] active:bg-[#f3f4f6] sm:px-5">
-                {line}
-              </Link>
-            ) : (
-              <div className="flex gap-3 px-4 py-3 sm:px-5">{line}</div>
-            )}
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-/* ── My two tabs ──────────────────────────────────────────────────────── */
-
-type SelfTab = "posts" | "activity"
+/** Where my own profile is, from inside a community as from anywhere (lib/nav/buyer-tabs.ts, the Profile tab). */
+export const OWN_PROFILE_HREF = "/account"
 
 /**
- * Posts and Activity, both mounted, one shown: switching is a class, never a
- * read. The fill under the chosen tab moves on translate alone (200ms, the
- * tab bar's curve), and reduced motion has it simply there.
+ * ?profile=me, or my own handle, on screen: the account page takes its place, the way the Profile tab goes there. The
+ * address is replaced, not added to, so back from the account page is the place I was on before. The community stays the
+ * context and its bar is held for the account page before it arrives (components/account/account-community-chrome.tsx),
+ * so Storelib's header never flashes in. Only while this place is the one on screen: a kept screen does nothing.
  */
-function SelfTabs({ tab, onTab }: { tab: SelfTab; onTab: (t: SelfTab) => void }) {
-  const tabs: { id: SelfTab; label: string }[] = [
-    { id: "posts", label: "Your posts" },
-    { id: "activity", label: "Activity" },
-  ]
-  return (
-    <div role="tablist" aria-label="Your profile" className="relative grid h-12 grid-cols-2 rounded-xl bg-[#eef0f3] p-1" data-profile-self-tabs="">
-      <span
-        aria-hidden
-        className="pointer-events-none absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)] transition-[translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
-        style={{ translate: tab === "posts" ? "0 0" : "100% 0" }}
-        data-profile-self-fill=""
-      />
-      {tabs.map((t) => (
-        <button
-          key={t.id}
-          type="button"
-          role="tab"
-          aria-selected={tab === t.id}
-          onClick={() => onTab(t.id)}
-          className={cn(
-            "relative z-[1] inline-flex touch-manipulation select-none items-center justify-center rounded-[9px] text-[14px] font-semibold outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]",
-            tab === t.id ? "text-[#1a1a2e]" : "text-[#6b7280]",
-          )}
-          data-profile-self-tab={t.id}
-        >
-          {t.label}
-        </button>
-      ))}
-    </div>
-  )
+function AccountRedirect({ slug, onScreen }: { slug: string; onScreen: boolean }) {
+  const router = useRouter()
+  const sent = useRef(false)
+  useLayoutEffect(() => {
+    if (!onScreen || sent.current) return
+    sent.current = true
+    if (communityContext() !== slug) enterCommunityContext(slug)
+    document.documentElement.setAttribute("data-account-community-pending", "")
+    const go = () => router.replace(OWN_PROFILE_HREF, { scroll: false })
+    if (!swapTabPage(go, OWN_PROFILE_HREF)) go()
+  }, [onScreen, router, slug])
+  /* Nothing drawn meanwhile: the account page is the next thing on screen, never a card of its own first. */
+  return <section className="min-h-[60svh]" aria-busy="true" data-member-profile-place="account" />
 }
 
 /* ── The place ────────────────────────────────────────────────────────── */
@@ -529,11 +459,11 @@ function SelfTabs({ tab, onTab }: { tab: SelfTab; onTab: (t: SelfTab) => void })
 export function MemberProfilePlace({ community, viewer, profileRef, data }: MemberProfilePlaceProps) {
   const now = useNow(data?.now ?? Date.now())
   const nav = useCommunityNavigator()
-  const [tab, setTab] = useState<SelfTab>("posts")
-  /* Another person's profile opened in the same place starts on their posts. */
-  useLayoutEffect(() => {
-    setTab("posts")
-  }, [profileRef])
+  const self = profileRef.toLowerCase() === "me" || !!data?.self
+  /* On screen: the navigator's place is this one (inside the shell), or there is no navigator (a page of its own). */
+  const onScreen = !nav.inCommunity || (nav.place.kind === "profile" && nav.place.ref.toLowerCase() === profileRef.toLowerCase())
+
+  if (self) return <AccountRedirect slug={community.slug} onScreen={onScreen} />
 
   if (!data) {
     return (
@@ -561,46 +491,19 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
   const first = data.person.name.split(/\s+/)[0] || data.person.name
   const signedIn = viewer.signedIn ?? !!viewer.userId
   return (
-    <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place={data.self ? "me" : "person"} aria-label={data.self ? "Your profile" : `${data.person.name}'s profile`}>
+    <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place="person" aria-label={`${data.person.name}'s profile`}>
       <ProfileHead data={data} community={community} profileRef={profileRef} signedIn={signedIn} />
-      {data.self ? (
-        <>
-          <SelfTabs tab={tab} onTab={setTab} />
-          <div hidden={tab !== "posts"} role="tabpanel" aria-label="Your posts" data-profile-panel="posts">
-            <PostList
-              page={data.posts}
-              community={community}
-              profileRef={profileRef}
-              showCommunity
-              now={now}
-              empty={
-                <>
-                  <p className="text-[15px] font-semibold text-[#1a1a2e]">You have not posted yet</p>
-                  <p className="mt-1 text-[14px] text-[#6b7280]">What you post in any of your communities shows up here, to edit or delete.</p>
-                  <button type="button" onClick={() => requestCompose()} className={cn(SECONDARY, "mt-4")} data-profile-write="">
-                    Write a post
-                  </button>
-                </>
-              }
-            />
-          </div>
-          <div hidden={tab !== "activity"} role="tabpanel" aria-label="Activity" data-profile-panel="activity">
-            <ActivityList items={data.activity ?? []} now={now} />
-          </div>
-        </>
-      ) : (
-        <div data-profile-panel="posts">
-          <h2 className="mb-2.5 px-1 text-[15px] font-semibold text-[#1a1a2e]">Posts in {community.name}</h2>
-          <PostList
-            page={data.posts}
-            community={community}
-            profileRef={profileRef}
-            showCommunity={false}
-            now={now}
-            empty={<p className="text-[14px] text-[#6b7280]">{first} has not posted here yet.</p>}
-          />
-        </div>
-      )}
+      <div data-profile-panel="posts">
+        <h2 className="mb-2.5 px-1 text-[15px] font-semibold text-[#1a1a2e]">Posts in {community.name}</h2>
+        <PostList
+          page={data.posts}
+          community={community}
+          profileRef={profileRef}
+          showCommunity={false}
+          now={now}
+          empty={<p className="text-[14px] text-[#6b7280]">{first} has not posted here yet.</p>}
+        />
+      </div>
     </section>
   )
 }

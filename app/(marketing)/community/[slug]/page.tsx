@@ -101,6 +101,12 @@ export default async function CommunityPage({
       ?profile=me, the owner's own address) and, on a phone, a space (?space=<slug>). The page seeds the shell with the one
       the address names (components/community/member/place-page.tsx).
     */
+    /*
+      ROUND 16: MY OWN PROFILE IS THE ACCOUNT PAGE. ?profile=me opened round 15's card inside the community; the owner wants
+      their account page, as it was, so a fresh load goes there before anything is drawn (inside the shell the place does the
+      same, components/community/member/member-profile.tsx). Somebody else's ?profile=<handle> stays a place here.
+    */
+    if (typeof query.profile === "string" && query.profile.trim().toLowerCase() === "me") redirect("/account")
     const search = new URLSearchParams()
     for (const k of ["profile", "space"]) {
       const v = query[k]

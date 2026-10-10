@@ -197,8 +197,9 @@ async function main() {
     const outside = tabs.buyerTabsAt("/account/library")
     check("outside: Home, Search, Library, Profile", outside.map((t) => t.key).join() === "home,search,library,profile" && outside[2].href === "/account/library" && outside[3].href === "/account")
     const inside = tabs.buyerTabsAt("/community/clay-studio/learn")
-    check("inside: Home (the community), Search, Create post in Library's place, Profile (yours, in this community)",
-      inside.map((t) => t.key).join() === "home,search,compose,profile" && inside[0].href === "/community/clay-studio" && inside[2].label === "Create post" && inside[3].href === "/community/clay-studio?profile=me")
+    /* Round 16, the owner: the Profile tab inside a community is the account page again, not round 15's card (tests/account-pills16.test.ts). */
+    check("inside: Home (the community), Search, Create post in Library's place, Profile (the account page, as anywhere)",
+      inside.map((t) => t.key).join() === "home,search,compose,profile" && inside[0].href === "/community/clay-studio" && inside[2].label === "Create post" && inside[3].href === "/account")
     const kept = tabs.buyerTabsAt("/account", true, "clay-studio")
     check("outside with a community kept as Home: only Home is the community's; Library and Profile are the site's", kept.map((t) => t.key).join() === "home,search,library,profile" && kept[0].href === "/community/clay-studio" && kept[3].href === "/account")
     check("your own profile in the community lights Profile; every other place lights Home; Create post is never lit",
@@ -207,9 +208,9 @@ async function main() {
     const bar = code("components/nav/buyer-tab-bar.tsx")
     check("Create post asks the composer on screen, and when there is none brings back the feed, whose composer takes the request",
       /if \(tab\.key === "compose" && community\) \{\s*if \(requestCompose\(\)\) return\s*if \(navHere\) navHere\.go\(\{ kind: "feed" \}, \{ scroll: "keep" \}\)/.test(bar))
-    check("Home and Profile inside a community move through the community's navigator, never a server page",
-      /navHere\.go\(tab\.key === "home" \? \{ kind: "feed" \} : \{ kind: "profile", ref: "me" \}\)/.test(bar) && /const nav = useNavigatorOutsideCommunity\(\)/.test(bar))
-    check("nothing is fetched ahead for Search, Create post, or the navigator's places", /tab\.key === "search" \|\| tab\.key === "compose" \|\| i === current \|\| \(navHere && \(tab\.key === "home" \|\| tab\.key === "profile"\)\)/.test(bar))
+    check("Home inside a community moves through the community's navigator, never a server page; Profile is the account page (round 16)",
+      /if \(navHere && signedIn && tab\.key === "home"\) \{\s*navHere\.go\(\{ kind: "feed" \}\)/.test(bar) && !/kind: "profile", ref: "me"/.test(bar) && /const nav = useNavigatorOutsideCommunity\(\)/.test(bar))
+    check("nothing is fetched ahead for Search, Create post, or the navigator's feed; the account page is", /tab\.key === "search" \|\| tab\.key === "compose" \|\| i === current \|\| \(navHere && tab\.key === "home"\)/.test(bar))
     check("the switch is calm: Library and Create post are one slot (one key), the two glyphs cross fade on opacity and scale only",
       /key=\{tab\.key === "compose" \? "library" : tab\.key\}/.test(bar) && /opacity: here \? 1 : 0,\s*scale: here \? "1" : "0\.86",/.test(bar) && /transition: `opacity \$\{SWAP_MS\}ms \$\{EASE\}, scale \$\{SWAP_MS\}ms \$\{EASE\}`/.test(bar))
     check("a tab between the community and the account swaps in one piece only when the address really crosses", /const crosses = !!communityOf\(href\) !== !!communityOf\(pathname\)/.test(bar))

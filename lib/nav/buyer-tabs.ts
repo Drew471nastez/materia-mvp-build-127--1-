@@ -23,8 +23,9 @@
  *   Inside a community             /community/<slug>/..., community aware:
  *                                  Home is the community's home, Search
  *                                  its own search, Create post in
- *                                  Library's place and Profile your
- *                                  profile in it (communityTabs below)
+ *                                  Library's place and Profile the
+ *                                  account page, as anywhere
+ *                                  (communityTabs below)
  *   A product or creator page      never. It is somebody's shop, and the
  *                                  page's own buy bar already stands at the
  *                                  foot of it; a second bar under that is
@@ -36,8 +37,6 @@
  * The homepage is not on the list. It is the page that sells Storelib to
  * sellers, with its own calls to action, and the native app never shows it.
  */
-
-import { placeHref } from "@/lib/communities/client/places"
 
 /** The four tabs, in the order the owner asked for. */
 export const BUYER_TABS = [
@@ -82,18 +81,20 @@ export function communityOf(pathname: string): string | null {
   return m && COMMUNITY_SLUG.test(m[1]) ? m[1] : null
 }
 
-/** A person's own profile inside a community: the community's address with ?profile=me (lib/communities/client/places.ts). */
-export function communityProfileHref(slug: string): string {
-  return placeHref(slug, { kind: "profile", ref: "me" })
-}
-
 /**
  * ROUND 15, THE OWNER: "when someone is inside of a community the navigation
  * bottom bar doesn't have the library icon there. Inside of a community,
  * replace Library with Create post." So inside a community the four are its
  * home (the community's feed), its search, Create post (the composer, asked
- * for through lib/communities/client/compose-intent.ts) and Profile, which is
- * the person's own profile inside this community rather than the account.
+ * for through lib/communities/client/compose-intent.ts) and Profile.
+ *
+ * PROFILE IS THE ACCOUNT PAGE, INSIDE A COMMUNITY TOO (round 16, the owner:
+ * "I didn't mean for the profile account user page to be changed from how it
+ * was before"). Round 15 pointed it at ?profile=me, a new card inside the
+ * community; it is /account again, the page it opened before (commit
+ * 91eb630d), which draws the community's own bar over it when you arrive from
+ * one (components/account/account-community-chrome.tsx) and lists your posts
+ * from every community under its Posts pill (app/account/posts).
  *
  * OUTSIDE ONE, WITH A COMMUNITY KEPT AS HOME (the context, below), only Home
  * is the community's: Library and Profile are the site's again, because the
@@ -104,7 +105,6 @@ export function communityTabs(slug: string, inside = true): BuyerTab[] {
     if (t.key === "home") return { ...t, href: `/community/${slug}` }
     if (!inside) return t
     if (t.key === "library") return { key: "compose", label: "Create post", href: `/community/${slug}` }
-    if (t.key === "profile") return { ...t, href: communityProfileHref(slug) }
     return t
   })
 }
@@ -209,9 +209,10 @@ export function buyerTabFor(
   const exploreOn = where.exploreMarketplaceEnabled !== false
   /*
     Every page of a community is that community's Home, the way a product
-    reached from Explore is still Home; except your own profile in it
-    (?profile=me), which is the Profile tab's. Create post is never lit: it
-    opens a screen over the page, it is not a page.
+    reached from Explore is still Home. ?profile=me is on its way to the
+    account page (round 16), so it lights Profile for the moment it is on
+    screen. Create post is never lit: it opens a screen over the page, it is
+    not a page.
   */
   if (communityOf(pathname)) return where.profile === "me" ? 3 : 0
   /* While Home is a community's (the context), Explore's own pages are not Home: nothing is lit there but Search's results. */

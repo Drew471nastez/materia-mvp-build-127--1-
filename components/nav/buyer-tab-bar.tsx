@@ -322,7 +322,7 @@ function useTyping(): boolean {
 function QueryWatch({ onChange, onProfile }: { onChange: (query: string) => void; onProfile: (profile: string | null) => void }) {
   const params = useSearchParams()
   const q = (params?.get("q") ?? "").trim()
-  /* Inside a community, ?profile=me is your own profile there: the Profile tab's page. */
+  /* Inside a community, ?profile=me is on its way to the account page (round 16): Profile is lit for that moment. */
   const profile = params?.get("profile")?.toLowerCase() ?? null
   useEffect(() => onChange(q), [q, onChange])
   useEffect(() => onProfile(profile), [profile, onProfile])
@@ -418,9 +418,10 @@ function TabBar({
   const tabsNow = () => (community ? tabs : buyerTabsAt(pathname, exploreMarketplaceEnabled, communityContext()))
   /*
     THE COMMUNITY'S OWN NAVIGATOR (round 15, lib/communities/client/navigator.ts).
-    Inside a community Home and Profile are places of its shell, not pages:
-    the navigator moves to them with no server page, and it says which place is
-    on screen, which is what lights Profile on your own profile there.
+    Inside a community Home is a place of its shell, not a page: the navigator
+    moves there with no server page. It also says which place is on screen, so
+    ?profile=me lights Profile for the moment before it becomes the account
+    page (round 16).
   */
   const nav = useNavigatorOutsideCommunity()
   const navHere = community && nav?.inCommunity ? nav : null
@@ -497,9 +498,13 @@ function TabBar({
         else router.push(`/community/${community}`, { scroll: false })
         return
       }
-      /* Home and Profile inside a community are its places: the navigator moves there, no server page (a second tap on the one you are on goes to its top). */
-      if (navHere && signedIn && (tab.key === "home" || tab.key === "profile")) {
-        navHere.go(tab.key === "home" ? { kind: "feed" } : { kind: "profile", ref: "me" })
+      /*
+        Home inside a community is its feed, a place of its shell: the navigator moves there, no server page (a second tap
+        goes to its top). Profile is the account page, inside a community as anywhere (round 16, lib/nav/buyer-tabs.ts
+        communityTabs): it goes below like any page, with the community's bar held for it.
+      */
+      if (navHere && signedIn && tab.key === "home") {
+        navHere.go({ kind: "feed" })
         return
       }
       const href = hrefOf(index, now)
@@ -548,7 +553,7 @@ function TabBar({
     onPress: (index) => {
       /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */
       const key = tabs[index]?.key
-      if (index !== current && key !== "search" && key !== "compose" && !(navHere && (key === "home" || key === "profile"))) prefetchHref(router, hrefOf(index), "press")
+      if (index !== current && key !== "search" && key !== "compose" && !(navHere && key === "home")) prefetchHref(router, hrefOf(index), "press")
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -570,9 +575,9 @@ function TabBar({
   const prefetchKey = tabs.map((_, i) => hrefOf(i)).join(" ")
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
-    /* Search and Create post are screens over the page, and inside a community Home and Profile are the shell's places: nothing to fetch for any of them. */
+    /* Search and Create post are screens over the page, and inside a community Home is the shell's feed: nothing to fetch for any of them. Profile is the account page: read ahead. */
     const hrefs = tabs.flatMap((tab, i) =>
-      tab.key === "search" || tab.key === "compose" || i === current || (navHere && (tab.key === "home" || tab.key === "profile")) ? [] : [hrefOf(i)],
+      tab.key === "search" || tab.key === "compose" || i === current || (navHere && tab.key === "home") ? [] : [hrefOf(i)],
     )
     /* The page you are about to open, whole, as soon as this bar is up.
        Idle-only reads were still in flight when Home or Profile was tapped,
