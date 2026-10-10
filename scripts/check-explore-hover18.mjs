@@ -195,8 +195,9 @@ async function sheet(frames, file, clip) {
     const z = travel(series, "z")
     const s = travel(series, "sh")
     console.log(`  hover ${name}: zoom ${JSON.stringify(z)}  shadow ${JSON.stringify(s)}`)
-    expect(z.total === 0 || (z.maxStep <= 0.4 && z.moving >= 4), `hover ${name}: the cover's zoom moves over several frames, never most of the way in one`, z)
-    expect(s.total === 0 || (s.maxStep <= 0.4 && s.moving >= 4), `hover ${name}: the card's shadow fades over several frames, never most of the way in one`, s)
+    /* Over time, not a count of frames: a busy machine paints fewer frames, a snap is over in one. */
+    expect(z.total === 0 || (z.maxStep <= 0.4 && z.ms >= 150), `hover ${name}: the cover's zoom moves over time, never most of the way in one frame`, z)
+    expect(s.total === 0 || (s.maxStep <= 0.4 && s.ms >= 120), `hover ${name}: the card's shadow fades over time, never most of the way in one frame`, s)
   }
   const zi = travel(hoverIn, "z")
   const zo = travel(hoverOut, "z")
