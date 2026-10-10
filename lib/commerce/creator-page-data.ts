@@ -26,6 +26,8 @@ import { cache } from "react"
 
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
+import { publicProfileByName } from "@/lib/profile/profile-by-name"
+import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 
@@ -39,8 +41,8 @@ import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./produc
  * query the layout and the page each ran separately.
  */
 export const loadProfileByUsername = cache(async (username: string) => {
-  /* Every public column, never a private one (lib/security/public-rows). */
-  return readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
+  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). */
+  return publicProfileByName(await createClient(), username)
 })
 
 /** The creator row for a profile, shared with the product page's cache. */
@@ -58,8 +60,10 @@ export const loadCreatorForUser = cache(async (userId: string) => {
  * and an empty page is worse than a slow one.
  */
 export const loadShopConfig = cache(async (creatorId: string) => {
-  const cached = await cachedStoreConfig(creatorId, "shop")
+  const cached = await cachedStoreConfig(creatorId, "shop").catch(() => undefined)
   if (cached) return cached
+  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
+  if (cached === null && !(await requestMayHaveSession())) return null
   const supabase = await createClient()
   const { data } = await supabase
     .from("store_builder_configs")

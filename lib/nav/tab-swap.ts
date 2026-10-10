@@ -16,8 +16,9 @@ import { isNativeApp } from "@/lib/native-bridge"
  * In the app, a tab that crosses between them now goes through a view
  * transition: the browser holds a picture of the page being left until the
  * router has put the next one in the page (its address committed), never
- * longer than HOLD_MS, and then the new page fades in over the
- * picture in 180ms (app/globals.css, data-tab-swap). The tab bar is out of
+ * longer than HOLD_MS, and then the new page takes its place at once
+ * (app/globals.css, data-tab-swap; round 18 made it a cut, because the 180ms
+ * dissolve it was showed both pages at once). The tab bar is out of
  * the picture (its own name there), so it stays exactly where it is. A
  * browser, reduced motion or an engine without view transitions pushes as
  * before.
@@ -41,10 +42,32 @@ function arrived(target: string): boolean {
   if (here !== target) return false
   const html = document.documentElement
   if (target === "/account" || target.startsWith("/account/")) {
-    return !!document.querySelector('[data-page="account"]') && !html.hasAttribute("data-account-community-pending")
+    /* Round 18: and its cover drawn, not still on its way (components/profile/profile-cover-image.tsx), so the picture let go is the whole page, never a grey band the cover fades in on afterwards. */
+    return !!document.querySelector('[data-page="account"]') && !html.hasAttribute("data-account-community-pending") && !document.querySelector('[data-profile-cover-image="loading"]')
   }
   if (target.startsWith("/community/")) return !!document.querySelector("[data-community-shell], [data-community-public]")
   return true
+}
+
+/*
+  A PAGE A TAB WAS PRESSED FOR (round 18). A tab is not a push: a phone's own tab bar shows the next screen whole, where it
+  is, with no slide. The community plays a push when it is entered from outside (Explore, a card), and in a browser, where
+  there is no tab swap, it played that push for Home pressed on the profile too: the feed slid in from 36px at 60% for 300ms
+  after the profile had gone (filmed at 4x CPU). The tab bar notes where a press is going; the page that arrives there asks.
+*/
+let tabArrival: { target: string; at: number } | null = null
+const TAB_ARRIVAL_MS = 8000
+const pathKey = (href: string) => href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+
+/** The tab bar is sending the page to `href` (lib/nav/buyer-tabs.ts): the page that lands there is a tab's, not a push. */
+export function noteTabArrival(href: string) {
+  tabArrival = { target: pathKey(href), at: typeof performance === "undefined" ? 0 : performance.now() }
+}
+
+/** Whether the page on screen now was opened by a press on the tab bar a moment ago. */
+export function arrivedByTab(): boolean {
+  if (typeof window === "undefined" || !tabArrival) return false
+  return pathKey(window.location.pathname) === tabArrival.target && performance.now() - tabArrival.at < TAB_ARRIVAL_MS
 }
 
 /** Whether a tab swap is holding the screen right now: a page arriving under it plays no entrance of its own (it would be a second fade). */

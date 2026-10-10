@@ -61,22 +61,33 @@ export const useLinkStatus = () => ({ pending: false })
    * A suite that reached for a real cookie would get an empty jar and fail
    * loudly, which is correct: there is no request here to read one from.
    */
-  "next/headers": `export const cookies = async () => ({
+  "next/headers": `const held = () => globalThis.__PUSH_TEST_NEXT_HEADERS__
+export const cookies = async () => (held() ? held().cookies() : {
   getAll: () => [],
   get: () => undefined,
   set() {},
 })
-export const headers = async () => new Map()
+export const headers = async () => (held() ? held().headers() : new Map())
 export const draftMode = async () => ({ isEnabled: false })
 `,
   /**
    * next/cache: a cached function is the function, and revalidation has
    * nothing to revalidate. lib/seo/sitemaps wraps its reads in
    * unstable_cache, and its pure helpers are what the suites test.
+   *
+   * A suite that is ABOUT the cache (tests/perf-speed18.test.ts: one site's
+   * cached page never holds another's, a publish purges its own) sets
+   * globalThis.__PUSH_TEST_NEXT_CACHE__ to a cache kept the way Next keeps
+   * it (scripts/speed18/shims/next-cache.ts), and every call goes there.
+   * Unset, nothing changes for anybody else. next/headers above has the
+   * same hook (__PUSH_TEST_NEXT_HEADERS__), for a suite whose visits carry
+   * their own cookies.
    */
-  "next/cache": `export const unstable_cache = (fn) => fn
-export const revalidatePath = () => {}
-export const revalidateTag = () => {}
+  "next/cache": `const held = () => globalThis.__PUSH_TEST_NEXT_CACHE__
+export const unstable_cache = (fn, keys, options) => (held() ? held().unstable_cache(fn, keys, options) : fn)
+export const revalidatePath = (...a) => held()?.revalidatePath(...a)
+export const revalidateTag = (...a) => held()?.revalidateTag(...a)
+export const updateTag = (...a) => held()?.updateTag?.(...a)
 export const unstable_noStore = () => {}
 `,
   /**
@@ -98,6 +109,25 @@ export const unstable_noStore = () => {}
 }
 export class NextRequest extends Request {}
 export const after = () => {}
+`,
+  /**
+   * next/image, next/dynamic and next/script, so a suite can import a page
+   * whose components use them (tests/perf-speed18.test.ts imports Explore's
+   * to read what its server half hands the grid). Nothing is drawn: an image
+   * is the img it renders, a dynamic component draws nothing, a script tag
+   * runs nothing.
+   */
+  "next/image": `import { createElement } from "react"
+export default function Image({ src, alt, fill, priority, quality, placeholder, blurDataURL, loader, unoptimized, ...rest }) {
+  return createElement("img", { src: typeof src === "string" ? src : src?.src, alt, ...rest })
+}
+export const getImageProps = () => ({ props: {} })
+`,
+  "next/dynamic": `export default function dynamic() {
+  return function Nothing() { return null }
+}
+`,
+  "next/script": `export default function Script() { return null }
 `,
   "next/navigation": `export const usePathname = () => globalThis.__PUSH_TEST_PATHNAME__ ?? "/"
 export const useRouter = () => ({ push() {}, replace() {}, prefetch() {}, back() {} })

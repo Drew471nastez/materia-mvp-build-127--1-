@@ -39,23 +39,38 @@ import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 export const onePageOwner = cache(async (sellerId: string | null, creatorId: string | null, ownerId: string | null) => {
   const supabase = createAdminClient()
   const effective = sellerId || creatorId || null
-  const { data: creator } = effective
-    ? await supabase.from("creators").select("*").eq("id", effective).maybeSingle()
-    : ownerId
-      ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
-      : { data: null }
+  const readProfile = (userId: string | null) =>
+    userId ? supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle() : Promise.resolve({ data: null })
+  const readCount = (id: string | null) =>
+    id ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published") : Promise.resolve({ count: 0 })
+  /*
+    A PAGE THAT NAMES ITS CREATOR AND ITS OWNER (every page made since
+    seller_id existed) gives every read below its key up front, so they
+    are asked together: one round trip in place of three in a row, on a
+    page drawn for every visitor. The answers are the same reads'.
+  */
+  const together = effective && ownerId
+    ? Promise.all([
+        supabase.from("creators").select("*").eq("id", effective).maybeSingle(),
+        readProfile(ownerId),
+        readCount(effective),
+        activeDomainOf(effective),
+      ])
+    : null
+  const { data: creator } = together
+    ? (await together)[0]
+    : effective
+      ? await supabase.from("creators").select("*").eq("id", effective).maybeSingle()
+      : ownerId
+        ? await supabase.from("creators").select("*").eq("user_id", ownerId).maybeSingle()
+        : { data: null }
   const row = creator as { id?: string; user_id?: string | null; banned_at?: string | null } | null
   const userId = ownerId || row?.user_id || null
-  const { data: profile } = userId
-    ? await supabase.from("profiles").select("avatar_url, display_name, username").eq("id", userId).maybeSingle()
-    : { data: null }
+  const { data: profile } = together ? (await together)[1] : await readProfile(userId)
   const id = row?.id ?? effective
-  const [products, domain] = await Promise.all([
-    id
-      ? supabase.from("products").select("id", { count: "exact", head: true }).eq("creator_id", id).eq("status", "published")
-      : Promise.resolve({ count: 0 }),
-    id ? activeDomainOf(id) : Promise.resolve(null),
-  ])
+  const [products, domain] = together
+    ? [(await together)[2], (await together)[3]]
+    : await Promise.all([readCount(id), id ? activeDomainOf(id) : Promise.resolve(null)])
   const handle = (profile as { username?: string | null } | null)?.username || null
   return {
     handle,
@@ -70,6 +85,21 @@ export const onePageOwner = cache(async (sellerId: string | null, creatorId: str
 })
 
 export type OnePageOwner = Awaited<ReturnType<typeof onePageOwner>>
+
+/**
+ * THE PAGE'S BLOCKS WITH EVERY PRODUCT READ FROM ITS ROW (lib/onepage/live-products),
+ * once per request for the same blocks: the metadata names the products
+ * the body draws, and both asked the catalogue for them, two round trips
+ * each. Keyed by the blocks themselves, so blocks that differ are read for
+ * themselves and nothing is held past the request.
+ */
+const liveBlocksOnce = cache(async (creatorId: string, blocksJson: string) =>
+  withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, JSON.parse(blocksJson) as unknown[]),
+)
+export function liveBlocksFor<T>(creatorId: string, blocks: T): Promise<T> {
+  if (blocks === null || blocks === undefined) return withLiveProducts(createAdminClient() as unknown as ProductsDb, creatorId, blocks)
+  return liveBlocksOnce(creatorId, JSON.stringify(blocks)) as Promise<T>
+}
 
 /**
  * WHERE A NAME LEADS, READ ONCE PER REQUEST (lib/onepage/resolve-address):
@@ -145,9 +175,7 @@ export async function publishedOnePageSeo(
     deleted product is never named. Only the metadata asks for this; the
     share pictures draw no text and skip the read.
   */
-  const blocks = liveProducts
-    ? await withLiveProducts(createAdminClient() as unknown as ProductsDb, drawn.seller_id || owner.creatorId || "", drawn.blocks)
-    : drawn.blocks
+  const blocks = liveProducts ? await liveBlocksFor(drawn.seller_id || owner.creatorId || "", drawn.blocks) : drawn.blocks
   const pageUrl = await onePageAddress(onepage, owner, slug)
   const seo = resolveOnePageSeo({
     name: drawn.title,

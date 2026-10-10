@@ -38,6 +38,7 @@ import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript, productJsonLd } from "@/lib/website-builder/site-seo"
 import { productVariants, soldOut, toProductPage } from "@/lib/website-builder/shop-products"
 import { drawsTheProduct } from "@/lib/website-builder/storelib-runtime"
+import { publishedProductTheme } from "@/lib/website-builder/product-page-theme"
 
 /**
  * How this product is priced, read on its own so the product read above
@@ -57,6 +58,15 @@ async function productPricing(
     return error || !data ? {} : (data as { type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null })
   } catch {
     return {}
+  }
+}
+
+/** The same three fields, from the product row itself. */
+function pricingOf(row: Record<string, unknown>): { type?: string | null; pay_what_you_want?: boolean | null; pwyw_min_price_cents?: number | null } {
+  return {
+    type: (row.type as string | null | undefined) ?? null,
+    pay_what_you_want: (row.pay_what_you_want as boolean | null | undefined) ?? null,
+    pwyw_min_price_cents: (row.pwyw_min_price_cents as number | null | undefined) ?? null,
   }
 }
 
@@ -230,19 +240,33 @@ export async function renderProduct(
 
   const admin = createAdminClient()
 
+  /*
+    The live page's theme (its published install, settings and the product
+    and home pages' sections) is held with the site and cleared by every
+    publish (lib/website-builder/product-page-theme.ts): it was three round
+    trips in a row for every visitor. A preview reads its own install, drafts
+    and token, directly, as before. The product, its options, stock and
+    files below are still read fresh for every visitor.
+  */
+  const theme = previewToken ? null : await publishedProductTheme(product.creator_id)
+
   // Fetch the creator's published website-builder install
-  const { data: install } = await admin
-    .from("store_theme_installs")
-    .select(`
+  const { data: install } = theme
+    ? { data: theme.install }
+    : previewToken
+      ? await admin
+          .from("store_theme_installs")
+          .select(`
       id,
       preview_token,
       store_theme_settings ( settings, draft_settings )
     `)
-    .eq("creator_id", product.creator_id)
-    .eq("status", "published")
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .maybeSingle()
+          .eq("creator_id", product.creator_id)
+          .eq("status", "published")
+          .order("sort_order", { ascending: true })
+          .limit(1)
+          .maybeSingle()
+      : { data: null }
 
   // If the creator has no published website yet, fall back to notFound so
   // Storelib doesn't leak an un-styled bare product. The marketplace page at
@@ -263,21 +287,31 @@ export async function renderProduct(
   // the catalogue, and this product's options and pricing mode, so a section
   // reading `page.product` gets the same fields as a card in `products`.
   /* The shop itself comes with the page's owner, below (ownerOf). */
+  /* The pricing mode is in the row already when the database has its columns (the row is read whole); asked on its own only when it is not. */
+  const pricing = "pay_what_you_want" in product ? pricingOf(product) : null
+  /* And with it in hand, the product's options, stock and files start now, beside the reads below rather than after them. */
+  const productDataEarly = pricing ? productSectionData(admin, { ...product, ...pricing, slug: product.slug ?? slug }, { files: true }) : null
+  /* Awaited below; a failure while the reads beside it are still out is not left unhandled. */
+  productDataEarly?.catch(() => undefined)
   const [{ data: pageData }, { data: homeData }, variants, extra] = await Promise.all([
-    admin
-      .from("store_theme_pages")
-      .select("sections, draft_sections")
-      .eq("install_id", install.id)
-      .eq("page_key", "product")
-      .maybeSingle(),
-    admin
-      .from("store_theme_pages")
-      .select("sections, draft_sections")
-      .eq("install_id", install.id)
-      .eq("page_key", "home")
-      .maybeSingle(),
+    theme
+      ? { data: theme.product }
+      : admin
+          .from("store_theme_pages")
+          .select("sections, draft_sections")
+          .eq("install_id", install.id)
+          .eq("page_key", "product")
+          .maybeSingle(),
+    theme
+      ? { data: theme.home }
+      : admin
+          .from("store_theme_pages")
+          .select("sections, draft_sections")
+          .eq("install_id", install.id)
+          .eq("page_key", "home")
+          .maybeSingle(),
     productVariants(admin as never, [product.id]),
-    productPricing(admin, product.id),
+    pricing ?? productPricing(admin, product.id),
   ])
 
   /**
@@ -306,7 +340,7 @@ export async function renderProduct(
      their options, pictures and stock, its pay what you want terms and its
      description cleaned for the page. The same read the builder's canvas
      makes for the product it previews (lib/products/product-section-data.ts). */
-  const productData = await productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true })
+  const productData = await (productDataEarly ?? productSectionData(admin, { ...product, ...extra, slug: product.slug ?? slug }, { files: true }))
 
   /* The site's owner and shop, read here because which sections the theme
      has decides whether the built-in product section is added below. */

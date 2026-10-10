@@ -472,6 +472,22 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
    * The profile → creator hop above genuinely IS sequential: the creator is
    * looked up by `profile.id`, so it cannot start any earlier.
    */
+  /*
+    STARTED WITH THE BATCH BELOW, AWAITED WHERE THEY ALWAYS WERE. How many
+    this creator follows, whether the viewer follows them, where they are
+    from and which products are off this page need only the profile, the
+    creator and the viewer, all known or in flight by now. They waited for
+    the whole batch and then for each other: two more round trips in a row
+    on every visit (lib/perf/optimizations.ts). Same reads, same answers.
+  */
+  const followingPromise = Promise.resolve(supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id))
+  const viewerFollowsPromise = viewerPromise.then(({ data }) =>
+    data.user && data.user.id !== profile.id
+      ? supabase.from("follows").select("id").eq("follower_id", data.user.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
+      : false,
+  )
+  const placePromise = readProfileLocation(createAdminClient(), profile.id)
+  const offPagePromise = offChannel(createAdminClient(), creator.id, "creator_page")
   const [
     { data: catalogue, error: productsError },
     publishedConfig,
@@ -598,13 +614,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     creator pages for now, so nothing looks for a shared community.
   */
   const [{ count: followingCount }, viewerFollowsCreator, requestHeaders, place] = await Promise.all([
-    supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", profile.id),
-    viewer && viewer.id !== profile.id
-      ? supabase.from("follows").select("id").eq("follower_id", viewer.id).eq("following_id", profile.id).maybeSingle().then((r) => !!r.data)
-      : Promise.resolve(false),
+    followingPromise,
+    viewerFollowsPromise,
     headers(),
     /* Where they are from, under their name (round 12, run-now part 98); none before it runs (lib/profile/location). */
-    readProfileLocation(createAdminClient(), profile.id),
+    placePromise,
   ])
   /*
     Arrived from somewhere (any other page of ours): the way back in the top
@@ -620,7 +634,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
-  const offPage = catalogue && catalogue.length ? await offChannel(createAdminClient(), creator.id, "creator_page") : new Set<string>()
+  const offPage = catalogue && catalogue.length ? await offPagePromise : new Set<string>()
   const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)) : catalogue
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`

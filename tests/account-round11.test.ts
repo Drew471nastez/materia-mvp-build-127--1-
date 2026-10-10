@@ -79,7 +79,7 @@ console.log("\n6. Profile to Settings, warm")
   const pills = code("components/profile/profile-owner-pills.tsx")
   check("from the profile, Settings (the pill and Edit profile's address) is read ahead once the page is idle", /prefetchOnIdle\(router, ahead\.split\(" "\)\)/.test(pills) && /p\.key === "settings" && p\.key !== fromPath/.test(pills) && /EDIT_PROFILE_HREF/.test(pills))
   /* Round 15: each pill is its own component that decides on the lift (first tap); the read ahead moved to its press handler, still on the finger landing. */
-  check("  and a finger on a pill reads its page at once", /onDown=\{\(\) => \{\s*if \(p\.key !== fromPath\) prefetchHref\(router, p\.href, "press"\)/.test(pills) && /onPointerDown=\{\(e\) => \{\s*(if \(e\.button === 0 && !on\) pressPill\(e\.currentTarget\)\s*)?tap\.onPointerDown\(e\)\s*onDown\(\)/.test(pills))
+  check("  and a finger on a pill reads its page at once", /onDown=\{\(\) => \{\s*if \(p\.key !== fromPath\) prefetchHref\(router, p\.href, "press"\)/.test(pills) && /onPointerDown=\{\(e\) => \{\s*(if \(e\.button === 0 && !on( && e\.pointerType === "mouse")?\) pressPill\(e\.currentTarget\)\s*)?tap\.onPointerDown\(e\)\s*onDown\(\)/.test(pills))
   check("Settings and /account still have no loading screen of their own (no skeleton flash, the sign in redirect decided first)", !existsSync(join(process.cwd(), "app/account/settings/loading.tsx")) && !existsSync(join(process.cwd(), "app/account/loading.tsx")))
 }
 

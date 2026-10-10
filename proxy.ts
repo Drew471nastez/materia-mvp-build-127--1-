@@ -15,6 +15,7 @@ import { createSiteGate } from "@/lib/site-password/proxy-gate"
 import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
+import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -196,14 +197,22 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
  * connected domain to the creator's profile.
  */
 const answersHeld = new Map<string, { at: number; value: boolean }>()
+/* An answer being asked is shared, so the questions a visit asks at once (startSiteQuestions) cost one read each. */
+const answersAsked = new Map<string, Promise<boolean>>()
 async function remembered(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<boolean> {
   const held = answersHeld.get(key)
   if (held && Date.now() - held.at < 30_000) return held.value
-  const fresh = await ask().catch(() => ({ value: false, failed: true }))
-  if (fresh.failed) return held?.value ?? false
-  if (answersHeld.size > 10_000) answersHeld.clear()
-  answersHeld.set(key, { at: Date.now(), value: fresh.value })
-  return fresh.value
+  const asking = answersAsked.get(key)
+  if (asking) return asking
+  const answer = (async () => {
+    const fresh = await ask().catch(() => ({ value: false, failed: true }))
+    if (fresh.failed) return held?.value ?? false
+    if (answersHeld.size > 10_000) answersHeld.clear()
+    answersHeld.set(key, { at: Date.now(), value: fresh.value })
+    return fresh.value
+  })().finally(() => answersAsked.delete(key))
+  answersAsked.set(key, answer)
+  return answer
 }
 
 async function hasLiveAiSite(slug: string): Promise<boolean> {
@@ -262,6 +271,41 @@ async function passwordPageFor(request: NextRequest, name: string, host: string,
 }
 
 /**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  THE QUESTIONS A SITE'S PAGE ASKS, ASKED AT ONCE
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A page of a published website asks, one after another below: is its
+ * theme an imported one (compatSiteFor), is it a live AI site
+ * (hasLiveAiSite), on a connected domain has a website been published
+ * (hasPublishedWebsite), and does it ask for a password (passwordPageFor).
+ * None needs another's answer, and each was a round trip or a chain of
+ * them in series while the visitor waited, even for a page the edge
+ * already held: up to twelve on a connected domain the first time in a
+ * minute, which for most creators' sites is every visit.
+ *
+ * So they are started here, together, and the lines below await the same
+ * answers in the same order (each question shares a read already in
+ * flight). The rules and what each one decides are unchanged. Pages only,
+ * the same paths those lines ask for; the password answer is handed back
+ * so it is awaited, not asked twice.
+ */
+function startSiteQuestions(
+  request: NextRequest,
+  name: string,
+  host: string,
+  pathname: string,
+  search: string,
+  connectedDomain: boolean,
+): Promise<{ blocked: NextResponse | null; protected: boolean }> | null {
+  if (/\.[a-z0-9]{1,8}$/i.test(pathname) || policyAddress(pathname)) return null
+  if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) return null
+  if (compatAnswers(pathname, request)) void compatSiteFor(name).catch(() => false)
+  void hasLiveAiSite(name).catch(() => false)
+  if (connectedDomain) void hasPublishedWebsite(name).catch(() => false)
+  return passwordPageFor(request, name, host, pathname, search)
+}
+
+/**
  * ── An old OnePage address, sent to where the page is now ──────────────────
  * {name}.storelib.com/links, storelib.com/{name}/links, /{name}.links and
  * /l/{name} all answer with a 308 to storelib.me/{name}. For most creators
@@ -317,33 +361,10 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
   const lower = username.toLowerCase()
+  /* The same read the compat question makes, shared (lib/website-builder/route-facts.ts): name, creator, published install. */
   return remembered(`site:${lower}`, async () => {
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    let failed = false
-    const read = <T,>(r: { data: T | null; error: unknown }) => { if (r.error) failed = true; return r.data }
-
-    // The name is a profile username or a creator slug, the same two places
-    // lib/website-builder/published-site.ts looks.
-    const profile = read(await supabase.from("profiles").select("id").eq("username", lower).maybeSingle())
-    let creatorId: string | null = null
-    if (profile) {
-      const creator = read(await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle())
-      creatorId = (creator as { id: string } | null)?.id ?? null
-    }
-    if (!creatorId && !failed) {
-      const creator = read(await supabase.from("creators").select("id").eq("slug", lower).maybeSingle())
-      creatorId = (creator as { id: string } | null)?.id ?? null
-    }
-    if (!creatorId || failed) return { value: false, failed }
-
-    const install = read(await supabase
-      .from("store_theme_installs")
-      .select("id")
-      .eq("creator_id", creatorId)
-      .eq("status", "published")
-      .limit(1)
-      .maybeSingle())
-    return { value: Boolean(install), failed }
+    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey), lower)
+    return { value: facts.published, failed }
   })
 }
 
@@ -358,6 +379,7 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
  * page and the dozen requests its scripts make cost one read between them.
  */
 const compatHeld = new Map<string, { at: number; value: boolean }>()
+const compatAsked = new Map<string, Promise<boolean>>()
 async function compatSiteFor(username: string): Promise<boolean> {
   const lower = username.toLowerCase()
   const hit = compatHeld.get(lower)
@@ -365,46 +387,23 @@ async function compatSiteFor(username: string): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return false
-  let value = false
-  /* A read that failed is not "not imported": the answer before it stands, and nothing is remembered. */
-  let failed = false
-  const read = <T,>(r: { data: T | null; error: { code?: string } | null }) => {
-    if (r.error && r.error.code !== "PGRST116") failed = true
-    return r.data
-  }
-  try {
-    const supabase = createClient(supabaseUrl, supabaseKey)
-    const profile = read(await supabase.from("profiles").select("id").eq("username", lower).maybeSingle())
-    let creatorId: string | null = null
-    if (profile) {
-      const creator = read(await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle())
-      creatorId = (creator as { id: string } | null)?.id ?? null
-    }
-    if (!creatorId && !failed) {
-      const creator = read(await supabase.from("creators").select("id").eq("slug", lower).maybeSingle())
-      creatorId = (creator as { id: string } | null)?.id ?? null
-    }
-    if (creatorId && !failed) {
-      const install = read(await supabase
-        .from("store_theme_installs")
-        .select("id")
-        .eq("creator_id", creatorId)
-        .eq("status", "published")
-        .order("sort_order", { ascending: true })
-        .limit(1)
-        .maybeSingle())
-      if (install && !failed) {
-        const row = read(await supabase.from("store_theme_settings").select("kind:settings->compat->>kind").eq("install_id", (install as { id: string }).id).maybeSingle())
-        value = (row as { kind?: string | null } | null)?.kind === "shopify"
-      }
-    }
-  } catch {
-    failed = true
-  }
-  if (failed) return hit?.value ?? false
-  if (compatHeld.size > 5000) compatHeld.clear()
-  compatHeld.set(lower, { at: Date.now(), value })
-  return value
+  const asking = compatAsked.get(lower)
+  if (asking) return asking
+  /*
+    The name, its creator, the published install and its compat kind, read
+    once with the published-website question (lib/website-builder/route-facts.ts).
+    A read that failed is not "not imported": the answer before it stands,
+    and nothing is remembered.
+  */
+  const answer = (async () => {
+    const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey), lower)
+    if (failed) return hit?.value ?? false
+    if (compatHeld.size > 5000) compatHeld.clear()
+    compatHeld.set(lower, { at: Date.now(), value: facts.compat })
+    return facts.compat
+  })().finally(() => compatAsked.delete(lower))
+  compatAsked.set(lower, answer)
+  return answer
 }
 
 /** The addresses of an imported theme's site that are still Storelib's own: a visitor's account, the API, the site's SEO files. */
@@ -490,6 +489,8 @@ type ConnectedDomain = {
   username: string
   purpose: "website" | "creator_page"
   redirectTo: string | null
+  /** Whose domain it is, so the site's own lookups need not find the creator by name again. */
+  creatorId?: string
 }
 
 /** The host a stored domain is served at: www.<apex>, or a subdomain as it is. */
@@ -553,29 +554,35 @@ async function resolveCustomDomainFresh(host: string): Promise<{ value: Connecte
     const served = ["active", "ssl_provisioning", "pending", "verifying"]
     let { data: domainRecord, error } = await supabase
       .from("custom_domains")
-      .select("creator_id, status, purpose, is_primary")
+      .select("creator_id, status, purpose, is_primary, creator:creators ( user_id )")
       .eq("domain", lookupDomain)
       .in("status", served)
       .maybeSingle()
     if (error && /column|42703|PGRST204/i.test(`${error.code} ${error.message}`)) {
       ;({ data: domainRecord } = (await supabase
         .from("custom_domains")
-        .select("creator_id, status")
+        .select("creator_id, status, creator:creators ( user_id )")
         .eq("domain", lookupDomain)
         .in("status", served)
         .maybeSingle()) as never)
     } else if (failedRead(error)) return { value: null, failed: true }
 
     if (!domainRecord) return none
-    const row = domainRecord as { creator_id: string; purpose?: string | null; is_primary?: boolean | null }
+    const row = domainRecord as { creator_id: string; purpose?: string | null; is_primary?: boolean | null; creator?: { user_id?: string | null } | { user_id?: string | null }[] | null }
     const purpose = row.purpose === "creator_page" ? "creator_page" : "website"
 
-    const { data: creator, error: creatorErr } = await supabase
-      .from("creators")
-      .select("user_id")
-      .eq("id", row.creator_id)
-      .single()
-    if (failedRead(creatorErr)) return { value: null, failed: true }
+    /* The creator came with the domain (an embed on custom_domains.creator_id); read on its own only when it did not. */
+    const embedded = Array.isArray(row.creator) ? row.creator[0] : row.creator
+    let creator: { user_id: string } | null = embedded?.user_id ? { user_id: embedded.user_id } : null
+    if (!creator) {
+      const { data, error: creatorErr } = await supabase
+        .from("creators")
+        .select("user_id")
+        .eq("id", row.creator_id)
+        .single()
+      if (failedRead(creatorErr)) return { value: null, failed: true }
+      creator = data as { user_id: string } | null
+    }
 
     if (!creator) return none
 
@@ -603,7 +610,7 @@ async function resolveCustomDomainFresh(host: string): Promise<{ value: Connecte
       if (primaryDomain && primaryDomain !== lookupDomain) redirectTo = servedAt(primaryDomain)
     }
 
-    return { value: { username: profile.username, purpose, redirectTo }, failed: false }
+    return { value: { username: profile.username, purpose, redirectTo, creatorId: row.creator_id }, failed: false }
   } catch {
     return { value: null, failed: true }
   }
@@ -1145,6 +1152,8 @@ export async function proxy(request: NextRequest) {
        * collision it avoids.
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
+      /* Every question this page asks below, started together (startSiteQuestions). */
+      const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
       if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)
@@ -1207,7 +1216,7 @@ export async function proxy(request: NextRequest) {
       /* A website that asks for a password shows its password page to a visitor without a pass (lib/site-password/gate.ts). */
       let guarded = false
       if (isWebsite && !looksLikeFile) {
-        const gate = await passwordPageFor(request, subdomain, host, pathname, search)
+        const gate = await (gateAsked ?? passwordPageFor(request, subdomain, host, pathname, search))
         if (gate.blocked) return gate.blocked
         guarded = gate.protected
       }
@@ -1411,6 +1420,8 @@ export async function proxy(request: NextRequest) {
       username = connected.username
       isCustomDomain = true
       domainPurpose = connected.purpose
+      /* The domain names its creator: the site's own lookups skip finding them by name (lib/website-builder/route-facts.ts). */
+      if (connected.creatorId) rememberCreatorOf(connected.username, connected.creatorId)
     } else if (isExternalDomain && !isReservedPath(pathname)) {
       // Domain not actively connected — check redirect memory table
       // This handles removed/changed domains by redirecting to the new domain or fallback subdomain
@@ -1470,6 +1481,12 @@ export async function proxy(request: NextRequest) {
     else seoUrl.pathname = `/u/${username}${pathname}`
     return NextResponse.rewrite(seoUrl)
   }
+
+  /* A connected website's page: every question it asks below, started together (startSiteQuestions). */
+  const domainGateAsked =
+    username && isCustomDomain && domainPurpose === "website" && (!isReservedPath(pathname) || pathname === "/wishlist" || pathname === "/wishlist/")
+      ? startSiteQuestions(request, username, host, pathname, search, true)
+      : null
 
   // Handle subdomain or custom domain routing
   let supabaseResponse: NextResponse
@@ -1596,7 +1613,7 @@ export async function proxy(request: NextRequest) {
     } else if (builtSite) {
       rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
       /* The password page, as on the subdomain, for a visitor without a pass (lib/site-password/gate.ts). */
-      const gate = await passwordPageFor(request, username, host, pathname, search)
+      const gate = await (domainGateAsked ?? passwordPageFor(request, username, host, pathname, search))
       if (gate.blocked) return gate.blocked
       guardedDomain = gate.protected
     } else if (pathname === "/" || pathname === "") {

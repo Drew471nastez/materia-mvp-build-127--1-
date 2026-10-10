@@ -76,6 +76,7 @@ import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
+import { revealMore } from "./reveal-more"
 import { LIST_AFTER_MS } from "./chip-hit"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
@@ -519,7 +520,9 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     if (next) prefetchView(communityId, next, next.kind === "saved" ? "default" : sort)
   }
 
-  const loadMore = useCallback(async () => {
+  /* The posts a page just added, and whether a press asked for them: drawn in softly and, after a press, scrolled up into view (reveal-more.ts). */
+  const reveal = useRef<{ key: string; ids: Set<string>; scroll: boolean } | null>(null)
+  const loadMore = useCallback(async (how?: "press") => {
     const k = key
     const from = readView(k) ?? (shown.key === k ? shown.view : null)
     if (!from?.cursor || more === "loading") return
@@ -530,10 +533,19 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     setMore("idle")
     const now = readView(k) ?? from
     const seen = new Set(now.posts.map((p) => p.id))
-    const next: CachedView = { ...now, posts: [...now.posts, ...(r.data.posts ?? []).filter((p) => !seen.has(p.id))], cursor: r.data.nextCursor ?? null, pages: now.pages + 1 }
+    const added = (r.data.posts ?? []).filter((p) => !seen.has(p.id))
+    const next: CachedView = { ...now, posts: [...now.posts, ...added], cursor: r.data.nextCursor ?? null, pages: now.pages + 1 }
+    reveal.current = added.length ? { key: k, ids: new Set(added.map((p) => p.id)), scroll: how === "press" } : null
     writeView(k, next)
     setShown({ key: k, view: next })
   }, [communityId, key, more, shown, listSort, listTarget])
+  useLayoutEffect(() => {
+    const r = reveal.current
+    if (!r || r.key !== key || shown.key !== key) return
+    reveal.current = null
+    const items = Array.from(listRef.current?.querySelectorAll<HTMLElement>(":scope > [data-post]") ?? []).filter((el) => r.ids.has(el.dataset.post ?? ""))
+    revealMore(items, { scroll: r.scroll })
+  }, [shown, key])
 
   /* The next page, as the end comes near. */
   const sentinel = useRef<HTMLDivElement>(null)
@@ -731,7 +743,7 @@ interface FeedBodyProps {
   sentinel: React.RefObject<HTMLDivElement | null>
   cursor: string | null
   more: "idle" | "loading" | "failed"
-  loadMore: () => void
+  loadMore: (how?: "press") => void
 }
 
 /**
@@ -789,7 +801,7 @@ const FeedBody = memo(
           <div ref={sentinel} aria-hidden className="h-px" />
           {cursor ? (
             <div className="flex justify-center pb-4 pt-1">
-              <button type="button" onClick={loadMore} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
+              <button type="button" onClick={() => loadMore("press")} disabled={more === "loading"} className={BTN_SECONDARY} data-feed-more="">
                 {more === "loading" ? "Loading..." : more === "failed" ? "Try again" : "Load more posts"}
               </button>
             </div>

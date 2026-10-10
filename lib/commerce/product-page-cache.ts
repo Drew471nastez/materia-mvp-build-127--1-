@@ -118,6 +118,8 @@ export const cachedStoreConfig = (creatorId: string, pageType: string) =>
         .eq("creator_id", creatorId)
         .eq("page_type", pageType)
         .maybeSingle()
+        /* A failed read is thrown, never held for a minute as "no config" (the loaders read again on the session). */
+        .throwOnError()
       return data ?? null
     },
     ["store-config", creatorId, pageType],
@@ -134,6 +136,7 @@ export const cachedProductPageConfig = (creatorId: string, productId: string) =>
         .eq("creator_id", creatorId)
         .eq("product_id", productId)
         .maybeSingle()
+        .throwOnError()
       return data ?? null
     },
     ["product-page-config", creatorId, productId],

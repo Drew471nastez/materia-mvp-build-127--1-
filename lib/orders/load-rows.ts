@@ -67,30 +67,13 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
   }
 }
 
-export async function readCreatorOrders(admin: any, creatorId: string): Promise<{ products: CreatorProduct[]; rows: OrderRow[] }> {
-  /*
-    EVERY COLUMN, NOT A LIST OF THEM. This named `gallery_images`, a column
-    the products table does not have (it is `gallery_urls`), and PostgREST
-    answers a query naming a missing column with an error, not with the
-    columns it does have. The error was not looked at, so the page read "no
-    products", then "no orders", and a creator with a year of sales was told
-    they had none. `*` cannot name a column that is not there, and a failed
-    read now stops the page instead of drawing an empty one.
-  */
-  const { data: productsData, error: productsError } = await admin.from("products").select("*").eq("creator_id", creatorId)
-  if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
-  const products: CreatorProduct[] = (productsData || []).map((p: any) => ({
-    id: p.id as string,
-    title: (p.title as string) || "Untitled product",
-    type: (p.type as string) || null,
-    thumbnail_url: (p.thumbnail_url as string) || p.gallery_urls?.[0] || p.gallery_images?.[0] || null,
-  }))
-  /*
-    A page at a time: a query returns at most 1,000 rows, and a creator
-    with more orders than that would otherwise lose the oldest ones from
-    the list without a word.
-  */
-  const ordersData = await byCreator(async (scope) => {
+/*
+  A page at a time: a query returns at most 1,000 rows, and a creator
+  with more orders than that would otherwise lose the oldest ones from
+  the list without a word.
+*/
+function readOrderRows(admin: any, creatorId: string): Promise<any[]> {
+  return byCreator(async (scope) => {
     const rows: any[] = []
     for (let from = 0; from < 100_000; from += 1000) {
       const { data, error: ordersError } = await scopedOrders(admin, "*", scope, creatorId, null)
@@ -103,6 +86,35 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
     }
     return ownRows(rows)
   })
+}
+
+export async function readCreatorOrders(admin: any, creatorId: string): Promise<{ products: CreatorProduct[]; rows: OrderRow[] }> {
+  /*
+    EVERY COLUMN, NOT A LIST OF THEM. This named `gallery_images`, a column
+    the products table does not have (it is `gallery_urls`), and PostgREST
+    answers a query naming a missing column with an error, not with the
+    columns it does have. The error was not looked at, so the page read "no
+    products", then "no orders", and a creator with a year of sales was told
+    they had none. `*` cannot name a column that is not there, and a failed
+    read now stops the page instead of drawing an empty one.
+  */
+  /*
+    The products and the orders are asked at once: the orders are found by
+    their creator (or through their product, byCreator), never by the ids
+    read here, which only name each row's product. One round trip fewer
+    before Orders is drawn (lib/perf/optimizations.ts).
+  */
+  const productsRead = Promise.resolve(admin.from("products").select("*").eq("creator_id", creatorId))
+  const ordersRead = readOrderRows(admin, creatorId)
+  /* Both settle before either answer is used, so a failure of one is never left unhandled. */
+  const [{ data: productsData, error: productsError }, ordersData] = await Promise.all([productsRead, ordersRead])
+  if (productsError) throw new OrdersReadError(`Orders: could not read products (${productsError.message})`)
+  const products: CreatorProduct[] = (productsData || []).map((p: any) => ({
+    id: p.id as string,
+    title: (p.title as string) || "Untitled product",
+    type: (p.type as string) || null,
+    thumbnail_url: (p.thumbnail_url as string) || p.gallery_urls?.[0] || p.gallery_images?.[0] || null,
+  }))
 
   const byId = new Map(products.map((p) => [p.id, p]))
   const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))

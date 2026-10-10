@@ -29,6 +29,7 @@
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
+import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { sanitizeDescription } from "@/lib/rich-text/sanitize"
 import {
   cachedCreator,
@@ -143,8 +144,10 @@ export const loadCreatorProfile = cache(async (userId: string) => {
  * "shop". Two queries between them now instead of four.
  */
 export const loadStoreConfig = cache(async (creatorId: string, pageType: string) => {
-  const shared = await cachedStoreConfig(creatorId, pageType)
+  const shared = await cachedStoreConfig(creatorId, pageType).catch(() => undefined)
   if (shared) return shared
+  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
+  if (shared === null && !(await requestMayHaveSession())) return null
   const supabase = await createClient()
   const { data } = await supabase
     .from("store_builder_configs")
@@ -157,8 +160,10 @@ export const loadStoreConfig = cache(async (creatorId: string, pageType: string)
 
 /** The per-product override, which only the page reads. Here for symmetry. */
 export const loadProductPageConfig = cache(async (creatorId: string, productId: string) => {
-  const shared = await cachedProductPageConfig(creatorId, productId)
+  const shared = await cachedProductPageConfig(creatorId, productId).catch(() => undefined)
   if (shared) return shared
+  /* As above: no session, nothing more to find. */
+  if (shared === null && !(await requestMayHaveSession())) return null
   const supabase = await createClient()
   const { data } = await supabase
     .from("product_page_configs")

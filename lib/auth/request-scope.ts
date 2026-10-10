@@ -108,13 +108,19 @@ export interface RequestCreator {
  */
 export const creatorForRequest = cache(async (userId: string): Promise<RequestCreator | null> => {
   const supabase = await createClient()
-  const { data } = await supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle()
+  /*
+    BOTH HALVES AT ONCE, BY THE SIGNED IN USER'S OWN ID. The private columns
+    were read by the creator id the first read found, so every /app page
+    waited for one read and then the other. creators.user_id is unique, so
+    the same row is found by the user's id directly, on the service role
+    exactly as before and filtered by nothing but the signed in user's own
+    id; the public half still decides whether there is a creator at all.
+  */
+  const [{ data }, { data: privateCols }] = await Promise.all([
+    supabase.from("creators").select(SHELL_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle(),
+    createAdminClient().from("creators").select(SHELL_PRIVATE_CREATOR_COLUMNS).eq("user_id", userId).maybeSingle(),
+  ])
   if (!data) return null
-  const { data: privateCols } = await createAdminClient()
-    .from("creators")
-    .select(SHELL_PRIVATE_CREATOR_COLUMNS)
-    .eq("id", (data as { id: string }).id)
-    .maybeSingle()
   return {
     stripe_onboarding_status: null,
     stripe_account_id: null,

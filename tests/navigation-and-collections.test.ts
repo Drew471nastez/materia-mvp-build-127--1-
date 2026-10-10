@@ -73,7 +73,8 @@ console.log("\nCollections, every shop's\n")
   check("a collection's page is the shop page under its own name and words", grid?.settings.heading === "Courses" && grid?.settings.subheading === "Everything I teach" && grid?.settings.source === "shop")
   check("  between the site's header and footer", page[0].type === "header" && page[page.length - 1].type === "footer")
   const route = "app/(site)/w/[username]/collections/[handle]/page.tsx"
-  check("/collections/<handle> exists and lists only that collection, in its order", existsSync(route) && /productsInCollection\(/.test(read(route)) && /order\.has\(p\.id\)/.test(read(route)))
+  /* Round 18: the members are read through collectionMembers, which holds productsInCollection's answer with the shop (lib/website-builder/collection-members.ts). */
+  check("/collections/<handle> exists and lists only that collection, in its order", existsSync(route) && (/productsInCollection\(/.test(read(route)) || (/collectionMembers\(/.test(read(route)) && /productsInCollection\(/.test(read("lib/website-builder/collection-members.ts")))) && /order\.has\(p\.id\)/.test(read(route)))
   check("  not behind physical commerce", !/isPhysicalCommerceEnabled/.test(read(route)) && !/isPhysicalCommerceEnabled/.test(read("app/(site)/w/[username]/collections/page.tsx")))
   const grid2 = read("themes/default/sections/product_grid.storelib")
   check("Product grid shows a collection", /"value": "collection"/.test(grid2) && /"type": "collection_picker",\s*"id": "collection"/.test(grid2) && /\{% elsif settings\.source == 'collection' %\}/.test(grid2))

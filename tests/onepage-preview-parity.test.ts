@@ -214,7 +214,7 @@ async function main() {
   check("the route builds the published shape with the seller it resolved", /publishedShape\(onepage, owner, \{[\s\S]*?sellerId: resolvedCreatorId,?\s*\}\)/.test(route))
   check("publishedShape is the published shape of lib/onepage/public-shape", /return publicOnePage\(onepage, \{\s*source: "published"/.test(strip(read("lib/onepage/published-page.ts"))))
   check("then reads its products by the seller the shape names",
-    /transformedOnepage\.blocks = await withLiveProducts\(\s*adminSupabase as unknown as ProductsDb,\s*transformedOnepage\.seller_id \?\? "",\s*transformedOnepage\.blocks,?\s*\)/.test(route))
+    /transformedOnepage\.blocks = await liveBlocksFor\(transformedOnepage\.seller_id \?\? "", transformedOnepage\.blocks\)/.test(route))
   check("and draws that, with nothing else taken out", /<PublicOnePage onepage=\{transformedOnepage\} \/>/.test(route) && (route.match(/transformedOnepage\.blocks =/g) ?? []).length === 1)
 
   const editor = strip(read("components/onepage/live-preview.tsx"))

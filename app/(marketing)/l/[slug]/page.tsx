@@ -6,6 +6,7 @@ import { PublicOnePage } from "@/components/onepage/public-onepage"
 import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { TrackView } from "@/components/analytics/track-view"
 import { headers } from "next/headers"
+import { after } from "next/server"
 import { getLinksInternalPath, getMainDomain } from "@/lib/url-helpers"
 import { isOnePageHost, onePageUrl } from "@/lib/onepage/address"
 import { isResolvableOnePageName } from "@/lib/onepage/username"
@@ -13,10 +14,9 @@ import { primaryHostFor } from "@/lib/custom-domains/store"
 import { onePageIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { onePageSameAs, profilePageJsonLd } from "@/lib/seo/structured-data"
-import { findPublishedOnePage, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
+import { findPublishedOnePage, liveBlocksFor, onePageOwner, publishedOnePageSeo, publishedShape, resolveOnePage } from "@/lib/onepage/published-page"
 import { creatorPageUrl } from "@/lib/onepage/resolve-address"
 import { onePageMetadataFrom, resolveOnePageSeo } from "@/lib/onepage/seo"
-import { withLiveProducts, type ProductsDb } from "@/lib/onepage/live-products"
 import crypto from "crypto"
 
 // Hash IP address for privacy (same as track API)
@@ -173,26 +173,38 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     today.setUTCHours(0, 0, 0, 0)
     const todayStr = today.toISOString()
 
-    const { data: existingView } = await adminSupabase
-      .from("onepage_views")
-      .select("id")
-      .eq("onepage_id", onepage.id)
-      .eq("ip_hash", ipHash)
-      .gte("created_at", todayStr)
-      .maybeSingle()
+    /*
+      COUNTED AFTER THE PAGE IS SENT (next/server `after`). The same two
+      reads, the same row, the same one view per address a day; the visitor
+      no longer waits on them before the first byte. Everything they need
+      from the request is read above, while the request is still here.
+    */
+    after(async () => {
+      try {
+        const { data: existingView } = await adminSupabase
+          .from("onepage_views")
+          .select("id")
+          .eq("onepage_id", onepage.id)
+          .eq("ip_hash", ipHash)
+          .gte("created_at", todayStr)
+          .maybeSingle()
 
-    // Only insert if no view from this IP today
-    if (!existingView) {
-      await adminSupabase.from("onepage_views").insert({
-        onepage_id: onepage.id,
-        visitor_id: visitorId,
-        referrer,
-        user_agent: userAgent.slice(0, 500),
-        ip_hash: ipHash,
-        country_code: countryCode || null,
-        country_name: countryName || null,
-      })
-    }
+        // Only insert if no view from this IP today
+        if (!existingView) {
+          await adminSupabase.from("onepage_views").insert({
+            onepage_id: onepage.id,
+            visitor_id: visitorId,
+            referrer,
+            user_agent: userAgent.slice(0, 500),
+            ip_hash: ipHash,
+            country_code: countryCode || null,
+            country_name: countryName || null,
+          })
+        }
+      } catch {
+        // Ignore
+      }
+    })
   } catch {
     // Ignore
   }
@@ -253,11 +265,8 @@ export default async function PublicOnePageRoute({ params, searchParams }: Props
     frame asks by too (components/onepage/preview-document.tsx), so both
     read the same products for the same page. tests/onepage-preview-parity.test.ts.
   */
-  transformedOnepage.blocks = await withLiveProducts(
-    adminSupabase as unknown as ProductsDb,
-    transformedOnepage.seller_id ?? "",
-    transformedOnepage.blocks,
-  )
+  /* The same read the metadata made for these blocks, once per request (liveBlocksFor). */
+  transformedOnepage.blocks = await liveBlocksFor(transformedOnepage.seller_id ?? "", transformedOnepage.blocks)
 
   /*
     WHO THIS PAGE IS ABOUT, for a search engine, and only on a page it may

@@ -37,6 +37,7 @@ import { revalidatePath, revalidateTag } from "next/cache"
 import { creatorTag, productTag } from "@/lib/commerce/product-page-cache"
 import { withoutProduct } from "@/lib/onepage/live-products"
 import { creatorShopTag, revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
 type Admin = {
   from: (table: string) => any
@@ -63,6 +64,8 @@ export function purgeProductCaches({
   revalidateTag(creatorTag(creatorId), "max")
   /* The website's shop grid, its product count and its SEO product list. */
   revalidateTag(creatorShopTag(creatorId), "max")
+  /* Explore's catalogue, which every visitor shares (lib/explore/catalogue-cache.ts): gone, archived or taken down is off it now. */
+  exploreCatalogueTakenDown()
   if (slug) revalidatePath(`/p/${slug}`)
   if (handle) {
     revalidatePath(`/${handle}`)
