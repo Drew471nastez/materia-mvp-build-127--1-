@@ -18,6 +18,7 @@
  * address saved. Built in means it works with nothing to connect.
  */
 import * as React from "react"
+import { useSearchParams } from "next/navigation"
 import { ArrowLeft, ExternalLink, Search, Check, Truck, Mail, Webhook, FileSpreadsheet, type LucideIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
@@ -31,11 +32,6 @@ import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 type Filter = "all" | "installed" | IntegrationCategory
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
-
-function readIntegrationParam(): string | null {
-  if (typeof window === "undefined") return null
-  return new URLSearchParams(window.location.search).get("integration")
-}
 
 function writeIntegrationParam(id: string | null) {
   try {
@@ -90,6 +86,10 @@ export function IntegrationsDirectory() {
   /* Where the list was scrolled when a card was opened, so Back lands there again. */
   const listScroll = React.useRef(0)
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
+  /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
+     another integration, Back and Forward. It was read once on mount, so a second row did nothing. */
+  const wanted = useSearchParams()?.get("integration") ?? null
+  React.useEffect(() => setOpenId(wanted), [wanted])
 
   React.useEffect(() => {
     void api<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog").then((r) => {
@@ -97,7 +97,6 @@ export function IntegrationsDirectory() {
     })
   }, [])
   React.useEffect(() => {
-    setOpenId(readIntegrationParam())
     void api<{ tracking: Tracking; ready: boolean }>("/api/store/integrations").then((r) => {
       if (r.ok) {
         setTracking(r.data.tracking)

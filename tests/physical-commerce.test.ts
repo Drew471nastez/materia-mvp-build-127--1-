@@ -406,6 +406,9 @@ console.log("\nThe switch, in the app")
   check("a cart survives the URL, quantities kept in range", back.length === 2 && back[0].quantity === 3 && back[1].variantId === id && back[1].quantity === 999)
   check("anything else in the URL is no cart", decodeItems("not-base64!").length === 0 && decodeItems(encodeItems([{ productId: "nope", variantId: null, quantity: 1 }])).length === 0)
   check("the checkout link names the shop", physicalCheckoutHref(id, []).startsWith(`/checkout/physical?shop=${id}`))
+  const named = decodeItems(encodeItems([{ productId: id, variantId: null, quantity: 1, customPriceCents: 1500 }, { productId: id, variantId: id, quantity: 1, customPriceCents: -5 }]))
+  check("a pay what you want amount survives the URL, one out of range does not", named[0].customPriceCents === 1500 && named[1].customPriceCents === undefined)
+  check("a link to storelib.com from a website is absolute", physicalCheckoutHref(id, [], null, "https://storelib.com").startsWith("https://storelib.com/checkout/physical?"))
 }
 
 console.log("\nA refund made in the Stripe dashboard reaches the order\n")

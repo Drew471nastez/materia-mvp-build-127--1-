@@ -17,7 +17,7 @@ import "server-only"
  * delivery and hold no stock. Something the buyer already owns is left out.
  */
 
-import { baseFor } from "@/lib/checkout/pricing"
+import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
@@ -37,6 +37,8 @@ export interface CheckoutItem {
   productId: string
   variantId: string | null
   quantity: number
+  /** A pay what you want amount the buyer named for a digital line; held to its minimum below (baseFor). */
+  customPriceCents?: number
 }
 
 export function readItems(input: unknown): CheckoutItem[] {
@@ -49,7 +51,13 @@ export function readItems(input: unknown): CheckoutItem[] {
     const quantity = Math.max(1, Math.min(MAX_LINE_QUANTITY, Math.floor(Number(r.quantity) || 1)))
     const key = `${r.productId}:${variantId ?? ""}`
     const had = merged.get(key)
-    merged.set(key, { productId: r.productId, variantId, quantity: Math.min(MAX_LINE_QUANTITY, (had?.quantity ?? 0) + quantity) })
+    const custom = wholeCents(r.customPriceCents, 0, MAX_PWYW_CENTS) ?? had?.customPriceCents ?? null
+    merged.set(key, {
+      productId: r.productId,
+      variantId,
+      quantity: Math.min(MAX_LINE_QUANTITY, (had?.quantity ?? 0) + quantity),
+      ...(custom !== null ? { customPriceCents: custom } : {}),
+    })
   }
   return [...merged.values()]
 }
@@ -198,8 +206,13 @@ export async function priceCheckout(
         dropped.push(p.title)
         continue
       }
-      const priced = baseFor(v ?? p, undefined)
-      const unit = priced.ok ? priced.cents : 0
+      /* Pay what you want is the amount the buyer named in the cart, held to
+         the product's (or the option's) minimum and the ceiling, as the
+         basket checkout holds it; none named is the minimum. Under it is
+         refused with the reason, never charged at a price nobody chose. */
+      const priced = baseFor(v ?? p, item.customPriceCents)
+      if (priced.ok === false) return { ok: false, status: 400, error: `${p.title}: ${priced.error}` }
+      const unit = priced.cents
       if (unit <= 0) {
         dropped.push(p.title)
         continue
