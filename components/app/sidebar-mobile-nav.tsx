@@ -39,7 +39,7 @@ import { cn } from "@/lib/utils"
 import { endLayerMove } from "@/components/app/page-layer"
 import { hapticTap } from "@/lib/native-bridge"
 import { UpgradeBolt } from "@/components/app/upgrade-bolt"
-import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath } from "@/lib/ui/app-navigation"
+import { APP_PAGE_KEPT_MS, isPlainClick, pendingPath, prefetchAppPage, useAppNavigation, useShownPath, useShownSearch } from "@/lib/ui/app-navigation"
 import { mayLeave } from "@/lib/ui/leave-guard"
 import {
   isRouteActive,
@@ -183,7 +183,7 @@ function MobileSubNavItem({
   onClose: () => void
 }) {
   const router = useRouter()
-  const active = isRouteActive(useShownPath(), child.href)
+  const active = isRouteActive(useShownPath(), child.href, useShownSearch())
   const { pressed, handlers } = usePressed(() => { if (!active) prefetchAppPage(router, child.href) })
   return (
     <Link
@@ -244,7 +244,7 @@ export function MobileNavItem({
   onClose: () => void
 }) {
   const router = useRouter()
-  const active = isRouteActive(useShownPath(), item.href)
+  const active = isRouteActive(useShownPath(), item.href, useShownSearch())
   /* A row that reloads the document (forceNavigation) has nothing to fetch ahead. */
   const { pressed, handlers } = usePressed(() => { if (!active && !item.forceNavigation) prefetchAppPage(router, item.href) })
   const style = rowStyle(active, pressed)

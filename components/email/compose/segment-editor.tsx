@@ -50,6 +50,8 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
 
   const set = (patch: Partial<SegmentRules>) => setRules((r) => ({ ...r, ...patch }))
   const title = (id: string) => products.find((p) => p.id === id)?.title ?? null
+  /* "Bought a product you pick" with none picked would be everyone: not saved (the server refuses it too). */
+  const noProducts = rules.purchased === "products" && rules.productIds.length === 0
 
   const save = async () => {
     setBusy(true)
@@ -81,7 +83,7 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
             <button type="button" className={BTN_SECONDARY} onClick={onClose} disabled={busy}>
               Cancel
             </button>
-            <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy || !name.trim()}>
+            <button type="button" className={BTN_PRIMARY} onClick={() => void save()} disabled={busy || !name.trim() || noProducts}>
               {busy ? "Saving" : "Save segment"}
             </button>
           </div>
@@ -132,6 +134,11 @@ export function SegmentEditor({ open, onClose, products, onSaved }: { open: bool
               )
             })}
           </div>
+        ) : null}
+        {noProducts ? (
+          <p className="text-[13px] text-[#6b7280]" data-segment-hint="">
+            Pick at least one product to save this segment.
+          </p>
         ) : null}
         <p className="text-[13px] text-[#6b7280]">{describeRules(rules, title)}. Only people still subscribed are ever sent to.</p>
         {error ? <Notice>{error}</Notice> : null}

@@ -144,6 +144,20 @@ section("Which item is active comes from the route, and only from the route")
       !isRouteActive("/app/emails-old", "/app/emails"),
   )
   check(
+    "a row whose address has a query lights on its path with those params showing",
+    /**
+     * Settings › Integrations and each integration under it are
+     * /app/settings?tab=integrations[&integration=…]: the whole href was
+     * compared to the path, so they never lit.
+     */
+    isRouteActive("/app/settings", "/app/settings?tab=integrations", "tab=integrations&integration=meta-pixel") &&
+      isRouteActive("/app/settings", "/app/settings?tab=integrations&integration=meta-pixel", "tab=integrations&integration=meta-pixel") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations&integration=ga4", "tab=integrations&integration=meta-pixel") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations", "tab=general") &&
+      !isRouteActive("/app/settings", "/app/settings?tab=integrations") &&
+      !isRouteActive("/app/orders", "/app/settings?tab=integrations", "tab=integrations"),
+  )
+  check(
     "there is no second copy of which page we are on",
     // A `selectedItem` state is a second answer to a question the router has
     // already answered, and it is wrong for as long as it takes to notice.

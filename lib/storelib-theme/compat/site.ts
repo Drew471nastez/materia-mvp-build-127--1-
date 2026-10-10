@@ -236,16 +236,21 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
   }
 }
 
-/** Sections for a page key, with the header and footer groups of the home page when the page has none of its own. */
+/**
+ * Sections for a page key, wearing the site's header, footer and overlay:
+ * the home page's, as the builder draws every page (universal-chrome.ts,
+ * withUniversalChrome). A page's own copy is used only where home has none
+ * of that group. Reading the page's own copy first drew a stale header, or
+ * a page with a header and no footer, where the builder showed home's.
+ */
 function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
   const own = site.pages[key]
   if (!own) return null
   const parts = pageParts(own)
-  const home = pageParts(site.pages.home ?? [])
-  /* The Overlay group is the site's, as the header and footer are: a page without its own wears the home page's. */
-  const overlay = parts.overlay.length ? [] : home.overlay
-  if (parts.header.length || parts.footer.length) return [...own, ...overlay]
-  return [...home.header, ...own, ...home.footer, ...overlay]
+  if (key === "home" || !site.pages.home) return [...parts.header, ...parts.template, ...parts.footer, ...parts.overlay]
+  const home = pageParts(site.pages.home)
+  const pick = (group: "header" | "footer" | "overlay") => (home[group].length ? home[group] : parts[group])
+  return [...pick("header"), ...parts.template, ...pick("footer"), ...pick("overlay")]
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
@@ -706,7 +711,7 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx()) }
+      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
     } catch {
       return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
     }
