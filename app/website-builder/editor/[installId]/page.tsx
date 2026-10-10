@@ -2746,6 +2746,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const libraryOwnTypes = useMemo(() => Object.keys(customSchemas), [customSchemas])
   /* An imported Shopify theme draws only its own sections: Storelib's would have nothing to draw them with there. */
   const compatInstall = useMemo(() => isCompatSource(storelibSources["layout/theme.storelib"]), [storelibSources])
+  /**
+   * AN IMPORTED THEME'S PAGES ARE ITS OWN. Known from the install's settings
+   * (`compat`) as soon as they load, which is before the first page's
+   * sections, and from its files once those are in: a page with no sections
+   * is then a page the theme draws from its Liquid template (Shopify's
+   * Skeleton, an older theme), never one to be given Storelib's header,
+   * footer and product section.
+   */
+  const importedTheme = useRef(false)
+  if (compatInstall) importedTheme.current = true
   const libraryAddable = useMemo(() => {
     const all = compatInstall ? ownSectionTypes : [
       ...ADDABLE_SECTIONS.filter((t) => (t !== "community_card" || builderCommunities !== null) && (!COLLECTION_SECTIONS.has(t) || builderCollections !== null)),
@@ -3521,7 +3531,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * section file of its own (its Header group says which), and putting the
      * built-in back on it every time it opened was the second header.
      */
-    const empty = loaded.length === 0
+    const empty = loaded.length === 0 && !importedTheme.current
     if (empty) {
       const hs = SECTION_SCHEMAS["header"]
       if (hs) loaded = [{ id: `header-${Date.now()}`, type: "header", name: hs.name, settings: hs.presets?.[0]?.settings ?? {}, blocks: hs.presets?.[0]?.blocks ?? [], hidden: false }, ...loaded]
@@ -3530,7 +3540,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const hs = SECTION_SCHEMAS["header"]
       const preset = hs?.presets?.[0]
       loaded = loaded.map(sec => {
-        if (sec.type !== "header") return sec
+        if (sec.type !== "header" || importedTheme.current) return sec
         const needsNav = !sec.blocks || sec.blocks.length === 0
         if (!needsNav || !preset?.blocks?.length) return sec
         return {
@@ -3549,7 +3559,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
 
     // Auto-add Product section on product pages if missing
-    if (page === "product" && !loaded.some(s => s.type === "product")) {
+    if (page === "product" && !importedTheme.current && !loaded.some(s => s.type === "product")) {
       const ps = SECTION_SCHEMAS["product"]
       if (ps) {
         const headerIdx = loaded.findIndex(s => s.type === "header")
@@ -3617,6 +3627,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Load settings
     const settings = inst.settings
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
+    if (compatOf(loadedSettings)) importedTheme.current = true
     /* Every theme shows the store's menus. Until the store has any, the live theme's are offered, or this theme's own when nothing is live yet. */
     const offered = data.storeMenus as { available?: boolean; stored?: boolean; menus?: unknown } | undefined
     if (offered?.available) {
@@ -4042,11 +4053,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /** A section to scroll to on the page being opened, from a link like `/about#section-x`. */
   const pendingAnchor = useRef<string | null>(null)
+  /* Which page the canvas last showed, so only opening ANOTHER page fades it in (not the editor's first draw). */
+  const pageShown = useRef<string | null>(null)
   useLayoutEffect(() => {
     /* The page is here, so the hold that kept the canvas still while it was
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
-    document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+    const root = document.getElementById("wb-preview-root")
+    root?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+    /*
+      ANOTHER PAGE FADES IN, briefly, rather than replacing the last one in a
+      single frame. Opacity only, on the page inside the canvas, never below
+      a third: it is the same canvas, showing a different page.
+    */
+    const key = `${currentPage}|${selectedProductPage ?? ""}`
+    const before = pageShown.current
+    pageShown.current = key
+    if (before === null || before === key) return
+    const page = root?.firstElementChild as HTMLElement | null
+    const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
   /* Opened by a link to one of its sections (`/about#section-x`): from the
      top down to it, once the canvas has drawn it. The canvas draws a

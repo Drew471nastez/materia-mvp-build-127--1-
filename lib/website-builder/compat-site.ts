@@ -33,6 +33,7 @@ const POLICY_TITLES: Record<string, string> = Object.fromEntries([...POLICY_PAGE
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
+import { liveNavigationMarkup } from "./live-navigation"
 
 type Admin = ReturnType<typeof createAdminClient>
 type Row = { path: string; content: string | null; draft_content?: string | null }
@@ -206,6 +207,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
       return { ...card, descriptionHtml }
     },
+    /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
+    extraHead: draft ? undefined : liveNavigationMarkup(),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : undefined,
   }
   return { kind: "site", site }

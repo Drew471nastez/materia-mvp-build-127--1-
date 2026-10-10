@@ -82,6 +82,8 @@ async function main() {
     page.on("console", (m) => { if (m.type() === "error" && /frame|shopify|theme/i.test(m.text())) frameErrors.push(m.text().slice(0, 160)) })
     page.on("console", (m) => { if (m.type() === "warn" && /\[compat\]/.test(m.text())) console.log("    warn:", m.text().slice(0, 200)) })
     page.on("pageerror", (e) => frameErrors.push(`editor: ${String(e).slice(0, 160)}`))
+    const pageErrors: string[] = []
+    page.on("pageerror", (e) => pageErrors.push(String((e as Error).message ?? e).slice(0, 300)))
     await page.goto(base, { waitUntil: "domcontentloaded" })
 
     let frame: Frame | null = null
@@ -91,7 +93,11 @@ async function main() {
       frame = page.frames().find((f) => f !== page.mainFrame() && f.url() === "about:srcdoc") ?? null
     }
     check("the canvas draws the theme in its frame", !!frame, `${Date.now() - t0}ms`)
-    if (!frame) return
+    if (!frame) {
+      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/compat-editor-noframe.png` })
+      console.log("  --    the editor shows:", (await page.evaluate(() => document.body.innerText.replace(/\s+/g, " ").slice(0, 300))), pageErrors.slice(0, 3))
+      return
+    }
     await sleep(2500)
     const drawn = await frame.evaluate(() => ({
       sections: document.querySelectorAll(".shopify-section").length,
@@ -99,6 +105,16 @@ async function main() {
       sheets: document.styleSheets.length,
       sandboxed: (() => { try { return !!window.parent.document } catch { return false } })(),
     }))
+    /* A theme with no sections (Shopify's Skeleton) is its layout's blocks and its templates: its header is what must be on the page. */
+    const header = await frame.evaluate(() => { const h = document.querySelector("header, [data-block-id='header'], .header, #shopify-section-header"); const r = h?.getBoundingClientRect(); return r ? { h: Math.round(r.height), text: (h as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 60) } : null })
+    if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/compat-editor-first.png` })
+    check("the theme's header is on the page", !!header && header.h > 20, header)
+    if (drawn.sections === 0) {
+      const main = await frame.evaluate(() => (document.querySelector("main") as HTMLElement | null)?.innerText.replace(/\s+/g, " ").trim().slice(0, 80) ?? "")
+      const saved = await page.evaluate(() => (window as unknown as { probeCalls?: string[] }).probeCalls?.filter((c) => /sections/.test(c)).slice(0, 3))
+      console.log("  --    a theme with no sections: nothing to select section by section", JSON.stringify({ main, saved }))
+      return
+    }
     check("the theme's sections are on the page", drawn.sections >= 4, `${drawn.sections} sections`)
     check("the theme's stylesheets apply", drawn.sheets >= 3, `${drawn.sheets} stylesheets, body font ${drawn.styled.slice(0, 40)}`)
     check("the frame cannot reach the builder", drawn.sandboxed === false)

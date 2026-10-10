@@ -53,6 +53,8 @@ export interface SiteData {
   product?: (handle: string) => Promise<(CardLike & { descriptionHtml?: string }) | null>
   /** Scripts the page carries besides the theme's: the preview's banner. */
   extraBodyEnd?: string
+  /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
+  extraHead?: string
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -184,7 +186,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -372,7 +374,7 @@ async function notFound(site: SiteData, req: SiteRequest): Promise<SiteResponse>
   const many = req.query.get("sections")
   if (one) return sectionsAnswer(site, page, sections, [one], false)
   if (many) return sectionsAnswer(site, page, sections, many.split(",").map((x) => x.trim()).filter(Boolean).slice(0, 5), true)
-  return html(drawPage(site.theme, page, sections, { scripts: true, extraBodyEnd: site.extraBodyEnd }).html, 404)
+  return html(drawPage(site.theme, page, sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd }).html, 404)
 }
 
 /**

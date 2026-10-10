@@ -5,6 +5,7 @@ import { CaptureTouch } from "@/components/attribution/capture-touch"
 import { CheckoutReturnNotice } from "@/components/website-builder/checkout-return-notice"
 import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
+import { SPECULATION_RULES, VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -45,6 +46,9 @@ export const metadata: Metadata = {
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      {/* Links fetched ahead while the pointer rests on them, and pages that cross-fade with no white flash (lib/website-builder/live-navigation.ts). First, so the next page has it before it is drawn. */}
+      <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION_RULES }} />
+      <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
       {children}
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}
