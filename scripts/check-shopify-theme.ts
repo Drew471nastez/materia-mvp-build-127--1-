@@ -17,6 +17,10 @@
  *   the cart page lists the line, and its quantity can be changed
  *   Buy it now sends that item alone to checkout and leaves the cart as it was
  *   the search box finds a product (/search/suggest, section rendering)
+ *   the drawer's own Check out (its terms box ticked) reaches checkout
+ *   in the builder's canvas (a sandboxed frame, its requests answered by
+ *   canvas-cart.ts): Add to cart fills the builder's cart with no request
+ *   to the network, and Buy it now says checkout is on the live site
  *   nothing is requested from Shopify's servers
  *
  * Measurements, not opinions: each line prints what it measured. Exits 1 on
@@ -32,10 +36,15 @@ import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/sh
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
+import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
+import { answerInCanvas, canvasPages, type CanvasCart } from "../lib/storelib-theme/compat/canvas-cart"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
 /** What the page last sent to the basket checkout. */
 let lastCheckout: { items?: unknown[] } | null = null
+/* The builder's cart, for the canvas check, and any request the canvas frame sent to the network instead. */
+let canvasCart: CanvasCart = { cart: [], note: "" }
+const canvasLeaks: string[] = []
 mkdirSync(OUT, { recursive: true })
 let failed = 0
 const check = (label: string, ok: boolean, detail = "") => {
@@ -118,6 +127,36 @@ async function serve(zipPath: string) {
       res.end(JSON.stringify({ url: "http://127.0.0.1/__checkout_opened" }))
       return
     }
+    /* The builder's canvas, as compat-canvas.tsx draws it: the page in a sandboxed frame, what its scripts ask answered by the parent. */
+    if (url.pathname === "/__canvas") {
+      const path = url.searchParams.get("path") ?? "/"
+      const drawn = await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+      const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed={};</script>${CANVAS_HEAD}`)
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      return
+    }
+    if (url.pathname === "/__canvas-answer") {
+      const sent: Buffer[] = []
+      for await (const c of req) sent.push(c as Buffer)
+      const { m, path } = JSON.parse(Buffer.concat(sent).toString("utf8"))
+      const own = pages.product ?? []
+      const chrome = (pages.home ?? []).filter((x) => x.group === "header" || x.group === "footer" || x.group === "overlay")
+      const sections = [...chrome.filter((x) => x.group === "header"), ...own.filter((x) => !x.group), ...chrome.filter((x) => x.group !== "header")]
+      const r = await answerInCanvas({ ...site, designMode: true, pages: canvasPages(theme, "product", sections as never) }, canvasCart, { method: m.method, url: m.url, body: m.body, ajax: m.ajax === true }, path)
+      canvasCart = r.state
+      const { type: contentType, ...rest } = r.answer
+      res.writeHead(200, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ contentType, ...rest }))
+      return
+    }
+    /* A request from the canvas frame (no origin of its own) that reached the network: in the builder, it would have failed. */
+    if (req.headers.origin === "null") {
+      canvasLeaks.push(`${req.method} ${url.pathname}`)
+      res.writeHead(404)
+      res.end()
+      return
+    }
     /* The account page itself, as Storelib draws it inside the theme's shell (the proxy sends the framed request there). */
     if (url.searchParams.has("sl_embed")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
@@ -169,8 +208,11 @@ async function run(zipPath: string) {
       page.on("pageerror", (e) => errors.push(String(e).slice(0, 200)))
       if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || m.type() === "warn") console.log("    console:", m.text().slice(0, 200)) })
       await page.setRequestInterception(true)
+      let checkoutHits = 0
       page.on("request", (r) => {
         const u = r.url()
+        /* Anything on its way to checkout: /checkout, the basket checkout, or the cart posted with \`checkout\`. */
+        if (u.startsWith(base) && (/^\/(checkout|cart\/checkout|api\/checkout)/.test(u.slice(base.length)) || (r.method() === "POST" && /^\/cart/.test(u.slice(base.length)) && /(^|&|name="|\b)checkout/.test(r.postData() ?? "")))) checkoutHits++
         /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
         if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); return r.abort() }
         if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
@@ -275,7 +317,7 @@ async function run(zipPath: string) {
       */
       const findOpen = () => page.evaluate(() => {
         const shown = (el: Element) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 40 && r.height > 40 && r.right > 0 && r.left < innerWidth && cs.visibility !== "hidden" && cs.display !== "none" && Number(cs.opacity) > 0.5 }
-        const panels = [...document.querySelectorAll("cart-drawer, cart-notification, cart-drawer-component dialog, #CartDrawer, .cart-drawer, .cart-notification, dialog[open]")]
+        const panels = [...document.querySelectorAll("cart-drawer, cart-notification, cart-drawer-component dialog, #CartDrawer, .cart-drawer, .cart-notification, dialog[open], #minicart-form, .minicart__wrapper")]
         const open = panels.find((el) => shown(el) && /Linen shirt/i.test((el as HTMLElement).innerText))
         return { ok: !!open, what: open ? open.tagName.toLowerCase() + (open.id ? `#${open.id}` : "") : panels.map((el) => `${el.tagName.toLowerCase()}:${shown(el) ? `shown "${(el as HTMLElement).innerText.replace(/\s+/g, " ").trim().slice(0, 90)}"` : "hidden"}`).join(",") || "none" }
       })
@@ -292,6 +334,26 @@ async function run(zipPath: string) {
       }
       check(`the theme's cart drawer or notification opens with the product in it (${how})`, opened.ok, opened.what)
       await page.screenshot({ path: `${OUT}/${name}-${label}-added.png` })
+      /* Its own Check out, as a visitor presses it: any terms box in it ticked first (Posturex draws one). */
+      if (opened.ok) {
+        checkoutHits = 0
+        const pressed = await page.evaluate(() => {
+          const shown = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
+          const panel = [...document.querySelectorAll("cart-drawer, cart-notification, cart-drawer-component, #CartDrawer, .cart-drawer, .cart-notification, dialog[open], #minicart-form")].find((el) => shown(el) && /Linen shirt/i.test((el as HTMLElement).innerText))
+          if (!panel) return "no panel"
+          for (const box of panel.querySelectorAll<HTMLInputElement>("input[type=checkbox]")) if ((box.required || /terms|agree/i.test(box.name + box.id)) && !box.checked) box.click()
+          return new Promise<string>((done) => setTimeout(() => {
+            const formIds = [...panel.querySelectorAll("form[id]")].map((f) => f.id)
+            const co = [...document.querySelectorAll<HTMLElement>("[name='checkout'], a[href*='/checkout']")].find((b) => shown(b) && (panel.contains(b) || formIds.includes(b.getAttribute("form") ?? "")))
+            if (!co) return done("no checkout button")
+            if ((co as HTMLButtonElement).disabled) return done("disabled")
+            co.click()
+            done("pressed")
+          }, 100))
+        })
+        for (let t = 0; t < 30 && !checkoutHits; t++) await new Promise((r) => setTimeout(r, 200))
+        check("the drawer's own Check out reaches checkout", pressed === "pressed" && checkoutHits > 0, `${pressed}, ${checkoutHits} checkout requests`)
+      }
 
       await visit("/cart")
       await page.screenshot({ path: `${OUT}/${name}-${label}-cart.png` })
@@ -351,6 +413,25 @@ async function run(zipPath: string) {
         check("the search box finds Linen shirt 3", found)
         await page.screenshot({ path: `${OUT}/${name}-${label}-search.png` })
       } else check("the theme has a search box", false)
+
+      /* The builder's canvas: Add to cart answered by the builder, Buy it now kept for the live site. */
+      canvasCart = { cart: [], note: "" }
+      canvasLeaks.length = 0
+      errors.length = 0
+      await page.goto(`${base}/__canvas?path=${encodeURIComponent("/products/linen-shirt-2")}`, { waitUntil: "networkidle0", timeout: 60_000 })
+      await new Promise((r) => setTimeout(r, 800))
+      const frame = page.frames().find((f) => f !== page.mainFrame())
+      const pressIn = (sel: string) => frame!.evaluate((s) => { const b = [...document.querySelectorAll<HTMLElement>(s)].find((el) => el.getBoundingClientRect().width > 0); if (!b) return false; b.click(); return true }, sel)
+      const buyInCanvas = await pressIn("[data-storelib-buy-now]")
+      await new Promise((r) => setTimeout(r, 600))
+      const liveOnly = await page.evaluate(() => (window as unknown as { __events: string[] }).__events.join())
+      check("in the canvas, Buy it now says checkout is on the live site and adds nothing", buyInCanvas && liveOnly === "checkout" && canvasCart.cart.length === 0, `pressed ${buyInCanvas}, "${liveOnly}", ${canvasCart.cart.length} lines`)
+      /* From the press on: a theme's own broken markup on load (Posturex's empty preload, " 800w") is not the cart's. */
+      canvasLeaks.length = 0
+      const addInCanvas = await pressIn("form[data-type='add-to-cart-form'] button[type='submit'], form[action='/cart/add'] button[name='add'], form[action='/cart/add'] button[type='submit']:not([name='checkout'])")
+      await new Promise((r) => setTimeout(r, 2500))
+      check("in the canvas, Add to cart fills the builder's cart, with nothing sent to the network", addInCanvas && canvasCart.cart.length >= 1 && canvasLeaks.length === 0 && errors.length === 0, `pressed ${addInCanvas}, ${canvasCart.cart.length} lines, leaks: ${canvasLeaks.join(" ") || "none"}${errors[0] ? `, ${errors[0]}` : ""}`)
+      await page.screenshot({ path: `${OUT}/${name}-${label}-canvas.png` })
 
       check("nothing was asked of Shopify's servers", shopifyHits.length === 0, shopifyHits[0] ?? "")
       await page.deleteCookie({ name: CART_COOKIE, url: base })
