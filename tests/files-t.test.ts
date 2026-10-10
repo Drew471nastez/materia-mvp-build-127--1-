@@ -20,13 +20,13 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 const owner = { userId: "user-1", creatorId: "creator-1" }
 
 console.log("\nOnly the owner's own files")
-check("a builder picture in their folder is theirs", ownsFile(owner, "store-builder-images", "user-1/library/1.png"))
+check("a builder picture in their folder is theirs", ownsFile(owner, "store-builder-images", "user-1/files/1.png"))
 check("a product photo in their folder is theirs", ownsFile(owner, "product-images", "creator-1/prod-9/a.jpg"))
 check("someone else's folder is not", !ownsFile(owner, "store-builder-images", "user-2/library/1.png"))
 check("a folder that only starts like theirs is not", !ownsFile(owner, "store-builder-images", "user-10/library/1.png"))
 check("climbing out with .. is refused", !ownsFile(owner, "store-builder-images", "user-1/../user-2/x.png"))
 check("a path deeper or shallower than a file is refused", !ownsFile(owner, "store-builder-images", "user-1/x.png") && !ownsFile(owner, "store-builder-images", "user-1/a/b/x.png"))
-check("another bucket is refused", !ownsFile(owner, "avatars", "user-1/library/1.png"))
+check("another bucket is refused", !ownsFile(owner, "avatars", "user-1/files/1.png"))
 check("the user's id is not a creator folder", !ownsFile(owner, "product-images", "user-1/p/a.jpg"))
 
 function fakeAdmin(
@@ -69,10 +69,10 @@ const meta = (size: number) => ({ size, mimetype: "image/png" })
 const admin = fakeAdmin({
   "store-builder-images": {
     "user-1": [
-      { name: "library", id: null },
+      { name: "files", id: null },
       { name: "hero", id: null },
     ],
-    "user-1/library": [
+    "user-1/files": [
       {
         name: "a.png",
         id: "1",
@@ -129,14 +129,14 @@ async function main() {
   const del = fakeAdmin({}, removed)
   const theirs = await deleteLibraryFile(del, owner, "store-builder-images", "user-2/library/1.png")
   check("someone else's file isn't found, and nothing is removed", !theirs.ok && "status" in theirs && theirs.status === 404 && removed.length === 0)
-  const mine = await deleteLibraryFile(del, owner, "store-builder-images", "user-1/library/1.png")
-  check("their own is removed", mine.ok && removed[0] === "store-builder-images:user-1/library/1.png", removed)
+  const mine = await deleteLibraryFile(del, owner, "store-builder-images", "user-1/files/1.png")
+  check("their own is removed", mine.ok && removed[0] === "store-builder-images:user-1/files/1.png", removed)
 
   console.log("\nWired in")
   const route = read("app/api/files/route.ts")
   check("the API asks who is signed in and passes only their own folders", /shopCaller\(\)/.test(route) && /userId: c\.userId, creatorId: c\.creatorId/.test(route))
   const lib = read("components/files/files-library.tsx")
-  check("uploads go to the owner's library folder, without the photo's location details", /\$\{user\.id\}\/library\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
+  check("uploads go to the owner's library folder, without the photo's location details", /\$\{user\.id\}\/files\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
   check("an uploaded picture's address is Storelib's", /mediaUrl\(supabase\.storage/.test(lib))
   check("the chooser is drawn into the body, a sheet on a phone", /createPortal\(/.test(lib) && /<Modal open/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")

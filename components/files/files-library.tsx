@@ -96,7 +96,7 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
     for (const f of good) {
       try {
         const ext = (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
-        const path = `${user.id}/library/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+        const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
         const body = await withoutMetadata(f)
         const { error: upErr } = await supabase.storage.from("store-builder-images").upload(path, body, { cacheControl: "31536000", contentType: f.type, upsert: false })
         if (upErr) throw upErr

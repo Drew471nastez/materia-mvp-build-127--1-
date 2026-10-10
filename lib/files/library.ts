@@ -21,7 +21,7 @@ import { mediaUrl } from "@/lib/storage/media-url"
 type Admin = any
 
 export type LibraryBucket = "store-builder-images" | "product-images"
-export const LIBRARY_FOLDER = "library"
+export const LIBRARY_FOLDER = "files"
 export const MAX_LIBRARY_FILES = 600
 
 export interface LibraryFile {

@@ -73,7 +73,7 @@ export function previewCustomerEmail(id: string, shop: { name: string; supportEm
           tipText: null,
           totalText: "$49.00",
           refundedText: null,
-          link: "https://storelib.com/library",
+          link: "https://storelib.com/account/library",
           buttonLabel: "Open your library",
           supportEmail: shop.supportEmail || "hello@example.com",
         }),
