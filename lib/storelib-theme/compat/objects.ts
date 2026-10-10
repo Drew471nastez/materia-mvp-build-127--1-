@@ -408,14 +408,38 @@ export interface Resources {
   currentPath: string
   /** Product objects by id, made once per draw. */
   productCache?: Map<string, O>
+  /** The page's own product, for a picker set to "@current" (the product the page is showing). */
+  current?: CardLike | null
 }
 
-function productById(r: Resources, idOrHandle: string): O | null {
+/**
+ * What a product setting names, as a plain id or handle. Storelib's own
+ * picker stores a product's address ("/products/honey"), a theme's default
+ * may be Shopify's ("shopify://products/honey"), and an address may carry a
+ * query or a trailing slash: each is the handle.
+ */
+export function productKey(value: string): string {
+  let v = value.trim()
+  v = v.replace(/^shopify:\/\/products\//, "").replace(/^(?:https?:\/\/[^/]+)?\/(?:[a-z]{2}(?:-[a-z]{2})?\/)?products\//i, "")
+  v = v.split(/[?#]/)[0].replace(/\/+$/, "")
+  try {
+    v = decodeURIComponent(v)
+  } catch {
+    /* kept as it is */
+  }
+  return v
+}
+
+function productById(r: Resources, raw: string): O | null {
+  if (!raw) return null
+  if (raw === "@current") return r.current ? productObject(r.current) : null
+  const idOrHandle = productKey(raw)
   if (!idOrHandle) return null
   r.productCache ??= new Map()
   const hit = r.productCache.get(idOrHandle)
   if (hit) return hit
-  const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle
+  const urlOf = (p: CardLike) => productKey(String(p.settings.url ?? ""))
+  const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle || (!!p.settings.url && urlOf(p) === idOrHandle)
   const card = r.products.find(matches) ?? r.catalog?.find(matches)
   if (!card) return null
   const obj = productObject(card)

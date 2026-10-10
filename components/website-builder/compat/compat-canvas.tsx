@@ -43,6 +43,8 @@ export interface CompatCanvasProps {
   products: ProductCard[]
   /** Every product a picker may name (memberships and tiers included), for a featured product picked in the sidebar. */
   catalog?: ProductCard[]
+  /** The product a product page shows: the one picked in Pages or followed from a link. The shop's first when none. */
+  productId?: string | null
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shopName: string
@@ -120,13 +122,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
     again for every letter typed into a heading: the frame reloaded under the
     person typing, and the last letter went to the page being thrown away.
   */
+  const productId = props.productId ?? null
   const dataKey = JSON.stringify([products, catalog, collections, menus, shopName])
   const dataRef = useRef({ products, catalog, collections, menus, shopName })
   dataRef.current = { products, catalog, collections, menus, shopName }
   const page = useMemo((): CompatPage => {
     const { products, catalog, collections, menus, shopName } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
-    const sample = products[0] ?? null
+    const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
+    const sample = picked ?? products[0] ?? null
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
     return {
@@ -147,7 +151,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, dataKey])
+  }, [pageKey, dataKey, productId])
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -170,7 +174,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKey = `${installId}:${pageKey}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
+  const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })

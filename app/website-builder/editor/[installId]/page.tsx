@@ -3223,6 +3223,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
+  /** The id of the product the product page is showing: an imported theme's canvas draws exactly this one, not the shop's first. */
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
@@ -3232,6 +3234,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * successful page change, because arriving somewhere answers it.
    */
   const [missingPath, setMissingPath] = useState<string | null>(null)
+  /** Counts page and product switches, so only the last one asked for is drawn (a slower answer to an earlier one is dropped). */
+  const pageNav = useRef(0)
   // If the editor is opened directly on a product deep-link, keep the canvas
   // in "loading" state from the very first render until the deep-link effect
   // has injected `_product_data` — otherwise the canvas would briefly render
@@ -3964,12 +3968,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       // Load new page sections, then — if not home — splice in home's
       // header/footer so every page renders identically to home.
+      const nav = ++pageNav.current
       const [loaded, homeHF] = await Promise.all([
         fetchPageSections(page),
         page !== "home"
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
           : Promise.resolve<Chrome>({}),
       ])
+      /* Another page or product was picked while this one loaded: that one draws, this one never does. */
+      if (nav !== pageNav.current) return
       /* Home included, for the reason on the initial load above. */
       const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
 
@@ -3996,6 +4003,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        */
       setCurrentPage(page)
       setSelectedProductPage(null)
+      setSelectedProductId(null)
       setEditAllProductPages(false)
       setSections(merged)
       updatePageUrl(page)
@@ -4055,6 +4063,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
+    /* The latest click wins: a slower answer for a product picked before it never draws over it. */
+    const nav = ++pageNav.current
     setSectionsLoading(true)
     // A product page is another page: the history describes the one being
     // left. See `clearHistory`.
@@ -4119,6 +4129,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       fetchProductWithRetry(),
       leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
     ])
+    if (nav !== pageNav.current) return
 
     // Use API response first, fall back to list data
     const productData = productRes?.product ?? fallbackData
@@ -4144,6 +4155,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     /** One commit: the page, the product it is showing, and its sections. */
     setSelectedProductPage(productTitle)
+    setSelectedProductId(productId)
     setCurrentPage("product")
     setSections(merged)
     updatePageUrl("product", slugForUrl)
@@ -4224,6 +4236,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const pageChangeRef = useRef(handlePageChange)
   pageChangeRef.current = handlePageChange
+  const selectedProductIdRef = useRef(selectedProductId)
+  selectedProductIdRef.current = selectedProductId
   const selectProductRef = useRef(handleSelectProductPage)
   selectProductRef.current = handleSelectProductPage
   const productsRef = useRef(products)
@@ -7038,6 +7052,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (inspectorRef.current && !chrome) return
     const to = compatPageForHref(href, rowPageKeysRef.current)
     if (!to) return
+    /* A link to a product opens that product's page, as on the website, not the shop's first product. */
+    const linked = to.product ? productsRef.current.find((p) => p.slug === to.product || p.id === to.product) : null
+    if (linked) {
+      if (currentPageRef.current === "product" && selectedProductIdRef.current === linked.id) return
+      holdCanvasWhileOpening()
+      void selectProductRef.current(linked.id, linked.title)
+      return
+    }
     if (to.key === currentPageRef.current) {
       if (!to.product) document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: 0 }, "*")
       return
@@ -9248,6 +9270,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
                   catalog={catalogCardsForCanvas}
+                  productId={currentPage === "product" ? selectedProductId : null}
                   collections={compatCollections}
                   menus={compatCanvasMenus}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
@@ -9457,6 +9480,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setEditAllProductPages(true)
                 setEditAllConfirmOpen(false)
                 setSelectedProductPage(null)
+                setSelectedProductId(null)
               }}
             >
               Start Editing All

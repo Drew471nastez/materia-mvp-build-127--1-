@@ -314,6 +314,7 @@ export class CompatTheme {
       schemes,
       imageUrl: (v) => (this.opts.imageUrl ? this.opts.imageUrl(v) : /^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
       currentPath: page.path,
+      current: page.product ?? null,
     }
   }
 
