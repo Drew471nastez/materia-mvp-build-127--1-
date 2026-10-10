@@ -157,6 +157,23 @@ function write(path: string, y: number) {
   }
 }
 
+/**
+ * THE KEY A PLACE'S SCROLL IS NOTED UNDER (round 15). The address's path, and for the community's home address the
+ * profile it holds: /community/<slug>?profile=<handle> is a place of its own (the owner's address for a profile inside a
+ * community), so leaving a profile never moves the feed and the feed never moves a profile. Any other query (?dm=, ?space=)
+ * is the feed's own business and keeps the path's key.
+ */
+export function scrollKeyFor(pathname: string, search: string | null | undefined): string {
+  const path = (pathname || "").split(/[?#]/)[0]
+  let profile: string | null = null
+  try {
+    profile = new URLSearchParams((search || "").replace(/^\?/, "")).get("profile")
+  } catch {
+    profile = null
+  }
+  return profile ? `${path}?profile=${profile.toLowerCase()}` : path
+}
+
 /** Where `path` was left, or null. */
 export function returnScrollFor(path: string): number | null {
   const y = readAll()[path]

@@ -23,7 +23,9 @@
  *   Each sits under React's <Activity>: hidden ones stay mounted, so going
  *   back to one restores its state and its decoded pictures with no render
  *   and no network. The four most recent are kept (KEEP_ALIVE); the rest are
- *   let go. A place's scroll is kept with it and put back before paint.
+ *   let go (the routed page does not count: it is the router's and is
+ *   never let go). A place's scroll is kept with it and put back before
+ *   paint.
  *
  * NEVER A BLANK FRAME. A place in hand is shown on the frame of the tap. One
  * that is not keeps the place being left on screen (its tab is already
@@ -32,8 +34,9 @@
  * the frame. A read that fails is tried once more, then says so with a
  * retry; nothing reloads the page.
  *
- * ARRIVING. A place the member moved to rises 6px and fades in over 180ms
- * (opacity and translate, on the compositor); Back and Forward put the place
+ * ARRIVING. A place the member moved to rises 6px and fades in from 35%
+ * over 180ms (opacity and translate, on the compositor; from 35% so its
+ * first frame is never an empty middle); Back and Forward put the place
  * back as it was, with no motion. None for reduced motion.
  *
  * READ AHEAD. Once the first screen has painted and the phone is idle, every
@@ -50,7 +53,7 @@ import { keepAlive, loadPlaceData, placeMissing, placeStale, readPlace, readPlac
 import { feedSpaceUrlsActive } from "@/lib/community/feed-space-address"
 import { dispatchPullRefresh } from "@/components/ui/pull-to-refresh"
 import { COMMUNITY_FEED_REFRESH_SCOPE, COMMUNITY_LEADERBOARD_REFRESH_SCOPE, COMMUNITY_MEMBERS_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
-import { preloadPlaceViews, PlaceView, PlaceWaiting } from "./place-views"
+import { preloadPlaceView, preloadPlaceViews, PlaceView, PlaceWaiting } from "./place-views"
 import { BTN_SECONDARY } from "./ui"
 import { hardNavigationAllowed, loadingFailure } from "@/lib/communities/client/resume"
 
@@ -180,7 +183,7 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   /* The kept screens, most recent last, and what each holds. */
   const kept = useRef(new Map<string, Kept>())
   const [shown, setShown] = useState<{ key: string; place: Place }>({ key: activeKey, place: active })
-  const [order, setOrder] = useState<string[]>([activeKey])
+  const [order, setOrder] = useState<string[]>(() => (atPlace ? [] : [activeKey]))
   const [waitedFor, setWaitedFor] = useState<string | null>(null)
   /* Places whose last read failed twice (no connection): their screen says so, with a retry. */
   const failedKeys = useRef(new Set<string>())
@@ -190,10 +193,14 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
   const ready = inHand(activeKey, active) || waitedFor === activeKey || failedNow
   if (activeKey !== shown.key && ready) {
     setShown({ key: activeKey, place: active })
-    setOrder((o) => keepAlive(o, activeKey))
+    /* The routed page is never let go (it is the router's), so it does not take one of the kept slots. */
+    if (!routedOwns(activeKey)) setOrder((o) => keepAlive(o.filter((k) => !routedOwns(k)), activeKey))
   } else if (activeKey === shown.key && placeKey(active) !== placeKey(shown.place)) {
     setShown({ key: activeKey, place: active })
   }
+
+  /* The place in the middle always has a slot: one the router held until now (it moved on, or a pull detached it) takes one here. */
+  if (!routedOwns(shown.key) && !order.includes(shown.key)) setOrder((o) => keepAlive(o, shown.key))
 
   /* A place not in hand: read it, and give it the middle (its waiting screen) only once WAIT_SCREEN_MS have passed. */
   const lesson = search?.get("lesson") ?? null
@@ -268,17 +275,45 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     if (how.history) return
     const el = routedOwns(shown.key) ? routedRef.current : screenEls.current.get(shown.key)
     if (!el || typeof el.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return
-    el.animate([{ opacity: 0, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
+    /* From 35%, not from nothing: the first frame after the tap already shows the place (a fade from 0 is a blank frame). */
+    el.animate([{ opacity: 0.35, translate: "0 6px" }, { opacity: 1, translate: "0 0" }], { duration: ARRIVE_MS, easing: ARRIVE_EASE })
   }, [shown.key])
 
+  /*
+    FROM ITS WAITING SCREEN TO THE PLACE (round 24's rule, kept): the title the waiting screen already drew stays put, and only
+    what is under it fades in, so nothing jumps and nothing fades twice.
+  */
+  const hadData = useRef(new Map<string, boolean>())
+  useLayoutEffect(() => {
+    for (const [key, k] of kept.current) {
+      const before = hadData.current.get(key)
+      hadData.current.set(key, !!k.data)
+      if (before !== false || !k.data || key !== shown.key) continue
+      const el = screenEls.current.get(key)
+      const page = el?.querySelector<HTMLElement>(":scope > *")
+      if (!page || typeof page.animate !== "function" || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) continue
+      for (const child of Array.from(page.children)) {
+        if (child.matches("[data-page-title]")) continue
+        ;(child as HTMLElement).animate([{ opacity: 0 }, { opacity: 1 }], { duration: 200, easing: ARRIVE_EASE })
+      }
+    }
+  })
+
   /* ── What the navigator plugs in ── */
-  const beforeGo = useCallback((_from: Place, _to: Place, opts: GoOptions & { history?: boolean }) => {
-    scrolls.current.set(shownRef.current, window.scrollY)
-    intent.current = { scroll: opts.scroll ?? "auto", history: !!opts.history }
-    setWaitedFor(null)
-  }, [])
+  const beforeGo = useCallback(
+    (_from: Place, to: Place, opts: GoOptions & { history?: boolean }) => {
+      scrolls.current.set(shownRef.current, window.scrollY)
+      intent.current = { scroll: opts.scroll ?? "auto", history: !!opts.history }
+      setWaitedFor(null)
+      /* On the tap itself, before React draws anything: the place's code and, when it is not in hand, its data. */
+      preloadPlaceView(to)
+      if (!readNow(communityId, to, chat)) void loadPlaceData(communityId, to, { lesson: to.kind === "program" ? new URLSearchParams(window.location.search).get("lesson") : null })
+    },
+    [communityId, chat],
+  )
   const prefetch = useCallback(
     (p: Place) => {
+      preloadPlaceView(p)
       const held = readPlace(communityId, p)
       if (held && !placeStale(held.at, Date.now())) return
       void loadPlaceData(communityId, p)

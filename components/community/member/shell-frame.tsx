@@ -106,21 +106,17 @@ import type { ShellCommunity, ShellSection, TopBarData, WallData } from "./view-
 import { onCommunityUpdated } from "@/lib/communities/updated-signal"
 import { PlaceContext, plainClick, WallCommunityCard, WallContributorsCard, WallPlaces, WallUpcoming, type PlaceState } from "./wall"
 import { useCommunityLanding } from "./landing"
-import { useReturnScroll, useSectionTop } from "./return-scroll"
+import { scrollKeyFor, useReturnScroll, useSectionTop } from "./return-scroll"
 import { JOINED_KEY } from "@/components/community/public/paths"
 import { readAuthSnapshot, writeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { CommunityPullRefresh } from "./community-pull-refresh"
 import { CommunityFixedFootWatch } from "@/components/community/fixed-foot-watch"
 import { CommunityNavigatorProvider, useCommunityNavigator, type CommunityNavigator, type NavigatorHooks } from "@/lib/communities/client/navigator-context"
-import { placeFromUrl, placeKey, placeTab, slugFromPath, type Place } from "@/lib/communities/client/places"
+import { placeFromUrl, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
-import dynamic from "next/dynamic"
-import { withChunkRecovery } from "@/lib/communities/client/resume"
 import type { MemberProfileData } from "@/lib/communities/member-profile-view"
-
-/* A person's profile inside the community (?profile=<handle>, ?profile=me): worker R's place, its own chunk. */
-const MemberProfilePlace = dynamic(withChunkRecovery(() => import("./member-profile").then((m) => m.MemberProfilePlace)))
+import { MemberProfilePlace } from "./place-views"
 
 /** Away this long (another app, a locked phone), the community reads itself again when it comes back (NOT EVERY TIME THE APP COMES BACK). */
 const AWAY_REFRESH_MS = 5 * 60_000
@@ -316,7 +312,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   /* Only for the arrival: moves inside the community keep and restore each place's scroll in the host (place-host.tsx). */
   const firstPath = useRef(pathname || "").current
   useSectionTop(firstPath, community.slug)
-  useReturnScroll(pathname || "")
+  const searchNow = useSearchParams()
+  useReturnScroll(scrollKeyFor(pathname || "", searchNow?.toString() ?? ""))
   /* The browser's bar, the phone's status bar and the canvas a bounce shows take the page's colour (the bar pads itself under the clock in white). */
   const appearance = community.appearance === "dark" ? "dark" : "light"
   useCommunityTheme(appearance)
@@ -489,6 +486,10 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   */
   const navRef = useRef<CommunityNavigator>(nav)
   navRef.current = nav
+  const shownRef = useRef(shown)
+  shownRef.current = shown
+  const chatRef = useRef<ReadonlySet<string>>(new Set())
+  chatRef.current = useMemo(() => new Set(chatSpaces.map((c) => c.toLowerCase())), [chatSpaces])
   const rootRef = useRef<HTMLDivElement>(null)
   /*
     A LINK TO A PLACE IN THIS COMMUNITY IS A MOVE, NOT A PAGE (round 15). Every link inside the frame (the row of places, the
@@ -519,6 +520,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       if (!p) return
       const onScreen = placeFromUrl(window.location.pathname, window.location.search)
       if (onScreen && placeKey(onScreen) === placeKey(p)) return
+      /* All, a feed space and Saved while the feed is on screen: the feed's own pills switch its list in place. */
+      if (slotKeyOf(p, chatRef.current) === "feed" && slotKeyOf(shownRef.current, chatRef.current) === "feed" && (e.target as Element | null)?.closest?.("[data-place-host]")) return
       e.preventDefault()
       navRef.current.go(p)
     }

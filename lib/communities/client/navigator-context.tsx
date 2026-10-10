@@ -24,6 +24,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { feedSpaceUrlsActive, FEED_SPACE_PARAM } from "@/lib/community/feed-space-address"
+import { backThen } from "@/lib/navigation/go-back"
 import { placeFromUrl, placeHref, placeKey, slotKeyOf, type Place } from "./places"
 
 export interface GoOptions {
@@ -207,7 +208,8 @@ export function CommunityNavigatorProvider({ slug, initial, hooks, chatSpaces, c
 
   const back = useCallback(() => {
     if (typeof window === "undefined") return
-    if (entryDepth() > 0) window.history.back()
+    /* The app's watched back (lib/navigation/go-back.ts): when the browser's back does nothing, the feed instead. */
+    if (entryDepth() > 0) backThen(() => go({ kind: "feed" }, { replace: true }))
     else go({ kind: "feed" }, { replace: true })
   }, [go])
 

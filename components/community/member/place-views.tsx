@@ -12,15 +12,22 @@
  * so does a place's own server page (place-seed.tsx), so a reload and a move
  * inside the community draw the same thing.
  *
- * THE FEED COMES WITH THE SHELL; everything else is its own chunk
- * (next/dynamic), loaded with the shell's first idle moment
- * (preloadPlaceViews), so the frame's first paint does not wait for code
- * the member may never open, and a move later never waits for it either.
- * Each screen sits in its own Suspense with the place's waiting screen, so
- * code that is late shows the waiting screen in the frame, never a blank.
+ * THE FEED COMES WITH THE SHELL; everything else is its own chunk, loaded
+ * with the shell's first idle moment (preloadPlaceViews), and a place's code
+ * is asked for on the tap that goes there (preloadPlaceView), beside its
+ * data, so the frame's first paint does not wait for code the member may
+ * never open and a move never waits for it after its data.
+ *
+ * NOT next/dynamic, NOT React.lazy (measured in scripts/check-community-
+ * shell15.mjs). Both suspend on a screen's first mount even when its code is
+ * already loaded, and React then holds the reveal for up to 300ms: a place
+ * read ahead still showed its waiting screen for a quarter of a second. A
+ * preloadable view (below) draws at once when its code is here, and only
+ * suspends when it truly is not. Each screen sits in its own Suspense with
+ * the place's waiting screen, so code that is late shows the waiting screen
+ * in the frame, never a blank.
  */
-import dynamic from "next/dynamic"
-import { Suspense } from "react"
+import { Suspense, use, type ComponentType } from "react"
 import type { PlaceData } from "@/lib/communities/client/place-data"
 import type { Place } from "@/lib/communities/client/places"
 import { withChunkRecovery } from "@/lib/communities/client/resume"
@@ -28,42 +35,71 @@ import { CommunityFeed } from "./feed"
 import { PlaceLoading, PlaceSpinner } from "./place-spinner"
 import { SpaceChips } from "./space-chips"
 
-/* Each screen's code, for reading ahead (preloadPlaceViews). The dynamic() calls below name the same imports inline, which is how Next finds a chunk to send with the server's HTML. */
-const load = {
-  chat: () => import("./chat").then((m) => m.ChatView),
-  learn: () => import("@/components/community/learn/learn-library").then((m) => m.LearnLibrary),
-  programPlayer: () => import("@/components/community/learn/program-page").then((m) => m.ProgramPlayer),
-  programLocked: () => import("@/components/community/learn/program-page").then((m) => m.LockedProgram),
-  programEmpty: () => import("@/components/community/learn/program-page").then((m) => m.EmptyProgram),
-  calendar: () => import("@/components/community/events/events-page").then((m) => m.EventsPage),
-  event: () => import("@/components/community/events/event-detail").then((m) => m.EventDetail),
-  members: () => import("./members").then((m) => m.MembersDirectory),
-  leaderboard: () => import("./leaderboard").then((m) => m.Leaderboard),
-  about: () => import("@/components/community/public/sales-page").then((m) => m.CommunitySalesPage),
-  notifications: () => import("./notifications").then((m) => m.NotificationsList),
-  membership: () => import("./membership").then((m) => m.MembershipPage),
+/**
+ * A view whose code is its own chunk, drawn synchronously once that code is here. `preload` asks for it (once, with the
+ * retry and the one hard navigation of lib/communities/client/resume.ts); before it arrives the view suspends into its
+ * place's waiting screen.
+ */
+function preloadable<P extends object>(load: () => Promise<ComponentType<P>>) {
+  let Loaded: ComponentType<P> | null = null
+  let asked: Promise<ComponentType<P>> | null = null
+  const preload = () =>
+    (asked ??= withChunkRecovery(load)().then(
+      (c) => (Loaded = c),
+      (e) => {
+        asked = null
+        throw e
+      },
+    ))
+  function View(props: P) {
+    const Drawn = Loaded ?? use(preload())
+    return <Drawn {...props} />
+  }
+  return Object.assign(View, { preload })
 }
 
 /* A chunk that fails to load is asked once more, then the same address is loaded in full (lib/communities/client/resume.ts). */
-const ChatView = dynamic(withChunkRecovery(() => import("./chat").then((m) => m.ChatView)))
-const LearnLibrary = dynamic(withChunkRecovery(() => import("@/components/community/learn/learn-library").then((m) => m.LearnLibrary)))
-const ProgramPlayer = dynamic(withChunkRecovery(() => import("@/components/community/learn/program-page").then((m) => m.ProgramPlayer)))
-const LockedProgram = dynamic(withChunkRecovery(() => import("@/components/community/learn/program-page").then((m) => m.LockedProgram)))
-const EmptyProgram = dynamic(withChunkRecovery(() => import("@/components/community/learn/program-page").then((m) => m.EmptyProgram)))
-const EventsPage = dynamic(withChunkRecovery(() => import("@/components/community/events/events-page").then((m) => m.EventsPage)))
-const EventDetail = dynamic(withChunkRecovery(() => import("@/components/community/events/event-detail").then((m) => m.EventDetail)))
-const MembersDirectory = dynamic(withChunkRecovery(() => import("./members").then((m) => m.MembersDirectory)))
-const Leaderboard = dynamic(withChunkRecovery(() => import("./leaderboard").then((m) => m.Leaderboard)))
-const CommunitySalesPage = dynamic(withChunkRecovery(() => import("@/components/community/public/sales-page").then((m) => m.CommunitySalesPage)))
-const NotificationsList = dynamic(withChunkRecovery(() => import("./notifications").then((m) => m.NotificationsList)))
-const MembershipPage = dynamic(withChunkRecovery(() => import("./membership").then((m) => m.MembershipPage)))
+const ChatView = preloadable(() => import("./chat").then((m) => m.ChatView))
+const LearnLibrary = preloadable(() => import("@/components/community/learn/learn-library").then((m) => m.LearnLibrary))
+const ProgramPlayer = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.ProgramPlayer))
+const LockedProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.LockedProgram))
+const EmptyProgram = preloadable(() => import("@/components/community/learn/program-page").then((m) => m.EmptyProgram))
+const EventsPage = preloadable(() => import("@/components/community/events/events-page").then((m) => m.EventsPage))
+const EventDetail = preloadable(() => import("@/components/community/events/event-detail").then((m) => m.EventDetail))
+const MembersDirectory = preloadable(() => import("./members").then((m) => m.MembersDirectory))
+const Leaderboard = preloadable(() => import("./leaderboard").then((m) => m.Leaderboard))
+const CommunitySalesPage = preloadable(() => import("@/components/community/public/sales-page").then((m) => m.CommunitySalesPage))
+const NotificationsList = preloadable(() => import("./notifications").then((m) => m.NotificationsList))
+const MembershipPage = preloadable(() => import("./membership").then((m) => m.MembershipPage))
+/** Worker R's profile place (?profile=<handle>, ?profile=me), drawn by the frame with its community and viewer. */
+export const MemberProfilePlace = preloadable(() => import("./member-profile").then((m) => m.MemberProfilePlace))
+
+/** Each place's views, for asking ahead. */
+const VIEWS: Partial<Record<Place["kind"] | "chat", { preload: () => Promise<unknown> }[]>> = {
+  space: [ChatView],
+  learn: [LearnLibrary],
+  program: [ProgramPlayer, LockedProgram],
+  calendar: [EventsPage],
+  event: [EventDetail],
+  members: [MembersDirectory],
+  leaderboard: [Leaderboard],
+  about: [CommunitySalesPage],
+  notifications: [NotificationsList],
+  membership: [MembershipPage],
+  profile: [MemberProfilePlace],
+}
+
+/** A place's code, asked for on the tap that goes there, beside its data. */
+export function preloadPlaceView(place: Place) {
+  for (const v of VIEWS[place.kind] ?? []) void v.preload().catch(() => {})
+}
 
 let preloaded = false
 /** Every place's code, asked for once (the shell's first idle moment), so no move waits for a chunk. */
 export function preloadPlaceViews() {
   if (preloaded) return
   preloaded = true
-  for (const get of Object.values(load)) void get().catch(() => {})
+  for (const list of Object.values(VIEWS)) for (const v of list ?? []) void v.preload().catch(() => {})
 }
 
 /** The place's own title, as its page draws it, for the waiting screen. */
