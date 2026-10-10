@@ -416,6 +416,23 @@ async function appCreator() {
   check("somebody with no creator row has no creator", none.value === null)
 }
 
+async function ordersPage() {
+  section("Orders reads its products and its orders at once (lib/orders/load-rows.ts)")
+  const { readCreatorOrders } = await import("@/lib/orders/load-rows")
+  useFixture(buildFixture())
+  const r = await visit(() => readCreatorOrders(db(), SITE.creatorId))
+  const products = r.trips.find((t) => t.table === "products")
+  const orders = r.trips.find((t) => t.table === "orders")
+  check("both asked together", !!products && !!orders && Math.abs(products.at - orders.at) < 5)
+  check("the creator's own orders, each with its product", r.value?.rows.length === 12 && r.value.rows.every((o) => (o as unknown as { product?: { id?: string } | null; product_id?: string }).product?.id === (o as unknown as { product_id?: string }).product_id) && r.value.products.length === 30)
+  check("never another creator's", !JSON.stringify(r.value).includes("leo-buyer"))
+  useFixture(fixtureWith((f) => {
+    f.fail = ["products"]
+  }))
+  const broken = await visit(() => readCreatorOrders(db(), SITE.creatorId))
+  check("a failed products read still stops the page, never an empty list", !!broken.error && /could not read products/.test(String((broken.error as Error).message)))
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
@@ -425,6 +442,7 @@ async function main() {
   await profileByName()
   await sharedConfigs()
   await appCreator()
+  await ordersPage()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

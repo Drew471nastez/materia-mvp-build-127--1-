@@ -196,6 +196,12 @@ export function buildFixture(): Fixture {
       settings: [],
       store_menus: [],
       platform_flags: [{ key: "communities", enabled: true }],
+      /* Twelve paid orders of Maya's products, one of Leo's. */
+      orders: [
+        ...a.products.slice(0, 12).map((p, i) => ({ id: uuid("41", i + 1), creator_id: SITE.creatorId, product_id: p.id, status: "completed", amount_cents: p.price_cents, buyer_email: `buyer${i}@${PRIVATE_MARKER}.test`, created_at: iso(i * 30) })),
+        { id: uuid("42", 1), creator_id: OTHER.creatorId, product_id: b.products[0].id, status: "completed", amount_cents: 999, buyer_email: "leo-buyer@example.com", created_at: iso(1) },
+      ],
+      commerce_checkouts: [],
       communities: [
         { id: uuid("51", 1), creator_id: SITE.creatorId, owner_user_id: SITE.userId, slug: "maya-club", name: "Maya Club", tagline: "Making things together", description: "<p>A place to make things.</p>", visibility: "public", access: "free", status: "published", category: "design", language: "en", member_count: 240, post_count: 512, discovery_enabled: true, approval_required: false, default_role: "member", rules: [], faq: [], created_at: iso(5000) },
       ],

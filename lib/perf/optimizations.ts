@@ -133,4 +133,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "server time to the answer for /app/products at 20ms a round trip", value: 73, unit: "ms" },
     note: "creatorForRequest (lib/auth/request-scope.ts, used by 20 files under /app) read the creator's public columns on the user's client and then its private columns on the service role by the id it had just found. Both are asked at once now by the signed in user's own id (creators.user_id is unique), and the private half is still used only when the user's own client returned the row. /app/customers: 116ms to 92ms. Measured with scripts/measure-speed18.mjs, signed in.",
   },
+  {
+    id: "orders-products-and-orders-together",
+    title: "/app/orders reads its products and its orders at once",
+    area: "dashboard",
+    shippedAt: "2026-10-10",
+    before: { metric: "server time to the answer for /app/orders at 20ms a round trip", value: 93, unit: "ms" },
+    after: { metric: "server time to the answer for /app/orders at 20ms a round trip", value: 69, unit: "ms" },
+    note: "The orders are found by their creator (or through their product), never by the product ids read first, which only name each row's product (lib/orders/load-rows.ts). Both are asked together now; a failed products read still stops the page rather than drawing an empty list.",
+  },
 ]
