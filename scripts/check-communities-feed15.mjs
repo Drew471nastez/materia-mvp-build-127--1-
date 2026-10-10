@@ -236,7 +236,7 @@ try {
     /* Keep the first chips in view: every tap is on a chip whose whole row of neighbours is on screen. */
     const plan = []
     const kinds = ["centre", "gap-left", "gap-right", "above", "below", "drift"]
-    for (let k = 0; k < 3; k++) for (const kind of kinds) plan.push({ k, kind })
+    for (let k = 0; k < 4; k++) for (const kind of kinds) plan.push({ k, kind })
     const specFor = (rects, step) => {
       const a = rects[step.k + 1]
       const b = rects[step.k + 2]
@@ -265,6 +265,9 @@ try {
         rects = await chipRects(p)
         spec = specFor(rects, step)
       }
+      /* A tap under the row's fade or the sort button is not a tap on the row: the row is scrolled for the next one instead. */
+      const trackRight = await p.evaluate(() => document.querySelector("[data-space-chips-track]").getBoundingClientRect().right)
+      if (spec.x > trackRight - 28) continue
       const before = await p.evaluate(() => ((window.__ev.length = 0), window.__pushes.length))
       await tap(cdp, spec.x, spec.y, { dx: spec.dx, dy: spec.dy, radius: RADIUS })
       await sleep(900)
@@ -398,9 +401,18 @@ try {
       const el = document.querySelector(`[data-space-chip='${id}']`)
       const out = (window.__press = [])
       const t0 = performance.now()
+      const layer = el.querySelector("[data-chip-press]")
       const look = () => {
         const cs = getComputedStyle(el)
-        out.push({ t: Math.round(performance.now() - t0), bg: cs.backgroundColor, pressed: el.hasAttribute("data-pressed") })
+        /* What the eye sees: the pill's own ground, with the press layer (if any) over it at its opacity. */
+        let bg = cs.backgroundColor
+        if (layer) {
+          const o = Number(getComputedStyle(layer).opacity)
+          const m = /(\d+), (\d+), (\d+)/.exec(getComputedStyle(layer).backgroundColor)
+          const base = /(\d+), (\d+), (\d+)/.exec(bg)
+          if (m && base) bg = `rgb(${[1, 2, 3].map((k) => Math.round(Number(base[k]) * (1 - o) + Number(m[k]) * o)).join(", ")})`
+        }
+        out.push({ t: Math.round(performance.now() - t0), bg, pressed: el.hasAttribute("data-pressed") })
         if (out.length < 40) requestAnimationFrame(look)
       }
       el.addEventListener("pointerdown", () => {
@@ -448,33 +460,122 @@ try {
         const look = () => {
           const chips = [...document.querySelectorAll("[data-space-chip]")]
           const inks = [...document.querySelectorAll("[data-chip-fill], [data-chip-ink], [data-pill-glider]")].map((f) => {
-            const b = f.getBoundingClientRect()
-            return { o: Number(getComputedStyle(f).opacity), l: Math.round(b.left * 10) / 10, w: Math.round(b.width * 10) / 10 }
+            /* The gliding ink is three pieces: its box is theirs together. */
+            const parts = f.hasAttribute("data-chip-ink") ? [...f.children].map((c) => c.getBoundingClientRect()) : [f.getBoundingClientRect()]
+            const left = Math.min(...parts.map((b) => b.left))
+            const right = Math.max(...parts.map((b) => b.right))
+            return { o: Number(getComputedStyle(f).opacity), l: Math.round(left * 10) / 10, w: Math.round((right - left) * 10) / 10 }
           })
           out.push({
             t: Math.round(performance.now() - t0),
             ink: inks.reduce((n, i) => n + (i.w > 0 ? i.o : 0), 0),
             inks: inks.filter((i) => i.o > 0.02 && i.w > 0),
-            chips: chips.map((c) => {
-              const b = c.getBoundingClientRect()
-              return [Math.round(b.left * 10) / 10, Math.round(b.width * 10) / 10]
-            }),
+            /* Each pill's place in its row and its size (the row itself may glide sideways to bring the chosen one into view). */
+            chips: chips.map((c) => [c.offsetLeft, Math.round(c.getBoundingClientRect().width * 10) / 10, c.offsetTop, Math.round(c.getBoundingClientRect().height * 10) / 10]),
             words: chips.map((c) => getComputedStyle(c).color),
           })
           if (out.length < 70) requestAnimationFrame(look)
         }
         requestAnimationFrame(look)
       })
+      /*
+        WHAT REACHES THE SCREEN. The samples above are the page's own view, taken on its thread; the ink moves on the
+        compositor, which keeps drawing while that thread is busy building the new list. The screencast is the composited
+        frames themselves: the ink is found in each by its colour along the pills' middle line.
+      */
+      const cast = []
+      const onFrame = (f) => {
+        cast.push({ data: f.data, t: f.metadata.timestamp })
+        void cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
+      }
+      cdp.on("Page.screencastFrame", onFrame)
+      await p.evaluate(() => {
+        window.__long = []
+        try {
+          new PerformanceObserver((l) => l.getEntries().forEach((e) => window.__long.push([Math.round(e.startTime), Math.round(e.duration)]))).observe({ type: "longtask" })
+        } catch {}
+        window.__upAt = 0
+        document.addEventListener("pointerup", () => (window.__upAt = performance.now()), { capture: true, once: true })
+        document.addEventListener("click", () => (window.__upAt ||= performance.now()), { capture: true, once: true })
+        window.__inkAt = 0
+        const watch = () => {
+          const ink = document.querySelector("[data-chip-ink]")
+          if (ink && ink.style.opacity === "1" && !window.__inkAt) window.__inkAt = performance.now()
+          if (!window.__inkAt) requestAnimationFrame(watch)
+        }
+        requestAnimationFrame(watch)
+      })
+      await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1 })
+      await sleep(250)
       if (vp.hasTouch) await tap(cdp, (to.left + to.right) / 2, (to.top + to.bottom) / 2)
       else await p.mouse.click((to.left + to.right) / 2, (to.top + to.bottom) / 2)
       await sleep(1600)
+      await cdp.send("Page.stopScreencast")
+      cdp.off("Page.screencastFrame", onFrame)
+      /* A line through the pills above their words (the white words would break the ink's run). */
+      const lineY = to.top + 5
+      const trackBox = await p.evaluate(() => {
+        const b = document.querySelector("[data-space-chips-track]").getBoundingClientRect()
+        return { left: b.left, right: b.right }
+      })
+      cast.sort((a, b) => a.t - b.t)
+      const band = { top: Math.max(0, Math.floor(to.top - 14)), bottom: Math.ceil(to.bottom + 14) }
+      const seen = []
+      const crops = []
+      for (const f of cast) {
+        const buf = Buffer.from(f.data, "base64")
+        const img = sharp(buf)
+        const meta = await img.metadata()
+        const scale = meta.width / vp.width
+        const { data, info } = await img.clone().raw().toBuffer({ resolveWithObject: true })
+        const y = Math.round(lineY * scale)
+        let best = null
+        let run = null
+        for (let x = Math.max(0, Math.floor(trackBox.left * scale)); x < Math.min(info.width, Math.ceil(trackBox.right * scale)); x++) {
+          const i = (y * info.width + x) * info.channels
+          const dark = data[i] < 70 && data[i + 1] < 70 && data[i + 2] < 90
+          if (dark) run = run ? { ...run, r: x } : { l: x, r: x }
+          if ((!dark || x === Math.min(info.width, Math.ceil(trackBox.right * scale)) - 1) && run) {
+            if (!best || run.r - run.l > best.r - best.l) best = run
+            run = null
+          }
+        }
+        const left = best ? Math.round((best.l / scale) * 10) / 10 : null
+        const width = best ? Math.round(((best.r - best.l) / scale) * 10) / 10 : null
+        const last = seen[seen.length - 1]
+        if (!last || last.left !== left || last.width !== width) {
+          seen.push({ t: Math.round((f.t - cast[0].t) * 1000), left, width })
+          if (crops.length < 24) crops.push(await sharp(buf).extract({ left: 0, top: Math.round(band.top * scale), width: meta.width, height: Math.round((band.bottom - band.top) * scale) }).png().toBuffer())
+        }
+      }
+      if (crops.length) {
+        const metas = await Promise.all(crops.map((c) => sharp(c).metadata()))
+        const h = metas.reduce((n, m) => n + m.height + 4, 0)
+        let top = 0
+        await sharp({ create: { width: metas[0].width, height: h, channels: 3, background: "#ff3366" } })
+          .composite(crops.map((c, i) => {
+            const at = top
+            top += metas[i].height + 4
+            return { input: c, left: 0, top: at }
+          }))
+          .png()
+          .toFile(join(shots, `${LABEL}-fill-frames-${name}.png`))
+      }
+      const screenLefts = seen.map((x) => x.left).filter((x) => x !== null)
+      const screenSteps = screenLefts.slice(1).map((l, i) => Math.abs(l - screenLefts[i]))
+      const timing = await p.evaluate(() => ({ releaseToGlide: window.__inkAt && window.__upAt ? Math.round(window.__inkAt - window.__upAt) : null, longTasks: window.__long.filter(([t]) => t >= window.__upAt - 5) }))
+      say("from the finger lifting to the ink starting to move (the page's frame)", `${timing.releaseToGlide}ms`)
+      say("long tasks after the release", timing.longTasks)
+      results[`fillTiming${name}`] = timing
+      say("on screen: the ink's left edge and width in each new frame", seen.map((x) => `${x.t}ms ${x.left}/${x.width}`))
+      results[`fillScreen${name}`] = seen
       const frames = await p.evaluate(() => window.__fill)
       const moving = frames.filter((f) => f.inks.length)
       const maxInk = Math.max(...frames.map((f) => f.ink))
       const minInk = Math.min(...frames.map((f) => f.ink))
       /* Layout shift: every chip's left and width, against the first frame. */
       const first = frames[0].chips
-      const shift = Math.max(...frames.flatMap((f) => f.chips.map((c, i) => Math.max(Math.abs(c[0] - first[i][0]), Math.abs(c[1] - first[i][1])))))
+      const shift = Math.max(...frames.flatMap((f) => f.chips.map((c, i) => Math.max(...c.map((v, k) => Math.abs(v - first[i][k]))))))
       /* The ink's journey: its left edge (one moving ink) or its opacity (a crossfade), frame to frame. */
       const lefts = moving.map((f) => (f.inks.length === 1 ? f.inks[0].l : null)).filter((x) => x !== null)
       const steps = lefts.slice(1).map((l, i) => Math.abs(l - lefts[i]))
@@ -491,7 +592,11 @@ try {
       expect(maxInk < 1.25, "never two inks on screen at once", maxInk)
       expect(minInk > 0.75, "never a frame with no ink", minInk)
       expect(duration >= 180, "the ink moves over more than a few frames", `${duration}ms`)
-      expect(biggest === null || biggest < travel * 0.35, "no single frame jumps the ink more than a third of the way", biggest)
+      const bigScreen = screenSteps.length ? Math.max(...screenSteps) : null
+      say("on screen, the biggest single frame step of the ink", bigScreen === null ? "n/a" : `${bigScreen.toFixed(1)} of ${travel.toFixed(1)}px over ${screenSteps.length} steps`)
+      say("frame sequence", join(shots, `${LABEL}-fill-frames-${name}.png`))
+      expect(bigScreen !== null && bigScreen < travel * 0.35, "on screen, no single frame jumps the ink more than a third of the way", bigScreen)
+      expect(seen.every((x) => x.left !== null), "on screen, never a frame with no ink", seen.filter((x) => x.left === null).length)
       await p.screenshot({ path: join(shots, `${LABEL}-fill-${name}.png`), clip: { x: 0, y: 0, width: vp.width, height: Math.min(480, vp.height) } })
       await p.close()
     }
@@ -639,7 +744,7 @@ try {
           while (performance.now() < deadline) {
             const imgs = firstScreen()
             if (imgs.length && imgs.every((el) => el.complete && el.naturalWidth > 0)) {
-              pics = imgs.map((el) => ({ w: Math.round(el.getBoundingClientRect().width), natural: el.naturalWidth, src: el.currentSrc.replace(location.origin, "").slice(0, 120) }))
+              pics = imgs.map((el) => ({ w: Math.round(el.getBoundingClientRect().width), natural: Number(/[?&]w=(\d+)/.exec(el.currentSrc)?.[1] ?? el.naturalWidth), src: el.currentSrc.replace(location.origin, "").slice(0, 120) }))
               break
             }
             await new Promise((res) => setTimeout(res, 25))
@@ -665,7 +770,7 @@ try {
               el.scrollIntoView({ block: "center" })
               const b = el.getBoundingClientRect()
               const img = el.querySelector("img")
-              return { x: b.left, y: b.top, width: b.width, height: b.height, src: img?.currentSrc.replace(location.origin, "").slice(0, 160), natural: img?.naturalWidth }
+              return { x: b.left, y: b.top, width: b.width, height: b.height, src: img?.currentSrc.replace(location.origin, "").slice(0, 160), natural: Number(/[?&]w=(\d+)/.exec(img?.currentSrc ?? "")?.[1] ?? 0) }
             })
             await sleep(600)
             const again = await p.evaluate(() => {

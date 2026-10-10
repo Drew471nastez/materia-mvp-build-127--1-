@@ -18,13 +18,11 @@
  *
  * "EXTREMELY LITTLE" DEPTH, A TOUCH MORE (round 11): a chip is white on a
  * hairline with a soft two pixel shadow under it, the chosen one ink with a
- * deeper one and the faintest light along its top edge. A press sinks it
- * (a grey ground and the shadow drawn inside) on the frame the finger lands,
- * and lets go over 180ms; nothing scales, so nothing bumps. Every chip is
- * touch-action: manipulation, so iOS never holds a quick second tap back to
- * see whether it is a double tap to zoom (one of the taps the owner found
- * lost), and the colours ease between chosen and not (no hover:border class
- * here: app/globals.css drops transitions from those on touch screens).
+ * deeper one and the faintest light along its top edge. Nothing scales, so
+ * nothing bumps, and every chip is touch-action: manipulation, so iOS never
+ * holds a quick second tap back to see whether it is a double tap to zoom.
+ * Round 15 replaced the press, the fill and how a tap is taken (chip-hit.ts
+ * says why, with the measurements; below, THE LAYERS).
  *
  * ONE ROW at every width: the chips scroll sideways when they do not fit
  * (a thumb, a trackpad, or Tab, which scrolls the focused chip into view),
@@ -37,33 +35,81 @@
  * starts with (space-glyph.ts), so a chip shows what the dashboard shows.
  */
 import Link from "next/link"
-import { feedListHref } from "@/lib/community/feed-space-address"
+import { CLICK_AFTER_MS, isTap, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, type Press } from "./chip-hit"
+import { ChipInk } from "./chip-ink"
 import { spaceGlyph } from "./space-glyph"
-import { press, PRESS_PROPS } from "./ui"
 import type { SpaceView } from "./view-types"
 
 /*
-  THE FILL EASES IN WHERE IT IS (round 16, the owner: "the pill fill is too direct, make it fill smooth and clean, like the
-  Settings tabs"). The ink of the chosen chip is its own layer (FILL), the size of the chip's outer edge, faded by opacity over
-  the same 150ms and curve as Settings' tabs (settings-form-new.tsx TAB_FADE_MS, TAB_EASE). Opacity is the compositor's: it
-  keeps easing while the list under the chips is drawn (feed.tsx THE CHIP FIRST), where a background colour change waits for
-  the main thread and lands in one late frame. The words turn white over the same time, so the chip changes as one piece. The
-  chip itself stays white on its hairline; a pointer resting on another chip tints it a soft grey, and a press sinks it.
-*/
-const EASE = "ease-[cubic-bezier(0.33,1,0.68,1)]"
-const CHIP =
-  `relative isolate inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[color,background-color,box-shadow] duration-150 ${EASE} focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent] active:duration-[70ms] data-[pressed]:duration-[70ms]`
-/* The chosen chip: white words over the fill, no shadow of its own (the fill carries it). */
-const CHIP_ON = "text-white shadow-none"
-/* Pressed, a chip sinks on the first frame (no easing in), so the finger sees it took (round 10), and eases back when it lifts. */
-const CHIP_OFF =
-  "text-[#4b5563] shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#f3f4f6] [@media(hover:hover)]:hover:text-[#1a1a2e] active:bg-[#eceef1] active:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)] data-[pressed]:bg-[#eceef1] data-[pressed]:text-[#1a1a2e] data-[pressed]:shadow-[inset_0_1px_2px_rgba(16,24,40,0.1)]"
-/* The ink, over the hairline (-inset-px) and under the words (-z-10 in the chip's own stacking context). */
-const FILL = `pointer-events-none absolute -inset-px -z-10 rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] transition-opacity duration-150 ${EASE} motion-reduce:transition-none`
+  ROUND 15: ONE TAP, NO FLASH, NO BUMP (chip-hit.ts says what was wrong and the numbers; chip-ink.tsx the glide).
 
-/** The chosen chip's ink, faded in and out where it is. */
+  A pill is white on its hairline and stays exactly its size and place whether chosen or not: the ink and the press are
+  layers inside it, the words are two copies on top of each other (dark and white) that cross over on opacity, so choosing
+  one changes no box at all. Its hit area (the ::after, which draws nothing) reaches HIT_X into each gap and HIT_Y above
+  and below, into the row's padding (the row is py-1.5 inside a -my-1 track, the same height as before). A pseudo
+  element's taps belong to its pill, so this costs no node and no layout.
+
+  THE LAYERS, in the row's own stacking context (isolate): a pill's white and hairline; its press (z-0); the gliding ink
+  (chip-ink.tsx, z-1) and each pill's own resting ink (z-1); the words (z-2).
+*/
+const CHIP =
+  "group/chip relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[background-color,box-shadow] duration-150 ease-out after:absolute after:-inset-x-[4.5px] after:-inset-y-[6px] after:rounded-full after:content-[''] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
+/* The chosen pill: no shadow of its own (its ink carries one). */
+const CHIP_ON = "shadow-none"
+const CHIP_OFF = "shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#f5f6f7]"
+/* The resting ink, over the hairline (-inset-px); hidden in the same frame the gliding one is up (chip-ink.tsx). */
+const FILL =
+  "pointer-events-none absolute -inset-px z-[1] rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] group-data-[ink-gliding]/row:opacity-0"
+/* The press: grey, inside the hairline, eased in and out by pressChip() and releaseChip() below (opacity only). */
+const PRESS = "pointer-events-none absolute inset-0 z-0 rounded-full bg-[#eceef1] opacity-0 shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)]"
+/*
+  THE WORDS CROSS OVER WITH THE INK. The glide's curve puts the ink most of the way there in its first third, so the new
+  pill's white words come in from 60ms over 180ms while its dark words go over the same time (never a frame with neither),
+  and the old pill's words turn back at once over 180ms. Opacity, so they keep time while the list is drawn.
+*/
+const WORD = "z-[2] col-start-1 row-start-1 truncate transition-opacity duration-[180ms] ease-out motion-reduce:transition-none"
+const DARK_ON = "opacity-0 delay-[60ms]"
+const DARK_OFF = "opacity-100"
+const WHITE_ON = "opacity-100 delay-[60ms]"
+const WHITE_OFF = "opacity-0"
+
+/** The chosen pill's ink at rest. */
 function Fill({ on }: { on: boolean }) {
-  return <span aria-hidden data-chip-fill="" className={`${FILL} ${on ? "opacity-100" : "opacity-0"}`} />
+  return on ? <span aria-hidden data-chip-fill="" className={FILL} /> : null
+}
+
+/** A pill's words, dark and white, one shown. */
+function Label({ text, on, className = "" }: { text: string; on: boolean; className?: string }) {
+  return (
+    <span className={`relative grid ${className}`}>
+      <span className={`${WORD} text-[#4b5563] [@media(hover:hover)]:group-hover/chip:text-[#1a1a2e] ${on ? DARK_ON : DARK_OFF}`}>{text}</span>
+      <span aria-hidden className={`${WORD} text-white ${on ? WHITE_ON : WHITE_OFF}`}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
+/* ── The press, on the compositor ── */
+
+function pressLayer(chip: Element): HTMLElement | null {
+  return chip.querySelector<HTMLElement>(":scope > [data-chip-press]")
+}
+/** Something on the first frame (PRESS_FROM of the grey), then an ease to the whole of it. */
+export function pressChip(chip: Element) {
+  const layer = pressLayer(chip)
+  if (!layer || typeof layer.animate !== "function") return
+  for (const a of layer.getAnimations()) a.cancel()
+  layer.animate([{ opacity: PRESS_FROM }, { opacity: 1 }], { duration: PRESS_IN_MS, easing: "cubic-bezier(0.33, 1, 0.68, 1)", fill: "forwards" })
+}
+/** Let go, slower than it came, from wherever it had got to. */
+export function releaseChip(chip: Element) {
+  const layer = pressLayer(chip)
+  if (!layer || typeof layer.animate !== "function") return
+  const from = Number(getComputedStyle(layer).opacity) || 0
+  for (const a of layer.getAnimations()) a.cancel()
+  if (from <= 0) return
+  layer.animate([{ opacity: from }, { opacity: 0 }], { duration: PRESS_OUT_MS, easing: "cubic-bezier(0.33, 1, 0.68, 1)", fill: "forwards" })
 }
 
 /** What a chip (or the sort menu's Saved posts) opens, for a feed that switches in place: All, one feed space, or Saved. */
@@ -126,6 +172,18 @@ export function rememberedSpaces(slug: string): SpaceView[] | null {
   return drawn.get(slug) ?? null
 }
 
+/*
+  THE TAP IN FLIGHT, kept on the module rather than in state: where the finger landed, and when a release last acted, so the
+  click the browser may send after it is not a second switch.
+*/
+let down: (Press & { id: number }) | null = null
+let tookAt = 0
+
+/** A pill's canonical address: the same on the server and in the browser, for a new tab, a reload, or a page with no script. */
+function chipHref(base: string, slug: string | null): string {
+  return slug ? `${base}/space/${encodeURIComponent(slug)}` : base
+}
+
 export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort }: SpaceChipsProps) {
   if (typeof window !== "undefined") drawn.set(slug, spaces)
   const base = `/community/${slug}`
@@ -135,17 +193,40 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
     onPick
       ? {
           prefetch: false,
+          /*
+            THE CLICK IS THE SECOND CHANCE. A keyboard and a mouse send one; a finger's tap was already taken on its release
+            (below), and Safari sends none at all when anything cancelled a move, so the click after a release is left be.
+          */
           onClick: (e: React.MouseEvent<HTMLAnchorElement>) => {
             if (!inPlace(e)) return
             e.preventDefault()
+            if (performance.now() - tookAt < CLICK_AFTER_MS) return
             onPick(pick)
           },
           onPointerEnter: onIntent ? (e: React.PointerEvent) => e.pointerType === "mouse" && onIntent(pick) : undefined,
-          /* Pressed on the first frame (ui.ts PRESS_PROPS), and the list asked for at the same moment. */
-          ...PRESS_PROPS,
+          /* The press shows on the first frame, and the list is asked for at the same moment. */
           onPointerDown: (e: React.PointerEvent<HTMLAnchorElement>) => {
-            press(e)
+            if (e.button !== 0) return
+            pressChip(e.currentTarget)
+            down = e.pointerType === "mouse" || !inPlace(e) ? null : { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId }
             onIntent?.(pick)
+          },
+          /* A finger's tap is taken here: still where it landed, it was a tap, whatever the row or the page did with the move. */
+          onPointerUp: (e: React.PointerEvent<HTMLAnchorElement>) => {
+            releaseChip(e.currentTarget)
+            const started = down?.id === e.pointerId ? down : null
+            down = null
+            if (!started || !isTap(started, { x: e.clientX, y: e.clientY, t: performance.now() })) return
+            tookAt = performance.now()
+            onPick(pick)
+          },
+          /* The browser kept the touch for a scroll of its own: no tap. */
+          onPointerCancel: (e: React.PointerEvent<HTMLAnchorElement>) => {
+            releaseChip(e.currentTarget)
+            down = null
+          },
+          onPointerLeave: (e: React.PointerEvent<HTMLAnchorElement>) => {
+            if (e.pointerType === "mouse") releaseChip(e.currentTarget)
           },
           onFocus: onIntent ? () => onIntent(pick) : undefined,
         }
@@ -153,7 +234,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
   return (
     <nav aria-label="Spaces" data-space-chips="" className="-mx-4 mb-3 flex items-center gap-2 pr-4 sm:mx-0 sm:pr-0">
       <div
-        className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none scrollbar-hide touch-pan-x [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
+        className="-my-1 min-w-0 flex-1 overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none scrollbar-hide touch-pan-x [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]"
         data-space-chips-track=""
         /*
           When it last moved, for followChosenChip: written on the element, so this stays a component with no hooks. Only where the
@@ -161,11 +242,13 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         */
         {...(onPick ? { onScroll: (e: React.UIEvent<HTMLDivElement>) => void (e.currentTarget.dataset.scrolledAt = String(performance.now())) } : {})}
       >
-        {/* 2px above and below, so a chip's one pixel shadow is not cut by the scrolling track. */}
-        <div className="flex w-max items-center gap-2 py-0.5 pl-4 pr-6 sm:pl-0">
+        {/* 6px above and below: the pills' hit areas reach into it, and a pill's one pixel shadow is not cut by the scrolling track. */}
+        <div className="group/row relative isolate flex w-max items-center gap-2 py-1.5 pl-4 pr-6 sm:pl-0">
+          <ChipInk active={allOn ? "all" : (active ?? null)} />
           <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>
+            <span aria-hidden data-chip-press="" className={PRESS} />
             <Fill on={allOn} />
-            All
+            <Label text="All" on={allOn} />
           </Link>
           {spaces.map((s) => {
             const on = active === s.slug
@@ -173,18 +256,19 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
             return (
               <Link
                 key={s.id}
-                href={feedListHref(base, { kind: "space", slug: s.slug })}
+                href={chipHref(base, s.slug)}
                 aria-current={on ? "page" : undefined}
                 data-space-chip={s.slug}
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}
                 {...(s.kind === "chat" ? {} : switching({ kind: "space", slug: s.slug }))}
               >
+                <span aria-hidden data-chip-press="" className={PRESS} />
                 <Fill on={on} />
                 {/* The icon the admin set, or the kind's, as their own list shows it (space-glyph.ts, round 12). */}
-                <span aria-hidden className="text-[14px] leading-none" data-space-glyph="">{glyph}</span>
-                <span className="max-w-[180px] truncate">{s.name}</span>
+                <span aria-hidden className="relative z-[2] text-[14px] leading-none" data-space-glyph="">{glyph}</span>
+                <Label text={s.name} on={on} className="max-w-[180px]" />
                 {/* Kept, unseen, on the chosen chip: taking it away made the chip narrower and moved every chip after it. */}
-                {s.unread > 0 ? <span aria-label={on ? undefined : `${s.unread} unread`} aria-hidden={on || undefined} className={`h-1.5 w-1.5 rounded-full bg-[#1a1a2e] ${on ? "opacity-0" : ""}`} /> : null}
+                {s.unread > 0 ? <span aria-label={on ? undefined : `${s.unread} unread`} aria-hidden={on || undefined} className={`relative z-[2] h-1.5 w-1.5 rounded-full bg-[#1a1a2e] ${on ? "opacity-0" : ""}`} /> : null}
               </Link>
             )
           })}
