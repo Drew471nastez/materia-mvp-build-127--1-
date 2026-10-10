@@ -313,7 +313,7 @@ export function ExploreCommunityCard({
       data-community-card={card.slug}
       data-layout="grid"
       className={cn(
-        "group/community isolate flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-card outline-none transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:ring-2 active:brightness-[0.98] [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
+        "group/community flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-card isolate outline-none transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:ring-2 active:brightness-[0.98] [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
         ring,
       )}
     >

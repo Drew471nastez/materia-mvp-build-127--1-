@@ -251,7 +251,7 @@ export const ProductCard = memo(function ProductCard({
   return (
     <div
       data-product-card=""
-      className="group isolate flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card isolate transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
       style={
         surface?.backgroundColor || surface?.borderColor || surface?.textColor
           ? { backgroundColor: surface.backgroundColor, borderColor: surface.borderColor, color: surface.textColor }
