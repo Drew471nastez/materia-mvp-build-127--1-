@@ -101,7 +101,7 @@ import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
 import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
-import { useVisibleBox } from "./visible-box"
+import { useKeyboardPlan } from "./visible-box"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -300,17 +300,20 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   ROUND 15 (images/73.webp, "I can see that crack and empty space"): while a field in the post is typed in (the page carries
   data-typing, post-fullscreen.tsx) the box stands on an opaque white ground down to the keyboard's bar, so the strip between
   the pill and the keys is the box's own white, never what scrolls behind it.
-  ROUND 16 (images/76.jpg, the gap still there in the iOS app): THE BLOCK (KEYBOARD_BLOCK). While typed in, one opaque white
-  block runs from the box's top edge down well past the foot of the screen, lifted over every part of the post's content (the
-  box takes z 8 while typed in). It is the box's own solid shadow, offset down by its spread: it starts exactly at the box's
-  top and runs 400lvh on, drawn under the box's row and over everything else, and a shadow adds nothing to what the page can
-  scroll (a positioned block would have let the comments scroll on into white). Under the page the skirt carries the white
-  on (post-fullscreen.tsx). So whatever any number says about the keyboard, a gap between the box and the keys can only ever
-  be white page.
+  ROUND 16 (images/76.jpg) drew a white block as this box's solid shadow, from its top edge far past the screen's foot. It
+  was clipped by the post's scroller (overflow: auto), so it ended where the scroller ended and covered nothing below it.
+  ROUND 17: the opened post's own page now always reaches the foot of the screen, white, and only the room at its foot lifts
+  the box (keyboard-plan.ts), so what is under the box is the page itself, whatever any number says. Typed in, the box keeps
+  its white ground (no comment shows through between its pill and the keys). Its pill's blur is on only once the post has
+  settled (post-fullscreen.tsx data-settled): nothing that moves carries a blur. The face beside the field takes the readout's
+  long press, so it gives no iOS callout and selects nothing.
 */
-export const KEYBOARD_BLOCK = "[[data-typing]_&]:shadow-[0_-1px_0_#eef0f2,0_200lvh_0_200lvh_#fff]"
+/** Round 16's block, kept only as the box's white ground while typed in (the page under it is white to the foot anyway). */
+export const KEYBOARD_BLOCK = "[[data-typing]_&]:shadow-[0_-1px_0_#eef0f2]"
+/** The dock's room at rest, on the tab bar. */
+const DOCK_REST_PAD = "max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)))"
 const FLOAT_COMPOSER =
-  `sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:z-[8] [[data-typing]_&]:bg-white [[data-typing]_&]:pt-2 ${KEYBOARD_BLOCK} [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none`
+  `sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:z-[8] [[data-typing]_&]:bg-white [[data-typing]_&]:pt-2 ${KEYBOARD_BLOCK} [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white [[data-settled]_&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [[data-settled]_&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]>[data-app-avatar]]:select-none [&_[data-comment-box=comment]>[data-app-avatar]]:[-webkit-touch-callout:none] [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none`
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, floatComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
@@ -580,20 +583,26 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     return () => mq.removeEventListener("change", sync)
   }, [dockComposer])
   /*
-    THE DOCK ON THE KEYBOARD, FLUSH (round 15, images/73.webp). While its field is typed in, the dock's foot is the foot of
-    the part of the screen that can be seen (visible-box.ts): the visual viewport, or in the iOS app the iPhone's own keyboard
-    instead of the half screen floor that left a band of page between the box and the keys. With no keyboard it stands on
-    the tab bar as before. A white skirt under it while it is typed in covers whatever a platform's number leaves.
+    THE DOCK ON THE KEYBOARD (rounds 15 and 17). With no keyboard it stands on the tab bar as before. Typed in, it is the
+    bottom sheets' way (keyboard-plan.ts): its box goes down to the foot of the screen, white, and only its content is lifted
+    by the keyboard's room, from the decision table (visible-box.ts useKeyboardPlan), so a number that is off leaves a strip
+    of the dock's own white, never the page. The skirt under it carries the white on past the foot.
   */
-  useVisibleBox(
+  useKeyboardPlan(
     dockPhone,
     () => composerRef.current,
     () => document.querySelector<HTMLElement>("[data-viewport-probe]"),
-    (box, typing, layoutH) => {
+    (plan, facts) => {
       const dock = composerRef.current
       if (!dock) return
-      dock.style.bottom = box.aboveTabs ? COMMENT_COMPOSER_DOCK_BOTTOM : `${Math.max(0, Math.round(layoutH - (box.top + box.height)))}px`
-      dock.toggleAttribute("data-typing", typing)
+      dock.toggleAttribute("data-typing", facts.typing)
+      if (plan.foot === "tabs") {
+        dock.style.bottom = COMMENT_COMPOSER_DOCK_BOTTOM
+        dock.style.paddingBottom = DOCK_REST_PAD
+      } else {
+        dock.style.bottom = "0px"
+        dock.style.paddingBottom = `${Math.round(plan.foot) + 10}px`
+      }
     },
   )
   /*
@@ -664,7 +673,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
           dockComposer && dockPhone
             ? {
                 bottom: COMMENT_COMPOSER_DOCK_BOTTOM,
-                paddingBottom: "max(10px, calc(env(safe-area-inset-bottom, 0px) - var(--kb-inset, 0px)))",
+                paddingBottom: DOCK_REST_PAD,
               }
             : pinComposer
               ? {

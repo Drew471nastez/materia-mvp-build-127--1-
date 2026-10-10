@@ -138,14 +138,14 @@ console.log("\nCLOSE: the order of operations")
   check("a Back the browser drew itself, and reduced motion: no move", closeSteps("browser-swipe").includes("cut") && all.every((t) => closeSteps(t, true).includes("cut") && !closeSteps(t, true).includes("slide-down")))
   check("a close by Back gives no step back; every other close gives it back, last", !closeSteps("history").includes("step-back") && !closeSteps("browser-swipe").includes("step-back") && ["back", "escape", "pull", "edge"].every((t) => closeSteps(t as CloseTrigger).at(-1) === "step-back"))
   check("nothing moves after it is hidden", all.every((t) => !closeSteps(t).slice(closeSteps(t).indexOf("hide-page")).some((x) => x === "slide-down" || x === "recede")))
+  /*
+    ROUND 17 replaced the drawing: the opened post grows out of its card and shrinks back into it on the compositor
+    (post-morph.ts, post-stage.ts) and nothing behind it moves; its close order and its engine are held by
+    tests/communities-post17.test.ts. What stays from here: the close still puts the feed back before anything moves.
+  */
   const pf = read("components/community/member/post-fullscreen.tsx")
-  check("the source keeps that order: feed put back, the community set where the covered sheet leaves it, then down", pf.indexOf("feedRestore(noted.current") < pf.indexOf("st.set(from)") && pf.indexOf("st.set(from)") < pf.indexOf("st.run(from, 0"))
-  check("hidden, then the community let go, then gone", /layer\.style\.visibility = "hidden"\s*st\?\.release\(\)\s*done\.current\.onGone\(\)/.test(pf))
-  check("one surface: the post is drawn once, the sheet moves by translate, the community by scale and translate (page-sheet-stage.tsx)", /sheetStage\(page, backdropRef\.current, communityFrame\(\)\)/.test(pf) && !/cloneNode|cardBox|coverMorph|morphFrames/.test(pf))
-  const stage = read("components/community/member/page-sheet-stage.tsx")
-  check("the stage moves only translate, scale and opacity", !/(width|height|top|left|clip-path|filter):/.test(stage.slice(stage.indexOf("const parts = "), stage.indexOf("/* Every move stopped"))) && /translate: `0px \$\{f\.sheetY\}px`/.test(stage) && /scale: `\$\{f\.scale\}`/.test(stage))
-  check("at rest the community carries nothing of ours (released once the sheet has arrived)", /if \(!closing\.current && !holding\.current && \(st\?\.at\(\) \?\? 1\) >= 1\) st\?\.release\(\)/.test(pf))
-  check("the app's edge swipe and a pull drive the same p", /offset = edgeOffset\(edgeX, W\(\), H\(\)\)/.test(pf) && /stage\(\)\?\.set\(progressFromOffset\(offset, H\(\)\)\)/.test(pf))
+  check("the source still puts the feed back before the move", pf.indexOf("feedRestore(noted.current") > 0 && pf.indexOf("feedRestore(noted.current") < pf.indexOf("st.close("))
+  check("and the app's edge swipe and a pull drive the same follow", /offset = edgeOffset\(edgeX, W\(\), H\(\)\)/.test(pf) && /stage\(\)\?\.follow\(0, offset\)/.test(pf))
 }
 
 console.log("\nPULL AND EDGE: when a finger closes it")
@@ -182,23 +182,15 @@ console.log("\nKEYBOARD: the comment box on the keys (images/76.jpg)")
   check("no keyboard: the whole screen down to the tab bar", rest.source === "screen" && rest.aboveTabs, rest)
   check("a keyboard height the plugin left at 0 (down) is not used", postBox({ layoutH: 844, innerH: 844, vvTop: 0, vvH: 844, typing: true, publishedInset: 0, appKeyboard: 380, nativeKeyboard: 0 }).source === "table")
 
-  /* THE BLOCK: the box's own solid shadow, offset down by its spread, so it starts at the box's top edge and runs on. */
-  const cm = read("components/community/member/comments.tsx")
-  const block = /export const KEYBOARD_BLOCK = "\[\[data-typing\]_&\]:shadow-\[0_-1px_0_#eef0f2,0_(\d+)lvh_0_(\d+)lvh_#fff\]"/.exec(cm)
-  check("THE BLOCK is white, solid (no blur), only while typing", !!block)
-  if (block) {
-    const offset = Number(block[1])
-    const spread = Number(block[2])
-    check("it starts exactly at the box's top edge (offset equals spread)", offset === spread)
-    /* For any box on the screen, the block's foot is its top + its height + offset + spread: past the screen's foot. */
-    const covers = (screenH: number, boxTop: number, boxH: number) => boxTop + boxH + ((offset + spread) * screenH) / 100 >= screenH
-    check("it always runs from the box down past the bottom of the screen, wherever the box is", [[844, 0, 60], [844, 380, 90], [956, 100, 80], [667, 600, 60]].every(([h, t, b]) => covers(h, t, b)))
-  }
-  check("the floating box carries it and is lifted over the post's content while typed in", /`sticky bottom-0 z-\[3\] -mx-4 mt-auto px-3 pt-3 \[\[data-typing\]_&\]:z-\[8\] \[\[data-typing\]_&\]:bg-white \[\[data-typing\]_&\]:pt-2 \$\{KEYBOARD_BLOCK\}/.test(cm))
+  /*
+    ROUND 17: round 16's white block (the box's shadow) was clipped by the post's scroller and covered nothing past the page's
+    foot; the page itself now reaches the foot of the screen and only its room there lifts the box (keyboard-plan.ts). The
+    table, the plan and the readout are held by tests/communities-post17.test.ts.
+  */
   const pf = read("components/community/member/post-fullscreen.tsx")
   check("under the page the white skirt carries it on past the screen's foot", /absolute inset-x-0 top-full h-\[100lvh\] bg-white/.test(pf) && /data-post-skirt/.test(pf))
   const vb = read("components/community/member/visible-box.ts")
-  check("the box is read from visualViewport's height and offsetTop, and the plugin's height while typing", /vvH: Math\.round\(vv\?\.height \?\? window\.innerHeight\), vvTop: Math\.round\(vv\?\.offsetTop \?\? 0\)/.test(vb) && /nativeKeyboard: typing \? native : null/.test(vb) && /watchNativeKeyboard\(run\)/.test(vb))
+  check("the box is read from visualViewport's height and offsetTop, and the plugin's height while typing", /vvTop: Math\.round\(vv\?\.offsetTop \?\? 0\)/.test(vb) && /vvH: Math\.round\(vv\?\.height \?\? window\.innerHeight\)/.test(vb) && /native: typing \? nativeKeyboardHeight\(\) : 0/.test(vb) && /watchNativeKeyboard\(onViewport\)/.test(vb))
   const nk = read("components/community/member/native-keyboard.ts")
   check("the plugin is reached by name and only where this build has it", /registerPlugin<KeyboardPlugin>\("Keyboard"\)/.test(nk) && /Capacitor\.isPluginAvailable\("Keyboard"\)/.test(nk) && /addListener\("keyboardWillShow"/.test(nk))
   const cap = read("capacitor.config.ts")
@@ -206,8 +198,8 @@ console.log("\nKEYBOARD: the comment box on the keys (images/76.jpg)")
   const pkg = JSON.parse(read("package.json")) as { dependencies: Record<string, string> }
   check("@capacitor/keyboard is a dependency, on Capacitor 8 like the rest", /^\^?8\./.test(pkg.dependencies["@capacitor/keyboard"] ?? ""))
   check("and the lockfile has it (a frozen install does not fail)", /'@capacitor\/keyboard':\s*\n\s*specifier: \^8/.test(read("pnpm-lock.yaml")))
-  check("?kbdebug=1: a readout of innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and the measurement used", /searchParams|URLSearchParams\(window\.location\.search\)\.get\("kbdebug"\)/.test(pf) && /`used \$\{box\.source\}/.test(pf) && /innerHeight \$\{facts\.innerH\}/.test(pf) && /vv\.height \$\{facts\.vvH\}  vv\.offsetTop \$\{facts\.vvTop\}/.test(pf) && /scrollY \$\{facts\.scrollY\}/.test(pf) && /comment box top/.test(pf) && /data-kbdebug=""/.test(pf))
-  check("hidden unless asked for, and only while typing", /hidden aria-hidden/.test(pf) && /const on = typing && kbDebugOn\(\)/.test(pf))
+  check("?kbdebug=1: a readout of innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and the measurement used", /URLSearchParams\(window\.location\.search\)\.get\("kbdebug"\)/.test(pf) && /used \$\{plan\.source\}/.test(pf) && /innerHeight \$\{facts\.innerH\}/.test(pf) && /vv\.height \$\{facts\.vvH\}  vv\.offsetTop \$\{facts\.vvTop\}/.test(pf) && /scrollY \$\{facts\.scrollY\}/.test(pf) && /comment box top/.test(pf) && /data-kbdebug=""/.test(pf))
+  check("hidden unless asked for", /hidden aria-hidden/.test(pf) && /const on = kbDebugOn\(\)/.test(pf))
 }
 
 console.log("\nCOMPOSER: the same sheet, up and down")
@@ -217,7 +209,7 @@ console.log("\nCOMPOSER: the same sheet, up and down")
   check("on the way down its inside is frozen where it stood before the caret is let go (nothing jumps as the keyboard goes)", c.indexOf('vis.setAttribute("data-frozen", "")') > 0 && c.indexOf('vis.setAttribute("data-frozen", "")') < c.indexOf("active.blur()") && /if \(frozen\(\)\) return/.test(c))
   check("the feed is put back under it before it moves", c.indexOf("feedRestore(notedScroll.current") < c.indexOf("void st.run(from, 0"))
   check("the document's overflow is never switched off (iOS restyled the page in the close's last frame)", !/html\.style\.overflow = "hidden"/.test(c) && /html\.style\.overscrollBehavior = "none"/.test(c))
-  check("the community is let go of at the move's last frame", /const end = \(\) => \{\s*leaving\.current = false[\s\S]{0,140}sheetStageRef\.current\?\.release\(\)/.test(c))
+  check("the sheet's dim is let go of at the move's last frame (round 17: the community itself never moves)", /const end = \(\) => \{\s*leaving\.current = false[\s\S]{0,140}sheetStageRef\.current\?\.release\(\)/.test(c) && /sheetStage\(el, editing \? null : sheetBackdropRef\.current\)/.test(c))
   check("the tab bar's layer is kept (counted while the screen is up)", /useLayer\("composer", sheet, sheetRef\)/.test(c))
 }
 

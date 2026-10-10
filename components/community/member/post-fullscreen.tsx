@@ -2,7 +2,7 @@
 
 /**
  * ===========================================================================
- *  A POST, OPENED ON A PHONE: iOS's PAGE SHEET (round 16)
+ *  A POST, OPENED ON A PHONE: OUT OF ITS CARD (round 17)
  * ===========================================================================
  * Round 19, the owner: "get rid of the bottom sheet for a post on a phone; a
  * full screen page, like a Substack note; a swipe down or the back button
@@ -10,47 +10,56 @@
  * when it is up, and the comments scroll under it. At the top, as you scroll,
  * a soft blur comes in under the status bar." All of that stays.
  *
- * WHAT ROUND 16 REPLACED, AND WHY. Round 15 pushed the page in from the right
- * and let a pull drop it downwards; the owner: "I don't like how a post opens
- * right now... very glitchy", and it came in one way and left another. Round
- * 14 before it grew the card into the page (two copies of the post on screen).
- * NOW the post is iOS's page sheet (page-sheet.ts): one opaque page rises from
- * the foot on a spring while the community behind eases back (a slight
- * scale, rounded corners, a soft dim) and stays exactly where it was; every
- * close is the same motion in reverse; a pull down is that motion following
- * the finger, and so is the app's edge swipe. At rest the page covers the
- * whole screen, as the owner asked in round 19. Only `translate`, `scale`
- * and `opacity` move, on the compositor, and the post is drawn once.
+ * WHAT ROUND 17 REPLACED, AND WHY. Round 16's page sheet (and round 15's push
+ * before it) were turned down on a real iPhone: "I don't like the animation
+ * and whole opening of a post in the community, and the close is not
+ * smooth." Its engine drove the sheet from one number, scaled the whole
+ * community behind it and kept a backdrop blur on the moving page; measured
+ * at 4x CPU, its open stopped for 344ms part way up (scripts/check-
+ * communities-post17.mjs). NOW the post grows out of the card it was pressed
+ * in and shrinks back into it (post-morph.ts, Material's container morph,
+ * done so it never shows two contents at once), and every move is a set of
+ * Web Animations on the compositor (post-stage.ts), started only once the
+ * post is drawn and its first picture decoded. The community behind never
+ * moves, scales or blurs; a light scrim fades over it. The style is one
+ * constant (post-morph.ts POST_MOTION) if another feel is wanted.
  *
- * THE CLOSE, IN ORDER (post-motion.ts closeSteps): the feed is put back to the
- * scroll it had when the post opened (iOS pans the page under a fixed field
- * when the keyboard comes up) while the post still covers it; the community
- * is eased back, unseen, under the covering page; then the one move down;
- * then hidden, the community let go, the layer let go, the post taken out,
- * the history step given back. A Back the browser drew itself (Safari's edge
- * swipe) is not moved again.
+ * THE CLOSE, IN ORDER (post-morph.ts morphCloseSteps): the keyboard down,
+ * the feed put back to the scroll it had when the post opened (iOS pans the
+ * page under a focused field) while the post still covers it, the card's
+ * rectangle read after that, a copy of the card made, the top's blur off,
+ * then the one move: the container onto the card, the post's content out and
+ * the copy in. It lands on the card showing the copy, and the layer is
+ * hidden on the next frame; nothing moves after. A Back the browser drew
+ * itself (Safari's edge swipe) is not moved again.
  *
  * THE TAB BAR stays (lib/ui/layers.ts "post": the bar is lifted over the
- * post), and the page ends at its top.
+ * post); the room at the page's foot is the bar's.
  *
- * THE KEYBOARD (images/73.webp, 76.jpg). The page is the part of the screen
- * that can be seen (post-motion.ts postBox, visible-box.ts). Whatever any
- * number says, while the comment box is typed in one opaque white block runs
- * from the box's top edge down past the foot of the screen, over every part
- * of the post (THE BLOCK below), so a gap between the box and the keys can
- * only ever be white.
+ * THE KEYBOARD (images/73.webp, 76.jpg; keyboard-plan.ts). The page always
+ * reaches the foot of the screen and beyond, opaque white; only the room at
+ * its foot changes, so the comment box rides up and whatever any number says,
+ * what is under the box is the page's own white. Round 16 shortened the page
+ * to the keyboard and drew a white block as the box's shadow; the post's
+ * scroller clips (overflow: auto), so the block ended where the page ended.
  *
- * Reduced motion: it appears and goes, no move.
+ * THE READOUT. ?kbdebug=1 on any address, or a long press (about 1.5s) on the
+ * face beside the comment box (the app has no address bar), turns on a small
+ * panel of the numbers that placed the box, remembered on this phone; the
+ * same press turns it off.
+ *
+ * Reduced motion: a plain fade.
  */
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
 import { useLayer } from "@/lib/ui/layers"
 import { edgeSwipeEnvironment } from "@/lib/navigation/edge-swipe"
-import { useVisibleBox } from "./visible-box"
-import { BACK_CIRCLE, BACK_HIT, BAR_PX, BROWSER_EDGE_PX, closeSteps, closedByBrowserSwipe, edgeOffset, feedRestore, judgeMove, postBoxHeightCss, pullOffset, pullVerdict, releaseVelocity, shouldComplete, startsAtEdge, PULL_SLOP, type CloseTrigger } from "./post-motion"
-import { CLOSE_MS, OPEN_MS, closeMsFrom, progressFromOffset, springVelocity } from "./page-sheet"
-import { SheetBackdrop, communityFrame, sheetStage, type SheetStage } from "./page-sheet-stage"
+import { useKeyboardPlan } from "./visible-box"
+import { footCss } from "./keyboard-plan"
+import { BACK_CIRCLE, BACK_HIT, BAR_PX, BROWSER_EDGE_PX, closedByBrowserSwipe, edgeOffset, feedRestore, judgeMove, pullOffset, pullVerdict, releaseVelocity, shouldComplete, startsAtEdge, PULL_SLOP, type CloseTrigger } from "./post-motion"
+import { CLIPS, CLOSE_MS, OPEN_MS, POST_MOTION } from "./post-morph"
+import { postStage, type PostStage } from "./post-stage"
 
 /** How far the scroll goes before the top blur is all the way in. */
 const BLUR_IN_PX = 80
@@ -58,32 +67,45 @@ const BLUR_IN_PX = 80
 const BLUR_MAX = 0.85
 /** The status bar's room above the back bar. */
 const SAFE_TOP = "max(env(safe-area-inset-top, 0px), 12px)"
+/** The long press on the face beside the comment box that turns the readout on or off. */
+export const KB_DEBUG_PRESS_MS = 1500
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
 /*
-  THE KEYBOARD READOUT (round 16). ?kbdebug=1 on any address turns it on for this tab (kept in session storage, because the
-  opened post's own address drops the query), ?kbdebug=0 turns it off. While the comment box is typed in, a small panel shows
-  innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and which measurement placed it.
+  THE KEYBOARD READOUT. ?kbdebug=1 on any address turns it on, ?kbdebug=0 off; the long press toggles it. Kept in local
+  storage, so it stays on on this phone (the opened post's own address drops the query, and the app has no address bar).
 */
-const KB_DEBUG_KEY = "storelib:kbdebug"
+export const KB_DEBUG_KEY = "storelib:kbdebug"
 function readKbDebugFlag(): boolean {
   if (typeof window === "undefined") return false
   try {
     const asked = new URLSearchParams(window.location.search).get("kbdebug")
-    if (asked === "1") window.sessionStorage.setItem(KB_DEBUG_KEY, "1")
-    else if (asked === "0") window.sessionStorage.removeItem(KB_DEBUG_KEY)
-    return window.sessionStorage.getItem(KB_DEBUG_KEY) === "1"
+    if (asked === "1") window.localStorage.setItem(KB_DEBUG_KEY, "1")
+    else if (asked === "0") window.localStorage.removeItem(KB_DEBUG_KEY)
+    return window.localStorage.getItem(KB_DEBUG_KEY) === "1" || window.sessionStorage.getItem(KB_DEBUG_KEY) === "1"
   } catch {
     return false
   }
 }
-let kbDebug = readKbDebugFlag()
 export function kbDebugOn(): boolean {
-  if (!kbDebug) kbDebug = readKbDebugFlag()
-  return kbDebug
+  return readKbDebugFlag()
+}
+/** The long press: on if it was off, off if it was on; remembered on this phone. */
+export function toggleKbDebug(): boolean {
+  const on = !readKbDebugFlag()
+  try {
+    if (on) window.localStorage.setItem(KB_DEBUG_KEY, "1")
+    else {
+      window.localStorage.removeItem(KB_DEBUG_KEY)
+      window.sessionStorage.removeItem(KB_DEBUG_KEY)
+    }
+  } catch {
+    /* No storage: on for as long as this post is open. */
+  }
+  return on
 }
 
 /* When a finger last landed at the screen's left edge: a popstate soon after is the browser's own swipe back (closedByBrowserSwipe). */
@@ -99,6 +121,11 @@ if (typeof document !== "undefined") {
   )
 }
 
+/** The community's frame, marked while a post is open over it (globals.css: the keyboard does not shorten it then). */
+function communityShell(): HTMLElement | null {
+  return typeof document === "undefined" ? null : document.querySelector<HTMLElement>("[data-community-shell]")
+}
+
 export interface PostFullscreenProps {
   open: boolean
   label: string
@@ -107,36 +134,52 @@ export interface PostFullscreenProps {
   onRequestClose: () => void
   /** The open has arrived. */
   onShown: () => void
-  /** It has gone (off the screen and hidden): the parent takes it out. */
+  /** It has gone (landed and hidden): the parent takes it out. */
   onGone: () => void
+  /** The card it was pressed in (grown from, landed on), or null: then it fades. */
+  origin?: () => HTMLElement | null
+  /** Waited for before the move starts (at most PREPARE_CAP_MS): the comments read ahead, say. */
+  prepare?: () => Promise<unknown>
   contentRef: React.RefObject<HTMLDivElement | null>
   children: React.ReactNode
 }
 
-export function PostFullscreen({ open, label, title, onRequestClose, onShown, onGone, contentRef, children }: PostFullscreenProps) {
+const CLIP = "absolute inset-0 [[data-moving]_&]:overflow-hidden"
+
+export function PostFullscreen({ open, label, title, onRequestClose, onShown, onGone, origin, prepare, contentRef, children }: PostFullscreenProps) {
   const layerRef = useRef<HTMLDivElement>(null)
+  const scrimRef = useRef<HTMLDivElement>(null)
+  const liftRef = useRef<HTMLDivElement>(null)
+  const clip0 = useRef<HTMLDivElement>(null)
+  const clip1 = useRef<HTMLDivElement>(null)
+  const clip2 = useRef<HTMLDivElement>(null)
+  const clip3 = useRef<HTMLDivElement>(null)
+  const cloneHostRef = useRef<HTMLDivElement>(null)
   const pageRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const backdropRef = useRef<HTMLDivElement>(null)
   const blurRef = useRef<HTMLDivElement>(null)
   const debugRef = useRef<HTMLDivElement>(null)
-  /* The sheet's driver (page-sheet-stage.tsx): the page, the backdrop's dim and bands, and the community easing back. */
-  const stageRef = useRef<SheetStage | null>(null)
+  /* The engine (post-stage.ts). */
+  const stageRef = useRef<PostStage | null>(null)
   const stage = () => {
+    if (stageRef.current) return stageRef.current
+    const layer = layerRef.current
+    const scrim = scrimRef.current
+    const lift = liftRef.current
+    const clips = [clip0.current, clip1.current, clip2.current, clip3.current]
+    const cloneHost = cloneHostRef.current
     const page = pageRef.current
-    if (!stageRef.current && page) stageRef.current = sheetStage(page, backdropRef.current, communityFrame())
+    if (!layer || !scrim || !lift || !cloneHost || !page || clips.some((c) => !c)) return null
+    stageRef.current = postStage({ layer, scrim, lift, clips: clips as HTMLElement[], cloneHost, page })
     return stageRef.current
   }
-  const done = useRef({ onShown, onGone, onRequestClose })
+  const done = useRef({ onShown, onGone, onRequestClose, origin, prepare })
   useEffect(() => {
-    done.current = { onShown, onGone, onRequestClose }
+    done.current = { onShown, onGone, onRequestClose, origin, prepare }
   })
-  /* What closed it (null: a Back, or the parent), and the finger's speed when it let go of a swipe. */
+  /* What closed it (null: a Back, or the parent). */
   const how = useRef<CloseTrigger | null>(null)
-  const letGo = useRef(0)
   const closing = useRef(false)
-  /* A finger has the sheet (a pull or the edge swipe): nothing lets the community go under it. */
-  const holding = useRef(false)
   /* The feed's scroll when the post opened: where it is put back before the close moves. */
   const noted = useRef<number | null>(null)
   const request = (trigger: CloseTrigger) => {
@@ -144,127 +187,120 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     how.current ??= trigger
     done.current.onRequestClose()
   }
+  /* Settled: nothing moving, so the top's blur may come on. */
+  const settle = (on: boolean) => layerRef.current?.toggleAttribute("data-settled", on)
 
   /* THE TAB BAR stays, over the post, for as long as the post is in the page (lib/ui/layers.ts). */
   useLayer("post", true, layerRef)
 
-  /* ── THE PAGE ON THE VISIBLE SCREEN ── before the first frame, and again whenever the viewport or the keyboard moves (visible-box.ts). */
-  useVisibleBox(
+  /* ── THE KEYBOARD (keyboard-plan.ts) ── the room at the page's foot, before the first frame and on every move of it. */
+  useKeyboardPlan(
     true,
     () => pageRef.current,
     () => layerRef.current,
-    (box, typing, _layoutH, facts) => {
+    (plan, facts) => {
       const page = pageRef.current
       if (!page) return
-      page.style.top = `${Math.round(box.top)}px`
-      page.style.height = postBoxHeightCss(box)
-      page.dataset.box = box.source
-      page.toggleAttribute("data-typing", typing)
-      /* ?kbdebug=1: what the box was placed from, on screen, for a screenshot if a gap is ever still there. */
+      page.style.setProperty("--post-top", `${plan.top}px`)
+      page.style.setProperty("--post-foot", footCss(plan))
+      page.dataset.box = plan.source
+      page.toggleAttribute("data-typing", facts.typing)
       const panel = debugRef.current
       if (panel) {
-        const on = typing && kbDebugOn()
+        const on = kbDebugOn()
         panel.hidden = !on
-        /* Read on the next frame, once the box has been brought onto the page's foot (below). */
         if (on)
           requestAnimationFrame(() => {
-            const dock = page.querySelector<HTMLElement>("[data-comment-box=comment]")?.getBoundingClientRect()
+            const box = page.querySelector<HTMLElement>("[data-comment-box=comment]")?.getBoundingClientRect()
             const r = (n: number | undefined) => (n === undefined ? "-" : String(Math.round(n)))
             panel.textContent = [
-              `used ${box.source}  box top ${Math.round(box.top)} h ${Math.round(box.height)}`,
-              `innerHeight ${facts.innerH}  layout ${facts.layoutH}`,
+              `${facts.env}  used ${plan.source}  ${facts.typing ? "typing" : "not typing"}`,
+              `page top ${plan.top}  foot room ${plan.foot === "tabs" ? "tab bar" : plan.foot}`,
+              `innerHeight ${facts.innerH}  layout ${facts.layoutH}  scrollY ${facts.scrollY}`,
               `vv.height ${facts.vvH}  vv.offsetTop ${facts.vvTop}`,
-              `scrollY ${facts.scrollY}  native kb ${facts.native || "-"}  table kb ${facts.table ?? "-"}`,
-              `comment box top ${r(dock?.top)} bottom ${r(dock?.bottom)} left ${r(dock?.left)} w ${r(dock?.width)}`,
+              `native kb ${facts.native || "-"}  table kb ${facts.table ?? "-"}  floor ${facts.published || "-"}`,
+              `comment box top ${r(box?.top)} bottom ${r(box?.bottom)}  screen ${window.innerHeight}`,
             ].join("\n")
           })
       }
       /*
-        THE BOX IN SIGHT ON THE KEYBOARD. The comment box sticks to the page's foot only inside the comments section; with the
-        page shortened to what the keyboard leaves, a long post puts that section below the foot and the box with it, out of
-        sight. Typing, the page is scrolled by just enough to bring the box onto the foot.
+        THE BOX IN SIGHT ON THE KEYBOARD. The comment box sticks to the scroller's foot only inside the comments section; a long
+        post puts that section below the foot, and the box with it. Typing, the page is scrolled by just enough to bring it up.
       */
-      if (!typing) return
+      if (!facts.typing) return
       const scroller = scrollRef.current
       const dock = page.querySelector<HTMLElement>("[data-comments-composer]")
       if (!scroller || !dock) return
-      const over = dock.getBoundingClientRect().bottom - page.getBoundingClientRect().bottom
+      const over = dock.getBoundingClientRect().bottom - scroller.getBoundingClientRect().bottom
       if (over > 1) scroller.scrollTop += over
     },
   )
 
-  /* ── IN ── up from the foot on the spring, the community easing back, from the first frame painted. */
+  /* ── IN ── out of the card, once the post is drawn and its first picture decoded (post-stage.ts). */
   useLayoutEffect(() => {
     noted.current = window.scrollY
+    communityShell()?.setAttribute("data-post-over", "")
     const st = stage()
     let arrived = false
     const shown = () => {
       if (arrived) return
       arrived = true
-      /* Arrived: the page covers the screen, so the community is let go of (unseen), and carries nothing of ours while the post is open. */
-      if (!closing.current && !holding.current && (st?.at() ?? 1) >= 1) st?.release()
+      if (!closing.current) settle(true)
       done.current.onShown()
     }
-    if (!st || reduced() || typeof pageRef.current?.animate !== "function") {
-      st?.set(1)
+    if (!st) {
       shown()
       return
     }
-    st.set(0)
-    /* A finger that catches it on the way in stops the move where it is: it has still arrived. */
-    void st.run(0, 1, OPEN_MS).then(() => {
-      if (st.at() >= 1) shown()
-    })
-    const t = window.setTimeout(shown, OPEN_MS + 300)
+    void st.open({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), ms: OPEN_MS, prepare: done.current.prepare }).then(shown)
+    /* A page in the background draws no frames: it has still arrived. */
+    const t = window.setTimeout(shown, OPEN_MS + 700)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+  useEffect(
+    () => () => {
+      communityShell()?.removeAttribute("data-post-over")
+    },
+    [],
+  )
 
-  /* ── OUT ── closeSteps, in order. */
+  /* ── OUT ── post-morph.ts morphCloseSteps, in order. */
   useLayoutEffect(() => {
     if (open) return
     closing.current = true
     const layer = layerRef.current
     const page = pageRef.current
     const trigger: CloseTrigger = how.current ?? (closedByBrowserSwipe(performance.now() - lastEdgeTouch, edgeSwipeEnvironment()) ? "browser-swipe" : "history")
-    const still = reduced() || !page || typeof page.animate !== "function"
-    const steps = closeSteps(trigger, still)
-    const st = stage()
     let gone = false
     const end = () => {
       if (gone) return
       gone = true
-      /* HIDE-PAGE on the move's last frame, then RELEASE-COMMUNITY: at that frame it is at its own size, so nothing shows. */
       if (layer) layer.style.visibility = "hidden"
-      st?.release()
       done.current.onGone()
     }
-    /* The keyboard goes down with the post, not after it. */
+    /* BLUR: the keyboard goes down with the post, not after it. */
     const active = document.activeElement as HTMLElement | null
     if (active && page?.contains(active)) active.blur()
     /* HOLD-FEED: the feed exactly where it was, while the post still covers it. */
     const back = noted.current === null ? null : feedRestore(noted.current, window.scrollY)
     if (back !== null) window.scrollTo({ top: back, behavior: "instant" as ScrollBehavior })
-    if (!st || steps.includes("cut")) {
+    const st = stage()
+    /* A Back the browser already drew as its own swipe: no second move. */
+    if (!st || trigger === "browser-swipe") {
       end()
       return
     }
-    /* RECEDE: from wherever the page is (a finger may have it part way), the community where a sheet there leaves it. */
-    st.stop()
-    const from = st.at()
-    st.set(from)
-    const H = window.innerHeight
-    const fromFinger = trigger === "pull" || trigger === "edge"
-    const ms = fromFinger ? closeMsFrom(from, H, letGo.current) : CLOSE_MS
-    /* SLIDE-DOWN. Held at its last frame (fill) until it is hidden, so it can never be drawn back at rest for a frame. */
-    void st.run(from, 0, ms, { hold: true, velocity: fromFinger ? springVelocity(letGo.current, from * H) : 0 }).then(end)
+    /* BLUR-OFF, then the one move (MEASURE-CARD and CLONE-CARD are the stage's, after the feed is in place). */
+    settle(false)
+    void st.close({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), ms: CLOSE_MS }).then(end)
     /* A tab in the background draws no frames: it still goes. */
-    const t = window.setTimeout(end, ms + 300)
+    const t = window.setTimeout(end, CLOSE_MS + 600)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  /* ── THE TOP BLUR ── follows the scroll, once a frame. */
+  /* ── THE TOP BLUR ── follows the scroll, once a frame (and is only a blur once settled: the class says so). */
   useEffect(() => {
     const scroller = scrollRef.current
     const blur = blurRef.current
@@ -286,10 +322,61 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   }, [])
 
   /*
+    ── THE READOUT'S LONG PRESS ── on the face beside the comment box. Held still for KB_DEBUG_PRESS_MS: on (or off), a tick
+    of vibration where the phone has it, and the panel shown at once.
+  */
+  useEffect(() => {
+    const page = pageRef.current
+    if (!page) return
+    let timer = 0
+    let at: { x: number; y: number } | null = null
+    const cancel = () => {
+      window.clearTimeout(timer)
+      timer = 0
+      at = null
+    }
+    const onDown = (e: PointerEvent) => {
+      const face = (e.target as Element | null)?.closest?.("[data-comment-box=comment] > [data-app-avatar]")
+      if (!face) return
+      at = { x: e.clientX, y: e.clientY }
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        timer = 0
+        const on = toggleKbDebug()
+        try {
+          navigator.vibrate?.(12)
+        } catch {
+          /* No vibration here. */
+        }
+        const panel = debugRef.current
+        if (panel) {
+          panel.hidden = !on
+          if (on) panel.textContent = "Keyboard readout on. Tap the comment box to see the numbers.\nHold the face again to turn it off."
+        }
+      }, KB_DEBUG_PRESS_MS)
+    }
+    const onMove = (e: PointerEvent) => {
+      if (at && Math.hypot(e.clientX - at.x, e.clientY - at.y) > 10) cancel()
+    }
+    page.addEventListener("pointerdown", onDown, { passive: true })
+    page.addEventListener("pointermove", onMove, { passive: true })
+    page.addEventListener("pointerup", cancel, { passive: true })
+    page.addEventListener("pointercancel", cancel, { passive: true })
+    return () => {
+      cancel()
+      page.removeEventListener("pointerdown", onDown)
+      page.removeEventListener("pointermove", onMove)
+      page.removeEventListener("pointerup", cancel)
+      page.removeEventListener("pointercancel", cancel)
+    }
+  }, [])
+
+  /*
     ── THE PULL DOWN AND THE EDGE SWIPE ── native listeners: React's touchmove is passive, and these have to refuse the
-    browser's scroll. A finger pulling down with the post at its top takes the sheet down; a finger from the left edge (the app
-    on iOS only: a browser has its own swipe back there) takes it down by its sideways travel. Either is the sheet's own motion
-    following the finger (page-sheet.ts: the page, the community easing forward, the dim), from the first pixel it claims.
+    browser's scroll. A finger pulling down with the post at its top takes it; a finger from the left edge (the app on iOS
+    only: a browser has its own swipe back there) takes it sideways. The post follows the finger and shrinks a little (set
+    directly, at the finger's own pace); let go past the line it closes into its card with the same container move, from
+    where the finger left it, or it goes back to rest.
   */
   useEffect(() => {
     const page = pageRef.current
@@ -308,7 +395,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     const W = () => page.offsetWidth || window.innerWidth
     const H = () => window.innerHeight
     const take = () => {
-      holding.current = true
+      settle(false)
       stage()?.stop()
     }
     const onStart = (e: TouchEvent) => {
@@ -367,44 +454,31 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       if (mode === "edge") {
         edgeX = Math.max(0, Math.min(W(), dx))
         offset = edgeOffset(edgeX, W(), H())
-      } else offset = Math.max(0, pullOffset(dy))
-      stage()?.set(progressFromOffset(offset, H()))
+        stage()?.follow(edgeX, 0)
+      } else {
+        offset = Math.max(0, pullOffset(dy))
+        stage()?.follow(0, offset)
+      }
       samples.push([e.timeStamp, offset])
       if (samples.length > 10) samples.shift()
-    }
-    /* Not far enough: back up to rest on the spring, and the community let go once it is covered again. */
-    const springBack = (ms: number) => {
-      const st = stage()
-      if (!st) return
-      const from = st.at()
-      if (reduced()) {
-        st.set(1)
-        st.release()
-        return
-      }
-      void st.run(from, 1, ms).then(() => {
-        if (!closing.current && st.at() >= 1) st.release()
-      })
     }
     const onEnd = (e: TouchEvent) => {
       const was = mode
       mode = null
       if (was !== "edge" && was !== "pull") return
-      holding.current = false
       if (was === "pull") scroller.style.overflowY = overflow
       samples.push([e.timeStamp, offset])
       const v = releaseVelocity(samples)
-      if (was === "edge") {
-        if (shouldComplete(edgeX, W(), v)) {
-          letGo.current = Math.max(0, v)
-          request("edge")
-        } else springBack(320)
+      const shut = was === "edge" ? shouldComplete(edgeX, W(), v) : pullVerdict({ dy: offset, velocity: v, height: H() }) === "close"
+      if (shut) {
+        request(was)
         return
       }
-      if (pullVerdict({ dy: offset, velocity: v, height: H() }) === "close") {
-        letGo.current = Math.max(0, v)
-        request("pull")
-      } else springBack(320)
+      void stage()
+        ?.springBack()
+        .then(() => {
+          if (!closing.current) settle(true)
+        })
     }
     page.addEventListener("touchstart", onStart, { passive: true })
     page.addEventListener("touchmove", onMove, { passive: false })
@@ -435,64 +509,74 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
 
   if (typeof document === "undefined") return null
   return createPortal(
-    <div ref={layerRef} className="pointer-events-none fixed inset-0 z-[130]" data-post-fullscreen="" data-layer-kind="post">
-      {/* Between the community and the sheet: the dim, and the dark edge round the community as it eases back (page-sheet-stage.tsx). */}
-      <SheetBackdrop ref={backdropRef} />
-      <div
-        ref={pageRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-        data-post-overlay="phone"
-        className={`absolute inset-x-0 flex flex-col rounded-t-[12px] bg-white shadow-[0_-8px_28px_-14px_rgba(16,24,40,0.3)] ${open ? "pointer-events-auto" : "pointer-events-none"}`}
-        style={{ top: "var(--vv-top, 0px)", height: "calc(var(--vv-h, 100dvh) - var(--buyer-tabs-h, 0px))" }}
-      >
-        {/* THE SKIRT: the page's white runs on past the screen's foot, under the keyboard and the tab bar, so nothing behind ever shows between the comment box and the keys. */}
-        <div aria-hidden className="absolute inset-x-0 top-full h-[100lvh] bg-white" data-post-skirt="" />
-        <div
-          ref={scrollRef}
-          data-post-overlay-scroll=""
-          data-sheet-scroll=""
-          className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-[12px] [-webkit-overflow-scrolling:touch]"
-        >
-          <div className="flex min-h-full flex-col" style={{ paddingTop: `calc(${SAFE_TOP} + ${BAR_PX}px)` }}>
-            <div ref={contentRef} className="flex min-h-full flex-1 flex-col bg-white" data-post-overlay-phase="">
-              {children}
+    <div ref={layerRef} className="pointer-events-none fixed inset-0 z-[130]" data-post-fullscreen="" data-layer-kind="post" data-post-motion={POST_MOTION}>
+      {/* Over the community: a light dim, nothing else. The community itself never moves, scales or blurs. */}
+      <div ref={scrimRef} aria-hidden className="absolute inset-0 bg-black" style={{ opacity: 0 }} data-post-scrim="" />
+      {/* What a finger moves, and what the sheet, push and fade styles move. */}
+      <div ref={liftRef} className="absolute inset-0" data-post-lift="">
+        {/* THE CONTAINER: four clips, each setting two of its edges and rounding one corner (post-morph.ts), white while it moves. */}
+        <div ref={clip0} className={CLIP} data-clip={CLIPS[0]}>
+          <div ref={clip1} className={CLIP} data-clip={CLIPS[1]}>
+            <div ref={clip2} className={CLIP} data-clip={CLIPS[2]}>
+              <div ref={clip3} className={`${CLIP} [[data-moving]_&]:bg-white`} data-clip={CLIPS[3]}>
+                <div
+                  ref={pageRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label={label}
+                  data-post-overlay="phone"
+                  data-keyboard-own=""
+                  className={`absolute inset-x-0 bottom-0 flex flex-col bg-white ${open ? "pointer-events-auto" : "pointer-events-none"}`}
+                  style={{ top: "var(--post-top, 0px)", paddingBottom: "var(--post-foot, var(--buyer-tabs-h, 0px))" }}
+                >
+                  {/* THE SKIRT: the page's white runs on past the screen's foot, under the keyboard and the tab bar. It clips with the container while it moves, and nothing cuts it at rest. */}
+                  <div aria-hidden className="absolute inset-x-0 top-full h-[100lvh] bg-white" data-post-skirt="" />
+                  <div ref={scrollRef} data-post-overlay-scroll="" data-sheet-scroll="" className="relative min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain [-webkit-overflow-scrolling:touch]">
+                    <div className="flex min-h-full flex-col" style={{ paddingTop: `calc(${SAFE_TOP} + ${BAR_PX}px)` }}>
+                      <div ref={contentRef} className="flex min-h-full flex-1 flex-col bg-white" data-post-overlay-phase="">
+                        {children}
+                      </div>
+                    </div>
+                  </div>
+                  {/* THE TOP: part of the page, so it moves with it and is never a second header over the community's. A soft blur under the status bar once the post scrolls (only once settled: nothing moving carries a blur), and the way back. */}
+                  <div data-post-fullscreen-top="" className="pointer-events-none absolute inset-x-0 top-0 z-[5] overflow-hidden" style={{ height: `calc(${SAFE_TOP} + ${BAR_PX + 18}px)` }}>
+                    <div
+                      ref={blurRef}
+                      aria-hidden
+                      className="absolute inset-0 bg-white/80 [mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [[data-settled]_&]:bg-white/60 [[data-settled]_&]:backdrop-blur-[6px] [[data-settled]_&]:[-webkit-backdrop-filter:blur(6px)]"
+                      style={{ opacity: 0 }}
+                      data-post-fullscreen-blur=""
+                    />
+                    <div className="relative flex items-center" style={{ height: BAR_PX, marginTop: SAFE_TOP }}>
+                      {/* BACK: the circle is 40px; the tap is the whole corner, from the screen's edge across BACK_HIT.width and the bar's height. */}
+                      <button
+                        type="button"
+                        aria-label="Back"
+                        onClick={() => request("back")}
+                        className="group/back pointer-events-auto absolute left-0 top-0 flex touch-manipulation items-center justify-start pl-3 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:[&>span]:ring-2 focus-visible:[&>span]:ring-[#1a1a2e]/20"
+                        style={{ width: BACK_HIT.width, height: BACK_HIT.height }}
+                        data-post-overlay-close=""
+                      >
+                        <span
+                          className="flex items-center justify-center rounded-full border border-[#e6e8eb] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_4px_12px_-6px_rgba(16,24,40,0.18)] transition-[background-color,scale] duration-150 ease-out group-active/back:scale-[0.94] group-active/back:bg-[#f1f2f4] [[data-settled]_&]:bg-white/90 [[data-settled]_&]:backdrop-blur-md"
+                          style={{ width: BACK_CIRCLE, height: BACK_CIRCLE }}
+                        >
+                          <ChevronLeft className="h-[22px] w-[22px] -translate-x-px" strokeWidth={2.2} aria-hidden />
+                        </span>
+                      </button>
+                      <span className="pointer-events-none absolute inset-x-16 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</span>
+                    </div>
+                  </div>
+                </div>
+                {/* Where the copy of the card goes for a container move, over the page (it fades in as the page fades out on a close). */}
+                <div ref={cloneHostRef} aria-hidden className="pointer-events-none absolute inset-0" data-post-clone-host="" />
+              </div>
             </div>
           </div>
         </div>
-        {/* THE TOP: part of the page, so it moves with it and is never a second header over the community's. A soft blur under the status bar once the post scrolls, and the way back. */}
-        <div data-post-fullscreen-top="" className="pointer-events-none absolute inset-x-0 top-0 z-[5] overflow-hidden rounded-t-[12px]" style={{ height: `calc(${SAFE_TOP} + ${BAR_PX + 18}px)` }}>
-          <div
-            ref={blurRef}
-            aria-hidden
-            className="absolute inset-0 bg-white/60 backdrop-blur-[6px] [-webkit-backdrop-filter:blur(6px)] [mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)] [-webkit-mask-image:linear-gradient(to_bottom,#000_40%,rgba(0,0,0,0.6)_70%,transparent)]"
-            style={{ opacity: 0 }}
-            data-post-fullscreen-blur=""
-          />
-          <div className="relative flex items-center" style={{ height: BAR_PX, marginTop: SAFE_TOP }}>
-            {/* BACK: the circle is 40px; the tap is the whole corner, from the screen's edge across BACK_HIT.width and the bar's height. */}
-            <button
-              type="button"
-              aria-label="Back"
-              onClick={() => request("back")}
-              className="group/back pointer-events-auto absolute left-0 top-0 flex touch-manipulation items-center justify-start pl-3 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:[&>span]:ring-2 focus-visible:[&>span]:ring-[#1a1a2e]/20"
-              style={{ width: BACK_HIT.width, height: BACK_HIT.height }}
-              data-post-overlay-close=""
-            >
-              <span
-                className="flex items-center justify-center rounded-full border border-[#e6e8eb] bg-white/90 text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.08),0_4px_12px_-6px_rgba(16,24,40,0.18)] backdrop-blur-md transition-[background-color,scale] duration-150 ease-out group-active/back:scale-[0.94] group-active/back:bg-[#f1f2f4]"
-                style={{ width: BACK_CIRCLE, height: BACK_CIRCLE }}
-              >
-                <ChevronLeft className="h-[22px] w-[22px] -translate-x-px" strokeWidth={2.2} aria-hidden />
-              </span>
-            </button>
-            <span className="pointer-events-none absolute inset-x-16 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</span>
-          </div>
-        </div>
       </div>
-      {/* ?kbdebug=1 (THE KEYBOARD READOUT): hidden unless asked for, and only while a field in the post is typed in. */}
-      <div ref={debugRef} hidden aria-hidden className="pointer-events-none absolute left-2 right-2 z-[10] whitespace-pre rounded-lg bg-[#1a1a2e]/85 px-2.5 py-2 font-mono text-[10.5px] leading-[1.45] text-white" style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }} data-kbdebug="" />
+      {/* THE READOUT (?kbdebug=1, or the long press on the face beside the comment box). */}
+      <div ref={debugRef} hidden aria-hidden className="pointer-events-none absolute left-2 right-2 z-[10] whitespace-pre-wrap rounded-lg bg-[#1a1a2e]/85 px-2.5 py-2 font-mono text-[10.5px] leading-[1.45] text-white" style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }} data-kbdebug="" />
     </div>,
     document.body,
   )

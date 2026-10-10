@@ -6,7 +6,15 @@
  * no DOM and no React, so tests/communities-post15.test.ts and
  * tests/communities-post16.test.ts hold them as they are written.
  *
- * THE MODEL IS iOS's PAGE SHEET (round 16, page-sheet.ts says why). The post
+ * ROUND 17: the opened post grows out of its card and shrinks back into it
+ * (post-morph.ts, drawn by post-stage.ts); its close order is post-morph.ts
+ * morphCloseSteps and its keyboard keyboard-plan.ts. What follows here that
+ * is still used: the pull's and the edge swipe's numbers, the back button,
+ * feedRestore, closedByBrowserSwipe and the iPhone keyboard table.
+ * closeSteps, postBox and dimFor are round 16's, kept as written for its
+ * suite; nothing draws from them now.
+ *
+ * THE MODEL WAS iOS's PAGE SHEET (round 16, page-sheet.ts says why). The post
  * rises from the foot over the community, which eases back and stays where
  * it was; every close (Back, Escape, the browser's Back, a pull, the app's
  * edge swipe) is the same motion in reverse, down. Round 15 pushed it in

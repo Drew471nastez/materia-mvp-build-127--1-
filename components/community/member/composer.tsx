@@ -131,7 +131,7 @@ import type { ComposerSpace, LinkPreview } from "./view-types"
 import { useComposeRequests } from "@/lib/communities/client/compose-intent"
 import { useLayer } from "@/lib/ui/layers"
 import { CLOSE_MS as SHEET_DOWN_MS, OPEN_MS as SHEET_UP_MS } from "./page-sheet"
-import { SheetBackdrop, communityFrame, sheetStage, type SheetStage } from "./page-sheet-stage"
+import { SheetBackdrop, sheetStage, type SheetStage } from "./page-sheet-stage"
 import { feedRestore } from "./post-motion"
 
 export interface ComposerProps {
@@ -710,7 +710,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     if (leaving.current) return
     const end = () => {
       leaving.current = false
-      /* At the move's last frame the community is at its own size: let go of, nothing shows. */
+      /* At the move's last frame: the dim let go of, nothing of the move left. */
       sheetStageRef.current?.release()
       setSheetIn(false)
       setOpen(false)
@@ -735,7 +735,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     if (phone) {
       /*
         THE SAME SHEET, IN REVERSE (round 16, the owner: "when I close it, it doesn't close smoothly"). Down on the spring from
-        wherever the open has got to, the community coming forward behind it (page-sheet.ts). Nothing inside moves on the way:
+        wherever the open has got to, the dim going with it (page-sheet.ts). Nothing inside moves on the way:
         the visible part is frozen where it stood, so the keyboard going down with the screen (the field lets go of the caret
         now, as iOS's own sheets do) moves no field and no toolbar. The feed is put back first, under the covering screen.
       */
@@ -822,8 +822,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   })
 
   /*
-    The phone's screen rises as iOS's page sheet (round 16, page-sheet.ts), from the first frame it is painted in, the
-    community easing back behind it; the same motion as an opened post, so the two read as one family.
+    The phone's screen rises as a sheet (round 16, page-sheet.ts), from the first frame it is painted in, over a light dim.
+    ROUND 17: on the compositor and nothing behind it moving (page-sheet-stage.tsx): the community is no longer eased back.
     NO OVERFLOW LOCK ON <html> ANY MORE. It was `overflow: hidden` on the document while the screen was up, taken off in the
     commit that took the screen away: on iOS that restyled the whole page in the close's last frame (the feed under it
     jumped, "it glitches and flashes things in the community feed"), and iOS keeps a scroll view stuck for a moment after its
@@ -838,7 +838,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     html.style.overscrollBehavior = "none"
     notedScroll.current = window.scrollY
     /* Edit post rises over an opened post, not over the community: only the screen moves then. */
-    const st = el ? sheetStage(el, editing ? null : sheetBackdropRef.current, editing ? null : communityFrame()) : null
+    const st = el ? sheetStage(el, editing ? null : sheetBackdropRef.current) : null
     sheetStageRef.current = st
     /*
       THE FIELD TAKES THE CARET ONCE THE SCREEN HAS ARRIVED. A keyboard that
@@ -857,7 +857,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       st.set(0)
       void st.run(0, 1, SHEET_UP_MS).then(() => {
         if (leaving.current) return
-        /* Arrived: it covers the screen, so the community is let go of (unseen) for as long as it is open. */
+        /* Arrived: it covers the screen; nothing of the move is left running. */
         st.release()
         arrived()
       })
@@ -1313,7 +1313,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       {sheet
         ? createPortal(
             <>
-              {/* Under the screen: the dim, and the dark edge round the community as it eases back (page-sheet-stage.tsx). */}
+              {/* Under the screen: a light dim (page-sheet-stage.tsx). The community behind never moves. */}
               <div className={`pointer-events-none fixed inset-0 ${editing ? "z-[134]" : "z-[124]"}`} data-composer-backdrop="">
                 <SheetBackdrop ref={sheetBackdropRef} />
               </div>

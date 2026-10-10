@@ -93,6 +93,10 @@ export function KeyboardGuard() {
           (active.tagName !== "INPUT" && active.tagName !== "TEXTAREA" && !active.isContentEditable)
         ) return
 
+        /* A surface that places its own field on the keyboard (an opened post, data-keyboard-own) is left as it is: centring its
+           field in its scroller pushed the post half a screen along as the keyboard came up (round 17). */
+        if (active.closest("[data-keyboard-own]")) return
+
         // Find the nearest scrollable ancestor — this correctly targets
         // nested overflow-y-auto containers (e.g. the one-page editor panel)
         // rather than always jumping to the outermost .app-content-scroll.

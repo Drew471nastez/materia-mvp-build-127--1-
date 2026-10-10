@@ -142,8 +142,22 @@ export const isNativePlatform = () => false
 const BUSY_HOOK = () => {
   const orig = Element.prototype.animate
   window.__anims = []
+  /* The main thread's long tasks, to say what (if anything) lands on it while the move runs. */
+  window.__long = []
+  try {
+    new PerformanceObserver((list) => {
+      for (const e of list.getEntries()) window.__long.push({ t: e.startTime, d: e.duration })
+    }).observe({ type: "longtask", buffered: false })
+  } catch {
+    /* No long task timing here. */
+  }
   Element.prototype.animate = function (keyframes, options) {
     const a = orig.call(this, keyframes, options)
+    /*
+      Only the engines' own moving parts: round 16's sheet (the dialog itself) and round 17's clips and lift, or the composer's
+      sheet. A press's tint, or a comment rising inside the page, is not the motion.
+    */
+    if (!this.matches?.('[data-post-overlay="phone"], [data-clip], [data-post-lift], [data-composer="sheet"]')) return a
     const d = typeof options === "number" ? options : options?.duration
     window.__anims.push({ t: performance.now(), d: typeof d === "number" ? d : 0 })
     const ms = window.__busyArmed
@@ -230,7 +244,7 @@ async function record(s, name, act, ms, busy) {
   await sleep(ms)
   await s.cdp.send("Page.stopScreencast")
   s.cdp.off("Page.screencastFrame", onFrame)
-  const notes = await s.p.evaluate(() => ({ anims: window.__anims.map((a) => ({ t: Math.round(a.t - window.__t0), d: a.d })), busy: window.__busyTo ? Math.round(window.__busyTo - window.__busyFrom) : 0, busyAt: window.__busyFrom ? Math.round(window.__busyFrom - window.__t0) : null }))
+  const notes = await s.p.evaluate(() => ({ long: window.__long.filter((l) => l.t + l.d > window.__t0).map((l) => ({ t: Math.round(l.t - window.__t0), d: Math.round(l.d) })), origin: performance.timeOrigin + window.__t0, anims: window.__anims.map((a) => ({ t: Math.round(a.t - window.__t0), d: a.d })), busy: window.__busyTo ? Math.round(window.__busyTo - window.__busyFrom) : 0, busyAt: window.__busyFrom ? Math.round(window.__busyFrom - window.__t0) : null }))
   return { name, frames: frames.slice(Math.max(0, before - 1)), startWall, notes }
 }
 
@@ -241,23 +255,29 @@ async function record(s, name, act, ms, busy) {
 */
 function judgeFrames(seq) {
   const f = seq.frames
-  if (f.length < 2) return { painted: f.length, longestGapMs: null, moving: 0 }
-  const first = f.findIndex((x, i) => i > 0 && x.data !== f[0].data)
-  if (first < 0) return { painted: f.length, longestGapMs: null, moving: 0 }
   const anims = seq.notes.anims
-  const t0 = anims.length ? anims[0].t : 0
+  if (f.length < 2 || !anims.length) return { painted: f.length, longestGapMs: null, moving: 0 }
+  const t0 = anims[0].t
   const motionMs = anims.filter((a) => a.t - t0 < 200).reduce((m, a) => Math.max(m, a.t - t0 + a.d), 0) || 400
-  const start = f[first].ts
-  /* The frame before the first change is the screen at rest; the motion's first visible frame starts the count. */
-  const win = f.filter((x, i) => i >= first && x.ts <= start + motionMs + 20)
+  /* The engine's first animation, in the screencast's clock (both are wall clock milliseconds). */
+  const startAt = seq.notes.origin + t0
+  const first = f.findIndex((x) => x.ts >= startAt)
+  if (first < 0) return { painted: f.length, longestGapMs: null, moving: 0 }
+  /* From the first frame drawn once the move has started to the end of the longest animation started with it. */
+  const from = first
+  const win = f.filter((x, i) => i >= from && x.ts <= startAt + motionMs + 20)
   let longest = 0
   for (let i = 1; i < win.length; i++) longest = Math.max(longest, win[i].ts - win[i - 1].ts)
-  /* And from the last frame in the window to the one after it, if it moved on. */
-  const next = f.find((x) => x.ts > start + motionMs + 20)
+  const next = f.find((x) => x.ts > startAt + motionMs + 20)
   const lastIn = win.at(-1)
   const tail = next && lastIn && next.ts - lastIn.ts < 400 ? next.ts - lastIn.ts : 0
-  const evenGaps = win.slice(1).map((x, i) => Math.round(x.ts - win[i].ts))
-  return { painted: f.length, moving: win.length, motionMs: Math.round(motionMs), longestGapMs: Math.round(Math.max(longest, 0)), tailGapMs: Math.round(tail), gaps: evenGaps, busyMs: seq.notes.busy, busyAt: seq.notes.busyAt, firstAnimAt: anims[0]?.t ?? null }
+  const gaps = win.slice(1).map((x, i) => Math.round(x.ts - win[i].ts))
+  /* How long from the motion being started to its first frame on the screen (a commit, not a gap while moving). */
+  const startLatencyMs = Math.round(f[first].ts - startAt)
+  const at = win.map((x) => Math.round(x.ts - startAt))
+  /* Long tasks on the main thread from the start of the move to its end, relative to its start. */
+  const long = (seq.notes.long || []).map((l) => ({ t: l.t - t0, d: l.d })).filter((l) => l.t + l.d > 0 && l.t < motionMs)
+  return { painted: f.length, moving: win.length, motionMs: Math.round(motionMs), longestGapMs: Math.round(longest), tailGapMs: Math.round(tail), startLatencyMs, gaps, at, long, busyMs: seq.notes.busy, busyAt: seq.notes.busyAt === null ? null : seq.notes.busyAt - t0, firstAnimAt: t0, firstFrame: from }
 }
 
 let reader = null
@@ -327,13 +347,13 @@ async function partFrames() {
     for (const seq of [open, close]) {
       const r = judgeFrames(seq)
       out[seq.name] = r
-      console.log(`  ${seq.name}: ${r.moving} frames while it moves (${r.motionMs}ms), longest gap ${r.longestGapMs}ms, busy loop ${r.busyMs}ms at +${r.busyAt}ms   gaps ${JSON.stringify(r.gaps)}`)
+      console.log(`  ${seq.name}: ${r.moving} frames while it moves (${r.motionMs}ms), longest gap ${r.longestGapMs}ms, first frame ${r.startLatencyMs}ms after the start, busy loop ${r.busyMs}ms from +${r.busyAt}ms   at ${JSON.stringify(r.at)}  long tasks ${JSON.stringify(r.long)}`)
       await contactSheet(seq, `${LABEL}-${seq.name}.png`)
     }
     expect(!s.errors.length, `no page errors (${tag})`, s.errors.slice(0, 3))
     await s.p.close()
   }
-  console.log(JSON.stringify({ label: LABEL, part: "frames", out: Object.fromEntries(Object.entries(out).map(([k, v]) => [k, { ...v, gaps: undefined }])) }))
+  console.log(JSON.stringify({ label: LABEL, part: "frames", out: Object.fromEntries(Object.entries(out).map(([k, v]) => [k, { ...v, gaps: undefined, at: undefined, long: undefined }])) }))
   return out
 }
 

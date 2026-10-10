@@ -6,8 +6,8 @@
  * ===========================================================================
  * Pressing a card opens its post where the member is: on a computer a
  * panel over the feed (the feed stays where it was under a light scrim), on
- * a phone a full screen page pushed in from the right over it, under the tab
- * bar (post-fullscreen.tsx, round 15). The address becomes the post's
+ * a phone a full screen page grown out of the card, under the tab bar
+ * (post-fullscreen.tsx, round 17). The address becomes the post's
  * own (/community/<slug>/post/<id>) without loading a page, so a reload or a
  * shared link lands on the post page; Back, Escape, the close button, a
  * press on the scrim or a pull down on the phone's sheet close it (one step
@@ -54,7 +54,7 @@
  *   never loaded. Now the open counts as finished at the latest
  *   SETTLE_LATEST_MS after it started, whatever happened to the move.
  */
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { SHEET_CLOSE_EASE, SHEET_EASE } from "@/components/ui/bottom-sheet"
@@ -125,14 +125,17 @@ export interface PostOverlayProps {
    */
   history?: boolean
   /**
-   * The card the post was opened from. Round 15: no longer used; on a phone the post is pushed in from the right and never
-   * drawn over the card (post-fullscreen.tsx), so there is nothing to grow from or land on. Kept so callers need no change.
+   * The card the post was opened from (round 17): on a phone the post grows out of it and shrinks back into it
+   * (post-fullscreen.tsx, post-morph.ts). Without one, or with one off the screen, it fades.
    */
   origin?: () => HTMLElement | null
 }
 
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
+const noSubscribe = () => () => {}
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true, origin }: PostOverlayProps) {
   const phone = usePhone()
+  /* False on the server and while hydrating, true on every client render after (no mismatch for a post opened as the page loads). */
+  const client = useSyncExternalStore(noSubscribe, () => true, () => false)
   const [post, setPost] = useState(given)
   /* "in" while it arrives, "shown" once it has, "out" from the moment it starts to leave. */
   const [phase, setPhase] = useState<"in" | "shown" | "out">("in")
@@ -165,7 +168,17 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     hear the address change), and that work belongs after the slide, not in
     its first frames.
   */
-  useHistoryLayer(history, close, postPath(slug, given), open)
+  /*
+    ROUND 17: ON A PHONE THE ADDRESS MOVES ONCE THE POST HAS ARRIVED. Pushing it on the first frame woke the router, and
+    everything that reads the address (the community's frame, its place host) drew again in a transition that landed in the
+    middle of the open (two 100ms tasks at 4x CPU, the move stopped for them; scripts/check-communities-post17.mjs). A post
+    closed before it arrived pushes nothing and steps back over nothing. A computer's panel keeps the address at once.
+  */
+  const [historyReady, setHistoryReady] = useState(!phone)
+  useEffect(() => {
+    if (phase === "shown") setHistoryReady(true)
+  }, [phase])
+  useHistoryLayer(history && historyReady, close, postPath(slug, given), open)
 
   /* The comments are asked for now, while the post slides in; they are drawn once it has. */
   useEffect(() => {
@@ -220,18 +233,16 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
     drawn on the push's second frame, inside the page while it slides, and arrive with it: no fade, nothing late. A computer's
     panel still waits (its first frames are the panel's own, close to the eye).
   */
-  const [drawComments, setDrawComments] = useState(false)
+  /*
+    ROUND 17: DRAWN BEFORE IT MOVES. The comments (and their box) are drawn in the same commit as the post on a phone, and the
+    move waits for them to be read (prepare, at most post-morph.ts PREPARE_CAP_MS), so nothing is drawn while it moves: round
+    16 drew them on the move's second frame, and its open stopped part way up (scripts/check-communities-post17.mjs).
+  */
+  const [drawComments, setDrawComments] = useState(phone)
   useEffect(() => {
-    if (!phone) return
-    let b = 0
-    const a = requestAnimationFrame(() => {
-      b = requestAnimationFrame(() => setDrawComments(true))
-    })
-    return () => {
-      cancelAnimationFrame(a)
-      cancelAnimationFrame(b)
-    }
+    if (phone) setDrawComments(true)
   }, [phone])
+  const prepare = useCallback(() => readAheadComments(given.communityId, given.id), [given.communityId, given.id])
   /* THE COMMENTS ALWAYS COME: arrived at the latest after SETTLE_LATEST_MS, whatever happened to the move. */
   useEffect(() => {
     const t = window.setTimeout(() => setPhase((p) => (p === "in" ? "shown" : p)), SETTLE_LATEST_MS)
@@ -300,9 +311,10 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   /* Drawn once per change of the post, not once per step of the slide. */
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const drawn = useMemo(() => renderPost(post, local, onComment), [post, local, onComment])
-  if (typeof document === "undefined") return null
+  /* Never drawn by the server, nor while the page hydrates (a shared link's page opens it as it loads): drawn on the first client render after. */
+  if (!client) return null
 
-  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled || drawComments} withPage={phone && drawComments} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
+  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} origin={origin} prepare={prepare} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled || drawComments} withPage={phone && drawComments} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
 }
 
 /*
@@ -341,14 +353,16 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, withPage, 
   )
 })
 
-function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
+function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, origin, prepare, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; origin?: () => HTMLElement | null; prepare?: () => Promise<unknown>; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
   if (phone) {
-    /* A phone: a full screen page pushed in from the right, over the feed and under the tab bar (post-fullscreen.tsx, round 15). */
+    /* A phone: a full screen page grown out of its card and shrunk back into it (post-fullscreen.tsx, round 17). */
     return (
       <PostFullscreen
         open={open}
         label={post.title || "Post"}
         title={post.space?.name ?? "Post"}
+        origin={origin}
+        prepare={prepare}
         onRequestClose={close}
         onShown={() => setPhase((p) => (p === "in" ? "shown" : p))}
         /* The post and its comments are taken down, and the history step given back, once the morph is over and the page is idle. */
