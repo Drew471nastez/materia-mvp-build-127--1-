@@ -229,9 +229,10 @@ function main() {
     console.log("\n  the live page resolves its blocks, every render")
 
     const route = strip(read("app/(marketing)/l/[slug]/page.tsx"))
-    check("the OnePage route reads the products", /withLiveProducts\(/.test(route))
+    /* Through liveBlocksFor: withLiveProducts once per request for the metadata and the body (lib/onepage/published-page.ts). */
+    check("the OnePage route reads the products", /liveBlocksFor\(/.test(route) && /withLiveProducts\(/.test(strip(read("lib/onepage/published-page.ts"))))
     check("and puts the answer back into the blocks it draws",
-      /transformedOnepage\.blocks = await withLiveProducts\(/.test(route))
+      /transformedOnepage\.blocks = await liveBlocksFor\(/.test(route))
     check("on a route that is not cached, so a delete shows at once", /export const dynamic = "force-dynamic"/.test(route))
     check("the handle's address draws the same route, so it is fixed too",
       /import PublicOnePageRoute/.test(read("app/(marketing)/[sellername]/links/page.tsx")))

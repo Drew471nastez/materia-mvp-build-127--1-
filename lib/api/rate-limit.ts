@@ -126,33 +126,48 @@ export async function rateLimit(options: RateLimitOptions): Promise<NextResponse
   try {
     const admin = createAdminClient()
 
-    for (const subject of subjects) {
-      for (const window of options.windows) {
+    /*
+      EVERY WINDOW COUNTED AT ONCE. Each count is its own question and none
+      needs another's answer, so they are asked together: a limit with two
+      windows (most of them) answered one round trip sooner, on every
+      limited route (lib/perf/optimizations.ts). The answers are then read in
+      the order they were always asked, so the first failure or the first
+      window over its limit decides exactly as it did one after another.
+    */
+    const asks = subjects.flatMap((subject) =>
+      options.windows.map((window) => {
         const since = new Date(Date.now() - window.seconds * 1000).toISOString()
-        const { count, error } = await admin
-          .from("rate_limit_hits")
-          .select("id", { count: "exact", head: true })
-          .eq("bucket", options.bucket)
-          .eq("subject", subject)
-          .gte("created_at", since)
+        return Promise.resolve(
+          admin
+            .from("rate_limit_hits")
+            .select("id", { count: "exact", head: true })
+            .eq("bucket", options.bucket)
+            .eq("subject", subject)
+            .gte("created_at", since),
+        ).then(
+          (answer) => ({ window, count: answer.count, error: answer.error as { message: string } | null }),
+          (thrown: unknown) => ({ window, count: null, error: { message: thrown instanceof Error ? thrown.message : String(thrown) } }),
+        )
+      }),
+    )
+    const answers = await Promise.all(asks)
+    for (const { window, count, error } of answers) {
+      /* Table missing, permissions wrong, database unreachable: allow. */
+      if (error) {
+        console.error(`[rate-limit] ${options.bucket}: counting failed, allowing (${error.message})`)
+        return null
+      }
 
-        /* Table missing, permissions wrong, database unreachable: allow. */
-        if (error) {
-          console.error(`[rate-limit] ${options.bucket}: counting failed, allowing (${error.message})`)
-          return null
-        }
-
-        if ((count ?? 0) >= window.limit) {
-          /*
-            The refusal is NOT recorded. Counting a rejected request would
-            extend the block every time somebody retried, so a person who hit
-            the limit once could never get back under it.
-          */
-          return NextResponse.json(
-            { error: options.message ?? "Too many requests just now. Try again shortly." },
-            { status: 429, headers: { "Retry-After": String(window.seconds) } },
-          )
-        }
+      if ((count ?? 0) >= window.limit) {
+        /*
+          The refusal is NOT recorded. Counting a rejected request would
+          extend the block every time somebody retried, so a person who hit
+          the limit once could never get back under it.
+        */
+        return NextResponse.json(
+          { error: options.message ?? "Too many requests just now. Try again shortly." },
+          { status: 429, headers: { "Retry-After": String(window.seconds) } },
+        )
       }
     }
 

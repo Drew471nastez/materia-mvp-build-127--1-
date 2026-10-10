@@ -33,6 +33,8 @@ import { createClient } from "@/lib/supabase/server"
 import { productTag, creatorTag } from "@/lib/commerce/product-page-cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { queueProductFanout } from "@/lib/notifications/fanout"
+import { creatorShopTag } from "@/lib/website-builder/published-site"
+import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 
 export async function POST(request: NextRequest) {
   try {
@@ -95,6 +97,16 @@ export async function POST(request: NextRequest) {
      * the second one left the address people actually use serving the copy
      * from before the save.
      */
+    /*
+      And the two caches every visitor shares: the creator's website shop
+      (its cards, product pages and collections, lib/website-builder/
+      published-site.ts) and Explore's catalogue (lib/explore/catalogue-cache.ts).
+      Both were left to their minute because no route told them about a
+      save; this is the route the editor calls after every save.
+    */
+    revalidateTag(creatorShopTag(owned.creator_id), "max")
+    exploreCatalogueChanged()
+
     revalidatePath(`/p/${slug}`)
     if (typeof handle === "string" && handle.trim()) {
       revalidatePath(`/${handle.trim().toLowerCase()}/${slug}`)

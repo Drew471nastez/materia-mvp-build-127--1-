@@ -116,7 +116,8 @@ console.log("\nproxy.ts serves each purpose")
 {
   const proxy = code("proxy.ts")
   check("it reads what a domain is for, and asks again the old way on an old database",
-    /\.select\("creator_id, status, purpose, is_primary"\)/.test(proxy) && /\.select\("creator_id, status"\)/.test(proxy))
+    /* The creator rides along as an embed on custom_domains.creator_id, which saves a round trip (lib/perf/optimizations.ts). */
+    /\.select\("creator_id, status, purpose, is_primary, creator:creators \( user_id \)"\)/.test(proxy) && /\.select\("creator_id, status, creator:creators \( user_id \)"\)/.test(proxy))
   check("a domain that is not primary sends every page to the one that is",
     /if \(connected\.redirectTo && !isApiCall && !isReservedPath\(pathname\)\)/.test(proxy) && /NextResponse\.redirect\(to, \{ status: 308 \}\)/.test(proxy) && /\.eq\("is_primary", true\)\s*\.eq\("status", "active"\)/.test(proxy))
   check("only a bare apex is sent to www; a connected subdomain is its own address",

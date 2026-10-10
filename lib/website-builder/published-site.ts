@@ -765,6 +765,16 @@ async function siteNames(creatorId: string): Promise<string[]> {
  * tag, so it changes when somebody publishes. A preview or a cover is one
  * person's view of unpublished work and reads everything directly.
  */
+/**
+ * The admin client for a read that is about to be cached: a failed read
+ * throws rather than coming back empty, so a database that blinked is never
+ * held for an hour as "this site has no section files".
+ */
+function failingLoudly() {
+  const admin = createAdminClient()
+  return { from: (table: string) => ({ select: (columns: string) => admin.from(table).select(columns).throwOnError() }) }
+}
+
 export async function ownerOf(
   creatorId: string,
   installId: string,
@@ -776,7 +786,10 @@ export async function ownerOf(
   const readProducts = () => shopProducts(createAdminClient() as never, creatorId)
   const readCount = () => publishedProductCount(createAdminClient() as never, creatorId)
   const [sources, profile, products, productCount] = await Promise.all([
-    sectionSources(admin as never, installId),
+    /* The saved section files go live on Publish (theme-file-drafts.ts), so the live page holds them with the site, as buildSite does. */
+    opts.cached
+      ? unstable_cache(() => sectionSources(failingLoudly() as never, installId), ["section-sources", installId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
+      : sectionSources(admin as never, installId),
     opts.cached
       ? unstable_cache(readProfile, ["creator-facts", creatorId], { tags: [creatorSiteTag(creatorId)], revalidate: SITE_TTL })()
       : readProfile(),

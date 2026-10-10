@@ -101,7 +101,10 @@ section("Who is signed in: asked once per request")
      the row that client returned, by its id. */
   check("the creator row it shares is read on the caller's own client, by their own user id; the service role only adds its private columns",
     /creatorForRequest = cache\(async \(userId: string\)[\s\S]{0,200}const supabase = await createClient\(\)[\s\S]{0,200}\.from\("creators"\)\.select\(SHELL_CREATOR_COLUMNS\)\.eq\("user_id", userId\)/.test(scope)
-      && /if \(!data\) return null[\s\S]{0,120}createAdminClient\(\)[\s\S]{0,60}\.select\(SHELL_PRIVATE_CREATOR_COLUMNS\)[\s\S]{0,40}\.eq\("id", \(data as \{ id: string \}\)\.id\)/.test(scope)
+      /* Round 18: both halves are asked at once, the private one by the same signed in user's id
+         (creators.user_id is unique, so it is the same row), and it is used only when the caller's
+         own client returned the row (lib/perf/optimizations.ts). */
+      && /createAdminClient\(\)\.from\("creators"\)\.select\(SHELL_PRIVATE_CREATOR_COLUMNS\)\.eq\("user_id", userId\)\.maybeSingle\(\),\s*\]\)\s*if \(!data\) return null/.test(scope)
       && (scope.match(/createAdminClient\(\)/g) || []).length === 1)
   {
     const cols = (name: string) => (scope.match(new RegExp(`const ${name} =\\s*"([^"]+)"`)) || [])[1]?.split(",").map((c) => c.trim()) ?? []

@@ -7,7 +7,7 @@ import { dressPage, publishedShopByName, siteCatalogue } from "@/lib/website-bui
 import { getMainDomain } from "@/lib/url-helpers"
 import { collectionSections } from "@/lib/website-builder/shop-page"
 import { catalogPage } from "@/lib/products/catalog-filters"
-import { productsInCollection } from "@/lib/physical/collections-server"
+import { collectionMembers } from "@/lib/website-builder/collection-members"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { MAX_PICKED_PRODUCTS, pickedProducts } from "@/lib/website-builder/storefront-data-server"
 import { siteMetadata } from "../../render-site"
@@ -54,7 +54,8 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
   const { site, products, productCount } = found
-  const inIt = await productsInCollection(createAdminClient(), site.creatorId, handle).catch(() => null)
+  /* Held with the shop for its minute (lib/website-builder/collection-members.ts). */
+  const inIt = await collectionMembers(site.creatorId, handle)
   if (!inIt) notFound()
 
   /*

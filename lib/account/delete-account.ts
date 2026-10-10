@@ -1,6 +1,7 @@
 import "server-only"
 
 import { randomBytes } from "node:crypto"
+import { exploreCatalogueTakenDown } from "@/lib/explore/catalogue-cache"
 
 /**
  * ===========================================================================
@@ -223,6 +224,8 @@ export async function deleteAccount(admin: Admin, userId: string, by: "self" | "
       /* ── Retired: the store closes, the records stay ──────────────────── */
       await step("products archived", () => admin.from("products").update({ status: "archived", archived: true }).eq("creator_id", creatorId))
       await step("products archived (older database)", () => admin.from("products").update({ status: "archived" }).eq("creator_id", creatorId).neq("status", "archived"))
+      /* Off Explore's shared catalogue now, not in a minute (lib/explore/catalogue-cache.ts). */
+      exploreCatalogueTakenDown()
       await step("coupons ended", () => admin.from("coupons").update({ active: false }).eq("creator_id", creatorId))
       await step("store closed", () => admin.from("creators").update({ store_published: false }).eq("id", creatorId))
       await step("store renamed", () =>

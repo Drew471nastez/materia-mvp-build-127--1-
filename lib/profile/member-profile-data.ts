@@ -1,7 +1,7 @@
+import { publicProfileByName } from "@/lib/profile/profile-by-name"
 import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { readPublicRow } from "@/lib/security/public-rows"
 import { loadCreatorForUser } from "@/lib/commerce/creator-page-data"
 import { hasActiveStorefront } from "@/lib/profile/member-url"
 import { withPriceIntervals } from "@/lib/memberships/intervals"
@@ -132,7 +132,8 @@ export async function ownCover(admin: ReturnType<typeof createAdminClient>, user
 
 export const loadMemberProfile = cache(async (username: string): Promise<MemberProfileData | null> => {
   try {
-  const profile = await readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
+  /* The exact name first, which the username index answers (lib/profile/profile-by-name.ts). */
+  const profile = await publicProfileByName(await createClient(), username)
   if (!profile?.id || !profile.username) return null
   const creator = await loadCreatorForUser(profile.id)
   const storefront = hasActiveStorefront(creator) && creator?.id
