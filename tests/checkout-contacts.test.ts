@@ -134,7 +134,8 @@ async function main() {
   console.log("\nEvery checkout goes through here")
   const routes: Array<[string, string, RegExp]> = [
     ["a paid checkout (the webhook and the browser)", "lib/checkout/fulfil-payment.ts", /basis: m\.email_opt_in === "true" \? "ticked" : "none"/],
-    ["a basket on a creator's site", "lib/checkout/fulfil-cart-item.ts", /basis: "none"/],
+    /* Changed on purpose (round T): "none" unless the physical checkout's news box was ticked (Settings › Checkout). */
+    ["a basket on a creator's site", "lib/checkout/fulfil-cart-item.ts", /basis: "ticked" \| "none" = "none"\) \{[\s\S]*?\n    basis,\n/],
     ["a free claim", "app/api/checkout/process/route.ts", /basis: body\.emailOptIn === true \? "ticked" : "none"/],
     ["a OnePage free download", "app/api/checkout/quick-free/route.ts", /basis: "notice"/],
     ["an older Stripe session", "app/api/stripe/webhook/route.ts", /basis: metadata\.email_opt_in === "true" \? "ticked" : "none"/],
@@ -163,7 +164,7 @@ async function main() {
   }
 
   const session = read("app/api/checkout/stripe-session/route.ts")
-  check("the start and a ticked box are written after the answer, so Pay is not slower", /after\(async \(\) => \{\s*await recordCheckoutStart\(/.test(session) && /if \(optedIn\) \{\s*await recordCheckoutContact(AndWelcome)?\(/.test(session))
+  check("the start and a ticked box are written after the answer, so Pay is not slower", /* Changed on purpose (round T): written only while the store sends checkout reminders. */ /after\(async \(\) => \{[\s\S]{0,200}?if \(checkoutConfig\.abandonedRecovery\) await recordCheckoutStart\(/.test(session) && /if \(optedIn\) \{\s*await recordCheckoutContact(AndWelcome)?\(/.test(session))
   const contactSrc = read("lib/contacts/checkout-contact.ts")
   check("the contact module logs a code and nothing else", !/console\.[a-z]+\([^)]*email/.test(contactSrc) && /note\("could not insert", error\.code\)/.test(contactSrc))
 

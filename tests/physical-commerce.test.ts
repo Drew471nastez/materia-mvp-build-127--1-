@@ -379,7 +379,8 @@ console.log("\nThe switch, in the app")
   check("Collections are not behind the switch: any kind of product, any shop", !/requirePhysicalPage/.test(code("app/app/products/collections/page.tsx")) && !/isPhysicalCommerceEnabled/.test(code("app/app/products/collections/page.tsx")) && /shopCaller\(\)/.test(code("app/api/collections/route.ts")) && !/physicalCaller/.test(code("app/api/collections/[id]/route.ts")))
   const settings = code("components/app/settings-form-new.tsx")
   // Changed on purpose: Shipping and the new Integrations section both follow the switch (COMMERCE_TABS).
-  check("Settings shows the Shipping and Integrations tabs only while it is on", /const COMMERCE_TABS = new Set<string>\(\["shipping", "integrations"\]\)/.test(settings) && /TABS\.filter\(\(tab\) => !COMMERCE_TABS\.has\(tab\.id\) \|\| physicalCommerce\)/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings \/>/.test(settings) && /panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace \/>/.test(settings))
+  /* Changed on purpose (round T): Shipping's parts are sections of their own, all behind the switch. */
+  check("Settings shows Shipping, Locations, Taxes, Returns and Integrations only while it is on", /const COMMERCE_TABS = new Set<string>\(\["shipping", "locations", "returns", "taxes", "integrations"\]\)/.test(settings) && /TABS\.filter\(\(tab\) => !COMMERCE_TABS\.has\(tab\.id\) \|\| physicalCommerce\)/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" \/>/.test(settings) && /panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace \/>/.test(settings))
   for (const page of ["app/app/inventory/page.tsx", "app/checkout/physical/page.tsx"]) {
     check(`${page} is a 404 while it is off`, /await requirePhysicalPage\(\)/.test(code(page)))
   }
