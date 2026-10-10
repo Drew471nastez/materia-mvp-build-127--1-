@@ -20,7 +20,7 @@
 import * as React from "react"
 import { ChevronDown, ChevronUp, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, TextInput, api } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { FALLBACK_REASON, MAX_REASONS, type Reason, type ReasonKind } from "@/lib/store/reasons"
 import { forgetReasons } from "@/lib/store/use-reasons"
 
@@ -40,7 +40,7 @@ const COPY: Record<ReasonKind, { title: string; description: string; empty: stri
 }
 
 export function ReasonsPanel({ kinds }: { kinds: ReasonKind[] }) {
-  const [lists, setLists] = React.useState<Lists | null>(null)
+  const [lists, setLists] = React.useState<Lists | null>(() => peekGet<Lists>("/api/store/reasons"))
   const [error, setError] = React.useState<string | null>(null)
 
   React.useEffect(() => {

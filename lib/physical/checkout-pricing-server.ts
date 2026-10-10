@@ -21,7 +21,7 @@ import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
-import { loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
+import { defaultPackageGrams, loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
 import { methodOf, readMethod } from "./fulfillment"
 import { isPickupOptionId, pickupOptions } from "./pickup"
 import { quoteDelivery, pickOption, type Quote } from "./rates"
@@ -380,7 +380,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
     if (!address?.country) {
       quote = { ok: true, required: true, options: [] }
     } else {
-      const profiles = await loadProfiles(db, priced.creatorId)
+      const [profiles, packageGrams] = await Promise.all([loadProfiles(db, priced.creatorId), defaultPackageGrams(db, priced.creatorId)])
       quote = quoteDelivery(
         profiles,
         priced.lines.map((l) => ({
@@ -391,6 +391,8 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
           requiresShipping: l.requiresShipping,
         })),
         { country: address.country, region: address.region ?? null },
+        undefined,
+        { packageGrams },
       )
     }
   }

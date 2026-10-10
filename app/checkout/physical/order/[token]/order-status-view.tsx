@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { OrderHelp } from "@/components/support/order-help"
 import { Check, Download, ExternalLink, MapPin, Package, RefreshCw, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
@@ -13,7 +14,9 @@ interface Props {
   justPaid: boolean
   /** The store's return reasons (Settings › Returns and refunds), as the buyer reads them. */
   reasons?: { value: string; label: string }[]
-  shop: { name: string; avatar: string | null; email: string | null }
+  shop: { name: string; avatar: string | null; email: string | null; phone?: string | null; websiteUrl?: string | null }
+  /** Get help with this order (lib/support/cases.ts): the open case when there is one; absent when cases aren't switched on. */
+  help?: { openCase: { link: string; status: string } | null } | null
   order: {
     id: string
     status: string
@@ -65,7 +68,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
   )
 }
 
-export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons }: Props) {
+export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help }: Props) {
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
@@ -88,7 +91,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
         <div className="mx-auto flex h-16 max-w-[760px] items-center gap-2.5 px-4 sm:px-6">
           {shop.avatar ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={shop.avatar} alt="" className="h-8 w-8 rounded-full border border-[#e5e7eb] object-cover" />
+            <img src={shop.avatar} alt="" className="h-8 w-auto max-w-[120px] rounded-md object-contain" />
           ) : null}
           <span className="truncate text-[17px] font-semibold text-[#1a1a2e]">{shop.name}</span>
         </div>
@@ -240,8 +243,13 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
 
         {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} reasons={reasons && reasons.length ? reasons : REASONS.map(([value, label]) => ({ value, label }))} /> : null}
 
-        <p className="pt-2 text-center text-[13px] text-[#6b7280]">
+        {help ? <OrderHelp kind="physical" token={token} storeName={shop.name} openCase={help.openCase} /> : null}
+
+        {/* How to reach the store, every way it gave: Settings › Store details (lib/store/identity-server.ts). */}
+        <p className="pt-2 text-center text-[13px] leading-[20px] text-[#6b7280]" data-order-contact="">
           Questions? {shop.email ? <a href={`mailto:${shop.email}`} className="font-medium text-[#1a1a2e] underline underline-offset-4">Email {shop.name}</a> : "Reply to your order email."}
+          {shop.phone ? <> · <a href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`} className="font-medium text-[#1a1a2e] underline underline-offset-4">{shop.phone}</a></> : null}
+          {shop.websiteUrl ? <> · <a href={shop.websiteUrl} className="font-medium text-[#1a1a2e] underline underline-offset-4">Visit the store</a></> : null}
         </p>
       </div>
     </main>

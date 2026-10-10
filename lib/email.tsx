@@ -9,7 +9,7 @@
  */
 
 import { loadBrand } from "@/lib/email-campaigns/brand-server"
-import { emailImageSrc, senderPicture } from "@/lib/email-campaigns/sender"
+import { emailImageSrc, senderPicture, type SenderPicture } from "@/lib/email-campaigns/sender"
 import { buyerReceiptEmailHtml, buyerReceiptEmailText, type ReceiptEmailModel } from "@/lib/receipts/email"
 import { sendEmail, buildFromHeader, isSmtpConfigured, EMAIL_FROM, EMAIL_REPLY_TO } from "./mail"
 import { creatorTimeZone, formatForCreator } from "@/lib/account/time-zone"
@@ -442,6 +442,11 @@ async function receiptEmailModel(
   const { loadReceiptByToken } = await import("@/lib/receipts/load")
   /* The creator's photo and logo as their campaigns read them, so the receipt shows the same one picture. */
   const brand = params.creatorId ? await loadBrand(admin, params.creatorId).catch(() => null) : null
+  /* A logo set in Settings › Store details is the store's choice for receipts: it goes first, over the photo. */
+  const storeLogo = params.creatorId
+    ? await import("@/lib/store/identity-server").then(({ storeIdentity }) => storeIdentity(admin, params.creatorId as string)).then((s) => (s.logoFrom === "store" ? s.logoUrl : null)).catch(() => null)
+    : null
+  const pictureOf = (photo: unknown): SenderPicture | null => (storeLogo ? senderPicture({ logoUrl: storeLogo }) : null) ?? senderPicture({ photoUrl: photo, logoUrl: brand?.logoUrl })
   const { formatMoney, orderNumberOf } = await import("@/lib/receipts/rules")
   const dateOf = (iso: string) => {
     try {
@@ -473,7 +478,7 @@ async function receiptEmailModel(
       firstName: v.buyer.firstName || params.buyerFirstName,
       sellerName: v.seller.name || params.sellerName,
       /* Both read profiles.avatar_url; the loader's is the one to hand when the brand could not be read. */
-      sellerPicture: senderPicture({ photoUrl: brand?.avatarUrl ?? v.seller.avatarUrl, logoUrl: brand?.logoUrl }),
+      sellerPicture: pictureOf(brand?.avatarUrl ?? v.seller.avatarUrl),
       orderNumber: v.number,
       dateText: dateOf(v.createdAt),
       items: v.items.map((i) => ({
@@ -500,7 +505,7 @@ async function receiptEmailModel(
   return {
     firstName: params.buyerFirstName,
     sellerName: params.sellerName,
-    sellerPicture: senderPicture({ photoUrl: brand?.avatarUrl, logoUrl: brand?.logoUrl }),
+    sellerPicture: pictureOf(brand?.avatarUrl),
     orderNumber: orderNumberOf(params.fallback.orderId),
     dateText: dateOf(new Date().toISOString()),
     items: [{ title: params.fallback.productTitle, variantName: params.fallback.variantName ?? null, amountText, note: null }],

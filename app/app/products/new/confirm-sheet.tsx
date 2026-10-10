@@ -49,7 +49,11 @@ export interface ConfirmQuestion {
   cancel: string
   /** Near black either way (never red, never violet): the words say what it does. */
   tone?: "critical" | "default"
+  /** A third way, like "Don't save" beside Save and Stay: a quiet button of its own. */
+  alt?: string
 }
+
+export type ConfirmAnswer = boolean | "alt"
 
 /* The button that throws work away: near black with the same depth as the bar's buttons, not an alarm red. */
 const destructiveDepth = cn(
@@ -74,7 +78,7 @@ export function ConfirmSheet({
 }: {
   /** Null while closed. */
   question: ConfirmQuestion | null
-  onAnswer: (yes: boolean) => void
+  onAnswer: (yes: ConfirmAnswer) => void
 }) {
   const phone = usePhone()
   const open = question !== null
@@ -108,6 +112,11 @@ export function ConfirmSheet({
           <button type="button" data-confirm="" onClick={() => onAnswer(true)} className={cn(doIt, "h-12 min-w-0 rounded-xl text-[16px]")}>
             {q.confirm}
           </button>
+          {q.alt ? (
+            <button type="button" data-confirm-alt="" onClick={() => onAnswer("alt")} className="col-span-2 h-11 rounded-xl text-[15px] font-medium text-[#4b5563] active:bg-[#f3f4f6]">
+              {q.alt}
+            </button>
+          ) : null}
         </div>
       </BottomSheet>
     )
@@ -127,6 +136,11 @@ export function ConfirmSheet({
             <AlertDialogPrimitive.Description className="mt-1 text-[14px] leading-[1.5] text-[#6b7280]">{q.body}</AlertDialogPrimitive.Description>
           </div>
           <div className="flex justify-end gap-2 border-t border-[#eceef1] px-5 py-3">
+            {q.alt ? (
+              <button type="button" data-confirm-alt="" onClick={() => onAnswer("alt")} className="mr-auto h-8 rounded-lg px-2 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">
+                {q.alt}
+              </button>
+            ) : null}
             <AlertDialogPrimitive.Cancel className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
               {q.cancel}
             </AlertDialogPrimitive.Cancel>
@@ -146,22 +160,24 @@ export function ConfirmSheet({
  * shape: `if (!(await ask({...}))) return`. A second question while one is
  * open answers the first with no.
  */
-export function useConfirm(): [(q: ConfirmQuestion) => Promise<boolean>, React.ReactElement] {
+export function useConfirm(): [(q: ConfirmQuestion) => Promise<boolean>, React.ReactElement, (q: ConfirmQuestion) => Promise<ConfirmAnswer>] {
   const [question, setQuestion] = React.useState<ConfirmQuestion | null>(null)
-  const settle = React.useRef<((yes: boolean) => void) | null>(null)
-  const ask = React.useCallback((q: ConfirmQuestion) => {
+  const settle = React.useRef<((yes: ConfirmAnswer) => void) | null>(null)
+  /* Three ways out (confirm, alt, cancel), for a question with a third button. */
+  const choose = React.useCallback((q: ConfirmQuestion) => {
     settle.current?.(false)
     setQuestion(q)
-    return new Promise<boolean>((resolve) => {
+    return new Promise<ConfirmAnswer>((resolve) => {
       settle.current = resolve
     })
   }, [])
-  const onAnswer = React.useCallback((yes: boolean) => {
+  const ask = React.useCallback((q: ConfirmQuestion) => choose({ ...q, alt: undefined }).then((a) => a === true), [choose])
+  const onAnswer = React.useCallback((yes: ConfirmAnswer) => {
     const resolve = settle.current
     settle.current = null
     setQuestion(null)
     resolve?.(yes)
   }, [])
   React.useEffect(() => () => settle.current?.(false), [])
-  return [ask, <ConfirmSheet key="confirm" question={question} onAnswer={onAnswer} />]
+  return [ask, <ConfirmSheet key="confirm" question={question} onAnswer={onAnswer} />, choose]
 }

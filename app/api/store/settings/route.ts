@@ -3,6 +3,7 @@ import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
 import { recordActivity } from "@/lib/activity/log-server"
+import { storeIdentity } from "@/lib/store/identity-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -17,11 +18,13 @@ export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
   const db = c.db
-  const [settings, h, creator, account] = await Promise.all([
+  const [settings, h, creator, account, fallback] = await Promise.all([
     loadStoreSettings(c.db, c.creatorId),
     headers(),
     db.from("creators").select("support_email, payout_currency, display_name, username").eq("id", c.creatorId).maybeSingle(),
     db.auth.admin.getUserById(c.userId).catch(() => null),
+    /* What receipts show when no store logo is set: the website's logo, else the person's photo. */
+    storeIdentity(db, c.creatorId, { skipStoreLogo: true }).catch(() => null),
   ])
   /*
     WHAT TO START FROM WHEN NOTHING IS SAVED YET: the name the store already
@@ -34,7 +37,7 @@ export async function GET() {
     storeName: (row?.display_name || row?.username || "").trim().slice(0, 80) || null,
     contactEmail: account?.data?.user?.email ?? null,
   }
-  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: row?.payout_currency ?? null, suggested })
+  return physicalJson({ settings, detectedCountry: detectedCountry(h), supportEmail: row?.support_email ?? null, currency: row?.payout_currency ?? null, suggested, logoDefault: fallback?.logoUrl ? { url: fallback.logoUrl, from: fallback.logoFrom } : null })
 }
 
 export async function PUT(request: Request) {

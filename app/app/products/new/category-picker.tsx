@@ -38,7 +38,7 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { hapticTap } from "@/lib/native-bridge"
-import { CATEGORY_GROUPS, groupOfCategory, searchCategories } from "@/lib/products/category-groups"
+import { categoryGroupsFor, groupOfCategory, searchCategories, type CategoryKind } from "@/lib/products/category-groups"
 import { cn } from "@/lib/utils"
 
 function reducedMotion() {
@@ -64,7 +64,8 @@ const rowKey = (r: Row) => (r.kind === "group" ? `g:${r.name}` : r.kind === "bac
  * Where the list is, what is in it, which row the keys are on, and the slide
  * between levels. Shared by the dropdown and the sheet.
  */
-function useCategoryBrowser({ suggested, onPick }: { suggested: string | null; onPick: (category: string) => void }) {
+function useCategoryBrowser({ suggested, onPick, kind = "digital" }: { suggested: string | null; onPick: (category: string) => void; kind?: CategoryKind }) {
+  const GROUPS = categoryGroupsFor(kind)
   const [level, setLevel] = useState<Level>({ group: null, query: "" })
   const [active, setActive] = useState(-1)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -74,18 +75,18 @@ function useCategoryBrowser({ suggested, onPick }: { suggested: string | null; o
   levelRef.current = level
 
   const query = level.query.trim()
-  const found = useMemo(() => (query ? searchCategories(query) : null), [query])
+  const found = useMemo(() => (query ? searchCategories(query, kind) : null), [query, kind])
   const levelKey = query ? "search" : level.group ?? ""
 
   const rows = useMemo<Row[]>(() => {
     let list: Row[]
-    if (found) list = (found.length ? found : ["Other"]).map((c) => ({ kind: "option", category: c, detail: groupOfCategory(c) }))
+    if (found) list = (found.length ? found : [kind === "physical" ? "Other Physical Product" : "Other"]).map((c) => ({ kind: "option", category: c, detail: groupOfCategory(c) }))
     else if (level.group) {
-      const group = CATEGORY_GROUPS.find((g) => g.name === level.group)
+      const group = GROUPS.find((g) => g.name === level.group)
       list = [{ kind: "back" }, ...(group?.categories ?? []).map((c): Row => ({ kind: "option", category: c, detail: null }))]
-    } else list = CATEGORY_GROUPS.map((g) => ({ kind: "group", name: g.name }))
+    } else list = GROUPS.map((g) => ({ kind: "group", name: g.name }))
     return suggested ? [...list, { kind: "suggested", category: suggested }] : list
-  }, [found, level.group, suggested])
+  }, [found, level.group, suggested, GROUPS, kind])
 
   /**
    * THE SLIDE. The level on screen is copied, the copy is laid over the list
@@ -155,7 +156,7 @@ function useCategoryBrowser({ suggested, onPick }: { suggested: string | null; o
     const from = levelRef.current.group
     if (from && !levelRef.current.query.trim()) prepareSlide(-1)
     setLevel({ group: null, query: "" })
-    setActive(viaKeys && from ? CATEGORY_GROUPS.findIndex((g) => g.name === from) : -1)
+    setActive(viaKeys && from ? GROUPS.findIndex((g) => g.name === from) : -1)
   }, [])
   const setQuery = useCallback((q: string) => {
     setLevel((l) => ({ group: q.trim() ? null : l.group, query: q }))
@@ -417,7 +418,10 @@ export const CategoryPicker = React.memo(function CategoryPicker({
   onClear,
   suggested,
   isPhone,
+  kind = "digital",
 }: {
+  /** Things that ship get their own list (Apparel, Home & Garden...), downloads theirs. */
+  kind?: CategoryKind
   value: string | null
   onChange: (category: string) => void
   onClear: () => void
@@ -437,7 +441,7 @@ export const CategoryPicker = React.memo(function CategoryPicker({
     setOpen(false)
     browser.reset()
   }
-  const browser = useCategoryBrowser({ suggested, onPick: pick })
+  const browser = useCategoryBrowser({ suggested, onPick: pick, kind })
   const [place, setPlace] = useState<{ side: "bottom" | "top"; h: number }>({ side: "bottom", h: LIST_H })
   const show = (next: boolean) => {
     if (next === open) return

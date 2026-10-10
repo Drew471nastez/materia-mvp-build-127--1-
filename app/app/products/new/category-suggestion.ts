@@ -24,7 +24,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { contentKey, keywordSuggestion, plainText, SUGGEST_LIMITS, type Suggestion, type SuggestInput } from "@/lib/products/category-suggest"
-import { isCategory } from "@/lib/products/category-groups"
+import { isCategoryFor, type CategoryKind } from "@/lib/products/category-groups"
 import type { MediaItem } from "./editor-form"
 
 const KEYWORDS_MS = 300
@@ -35,12 +35,12 @@ const ROUTE = "/api/app/products/category-suggestion"
 const answers = new Map<string, string | null>()
 let routeRefused = false
 
-export function useCategorySuggestion(title: string, description: string, media: MediaItem[]): string | null {
+export function useCategorySuggestion(title: string, description: string, media: MediaItem[], kind: CategoryKind = "digital"): string | null {
   const imageUrls = media.filter((m) => m.type === "image" && /^https:\/\//.test(m.url)).slice(0, SUGGEST_LIMITS.images).map((m) => m.url)
   const imagesKey = imageUrls.join("\n")
   const input = useMemo<SuggestInput>(
-    () => ({ title: title.trim().slice(0, SUGGEST_LIMITS.title), text: plainText(description).slice(0, SUGGEST_LIMITS.text), images: imagesKey ? imagesKey.split("\n") : [] }),
-    [title, description, imagesKey],
+    () => ({ title: title.trim().slice(0, SUGGEST_LIMITS.title), text: plainText(description).slice(0, SUGGEST_LIMITS.text), images: imagesKey ? imagesKey.split("\n") : [], kind }),
+    [title, description, imagesKey, kind],
   )
   const key = useMemo(() => contentKey(input), [input])
   const hasWords = `${input.title} ${input.text}`.trim().length >= 3
@@ -49,7 +49,7 @@ export function useCategorySuggestion(title: string, description: string, media:
   const [suggested, setSuggested] = useState<string | null>(null)
 
   useEffect(() => {
-    const t = window.setTimeout(() => setKeywords(keywordSuggestion(`${input.title} ${input.text}`)), KEYWORDS_MS)
+    const t = window.setTimeout(() => setKeywords(keywordSuggestion(`${input.title} ${input.text}`, input.kind)), KEYWORDS_MS)
     return () => window.clearTimeout(t)
   }, [input])
 
@@ -79,7 +79,7 @@ export function useCategorySuggestion(title: string, description: string, media:
         }
         if (!res.ok) return
         const data = (await res.json()) as Suggestion
-        const category = isCategory(data?.category) ? data.category : null
+        const category = isCategoryFor(data?.category, input.kind ?? "digital") ? data.category : null
         answers.set(key, category)
         if (!ctrl.signal.aborted && category) setSuggested(category)
       } catch {

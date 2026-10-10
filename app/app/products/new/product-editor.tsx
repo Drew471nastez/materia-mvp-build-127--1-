@@ -72,6 +72,7 @@ import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CourseEditor } from "./course-editor"
 import { CategoryPicker } from "./category-picker"
+import { isCategoryFor } from "@/lib/products/category-groups"
 import { useCategorySuggestion } from "./category-suggestion"
 import { saveVariants } from "./variant-save"
 import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
@@ -352,7 +353,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /* The Sales channels card, saved after the product (./sales-channels-card). */
   const channelsRef = useRef<SalesChannelsHandle>(null)
   /* Every question the editor asks (leave, delete a file, a very large upload). */
-  const [ask, confirmSheet] = useConfirm()
+  const [ask, confirmSheet, choose] = useConfirm()
 
   // YouTube inline input (bottom sheet on mobile)
   const [showYoutubeInput, setShowYoutubeInput] = useState(false)
@@ -616,7 +617,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     cleared a category, the suggestion is also the value, marked Suggested in
     the field; the first choice or clear of their own ends that for the visit.
   */
-  const suggestedCategory = useCategorySuggestion(title, description, mediaItems)
+  /* Things that ship are filed under their own list (Apparel, Home & Garden...), downloads under theirs. */
+  const categoryKind = productType === "physical" ? "physical" : "digital"
+  const suggestedCategory = useCategorySuggestion(title, description, mediaItems, categoryKind)
+  /* Switched between a download and a thing that ships: a category from the other list doesn't fit, so the suggestion takes over again. */
+  useEffect(() => {
+    setSelectedCategory((c) => {
+      if (!c || isCategoryFor(c, categoryKind)) return c
+      categoryTouched.current = false
+      return null
+    })
+  }, [categoryKind])
   const categoryTouched = useRef(!!initial.selectedCategory)
   useEffect(() => {
     if (suggestedCategory && !categoryTouched.current) setSelectedCategory(suggestedCategory)
@@ -830,7 +841,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       // Filter out empty items from whatsIncluded
-      const filteredWhatsIncluded = whatsIncluded.filter(item => item.trim() !== "")
+      const filteredWhatsIncluded = productType === "physical" ? [] : whatsIncluded.filter(item => item.trim() !== "")
 
       // Format FAQs for database storage (only include non-empty ones)
       const formattedFaqs = faqs
@@ -1448,7 +1459,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     once per answer rather than on every keystroke.
   */
   const askToDiscard = useCallback(async (): Promise<boolean> => {
-    if (!hasUnsavedChanges) return true
+    if (!hasUnsavedChanges || answeredRef.current) return true
     const leave = await ask(
       productId
         ? { title: "Discard changes?", body: "Your edits since the last save will be lost.", confirm: "Discard", cancel: "Keep editing" }
@@ -1467,6 +1478,28 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   */
   useEffect(() => askBeforeLeaving(askToDiscard), [askToDiscard])
 
+  /*
+    A LINK TO SETTINGS FROM INSIDE THE EDITOR ("set up a location", "your
+    shipping rates"). It stays in the app, in the same view, never a new tab
+    (which is what a plain link did in the iOS and Android app). With edits
+    not saved yet it asks first: Save and go, Don't save, or Stay.
+  */
+  const answeredRef = useRef(false)
+  const openSettings = useCallback(
+    async (href: string) => {
+      if (hasUnsavedChanges) {
+        const a = await choose({ title: "Save this product first?", body: "Save your changes before you leave this page, or leave without them.", confirm: "Save and go", cancel: "Stay", alt: "Don't save", tone: "default" })
+        if (a === false) return
+        if (a === true && !(await handleSaveChangesRef.current())) return
+        /* Answered here: the leave guard doesn't ask a second time on the way out. */
+        answeredRef.current = true
+        setHasUnsavedChanges(false)
+      }
+      router.push(href)
+    },
+    [choose, hasUnsavedChanges, router],
+  )
+
   const handleCancel = async () => {
     if (leaving || leavingRef.current) return
     /* Nothing to lose: no await at all, so the press is answered on its own
@@ -1483,6 +1516,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }
 
   /** Saves and publishes. True when it saved. */
+  const handleSaveChangesRef = useRef<() => Promise<boolean>>(async () => false)
   const handleSaveChanges = async (): Promise<boolean> => {
     if (isLoading || saveInFlight.current) return false
     // Validation 1: Title is required
@@ -1645,6 +1679,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     }
     return false
   }
+  handleSaveChangesRef.current = handleSaveChanges
 
   // Handle publish/unpublish toggle
   const handleTogglePublish = async () => {
@@ -2305,6 +2340,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     Category
                   </Label>
                   <CategoryPicker
+                    kind={categoryKind}
                     value={selectedCategory}
                     onChange={chooseCategory}
                     onClear={clearCategory}
@@ -2331,9 +2367,10 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 </div>
               </div>
 
-              {/* What's Included Section */}
+              {/* What's Included Section: a download's list of what's in it. A thing that ships has its photos, variants and description for that. */}
               <div
                 className={CARD}
+                hidden={productType === "physical"}
               >
                 <div>
                   <div className="flex items-center gap-1.5">
@@ -2397,6 +2434,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   basePrice={price}
                   handle={physicalRef}
                   onDirty={markPhysicalDirty}
+                  openSettings={openSettings}
                   images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
                   uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
                 /> : null}
@@ -2969,7 +3007,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 ) : null}
               </div>
 
-              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} cardClass={CARD} titleClass={CARD_TITLE} onChange={() => setHasUnsavedChanges(true)} />
+              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} physical={productType === "physical"} cardClass={CARD} titleClass={CARD_TITLE} onChange={() => setHasUnsavedChanges(true)} />
 
               {/* Settings Section */}
               <div

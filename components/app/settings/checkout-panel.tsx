@@ -23,7 +23,7 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { Card, Notice, Toggle, api } from "@/components/physical/ui"
+import { Card, Notice, Toggle, api, peekGet } from "@/components/physical/ui"
 import { DEFAULT_CHECKOUT, checkoutConfig, type CheckoutConfig, type FieldRule } from "@/lib/store/checkout-config"
 
 const RULES: { id: FieldRule; label: string }[] = [
@@ -69,8 +69,11 @@ function Row({ title, line, children }: { title: string; line?: string; children
 
 export function CheckoutPanel() {
   const physical = usePhysicalCommerceEnabled()
-  const [config, setConfig] = React.useState<CheckoutConfig | null>(null)
-  const [ready, setReady] = React.useState(true)
+  const [config, setConfig] = React.useState<CheckoutConfig | null>(() => {
+    const kept = peekGet<{ settings: { checkout: CheckoutConfig } }>("/api/store/settings")
+    return kept ? checkoutConfig(kept.settings.checkout) : null
+  })
+  const [ready, setReady] = React.useState(() => peekGet<{ settings: { ready: boolean } }>("/api/store/settings")?.settings.ready ?? true)
   const [error, setError] = React.useState<string | null>(null)
   const [saved, setSaved] = React.useState<"idle" | "saving" | "saved">("idle")
   const pending = React.useRef<Partial<CheckoutConfig>>({})

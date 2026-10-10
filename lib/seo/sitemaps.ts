@@ -281,6 +281,7 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
       here too. /help/search is left out on purpose; it is not indexed.
     */
     { url: `${BASE}/help` },
+    { url: `${BASE}/help/questions` },
     ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}` })),
     ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
   ]

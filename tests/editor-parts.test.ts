@@ -94,7 +94,8 @@ check("a saved product with no price and no variants opens on Free", /initial\.p
 console.log("\nThe category (app/app/products/new/category-picker.tsx)")
 const groups = code("lib/products/category-groups.ts")
 /* Changed on purpose: the field takes onClear (its x) and the choice goes through chooseCategory, which ends the preselected suggestion. */
-check("the editor draws the field, with its own reading of the width", /<CategoryPicker\s+value=\{selectedCategory\}\s+onChange=\{chooseCategory\}\s+onClear=\{clearCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
+/* Changed on purpose: a physical product is offered its own list, so the field is told which (kind). */
+check("the editor draws the field, with its own reading of the width", /<CategoryPicker\s+kind=\{categoryKind\}\s+value=\{selectedCategory\}\s+onChange=\{chooseCategory\}\s+onClear=\{clearCategory\}\s+suggested=\{suggestedCategory\}\s+isPhone=\{isMobileViewport\}/.test(editor))
 check("the old dialog, its swipe code, the gradient badge and the dots are gone",
   /* Changed on purpose: the search engine listing's fields were the last Dialog (and a sheet on a phone); they fold open in their card now. */
   (editor.match(/<Dialog\b/g) ?? []).length === 0 && !/from "@\/components\/ui\/dialog"/.test(editor)
@@ -105,7 +106,7 @@ check("a field of the product, in the main column above the description, and no 
     && !/<h2 className=\{CARD_TITLE\}>Category<\/h2>/.test(editor))
 check("on a phone the shared sheet, with no X of its own, sitting on the keyboard", /<BottomSheet\s+isOpen=\{open\}[\s\S]{0,200}aboveKeyboard/.test(picker) && !/aria-label="Close"/.test(picker) && !/showCloseButton/.test(picker))
 check("48px rows on a phone, 36px on a computer", /min-h-\[48px\]/.test(picker) && /min-h-\[36px\]/.test(picker))
-check("a search field on top, across every group", /data-category-search=""/.test(picker) && /placeholder="Search categories"/.test(picker) && /searchCategories\(query\)/.test(picker) && /export function searchCategories\(query: string\)/.test(groups))
+check("a search field on top, across every group", /data-category-search=""/.test(picker) && /placeholder="Search categories"/.test(picker) && /searchCategories\(query, kind\)/.test(picker) && /export function searchCategories\(query: string, kind: CategoryKind = "digital"\)/.test(groups))
 check("groups open into their categories in the same list: Back to All, the group as a header", /data-category-group=\{r\.name\}/.test(picker) && /data-category-back=""/.test(picker) && />Back to All</.test(picker) && /data-category-header=""/.test(picker))
 check("a check on the chosen one, and choosing closes", /aria-current=\{chosen \? "true" : undefined\}/.test(picker) && /onChange\(category\)\s+setOpen\(false\)/.test(picker))
 /* Changed on purpose: the owner asked for the list to open from the field, like Shopify's, not the window in the middle it was. */

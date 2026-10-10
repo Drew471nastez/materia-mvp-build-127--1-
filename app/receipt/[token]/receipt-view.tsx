@@ -1,5 +1,6 @@
 "use client"
 
+import { OrderHelp } from "@/components/support/order-help"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -279,10 +280,13 @@ export function ReceiptView({
   viewer,
   locale,
   storeHref: serverStoreHref,
+  help,
 }: {
   receipt: Receipt
   viewer: ReceiptViewer
   locale: string
+  /** Get help with this order (lib/support/cases.ts): the open case when there is one; absent when cases aren't switched on. */
+  help?: { openCase: { link: string; status: string } | null } | null
   /** The seller's page as the server worked it out, so the first render matches it. */
   storeHref?: string | null
 }) {
@@ -764,6 +768,8 @@ export function ReceiptView({
             />
           </div>
         ) : null}
+
+        {help && receipt.state !== "pending" ? <OrderHelp kind="digital" token={primary.token} storeName={receipt.seller.name} openCase={help.openCase} className="mt-6 print:hidden" /> : null}
 
         {/* Who to ask, and what the seller promised about refunds. */}
         <div data-receipt-help="" className="mt-6 space-y-1.5 border-t border-[#e4e7ec] pt-3 text-[13px] leading-relaxed text-[#6b7280]">

@@ -28,7 +28,6 @@
  */
 
 import * as React from "react"
-import Link from "next/link"
 import { ChevronDown, ImagePlus, Plus, Trash2, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
@@ -151,6 +150,32 @@ export interface PhysicalCardsProps {
   images?: string[]
   /** Uploads a new picture for a variant; resolves to its https address. */
   uploadImage?: (file: File) => Promise<string>
+  /** Goes to a Settings page from the editor, asking about unsaved changes first (product-editor openSettings). */
+  openSettings?: (href: string) => void
+}
+
+/**
+ * A link to Settings from inside the editor: an ordinary link to read and
+ * long-press, but a tap stays in the app and goes through the editor's own
+ * question about unsaved changes, never a new tab in the iOS or Android app.
+ */
+const OpenSettingsContext = React.createContext<((href: string) => void) | null>(null)
+function SettingsLink({ href, className, children }: { href: string; className?: string; children: React.ReactNode }) {
+  const open = React.useContext(OpenSettingsContext)
+  return (
+    <a
+      href={href}
+      className={className}
+      data-settings-link=""
+      onClick={(e) => {
+        if (!open || e.metaKey || e.ctrlKey || e.shiftKey) return
+        e.preventDefault()
+        open(href)
+      }}
+    >
+      {children}
+    </a>
+  )
 }
 
 export function PhysicalProductCards(props: PhysicalCardsProps) {
@@ -163,7 +188,15 @@ export function PhysicalProductCards(props: PhysicalCardsProps) {
   return <Cards {...props} />
 }
 
-function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage }: PhysicalCardsProps) {
+function Cards(props: PhysicalCardsProps) {
+  return (
+    <OpenSettingsContext.Provider value={props.openSettings ?? null}>
+      <CardsInner {...props} />
+    </OpenSettingsContext.Provider>
+  )
+}
+
+function CardsInner({ productId, basePrice, handle, onDirty, images = [], uploadImage }: PhysicalCardsProps) {
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [ctx, setCtx] = React.useState<Context>({ locations: [], profiles: [], settings: DEFAULT_SETTINGS })
@@ -393,9 +426,9 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
             activeLocations.length === 0 ? (
               <Notice tone="amber">
                 Add the place you keep stock first.{" "}
-                <Link href="/app/settings?tab=shipping&section=locations" className="font-medium underline underline-offset-2">
+                <SettingsLink href="/app/settings?tab=shipping&section=locations" className="font-medium underline underline-offset-2">
                   Add a location
-                </Link>
+                </SettingsLink>
               </Notice>
             ) : onlyLocation ? (
               <div className="grid gap-3 sm:grid-cols-2">
@@ -489,10 +522,18 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
             </div>
           ))}
           {options.length < 3 ? (
-            <button type="button" onClick={() => changed(setOptions)((prev) => [...prev, { name: "", values: [], draft: "" }])} className={BTN_SECONDARY}>
-              <Plus className="h-4 w-4" />
-              {options.length === 0 ? "Add options like size or color" : "Add another option"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2" data-option-presets="">
+              {/* One tap for the usual ones, with their common values filled in to keep or remove. */}
+              {OPTION_PRESETS.filter((p) => !options.some((o) => o.name.trim().toLowerCase() === p.name.toLowerCase())).map((p) => (
+                <button key={p.name} type="button" onClick={() => changed(setOptions)((prev) => [...prev, { name: p.name, values: [...p.values], draft: "" }])} className={cn(BTN_SECONDARY, "h-9 px-3 text-[13.5px]")}>
+                  <Plus className="h-3.5 w-3.5" />
+                  {p.name}
+                </button>
+              ))}
+              <button type="button" onClick={() => changed(setOptions)((prev) => [...prev, { name: "", values: [], draft: "" }])} className={cn(BTN_GHOST, "h-9 px-3 text-[13.5px]")}>
+                {options.length === 0 ? "Your own option" : "Another option"}
+              </button>
+            </div>
           ) : null}
         </div>
 
@@ -575,13 +616,13 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
                           <DecimalInput value={r.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} />
                         </Field>
                         <Field label="Compare-at price" hint="Shown crossed out">
-                          <MoneyInput value={r.compareAt} placeholder="" onChange={(v) => setRow(key, { compareAt: v })} />
+                          <MoneyInput value={r.compareAt} placeholder="0.00" onChange={(v) => setRow(key, { compareAt: v })} />
                         </Field>
                         <Field label="Cost per item" hint={marginOf(r) ? `Margin ${marginOf(r)}. Buyers never see this.` : "Buyers never see this."}>
-                          <MoneyInput value={r.cost} placeholder="" onChange={(v) => setRow(key, { cost: v })} />
+                          <MoneyInput value={r.cost} placeholder="0.00" onChange={(v) => setRow(key, { cost: v })} />
                         </Field>
-                        <Field label="Barcode" hint="ISBN, UPC, GTIN">
-                          <TextInput value={r.barcode} maxLength={64} onChange={(e) => setRow(key, { barcode: e.target.value })} />
+                        <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
+                          <TextInput value={r.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(key, { barcode: e.target.value })} />
                         </Field>
                         <Field label="Fulfilled by">
                           <SelectInput value={r.method} onChange={(v) => setRow(key, { method: v as FulfillmentMethod | "" })}>
@@ -626,9 +667,9 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
               <Field
                 label="Shipping profile"
                 hint={
-                  <Link href="/app/settings?tab=shipping&section=delivery" className="underline underline-offset-2">
+                  <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="underline underline-offset-2">
                     Edit shipping rates
-                  </Link>
+                  </SettingsLink>
                 }
               >
                 <SelectInput value={profileId} onChange={changed(setProfileId)} aria-label="Shipping profile">
@@ -647,9 +688,9 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
           {requiresShipping && ctx.profiles.every((p) => (p.zoneCount ?? 0) === 0) ? (
             <Notice tone="amber">
               You haven't set where you ship yet, so buyers can't check out.{" "}
-              <Link href="/app/settings?tab=shipping&section=delivery" className="font-medium underline underline-offset-2">
+              <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="font-medium underline underline-offset-2">
                 Set up shipping
-              </Link>
+              </SettingsLink>
             </Notice>
           ) : null}
         </div>
@@ -659,11 +700,11 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
       <Card
         id="physical-fulfillment"
         title="Fulfillment"
-        description="How will this product be fulfilled?"
+        description="Who packs and ships this product. Your places and partners are in Settings › Locations; here you pick which one handles this product, so its orders go to the right place."
         action={
-          <a href="/help/physical-products/fulfillment-methods" target="_blank" rel="noreferrer" className="text-[13px] font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#1a1a2e]">
+          <SettingsLink href="/help/physical-products/fulfillment-methods" className="text-[13px] font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#1a1a2e]">
             How this works
-          </a>
+          </SettingsLink>
         }
       >
         <div className="space-y-4">
@@ -733,14 +774,14 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
           <div className="space-y-5 border-t border-[#eceef1] px-4 py-4 sm:px-6 sm:py-5">
             {!multi && single ? (
               <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="SKU" hint="Optional. Storelib keeps its own IDs.">
-                  <TextInput value={single.sku} maxLength={64} onChange={(e) => setRow(singleKey, { sku: e.target.value })} />
+                <Field label="SKU" hint="Your own code for it. Shown on orders and packing lists.">
+                  <TextInput value={single.sku} maxLength={64} placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: e.target.value })} />
                 </Field>
-                <Field label="Barcode" hint="ISBN, UPC, GTIN">
-                  <TextInput value={single.barcode} maxLength={64} onChange={(e) => setRow(singleKey, { barcode: e.target.value })} />
+                <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
+                  <TextInput value={single.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: e.target.value })} />
                 </Field>
-                <Field label="Cost per item" hint={marginOf(single) ? `Margin ${marginOf(single)}. Buyers never see this.` : "Buyers never see this."}>
-                  <MoneyInput value={single.cost} placeholder="" onChange={(v) => setRow(singleKey, { cost: v })} />
+                <Field label="Cost per item" hint={marginOf(single) ? `Margin ${marginOf(single)}. Buyers never see this.` : "What one costs you. Buyers never see this."}>
+                  <MoneyInput value={single.cost} placeholder="0.00" onChange={(v) => setRow(singleKey, { cost: v })} />
                 </Field>
               </div>
             ) : null}
@@ -749,13 +790,13 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
                 <p className="mb-2 text-[13.5px] font-medium text-[#374151]">Package size</p>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-[1fr_1fr_1fr_100px] sm:gap-3">
                   <Field label="Length">
-                    <DecimalInput value={dims.l} onChange={(v) => changed(setDims)((d) => ({ ...d, l: v }))} />
+                    <DecimalInput value={dims.l} placeholder="20" onChange={(v) => changed(setDims)((d) => ({ ...d, l: v }))} />
                   </Field>
                   <Field label="Width">
-                    <DecimalInput value={dims.w} onChange={(v) => changed(setDims)((d) => ({ ...d, w: v }))} />
+                    <DecimalInput value={dims.w} placeholder="15" onChange={(v) => changed(setDims)((d) => ({ ...d, w: v }))} />
                   </Field>
                   <Field label="Height">
-                    <DecimalInput value={dims.h} onChange={(v) => changed(setDims)((d) => ({ ...d, h: v }))} />
+                    <DecimalInput value={dims.h} placeholder="10" onChange={(v) => changed(setDims)((d) => ({ ...d, h: v }))} />
                   </Field>
                   <Field label="Unit" className="col-span-3 sm:col-span-1">
                     <SelectInput value={dimUnit} onChange={(v) => changed(setDimUnit)(v as DimensionUnit)}>
@@ -792,9 +833,9 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
                   ) : (
                     <>
                       Your shop doesn't charge tax yet.{" "}
-                      <Link href="/app/settings?tab=shipping&section=taxes" className="underline underline-offset-2">
+                      <SettingsLink href="/app/settings?tab=taxes" className="underline underline-offset-2">
                         Set up tax
-                      </Link>
+                      </SettingsLink>
                     </>
                   )
                 }
@@ -809,7 +850,7 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="Brand or maker" hint="Used by collections and search">
-                <TextInput value={vendor} maxLength={120} onChange={(e) => changed(setVendor)(e.target.value)} />
+                <TextInput value={vendor} maxLength={120} placeholder="Angus Farm" onChange={(e) => changed(setVendor)(e.target.value)} />
               </Field>
               <Field label="Tags" hint="Separated by commas">
                 <input value={tags} onChange={(e) => changed(setTags)(e.target.value)} className={FIELD} placeholder="summer, linen" />
@@ -835,6 +876,13 @@ function Cards({ productId, basePrice, handle, onDirty, images = [], uploadImage
   )
 }
 
+/** The options most products have, with their usual values to keep or remove. */
+const OPTION_PRESETS: { name: string; values: string[] }[] = [
+  { name: "Size", values: ["S", "M", "L", "XL"] },
+  { name: "Color", values: [] },
+  { name: "Material", values: [] },
+]
+
 /** A partner for warehouse, dropshipping or print on demand: chosen, or made here in two fields. */
 function PartnerPicker({ method, partners, value, onChange, onCreated }: { method: Exclude<FulfillmentMethod, "self">; partners: Location[]; value: string; onChange: (id: string) => void; onCreated: (l: Location) => void }) {
   const [adding, setAdding] = React.useState(partners.length === 0)
@@ -853,7 +901,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
           <Field label={`${label} name`}>
             <TextInput value={name} maxLength={80} placeholder={method === "print_on_demand" ? "My print shop" : method === "dropship" ? "My supplier" : "My warehouse"} onChange={(e) => setName(e.target.value)} />
           </Field>
-          <Field label="Email orders to" hint="Optional. Each paid order is emailed here with the address.">
+          <Field label="Their orders email" hint="Optional. Each paid order for this product is emailed here with the items and address. Empty: you pass orders on yourself.">
             <TextInput value={email} maxLength={254} inputMode="email" placeholder="orders@example.com" onChange={(e) => setEmail(e.target.value)} />
           </Field>
         </div>
@@ -907,9 +955,9 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
       {chosen ? (
         <p className="text-[12.5px] text-[#6b7280]">
           {chosen.forwarding === "email" && chosen.email ? `Orders are emailed to ${chosen.email}.` : chosen.forwarding === "webhook" ? "Orders are sent to your webhook." : "Orders aren't sent automatically. You pass them on."}{" "}
-          <Link href="/app/settings?tab=shipping&section=locations" className="underline underline-offset-2">
+          <SettingsLink href="/app/settings?tab=shipping&section=locations" className="underline underline-offset-2">
             Change
-          </Link>
+          </SettingsLink>
         </p>
       ) : (
         <p className="text-[12.5px] text-[#b45309]">Choose who fulfils it, so orders reach them.</p>

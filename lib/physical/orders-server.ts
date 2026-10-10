@@ -18,7 +18,7 @@ import "server-only"
 import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
-import { queueReturnEmail, queueShipmentEmail, enqueueJob } from "./jobs-server"
+import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
@@ -432,7 +432,8 @@ export async function updateShipment(
   if (input.notifyBuyer !== false && f.notify_buyer !== false) {
     if (to === "delivered" || to === "out_for_delivery") await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, to)
     else if (trackingChanged && !to && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
-      await enqueueJob(db, { creatorId, kind: "send_email", key: `email:tracking:${fulfillmentId}:${patch.tracking_number}`, payload: { template: "shipment", kind: "shipped", checkoutId: f.checkout_id, fulfillmentId } })
+      /* A first number on a shipment sent without one reads as "on the way"; a changed one says it changed. */
+      await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, f.tracking_number ? "tracking" : "shipped", `email:tracking:${fulfillmentId}:${patch.tracking_number}`)
     }
   }
   const updated = await restate(db, creatorId, f.checkout_id)
@@ -466,6 +467,7 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   const now = new Date().toISOString()
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
+  await queueCancelledEmail(db, checkoutId, creatorId)
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }
@@ -489,6 +491,7 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
     actor: "creator",
     key: `refund_total:${checkoutId}:${updated.refundedCents}`,
   })
+  if (updated.refundedCents > before.refundedCents) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - before.refundedCents)
   if (returnId) {
     const refundedForReturn = Math.max(0, updated.refundedCents - before.refundedCents)
     const r = before.returns.find((x) => x.id === returnId)
@@ -512,11 +515,14 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
   const ids = [...new Set(((data ?? []) as { checkout_id: string | null }[]).map((r) => r.checkout_id).filter((x): x is string => !!x))]
   let done = 0
   for (const checkoutId of ids) {
-    const { data: co } = await db.from("commerce_checkouts").select("creator_id").eq("id", checkoutId).maybeSingle()
+    const { data: co } = await db.from("commerce_checkouts").select("creator_id, refunded_cents").eq("id", checkoutId).maybeSingle()
     const creatorId = (co as { creator_id?: string } | null)?.creator_id
     if (!creatorId) continue
+    const before = Number((co as { refunded_cents?: number | null }).refunded_cents ?? 0)
     const updated = await restate(db, creatorId, checkoutId)
     if (!updated || updated.refundedCents <= 0) continue
+    /* A refund made in Stripe's dashboard reaches the buyer as well; one made with the Refund button was already emailed (same key). */
+    if (updated.refundedCents > before) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - before)
     await addOrderEvent(db, {
       checkoutId,
       creatorId,
