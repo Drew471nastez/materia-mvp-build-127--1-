@@ -178,6 +178,7 @@ export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
   private locale: O | null
+  private schemaLocale: O | null
   readonly settingsSchema: O[]
   readonly warnings: string[] = []
   /** What a page drew without: Shopify's own scripts, sections the theme does not have. Each once. */
@@ -185,6 +186,7 @@ export class CompatTheme {
 
   constructor(public readonly files: Record<string, string>, public readonly settingsValues: O, private opts: CompatThemeOptions) {
     this.locale = parseJsonLoose(files["locales/en.default.json"]) as O | null
+    this.schemaLocale = parseJsonLoose(files["locales/en.default.schema.json"]) as O | null
     const ss = parseJsonLoose(files["config/settings_schema.json"])
     this.settingsSchema = Array.isArray(ss) ? (ss as O[]) : []
   }
@@ -231,8 +233,27 @@ export class CompatTheme {
         if (t?.schema) schema = (parseJsonLoose(t.schema) as O) ?? {}
       }
     }
+    schema = this.schemaWords(schema)
     this.schemas.set(key, schema)
     return schema
+  }
+
+  /** A schema's defaults written as `t:` keys, as the words in the theme's schema locale (Shopify does the same). */
+  private schemaWords(schema: O): O {
+    const word = (v: unknown): unknown => {
+      if (typeof v !== "string" || !v.startsWith("t:")) return v
+      let cur: unknown = this.schemaLocale
+      for (const part of v.slice(2).split(".")) cur = cur && typeof cur === "object" ? (cur as O)[part] : undefined
+      if (typeof cur === "string") return cur
+      const t = this.translate(v.slice(2))
+      return typeof t === "string" ? t : ""
+    }
+    const settings = (list: unknown): unknown =>
+      Array.isArray(list) ? list.map((s) => (s && typeof s === "object" && "default" in s ? { ...(s as O), default: word((s as O).default) } : s)) : list
+    const out: O = { ...schema, settings: settings(schema.settings) }
+    if (!Array.isArray(schema.settings)) delete out.settings
+    if (Array.isArray(schema.blocks)) out.blocks = (schema.blocks as O[]).map((b) => (b && typeof b === "object" && Array.isArray(b.settings) ? { ...b, settings: settings(b.settings) } : b))
+    return out
   }
 
   /** The CSS of every section, block and snippet's {% stylesheet %}, once each, as Shopify bundles it. */

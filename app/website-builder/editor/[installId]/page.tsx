@@ -9268,6 +9268,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={libraryOwnTypes}
         sources={storelibSources}
+        compatInstallId={compatInstall ? installId : null}
         theme={settingsDraft}
       />
 

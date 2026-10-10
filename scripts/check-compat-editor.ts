@@ -39,7 +39,7 @@ async function main() {
   const r = await convertShopifyTheme(await JSZip.loadAsync(readFileSync(zipPath)))
   if (!r.ok) throw new Error(r.error)
   const sources = Object.fromEntries(Object.entries(r.theme.files).filter(([p]) => p.endsWith(".storelib")))
-  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default\.json$)/.test(p)))
+  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(p)))
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
   const compat = { settings: r.theme.settings, pages, sources, files }
   console.log(`${r.theme.name} in the builder`)

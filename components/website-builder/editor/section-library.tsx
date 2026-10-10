@@ -86,6 +86,7 @@ import { StorelibLiveProvider } from "@/components/website-builder/sections/stor
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
+import { CompatPreviewBox, CompatPreviewProvider } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -597,6 +598,7 @@ const LibraryCard = memo(function LibraryCard({
   live,
   eager,
   phone,
+  compat,
   onAdd,
 }: {
   entry: LibraryEntry
@@ -607,6 +609,8 @@ const LibraryCard = memo(function LibraryCard({
   live: boolean
   eager: boolean
   phone: boolean
+  /** An imported Shopify theme: the card is drawn by its own engine (compat-section-preview.tsx). */
+  compat: boolean
   onAdd: (type: string, presetIndex: number) => void
 }) {
   return (
@@ -630,7 +634,11 @@ const LibraryCard = memo(function LibraryCard({
           !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)] group-hover:-translate-y-px",
         )}
       >
-        <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
+        {compat ? (
+          <CompatPreviewBox type={entry.type} presetIndex={entry.presetIndex} schema={entry.schema} width={width} renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} />
+        ) : (
+          <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
+        )}
       </div>
       {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}
       <span className="truncate px-0.5 text-[14px] font-medium leading-tight text-[#1a1a2e] sm:text-[13px]">{entry.title}</span>
@@ -663,6 +671,19 @@ const EAGER_CARDS = 3
 /** How long after the editor has settled the previews start being drawn. */
 const WARM_AFTER_MS = 1800
 
+/* An imported theme is laid out at a desktop width, as Shopify's own editor shows its sections. */
+const COMPAT_RENDER_WIDTH = 1200
+
+/** The compat engine's theme for the cards, built once, only for an imported theme. */
+function CompatGridWrap({ installId, sources, settings, children }: { installId: string | null; sources: Record<string, string>; settings: Record<string, unknown> | undefined; children: ReactNode }) {
+  if (!installId) return <>{children}</>
+  return (
+    <CompatPreviewProvider installId={installId} sources={sources} settings={settings}>
+      {children}
+    </CompatPreviewProvider>
+  )
+}
+
 export const SectionLibrary = memo(function SectionLibrary({
   open,
   onOpenChange,
@@ -672,6 +693,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   ownTypes,
   sources,
   theme,
+  compatInstallId = null,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -690,6 +712,12 @@ export const SectionLibrary = memo(function SectionLibrary({
    * actually get.
    */
   theme?: ThemeSettingsValues
+  /**
+   * Set when the install is a theme imported from Shopify. Its sections are
+   * Shopify sections, which Storelib's renderer cannot draw: every card was
+   * a blank white box. They are drawn by the theme's own engine instead.
+   */
+  compatInstallId?: string | null
 }) {
   const [phone, setPhone] = useState(false)
   useEffect(() => {
@@ -815,17 +843,17 @@ export const SectionLibrary = memo(function SectionLibrary({
   const [built, setBuilt] = useState(false)
   useEffect(() => {
     if (open) {
-      /* Whatever is still missing, in the order it will be seen. */
-      requestPreviews(jobs, true)
+      /* Whatever is still missing, in the order it will be seen. An imported theme draws its own (compat-section-preview.tsx). */
+      if (!compatInstallId) requestPreviews(jobs, true)
       setBuilt(true)
       return
     }
     const t = window.setTimeout(() => {
-      requestPreviews(jobs)
+      if (!compatInstallId) requestPreviews(jobs)
       idle(() => setBuilt(true))
     }, WARM_AFTER_MS)
     return () => window.clearTimeout(t)
-  }, [open, jobs])
+  }, [open, jobs, compatInstallId])
 
   /**
    * ===========================================================================
@@ -1029,7 +1057,7 @@ export const SectionLibrary = memo(function SectionLibrary({
   )
 
   const grid = built ? (
-    <>
+    <CompatGridWrap installId={compatInstallId} sources={sources} settings={theme as Record<string, unknown> | undefined}>
       <div ref={gridRef} data-library-grid="" className="flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
         {entries.map((e) => {
           const k = cardKey(e)
@@ -1044,6 +1072,7 @@ export const SectionLibrary = memo(function SectionLibrary({
               live={live.has(k)}
               eager={eager.has(k)}
               phone={phone}
+              compat={!!compatInstallId}
               onAdd={handleAdd}
             />
           )
@@ -1052,7 +1081,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       {shown.size === 0 && (
         <p className="py-16 text-center text-[14px] text-[#6b7280]">{empty}</p>
       )}
-    </>
+    </CompatGridWrap>
   ) : null
 
   const chip = (cat: { key: string; label: string; count: number }) => {
