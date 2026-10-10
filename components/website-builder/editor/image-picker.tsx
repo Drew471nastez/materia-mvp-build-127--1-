@@ -43,6 +43,7 @@ import { toast } from "sonner"
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { cn } from "@/lib/utils"
+import { FilesLibraryChooser } from "@/components/files/files-library"
 
 /** How long the uploaded copy takes to replace what is already on screen. */
 export const IMAGE_FADE_MS = 260
@@ -83,6 +84,7 @@ export function WbImagePicker({
   folder?: string
 }) {
   const [uploading, setUploading] = useState(false)
+  const [libraryOpen, setLibraryOpen] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -234,14 +236,36 @@ export function WbImagePicker({
     : aspectRatio === "logo" ? "h-[68px]"
     : "h-[96px]"
 
+  /*
+    Under every state of the field: the store's Files (/app/files), so a
+    picture already uploaded once, for a product or another section, is
+    chosen again rather than uploaded again.
+  */
   const fileInput = (
-    <input
-      ref={inputRef}
-      type="file"
-      accept="image/*"
-      className="hidden"
-      onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }}
-    />
+    <>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }}
+      />
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => setLibraryOpen(true)}
+        className="text-[12px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline disabled:opacity-40 max-sm:min-h-9"
+        data-wb-image-library=""
+      >
+        Choose from your files
+      </button>
+      <FilesLibraryChooser
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        selectedUrl={url ?? null}
+        onPick={picked => { showFile(null); onChange(picked) }}
+      />
+    </>
   )
 
   /*

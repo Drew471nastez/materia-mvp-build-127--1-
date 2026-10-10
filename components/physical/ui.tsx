@@ -283,7 +283,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
     const html = document.documentElement
     const before = html.style.overflow
     html.style.overflow = "hidden"
-    const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>("input, select, textarea, button:not([data-close])")?.focus({ preventScroll: true }), 30)
+    const t = window.setTimeout(() => panel.current?.querySelector<HTMLElement>("input:not([data-no-autofocus]), select, textarea, button:not([data-close])")?.focus({ preventScroll: true }), 30)
     const key = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose()
     }

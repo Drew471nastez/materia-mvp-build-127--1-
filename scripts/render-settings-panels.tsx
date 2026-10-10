@@ -13,6 +13,7 @@ import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
+import { FilesLibrary, FilesLibraryChooser } from "@/components/files/files-library"
 import { SalesChannelsCard } from "@/app/app/products/new/sales-channels-card"
 import { Totals } from "@/app/checkout/parts/order-summary"
 import * as React from "react"
@@ -44,6 +45,18 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } })
 }
 
+/** The website builder's chooser, open, with what it hands back shown. */
+function PickProbe() {
+  const [open, setOpen] = React.useState(true)
+  const [picked, setPicked] = React.useState<string | null>(null)
+  return (
+    <div>
+      <p data-picked={picked ?? ""}>{picked ?? "nothing yet"}</p>
+      <FilesLibraryChooser open={open} onClose={() => setOpen(false)} onPick={setPicked} />
+    </div>
+  )
+}
+
 const panels: Record<string, () => React.ReactElement> = {
   store: () => <StoreDetailsPanel />,
   checkout: () => <CheckoutPanel />,
@@ -51,6 +64,8 @@ const panels: Record<string, () => React.ReactElement> = {
   channels: () => <ChannelsPanel />,
   integrations: () => <IntegrationsDirectory />,
   emails: () => <CustomerEmailsPanel />,
+  files: () => <FilesLibrary mode="manage" />,
+  filesPick: () => <PickProbe />,
   channelCard: () => (
     <div style={{ maxWidth: 360 }}>
       <SalesChannelsCard productId={null} cardClass="space-y-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)]" titleClass="text-[16px] font-semibold text-[#1a1a2e]" />

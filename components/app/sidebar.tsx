@@ -334,6 +334,7 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     ...(physicalCommerce ? [{ href: "/app/inventory", label: "Inventory" }] : []),
     { href: "/app/products/collections", label: "Collections" },
   )
+  mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: "Files" })
 
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No
