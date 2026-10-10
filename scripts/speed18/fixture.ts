@@ -36,7 +36,7 @@ export const EXPLORE = { creators: 40, products: 100 }
 export const ONEPAGE = { slug: "maya", id: "e1111111-1111-4111-8111-111111111111" }
 
 const iso = (minutesAgo: number) => new Date(Date.UTC(2026, 9, 1) - minutesAgo * 60_000).toISOString()
-const uuid = (prefix: string, n: number) => `${prefix}${String(n).padStart(7, "0")}-0000-4000-8000-000000000000`.slice(0, 36)
+const uuid = (prefix: string, n: number) => `${prefix}${String(n).padStart(6, "0")}-0000-4000-8000-000000000000`
 
 function siteRows(who: typeof SITE | typeof OTHER, marker: string | null) {
   const starter = starterRows(who.creatorId)
@@ -81,7 +81,7 @@ function siteRows(who: typeof SITE | typeof OTHER, marker: string | null) {
   const collections: Row[] = ["best", "new", "gifts"].map((h, i) => ({
     id: uuid(who === SITE ? "f1" : "f2", i + 1),
     creator_id: who.creatorId,
-    handle: `${who.username}-${h}`,
+    slug: `${who.username}-${h}`,
     title: tag(h),
     status: "published",
     published: true,
@@ -186,12 +186,22 @@ export function buildFixture(): Fixture {
       product_channels: [],
       store_channels: [],
       settings: [],
+      store_menus: [],
+      product_channel_listings: [],
+      sales_channels: [],
+      digital_assets: [],
+      inventory_locations: [],
+      inventory_levels: [],
+      platform_settings: [],
+      membership_plans: [],
+      site_access: [],
     },
     relations: {
       "store_theme_installs>store_theme_settings": { local: "id", foreign: "install_id", many: false },
       "products>creators": { local: "creator_id", foreign: "id", many: false },
       "product_slug_history>products": { local: "product_id", foreign: "id", many: false },
       "products>product_categories": { local: "id", foreign: "product_id", many: true },
+      "product_channel_listings>sales_channels": { local: "channel_id", foreign: "id", many: false },
     },
     rpc: {},
   }

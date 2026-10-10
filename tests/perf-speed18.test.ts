@@ -23,7 +23,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { fakeFetch, setRtt, useFixture, type Fixture } from "../scripts/speed18/fake-postgrest"
 import { visit } from "../scripts/speed18/context"
-import { buildFixture, SITE, OTHER } from "../scripts/speed18/fixture"
+import { buildFixture, SITE, OTHER, DRAFT_MARKER, OTHER_MARKER, PRIVATE_MARKER } from "../scripts/speed18/fixture"
 import * as nextCache from "../scripts/speed18/shims/next-cache"
 
 let passed = 0
@@ -112,8 +112,79 @@ async function routeFacts() {
   forgetSiteFacts()
 }
 
+/** Lets every refresh started behind a visitor finish, as the next visitor would find it. */
+async function settle() {
+  await Promise.allSettled(nextCache.pending.splice(0))
+}
+
+async function productPageTheme() {
+  section("A live product page's theme is held with the site (lib/website-builder/product-page-theme.ts)")
+  const { publishedProductTheme } = await import("@/lib/website-builder/product-page-theme")
+  const { revalidatePublishedSite, creatorSiteTag, ownerOf } = await import("@/lib/website-builder/published-site")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+
+  const first = await visit(() => publishedProductTheme(SITE.creatorId))
+  const again = await visit(() => publishedProductTheme(SITE.creatorId))
+  check("read once, then held: no round trip for the next visitor", first.foreground === 2 && again.foreground === 0, [first.foreground, again.foreground])
+  const text = JSON.stringify(first.value)
+  check("published only: no draft section and no draft setting in it", !text.includes(DRAFT_MARKER) && !text.includes("draft_"))
+  check("no preview token in it", !text.includes("token-") && !text.includes("preview_token"))
+  check("no product, price or stock in it: those stay fresh per visit", !text.includes("price_cents") && !text.includes("inventory") && !text.includes(PRIVATE_MARKER))
+  const leo = await visit(() => publishedProductTheme(OTHER.creatorId))
+  check("each creator's own entry: Maya's never holds Leo's rows, nor Leo's Maya's", !text.includes(OTHER_MARKER) && JSON.stringify(leo.value).includes(OTHER_MARKER) && first.value?.install.id === SITE.installId && leo.value?.install.id === OTHER.installId)
+  const entries = nextCache.cacheEntries().filter((e) => e.key.includes("product-page-theme"))
+  check("keyed and tagged by creator", entries.length === 2 && entries.every((e) => e.tags.length === 1 && (e.tags[0] === creatorSiteTag(SITE.creatorId) || e.tags[0] === creatorSiteTag(OTHER.creatorId))) && entries.every((e) => e.key.includes(SITE.creatorId) !== e.key.includes(OTHER.creatorId)), entries.map((e) => e.tags))
+
+  /* Maya publishes a new product page: her pages change in the database, and Publish revalidates her site. */
+  const page = fixture.tables.store_theme_pages.find((r) => r.install_id === SITE.installId && r.page_key === "product")!
+  page.sections = [{ id: "new", type: "rich_text", settings: { heading: "Published just now" } }]
+  await visit(() => revalidatePublishedSite(SITE.creatorId))
+  check("Publish revalidates her tag and her rendered pages", nextCache.revalidatedTags.some((t) => t.tag === creatorSiteTag(SITE.creatorId)) && nextCache.purgedPaths.some((p) => p.path === "/w/maya" && p.type === "layout"))
+  await visit(() => publishedProductTheme(SITE.creatorId))
+  await settle()
+  const after = await visit(() => publishedProductTheme(SITE.creatorId))
+  check("her next visitors see the published change", JSON.stringify(after.value).includes("Published just now"), after.value?.product)
+  const leoAfter = await visit(() => publishedProductTheme(OTHER.creatorId))
+  check("and Leo's entry was not touched: still held, no round trip", leoAfter.foreground === 0 && leoAfter.background === 0 && JSON.stringify(leoAfter.value).includes(OTHER_MARKER))
+
+  /* Unpublishing takes it away for good, not after an hour. */
+  fixture.tables.store_theme_installs.find((r) => r.id === SITE.installId)!.status = "draft"
+  await visit(() => revalidatePublishedSite(SITE.creatorId))
+  await visit(() => publishedProductTheme(SITE.creatorId))
+  await settle()
+  const gone = await visit(() => publishedProductTheme(SITE.creatorId))
+  check("unpublished: the next visitors find no theme, so no product page", gone.value === null)
+  fixture.tables.store_theme_installs.find((r) => r.id === SITE.installId)!.status = "published"
+
+  nextCache.resetCache()
+  useFixture(fixtureWith((f) => {
+    f.fail = ["store_theme_installs"]
+  }))
+  const broken = await visit(() => publishedProductTheme(SITE.creatorId))
+  check("a database that did not answer is thrown, never held as \"no website\"", !!broken.error && nextCache.cacheEntries().filter((e) => e.key.includes("product-page-theme")).length === 0)
+
+  section("The live page's section files are held with the site, and a failed read is not")
+  nextCache.resetCache()
+  useFixture(buildFixture())
+  const settings = {}
+  const live1 = await visit(() => ownerOf(SITE.creatorId, SITE.installId, settings, { cached: true }))
+  const live2 = await visit(() => ownerOf(SITE.creatorId, SITE.installId, settings, { cached: true }))
+  check("the second visitor asks nothing for the files", live1.trips.some((t) => t.table === "store_theme_custom_files") && !live2.trips.some((t) => t.table === "store_theme_custom_files"))
+  const preview = await visit(() => ownerOf(SITE.creatorId, SITE.installId, settings, { cached: false }))
+  check("a preview or a cover still reads its files directly", preview.trips.some((t) => t.table === "store_theme_custom_files"))
+  nextCache.resetCache()
+  useFixture(fixtureWith((f) => {
+    f.fail = ["store_theme_custom_files"]
+  }))
+  const failedFiles = await visit(() => ownerOf(SITE.creatorId, SITE.installId, settings, { cached: true }))
+  check("a failed read of the files is thrown and nothing is held", !!failedFiles.error && !nextCache.cacheEntries().some((e) => e.key.includes("section-sources")))
+}
+
 async function main() {
   await routeFacts()
+  await productPageTheme()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
