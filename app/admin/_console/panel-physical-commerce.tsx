@@ -169,6 +169,35 @@ function Diagnostics() {
           {j.kind}: {j.error}
         </p>
       ))}
+      {(d.deadJobs ?? 0) > 0 ? <RetryDead onDone={(n) => setD({ ...d, deadJobs: Math.max(0, (d.deadJobs ?? 0) - n), recentDead: [] })} /> : null}
+    </div>
+  )
+}
+
+/* Once whatever stopped them is fixed (the mail key, a supplier's address), the given-up jobs go back in line. */
+function RetryDead({ onDone }: { onDone: (n: number) => void }) {
+  const [state, setState] = React.useState<"idle" | "busy" | "done" | "error">("idle")
+  const [n, setN] = React.useState(0)
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <button
+        type="button"
+        disabled={state === "busy"}
+        onClick={async () => {
+          setState("busy")
+          const r = await fetch("/api/admin/physical-diagnostics", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "retry_dead" }) }).catch(() => null)
+          const j = r?.ok ? ((await r.json().catch(() => ({}))) as { retried?: number }) : null
+          if (!j) return setState("error")
+          setN(j.retried ?? 0)
+          setState("done")
+          onDone(j.retried ?? 0)
+        }}
+        className="h-7 rounded-md border border-[#33333a] px-2.5 text-[12px] font-medium text-[#c9c9d1] hover:bg-[#1f1f24] disabled:opacity-60"
+        data-retry-dead=""
+      >
+        {state === "busy" ? "Putting back in line" : "Try the given-up jobs again"}
+      </button>
+      {state === "done" ? <span className="text-[12px] text-[#9b9ba6]">{n} back in line. The cron runs them next.</span> : state === "error" ? <span className="text-[12px] text-[#f4a4a4]">That didn&apos;t work.</span> : null}
     </div>
   )
 }

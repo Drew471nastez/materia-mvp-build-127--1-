@@ -55,3 +55,28 @@ export async function GET() {
     return adminFailure("physical diagnostics", e, "Could not read physical commerce.")
   }
 }
+
+/**
+ * POST { action: "retry_dead" }: the jobs the queue gave up on (an email the
+ * mail service refused, a supplier's address that bounced) go back in line
+ * once whatever stopped them is fixed. Up to 200 at a time; the cron runs
+ * them on its next pass.
+ */
+export async function POST(request: Request) {
+  const denied = await requireAdmin()
+  if (denied) return denied
+  const body = (await request.json().catch(() => null)) as { action?: unknown } | null
+  if (body?.action !== "retry_dead") return NextResponse.json({ error: "Unknown action." }, { status: 400 })
+  try {
+    const db = createAdminClient()
+    const { data: ids } = await db.from("commerce_jobs").select("id").eq("status", "dead").order("finished_at", { ascending: false }).limit(200)
+    const list = ((ids ?? []) as { id: number }[]).map((r) => r.id)
+    if (list.length === 0) return NextResponse.json({ retried: 0 })
+    const now = new Date().toISOString()
+    const { error } = await db.from("commerce_jobs").update({ status: "queued", attempts: 0, run_after: now, locked_until: null, finished_at: null, updated_at: now }).in("id", list)
+    if (error) throw error
+    return NextResponse.json({ retried: list.length })
+  } catch (e) {
+    return adminFailure("physical diagnostics retry", e, "Could not put the jobs back in line.")
+  }
+}
