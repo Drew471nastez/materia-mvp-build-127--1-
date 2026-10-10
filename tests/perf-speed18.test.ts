@@ -312,12 +312,33 @@ async function explore() {
   check("For you and the visitor stay outside it, per visit", /cachedExploreCatalogue\(\(\) => readCatalog\(createPublicReadClient\(\)/.test(page) && !/cachedExploreCatalogue\([^\n]*(interests|getUser|cookies)/.test(page))
 }
 
+async function profileByName() {
+  section("A profile by its name: the exact name first (lib/profile/profile-by-name.ts)")
+  const { publicProfileByName } = await import("@/lib/profile/profile-by-name")
+  const fixture = buildFixture()
+  /* An older account kept in mixed case, and a name that ILIKE read as a pattern. */
+  fixture.tables.profiles_public.push({ id: "aaaaaaaa-0000-4000-8000-000000000001", username: "ZarraBianco", display_name: "Zarra" })
+  fixture.tables.profiles_public.push({ id: "aaaaaaaa-0000-4000-8000-000000000002", username: "a_b", display_name: "Underscore" })
+  fixture.tables.profiles_public.push({ id: "aaaaaaaa-0000-4000-8000-000000000003", username: "axb", display_name: "Other" })
+  useFixture(fixture)
+  const exact = await visit(() => publicProfileByName(db(), "maya"))
+  check("a name as stored is one exact read, which the username index answers", exact.value?.id === SITE.userId && exact.foreground === 1 && /username=eq\.maya/.test(exact.trips[0].query), exact.trips.map((t) => t.query))
+  const otherCase = await visit(() => publicProfileByName(db(), "zarrabianco"))
+  check("a name typed in another case is still found, by the read it always had", (otherCase.value as { username?: string } | null)?.username === "ZarraBianco" && otherCase.foreground === 2 && /ilike/.test(otherCase.trips[1].query))
+  const pattern = await visit(() => publicProfileByName(db(), "a_b"))
+  check("a name ILIKE read as a pattern is now its own page, not a 404", (pattern.value as { username?: string } | null)?.username === "a_b")
+  const nobody = await visit(() => publicProfileByName(db(), "nobody-here"))
+  check("nobody by that name is still nobody", nobody.value === null)
+  check("the creator page and the member profile both read it this way", /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
   await collectionPages()
   await onePage()
   await explore()
+  await profileByName()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

@@ -79,4 +79,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database round trips per Explore visit for the catalogue", value: 0, unit: "queries" },
     note: "Browsing reads the newest hundred products as a signed out visitor would, held for a minute under one tag (lib/explore/catalogue-cache.ts). A product save in the editor clears it, a delete, archive, moderation, ban or closed account expires it at once, an empty or failed read is never held, and a search stays live. For you and the visitor stay per visit. Server time to the answer at 20ms a round trip: 70ms to 2ms.",
   },
+  {
+    id: "profile-by-exact-name",
+    title: "A creator page and a member profile find their person by the username index",
+    area: "database",
+    shippedAt: "2026-10-10",
+    before: { metric: "database time of the profile lookup per creator page visit, 100,000 profiles", value: 4.8, unit: "ms" },
+    after: { metric: "database time of the profile lookup per creator page visit, 100,000 profiles", value: 0.11, unit: "ms" },
+    note: "storelib.com/<name> and /member/<name> asked `username ILIKE <name>`, which no plain index answers: a trigram index scan at best (4.8ms) and a whole table scan when the name starts with a common word (49ms), measured on Postgres 16 by scripts/measure-speed18-indexes.mjs. The exact name is asked first now and the username index answers it in 0.11ms; a name typed in another case than it is stored is asked again the old way. No schema change: SQL part 127 was not needed.",
+  },
 ]

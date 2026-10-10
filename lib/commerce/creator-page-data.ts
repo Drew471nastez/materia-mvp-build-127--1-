@@ -26,6 +26,7 @@ import { cache } from "react"
 
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
+import { publicProfileByName } from "@/lib/profile/profile-by-name"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 
@@ -39,8 +40,8 @@ import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./produc
  * query the layout and the page each ran separately.
  */
 export const loadProfileByUsername = cache(async (username: string) => {
-  /* Every public column, never a private one (lib/security/public-rows). */
-  return readPublicRow(await createClient(), "profiles", (q) => q.ilike("username", username))
+  /* Every public column, never a private one (lib/security/public-rows); the exact name first, which the username index answers (lib/profile/profile-by-name.ts). */
+  return publicProfileByName(await createClient(), username)
 })
 
 /** The creator row for a profile, shared with the product page's cache. */
