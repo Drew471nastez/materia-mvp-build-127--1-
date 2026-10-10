@@ -27,6 +27,7 @@ import { clsFromShifts, inpFromInteractions } from "@/lib/website-builder/web-vi
 
 import { MAX_ERRORS_PER_PAGE, type ClientMetric } from "./config"
 import { classify, isStorelibHost } from "./routes"
+import { maskDetail } from "./telemetry"
 
 const ENDPOINT = "/api/perf/beacon"
 const FLUSH_AT = 20
@@ -45,10 +46,16 @@ interface View {
   route: string
   interactions: Map<number, number>
   shifts: Array<{ value: number; startTime: number }>
+  /** When the view began: its interactions and shifts are the ones that started after this. */
+  start: number
   countAtStart: number
+  countAtLeave: number | null
   closed: boolean
   first: boolean
 }
+
+/** How long a view that was left keeps taking the entries that began in it (the browser reports a tap's timing after the next paint). */
+const SETTLE_MS = 1000
 
 let started = false
 
@@ -92,10 +99,16 @@ export function startPerfBeacon(): void {
 
   const newView = (first: boolean): View => {
     const c = classify(location.pathname)
-    return { path: location.pathname, area: c?.area ?? null, route: c?.route ?? "", interactions: new Map(), shifts: [], countAtStart: interactionCount(0), closed: false, first }
+    return { path: location.pathname, area: c?.area ?? null, route: c?.route ?? "", interactions: new Map(), shifts: [], start: first ? 0 : performance.now(), countAtStart: interactionCount(0), countAtLeave: null, closed: false, first }
   }
 
   let view = newView(true)
+  /* The current view and any just left that are still settling, oldest first. */
+  let views: View[] = [view]
+  const viewAt = (t: number): View | undefined => {
+    for (let k = views.length - 1; k >= 0; k--) if (views[k].start <= t) return views[k].closed ? undefined : views[k]
+    return undefined
+  }
   if (view.area) push(["view", view.area, view.route, 1])
 
   /* ── The first page load: TTFB, FCP, LCP ────────────────────────────── */
@@ -139,20 +152,27 @@ export function startPerfBeacon(): void {
 
   /* ── Every view: INP and CLS ────────────────────────────────────────── */
   observe("layout-shift", (entries) => {
-    for (const e of entries as ShiftEntry[]) if (!e.hadRecentInput && !view.closed) view.shifts.push({ value: e.value, startTime: e.startTime })
+    for (const e of entries as ShiftEntry[]) if (!e.hadRecentInput) viewAt(e.startTime)?.shifts.push({ value: e.value, startTime: e.startTime })
   })
   const onEvents = (entries: PerformanceEntryList) => {
     for (const e of entries as EventEntry[]) {
       const id = e.interactionId
-      if (!id || view.closed) continue
-      const seen = view.interactions.get(id)
-      if (seen === undefined || e.duration > seen) view.interactions.set(id, e.duration)
+      const v = id ? viewAt(e.startTime) : undefined
+      if (!v || !id) continue
+      const seen = v.interactions.get(id)
+      if (seen === undefined || e.duration > seen) v.interactions.set(id, e.duration)
     }
   }
   observe("event", onEvents, { durationThreshold: 16 })
   observe("first-input", onEvents)
 
-  const closeView = (v: View) => {
+  /* A view left by a navigation settles for a second first; one left by hiding the page is finished at once. */
+  const closeView = (v: View, settle: boolean) => {
+    if (v.countAtLeave === null) v.countAtLeave = interactionCount(v.interactions.size)
+    if (settle) setTimeout(() => finishView(v), SETTLE_MS)
+    else for (const w of [...views]) finishView(w)
+  }
+  const finishView = (v: View) => {
     if (v.closed) return
     for (const [o, onEntries] of handlers) {
       try {
@@ -162,9 +182,10 @@ export function startPerfBeacon(): void {
       }
     }
     v.closed = true
+    views = views.filter((w) => w !== v)
     if (v.first) finishLcp()
     if (!v.area) return
-    const inp = inpFromInteractions([...v.interactions.values()], Math.max(0, interactionCount(v.interactions.size) - v.countAtStart))
+    const inp = inpFromInteractions([...v.interactions.values()], Math.max(v.interactions.size, (v.countAtLeave ?? interactionCount(0)) - v.countAtStart))
     if (inp !== null) push(["inp", v.area, v.route, inp])
     if (supported.includes("layout-shift")) push(["cls", v.area, v.route, clsFromShifts(v.shifts)])
   }
@@ -182,8 +203,9 @@ export function startPerfBeacon(): void {
 
   const onAddress = (timed: boolean) => {
     if (location.pathname === view.path) return
-    closeView(view)
+    closeView(view, true)
     view = newView(false)
+    views.push(view)
     const v = view
     if (!v.area) return
     push(["view", v.area, v.route, 1])
@@ -215,7 +237,8 @@ export function startPerfBeacon(): void {
     if (!view.area || errorCount >= MAX_ERRORS_PER_PAGE) return
     /* A cross-origin script's error says nothing, and a resize loop warning is not a fault. */
     if (!message || message === "Script error." || /ResizeObserver loop/i.test(message)) return
-    const text = message.slice(0, 300)
+    /* Masked here as well as on the server: an address in a message never leaves the browser. */
+    const text = maskDetail(message)
     if (seenErrors.has(text)) return
     seenErrors.add(text)
     errorCount++
@@ -233,13 +256,13 @@ export function startPerfBeacon(): void {
     () => {
       if (document.visibilityState !== "hidden") return
       hiddenAt = Math.min(hiddenAt, performance.now())
-      closeView(view)
+      closeView(view, false)
       send()
     },
     true,
   )
   addEventListener("pagehide", () => {
-    closeView(view)
+    closeView(view, false)
     send()
   }, true)
 }

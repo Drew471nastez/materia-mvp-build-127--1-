@@ -159,6 +159,62 @@ for (const c of CASES) {
   await page.close()
 }
 
+/* ── The collector itself, in a real browser on a real address ──────────── */
+{
+  execFileSync(
+    "npx",
+    ["--no-install", "esbuild", join(root, "scripts/render-perf-beacon18.ts"), "--bundle", "--format=iife", "--platform=browser", "--log-level=error", `--outfile=${join(out, "beacon.js")}`, `--alias:@=${root}`],
+    { cwd: root, stdio: ["ignore", "ignore", "inherit"] },
+  )
+  const { createServer } = await import("node:http")
+  const { readFileSync } = await import("node:fs")
+  const html = `<!doctype html><html><body style="margin:0"><h1 style="font-size:64px">Explore</h1><button id="go" style="height:60px">Open</button><script src="/beacon.js"></script></body></html>`
+  const server = createServer((req, res) => {
+    if (req.url === "/beacon.js") return res.end(readFileSync(join(out, "beacon.js")))
+    res.setHeader("content-type", "text/html")
+    res.end(html)
+  })
+  await new Promise((r) => server.listen(0, "127.0.0.1", r))
+  const port = server.address().port
+  const page = await browser.newPage()
+  await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
+  /* A browser driven by a script refuses to measure itself; this one is told it is not one, for the probe only. */
+  await page.evaluateOnNewDocument(() => Object.defineProperty(navigator, "webdriver", { get: () => false }))
+  await page.goto(`http://127.0.0.1:${port}/explore`, { waitUntil: "load" })
+  await page.evaluate(() => {
+    window.__start()
+    document.getElementById("go").addEventListener("click", () => {
+      const t = performance.now()
+      while (performance.now() - t < 120) {}
+      history.pushState({}, "", "/app/products")
+    })
+  })
+  /* From a script of the page's own (an error from the probe's own channel reaches the page as a muted "Script error."). */
+  await page.addScriptTag({ content: 'setTimeout(function () { throw new Error("Probe failure for anna@example.com") }, 0)' })
+  await new Promise((r) => setTimeout(r, 300))
+  await page.click("#go")
+  await new Promise((r) => setTimeout(r, 1400))
+  await page.evaluate(() => window.dispatchEvent(new Event("pagehide")))
+  await new Promise((r) => setTimeout(r, 300))
+  const sent = await page.evaluate(() => window.__sent)
+  const items = sent.flatMap((b) => JSON.parse(b).i)
+  const has = (m, route) => items.some((i) => i[0] === m && (!route || i[2] === route))
+  const nav = items.find((i) => i[0] === "nav")
+  console.log("beacon", JSON.stringify({ batches: sent.length, items: items.map((i) => `${i[0]}:${i[2]}:${typeof i[3] === "number" ? Math.round(i[3] * 1000) / 1000 : i[3]}`) }))
+  const c = { name: "beacon" }
+  if (!has("view", "/explore") || !has("view", "/app/products")) note(c, "a page view is missing")
+  if (!has("ttfb", "/explore") || !has("fcp", "/explore")) note(c, "the first load's TTFB or FCP is missing")
+  if (!nav || nav[2] !== "/app/products" || nav[3] < 120) note(c, `the tap to next screen is ${nav ? Math.round(nav[3]) : "missing"}, expected 120 ms or more`)
+  if (!has("cls", "/explore") || !has("cls", "/app/products")) note(c, "a view's CLS is missing")
+  if (!has("js_error", "/explore")) note(c, "the thrown error is missing")
+  const inpOld = items.find((i) => i[0] === "inp" && i[2] === "/explore")
+  if (!inpOld || inpOld[3] < 120) note(c, `the tap that left Explore is not Explore's INP (${inpOld ? inpOld[3] : "missing"})`)
+  if (items.some((i) => i[0] === "inp" && i[2] === "/app/products")) note(c, "the tap that left Explore was counted on the next page")
+  if (sent.some((b) => /anna|127\.0\.0\.1|cookie/i.test(b))) note(c, "the beacon carried something it must not")
+  await page.close()
+  server.close()
+}
+
 await browser.close()
 console.log(`\nshots: ${shots}`)
 if (problems.length) {
