@@ -774,8 +774,7 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
   return (
     <nav
       aria-label="Community sections"
-      data-community-tabs=""
-      className="relative w-full"
+      data-community-tabs="" className="relative w-full"
       onClickCapture={(ev) => {
         /* The browser's own click after a tap already taken on the lift (above): the same tap, not a second one. */
         if (ev.nativeEvent.isTrusted && performance.now() - tookAt.current < CLICK_AFTER_MS && (ev.target as Element | null)?.closest?.("[data-community-nav]")) {
