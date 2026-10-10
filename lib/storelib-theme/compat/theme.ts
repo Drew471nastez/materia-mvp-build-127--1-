@@ -306,20 +306,41 @@ export class CompatTheme {
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
       const t = this.tree(path)
-      if (t?.stylesheet.trim()) parts.push(`/* ${path} */\n${t.stylesheet}`)
+      /* A <style> tag written inside {% stylesheet %} would end the bundle's own. */
+      const css = t?.stylesheet.replace(/<\/?style\b[^>]*>/gi, "").trim()
+      if (css) parts.push(`/* ${path} */\n${css}`)
     }
     return parts.join("\n")
   }
 
-  /** The script of every {% javascript %}, once each. Drawn on the website only. */
+  /**
+   * The script of every {% javascript %}, once each. Drawn on the website only.
+   *
+   * ONE FILE'S MISTAKE IS ITS OWN. Every section's script shares one
+   * <script>, so a syntax error in any of them (a `<script>` tag written
+   * inside {% javascript %}, as themes do) stopped every other section's
+   * script on every page: the cart drawer, the variant picker, add to cart.
+   * The tags around a script are taken off, a script that still does not
+   * read is left out and named in the diagnostics, and each one runs in its
+   * own try, so one that throws as it starts stops only itself.
+   */
+  private jsBundle: string | null = null
   javascriptBundle(): string {
+    if (this.jsBundle !== null) return this.jsBundle
     const parts: string[] = []
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
       const t = this.tree(path)
-      if (t?.javascript.trim()) parts.push(`/* ${path} */\n(function(){\n${t.javascript}\n})();`)
+      const code = t?.javascript.replace(/<\/?script\b[^>]*>/gi, "").trim()
+      if (!code) continue
+      if (!readsAsScript(code)) {
+        this.diagnostics.add(`The script in ${path} does not read as JavaScript and was left out`)
+        continue
+      }
+      parts.push(`/* ${path} */\ntry{(function(){\n${code}\n})();}catch(e){console.error(${JSON.stringify(path)},e)}`)
     }
-    return parts.join("\n")
+    this.jsBundle = parts.join("\n")
+    return this.jsBundle
   }
 
   // ── The context ──
@@ -516,6 +537,10 @@ export class CompatTheme {
   private renderSectionRaw(ctx: Ctx, instance: CompatSectionInstance, index = 0, group?: string): RenderedSection {
     const path = this.fileFor("sections", instance.type)
     const tree = path ? this.tree(path) : null
+    if (!tree && instance.type === "rich_text" && group === undefined) {
+      const drawn = this.renderAsThemePage(ctx, instance, index)
+      if (drawn) return drawn
+    }
     if (!tree) {
       this.diagnostics.add(`A page names the section "${instance.type}", which this theme does not have`)
       return { html: "", errors: [`There is no section called ${instance.type}`] }
@@ -625,6 +650,30 @@ export class CompatTheme {
     return draw(found)
   }
 
+  /**
+   * STORELIB'S OWN TEXT SECTION ON AN IMPORTED THEME'S PAGE. The refund,
+   * privacy, terms and shipping pages every site is given hold their words
+   * in a `rich_text` section, which an imported theme does not have, so the
+   * page drew as nothing between the header and the footer. It is drawn as
+   * the theme draws a page: the main section of templates/page.json (or the
+   * theme's page section), with `page.title` and `page.content` the
+   * section's heading and words, under the section's own id so it is
+   * selected in the builder as itself.
+   */
+  private renderAsThemePage(ctx: Ctx, instance: CompatSectionInstance, index: number): RenderedSection | null {
+    const settings = (instance.settings ?? {}) as O
+    const body = typeof settings.body === "string" ? settings.body : ""
+    const title = typeof settings.heading === "string" ? settings.heading : ""
+    const fromTemplate = groupSections(this.files["templates/page.json"]).find((s) => !s.disabled && this.fileFor("sections", this.typeOf(s.type)))
+    const fallback = ["main-page", "page-default", "page"].find((t) => this.fileFor("sections", t))
+    const main: CompatSectionInstance | null = fromTemplate ? { ...fromTemplate, type: this.typeOf(fromTemplate.type) } : fallback ? { id: "main", type: fallback, settings: {} } : null
+    if (!main) return null
+    const handle = String((ctx.registers.page as CompatPage | undefined)?.path ?? "").replace(/^\/+/, "") || "page"
+    const page = { [OUTPUT]: title, title, content: body, handle, id: handle, url: `/${handle}`, template_suffix: null, metafields: {} }
+    const drawn = this.renderSectionRaw(ctx.child({ page }), { ...main, id: instance.id }, index)
+    return drawn.html ? drawn : null
+  }
+
   /** `{% section 'x' %}` in a layout: a section with no instance on a page, drawn from its defaults. */
   private renderStaticSection(ctx: Ctx, name: string): string {
     /* The page's own copy first: an older theme's header, imported into the Header group under its name so it can be edited. */
@@ -729,6 +778,16 @@ function resolverFor(get: () => Ctx | null): DynamicResolver {
       if (!c) return src
       try { return renderString(src, c) } catch { return src }
     },
+  }
+}
+
+/** Whether a script parses. Only a syntax error says no: where eval is not allowed (a page's policy), every script is taken as it is. */
+function readsAsScript(code: string): boolean {
+  try {
+    new Function(code)
+    return true
+  } catch (e) {
+    return !(e instanceof SyntaxError)
   }
 }
 

@@ -310,6 +310,8 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     return shell(site, req, path, policy.title, `<div class="page-width" style="max-width:72ch;margin:0 auto;padding:48px 20px"><h1>${escapeText(policy.title)}</h1><div class="rte">${policy.body}</div></div>`)
   }
 
+  /* A theme's wishlist page (page.wishlist, its phone tab bar's heart) is the visitor's wishlist, which Storelib keeps. */
+  if (path === "/pages/wishlist" && !site.pages.wishlist) return accountShell(site, req, "/wishlist")
   const pageMatch = path.match(/^\/pages\/([a-z0-9-]+)$/) ?? path.match(/^\/([a-z0-9][a-z0-9-]*)$/)
   if (pageMatch) {
     const handle = pageMatch[1]
@@ -519,7 +521,21 @@ function lineKey(p: string, v: string | null, props?: Record<string, string>): s
 
 /** Items a cart/add posts: `id` and `quantity`, or `items: [{ id, quantity, properties }]`. */
 function itemsOf(body: O | null): { id: string; quantity: number; properties?: Record<string, string> }[] {
-  const items = field(body, "items")
+  let items = field(body, "items")
+  /*
+    A multipart form posts the lines flat: items[0][id], items[0][quantity],
+    items[0][properties][Engraving]. Gathered into the list a JSON body
+    sends, whichever way the fields arrived.
+  */
+  const flat: O[] = Array.isArray(items) ? (items as O[]).map((x) => (x && typeof x === "object" ? { ...(x as O) } : {})) : []
+  for (const [k, v] of Object.entries(body ?? {})) {
+    const m = k.match(/^items\[(\d{1,2})\]\[(\w+)\](?:\[([^\]]{1,60})\])?$/)
+    if (!m || typeof v !== "string") continue
+    const at = (flat[Number(m[1])] ??= {})
+    if (m[3] && m[2] === "properties") at.properties = { ...((at.properties as O) ?? {}), [m[3]]: v }
+    else if (!m[3]) at[m[2]] = v
+  }
+  if (flat.some((x) => x && x.id !== undefined)) items = flat.filter((x) => x && x.id !== undefined)
   const props = (v: unknown) => (v && typeof v === "object" ? Object.fromEntries(Object.entries(v as O).filter(([, x]) => typeof x === "string").slice(0, 10)) as Record<string, string> : undefined)
   if (Array.isArray(items)) return items.filter((x) => x && typeof x === "object").map((x) => ({ id: String((x as O).id ?? ""), quantity: Number((x as O).quantity ?? 1) || 1, properties: props((x as O).properties) }))
   const id = field(body, "id")

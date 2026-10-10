@@ -742,7 +742,7 @@ export function cartObject(lines: CartLineLike[], currency: string, note = ""): 
       line_level_discount_allocations: [],
       line_level_total_discount: 0,
       discount_allocations: [],
-      properties: l.properties ?? {},
+      properties: hashOf(l.properties ?? {}),
       options_with_values: ((product.options as string[]) ?? []).map((name, p) => ({ name, value: (variant?.options as string[] | undefined)?.[p] ?? "" })).filter((o) => variant && variant.title !== "Default Title" && o.value),
       selling_plan_allocation: null,
       requires_shipping: variant?.requires_shipping === true,
@@ -777,3 +777,17 @@ export function cartObject(lines: CartLineLike[], currency: string, note = ""): 
     taxes_included: false,
   }
 }
+
+/**
+ * A hash as Liquid loops over one: `{% for p in item.properties %}` gives
+ * [name, value] pairs, so `p.first` is the name and `p.last` the value. The
+ * pairs are held where neither a key read, `size`, `empty` nor `json` sees
+ * them; a plain object looped as its values printed "B: e" (the first and
+ * last letters of "Bundle") under a cart line.
+ */
+export function hashOf<T extends Record<string, unknown>>(o: T): T {
+  const out = { ...o }
+  Object.defineProperty(out, "__list__", { value: Object.entries(o), enumerable: false })
+  return out
+}
+

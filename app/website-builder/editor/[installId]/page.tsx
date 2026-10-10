@@ -2768,14 +2768,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     /* The Overlay group: what floats over the page, and nothing that is a header or a footer. */
     if (addGroup === "overlay") {
       const floats = all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
-      /* An imported theme seldom says a section floats: what does comes first, then any of its sections that is not a header or a footer (a custom Liquid bar, a newsletter popup). */
-      return compatInstall ? [...new Set([...floats, ...all.filter((t) => !kindOfType(t))])] : floats
+      /* Only what may float over the page: what its schema says (enabled_on custom.overlay), and a type already in the site's Overlay group. */
+      const placed = sections.filter((sec) => sec.group === "overlay").map((sec) => sec.type).filter((t) => all.includes(t))
+      return [...new Set([...floats, ...placed])]
     }
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
     return [...new Set([...(compatInstall ? [] : [own]), ...ownKinds, ...fits])]
-  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
+  }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall, sections])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
     /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
@@ -7087,7 +7088,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
     if (inspectorRef.current && !chrome) return
     const to = compatPageForHref(href, rowPageKeysRef.current)
-    if (!to) return
+    if (!to) {
+      /* A visitor's account and checkout are Storelib's own pages: said, rather than a click that does nothing. */
+      const path = href.split(/[?#]/)[0]
+      if (/^\/(account|wishlist|checkout)(\/|$)/.test(path)) toast(path.startsWith("/checkout") ? "Checkout opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
+      return
+    }
     /* A link to a product opens that product's page, as on the website, not the shop's first product. */
     const linked = to.product ? productsRef.current.find((p) => p.slug === to.product || p.id === to.product) : null
     if (linked) {

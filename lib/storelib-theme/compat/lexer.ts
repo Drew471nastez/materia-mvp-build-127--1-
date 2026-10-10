@@ -184,8 +184,22 @@ export function lex(src: string, lax = false): Tok[] {
     if (name === "liquid") {
       /* One tag a line; `echo` outputs. Comments start with #. */
       let l = startLine
+      /* A comment (or doc) inside the block runs to its own end line, and the prose between is not tags. */
+      let quiet = 0
       for (const raw of args.split("\n")) {
         const s = raw.trim()
+        const word = s.match(/^([A-Za-z_]+)\b/)?.[1]
+        if (quiet > 0) {
+          if (word === "comment" || word === "doc") quiet++
+          else if (word === "endcomment" || word === "enddoc") quiet--
+          l++
+          continue
+        }
+        if (word === "comment" || word === "doc") {
+          quiet = 1
+          l++
+          continue
+        }
         if (s && !s.startsWith("#")) {
           const mm = s.match(/^([A-Za-z_][A-Za-z0-9_]*)\s*([\s\S]*)$/)
           if (!mm && !lax) throw new CompatSyntaxError(`"${s.slice(0, 40)}" in {% liquid %} is not a tag`, l)

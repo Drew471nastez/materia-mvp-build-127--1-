@@ -33,6 +33,7 @@ const throws = (f: () => unknown) => {
   }
 }
 
+async function main() {
 console.log("\nLiquid read leniently\n")
 {
   const env = { snippet: () => null, filter: (n: string) => (n === "boom" ? () => { throw new Error("no way") } : compatFilter(n)) }
@@ -89,5 +90,49 @@ console.log("\nAn imported section's settings, saved\n")
   check("a section of Storelib's own is cleaned by id as before", !/script/.test(String(ours.custom_html)))
 }
 
+console.log("\nWhat Posturex (Materia) leaned on\n")
+{
+  const env = { snippet: () => null, filter: compatFilter }
+  const r = (src: string, g: Record<string, unknown> = {}, reg: Record<string, unknown> = {}) => {
+    const c = new Ctx(g, env)
+    Object.assign(c.registers, reg)
+    return renderString(src, c, { lax: true })
+  }
+  check("prose inside a comment in {% liquid %} is not read as tags (strict too)", !throws(() => parseCompat("{%- liquid\n  comment\n    (request.page_type == 'index'). On every page\n  endcomment\n  assign a = 1\n-%}{{ a }}")) && r("{%- liquid\n  comment\n    if this were read it would break\n  endcomment\n  assign a = 'ok'\n-%}{{ a }}") === "ok")
+  check("{% when 'collection' and x %} is the value 'collection', as Liquid reads it", r("{% case t %}{% when 'collection' and c.handle %}yes{% else %}no{% endcase %}", { t: "collection", c: { handle: "all" } }) === "yes")
+  const compat = { compat: { translate: (k: string) => ({ "cart.free_shipping": 'Spend <span class="price">{{ amount }}</span> more', "cart.note_html": "<b>{{ name }}</b>" } as Record<string, string>)[k] ?? null } }
+  const attr = r(`<div data-x="{{ 'cart.free_shipping' | t }}">`, {}, compat)
+  check("a plain key's translation is escaped, so it stays inside its attribute", attr === '<div data-x="Spend &lt;span class=&quot;price&quot;&gt;{{ amount }}&lt;/span&gt; more">', attr)
+  check("  and `{{ amount }}` stays for the theme's script when no amount is passed", attr.includes("{{ amount }}"))
+  check("  an _html key is not escaped, and a passed value fills in", r(`{{ 'cart.note_html' | t: name: 'Ann' }}`, {}, compat) === "<b>Ann</b>")
+}
+{
+  const { hashOf } = await import("../lib/storelib-theme/compat/objects")
+  const env = { snippet: () => null, filter: compatFilter }
+  const out = renderString("{% for p in props %}{{ p.first }}={{ p.last }};{% endfor %}{{ props.size }}|{{ props | json }}", new Ctx({ props: hashOf({ _bundle: "Bundle & Save", Size: "L" }) }, env))
+  check("a line's properties loop as [name, value] pairs, and size and json see only the values", out === '_bundle=Bundle & Save;Size=L;2|{"_bundle":"Bundle & Save","Size":"L"}', out)
+}
+{
+  const svg = String(compatFilter("payment_type_svg_tag")!("shopify_pay", [], {}, {} as never))
+  check("Shop Pay and the other common methods draw as marks, held to the card's width", /<svg[^>]+viewBox="0 0 38 24"/.test(svg) && /textLength=/.test(svg) && /#5A31F4/.test(svg))
+  const buy = String(compatFilter("payment_button")!(null, [], {}, {} as never))
+  check("payment_button draws a Buy it now that the page's script sends to the checkout", /data-storelib-buy-now/.test(buy) && /shopify-payment-button__button/.test(buy))
+}
+{
+  const { CompatTheme } = await import("../lib/storelib-theme/compat/theme")
+  const theme = new CompatTheme({
+    "layout/theme.liquid": "<html><body>{{ content_for_layout }}</body></html>",
+    "sections/bad.liquid": "<p>bad</p>{% javascript %}<script>var x = 1;</script>{% endjavascript %}",
+    "sections/broken.liquid": "<p>b</p>{% javascript %}function ({{% endjavascript %}",
+    "sections/good.liquid": "<p>good</p>{% javascript %}window.__good = 1;{% endjavascript %}",
+  }, {}, { assetUrl: (n) => `/a/${n}` })
+  const js = theme.javascriptBundle()
+  let reads = true
+  try { new Function(js) } catch { reads = false }
+  check("one section's broken script never stops the others: the bundle reads, the good one is in, the broken one is out", reads && /window\.__good = 1/.test(js) && /var x = 1/.test(js) && !/function \(\{/.test(js), js.slice(0, 200))
+}
+
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
+}
+void main()
