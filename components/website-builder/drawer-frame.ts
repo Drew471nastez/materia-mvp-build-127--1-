@@ -720,12 +720,17 @@ export function useDrawerFrame(
         const startTop = scroller.scrollTop
         const prevOverflow = scroller.style.overflow
         const prevTouch = scroller.style.touchAction
+        /* The bar's room stays taken while it is gone, so nothing on the canvas moves sideways when a drawer opens. */
+        const bar = scroller.offsetWidth - scroller.clientWidth
+        const prevGutter = scroller.style.scrollbarGutter
+        if (bar > 0) scroller.style.scrollbarGutter = "stable"
         scroller.style.overflow = "hidden"
         scroller.style.touchAction = "none"
         scroller.setAttribute(SITE_DRAWER_OPEN_ATTRIBUTE, "")
         return () => {
           scroller.style.overflow = prevOverflow
           scroller.style.touchAction = prevTouch
+          scroller.style.scrollbarGutter = prevGutter
           scroller.removeAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)
           // `overflow: hidden` can clamp the offset; put it back verbatim.
           scroller.scrollTop = startTop

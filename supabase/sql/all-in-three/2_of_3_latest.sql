@@ -2629,5 +2629,34 @@ INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('106', '1
 DO $do$ BEGIN IF to_regclass('public.products') IS NULL THEN RAISE NOTICE 'product custom fields: the products table is not there yet.'; RETURN; END IF; ALTER TABLE public.products ADD COLUMN IF NOT EXISTS custom_fields jsonb NOT NULL DEFAULT '{}'::jsonb; ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_custom_fields_shape, ADD CONSTRAINT products_custom_fields_shape CHECK (jsonb_typeof(custom_fields) = 'object' AND pg_column_size(custom_fields) < 16384) NOT VALID; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('107', '107_product_custom_fields.sql', '8f12fbc7812e39e9e15f89a0eda8f825bf475a02840acd373d9ea32713cdc295') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 108_default_collections.sql
+/* Part 108. Every store starts with two collections, as on Shopify: All products (smart, every product, newest first) and Home page (picked by hand). A server only table default_collections_given marks a store that has been given them, so a store that deletes them keeps them deleted, and every existing store with no collections at all gets the two now. Needs product_collections (part 78 or 95). Additive: nothing is dropped or renamed. Safe to run again. */
+DO $$
+BEGIN
+  IF to_regclass('public.creators') IS NULL OR to_regclass('public.product_collections') IS NULL THEN
+    RAISE NOTICE 'default collections: run part 95 (collections) first, nothing to do.';
+    RETURN;
+  END IF;
+  CREATE TABLE IF NOT EXISTS public.default_collections_given (
+    creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE,
+    given_at timestamptz NOT NULL DEFAULT now()
+  );
+  ALTER TABLE public.default_collections_given ENABLE ROW LEVEL SECURITY;
+  REVOKE ALL ON public.default_collections_given FROM anon, authenticated;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON public.default_collections_given TO service_role;
+  INSERT INTO public.product_collections (creator_id, title, slug, description, kind, rules, match, sort, published)
+  SELECT c.id, d.title, d.slug, d.description, d.kind, d.rules, 'all', d.sort, true
+  FROM public.creators c
+  CROSS JOIN (VALUES
+    ('All products', 'all-products', 'Every product in the store.', 'smart', '[{"field":"price","op":"greater_than","value":"-1"}]'::jsonb, 'newest'),
+    ('Home page', 'home-page', 'Products picked for the home page.', 'manual', '[]'::jsonb, 'manual')
+  ) AS d(title, slug, description, kind, rules, sort)
+  WHERE NOT EXISTS (SELECT 1 FROM public.default_collections_given g WHERE g.creator_id = c.id)
+    AND NOT EXISTS (SELECT 1 FROM public.product_collections pc WHERE pc.creator_id = c.id)
+  ON CONFLICT (creator_id, slug) DO NOTHING;
+  INSERT INTO public.default_collections_given (creator_id) SELECT c.id FROM public.creators c ON CONFLICT (creator_id) DO NOTHING;
+END $$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('108', '108_default_collections.sql', '4e3c82d18ae578d903822630d1b5b3e5bdb79800918efe3d9f2a9ac65abf1f38') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;

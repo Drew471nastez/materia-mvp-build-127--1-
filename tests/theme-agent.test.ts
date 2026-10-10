@@ -1279,7 +1279,8 @@ section("Autosave writes the draft, never the live site")
       const body = editor.slice(at, editor.indexOf("const publishChanges", at))
       return (
         /if \(!options\.quiet\) showNotification/.test(body) &&
-        /showNotification\(d\.error \?\? "Failed to save sections", "error"\)/.test(body)
+        /* A failed save puts up the save banner, with what happened and what to do (lib/website-builder/save-problem.ts). */
+        /setSaveProblem\(explainSaveProblem\(sectionsRes\.status, d, sectionsForSave\(sections\)\)\)/.test(body)
       )
     })(),
   )

@@ -104,6 +104,8 @@ const SectionSchema = z.object({
   type: z.string().min(1).max(64),
   /* An imported Shopify theme's sections carry no name (the theme names them by type); one sent without is saved with none, not refused. */
   name: z.string().max(256).optional().default(""),
+  /* The name the creator gave the section in the editor (lib/website-builder/section-name.ts). */
+  label: z.string().max(80).optional(),
   settings: z.record(z.unknown()),
   blocks: z.array(BlockSchema).max(500).optional(),
   hidden: z.boolean().optional(),

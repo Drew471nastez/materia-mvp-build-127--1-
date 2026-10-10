@@ -184,6 +184,13 @@ const MARKUP = new Map<string, string>()
  * ever built, and is that tall from its first frame (see previewCardHeight).
  */
 const HEIGHTS = new Map<string, number>()
+/**
+ * AND WHICH ONES DRAW NOTHING AT ALL: no words, no picture, nothing with a
+ * size. A section made by the creator that needs a product to show, or
+ * that only appears once a script runs, is an empty white box as a
+ * preview; the card names it instead (EmptyPreview).
+ */
+const EMPTY = new Set<string>()
 /** Counts every batch of heights, for what has to be worked out again when they change (the eager cards). */
 let heightsVersion = 0
 const listeners = new Set<() => void>()
@@ -293,9 +300,14 @@ function measureOne(html: string, width: number): number {
   ruler.style.width = `${width}px`
   ruler.innerHTML = html
   const height = ruler.getBoundingClientRect().height
+  const words = (ruler.textContent ?? "").replace(/\s+/g, "").length
+  const things = ruler.querySelector("img, svg, video, picture, canvas, iframe, input, button")
+  lastWasEmpty = height < 8 || (words === 0 && !things)
   ruler.textContent = ""
   return Math.ceil(height)
 }
+/** Whether the markup measureOne last measured had nothing in it to see. */
+let lastWasEmpty = false
 
 const idle = (cb: (deadline: { timeRemaining: () => number }) => void) => {
   const w = typeof window !== "undefined" ? (window as unknown as { requestIdleCallback?: (cb: (d: { timeRemaining: () => number }) => void, o?: { timeout: number }) => number }) : undefined
@@ -339,7 +351,10 @@ function pump() {
           height = measureOne(next.html, next.width)
         } catch {
           height = 0
+          lastWasEmpty = true
         }
+        if (lastWasEmpty || !next.html) EMPTY.add(next.key)
+        else EMPTY.delete(next.key)
         HEIGHTS.set(next.key, height)
         MARKUP.set(next.key, next.html)
         pending.delete(next.key)
@@ -378,6 +393,29 @@ export function requestPreviews(jobs: Job[], front = false) {
 /** Only the card whose preview just landed renders again: the snapshot is its own string. */
 function useMarkup(key: string): string | undefined {
   return useSyncExternalStore(subscribe, () => MARKUP.get(key), () => undefined)
+}
+
+/** Whether the section drew nothing to see (see EMPTY). */
+function useDrawnEmpty(key: string): boolean {
+  return useSyncExternalStore(subscribe, () => EMPTY.has(key), () => false)
+}
+
+/**
+ * WHAT A SCRIPT WOULD REVEAL, SHOWN. A preview is markup with no script in
+ * it, so a section that starts hidden and waits for a script to bring it in
+ * as it scrolls into view (Storelib's own data-reveal, and the classes AI
+ * written and imported sections use for the same) would stay hidden in its
+ * card forever. In a card they are simply there.
+ */
+const REVEAL_SHOWN = `[data-preview-box] :is([data-reveal],[data-animate],[data-aos],.reveal,.fade-in,.fade-up,.scroll-trigger,.animate-on-scroll,.js-animate,.wow,[class*="reveal"],[class*="animate--"],[style*="opacity: 0"],[style*="opacity:0"]){opacity:1!important;visibility:visible!important;transform:none!important;clip-path:none!important}`
+let revealStyled = false
+function showRevealsInCards() {
+  if (revealStyled || typeof document === "undefined") return
+  revealStyled = true
+  const sheet = document.createElement("style")
+  sheet.setAttribute("data-section-preview-reveal", "")
+  sheet.textContent = REVEAL_SHOWN
+  document.head.appendChild(sheet)
 }
 
 /** The section's own height as drawn, in the width it was drawn at; undefined until it has been. */
@@ -495,6 +533,7 @@ function useSteadyHeight(boxRef: React.RefObject<HTMLDivElement | null>, wanted:
 
 const PreviewBox = memo(function PreviewBox({
   markupKey,
+  title,
   width,
   renderWidth,
   ratio,
@@ -502,6 +541,8 @@ const PreviewBox = memo(function PreviewBox({
   eager,
 }: {
   markupKey: string
+  /** The section's name, for a card whose section draws nothing to see. */
+  title: string
   width: number
   renderWidth: number
   ratio: number
@@ -511,7 +552,9 @@ const PreviewBox = memo(function PreviewBox({
   eager: boolean
 }) {
   const stored = useMarkup(markupKey)
-  const markup = live ? stored : undefined
+  const empty = useDrawnEmpty(markupKey)
+  useEffect(showRevealsInCards, [])
+  const markup = live && !empty ? stored : undefined
   /* The same object for the same markup, or React rewrites it on every render. */
   const html = useMemo(() => (markup ? { __html: markup } : null), [markup])
   /**
@@ -575,6 +618,7 @@ const PreviewBox = memo(function PreviewBox({
         containIntrinsicSize: `${width || 200}px ${height || 200}px`,
       }}
     >
+      {live && empty ? <EmptyPreview title={title} /> : null}
       {html && (
         <div
           ref={innerRef}
@@ -588,6 +632,16 @@ const PreviewBox = memo(function PreviewBox({
     </div>
   )
 })
+
+/** A section that draws nothing until it has content or a product: its name, quietly, never a blank white box. */
+function EmptyPreview({ title }: { title: string }) {
+  return (
+    <div data-preview-empty="" className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-[#f6f7f9] px-4 text-center">
+      <span className="text-[13px] font-medium text-[#6b7280]">{title}</span>
+      <span className="text-[11px] text-[#9ca3af]">Shows once it has content</span>
+    </div>
+  )
+}
 
 const LibraryCard = memo(function LibraryCard({
   entry,
@@ -637,7 +691,7 @@ const LibraryCard = memo(function LibraryCard({
         {compat ? (
           <CompatPreviewBox type={entry.type} presetIndex={entry.presetIndex} schema={entry.schema} width={width} renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} />
         ) : (
-          <PreviewBox markupKey={entry.keyFor(renderWidth)} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
+          <PreviewBox markupKey={entry.keyFor(renderWidth)} title={entry.title} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
         )}
       </div>
       {/* The name under the picture; a size up on a phone, where the card is the width of the sheet. */}

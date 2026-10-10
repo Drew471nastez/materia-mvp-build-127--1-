@@ -183,7 +183,8 @@ console.log("\nFull screen, the third way of looking\n")
       !/\{ key: "full", label: "Large"/.test(page) &&
       /onClick=\{\(\) => go\(next\.key\)\}/.test(page) && !/role="radiogroup"\s+aria-label="Preview size"/.test(page),
   )
-  check("and there is no full screen button of its own beside it any more", !/Minimize2/.test(page))
+  /* The owner, October 2026: "a fullscreen button next to the desktop and mobile switch". It is back, beside the size, and goes into the same fold. */
+  check("and a full screen button beside it, into the same fold", /data-wb-full-toggle=""/.test(page) && /onClick=\{\(\) => toggleCanvasFullScreen\(!fullView\)\}/.test(page))
   check("remembered for the session", /const FULL_SCREEN_KEY = "wb:full-screen"/.test(page) && /window\.sessionStorage\.setItem\(FULL_SCREEN_KEY, "1"\)/.test(page))
   check("the sidebar folds by its width and opacity, not by unmounting", /maxWidth: fullView \? 0 : sidebarWidth/.test(page) && /opacity: fullView \? 0 : 1/.test(page) && /transition: `max-width \$\{FULL_SCREEN_MS\}ms/.test(page))
   check("Escape leaves it", /if \(e\.key !== "Escape" \|\| e\.defaultPrevented\) return[\s\S]{0,300}setFullScreen\(false\)/.test(page))

@@ -408,7 +408,8 @@ section("It is reachable, and it works on a file longer than the window")
   )
   check(
     "their padding matches, or the text would sit a line off",
-    /px-\[2\.75rem\] py-2 z-10/.test(code) && /<div className="py-2 min-h-full">/.test(code),
+    /* The typing layer starts where the drawn text does (after the 40px gutter) and never wraps, or every row after a long line is off. */
+    /pl-10 pr-4 py-2 z-10 whitespace-pre/.test(code) && /wrap="off"/.test(code) && /<div className="py-2 min-h-full">/.test(code) && /w-10 shrink-0 text-right/.test(code),
   )
 
   check(

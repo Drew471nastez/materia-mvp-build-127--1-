@@ -154,7 +154,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (!compatTheme) return null
     const list = sectionsRef.current
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
-    const drawn = drawPage(compatTheme, page, list, { scripts: true, extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
+    const drawn = drawPage(compatTheme, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
     drawnFrom.current = new Map(list.map((s) => [s.id, JSON.stringify(s)]))
     ready.current = false
     /* Before anything of the theme's: its scripts read storage on their first line. */

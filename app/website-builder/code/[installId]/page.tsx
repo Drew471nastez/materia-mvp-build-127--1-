@@ -136,7 +136,7 @@ function CodeLine({ line, lineNumber, hasError, hasWarning }: { line: string; li
       <span className={cn("w-10 shrink-0 text-right pr-4 select-none", hasError ? "text-red-500" : hasWarning ? "text-amber-500" : "text-[var(--code-faint)] group-hover:text-[var(--code-muted)]", CODE_TEXT)}>
         {lineNumber}
       </span>
-      <span className={cn("flex-1 font-mono whitespace-pre text-[var(--code-text)]", CODE_TEXT)}>
+      <span className={cn("flex-1 font-mono whitespace-pre text-[var(--code-text)] [font-variant-ligatures:none] [tab-size:2]", CODE_TEXT)}>
         {line}
       </span>
     </div>
@@ -2111,7 +2111,15 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                    * where a drag has to move a selection handle rather than
                    * be read as a page gesture and cancelled.
                    */
-                  "wb-slim-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-[var(--code-text)] font-mono resize-none focus:outline-none px-[2.75rem] py-2 z-10",
+                  /*
+                   * EXACTLY OVER THE TEXT IT TYPES. The visible layer never
+                   * wraps and starts after a 40px gutter; this one wrapped long
+                   * lines and started at 44px, so after the first long line
+                   * every row, every selection and every tap landed somewhere
+                   * else than the words under it. Same start, no wrapping, no
+                   * ligatures, the same tab width.
+                   */
+                  "wb-slim-scroll absolute inset-0 w-full h-full bg-transparent text-transparent caret-[var(--code-text)] font-mono resize-none focus:outline-none pl-10 pr-4 py-2 z-10 whitespace-pre overflow-auto [font-variant-ligatures:none] [tab-size:2] selection:bg-[#3b82f6]/30 selection:text-transparent",
                   "select-text overscroll-contain [touch-action:pan-x_pan-y]",
                   CODE_TEXT,
                 )}
@@ -2142,6 +2150,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   display.scrollTop = e.currentTarget.scrollTop
                   display.scrollLeft = e.currentTarget.scrollLeft
                 }}
+                wrap="off"
                 spellCheck={false}
                 autoComplete="off"
                 autoCorrect="off"
@@ -2159,7 +2168,7 @@ export default function CodeEditorPage({ params }: { params: Promise<{ installId
                   className="absolute z-30 w-[19rem] max-w-[calc(100%-3rem)] overflow-hidden rounded-lg border border-[var(--code-border)] bg-[var(--code-panel)] shadow-xl"
                   style={{
                     top: caretPoint.line * charBox.h + 8 + charBox.h,
-                    left: Math.min(caretPoint.col * charBox.w + 44, 520),
+                    left: Math.min(caretPoint.col * charBox.w + 40, 520),
                   }}
                 >
                   {visibleCompletions.map((c, i) => (

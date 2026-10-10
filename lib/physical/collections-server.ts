@@ -9,6 +9,7 @@ import "server-only"
 import type { Db } from "./auth"
 import { COLLECTION_SORTS, inSmartCollection, readRules, slugify, sortProducts, type CollectionRule, type CollectionSort, type RuleProduct } from "./collections"
 import { text } from "./config-server"
+import { ensureDefaultCollections } from "./default-collections"
 
 export interface CollectionView {
   id: string
@@ -59,10 +60,11 @@ async function shopProducts(db: Db, creatorId: string, publishedOnly: boolean): 
   }))
 }
 
-export async function listCollections(db: Db, creatorId: string): Promise<CollectionView[]> {
+export async function listCollections(db: Db, creatorId: string, fresh = false): Promise<CollectionView[]> {
   const { data } = await db.from("product_collections").select("*").eq("creator_id", creatorId).order("created_at", { ascending: true }).limit(200)
   const rows = (data ?? []) as Record<string, any>[]
-  if (rows.length === 0) return []
+  /* A store with none gets All products and Home page, once (./default-collections.ts). */
+  if (rows.length === 0) return !fresh && (await ensureDefaultCollections(creatorId)) ? listCollections(db, creatorId, true) : []
   const { data: items } = await db.from("product_collection_items").select("collection_id, product_id, position").in("collection_id", rows.map((r) => r.id)).order("position")
   const products = rows.some((r) => r.kind === "smart") ? await shopProducts(db, creatorId, false) : []
   return rows.map((r) => {

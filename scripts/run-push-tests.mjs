@@ -32,6 +32,7 @@ const SUITES = [
   "tests/compat-engine.test.ts",
   "tests/compat-section-preview.test.ts",
   "tests/editor-save-errors.test.ts",
+  "tests/builder-october-fixes.test.ts",
   "tests/admin-ops.test.ts",
   "tests/native-app-links-inapp.test.ts",
   "tests/merge-markers.test.ts",
