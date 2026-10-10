@@ -122,7 +122,7 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
     onError: (message) => toast(message),
   })
   const joined = monthYear(person.joinedAt)
-  const cover = person.coverUrl ? optimizedImageUrl(person.coverUrl, 1200) : null
+  const cover = person.coverUrl ? optimizedImageUrl(person.coverUrl, 720) : null
   return (
     <header className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
       {/* THE BAND'S HEIGHT IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it comes. */}
@@ -497,7 +497,7 @@ function SelfTabs({ tab, onTab }: { tab: SelfTab; onTab: (t: SelfTab) => void })
     { id: "activity", label: "Activity" },
   ]
   return (
-    <div role="tablist" aria-label="Your profile" className="relative grid h-11 grid-cols-2 rounded-xl bg-[#eef0f3] p-1" data-profile-self-tabs="">
+    <div role="tablist" aria-label="Your profile" className="relative grid h-12 grid-cols-2 rounded-xl bg-[#eef0f3] p-1" data-profile-self-tabs="">
       <span
         aria-hidden
         className="pointer-events-none absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-[9px] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_rgba(16,24,40,0.04)] transition-[translate] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none"
