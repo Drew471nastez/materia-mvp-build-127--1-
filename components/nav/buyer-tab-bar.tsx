@@ -95,7 +95,7 @@ import {
 } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
-import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf, type BuyerTabKey } from "@/lib/nav/buyer-tabs"
+import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf, discoverHomeHref, discoverModeFromCookie, type BuyerTabKey } from "@/lib/nav/buyer-tabs"
 import { useNavigatorOutsideCommunity } from "@/lib/communities/client/navigator"
 import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
@@ -437,13 +437,28 @@ function TabBar({
   */
   const [toward, setToward] = useState<number | null>(null)
   useEffect(() => setToward(null), [pathname, current])
+  /*
+    HOME IS DISCOVER AS YOU LEFT IT (lib/nav/buyer-tabs.ts discoverHomeHref):
+    products or communities, read from Discover's own cookie after the page has
+    woken (the server never knows it), and again on every move, so a mode
+    chosen on Discover is the one Home goes back to.
+  */
+  const [discoverMode, setDiscoverMode] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      setDiscoverMode(discoverModeFromCookie(document.cookie))
+    } catch {
+      /* no cookies to read: the bare address */
+    }
+  }, [pathname])
   /* The page a press is taking the bar to, and where on it to land (lib/navigation/tab-scroll.ts). */
   const arrival = useRef<{ href: string; y: number | null } | null>(null)
 
   const hrefOf = (index: number, from: ReturnType<typeof buyerTabsAt> = tabs): string => {
     const tab = from[index]
     const home = community || (from === tabs ? homeCommunity : communityContext())
-    if (!tab) return home ? `/community/${home}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
+    if (!tab) return home ? `/community/${home}` : exploreMarketplaceEnabled ? discoverHomeHref(discoverMode) : "/account/library"
+    if (tab.key === "home" && tab.href === "/explore") return discoverHomeHref(discoverMode)
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
@@ -492,7 +507,7 @@ function TabBar({
         THE TAB YOU ARE ALREADY ON takes you to the top of it, as a phone's
         own tab bar does.
       */
-      if (index === current && pathname === tab.href) {
+      if (index === current && pathname === href.split(/[?#]/)[0]) {
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" })
         return

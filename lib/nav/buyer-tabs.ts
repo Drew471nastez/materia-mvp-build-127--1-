@@ -231,3 +231,34 @@ export function buyerTabFor(
   if (under(pathname, "/account")) return idx("profile")
   return -1
 }
+
+/**
+ * ===========================================================================
+ *  HOME IS DISCOVER AS YOU LEFT IT
+ * ===========================================================================
+ * Round 15, the owner: "when I go from a Library page back to the Discover
+ * page, it flashes too much and reloads and flips the thing with communities
+ * and digital products there, which doesn't make any sense."
+ *
+ * Discover shows products or communities, and which one you chose is kept in
+ * a cookie (lib/explore/discover-mode-cookie.ts) and, while you are on it, in
+ * the address (?type=). Home was the bare /explore. The router keeps a page it
+ * has drawn for staleTimes (next.config.mjs), and the bare /explore it kept
+ * had been drawn with whichever mode the cookie said THEN: choose communities,
+ * go to the Library, press Home, and the kept page came back in products, then
+ * put itself right once the page was asked again. That is the flip.
+ *
+ * So Home carries the mode in its address, as Discover's own switcher writes
+ * it: the router keeps one page per mode, each drawn in its own mode, and the
+ * one Home opens is the one you left.
+ */
+export function discoverHomeHref(mode: string | null | undefined): string {
+  return mode === "communities" || mode === "products" ? `/explore?type=${mode}` : "/explore"
+}
+
+/** The mode Discover was left in, from the cookie Discover writes. Null on the server, or when it was never chosen. */
+export function discoverModeFromCookie(cookie: string | null | undefined): "products" | "communities" | null {
+  const m = /(?:^|;\s*)storelib_discover_mode=(products|communities)(?:;|$)/.exec(cookie || "")
+  return m ? (m[1] as "products" | "communities") : null
+}
+
