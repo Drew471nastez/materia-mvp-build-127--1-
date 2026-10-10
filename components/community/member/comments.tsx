@@ -101,6 +101,7 @@ import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
 import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
+import { useVisibleBox } from "./visible-box"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -561,6 +562,23 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     return () => mq.removeEventListener("change", sync)
   }, [dockComposer])
   /*
+    THE DOCK ON THE KEYBOARD, FLUSH (round 15, images/73.webp). While its field is typed in, the dock's foot is the foot of
+    the part of the screen that can be seen (visible-box.ts): the visual viewport, or in the iOS app the iPhone's own keyboard
+    instead of the half screen floor that left a band of page between the box and the keys. With no keyboard it stands on
+    the tab bar as before. A white skirt under it while it is typed in covers whatever a platform's number leaves.
+  */
+  useVisibleBox(
+    dockPhone,
+    () => composerRef.current,
+    () => document.querySelector<HTMLElement>("[data-viewport-probe]"),
+    (box, typing, layoutH) => {
+      const dock = composerRef.current
+      if (!dock) return
+      dock.style.bottom = box.aboveTabs ? COMMENT_COMPOSER_DOCK_BOTTOM : `${Math.max(0, Math.round(layoutH - (box.top + box.height)))}px`
+      dock.toggleAttribute("data-typing", typing)
+    },
+  )
+  /*
     A phone pans the page to reveal a field, even a fixed one, and that pan
     is what cuts the picture and leaves the white band. Hold the page where
     it was for as long as the dock is being typed in. The dock itself is
@@ -640,6 +658,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         }
         data-comments-composer={dockComposer ? (dockPhone ? "dock" : "top") : pinComposer ? (floatComposer ? "float" : "pin") : "top"}
       >
+        {dockComposer && dockPhone ? <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full hidden h-[100lvh] bg-white [[data-typing]>&]:block" data-comments-dock-skirt="" /> : null}
         <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
         <TypingLine names={typing.writers.map((w) => w.name)} />
       </div>

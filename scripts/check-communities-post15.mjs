@@ -200,7 +200,10 @@ export const isNativePlatform = () => false
       if (url.startsWith("data:")) return void r.continue()
       return void r.respond({ status: 204, body: "" })
     })
-    if (app) await p.evaluateOnNewDocument(() => document.addEventListener("DOMContentLoaded", () => document.documentElement.classList.add("capacitor")))
+    if (app) {
+      await p.setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Capacitor StorelibWindows/1")
+      await p.evaluateOnNewDocument(() => document.addEventListener("DOMContentLoaded", () => document.documentElement.classList.add("capacitor")))
+    }
     await p.goto(`${ORIGIN}/community/bandido`, { waitUntil: "load" })
     await p.evaluate(() => document.fonts.ready)
     await sleep(900)
@@ -520,6 +523,40 @@ export const isNativePlatform = () => false
       1800,
     )
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    /*
+      KEYBOARD IN THE iOS APP (images/73.webp). WKWebView reports no keyboard: the published floor is half the screen. Open
+      the post again, tap the comment box: the page should end where the iPhone's own keyboard and its bar begin (844 - 380 =
+      464 on this screen), the comment box flush on it, and everything under the page white (the skirt), never the feed.
+    */
+    await sleep(600)
+    await touch("touchStart", at.x, at.y)
+    await sleep(40)
+    await touch("touchEnd", at.x, at.y)
+    await sleep(1200)
+    const field = await p.evaluate(() => {
+      const f = document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea")
+      f.focus()
+      return !!f
+    })
+    await sleep(700)
+    const kb = await p.evaluate(() => {
+      const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+      const r = page.getBoundingClientRect()
+      const box = document.querySelector("[data-post-fullscreen] [data-comment-box=comment]")?.getBoundingClientRect()
+      const dock = document.querySelector("[data-post-fullscreen] [data-comments-composer]")
+      const under = []
+      for (const y of [r.bottom + 4, r.bottom + 60, 700, 830]) {
+        const el = document.elementFromPoint(195, y)
+        under.push(el?.closest("[data-post-skirt]") ? "skirt" : el?.closest("[data-buyer-tab-bar]") ? "tabs" : el?.closest("[data-community-feed], [data-community-top]") ? "feed" : el?.tagName ?? "none")
+      }
+      return { source: page.dataset.box, typing: page.hasAttribute("data-typing"), pageBottom: Math.round(r.bottom), boxBottom: box ? Math.round(box.bottom) : null, dockBg: dock ? getComputedStyle(dock).backgroundColor : null, kbInset: getComputedStyle(document.documentElement).getPropertyValue("--kb-inset").trim(), under }
+    })
+    expect(field && kb.typing && kb.source === "table" && kb.pageBottom === 464, "KEYBOARD (iOS app): the page ends on the iPhone's keyboard bar, not at the half screen floor", kb)
+    expect(kb.boxBottom !== null && kb.boxBottom <= 464 && kb.boxBottom >= 464 - 14, "and the comment box sits on it", kb.boxBottom)
+    /* The probe's tab bar does not slide away for a keyboard as the real one does, so it may be what is at the very foot. */
+    expect(kb.under.every((u) => u === "skirt" || u === "tabs") && !kb.under.includes("feed"), "and under the page is the white skirt, never the feed", kb.under)
+    expect(kb.dockBg === "rgb(255, 255, 255)", "and the box stands on white while typed in", kb.dockBg)
+    await p.screenshot({ path: join(shots, `${LABEL}-keyboard-app.png`) })
     const b = await bands(edge.frames)
     summary[edge.name] = judge(edge, b, feedY, true)
     const xs = edge.samples.filter((f) => f.pageBox).map((f) => f.pageBox[0])

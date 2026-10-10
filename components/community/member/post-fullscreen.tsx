@@ -63,7 +63,7 @@ import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
 import { useLayer } from "@/lib/ui/layers"
 import { edgeSwipeEnvironment } from "@/lib/navigation/edge-swipe"
-import { KEYBOARD_CHANGE_EVENT } from "@/lib/ui/keyboard-safe-sheet"
+import { useVisibleBox } from "./visible-box"
 import {
   BACK_CIRCLE,
   BACK_HIT,
@@ -78,9 +78,7 @@ import {
   closedByBrowserSwipe,
   feedRestore,
   finishMs,
-  iosKeyboardFor,
   judgeMove,
-  postBox,
   postBoxHeightCss,
   pullOffset,
   pullVerdict,
@@ -113,20 +111,6 @@ if (typeof document !== "undefined") {
     },
     { passive: true, capture: true },
   )
-}
-
-const TEXT_INPUT = /^(text|search|url|tel|email|password|number)$/
-function takesKeyboard(el: Element | null): boolean {
-  const h = el as HTMLElement | null
-  if (!h) return false
-  if (h.isContentEditable || h.tagName === "TEXTAREA") return true
-  return h.tagName === "INPUT" && TEXT_INPUT.test(((h as HTMLInputElement).type || "text").toLowerCase())
-}
-
-/** The iOS app (not Android's): the one place the keyboard's height has to come from the table. */
-function iosApp(): boolean {
-  if (typeof document === "undefined" || !document.documentElement.classList.contains("capacitor")) return false
-  return /iPhone|iPad|iPod/.test(navigator.userAgent)
 }
 
 /** Where the page is moved to now: its inline translate (a finger), else what an animation has it at. */
@@ -176,64 +160,31 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   /* THE TAB BAR stays, over the post, for as long as the post is in the page (lib/ui/layers.ts). */
   useLayer("post", true, layerRef)
 
-  /* ── THE PAGE ON THE VISIBLE SCREEN ── before the first frame, and again whenever the viewport or the keyboard moves. */
-  useLayoutEffect(() => {
-    const layer = layerRef.current
-    const page = pageRef.current
-    if (!layer || !page) return
-    const app = iosApp()
-    let last = ""
-    const apply = () => {
-      const vv = window.visualViewport
-      const layoutH = layer.offsetHeight || window.innerHeight
-      const typing = takesKeyboard(document.activeElement) && page.contains(document.activeElement)
-      const published = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb-inset")) || 0
-      const box = postBox({
-        layoutH,
-        innerH: window.innerHeight,
-        vvTop: Math.round(vv?.offsetTop ?? 0),
-        vvH: Math.round(vv?.height ?? window.innerHeight),
-        typing,
-        publishedInset: published,
-        appKeyboard: app && typing ? iosKeyboardFor(window.innerWidth, layoutH) : null,
-      })
-      const key = `${box.top}|${box.height}|${box.aboveTabs}|${typing}`
-      if (key === last) return
-      last = key
+  /* ── THE PAGE ON THE VISIBLE SCREEN ── before the first frame, and again whenever the viewport or the keyboard moves (visible-box.ts). */
+  useVisibleBox(
+    true,
+    () => pageRef.current,
+    () => layerRef.current,
+    (box, typing) => {
+      const page = pageRef.current
+      if (!page) return
       page.style.top = `${Math.round(box.top)}px`
       page.style.height = postBoxHeightCss(box)
       page.dataset.box = box.source
       page.toggleAttribute("data-typing", typing)
-    }
-    apply()
-    let raf = 0
-    const soon = () => {
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(apply)
-    }
-    /* The keyboard going down is reported late on iOS: looked at again as it goes. */
-    const onFocusOut = () => {
-      soon()
-      window.setTimeout(apply, 80)
-      window.setTimeout(apply, 260)
-    }
-    const vv = window.visualViewport
-    vv?.addEventListener("resize", apply)
-    vv?.addEventListener("scroll", apply)
-    window.addEventListener("resize", apply)
-    window.addEventListener(KEYBOARD_CHANGE_EVENT, apply)
-    document.addEventListener("focusin", soon)
-    document.addEventListener("focusout", onFocusOut)
-    return () => {
-      cancelAnimationFrame(raf)
-      vv?.removeEventListener("resize", apply)
-      vv?.removeEventListener("scroll", apply)
-      window.removeEventListener("resize", apply)
-      window.removeEventListener(KEYBOARD_CHANGE_EVENT, apply)
-      document.removeEventListener("focusin", soon)
-      document.removeEventListener("focusout", onFocusOut)
-    }
-  }, [])
+      /*
+        THE BOX IN SIGHT ON THE KEYBOARD. The comment box sticks to the page's foot only inside the comments section; with the
+        page shortened to what the keyboard leaves, a long post puts that section below the foot and the box with it, out of
+        sight. Typing, the page is scrolled by just enough to bring the box onto the foot.
+      */
+      if (!typing) return
+      const scroller = scrollRef.current
+      const dock = page.querySelector<HTMLElement>("[data-comments-composer]")
+      if (!scroller || !dock) return
+      const over = dock.getBoundingClientRect().bottom - page.getBoundingClientRect().bottom
+      if (over > 1) scroller.scrollTop += over
+    },
+  )
 
   /* ── IN ── from the right, on the first frame. */
   useLayoutEffect(() => {
