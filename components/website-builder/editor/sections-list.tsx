@@ -462,7 +462,12 @@ export function SectionsList({
                 const t = tree(s)
                 const lifted = drag?.from === i
                 return (
-                  /* One row of the drag: the section, its open blocks and the gap after it travel together. */
+                  /*
+                    One row of the drag. An open section folds its blocks away
+                    while it is carried (the owner: "it grabs the whole
+                    container with the blocks frozen in it"), so only the row
+                    moves, as on Shopify, and they are back when it is dropped.
+                  */
                   <div
                     key={s.id}
                     data-reorder-row=""
@@ -485,7 +490,7 @@ export function SectionsList({
                       expanded={t.expanded}
                       onToggleExpand={t.onToggleExpand}
                     />
-                    {t.under}
+                    {lifted ? null : t.under}
                     <InsertSectionDivider onClick={() => onAdd(i + 1, "template")} />
                   </div>
                 )

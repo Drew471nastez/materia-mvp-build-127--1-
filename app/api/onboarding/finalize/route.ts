@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ensureStorePublished } from "@/lib/store-builder/ensure-store-published"
 import { ensureOnePage } from "@/lib/onepage/ensure-onepage"
-import { ensureDefaultCollections } from "@/lib/physical/default-collections"
 
 /**
  * POST /api/onboarding/finalize
@@ -173,9 +172,6 @@ export async function POST(request: NextRequest) {
          * visit can race.
          */
         await ensureOnePage(admin, userId, { id: finalCreator.id, slug: finalCreator.slug })
-
-        /* The two collections a store starts with, Home page and All products (lib/physical/default-collections.ts). */
-        await ensureDefaultCollections(admin, finalCreator.id)
       }
     } catch (autoPublishErr) {
       // Non-critical — the store builder can still be published later manually

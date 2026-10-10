@@ -14,6 +14,7 @@
  * publishes, and nothing reaches the account at all unless it compiles.
  */
 import { MEMORY_IN_TURN, listMemories, type MemoryDb } from "@/lib/ai-memory/store"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse, after, type NextRequest } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { z } from "zod"
@@ -88,17 +89,19 @@ export async function POST(request: NextRequest, context: { params: Promise<{ in
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Sign in to use this." }, { status: 401 })
 
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
+    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!creator) return NextResponse.json({ error: "Only creators can edit themes." }, { status: 403 })
 
   /** RLS decides: a theme somebody else owns reads as absent. */
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs")
     .select("id")
     .eq("id", installId)
     .eq("creator_id", (creator as { id: string }).id)
-    .maybeSingle()
+    .maybeSingle())
+  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 
   /**

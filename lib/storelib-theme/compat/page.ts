@@ -127,11 +127,19 @@ export function drawSection(theme: CompatTheme, ctx: Ctx, section: StoredSection
   return theme.renderSection(ctx, instanceOf(section), index, section.group === "overlay" && section.slot ? section.slot : group)
 }
 
-/** A page with none of its scripts: for a surface that must not run the theme's code. */
+/**
+ * A page with none of its scripts: for a surface that must not run the
+ * theme's code. A stylesheet a theme loads late with `media="print"
+ * onload="this.media='all'"` (Dawn's way) is loaded outright, since the
+ * handler that would switch it on cannot run here, and every other inline
+ * handler goes for the same reason.
+ */
 export function withoutScripts(html: string): string {
   return html
     .replace(/<script\b(?![^>]*type=["']?(?:application\/(?:ld\+)?json|text\/template)["']?)[^>]*>[\s\S]*?<\/script\s*>/gi, "")
     .replace(/<link\b[^>]*rel=["']?modulepreload["']?[^>]*>/gi, "")
+    .replace(/<link\b[^>]*\bonload\s*=\s*(["'])[^"']*this\.media\s*=[^>]*>/gi, (tag) => tag.replace(/\smedia\s*=\s*(["'])print\1/i, ' media="all"'))
+    .replace(/<[a-z][a-z0-9-]*\b[^>]*\son[a-z]+\s*=[^>]*>/gi, (tag) => tag.replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, ""))
 }
 
 /** The template and suffix a page key is drawn as. */

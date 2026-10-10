@@ -727,11 +727,31 @@ export async function createStripeAccountSession(
    * never asks that. An account with no type yet is a person, which is how
    * every new account is made. A company account is left as it is.
    */
-  if ((purpose === "onboarding" || purpose === "management") && !account.business_type) {
-    try {
-      account = await stripe.accounts.update(account.id, { business_type: "individual" })
-    } catch (error) {
-      console.error("[stripe connect] business type", stripeErrorMessage(error).slice(0, 160))
+  /*
+   * Nor on "what is your website", "which industry" or "what do you sell"
+   * (round 20, the owner: no step asking for a website or a profession).
+   * Accounts are made with the store's address, the digital goods category
+   * and a description already on them; one made before that, or one where
+   * any of them went missing, gets them here, before Stripe's form is drawn.
+   */
+  if (purpose === "onboarding" || purpose === "management") {
+    const fill: Stripe.AccountUpdateParams = {}
+    if (!account.business_type) fill.business_type = "individual"
+    const has = account.business_profile
+    if (!has?.url || !has?.mcc || !has?.product_description) {
+      const wanted = creatorBusinessProfile({ username: row.username, displayName: row.display_name, platformUrl: platformBusinessUrl() })
+      fill.business_profile = {
+        url: has?.url || wanted.url,
+        mcc: has?.mcc || wanted.mcc,
+        product_description: has?.product_description || wanted.product_description,
+      }
+    }
+    if (Object.keys(fill).length > 0) {
+      try {
+        account = await stripe.accounts.update(account.id, fill)
+      } catch (error) {
+        console.error("[stripe connect] prefill before the form", stripeErrorMessage(error).slice(0, 160))
+      }
     }
   }
   const storelibCollects = runsInStorelib(account)

@@ -58,9 +58,15 @@ const httpsOrPath = (v: unknown) => (typeof v === "string" && /^(https:\/\/|\/(?
 export async function siteCollections(
   db: Db,
   creatorId: string,
-  opts: { ids?: string[]; published?: boolean } = {},
+  opts: { ids?: string[]; published?: boolean; fresh?: boolean } = {},
 ): Promise<{ collections: Record<string, StorefrontCollection>; choices: CollectionChoice[] }> {
   const empty = { collections: {}, choices: [] }
+  /* The builder (every collection, not a visitor's read) gives a store with none its two defaults, once (lib/physical/default-collections.ts). */
+  const seed = async () => {
+    if (opts.published !== false || opts.ids || opts.fresh) return empty
+    const { ensureDefaultCollections } = await import("@/lib/physical/default-collections")
+    return (await ensureDefaultCollections(creatorId)) ? siteCollections(db, creatorId, { ...opts, fresh: true }) : empty
+  }
   if (!creatorId || !UUID.test(creatorId)) return empty
   const publishedOnly = opts.published !== false
   const ids = opts.ids?.filter((i) => UUID.test(i)).slice(0, MAX_SITE_COLLECTIONS)
@@ -73,7 +79,8 @@ export async function siteCollections(
     if (publishedOnly) q = q.eq("published", true)
     if (ids) q = q.in("id", ids)
     const { data: rows, error } = await q.order("created_at", { ascending: true }).limit(MAX_SITE_COLLECTIONS)
-    if (error || !Array.isArray(rows) || rows.length === 0) return empty
+    if (error || !Array.isArray(rows)) return empty
+    if (rows.length === 0) return seed()
 
     const manualIds = (rows as Record<string, any>[]).filter((r) => r.kind !== "smart").map((r) => r.id)
     const { data: items } = manualIds.length

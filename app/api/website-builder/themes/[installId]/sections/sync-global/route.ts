@@ -1,4 +1,5 @@
-import { blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { NextResponse } from "next/server"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
@@ -6,7 +7,6 @@ import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
-import { SectionSaveSchema, saveIssue } from "@/lib/website-builder/section-save-schema"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { inGroup, splitGroups } from "@/lib/storelib-theme/section-groups"
@@ -14,7 +14,23 @@ import { inGroup, splitGroups } from "@/lib/storelib-theme/section-groups"
 type Params = { params: Promise<{ installId: string }> }
 
 // Reuse-friendly local section schema (same shape as sections/route.ts)
-const SectionSchema = SectionSaveSchema
+/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
+const BlockSchema = BlockInstanceSchema
+const SectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  type: z.string().min(1).max(64),
+  /* An imported Shopify theme's sections carry no name (the theme names them by type); one sent without is saved with none, not refused. */
+  name: z.string().max(256).optional().default(""),
+  /* The name the creator gave the section in the editor (lib/website-builder/section-name.ts). */
+  label: z.string().max(80).optional(),
+  settings: z.record(z.unknown()),
+  blocks: z.array(BlockSchema).max(500).optional(),
+  hidden: z.boolean().optional(),
+  /* Which section group it sits in: lib/storelib-theme/section-groups.ts. */
+  group: z.enum(["header", "footer", "overlay"]).optional(),
+  /* An imported theme's Overlay group section: the theme's group file it is drawn in (overlay-group). */
+  slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional(),
+})
 /**
  * `header` and `footer` are the two sections an older editor sends. A
  * current one sends the whole groups: `header_group` is every section of
@@ -22,7 +38,7 @@ const SectionSchema = SectionSaveSchema
  * another replaced it), `[]` when the creator deleted the header, and null
  * or absent to leave every page's own as it is.
  */
-const GroupSchema = z.array(SectionSchema).max(24).nullable().optional()
+const GroupSchema = z.array(SectionSchema).max(25).nullable().optional()
 const SyncBodySchema = z.object({
   header: SectionSchema.nullable(),
   footer: SectionSchema.nullable(),
@@ -42,13 +58,15 @@ export async function PUT(req: Request, { params }: Params) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
+    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs").select("id")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
+    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
+  if (installReadErr) return NextResponse.json({ error: UNREACHABLE }, { status: 503 })
   if (!install) return NextResponse.json({ error: "Theme not found" }, { status: 404 })
 
   /* Part of every autosave, so the same allowance as the other two saves: RATE_LIMITS.siteSave. */
@@ -68,7 +86,7 @@ export async function PUT(req: Request, { params }: Params) {
   const parsed = SyncBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
-      { error: saveIssue(parsed.error.issues), issues: parsed.error.issues },
+      { error: "Invalid body", issues: parsed.error.issues },
       { status: 400 },
     )
   }

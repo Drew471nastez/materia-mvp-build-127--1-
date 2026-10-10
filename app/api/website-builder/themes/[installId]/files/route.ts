@@ -1,4 +1,5 @@
 import { NextResponse, after } from "next/server"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
 import { editorContent, hasUnpublishedEdit, listVersions, sourceMap } from "@/lib/website-builder/theme-file-drafts"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
@@ -63,13 +64,15 @@ async function getCreatorInstall(installId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized", status: 401, supabase: null, creator: null }
 
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
+    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null, creator: null }
   if (!creator) return { error: "Creator not found", status: 404, supabase: null, creator: null }
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs").select("id, theme_id, name")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
+    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
+  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null, creator: null }
   if (!install) return { error: "Theme not found", status: 404, supabase: null, creator: null }
 
   return { error: null, status: 200, supabase, creator, install }
@@ -94,8 +97,7 @@ export async function GET(req: Request, { params }: Params) {
   /**
    * AN IMPORTED SHOPIFY THEME'S OWN FILES, for the canvas that draws it
    * (components/website-builder/compat/compat-canvas.tsx): its templates,
-   * config, default locale (its words and its schema's words) and text
-   * assets under `shopify/`, drafts first.
+   * config, default locale (words and schema words) and text assets under `shopify/`, drafts first.
    * Fonts (kept as base64) and the other languages' locales are left out:
    * the canvas loads fonts by address and draws in the default language.
    */
@@ -112,7 +114,7 @@ export async function GET(req: Request, { params }: Params) {
       if (readErr) break
       const rows = (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
       for (const r of rows) {
-        if (/^shopify\/locales\/(?!.*\.default\.(schema\.)?json$)/.test(r.path)) continue
+        if (/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(r.path)) continue
         const text = r.draft_content ?? r.content
         if (typeof text === "string" && text !== "" && !text.startsWith("base64:")) files[r.path] = text
       }

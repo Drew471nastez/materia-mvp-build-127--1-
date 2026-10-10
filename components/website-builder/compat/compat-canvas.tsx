@@ -169,7 +169,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const docKey = `${installId}:${pageKey}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
-    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
+    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line. */
     return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
   }
@@ -407,72 +407,4 @@ export function planPatch(from: DocShape, to: DocShape): { empty: boolean; messa
   const added = to.order.some((x) => !from.sections.has(x.id))
   if (moved || added) message.order = to.order.map((x) => ({ ...x, html: from.sections.has(x.id) ? undefined : to.sections.get(x.id) }))
   return { empty: Object.keys(message).length === 0 && swaps.length === 0, message, swaps }
-}
-
-/* ── A section alone, for a card in Add section ────────────────────────────── */
-
-/**
- * A card in Add section, for an imported theme: the section drawn by the
- * theme's own engine, alone on a page of the theme (its layout, its styles,
- * its scripts, the shop's products), as a whole document for a sandboxed
- * frame. Storelib's own preview path draws with Storelib's template engine,
- * which cannot read a Shopify section, and every card was white.
- */
-export function useCompatPreviewDrawer(opts: {
-  enabled: boolean
-  installId: string
-  sources: Record<string, string>
-  theme: Record<string, unknown>
-  products: ProductCard[]
-  collections: CollectionLike[]
-  menus: Record<string, { title?: string; links: MenuLinkLike[] }>
-  shopName: string
-}): ((section: StoredSection) => string | null) | null {
-  const { enabled, installId, sources, theme: settings, products, collections, menus, shopName } = opts
-  const [files, setFiles] = useState<Record<string, string> | null>(null)
-  useEffect(() => {
-    if (!enabled) return
-    let live = true
-    void loadCompatFiles(installId).then((f) => { if (live) setFiles(f) })
-    return () => { live = false }
-  }, [enabled, installId])
-  const compatTheme = useMemo(() => {
-    if (!enabled || !files) return null
-    const rows = { ...sources, ...files }
-    const media = assetAddresses(rows)
-    return themeOfInstall(rows, settings, {
-      assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
-      assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-      imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
-    })
-  }, [enabled, files, sources, settings, installId])
-  return useMemo(() => {
-    if (!compatTheme) return null
-    return (section: StoredSection) => {
-      try {
-        const sample = products[0] ?? null
-        const page: CompatPage = {
-          template: "index",
-          path: "/",
-          designMode: true,
-          host: "",
-          products,
-          collections,
-          menus,
-          shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
-          product: sample,
-          collection: collections[0] ?? null,
-          search: null,
-          pageObject: null,
-        }
-        /* Its height, told to the card, so a short section is not a tall white box. */
-        const tell = `<script>(function(){var h=function(){var b=0;document.querySelectorAll(".shopify-section").forEach(function(s){Array.prototype.forEach.call(s.children,function(c){var r=c.getBoundingClientRect();if(r.height>0&&getComputedStyle(c).position!=="fixed")b=Math.max(b,r.bottom+scrollY)})});try{parent.postMessage({storelibPreview:1,h:Math.ceil(b)},"*")}catch(e){}};if(document.readyState==="loading")addEventListener("DOMContentLoaded",function(){setTimeout(h,50)});else setTimeout(h,50);setTimeout(h,700);addEventListener("load",h)})();</script>`
-        const drawn = drawPage(compatTheme, page, [section], { scripts: true, extraBodyEnd: tell })
-        return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
-      } catch (e) {
-        console.warn(`[compat] could not draw ${section.type} for Add section:`, e instanceof Error ? e.message : e)
-        return null
-      }
-    }
-  }, [compatTheme, products, collections, menus, shopName])
 }

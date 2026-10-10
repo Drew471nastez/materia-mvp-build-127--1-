@@ -266,6 +266,8 @@ export interface SectionInstance {
   id: string
   type: string
   name: string
+  /** The name the creator gave this section on the page, over what its code calls it (lib/website-builder/section-name.ts). */
+  label?: string
   settings: Record<string, unknown>
   blocks?: BlockInstance[]
   hidden?: boolean

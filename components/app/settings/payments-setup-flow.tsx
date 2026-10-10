@@ -30,6 +30,7 @@ import { createPortal } from "react-dom"
 import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, RotateCcw, Smartphone, X } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
@@ -89,7 +90,7 @@ async function read<T>(res: Response): Promise<T> {
   return data
 }
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body: unknown = {}): Promise<T> {
   return read<T>(
     await fetch(`/api/payments/${path}`, {
       method: "POST",
@@ -687,8 +688,28 @@ export function PaymentsSetupFlow({
    * takes the creator back. Neither Stripe's embedded form nor Stripe's page
    * is opened there, so nothing can leave the app. A browser keeps Stripe's
    * embedded form (SetupEmbed).
+   *
+   * ROUND 20, the owner: "on iOS and Android the payouts setup opens as a
+   * mobile bottom sheet, with Stripe's embed there, no step asking for a
+   * website, a profession or what type of person you are; when it is all
+   * finished it closes and takes you back to Storelib. Browsers and big
+   * screens stay as they are." So the apps draw the same SetupEmbed as the
+   * web, inside the app's own BottomSheet (`sheet`), and Storelib's own steps
+   * no longer run there (OWN_STEPS_IN_APP). The account is a person with its
+   * website, category and description already filled before Stripe's form is
+   * drawn (lib/payments/stripe/connect.ts), and SETUP_COLLECTION leaves those
+   * questions out, so Stripe's first screen is the person's own details.
    */
-  const inApp = isNativeApp()
+  const sheet = isNativeApp()
+  const inApp = OWN_STEPS_IN_APP && sheet
+  /* In the apps, payouts on is the end of it: the done screen for a moment, then the sheet closes back to Storelib. */
+  const finishRef = React.useRef(finish)
+  finishRef.current = finish
+  React.useEffect(() => {
+    if (!sheet || !open || ending !== "done") return
+    const t = window.setTimeout(() => finishRef.current(), 1800)
+    return () => window.clearTimeout(t)
+  }, [sheet, open, ending])
   /* Back walks past a step that had nothing to ask, so it never lands somewhere that sends it forward again. */
   const stepBefore = (from: Step): Step => (from === 3 ? (idEmpty ? (detailsEmpty ? 0 : 1) : 2) : from === 2 ? (detailsEmpty ? 0 : 1) : 0)
   const backCloses = !(inApp && mode === "setup" && !ending && step !== 0) && (mode === "setup" || !!ending || step === 0)
@@ -785,8 +806,8 @@ export function PaymentsSetupFlow({
         ? "Where your cash outs are sent."
         : "The details on your payments account."
 
-  return (
-    <Panel open={open} phone={phone} onClose={onClose} label={title}>
+  const bar = (
+    <>
       {/* The bar: the way back on a phone; Storelib's mark and the way out on a computer. */}
       <div className="shrink-0 border-b border-[#f1f2f4] bg-white pt-[env(safe-area-inset-top)] sm:border-[#eceef1]">
         <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center gap-1 px-2 sm:h-16 sm:gap-3 sm:px-6">
@@ -824,6 +845,10 @@ export function PaymentsSetupFlow({
         </div>
       </div>
 
+    </>
+  )
+
+  const content = (
       <div data-setup-scroll="" className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain">
         {/* One narrow column: 560px of card on a computer, the whole width on a phone,
             where it fills the screen so Cancel and Continue sit at the bottom. */}
@@ -854,7 +879,52 @@ export function PaymentsSetupFlow({
 
         </div>
       </div>
+  )
+
+  if (sheet) {
+    return (
+      <BottomSheet
+        isOpen={open}
+        onClose={onClose}
+        label={title}
+        hideFrom={null}
+        fill
+        height="calc(100dvh - max(env(safe-area-inset-top), 12px) - 10px)"
+        maxHeight="none"
+        zIndex={PANEL_Z}
+        header={<SheetBar title={title} onClose={onClose} />}
+      >
+        {/* Stripe's form scrolls in here; a pull from the handle or the title closes the sheet, never one inside the form. */}
+        <div data-payments-setup-panel="sheet" data-sheet-no-drag="" className="flex min-h-0 flex-1 flex-col bg-white">
+          {content}
+        </div>
+      </BottomSheet>
+    )
+  }
+
+  return (
+    <Panel open={open} phone={phone} onClose={onClose} label={title}>
+      {bar}
+      {content}
     </Panel>
+  )
+}
+
+/** The sheet's title row in the apps: the name of the step in the middle, the way out on the right. */
+function SheetBar({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex h-12 items-center px-2">
+      <span aria-hidden className="w-11" />
+      <h2 className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
+      <button
+        type="button"
+        aria-label="Close"
+        onClick={onClose}
+        className="flex h-11 w-11 cursor-pointer items-center justify-center rounded-full text-[#6b7280] outline-none transition-colors active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
+      >
+        <X className="h-[18px] w-[18px]" strokeWidth={2.25} />
+      </button>
+    </div>
   )
 }
 /*
@@ -865,12 +935,19 @@ export function PaymentsSetupFlow({
  * too. The account is opened as a person before the form is drawn, which is
  * what skips that first question.
  */
+/** Storelib's own steps in the phone apps (round 19). Off since round 20: the apps run Stripe's embed in a sheet. */
+const OWN_STEPS_IN_APP = false
+
 const SETUP_COLLECTION = {
   fields: "eventually_due" as const,
   futureRequirements: "omit" as const,
   requirements: {
     exclude: [
       "business_type",
+      /* Filled before the form is drawn (the store's address, digital goods, what is sold there): never asked. */
+      "business_profile.url",
+      "business_profile.mcc",
+      "business_profile.product_description",
       "individual.verification.proof_of_liveness",
       "individual.verification.additional_document",
       "documents.bank_account_ownership_verification",

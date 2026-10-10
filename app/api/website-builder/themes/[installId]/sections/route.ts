@@ -1,4 +1,5 @@
-import { blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { BlockInstanceSchema, blockTreeProblem } from "@/lib/website-builder/block-tree"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { readOwnSectionFields, sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { customSchemaLookup } from "@/lib/website-builder/custom-schemas"
 import { GENERATED_PAGE_KEYS, isPageKey } from "@/lib/website-builder/site-pages"
@@ -11,7 +12,6 @@ import { LIMITS } from "@/lib/storelib-theme/types"
 import { LIMITS as RATE_LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
-import { SectionSaveSchema, saveIssue } from "@/lib/website-builder/section-save-schema"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -20,8 +20,24 @@ type Params = { params: Promise<{ installId: string }> }
 // ── Request schema ───────────────────────────────────────────
 // We keep `settings` as a free-form record (section schemas vary widely)
 // but cap it to reasonable shapes so callers can't inject crazy payloads.
+/* The whole tree, blocks inside blocks included: lib/website-builder/block-tree.ts. */
+const BlockSchema = BlockInstanceSchema
 
-const SectionSchema = SectionSaveSchema
+const SectionSchema = z.object({
+  id: z.string().min(1).max(128),
+  type: z.string().min(1).max(64),
+  /* An imported Shopify theme's sections carry no name (the theme names them by type); one sent without is saved with none, not refused. */
+  name: z.string().max(256).optional().default(""),
+  /* The name the creator gave the section in the editor (lib/website-builder/section-name.ts). */
+  label: z.string().max(80).optional(),
+  settings: z.record(z.unknown()),
+  blocks: z.array(BlockSchema).max(500).optional(),
+  hidden: z.boolean().optional(),
+  /* Which section group it sits in, kept rather than stripped: lib/storelib-theme/section-groups.ts. */
+  group: z.enum(["header", "footer", "overlay"]).optional(),
+  /* An imported theme's Overlay group section: the theme's group file it is drawn in (overlay-group). */
+  slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional(),
+})
 
 const PutBodySchema = z.object({
   page_key: z.string().min(1).max(64),
@@ -34,13 +50,15 @@ async function getCreatorInstall(installId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized", status: 401, supabase: null }
 
-  const { data: creator } = await supabase
-    .from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase
+    .from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!creator) return { error: "Creator not found", status: 404, supabase: null }
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs").select("id")
-    .eq("id", installId).eq("creator_id", creator.id).maybeSingle()
+    .eq("id", installId).eq("creator_id", creator.id).maybeSingle())
+  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
   // The creator id comes back too: a write that lands on the LIVE columns
@@ -192,7 +210,7 @@ export async function PUT(req: Request, { params }: Params) {
   const parsed = PutBodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
-      { error: saveIssue(parsed.error.issues), issues: parsed.error.issues },
+      { error: "Invalid body", issues: parsed.error.issues },
       { status: 400 },
     )
   }

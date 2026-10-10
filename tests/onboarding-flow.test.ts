@@ -152,8 +152,20 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
 check("  setup is Stripe's embedded form, on this page", /data-id-embed/.test(flow) && /stripe_onboarding/.test(flow) && /stripe_management/.test(flow) && /StripeConnectEmbedded/.test(flow))
-check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",\s*"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow))
+check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",[\s\S]{0,500}?"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
+/*
+  Round 20, the owner: on iOS and Android the setup opens as a mobile bottom
+  sheet with Stripe's embed in it, no step asking for a website, a
+  profession or what type of person you are, and it closes back to Storelib
+  when it is finished. Browsers and big screens stay as they are.
+*/
+check("round 20: in the apps setup is the app's BottomSheet, with Stripe's embed (not Storelib's own steps)", /const sheet = isNativeApp\(\)/.test(flow) && /const OWN_STEPS_IN_APP = false/.test(flow) && /if \(sheet\) \{[\s\S]{0,200}<BottomSheet/.test(flow))
+check("  a browser keeps the page it had", /<Panel open=\{open\} phone=\{phone\} onClose=\{onClose\} label=\{title\}>\s*\{bar\}\s*\{content\}/.test(flow))
+check("  Stripe is not asked for the website, the industry or what is sold", /"business_profile\.url",\s*"business_profile\.mcc",\s*"business_profile\.product_description"/.test(flow))
+check("  and the account has them before the form is drawn", /fill\.business_profile = \{/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")) && /if \(!account\.business_type\) fill\.business_type = "individual"/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")))
+check("  payouts on: the done screen for a moment, then the sheet closes back to Storelib", /if \(!sheet \|\| !open \|\| ending !== "done"\) return[\s\S]{0,120}finishRef\.current\(\)/.test(flow))
+check("  a pull inside Stripe's form never closes the sheet", /data-payments-setup-panel="sheet" data-sheet-no-drag=""/.test(flow))
 /*
   Round 14, the owner with a screenshot of step two: "Stripe would not start
   the check: Your account is not set up to use Identity. Please have an

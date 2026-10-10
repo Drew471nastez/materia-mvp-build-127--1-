@@ -39,7 +39,7 @@ async function main() {
   const r = await convertShopifyTheme(await JSZip.loadAsync(readFileSync(zipPath)))
   if (!r.ok) throw new Error(r.error)
   const sources = Object.fromEntries(Object.entries(r.theme.files).filter(([p]) => p.endsWith(".storelib")))
-  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default\.(schema\.)?json$)/.test(p)))
+  const files = Object.fromEntries(Object.entries(r.theme.files).filter(([p, t]) => p.startsWith("shopify/") && !t.startsWith("base64:") && !/^shopify\/locales\/(?!.*\.default(\.schema)?\.json$)/.test(p)))
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
   const compat = { settings: r.theme.settings, pages, sources, files }
   console.log(`${r.theme.name} in the builder`)
@@ -262,16 +262,14 @@ async function main() {
       for (let i = 0; i < 60 && drawnCards < 6; i++) {
         await sleep(250)
         /* Down the list, as somebody looking would: a card is drawn as it comes near. */
-        if (i % 4 === 3) await page.evaluate(() => { const c = [...document.querySelectorAll("[data-compat-preview='waiting']")][0]; c?.scrollIntoView({ block: "center" }) })
-        ;({ cards, drawnCards } = await page.evaluate(() => ({ cards: document.querySelectorAll("[data-library-card]").length, drawnCards: document.querySelectorAll("[data-compat-preview='drawn']").length })))
+        if (i % 4 === 3) await page.evaluate(() => { const c = [...document.querySelectorAll("[data-compat-preview]")].find((b) => !b.querySelector("iframe")); c?.scrollIntoView({ block: "center" }) })
+        ;({ cards, drawnCards } = await page.evaluate(() => ({ cards: document.querySelectorAll("[data-library-card]").length, drawnCards: document.querySelectorAll("[data-compat-preview] iframe").length })))
       }
       const filled = await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => {
         const s = document.querySelector(".shopify-section")
         return s ? (s.textContent ?? "").trim().length + s.querySelectorAll("img, svg, picture").length : -1
       }).catch(() => -1)))
       const withContent = filled.filter((n) => n > 0).length
-      if (process.env.DEBUG) console.log(await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => { let b = 0; document.querySelectorAll(".shopify-section").forEach((s) => { b = Math.max(b, s.getBoundingClientRect().bottom + scrollY) }); return `${b}/${innerWidth}x${innerHeight}` }).catch((e) => String(e).slice(0, 80)))))
-      if (process.env.DEBUG) console.log(await page.evaluate(() => [...document.querySelectorAll("[data-compat-preview]")].map((b) => `${b.getAttribute("data-compat-preview")}:${Math.round(b.getBoundingClientRect().top)}:${b.querySelector("iframe") ? "f" : "-"}`).join(" ")), filled.join(","))
       await page.screenshot({ path: "/tmp/compat-editor-library.png" })
       check("Add section's cards are the theme's sections, drawn", cards > 0 && drawnCards >= 6 && withContent >= 5, `${cards} cards, ${drawnCards} drawn, ${withContent} with content`)
       const picked = await page.evaluate(() => { const c = document.querySelector<HTMLElement>("[data-library-card]"); c?.click(); return c?.getAttribute("data-library-card") ?? null })
@@ -328,8 +326,10 @@ async function main() {
     /* Every save the editor made is one the routes accept: their own schema, not a copy of it. */
     await sleep(2500)
     const saves = await page.evaluate(() => (window as unknown as { probeSaves?: { url: string; body: { sections?: unknown[]; page_key?: string } }[] }).probeSaves ?? [])
-    const { SectionSaveSchema } = await import("../lib/website-builder/section-save-schema")
     const { z } = await import("zod")
+    const { BlockInstanceSchema } = await import("../lib/website-builder/block-tree")
+    /* The routes' own rules (app/api/website-builder/themes/[installId]/sections/route.ts): a name may be missing, a group is one of the four. */
+    const SectionSaveSchema = z.object({ id: z.string().min(1).max(128), type: z.string().min(1).max(64), name: z.string().max(256).optional(), settings: z.record(z.unknown()), blocks: z.array(BlockInstanceSchema).max(500).optional(), hidden: z.boolean().optional(), group: z.enum(["header", "footer", "overlay"]).optional(), slot: z.string().regex(/^[a-z0-9_-]{1,64}$/i).optional() })
     const pageSaves = saves.filter((x) => /\/sections$/.test(x.url))
     const refused = pageSaves.map((x) => z.array(SectionSaveSchema).safeParse(x.body.sections)).filter((r) => !r.success)
     check("every page the editor saved is one the save route accepts", pageSaves.length > 0 && refused.length === 0, `${pageSaves.length} saves${refused.length ? `; refused: ${JSON.stringify((refused[0] as { error: { issues: unknown[] } }).error.issues.slice(0, 2))}` : ""}`)
@@ -405,7 +405,7 @@ async function main() {
         return { r: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)], onTop: !!top && el.contains(top), cover: top ? `${top.tagName}.${String(top.className).slice(0, 60)}` : null }
       })
       check("  and it is on top, where it can be seen", typeof seen === "object" && seen.onTop, JSON.stringify(seen))
-      check("a refused save shows a banner in words, with what to do", /did not save/.test(banner) && /Reload editor/.test(banner) && !/invalid body/i.test(banner), banner.slice(0, 160))
+      check("a refused save shows a banner in words, with what to do", /couldn't be saved/.test(banner) && /Undo/.test(banner) && !/invalid body/i.test(banner), banner.slice(0, 160))
       await page.evaluate(() => { (window as unknown as { PROBE_SAVE_FAIL: number }).PROBE_SAVE_FAIL = 0 })
       await page.evaluate(() => [...document.querySelectorAll<HTMLButtonElement>("button")].find((b) => /^save$/i.test((b.textContent ?? "").trim()))?.click())
       let gone = false

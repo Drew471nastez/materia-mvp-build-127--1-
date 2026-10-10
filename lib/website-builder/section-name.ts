@@ -24,9 +24,12 @@ export interface NamedSchema {
 }
 
 export function sectionDisplayName(
-  section: { type: string; name?: string | null },
+  section: { type: string; name?: string | null; label?: string | null },
   schemas: Record<string, NamedSchema | undefined> | null | undefined,
 ): string {
+  /* A name the creator gave this section, from the title of its settings, is theirs and comes first. */
+  const given = typeof section.label === "string" ? section.label.trim() : ""
+  if (given !== "") return given
   const fromCode = schemas?.[section.type]?.name
   if (typeof fromCode === "string" && fromCode.trim() !== "") return fromCode.trim()
   const stored = typeof section.name === "string" ? section.name.trim() : ""

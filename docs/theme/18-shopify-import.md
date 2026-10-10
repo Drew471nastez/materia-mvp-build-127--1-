@@ -162,14 +162,11 @@ and the settings that name a palette colour follow it.
 
 ## Saving
 
-Every save of an imported theme's page goes through the same schema as any
-page (`lib/website-builder/section-save-schema.ts`). A Shopify group names
-none of its sections, and a missing name was refused as "Invalid body"; the
-import now names each one, and the routes read a missing name as empty. A save
-that does not land shows a small banner over the canvas, in words, with one
-thing to do (`lib/website-builder/save-problem.ts`): reload, sign in, open your
-themes, or nothing at all when a moment fixes it and it is tried again by
-itself. It stays until a save lands.
+A Shopify group names none of its sections, and a save without a name was
+refused as "Invalid body". The import now names each one, and the save routes
+read a missing name as empty. A save that does not go through shows a small
+banner over the canvas with what happened and the one thing to do
+(`lib/website-builder/save-problem.ts`).
 
 ## The report
 

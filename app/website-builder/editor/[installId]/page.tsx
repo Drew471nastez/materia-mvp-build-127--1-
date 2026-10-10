@@ -1,12 +1,16 @@
 "use client"
 
+import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
+import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
+import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
+import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown,
+  ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
   Palette, ShoppingBag, ShoppingCart, Share2, Cookie,
 } from "lucide-react"
 import { arrayMove } from "@dnd-kit/sortable"
@@ -127,7 +131,7 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { CompatCanvas, useCompatPreviewDrawer } from "@/components/website-builder/compat/compat-canvas"
+import { CompatCanvas } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
@@ -182,8 +186,6 @@ function compatPages(keys: string[], extra: string[]): SwitcherPage[] {
 /** The sections that show the creator's collections, offered only while collections are on. */
 const COLLECTION_SECTIONS: ReadonlySet<string> = new Set(["collections_grid", "collection_featured"])
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
-import { saveProblem, type SaveFix, type SaveProblem } from "@/lib/website-builder/save-problem"
-import { SaveProblemBanner } from "@/components/website-builder/save-problem-banner"
 
 /** Ask Storelib on a phone: half, and the whole screen below the status bar. A constant so the sheet's memo holds. */
 const AI_SHEET_DETENTS = [0.5, 1]
@@ -3166,6 +3168,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
+  /* The button beside the size: the fold, and the browser's own full screen with it where it has one. */
+  const toggleCanvasFullScreen = useCallback((on: boolean) => {
+    if (on) setPreviewMode("preview")
+    setFullScreen(on)
+    try {
+      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) void document.documentElement.requestFullscreen().catch(() => {})
+      if (!on && document.fullscreenElement && document.exitFullscreen) void document.exitFullscreen().catch(() => {})
+    } catch {
+      /* the fold alone */
+    }
+  }, [setFullScreen])
+  /* Escape out of the browser's full screen leaves the editor's too. */
+  useEffect(() => {
+    const left = () => { if (!document.fullscreenElement) setFullScreen(false) }
+    document.addEventListener("fullscreenchange", left)
+    return () => document.removeEventListener("fullscreenchange", left)
+  }, [setFullScreen])
   /**
    * THE SECTIONS FOLLOW ONE FOLD LATER. Turning the canvas's inspector off
    * redraws every section, and doing that in the frame the fold starts made
@@ -3232,22 +3251,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [notification, setNotification] = useState<{ message: string; type: "success" | "error" } | null>(null)
   const notificationTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /* A save that did not go through: the banner at the top of the canvas until the next one does (lib/website-builder/save-problem.ts). */
+  const [saveProblem, setSaveProblem] = useState<SaveProblem | null>(null)
   const showNotification = useCallback((message: string, type: "success" | "error" = "success") => {
     if (notificationTimer.current) clearTimeout(notificationTimer.current)
     setNotification({ message, type })
     notificationTimer.current = setTimeout(() => setNotification(null), 4000)
-  }, [])
-  /* A save that did not land, until one does: lib/website-builder/save-problem.ts. */
-  const [saveProblemState, setSaveProblemState] = useState<SaveProblem | null>(null)
-  const saveRetryTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const saveDraftRef = useRef<(options?: { quiet?: boolean }) => Promise<boolean>>(async () => false)
-  useEffect(() => () => { if (saveRetryTimer.current) clearTimeout(saveRetryTimer.current) }, [])
-  const fixSave = useCallback((fix: SaveFix) => {
-    if (fix === "retry") void saveDraftRef.current({ quiet: false })
-    else if (fix === "reload") window.location.reload()
-    else if (fix === "sign-in") window.open(`/login?next=${encodeURIComponent("/app")}`, "_blank", "noopener")
-    else if (fix === "themes") window.location.assign("/app/website-builder")
-    else setSaveProblemState(null)
   }, [])
   const [customPages, setCustomPages] = useState<{ id: string; name: string; key: PageKey }[]>([])
   /* Every page the install has a row for: an imported theme's switcher lists exactly these (compatPages). */
@@ -4598,6 +4607,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
 
   // Section settings change
+  /* A name of the creator's own for a section, from the title of its settings; null goes back to its code's name. */
+  const renameSection = (sectionId: string, label: string | null) => {
+    pushUndo()
+    setSections(prev => prev.map(s => {
+      if (s.id !== sectionId) return s
+      if (label) return { ...s, label }
+      const { label: _gone, ...rest } = s
+      return rest
+    }))
+    setIsDirty(true)
+  }
+
   const updateSectionSetting = (sectionId: string, key: string, value: unknown) => {
     if (isLive()) {
       setLiveSectionSetting(sectionId, key, value)
@@ -5282,47 +5303,30 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
-  /**
-   * A SAVE THAT DID NOT LAND stays on screen, in words, until one does:
-   * components/website-builder/save-problem-banner.tsx. One that a moment
-   * will fix (a dropped connection, a rate limit, a server hiccup) is tried
-   * again by itself, once per failure.
-   */
-  const failSave = async (res: Response | null, what: "page" | "settings" | "publish"): Promise<false> => {
-    const said = res ? ((await res.json().catch(() => ({}))) as { error?: unknown }).error : null
-    const problem = saveProblem(res?.status ?? 0, said, what)
-    setSaveProblemState(problem)
-    if (problem.retries && what !== "publish") {
-      if (saveRetryTimer.current) clearTimeout(saveRetryTimer.current)
-      saveRetryTimer.current = setTimeout(() => { saveRetryTimer.current = null; void saveDraftRef.current({ quiet: true }) }, 5000)
-    }
-    return false
-  }
-
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
     try {
-      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_settings: settingsDraft }),
-      })
-      if (!settingsRes.ok) return failSave(settingsRes, "settings")
+      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
+      if (!settingsRes.ok) {
+        const d = await settingsRes.json().catch(() => ({}))
+        setSaveProblem(explainSaveProblem(settingsRes.status, d))
+        return false
+      }
 
-      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-      })
-      // A FAILED autosave is not quiet. Silence here is how somebody keeps
-      // working for an hour against a server that stopped accepting writes.
-      if (!sectionsRes.ok) return failSave(sectionsRes, "page")
+      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
+      if (!sectionsRes.ok) {
+        const d = await sectionsRes.json().catch(() => ({}))
+        // A FAILED autosave is not quiet. Silence here is how somebody keeps
+        // working for an hour against a server that stopped accepting writes.
+        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
+        return false
+      }
 
       // Sync header/footer to all other pages
       await syncHeaderFooterToAllPages("draft")
 
       setIsDirty(false)
+      setSaveProblem(null)
       snapshotAfterSave()
-      setSaveProblemState(null)
       /**
        * Autosave says nothing. A toast every couple of seconds is noise that
        * trains somebody to ignore the one that matters — the bar already shows
@@ -5331,34 +5335,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (!options.quiet) showNotification("Saved")
       return true
     } catch {
-      return failSave(null, "page")
+      setSaveProblem(explainSaveProblem(typeof navigator !== "undefined" && navigator.onLine === false ? null : 503, null))
+      return false
     }
   }
-
-  saveDraftRef.current = saveDraft
 
   const publishChanges = async () => {
     setPublishing(true)
     try {
       // 1. Save current editor state as draft (settings + current page sections)
-      const settingsRes = await fetch(`/api/website-builder/themes/${installId}/settings`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ draft_settings: settingsDraft }),
-      })
+      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
       if (!settingsRes.ok) {
-        await failSave(settingsRes, "settings")
+        const d = await settingsRes.json().catch(() => ({}))
+        setSaveProblem(explainSaveProblem(settingsRes.status, d))
         setPublishing(false)
         return
       }
 
-      const sectionsRes = await fetch(`/api/website-builder/themes/${installId}/sections`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
-      })
+      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
-        await failSave(sectionsRes, "page")
+        const d = await sectionsRes.json().catch(() => ({}))
+        setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
         setPublishing(false)
         return
       }
@@ -5375,7 +5372,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       })
 
       if (!res.ok) {
-        await failSave(res, "publish")
+        const d = await res.json()
+        showNotification(d.error ?? "Failed to publish", "error")
         setPublishing(false)
         return
       }
@@ -5389,10 +5387,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setUnpublished(false)
       setHasPublished(true)
       snapshotAfterSave()
-      setSaveProblemState(null)
       showNotification("Changes saved and published")
     } catch {
-      await failSave(null, "publish")
+      showNotification("Failed to publish", "error")
     }
     setPublishing(false)
   }
@@ -6664,7 +6661,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           {/* Back is the whole left of the row, the name included, on a
               quiet tile: components/website-builder/panel-back.tsx. */}
           <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
-            <p className="truncate text-[15px] font-semibold md:text-sm">{sectionDisplayName(section, librarySchemas)}</p>
+            <SectionTitleRename name={sectionDisplayName(section, librarySchemas)} onRename={(next) => renameSection(section.id, next)} />
             {(schema?.name ?? section.type) !== sectionDisplayName(section, librarySchemas) && (
               <p className="text-[11px] text-muted-foreground truncate">{schema?.name ?? section.type}</p>
             )}
@@ -7002,19 +6999,6 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   )
   /* The store's menus under the names a Shopify theme reads them by, as the live site gives them (lib/storelib-theme/compat/menus.ts). */
   const compatCanvasMenus = useMemo(() => compatMenus(canvasMenus as never, rowPageKeys), [canvasMenus, rowPageKeys])
-  /* Add section, for an imported theme: each card drawn by the theme's own engine (compat-canvas.tsx). Read once the library opens. */
-  const [libraryOpened, setLibraryOpened] = useState(false)
-  useEffect(() => { if (addSectionOpen) setLibraryOpened(true) }, [addSectionOpen])
-  const drawCompatPreview = useCompatPreviewDrawer({
-    enabled: !!canvasCompat && libraryOpened,
-    installId,
-    sources: storelibSources,
-    theme: canvasThemeSettings as Record<string, unknown>,
-    products: shopCards,
-    collections: compatCollections,
-    menus: compatCanvasMenus,
-    shopName: typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store",
-  })
   /*
     A LINK PRESSED IN AN IMPORTED THEME'S PAGE opens that page here, as on the
     live site: always from the header or the footer, which are the site's
@@ -8095,6 +8079,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )
           })()}
 
+          {/* FULL SCREEN, beside the size (the owner: "a fullscreen button next to desktop and mobile"): the sidebar folds away and the browser goes full screen; again, or Escape, and it all comes back. */}
+          {!isMobileView && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={fullView ? "Exit full screen" : "Full screen"}
+                  aria-pressed={fullView}
+                  data-wb-full-toggle=""
+                  onClick={() => toggleCanvasFullScreen(!fullView)}
+                  className="hidden sm:flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.05] text-[var(--wb-chrome-fg)] transition-[background-color,color] duration-150 hover:bg-white/[0.1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+                >
+                  {fullView ? <Minimize2 className="h-[14px] w-[14px]" strokeWidth={1.75} /> : <Maximize2 className="h-[14px] w-[14px]" strokeWidth={1.75} />}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{fullView ? "Exit full screen" : "Full screen"}</TooltipContent>
+            </Tooltip>
+          )}
+
           {!isMobileView && (
           <PageSwitcher
             pages={sitePages}
@@ -8456,12 +8459,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         document.body,
       )}
 
-      {/* ── A save that did not land: under the bar, above the canvas, until one does ── */}
-      {saveProblemState && (
-        <div className="pointer-events-none fixed inset-x-0 flex justify-center px-4" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>
-          <SaveProblemBanner problem={saveProblemState} onFix={fixSave} onClose={() => setSaveProblemState(null)} />
+      {/* ── A save that did not go through: what happened and the one thing to do ── */}
+      {saveProblem ? (
+        <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>
+          <SaveProblemBanner
+            problem={saveProblem}
+            onClose={() => setSaveProblem(null)}
+            onAction={(a: SaveAction) => {
+              if (a === "retry") void saveDraft({ quiet: true })
+              else if (a === "reload") window.location.reload()
+              else if (a === "signin") window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`
+              else if (a === "back") router.push("/app/website-builder")
+              else if (a === "undo") { handleUndo(); setSaveProblem(null) }
+            }}
+          />
         </div>
-      )}
+      ) : null}
 
       {/* ── Top notification bar ── */}
       <div
@@ -9349,9 +9362,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         addable={libraryAddable}
         ownTypes={libraryOwnTypes}
         sources={storelibSources}
+        compatInstallId={compatInstall ? installId : null}
         theme={settingsDraft}
-        drawCompat={canvasCompat ? (drawCompatPreview as never) : null}
-        ownLabel={canvasCompat?.theme || undefined}
       />
 
       {/* ── Add Custom Page Modal ── */}

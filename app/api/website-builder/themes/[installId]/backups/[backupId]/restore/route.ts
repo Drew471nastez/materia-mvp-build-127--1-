@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server"
+import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { createClient } from "@/lib/supabase/server"
 import { applySnapshot, takeBackup, type BackupSnapshot } from "@/lib/website-builder/backups"
 
@@ -9,15 +10,17 @@ async function ownInstall(installId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: "Unauthorized", status: 401, supabase: null }
 
-  const { data: creator } = await supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle()
+  const { data: creator, error: creatorReadErr } = await readTwice(() => supabase.from("creators").select("id").eq("user_id", user.id).maybeSingle())
+  if (creatorReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!creator) return { error: "Creator not found", status: 404, supabase: null }
 
-  const { data: install } = await supabase
+  const { data: install, error: installReadErr } = await readTwice(() => supabase
     .from("store_theme_installs")
     .select("id")
     .eq("id", installId)
     .eq("creator_id", creator.id)
-    .maybeSingle()
+    .maybeSingle())
+  if (installReadErr) return { error: UNREACHABLE, status: 503, supabase: null }
   if (!install) return { error: "Theme not found", status: 404, supabase: null }
 
   return { error: null, status: 200, supabase }

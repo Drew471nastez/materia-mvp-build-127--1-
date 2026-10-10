@@ -224,7 +224,7 @@ async function main() {
     /* The bar is the shared Back row now (components/website-builder/panel-back.tsx):
        one line, a floor of 52px on a phone and 44 from md, never a tall pad. */
     check("and the bar is one line tall, with a floor rather than a tall pad",
-      /<PanelBack onBack=\{\(\) => setSelectedPanel\(\{ type: "pages" \}\)\}>\s*<p className="truncate text-\[15px\] font-semibold md:text-sm">\{sectionDisplayName\(section, librarySchemas\)\}<\/p>/.test(editor) &&
+      /<PanelBack onBack=\{\(\) => setSelectedPanel\(\{ type: "pages" \}\)\}>\s*<SectionTitleRename name=\{sectionDisplayName\(section, librarySchemas\)\}/.test(editor) &&
         /min-h-\[52px\] shrink-0 items-center[^"]*md:min-h-\[40px\]/.test(read("components/website-builder/panel-back.tsx")))
   }
 
