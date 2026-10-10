@@ -8,14 +8,28 @@
  * post's page (post-fullscreen.tsx, its box is this) and the post page's dock
  * (comments.tsx dockComposer, its foot is this box's foot). The numbers are
  * post-motion.ts postBox: the visual viewport where the platform reports the
- * keyboard, the iPhone's own keyboard in the iOS app where WKWebView does
- * not, the published floor otherwise. Applied before the first frame and
+ * keyboard; in the iOS app the keyboard's own height (the Capacitor Keyboard
+ * plugin's, native-keyboard.ts, else the iPhone's from the table) from where
+ * iOS panned the page to (visualViewport.offsetTop, round 16); the published
+ * floor otherwise. Applied before the first frame and
  * again on every viewport move, keyboard report, focus and blur; written to
  * the element by `apply`, never through React.
  */
 import { useLayoutEffect } from "react"
 import { KEYBOARD_CHANGE_EVENT } from "@/lib/ui/keyboard-safe-sheet"
 import { iosKeyboardFor, postBox, type PostBox } from "./post-motion"
+import { nativeKeyboardHeight, watchNativeKeyboard } from "./native-keyboard"
+
+/** What a box was worked out from, for the ?kbdebug=1 readout (post-fullscreen.tsx). */
+export interface BoxFacts {
+  innerH: number
+  layoutH: number
+  vvH: number
+  vvTop: number
+  scrollY: number
+  native: number
+  table: number | null
+}
 
 const TEXT_INPUT = /^(text|search|url|tel|email|password|number)$/
 export function takesKeyboard(el: Element | null): boolean {
@@ -41,7 +55,7 @@ function layoutHeight(probe: HTMLElement | null): number {
  * as typing here (a field elsewhere on the page does not move this box);
  * `probe` is any fixed element as tall as the screen (inset-0), or null.
  */
-export function useVisibleBox(active: boolean, scope: () => Element | null, probe: () => HTMLElement | null, apply: (box: PostBox, typing: boolean, layoutH: number) => void): void {
+export function useVisibleBox(active: boolean, scope: () => Element | null, probe: () => HTMLElement | null, apply: (box: PostBox, typing: boolean, layoutH: number, facts: BoxFacts) => void): void {
   useLayoutEffect(() => {
     if (!active) return
     const app = iosApp()
@@ -52,19 +66,23 @@ export function useVisibleBox(active: boolean, scope: () => Element | null, prob
       const where = scope()
       const typing = takesKeyboard(document.activeElement) && !!where?.contains(document.activeElement)
       const published = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--kb-inset")) || 0
+      const native = nativeKeyboardHeight()
+      const table = app && typing ? iosKeyboardFor(window.innerWidth, layoutH) : null
+      const facts: BoxFacts = { innerH: window.innerHeight, layoutH, vvH: Math.round(vv?.height ?? window.innerHeight), vvTop: Math.round(vv?.offsetTop ?? 0), scrollY: Math.round(window.scrollY), native, table }
       const box = postBox({
         layoutH,
-        innerH: window.innerHeight,
-        vvTop: Math.round(vv?.offsetTop ?? 0),
-        vvH: Math.round(vv?.height ?? window.innerHeight),
+        innerH: facts.innerH,
+        vvTop: facts.vvTop,
+        vvH: facts.vvH,
         typing,
         publishedInset: published,
-        appKeyboard: app && typing ? iosKeyboardFor(window.innerWidth, layoutH) : null,
+        appKeyboard: table,
+        nativeKeyboard: typing ? native : null,
       })
-      const key = `${box.top}|${box.height}|${box.aboveTabs}|${typing}|${layoutH}`
+      const key = `${box.top}|${box.height}|${box.aboveTabs}|${typing}|${layoutH}|${facts.scrollY}|${facts.vvH}`
       if (key === last) return
       last = key
-      apply(box, typing, layoutH)
+      apply(box, typing, layoutH, facts)
     }
     run()
     let raf = 0
@@ -85,7 +103,10 @@ export function useVisibleBox(active: boolean, scope: () => Element | null, prob
     window.addEventListener(KEYBOARD_CHANGE_EVENT, run)
     document.addEventListener("focusin", soon)
     document.addEventListener("focusout", onFocusOut)
+    /* The app's keyboard says its height before it moves (native-keyboard.ts): the box goes with it. */
+    const offNative = watchNativeKeyboard(run)
     return () => {
+      offNative()
       cancelAnimationFrame(raf)
       timers.forEach((t) => window.clearTimeout(t))
       vv?.removeEventListener("resize", run)

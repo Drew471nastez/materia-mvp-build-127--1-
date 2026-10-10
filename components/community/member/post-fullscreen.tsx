@@ -63,6 +63,29 @@ function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
+/*
+  THE KEYBOARD READOUT (round 16). ?kbdebug=1 on any address turns it on for this tab (kept in session storage, because the
+  opened post's own address drops the query), ?kbdebug=0 turns it off. While the comment box is typed in, a small panel shows
+  innerHeight, visualViewport's height and offsetTop, the scroll, the box's rect and which measurement placed it.
+*/
+const KB_DEBUG_KEY = "storelib:kbdebug"
+function readKbDebugFlag(): boolean {
+  if (typeof window === "undefined") return false
+  try {
+    const asked = new URLSearchParams(window.location.search).get("kbdebug")
+    if (asked === "1") window.sessionStorage.setItem(KB_DEBUG_KEY, "1")
+    else if (asked === "0") window.sessionStorage.removeItem(KB_DEBUG_KEY)
+    return window.sessionStorage.getItem(KB_DEBUG_KEY) === "1"
+  } catch {
+    return false
+  }
+}
+let kbDebug = readKbDebugFlag()
+export function kbDebugOn(): boolean {
+  if (!kbDebug) kbDebug = readKbDebugFlag()
+  return kbDebug
+}
+
 /* When a finger last landed at the screen's left edge: a popstate soon after is the browser's own swipe back (closedByBrowserSwipe). */
 let lastEdgeTouch = -Infinity
 if (typeof document !== "undefined") {
@@ -96,6 +119,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   const scrollRef = useRef<HTMLDivElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
   const blurRef = useRef<HTMLDivElement>(null)
+  const debugRef = useRef<HTMLDivElement>(null)
   /* The sheet's driver (page-sheet-stage.tsx): the page, the backdrop's dim and bands, and the community easing back. */
   const stageRef = useRef<SheetStage | null>(null)
   const stage = () => {
@@ -129,13 +153,32 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     true,
     () => pageRef.current,
     () => layerRef.current,
-    (box, typing) => {
+    (box, typing, _layoutH, facts) => {
       const page = pageRef.current
       if (!page) return
       page.style.top = `${Math.round(box.top)}px`
       page.style.height = postBoxHeightCss(box)
       page.dataset.box = box.source
       page.toggleAttribute("data-typing", typing)
+      /* ?kbdebug=1: what the box was placed from, on screen, for a screenshot if a gap is ever still there. */
+      const panel = debugRef.current
+      if (panel) {
+        const on = typing && kbDebugOn()
+        panel.hidden = !on
+        /* Read on the next frame, once the box has been brought onto the page's foot (below). */
+        if (on)
+          requestAnimationFrame(() => {
+            const dock = page.querySelector<HTMLElement>("[data-comment-box=comment]")?.getBoundingClientRect()
+            const r = (n: number | undefined) => (n === undefined ? "-" : String(Math.round(n)))
+            panel.textContent = [
+              `used ${box.source}  box top ${Math.round(box.top)} h ${Math.round(box.height)}`,
+              `innerHeight ${facts.innerH}  layout ${facts.layoutH}`,
+              `vv.height ${facts.vvH}  vv.offsetTop ${facts.vvTop}`,
+              `scrollY ${facts.scrollY}  native kb ${facts.native || "-"}  table kb ${facts.table ?? "-"}`,
+              `comment box top ${r(dock?.top)} bottom ${r(dock?.bottom)} left ${r(dock?.left)} w ${r(dock?.width)}`,
+            ].join("\n")
+          })
+      }
       /*
         THE BOX IN SIGHT ON THE KEYBOARD. The comment box sticks to the page's foot only inside the comments section; with the
         page shortened to what the keyboard leaves, a long post puts that section below the foot and the box with it, out of
@@ -448,6 +491,8 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
           </div>
         </div>
       </div>
+      {/* ?kbdebug=1 (THE KEYBOARD READOUT): hidden unless asked for, and only while a field in the post is typed in. */}
+      <div ref={debugRef} hidden aria-hidden className="pointer-events-none absolute left-2 right-2 z-[10] whitespace-pre rounded-lg bg-[#1a1a2e]/85 px-2.5 py-2 font-mono text-[10.5px] leading-[1.45] text-white" style={{ top: "calc(env(safe-area-inset-top, 0px) + 56px)" }} data-kbdebug="" />
     </div>,
     document.body,
   )

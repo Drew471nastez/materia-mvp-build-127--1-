@@ -676,6 +676,82 @@ async function partCompose() {
   console.log(JSON.stringify({ label: LABEL, part: "compose", out }))
 }
 
+
+/* ── THE KEYBOARD: the comment box on the keys in the iOS app, and white under it whatever the numbers ── */
+async function partKeyboard() {
+  console.log("\nTHE KEYBOARD: the comment box in the iOS app (390x844)")
+  const out = {}
+  const s = await session({ app: true, path: "/community/clay-studio?kbdebug=1" })
+  const pic = 'article[data-post="a0000000-0000-4000-8000-000000000002"] [data-post-excerpt]'
+  const at = await centerOf(s, pic)
+  await sleep(300)
+  await s.tap(at.x, at.y)
+  await sleep(1500)
+  /* Every point under the comment box's top edge, down the screen: what is drawn there. */
+  const under = () =>
+    s.p.evaluate(() => {
+      const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+      const dock = page.querySelector("[data-comments-composer]")
+      const box = page.querySelector("[data-comment-box=comment]").getBoundingClientRect()
+      const d = dock.getBoundingClientRect()
+      const seen = []
+      for (let y = Math.ceil(d.top) + 1; y < innerHeight; y += 6) {
+        for (const x of [4, 195, 386]) {
+          const el = document.elementFromPoint(x, y)
+          if (!el) continue
+          if (el.closest("[data-buyer-tab-bar]")) continue
+          const inDock = !!el.closest("[data-comments-composer]")
+          const skirt = !!el.closest("[data-post-skirt]")
+          /* Anything else of the post (a picture, a card, a comment) or of the feed under it is a see-through. */
+          if (!inDock && !skirt) seen.push(`${x},${y}:${el.tagName}${el.closest("[data-post-overlay-post]") ? ":post" : el.closest("[data-community-shell]") ? ":feed" : ""}`)
+        }
+      }
+      const bg = getComputedStyle(dock).boxShadow
+      return { source: page.dataset.box, typing: page.hasAttribute("data-typing"), pageTop: Math.round(page.getBoundingClientRect().top), pageBottom: Math.round(page.getBoundingClientRect().bottom), boxBottom: Math.round(box.bottom), dockTop: Math.round(d.top), seen: seen.slice(0, 6), blockShadow: /200vh|1688px|lvh|844px|1600px/.test(bg) || bg.split(",").length > 1, panel: !document.querySelector("[data-kbdebug]").hidden, panelText: document.querySelector("[data-kbdebug]").textContent }
+    })
+  await s.p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea").focus())
+  await sleep(700)
+  const a = await under()
+  out.table = a
+  expect(a.typing && a.source === "table" && a.pageTop === 0 && a.pageBottom === 464, "iOS app, no pan: the page ends on the keyboard's bar (844 - 380 = 464)", a)
+  expect(a.boxBottom <= 464 && a.boxBottom >= 450, "and the comment box sits on it", a.boxBottom)
+  expect(a.seen.length === 0, "THE BLOCK: everything from the box's top edge down the screen is the box's white or the skirt, never the post or the feed", a.seen)
+  expect(a.panel && /used table/.test(a.panelText) && /vv.offsetTop 0/.test(a.panelText), "?kbdebug=1: the readout is on screen while typing, naming what placed the box", a.panelText)
+  await s.p.screenshot({ path: join(shots, `${LABEL}-keyboard-app.png`) })
+  /*
+    76.jpg: iOS pans the page up under the field and says so as visualViewport.offsetTop (62px there). Told the same here, the
+    page must follow the pan (its top at 62 in the page, so 0 on the screen) and keep the keyboard's height under it.
+  */
+  await s.p.evaluate(() => {
+    const vv = window.visualViewport
+    Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => 62 })
+    vv.dispatchEvent(new Event("scroll"))
+  })
+  await sleep(300)
+  const b = await under()
+  out.panned = b
+  expect(b.source === "table" && b.pageTop === 62 && b.pageBottom === 526, "iOS app, page panned 62px (76.jpg): the page follows the pan, 62 to 526 in the page, so 0 to 464 on the screen", b)
+  expect(b.seen.length === 0, "and below the box's top edge it is still only white", b.seen)
+  expect(/vv.offsetTop 62/.test(b.panelText), "and the readout shows the pan", b.panelText)
+  await s.p.evaluate(() => {
+    delete window.visualViewport.offsetTop
+    window.visualViewport.dispatchEvent(new Event("scroll"))
+  })
+  /* A box placed too high (a number off): the block still leaves only white under it. */
+  await s.p.evaluate(() => {
+    const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+    page.style.height = "400px"
+  })
+  await sleep(200)
+  const c = await under()
+  out.short = c
+  expect(c.seen.length === 0, "a page placed 64px short of the keys (a wrong number): still only white under the box", c.seen)
+  await s.p.screenshot({ path: join(shots, `${LABEL}-keyboard-short.png`) })
+  expect(!s.errors.length, "no page errors (keyboard)", s.errors.slice(0, 3))
+  await s.p.close()
+  console.log(JSON.stringify({ label: LABEL, part: "keyboard", out }))
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -686,6 +762,7 @@ try {
   if (PART === "all" || PART === "b") await partB()
   if (PART === "all" || PART === "sheet") await partSheet()
   if (PART === "all" || PART === "compose") await partCompose()
+  if (PART === "all" || PART === "keyboard") await partKeyboard()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()
