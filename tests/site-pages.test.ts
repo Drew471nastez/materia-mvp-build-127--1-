@@ -275,7 +275,8 @@ function main() {
     check("with the path kept, so About on a domain is About", /\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}/.test(proxy))
     check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
     check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
-    check("a lookup that fails reads as no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?catch \{\s*return false/.test(proxy))
+    /* A lookup that fails keeps the last answer it had (a live website stays up through a blip), and with none it is no website, which is the profile. */
+    check("a lookup that fails reads as the last answer, else no website, which is the profile", /async function hasPublishedWebsite[\s\S]*?return remembered\(/.test(proxy) && /if \(fresh\.failed\) return held\?\.value \?\? false/.test(proxy))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

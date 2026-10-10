@@ -86,6 +86,7 @@
   "version": "1.0.0",
   "icon": "smartphone",
   "enabled_on": { "groups": ["overlay"] },
+  "supports_typography_overrides": false,
   "max_blocks": 5,
   "settings": [
     { "type": "header", "id": "hdr_bar", "label": "Bar" },

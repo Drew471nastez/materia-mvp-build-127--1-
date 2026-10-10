@@ -41,7 +41,8 @@ const TYPED = new Set(["text", "textarea", "inline_richtext", "richtext", "numbe
 
 
 /** Sections that are the page's frame rather than a band on it: no top and bottom padding of their own. */
-const FRAME = /^(header|footer|announcement|navigation|nav|bar|sticky)/i
+/* The site's frame, and what floats over it (the Overlay group): placed by the page, not spaced by it. */
+const FRAME = /^(header|footer|announcement|navigation|nav|bar|sticky|overlay)/i
 
 const stripCss = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, " ")
 const stripTemplate = (html: string) =>
@@ -53,7 +54,9 @@ const stripTemplate = (html: string) =>
 /** Every property: value pair in a stylesheet, flat. */
 function declarations(css: string): { prop: string; value: string }[] {
   const out: { prop: string; value: string }[] = []
-  for (const m of css.matchAll(/([a-z-]+)\s*:\s*([^;{}]+)/gi)) out.push({ prop: m[1].toLowerCase(), value: m[2].trim() })
+  /* An at-rule's prelude is a condition, not a declaration: `@media (min-width: 750px)` sets no width. */
+  const rules = css.replace(/@[a-z-]+[^{;]*\{/gi, "{")
+  for (const m of rules.matchAll(/([a-z-]+)\s*:\s*([^;{}]+)/gi)) out.push({ prop: m[1].toLowerCase(), value: m[2].trim() })
   return out
 }
 

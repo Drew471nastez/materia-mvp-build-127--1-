@@ -292,7 +292,8 @@ section("Typography compiles to tokens at three widths")
     // control that changes nothing.
     notReading.includes("hero.storelib") &&
       notReading.every((f: string) => /"supports_typography_overrides":\s*false/.test(readFileSync(join(dir, f), "utf8"))) &&
-      notReading.every((f: string) => ["hero.storelib", "breadcrumbs.storelib"].includes(f)),
+      /* And back to top and the phone tab bar (the Overlay group), which have no heading. */
+      notReading.every((f: string) => ["hero.storelib", "breadcrumbs.storelib", "back_to_top.storelib", "mobile_bottom_bar.storelib"].includes(f)),
     notReading.join(", "),
   )
 }
