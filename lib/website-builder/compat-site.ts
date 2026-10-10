@@ -17,10 +17,10 @@
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { creatorByName, creatorShopTag, siteCatalogue } from "@/lib/website-builder/published-site"
+import { creatorByName, creatorShopTag, creatorSiteTag, siteCatalogue } from "@/lib/website-builder/published-site"
 import { catalogCards } from "@/lib/website-builder/shop-products"
 import { siteCollections } from "@/lib/website-builder/storefront-collections-server"
-import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
+import { readStoreMenus, storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
@@ -33,7 +33,7 @@ const POLICY_TITLES: Record<string, string> = Object.fromEntries([...POLICY_PAGE
 import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
-import { liveNavigationMarkup } from "./live-navigation"
+import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
 
 type Admin = ReturnType<typeof createAdminClient>
 type Row = { path: string; content: string | null; draft_content?: string | null }
@@ -117,6 +117,57 @@ const collectionsOf = (creatorId: string) =>
     { tags: [creatorShopTag(creatorId)], revalidate: 60 },
   )()
 
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   EVERY PAGE OF A LIVE SITE WAS FIVE READS OF THE DATABASE, ONE AFTER THE OTHER
+  ═══════════════════════════════════════════════════════════════════════
+  The published install, its pages, the store's menus, the catalogue a
+  featured product is picked from and, on a product page, its description
+  were read again for every page a visitor opened: two round trips before
+  a page could start, three more beside it, on each click. They change only
+  when the creator publishes, saves a live setting or a menu (each purges
+  creatorSiteTag, lib/website-builder/published-site.ts
+  revalidatePublishedSite) or changes a product (creatorShopTag), so they
+  are held under those tags, as the published site's other data already
+  is. A preview reads everything fresh. A read that failed is never held:
+  it is read again on the next page (heldUnless).
+*/
+const SITE_HOLD_S = 3600
+const SHOP_HOLD_S = 60
+const NOT_HELD = Symbol("not held")
+
+/** `read`, held under `tags`, unless what it answered is `skip(value)` (a failed or empty read), which is passed on and read again next time. */
+async function heldUnless<T>(key: string[], tags: string[], seconds: number, read: () => Promise<T>, skip: (v: T) => boolean): Promise<T> {
+  let passed: { v: T } | null = null
+  try {
+    return await unstable_cache(async () => {
+      const v = await read()
+      if (skip(v)) {
+        passed = { v }
+        throw NOT_HELD
+      }
+      return v
+    }, key, { tags, revalidate: seconds })()
+  } catch (e) {
+    if (e === NOT_HELD && passed) return (passed as { v: T }).v
+    throw e
+  }
+}
+
+type InstallRow = { id: string; published_at?: string | null; preview_token?: string | null; store_theme_settings?: unknown }
+
+function readInstall(admin: Admin, creatorId: string): Promise<InstallRow | null> {
+  return siteRead("published install", (signal) => admin
+    .from("store_theme_installs")
+    .select("id, published_at, preview_token, store_theme_settings ( settings, draft_settings )")
+    .eq("creator_id", creatorId)
+    .eq("status", "published")
+    .order("sort_order", { ascending: true })
+    .limit(1)
+    .abortSignal(signal)
+    .maybeSingle()) as Promise<InstallRow | null>
+}
+
 export type CompatLookup = { kind: "site"; site: SiteData } | { kind: "missing" }
 
 /**
@@ -153,17 +204,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const creator = await creatorByName(name)
   if (!creator) return { kind: "missing" }
   const admin = createAdminClient()
-  const install = await siteRead("published install", (signal) => admin
-    .from("store_theme_installs")
-    .select("id, published_at, preview_token, store_theme_settings ( settings, draft_settings )")
-    .eq("creator_id", creator.creatorId)
-    .eq("status", "published")
-    .order("sort_order", { ascending: true })
-    .limit(1)
-    .abortSignal(signal)
-    .maybeSingle())
+  const siteTags = [creatorSiteTag(creator.creatorId)]
+  /* A preview link holds nothing: it is the person checking their unpublished work. */
+  const install = previewToken !== null
+    ? await readInstall(admin, creator.creatorId)
+    : await heldUnless(["compat-install", creator.creatorId], siteTags, SITE_HOLD_S, () => readInstall(admin, creator.creatorId), (v) => v === null)
   if (!install) return { kind: "missing" }
-  const row = install as { id: string; published_at?: string | null; preview_token?: string | null; store_theme_settings?: unknown }
+  const row = install
   const draft = previewToken !== null && mayPreview(row.preview_token, previewToken)
   const settingsRow = Array.isArray(row.store_theme_settings) ? (row.store_theme_settings[0] ?? null) : (row.store_theme_settings ?? null)
   const settings = themeSettingsOf(settingsRow as never, draft) ?? {}
@@ -172,13 +219,17 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
   const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
   let rows = draft ? null : rowsHeld.get(rowsKey) ?? null
+  const readPages = () => siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal))
+  const readCatalog = () => catalogCards(admin as never, creator.creatorId).catch(() => [])
   const [pageRows, products, catalog, collections, menus] = await Promise.all([
-    siteRead("pages", (signal) => admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id).abortSignal(signal)).then((data) => ({ data })),
+    (draft ? readPages() : heldUnless(["compat-pages", row.id, version], siteTags, SITE_HOLD_S, readPages, (v) => v === null)).then((data) => ({ data })),
     siteCatalogue(creator.creatorId, { cached: !draft }),
     /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
-    catalogCards(admin as never, creator.creatorId).catch(() => []),
+    draft ? readCatalog() : heldUnless(["compat-catalog", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readCatalog, (v) => v.length === 0),
     collectionsOf(creator.creatorId),
-    storeMenusOrNull(admin, creator.creatorId),
+    draft
+      ? storeMenusOrNull(admin, creator.creatorId)
+      : heldUnless(["compat-menus", creator.creatorId], siteTags, SITE_HOLD_S, () => readStoreMenus(admin, creator.creatorId).catch(() => ({ kind: "unavailable" as const })), (v) => v.kind === "unavailable").then((r) => (r.kind === "stored" ? r.menus : null)),
     rows ? Promise.resolve() : installFiles(admin, row.id, draft).then((r) => { rows = r }),
   ])
   if (!rows) return { kind: "missing" }
@@ -213,14 +264,18 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     product: async (handle) => {
       const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null
-      const { data } = await admin.from("products").select("description").eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
-      const raw = (data as { description?: string | null } | null)?.description ?? ""
+      const readDescription = async () => {
+        const { data, error } = await admin.from("products").select("description").eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
+        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "" }
+      }
+      const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
+      const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
       return { ...card, descriptionHtml }
     },
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     extraHead: draft ? undefined : liveNavigationMarkup(),
-    extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : undefined,
+    extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }
 }

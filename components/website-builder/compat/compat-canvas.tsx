@@ -24,6 +24,8 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { CANVAS_NETWORK, answerCanvasRequest, type CanvasRequest } from "@/lib/storelib-theme/compat/canvas-network"
+import type { CartEntry, SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
@@ -75,6 +77,9 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
   loading.set(installId, p)
   return p
 }
+
+/** The site's other pages, for a request the canvas answers about one (a search box's results, a product's recommendations): drawn from the theme's own section of that name. */
+const CANVAS_PAGES: Record<string, StoredSection[]> = { product: [], collection: [], collections: [], search: [], cart: [], "404": [] }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
@@ -186,8 +191,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       site = ""
     }
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
-    /* Before anything of the theme's: its scripts read storage on their first line. */
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}`)
+    /* Before anything of the theme's: its scripts read storage on their first line, and ask the shop for things (canvas-network.ts). */
+    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")}</script>${CANVAS_NETWORK}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -380,6 +385,31 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => window.removeEventListener("message", onMessage)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compatTheme])
+
+  /*
+    WHAT THE THEME ASKS THE SHOP FOR, answered here as the website answers it
+    (lib/storelib-theme/compat/canvas-network.ts): the page's sections, its
+    recommendations, the search box, the cart. The canvas keeps a cart of
+    its own while the editor is open.
+  */
+  const canvasCart = useRef<{ entries: CartEntry[]; note: string }>({ entries: [], note: "" })
+  const canvasSite = useRef<SiteData | null>(null)
+  canvasSite.current = compatTheme
+    ? { creatorId: "", theme: compatTheme, pages: { ...CANVAS_PAGES, [pageKey]: sections }, products, pickable: catalog, collections, menus, shop: page.shop, host: "", designMode: true }
+    : null
+  useEffect(() => {
+    const onFetch = (e: MessageEvent) => {
+      const m = e.data as (CanvasRequest & { storelib?: number; type?: string }) | null
+      if (!m || m.storelib !== 1 || m.type !== "fetch" || typeof m.path !== "string" || typeof m.id !== "number") return
+      const from = [...frames.current.values()].some((f) => f.contentWindow === e.source)
+      const site = canvasSite.current
+      if (!from || !site || !e.source) return
+      const source = e.source as Window
+      void answerCanvasRequest(site, { id: m.id, method: String(m.method ?? "GET").toUpperCase(), path: m.path, body: typeof m.body === "string" ? m.body : null, headers: m.headers && typeof m.headers === "object" ? m.headers : {}, referer: m.referer }, canvasCart.current).then((reply) => source.postMessage(reply, "*"))
+    }
+    window.addEventListener("message", onFetch)
+    return () => window.removeEventListener("message", onFetch)
+  }, [])
 
   const compat = compatOf(settings)
   return (
