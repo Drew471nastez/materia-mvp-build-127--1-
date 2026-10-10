@@ -26,6 +26,7 @@ const SUITES = [
   "tests/lean-images.test.ts",
   "tests/buy-buttons-checkout.test.ts",
   "tests/integrations-settings-sheet.test.ts",
+  "tests/settings-sheet-desktop.test.ts",
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
   "tests/shopify-import.test.ts",

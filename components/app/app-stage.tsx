@@ -6,6 +6,7 @@ import { PageSpinner } from "@/components/ui/activity-spinner"
 import { pullRefreshVisualActive } from "@/hooks/use-pull-to-refresh"
 import {
   endAppNavigation,
+  forgetCommitted,
   getAppNavigation,
   isLandingHeld,
   loadsAsDocumentWhenStalled,
@@ -242,6 +243,8 @@ export function AppStage() {
     watchRouterCommits()
     watchRouterAnswers()
   }, [])
+  /* Leaving the shell: the page it showed is not under a Settings opened from outside it (lib/ui/app-navigation pageUnderSettingsSheet). */
+  useEffect(() => () => forgetCommitted(), [])
 
   /* Where the reader is, recorded as they scroll, for the way back. */
   useEffect(() => {

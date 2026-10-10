@@ -769,9 +769,14 @@ export function DomainsPanel({
 
   return (
     <div className="space-y-4 sm:space-y-6" data-domains-panel="">
-      {/* Upgrade banner: only for a free plan, nothing while the plan loads or once it is paid. */}
+      {/*
+        Upgrade banner: only for a free plan, nothing while the plan loads or once it is paid. From 1024px it stays at
+        the top of the sheet while the blurred cards scroll under it: scrolled past it, the blur read as the page
+        failing to draw (the owner's screenshot), with nothing in view saying why. The blur itself is set, never
+        animated: a filter easing over a whole card is a repaint on every frame.
+      */}
       {blurred ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5" data-domains-upgrade="">
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-gradient-to-r from-[#7c3aed] to-[#6d28d9] px-4 py-3 shadow-sm sm:px-6 sm:py-3.5 lg:sticky lg:top-3 lg:z-[2]" data-domains-upgrade="">
           <p className="min-w-0 truncate text-[13px] font-medium text-white sm:text-[14px]">
             <span className="sm:hidden">Upgrade for custom domains</span>
             <span className="hidden sm:inline">Custom domains are available on the Pro plan.</span>
@@ -786,7 +791,7 @@ export function DomainsPanel({
       ) : null}
 
       {/* Adding one: the field, Add, and one line. Nothing else until there is a domain. */}
-      <div className={cn(CARD, "transition-[filter,opacity] duration-300 ease-out", blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
+      <div className={cn(CARD, blurred && BLURRED)} data-domains-connect="" aria-disabled={blurred || undefined}>
         <h3 className="mb-3 text-[15px] font-semibold text-[#1a1a2e]">Connect your own domain</h3>
         {/* Not a <form>: the Settings page is one form already, and a form inside a form is not HTML. */}
         <div className="flex gap-2" data-domains-add="">
@@ -863,7 +868,7 @@ export function DomainsPanel({
 
       {/* Your domains: only once there is one. */}
       <Reveal open={ordered.length > 0} animate={touched} data-domains-reveal="list">
-        <div className={cn(CARD, "transition-[filter,opacity] duration-300 ease-out", blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
+        <div className={cn(CARD, blurred && BLURRED)} data-domains-list="" aria-disabled={blurred || undefined}>
           <h3 className="mb-1 text-[15px] font-semibold text-[#1a1a2e]">Your domains</h3>
 
           {ordered.map((d) => {
