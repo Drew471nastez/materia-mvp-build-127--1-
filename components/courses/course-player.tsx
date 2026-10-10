@@ -86,6 +86,14 @@ async function fetchPlay(lessonId: string): Promise<Play> {
   }
 }
 
+/** What a lesson's stage can show on the render that opens it, before anything is asked for. */
+function firstPlay(l: PlayerLesson | null): Play {
+  if (!l) return { state: "loading" }
+  if (l.locked) return { state: "locked" }
+  if (l.kind === "text") return { state: "text" }
+  return keptPlay(l.id) ?? { state: "loading" }
+}
+
 function sendPlace(body: Record<string, unknown>, beacon = false): Promise<Record<string, unknown> | null> {
   const json = JSON.stringify(body)
   if (beacon && typeof navigator !== "undefined" && navigator.sendBeacon) {
@@ -104,11 +112,14 @@ export function CoursePlayer({
   backLabel = "All courses",
   /** Inside a community shell: wider stage, lighter chrome, curriculum only from lg up. */
   embedded = false,
+  /** A press on the arrow, when the page decides where it goes (a community's Learn: back through history when it came from there). */
+  onBack,
 }: {
   data: PlayerData
   backHref?: string
   backLabel?: string
   embedded?: boolean
+  onBack?: (e: React.MouseEvent<HTMLAnchorElement>) => void
 }) {
   const lessons = useMemo(() => data.modules.flatMap((m) => m.lessons), [data.modules])
   const outline = data.modules
@@ -116,12 +127,20 @@ export function CoursePlayer({
   const [progress, setProgress] = useState<Map<string, LessonProgress>>(() => progressMap(data.progress))
   const [lessonId, setLessonId] = useState<string | null>(data.initialLessonId)
   const [autoPlay, setAutoPlay] = useState(false)
-  const [play, setPlay] = useState<Play>({ state: "loading" })
   const [sheet, setSheet] = useState(false)
   const [emailsOff, setEmailsOff] = useState(data.emailsOff)
   const live = useRef({ position: 0, duration: 0 })
 
   const lesson = lessons.find((l) => l.id === lessonId) ?? null
+  /*
+    WHAT THE STAGE SHOWS BELONGS TO ONE LESSON (round 18). It was one piece of state for whichever lesson was open, so the
+    render that changed the lesson still drew the last lesson's video under the new title, and then the program's cover
+    while the new one was asked for. Now it is held with its lesson's id; a lesson without its own yet starts from what is
+    already known on that same render: a locked or a text lesson needs nothing, a lesson read ahead is in hand.
+  */
+  const [held, setHeld] = useState<{ id: string | null; play: Play }>(() => ({ id: lesson?.id ?? null, play: firstPlay(lesson) }))
+  const play: Play = lesson && held.id === lesson.id ? held.play : firstPlay(lesson)
+  const topRef = useRef<HTMLDivElement>(null)
   const summary = summarize(outline, progress)
   const open = lessons.filter((l) => !l.locked)
   const at = lesson ? open.findIndex((l) => l.id === lesson.id) : -1
@@ -147,13 +166,11 @@ export function CoursePlayer({
     if (!lesson) return
     let cancelled = false
     live.current = { position: 0, duration: 0 }
-    if (lesson.locked) {
-      setPlay({ state: "locked" })
-      return
-    }
-    const kept = keptPlay(lesson.id)
-    setPlay(kept ?? { state: "loading" })
-    if (!kept) void readPlay(lesson.id).then((p) => !cancelled && setPlay(p))
+    const id = lesson.id
+    const now = firstPlay(lesson)
+    setHeld({ id, play: now })
+    if (lesson.locked) return
+    if (now.state === "loading") void readPlay(id).then((p) => !cancelled && setHeld({ id, play: p }))
     if (keeps) void sendPlace({ lessonId: lesson.id, opened: true })
     const url = new URL(window.location.href)
     const base = slugifyHandle(lesson.title, 60) || "lesson"
@@ -193,15 +210,18 @@ export function CoursePlayer({
     }
   }, [keeps, lesson])
 
-  const goTo = useCallback((l: PlayerLesson | null, withPlay: boolean) => {
-    if (!l) return
-    setAutoPlay(withPlay)
-    setLessonId(l.id)
-    setSheet(false)
-    if (typeof window !== "undefined" && window.matchMedia?.("(max-width: 1023px)").matches) {
-      window.scrollTo({ top: 0, behavior: "smooth" })
-    }
-  }, [])
+  const goTo = useCallback(
+    (l: PlayerLesson | null, withPlay: boolean) => {
+      if (!l) return
+      setAutoPlay(withPlay)
+      setLessonId(l.id)
+      setSheet(false)
+      if (typeof window === "undefined") return
+      if (embedded) return void toLessonTop(topRef.current)
+      if (window.matchMedia?.("(max-width: 1023px)").matches) window.scrollTo({ top: 0, behavior: "smooth" })
+    },
+    [embedded],
+  )
 
   const onPlace = useCallback(
     (position: number, duration: number) => {
@@ -249,6 +269,132 @@ export function CoursePlayer({
     ? "lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7"
     : "lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-6"
   const shell = embedded ? "w-full min-w-0" : ""
+  const stage = (
+    <Stage
+      embedded={embedded}
+      play={play}
+      lesson={lesson}
+      productHref={data.productHref}
+      startAt={startRef.current.at}
+      autoPlay={autoPlay}
+      next={nextInfo}
+      renew={renew}
+      onPlace={onPlace}
+      live={live}
+      onNearEnd={onNearEnd}
+      onNext={() => goTo(next, true)}
+      onRetry={() => lesson && void fetchPlay(lesson.id).then((p) => setHeld({ id: lesson.id, play: p }))}
+    />
+  )
+
+  if (embedded) {
+    /*
+      A LESSON INSIDE A COMMUNITY (round 18). One card for the lesson: its video or embed across the top (none for a lesson
+      that is text), then where it sits in the program, its title, its text at a reading width, its files, and at the foot
+      Mark as complete with the lessons either side named, so the next step is one press and says where it goes. The
+      lessons stay beside it on a computer and sit under it on a phone, in the page, never in a sheet. The program's title
+      and how far through it the member is head the page; on a computer the list beside carries the progress.
+    */
+    const moduleTitle = lesson && outline.length > 1 ? (outline.find((m) => m.id === lesson.moduleId)?.title ?? null) : null
+    const progressText = summary.percent >= 100 ? "Completed" : `${summary.completed} of ${summary.total} done`
+    return (
+      <div data-course-player="embedded" className="mx-auto w-full min-w-0 max-w-[1120px] pb-8 sm:pb-10">
+        <header className="mb-3 flex items-center gap-3 sm:mb-5">
+          <BackButton href={backHref} label={backLabel} onBack={onBack} />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-[16px] font-semibold leading-snug tracking-[-0.01em] text-[#1a1a2e] sm:text-[20px] sm:font-bold lg:line-clamp-2 lg:whitespace-normal" data-program-title="">
+              {data.title}
+            </h1>
+            {keeps ? (
+              <div className="mt-1 flex items-center gap-2 lg:hidden" data-progress-label="">
+                <span className="text-[12.5px] font-medium tabular-nums text-[#6b7280]">{progressText}</span>
+                <ProgressBar percent={summary.percent} className="w-16" />
+              </div>
+            ) : null}
+          </div>
+        </header>
+
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_320px] xl:gap-7">
+          <article
+            ref={topRef}
+            data-lesson-column=""
+            className="min-w-0 scroll-mt-[calc(var(--community-top,65px)+12px)] overflow-hidden rounded-2xl border border-[#e6e8ec] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-16px_rgba(16,24,40,0.12)]"
+          >
+            {stage ? <div data-lesson-stage="">{stage}</div> : null}
+            {lesson ? (
+              <>
+                <div className="px-4 pb-5 pt-4 sm:px-6 sm:pb-6 sm:pt-5">
+                  <p className="truncate text-[12.5px] font-medium tabular-nums text-[#6b7280]">
+                    {lessons.length > 1 ? `Lesson ${lessonNumber(outline, lesson.id)} of ${lessons.length}` : "Lesson"}
+                    {moduleTitle ? <span className="text-[#9ca3af]"> · {moduleTitle}</span> : null}
+                  </p>
+                  <h2 className="mt-1 text-[20px] font-bold leading-[1.25] tracking-[-0.015em] text-[#1a1a2e] sm:text-[24px]" data-lesson-title="">
+                    {lesson.title}
+                  </h2>
+                  {lesson.notes ? (
+                    <div className="mt-3 max-w-[68ch] sm:mt-4" data-lesson-text="">
+                      <Notes text={lesson.notes} />
+                    </div>
+                  ) : lesson.kind === "text" && !lesson.locked ? (
+                    <p className="mt-3 text-[14px] text-[#6b7280]" data-lesson-text="">
+                      Nothing is written for this lesson yet.
+                    </p>
+                  ) : null}
+                  {lesson.attachments.length > 0 ? <Attachments lesson={lesson} embedded /> : null}
+                </div>
+                <footer className="border-t border-[#eef0f2] px-4 py-4 sm:px-6" data-lesson-foot="">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    {keeps && !lesson.locked ? (
+                      <button
+                        type="button"
+                        data-mark-complete
+                        aria-pressed={done}
+                        onClick={() => setComplete(lesson.id, !done)}
+                        className={`${done ? INK_DONE : INK} h-12 w-full shrink-0 sm:w-auto sm:px-5`}
+                      >
+                        <span className={`flex h-[18px] w-[18px] items-center justify-center rounded-full transition-colors duration-200 ${done ? "bg-[#1a1a2e] text-white" : "border-[1.5px] border-white/70"}`}>
+                          <Check className={`h-3 w-3 transition-[opacity,scale] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] ${done ? "scale-100 opacity-100" : "scale-50 opacity-0"}`} strokeWidth={3} />
+                        </span>
+                        {done ? "Completed" : "Mark as complete"}
+                      </button>
+                    ) : null}
+                    {prev || next ? (
+                      <nav aria-label="Lessons either side" className="grid min-w-0 flex-1 grid-cols-2 gap-2 sm:ml-auto sm:max-w-[440px]">
+                        <PagerCell side="prev" lesson={prev} alone={!next} onPick={() => goTo(prev, false)} />
+                        <PagerCell side="next" lesson={next} alone={!prev} onPick={() => goTo(next, false)} />
+                      </nav>
+                    ) : null}
+                  </div>
+                </footer>
+              </>
+            ) : null}
+            {data.contact !== false ? (
+              <div className="px-4 pb-5 sm:px-6">
+                <CreatorBlock data={data} lessonTitle={lesson?.title ?? null} emailsOff={emailsOff} onToggleEmails={keeps && data.access === "owner" ? toggleEmails : null} embedded />
+              </div>
+            ) : null}
+          </article>
+
+          {/* The lessons: beside the lesson from 1024px, sticking under the bar; under it below that, in the page. */}
+          <aside className="sticky top-[calc(var(--community-top,65px)+20px)] hidden lg:block" aria-label="Lessons">
+            <div className={panel}>
+              <CurriculumHead summary={summary} keeps={keeps} />
+              <div className="max-h-[min(560px,calc(100svh-var(--community-top,64px)-120px))] overflow-y-auto overscroll-contain">
+                <Curriculum data={data} progress={progress} currentId={lessonId} onPick={(l) => goTo(l, true)} />
+              </div>
+            </div>
+          </aside>
+        </div>
+
+        {lessons.length > 1 ? (
+          <section className={`${panel} mt-4 lg:hidden`} aria-label="Lessons" data-lessons-inline="">
+            <CurriculumHead summary={summary} keeps={keeps} />
+            <Curriculum data={data} progress={progress} currentId={lessonId} onPick={(l) => goTo(l, true)} />
+          </section>
+        ) : null}
+      </div>
+    )
+  }
 
   return (
     <div data-course-player={embedded ? "embedded" : ""} className={`pb-8 sm:pb-10 ${shell} ${embedded ? "mx-auto max-w-[1120px]" : ""}`}>
@@ -303,26 +449,8 @@ export function CoursePlayer({
       <div className={grid}>
         <div className={`min-w-0 ${embedded ? "overflow-hidden rounded-2xl border border-[#e6e8ec] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_10px_28px_-16px_rgba(16,24,40,0.12)]" : ""}`}>
           {/* The lesson: edge to edge on a phone in the library; inset in a community */}
-          <div
-            key={lessonId ?? "no-lesson"}
-            className={`${embedded ? "" : "-mx-4 sm:mx-0"} motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-300 motion-reduce:animate-none`}
-          >
-            <Stage
-              embedded={embedded}
-              play={play}
-              lesson={lesson}
-              productHref={data.productHref}
-              poster={data.thumbnailUrl}
-              startAt={startRef.current.at}
-              autoPlay={autoPlay}
-              next={nextInfo}
-              renew={renew}
-              onPlace={onPlace}
-              live={live}
-              onNearEnd={onNearEnd}
-              onNext={() => goTo(next, true)}
-              onRetry={() => lesson && void fetchPlay(lesson.id).then(setPlay)}
-            />
+          <div className={embedded ? "" : "-mx-4 sm:mx-0"} data-lesson-stage="">
+            {stage}
           </div>
 
           {lesson ? (
@@ -421,12 +549,79 @@ export function CoursePlayer({
   )
 }
 
+/**
+ * A NEW LESSON STARTS AT ITS TOP, without a trip (round 18). Only when the lesson's card is not already where it starts
+ * under the community's bar: from the foot of a short lesson a glide up, from far down the list below it a jump, so
+ * the member never watches the whole page roll past. Never for reduced motion.
+ */
+function toLessonTop(el: HTMLElement | null) {
+  if (!el) return
+  const bar = parseFloat(getComputedStyle(el).getPropertyValue("--community-top")) || 0
+  const top = el.getBoundingClientRect().top
+  if (top >= bar && top <= bar + 24) return
+  const y = Math.max(0, window.scrollY + top - bar - 12)
+  const far = Math.abs(top - bar) > window.innerHeight
+  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+  window.scrollTo({ top: y, behavior: far || still ? ("instant" as ScrollBehavior) : "smooth" })
+}
+
+/** The way back to the program's shelf: the same raised square the community's pages use. */
+function BackButton({ href, label, onBack }: { href: string; label: string; onBack?: (e: React.MouseEvent<HTMLAnchorElement>) => void }) {
+  return (
+    <Link
+      href={href}
+      aria-label={label}
+      onClick={onBack}
+      data-native-nav={onBack ? "" : undefined}
+      data-lesson-back=""
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#e6e8ec] bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-[background-color,box-shadow] duration-200 ease-out hover:bg-[#f8f9fa] active:bg-[#f1f2f4] motion-reduce:transition-none touch-manipulation [-webkit-tap-highlight-color:transparent]"
+    >
+      <ArrowLeft className="h-4 w-4" />
+    </Link>
+  )
+}
+
+function ProgressBar({ percent, className = "" }: { percent: number; className?: string }) {
+  return (
+    <div className={`h-1.5 overflow-hidden rounded-full bg-[#eceef1] ${className}`} data-progress-bar="">
+      <div
+        className="h-full origin-left rounded-full bg-[#1a1a2e] motion-safe:transition-[scale] motion-safe:duration-[600ms] motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)]"
+        style={{ scale: `${Math.max(0, Math.min(100, percent)) / 100} 1` }}
+      />
+    </div>
+  )
+}
+
+/**
+ * One side of the lesson's foot: Previous or Next, with the lesson's title. Alone (the first lesson, the last) it takes
+ * the whole row on a phone, so its title is not cut to a word, and keeps its own side on a computer.
+ */
+function PagerCell({ side, lesson, alone, onPick }: { side: "prev" | "next"; lesson: PlayerLesson | null; alone: boolean; onPick: () => void }) {
+  if (!lesson) return null
+  const next = side === "next"
+  const place = alone ? (next ? "col-span-2 sm:col-span-1 sm:col-start-2" : "col-span-2 sm:col-span-1") : next ? "col-start-2" : ""
+  return (
+    <button
+      type="button"
+      onClick={onPick}
+      aria-label={next ? "Next lesson" : "Previous lesson"}
+      data-pager={side}
+      className={`flex h-14 min-w-0 items-center gap-2 rounded-xl border border-[#e5e7eb] bg-white px-3 text-left transition-[background-color,border-color] duration-200 ease-out hover:border-[#d6d9de] hover:bg-[#f8f9fa] active:bg-[#f1f2f4] motion-reduce:transition-none touch-manipulation [-webkit-tap-highlight-color:transparent] sm:h-12 ${place} ${next ? "flex-row-reverse text-right" : ""}`}
+    >
+      {next ? <ChevronRight className="h-4 w-4 shrink-0 text-[#6b7280]" /> : <ChevronLeft className="h-4 w-4 shrink-0 text-[#6b7280]" />}
+      <span className="min-w-0 flex-1">
+        <span className="block text-[12px] font-medium text-[#6b7280]">{next ? "Next" : "Previous"}</span>
+        <span className="block truncate text-[13.5px] font-semibold text-[#1a1a2e]">{lesson.title}</span>
+      </span>
+    </button>
+  )
+}
+
 function Stage(props: {
   embedded?: boolean
   play: Play
   lesson: PlayerLesson | null
   productHref: string | null
-  poster: string | null
   startAt: number
   autoPlay: boolean
   next: { title: string; number: number } | null
@@ -438,20 +633,24 @@ function Stage(props: {
   onRetry: () => void
 }) {
   const { play, lesson, embedded } = props
-  const stageRound = embedded ? "rounded-xl" : "sm:rounded-2xl"
+  /* In a community the lesson's card clips the stage to its own corners; in the library the stage is a card of its own. */
+  const stageRound = embedded ? "" : "sm:rounded-2xl"
   if (!lesson) {
     return <Panel title="This course has no lessons yet" body="The creator is still adding them. They will be here when they are ready." />
   }
+  /* A lesson that is words only has no stage: its text is the lesson, and it starts right under the title. */
+  if (play.state === "text") return null
   if (play.state === "loading") {
-    /* The course's own picture while the lesson's media is asked for, with a small spinner over it: never a bare black box. */
+    /*
+      THE STILL (round 18): while the lesson's video is asked for, its own box, black like the video, at the 16:9 the video
+      is drawn in, so nothing under it moves when the video arrives. It used to be the program's cover at 60%, then the
+      cover again as the video's poster: the owner saw the program's picture before every lesson. A small spinner joins
+      only past half a second (@starting-style, no script), so a lesson read ahead never flashes one.
+    */
     return (
-      <div className={`relative flex aspect-video w-full items-center justify-center overflow-hidden bg-[#111318] ${stageRound}`} data-stage-loading="">
-        {props.poster ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={props.poster} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover opacity-60" decoding="async" />
-        ) : null}
-        <span className="relative flex h-10 w-10 items-center justify-center rounded-full bg-black/45">
-          <Loader2 className="h-5 w-5 animate-spin text-white/85" aria-label="Loading" />
+      <div className={`relative aspect-video w-full overflow-hidden bg-black ${stageRound}`} data-stage-loading="" data-stage-still="">
+        <span className="absolute inset-0 flex items-center justify-center opacity-100 transition-opacity delay-500 duration-300 starting:opacity-0 motion-reduce:transition-none">
+          <Loader2 className="h-6 w-6 animate-spin text-white/60" aria-label="Loading" />
         </span>
       </div>
     )
@@ -480,40 +679,43 @@ function Stage(props: {
     )
   }
   if (play.state === "video") {
+    /* No poster: the program's cover is not this lesson's picture. The black box shows until the video's own first frame. */
     return (
       <LessonVideo
         key={lesson.id}
         source={play.source}
         startAt={props.startAt}
         autoPlay={props.autoPlay}
-        poster={props.poster}
+        poster={null}
         next={props.next}
         renew={props.renew}
         onPlace={props.onPlace}
         live={props.live}
         onNearEnd={props.onNearEnd}
         onNext={props.onNext}
-        className={embedded ? "rounded-xl" : undefined}
+        className={embedded ? "" : undefined}
       />
     )
   }
-  if (play.state === "external") {
-    return (
-      <div className={`relative aspect-video w-full overflow-hidden bg-black ${stageRound}`}>
-        <iframe
-          key={lesson.id}
-          src={play.embedUrl}
-          title={lesson.title}
-          className="absolute inset-0 h-full w-full"
-          allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
-          allowFullScreen
-          referrerPolicy="strict-origin-when-cross-origin"
-        />
-      </div>
-    )
-  }
-  /* A lesson that is words only: its notes are the lesson, just below. */
-  return <Panel title={lesson.title} body={lesson.notes ? "This lesson is to read. It is below." : "This lesson has no video."} icon />
+  return <ExternalStage key={lesson.id} url={play.embedUrl} title={lesson.title} round={stageRound} />
+}
+
+/** A YouTube or Vimeo lesson: its player fades in over the black box once it has loaded, never a white frame first. */
+function ExternalStage({ url, title, round }: { url: string; title: string; round: string }) {
+  const [loaded, setLoaded] = useState(false)
+  return (
+    <div className={`relative aspect-video w-full overflow-hidden bg-black ${round}`}>
+      <iframe
+        src={url}
+        title={title}
+        onLoad={() => setLoaded(true)}
+        className={`absolute inset-0 h-full w-full transition-opacity duration-300 ease-out motion-reduce:transition-none ${loaded ? "opacity-100" : "opacity-0"}`}
+        allow="autoplay; fullscreen; picture-in-picture; encrypted-media"
+        allowFullScreen
+        referrerPolicy="strict-origin-when-cross-origin"
+      />
+    </div>
+  )
 }
 
 function Panel({ title, body, icon }: { title: string; body: string; icon?: boolean }) {
@@ -746,12 +948,16 @@ function Attachments({ lesson, embedded }: { lesson: PlayerLesson; embedded?: bo
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   return (
-    <section className={embedded ? "mt-6 border-t border-[#f0f1f3] pt-6" : "mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5"}>
-      <h3 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
-        <Paperclip className="h-4 w-4 text-[#9ca3af]" />
-        Files for this lesson
-      </h3>
-      <ul className="divide-y divide-[#f0f0f2]">
+    <section className={embedded ? "mt-6 max-w-[68ch]" : "mt-4 rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:px-5"} data-lesson-files="">
+      {embedded ? (
+        <h3 className="mb-1 text-[13px] font-semibold text-[#6b7280]">Files</h3>
+      ) : (
+        <h3 className="mb-2 flex items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
+          <Paperclip className="h-4 w-4 text-[#9ca3af]" />
+          Files for this lesson
+        </h3>
+      )}
+      <ul className={`divide-y divide-[#f0f0f2] ${embedded ? "border-y border-[#f0f0f2]" : ""}`}>
         {lesson.attachments.map((a) => (
           <li key={a.id} className="flex items-center gap-3 py-2.5">
             {(() => {

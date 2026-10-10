@@ -182,7 +182,7 @@ async function film(page, name, vp, act, ms = 1400, keep = 16) {
   await act()
   await sleep(ms)
   await cdp.send("Page.stopScreencast")
-  const after = frames.filter((f) => f.at >= t0 - 60)
+  const after = frames.filter((f) => f.at >= t0 - 60).sort((a, b) => a.at - b.at)
   const step = Math.max(1, Math.ceil(after.length / keep))
   const picked = after.filter((_, i) => i % step === 0).map((f) => ({ ...f, label: `+${Math.round(f.at - t0)}ms` }))
   await sheet(picked, join(shots, `${tag}-${name}.png`), vp)
@@ -256,7 +256,7 @@ for (const [label, vp, phone] of VIEWPORTS) {
     const small = []
     for (const el of document.querySelectorAll("[data-course-player] a, [data-course-player] button")) {
       const r = el.getBoundingClientRect()
-      if (r.width === 0 || r.height === 0 || el.closest("[data-lesson-sheet]") || el.closest(".group\\/player")) continue
+      if (r.width === 0 || r.height === 0 || el.closest("[data-lesson-sheet]") || el.closest(".group\\/player") || el.closest("[data-lesson-text]")) continue
       if (r.height < 40) small.push(`${(el.textContent || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 24)} ${Math.round(r.height)}`)
     }
     return { over, small, url: location.pathname + location.search }
@@ -284,7 +284,12 @@ for (const [label, vp, phone] of VIEWPORTS) {
 
   /* ── To the reading lesson, from the list: text only, no media box at all ── */
   const pickText = async () => {
-    if (phone) {
+    if (phone && (await page.$("[data-lessons-inline]"))) {
+      const row = await page.$("[data-lessons-inline] [data-lesson-row$='04']")
+      await row.evaluate((b) => b.scrollIntoView({ block: "center" }))
+      await sleep(250)
+      await row.click()
+    } else if (phone) {
       await page.click("[data-open-lessons]")
       await sleep(700)
       await page.click("[data-lesson-sheet] [data-lesson-row$='04']")
