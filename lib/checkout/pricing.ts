@@ -242,6 +242,13 @@ export type PricedCart =
       dropped: string[]
       /** Something was left out because the buyer owns it. */
       ownedAny: boolean
+      /**
+       * The whole cart, as asked for, when anything in it ships. It belongs
+       * to the physical checkout, which takes digital lines beside shipped
+       * ones; this one would drop the shipped lines and could refuse a cart
+       * of nothing but them. Empty when nothing ships.
+       */
+      ships: { productId: string; variantId: string | null; quantity: number }[]
       /** Every creator whose published product was asked for. */
       creatorIds: string[]
       subtotalCents: number
@@ -315,6 +322,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const lines: CartPricedLine[] = []
   const dropped: string[] = []
   let ownedAny = false
+  const shipsAny = (products as CartProduct[]).some((p) => p.type === "physical")
+  const ships = shipsAny ? [...wanted].map(([key, want]) => ({ productId: key.split("::")[0], variantId: want.variantId, quantity: want.quantity })) : []
   for (const [key, want] of wanted) {
     const productId = key.split("::")[0]
     const product = byId.get(productId)
@@ -347,7 +356,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const subtotalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
   const priced = (coupon: CouponRow | null, couponLabel: string | null) => {
     const discountCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
-    return { ok: true as const, lines, dropped, ownedAny, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
+    return { ok: true as const, lines, dropped, ownedAny, ships, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
   }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null

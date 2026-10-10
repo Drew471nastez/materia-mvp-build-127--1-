@@ -115,8 +115,9 @@ check(
     })(),
   )
   check(
-    "a switch keeps the scroll, so the tab bar does not jump under the finger",
-    /form\.style\.minHeight = `\$\{Math\.max\(0, Math\.ceil\(scroller\.scrollTop \+ scroller\.clientHeight - formTop\)\)\}px`/.test(settings)
+    /* Changed on purpose (round U): the owner asked for every section to open at its top, and the old pin was never released. */
+    "a switch opens the new section at its top, with no height pin left behind",
+    /scroller\.scrollTo\(\{ top: 0, behavior: "instant" as ScrollBehavior \}\)/.test(settings) && /formRef\.current\.style\.minHeight = ""/.test(settings)
       && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}( className=\{[^}]+\})?>/.test(settings),
   )
   check(
@@ -858,7 +859,7 @@ check(
   )
   check(
     "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
-    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1120px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
+    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1200px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
       && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),

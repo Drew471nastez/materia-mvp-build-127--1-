@@ -19,7 +19,7 @@
  * page says so rather than promise a purchase event it can't send.
  */
 
-export type TrackerId = "ga4" | "gtm" | "google_ads" | "meta_pixel" | "tiktok_pixel" | "pinterest_tag"
+export type TrackerId = "ga4" | "gtm" | "google_ads" | "meta_pixel" | "tiktok_pixel" | "pinterest_tag" | "clarity" | "klaviyo" | "omnisend"
 
 export interface TrackerInfo {
   id: TrackerId
@@ -32,6 +32,8 @@ export interface TrackerInfo {
   where: string
   /** Hosts its tag loads from and sends to, for the content security policy (lib/security/csp.ts). */
   hosts: string[]
+  /** How an ID is tidied: upper case (the default), lower case, or exactly as typed (a Klaviyo site ID is case sensitive). */
+  letters?: "upper" | "lower" | "exact"
 }
 
 export const TRACKERS: Record<TrackerId, TrackerInfo> = {
@@ -89,17 +91,49 @@ export const TRACKERS: Record<TrackerId, TrackerInfo> = {
     where: "Pinterest Ads › Conversions › Tag manager.",
     hosts: ["https://s.pinimg.com", "https://ct.pinterest.com"],
   },
+  clarity: {
+    id: "clarity",
+    name: "Microsoft Clarity",
+    label: "Project ID",
+    example: "k3x9q2w7ab",
+    pattern: /^[a-z0-9]{6,16}$/,
+    where: "Clarity › your project › Settings › Overview.",
+    hosts: ["https://www.clarity.ms", "https://*.clarity.ms", "https://c.bing.com"],
+    letters: "lower",
+  },
+  klaviyo: {
+    id: "klaviyo",
+    name: "Klaviyo",
+    label: "Public API key (site ID)",
+    example: "AbC123",
+    pattern: /^[A-Za-z0-9]{6}$/,
+    where: "Klaviyo › Settings › Account › API keys, the six characters under Public API key.",
+    hosts: ["https://*.klaviyo.com", "https://klaviyo.com"],
+    letters: "exact",
+  },
+  omnisend: {
+    id: "omnisend",
+    name: "Omnisend",
+    label: "Brand ID",
+    example: "5f8a1b2c3d4e5f6a7b8c9d0e",
+    pattern: /^[a-f0-9]{24}$/,
+    where: "Omnisend › Store settings › Connect store › your brand ID.",
+    hosts: ["https://omnisnippet1.com", "https://*.omnisnippet1.com", "https://*.omnisend.com"],
+    letters: "lower",
+  },
 }
 
-export const TRACKER_ORDER: TrackerId[] = ["ga4", "gtm", "google_ads", "meta_pixel", "tiktok_pixel", "pinterest_tag"]
+export const TRACKER_ORDER: TrackerId[] = ["ga4", "gtm", "google_ads", "meta_pixel", "tiktok_pixel", "pinterest_tag", "clarity", "klaviyo", "omnisend"]
 
 export type Tracking = Partial<Record<TrackerId, string>>
 
-/** An ID as typed, tidied: spaces gone, letters upper case. Empty is "remove it". */
+/** An ID as typed, tidied: spaces gone, letters in the case its service issues. Empty is "remove it". */
 export function tidyId(id: TrackerId, typed: unknown): string | null | "bad" {
   if (typed === null || typed === undefined) return null
   if (typeof typed !== "string") return "bad"
-  const v = typed.replace(/\s+/g, "").toUpperCase()
+  const bare = typed.replace(/\s+/g, "")
+  const letters = TRACKERS[id].letters ?? "upper"
+  const v = letters === "exact" ? bare : letters === "lower" ? bare.toLowerCase() : bare.toUpperCase()
   if (!v) return null
   return TRACKERS[id].pattern.test(v) ? v : "bad"
 }
@@ -153,6 +187,20 @@ export function trackingTags(stored: unknown): { key: string; src?: string; inli
     tags.push({
       key: "pinterest",
       inline: `!function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");pintrk('load',${JSON.stringify(t.pinterest_tag)});pintrk('page');`,
+    })
+  }
+  if (t.clarity) {
+    tags.push({
+      key: "clarity",
+      inline: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script",${JSON.stringify(t.clarity)});`,
+    })
+  }
+  /* Klaviyo's onsite script: its sign-up forms and its Active on Site tracking, by the store's public site ID. */
+  if (t.klaviyo) tags.push({ key: "klaviyo", src: `https://static.klaviyo.com/onsite/js/klaviyo.js?company_id=${encodeURIComponent(t.klaviyo)}` })
+  if (t.omnisend) {
+    tags.push({
+      key: "omnisend",
+      inline: `window.omnisend=window.omnisend||[];omnisend.push(["brandID",${JSON.stringify(t.omnisend)}]);omnisend.push(["track","$pageViewed"]);!function(){var e=document.createElement("script");e.type="text/javascript",e.async=!0,e.src="https://omnisnippet1.com/inshop/launcher-v2.js";var t=document.getElementsByTagName("script")[0];t.parentNode.insertBefore(e,t)}();`,
     })
   }
   return tags

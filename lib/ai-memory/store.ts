@@ -94,7 +94,7 @@ export async function addMemory(db: MemoryDb, creatorId: string, text: unknown, 
   if (!content) return { ok: false, error: "Write what Storelib AI should remember." }
   const { memories, ready } = await listMemories(db, creatorId)
   if (!ready) return { ok: false, error: "AI Memory is not set up on this Storelib yet.", notReady: true }
-  const same = memories.find((m) => m.content.toLowerCase() === content.toLowerCase())
+  const same = memories.find((m) => sameMemory(m.content, content))
   if (same) return { ok: true, memory: same, duplicate: true }
   try {
     const { data, error } = await db
@@ -103,6 +103,47 @@ export async function addMemory(db: MemoryDb, creatorId: string, text: unknown, 
       .select("id, content, install_id, source, created_at")
       .single()
     if (error || !data) return isMissingTable(error) ? { ok: false, error: "AI Memory is not set up on this Storelib yet.", notReady: true } : { ok: false, error: "That could not be kept. Try again." }
+    return { ok: true, memory: toMemory(data as Row) }
+  } catch {
+    return { ok: false, error: "That could not be kept. Try again." }
+  }
+}
+
+/**
+ * The same note written twice is one note: case, punctuation and spacing do
+ * not make a second one ("No gradients." and "no gradients").
+ */
+export function sameMemory(a: string, b: string): boolean {
+  const key = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim()
+  return key(a) === key(b)
+}
+
+/**
+ * Correct one. Rows are never changed in place (row level security has no
+ * update), so the corrected note is kept first and the old one forgotten
+ * after: a failure half way leaves both, never neither.
+ */
+export async function replaceMemory(db: MemoryDb, creatorId: string, id: string, text: unknown): Promise<AddResult> {
+  const content = cleanMemory(text)
+  if (!content) return { ok: false, error: "Write what Storelib AI should remember." }
+  const { memories, ready } = await listMemories(db, creatorId)
+  if (!ready) return { ok: false, error: "AI Memory is not set up on this Storelib yet.", notReady: true }
+  const old = memories.find((m) => m.id === id)
+  if (!old) return { ok: false, error: "That memory is gone. Refresh and try again." }
+  if (old.content === content) return { ok: true, memory: old }
+  const other = memories.find((m) => m.id !== id && sameMemory(m.content, content))
+  if (other) {
+    await deleteMemory(db, creatorId, id)
+    return { ok: true, memory: other, duplicate: true }
+  }
+  try {
+    const { data, error } = await db
+      .from("ai_memories")
+      .insert({ creator_id: creatorId, install_id: null, content, source: "creator" })
+      .select("id, content, install_id, source, created_at")
+      .single()
+    if (error || !data) return { ok: false, error: "That could not be kept. Try again." }
+    await deleteMemory(db, creatorId, id)
     return { ok: true, memory: toMemory(data as Row) }
   } catch {
     return { ok: false, error: "That could not be kept. Try again." }

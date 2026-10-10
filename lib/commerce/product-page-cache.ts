@@ -299,6 +299,7 @@ export const cachedMoreFromCreator = (creatorId: string, excludeProductId: strin
         .select("*")
         .eq("creator_id", creatorId)
         .eq("status", "published")
+        .neq("type", "physical")
         .neq("id", excludeProductId)
         .limit(4)
       return (data ?? []) as unknown as CachedProductRow[]

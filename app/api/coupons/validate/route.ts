@@ -50,7 +50,9 @@ export async function POST(request: NextRequest) {
     if (Array.isArray(body.items)) {
       const cart = await priceCart(createAdminClient(), { items: body.items, couponCode: typeof body.code === "string" ? body.code : "" })
       if (cart.ok === false) return NextResponse.json({ ok: false, error: cart.error })
-      if (!cart.coupon) return NextResponse.json({ ok: false, error: cart.lines.length === 0 ? "Nothing in the cart can be bought right now." : "That code is not valid." })
+      /* A cart that ships is priced, code and all, by the physical checkout it goes on to. */
+      if (cart.ships.length > 0) return NextResponse.json({ ok: false, error: "Something in this cart ships. Press Check out and add the code on the next page." })
+      if (!cart.coupon) return NextResponse.json({ ok: false, error: cart.lines.length === 0 ? "These products can't be bought right now." : "That code is not valid." })
       return NextResponse.json({
         ok: true,
         code: cart.coupon.code,

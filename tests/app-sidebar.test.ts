@@ -302,7 +302,7 @@ section("A row is the same size in every state")
       const icons = [...list.matchAll(/icon: ([\w.]+)/g)].map((m) => m[1])
       return (
         icons.length >= 8 &&
-        icons.every((name) => name.startsWith("NAV_ICONS.")) &&
+        icons.every((name) => name.startsWith("NAV_ICONS.") || name.startsWith("NAV_ICONS_EXTRA.")) &&
         /icon: NavIconPair/.test(shellSource)
       )
     })(),

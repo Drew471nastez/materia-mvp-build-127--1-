@@ -44,6 +44,8 @@ interface Loaded {
   settings: Settings
   detectedCountry: string | null
   supportEmail: string | null
+  /** What the form starts from while nothing is saved: the store's Storelib name and the account's email (app/api/store/settings). */
+  suggested?: { storeName: string | null; contactEmail: string | null }
 }
 interface Location {
   id: string
@@ -141,19 +143,22 @@ export function StoreDetailsPanel({ onSupportEmail }: { onSupportEmail?: (email:
 
 function Identity({ data, onSaved }: { data: Loaded; onSaved: (s: Settings, email: string | null) => void }) {
   const s = data.settings
-  const [name, setName] = React.useState(s.storeName ?? "")
-  const [email, setEmail] = React.useState(data.supportEmail ?? "")
+  const [name, setName] = React.useState(s.storeName ?? data.suggested?.storeName ?? "")
+  const [email, setEmail] = React.useState(data.supportEmail ?? data.suggested?.contactEmail ?? "")
+  /* Filled from the account, not saved yet: said under the field until Save. */
+  const nameFromAccount = !s.storeName && !!data.suggested?.storeName && name === data.suggested.storeName
+  const emailFromAccount = !data.supportEmail && !!data.suggested?.contactEmail && email === data.suggested.contactEmail
   const [phoneCountry, setPhoneCountry] = React.useState(s.phoneCountry ?? s.defaultCountry ?? data.detectedCountry ?? "")
   const [phone, setPhone] = React.useState(s.phone ?? "")
   const { state, error, save } = useSave()
   return (
     <Card title="Store details" description="How buyers see and reach your store." help="store">
       <div className="space-y-4">
-        <Field label="Store name" hint="On receipts, order emails and checkout. Empty, your profile name is used." htmlFor="store-name">
-          <TextInput id="store-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} placeholder="Angus Farm" autoComplete="organization" />
+        <Field label="Store name" hint={nameFromAccount ? "Your Storelib name. Change it if your store goes by another." : "On receipts, order emails and checkout."} htmlFor="store-name">
+          <TextInput id="store-name" value={name} maxLength={80} onChange={(e) => setName(e.target.value)} autoComplete="organization" />
         </Field>
-        <Field label="Contact email" hint="Buyers write to it about their orders. The same address your receipts show." htmlFor="store-email">
-          <TextInput id="store-email" type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} placeholder="hello@yourstore.com" autoComplete="email" />
+        <Field label="Contact email" hint={emailFromAccount ? "The email you sign in with. Use another one if buyers should write somewhere else." : "Buyers write to it about their orders. The same address your receipts show."} htmlFor="store-email">
+          <TextInput id="store-email" type="email" value={email} maxLength={254} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
         </Field>
         <div className="space-y-1.5">
           <span className="block text-[13px] font-medium text-[#374151] sm:text-[13.5px]">Phone</span>

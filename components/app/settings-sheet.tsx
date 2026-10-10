@@ -185,17 +185,52 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
   }, [close, here])
 
   /*
-    The page under it does not scroll while the sheet is up. Over a page the
-    sheet is outside the page's scroll, so a wheel over it never reaches the
-    page and the page keeps its scroll bar (taking it away moved the page
-    sideways under the sheet); on its own it is inside, and the page is held.
+    THE PAGE UNDER IT DOES NOT SCROLL WHILE THE SHEET IS UP, and does not move
+    sideways either. Only the sheet's own content scrolls.
+
+      the window   held (overflow hidden) wherever the page's own document
+                   could scroll. When it showed a scroll bar, its room is
+                   kept (scrollbar-gutter), so the page keeps its width; when
+                   it showed none, nothing is added.
+      the shell    on its own the sheet is inside the shell's scroller, and
+                   that is held too (globals.css, data-settings-sheet-up).
+      the dim      a wheel or a finger on the dimmed page, or on the handle,
+                   scrolls nothing at all: it used to reach the document and
+                   move the header and the sidebar behind the sheet.
   */
   React.useLayoutEffect(() => {
     if (!here) return
     const html = document.documentElement
     html.setAttribute("data-settings-sheet-up", overlay ? "over" : "page")
-    return () => html.removeAttribute("data-settings-sheet-up")
+    const bar = window.innerWidth - html.clientWidth
+    const was = { overflow: html.style.overflow, gutter: html.style.getPropertyValue("scrollbar-gutter") }
+    if (bar > 0) html.style.setProperty("scrollbar-gutter", "stable")
+    html.style.overflow = "hidden"
+    return () => {
+      html.removeAttribute("data-settings-sheet-up")
+      html.style.overflow = was.overflow
+      if (was.gutter) html.style.setProperty("scrollbar-gutter", was.gutter)
+      else html.style.removeProperty("scrollbar-gutter")
+    }
   }, [here, overlay])
+
+  React.useEffect(() => {
+    const root = scrim.current?.parentElement
+    if (!here || !root) return
+    const outside = (e: Event) => {
+      const box = scroller.current
+      if (box && e.target instanceof Node && box.contains(e.target)) return
+      /* A dialog of its own over the sheet (a picker, a confirm) scrolls as it likes. */
+      if (e.target instanceof Element && e.target.closest("[role=dialog][aria-modal=true]:not([data-settings-sheet])")) return
+      if (e.cancelable) e.preventDefault()
+    }
+    root.addEventListener("wheel", outside, { passive: false })
+    root.addEventListener("touchmove", outside, { passive: false })
+    return () => {
+      root.removeEventListener("wheel", outside)
+      root.removeEventListener("touchmove", outside)
+    }
+  }, [here])
 
   /* ── The drag ─────────────────────────────────────────────────────────── */
   const drag = React.useRef<{ y: number; t: number; dy: number; v: number; h: number; frame: number } | null>(null)
@@ -376,7 +411,10 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       >
         {/* The handle and the strip it sits in: the part of the sheet that drags, a thumb's height so it is easy to find. */}
         <div
-          className="relative flex h-11 shrink-0 cursor-grab touch-none select-none items-center justify-center active:cursor-grabbing"
+          className={cn(
+            "relative z-[3] flex h-11 shrink-0 cursor-grab touch-none select-none items-center justify-center bg-[#fafafa] transition-shadow duration-200 ease-out active:cursor-grabbing",
+            scrolled && "shadow-[0_1px_0_rgba(15,17,21,0.06)]",
+          )}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -396,22 +434,12 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
         </div>
         <div className="relative min-h-0 flex-1">
           {/*
-            THE TOP EDGE OF THE SCROLL. Content passing under the strip fades
-            and softly blurs into the sheet's own grey over a short distance
-            instead of being cut at a hard line. Only once it has moved, so at
-            rest the first row is drawn in full.
+            THE TOP EDGE OF THE SCROLL. A hairline under the handle's strip
+            once the content has moved, the way an iOS sheet's bar sits over
+            what scrolls under it. It used to be a blurred fade over the
+            first 24px, which cut the section column and the first line of a
+            card in half as they passed and read as clipped.
           */}
-          <div
-            aria-hidden
-            data-settings-sheet-fade={scrolled ? "on" : "off"}
-            className="pointer-events-none absolute inset-x-0 top-0 z-[2] h-6 transition-opacity duration-200 ease-out [-webkit-mask-image:linear-gradient(to_bottom,#000_25%,transparent)] [mask-image:linear-gradient(to_bottom,#000_25%,transparent)]"
-            style={{
-              opacity: scrolled ? 1 : 0,
-              background: "linear-gradient(to bottom, #fafafa, rgba(250,250,250,0.6) 55%, rgba(250,250,250,0))",
-              backdropFilter: "blur(6px)",
-              WebkitBackdropFilter: "blur(6px)",
-            }}
-          />
           {/* Its own scroll, with the app's slim light bar (globals.css, .wb-slim-scroll). */}
           <div
             ref={scroller}

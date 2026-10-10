@@ -7,7 +7,8 @@
  * Every service a store can connect (lib/integrations/catalog.ts), as a
  * directory: a search, Request integration, the categories as pills with
  * how many each holds, Installed, and a card for each with its own mark and
- * a Built in or Installed badge. A card opens the integration's own page:
+ * a badge for where it stands (Storelib for a built in one, Installed,
+ * Needs attention, Error, Coming soon). A card opens the integration's own page:
  * About, At a glance, Data ownership and Install, with Back to integrations.
  *
  * The page is kept in the address (?tab=integrations&integration=meta-pixel)
@@ -22,7 +23,8 @@ import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api } from "@/components/physical/ui"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
-import { CATEGORY_NAMES, CATEGORY_ORDER, integrationById, searchIntegrations, visibleIntegrations, type Integration, type IntegrationCategory } from "@/lib/integrations/catalog"
+import { CATEGORY_NAMES, CATEGORY_ORDER, STATUS_LABEL, searchIntegrations, visibleIntegrations, type Integration, type IntegrationCategory, type IntegrationStatus } from "@/lib/integrations/catalog"
+import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 
@@ -52,9 +54,11 @@ const BUILT_IN_ICON: Record<string, LucideIcon> = { manual: Truck, "supplier-ema
 export function Mark({ item, size = 44 }: { item: Pick<Integration, "logo" | "name"> & { id?: string }; size?: number }) {
   const Icon = item.id ? BUILT_IN_ICON[item.id] : undefined
   if (Icon) {
+    /* Storelib's own: its violet on a pale tile, with the S in the corner, so a built in reads as Storelib's at a glance. */
     return (
-      <span aria-hidden style={{ width: size, height: size }} className="flex shrink-0 items-center justify-center rounded-xl border border-[#eceef1] bg-[#f6f7f9] text-[#374151]">
+      <span aria-hidden style={{ width: size, height: size }} className="relative flex shrink-0 items-center justify-center rounded-xl border border-[#e9e3ff] bg-[#f5f2ff] text-[#6d28d9]" data-integration-mark="storelib">
         <Icon style={{ width: size * 0.45, height: size * 0.45 }} strokeWidth={1.75} />
+        <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-[6px] bg-[#8b5cf6] text-[10px] font-bold leading-none text-white shadow-[0_0_0_2px_#fff]">S</span>
       </span>
     )
   }
@@ -82,7 +86,16 @@ export function IntegrationsDirectory() {
   const [openId, setOpenId] = React.useState<string | null>(null)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [overrides, setOverrides] = React.useState<CatalogOverride[]>([])
+  /* Where the list was scrolled when a card was opened, so Back lands there again. */
+  const listScroll = React.useRef(0)
+  const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
 
+  React.useEffect(() => {
+    void api<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog").then((r) => {
+      if (r.ok) setOverrides(r.data.overrides ?? [])
+    })
+  }, [])
   React.useEffect(() => {
     setOpenId(readIntegrationParam())
     void api<{ tracking: Tracking; ready: boolean }>("/api/store/integrations").then((r) => {
@@ -100,41 +113,69 @@ export function IntegrationsDirectory() {
   const installed = React.useCallback(
     (i: Integration): boolean => {
       if (i.kind === "tracker") return !!(i.trackerId && tracking?.[i.trackerId])
+      if (i.kind !== "commerce") return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
     [tracking, states],
   )
 
+  /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
+  const statusOf = React.useCallback(
+    (i: Integration): IntegrationStatus => {
+      if (i.builtIn) return "built_in"
+      if (i.kind === "commerce") {
+        const s = states?.find((x) => x.provider === i.providerId)
+        if (s?.status === "error") return "error"
+        if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
+      } else if (installed(i)) return "installed"
+      return i.comingSoon ? "coming_soon" : "available"
+    },
+    [states, installed],
+  )
+
+  const scroller = () => document.querySelector("[data-integrations]")?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
   const open = (id: string | null) => {
+    if (id) listScroll.current = scroller()?.scrollTop ?? 0
     setOpenId(id)
     writeIntegrationParam(id)
-    /* The page, or the list, from its top: inside the sheet that is the sheet's own scroller. */
-    requestAnimationFrame(() => document.querySelector("[data-integrations]")?.scrollIntoView({ block: "start" }))
+    requestAnimationFrame(() => {
+      /* A page opens at its top; Back puts the list where it was left, filter and search as they were. */
+      if (id) document.querySelector("[data-integrations]")?.scrollIntoView({ block: "start" })
+      else scroller()?.scrollTo({ top: listScroll.current, behavior: "instant" as ScrollBehavior })
+    })
   }
 
-  const current = integrationById(openId)
-  if (current && all.includes(current)) {
+  const current = shownAll.find((i) => i.id === openId) ?? null
+  if (current) {
     return (
       <div data-integrations="" className="scroll-mt-4">
         <IntegrationPage
           item={current}
+          status={statusOf(current)}
           installed={installed(current)}
           tracking={tracking}
           trackingReady={trackingReady}
           states={states}
-          onTracking={setTracking}
-          onStates={setStates}
+          onTracking={(t) => {
+            setTracking(t)
+            /* The sidebar's Integrations group reads again (components/app/sidebar.tsx). */
+            window.dispatchEvent(new Event("storelib:integrations-changed"))
+          }}
+          onStates={(st) => {
+            setStates(st)
+            window.dispatchEvent(new Event("storelib:integrations-changed"))
+          }}
           onBack={() => open(null)}
         />
       </div>
     )
   }
 
-  const counts = new Map<Filter, number>([["all", all.length], ["installed", all.filter((i) => installed(i) || i.builtIn).length]])
-  for (const c of CATEGORY_ORDER) counts.set(c, all.filter((i) => i.category === c).length)
+  const counts = new Map<Filter, number>([["all", shownAll.length], ["installed", shownAll.filter((i) => installed(i) || i.builtIn).length]])
+  for (const c of CATEGORY_ORDER) counts.set(c, shownAll.filter((i) => i.category === c).length)
   const pills: Filter[] = ["all", "installed", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
-  const shown = searchIntegrations(all, query).filter((i) => (filter === "all" ? true : filter === "installed" ? installed(i) || i.builtIn : i.category === filter))
+  const shown = searchIntegrations(shownAll, query).filter((i) => (filter === "all" ? true : filter === "installed" ? installed(i) || i.builtIn : i.category === filter))
 
   return (
     <div data-integrations="" className="scroll-mt-4 space-y-4">
@@ -167,8 +208,8 @@ export function IntegrationsDirectory() {
               aria-selected={on}
               onClick={() => setFilter(f)}
               className={cn(
-                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
-                on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8f9fa]",
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color,transform] duration-150 ease-out active:scale-[0.97] motion-reduce:transition-none",
+                on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] hover:bg-[#f8f9fa]",
               )}
             >
               {f === "all" ? "All" : f === "installed" ? "Installed" : CATEGORY_NAMES[f]}
@@ -188,9 +229,10 @@ export function IntegrationsDirectory() {
           </button>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2" data-integration-grid="">
+        /* Keyed by the pill and the search, so a switch fades the new cards in (globals.css .integration-grid-in) instead of popping them. */
+        <ul key={`${filter}:${query.trim().toLowerCase()}`} className="integration-grid-in grid gap-3 sm:grid-cols-2" data-integration-grid="">
           {shown.map((i) => {
-            const on = installed(i)
+            const status = statusOf(i)
             return (
               <li key={i.id}>
                 <button
@@ -201,7 +243,7 @@ export function IntegrationsDirectory() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <Mark item={i} />
-                    {i.builtIn ? <Badge>Built in</Badge> : on ? <Badge tone="green">Installed</Badge> : null}
+                    <StatusBadge status={status} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</p>
@@ -220,17 +262,33 @@ export function IntegrationsDirectory() {
   )
 }
 
-function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: "gray" | "green" }) {
+type Tone = "gray" | "green" | "amber" | "red" | "violet"
+const TONE: Record<Tone, string> = {
+  gray: "bg-[#f3f4f6] text-[#4b5563]",
+  green: "bg-[#ecfdf3] text-[#067647]",
+  amber: "bg-[#fffaeb] text-[#b54708]",
+  red: "bg-[#fef3f2] text-[#b42318]",
+  violet: "bg-[#f5f2ff] text-[#6d28d9]",
+}
+function Badge({ children, tone = "gray" }: { children: React.ReactNode; tone?: Tone }) {
   return (
-    <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11.5px] font-medium", tone === "green" ? "bg-[#ecfdf3] text-[#067647]" : "bg-[#f3f4f6] text-[#4b5563]")} data-integration-badge="">
+    <span className={cn("inline-flex h-6 shrink-0 items-center gap-1 rounded-full px-2 text-[11.5px] font-medium", TONE[tone])} data-integration-badge="">
       {tone === "green" ? <Check className="h-3 w-3" aria-hidden /> : null}
       {children}
     </span>
   )
 }
 
+/** Available has no badge: a card with nothing on it is one you can install. */
+function StatusBadge({ status }: { status: IntegrationStatus }) {
+  if (status === "available") return null
+  const tone: Tone = status === "built_in" ? "violet" : status === "installed" ? "green" : status === "needs_attention" ? "amber" : status === "error" ? "red" : "gray"
+  return <Badge tone={tone}>{status === "built_in" ? "Storelib" : STATUS_LABEL[status]}</Badge>
+}
+
 function IntegrationPage({
   item,
+  status,
   installed,
   tracking,
   trackingReady,
@@ -240,6 +298,7 @@ function IntegrationPage({
   onBack,
 }: {
   item: Integration
+  status: IntegrationStatus
   installed: boolean
   tracking: Tracking | null
   trackingReady: boolean
@@ -260,7 +319,7 @@ function IntegrationPage({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[18px] font-semibold text-[#1a1a2e] sm:text-[20px]">{item.name}</h2>
-            {item.builtIn ? <Badge>Built in</Badge> : installed ? <Badge tone="green">Installed</Badge> : null}
+            <StatusBadge status={status} />
           </div>
           <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{item.summary}</p>
         </div>
@@ -275,13 +334,19 @@ function IntegrationPage({
                 <p key={p}>{p}</p>
               ))}
             </div>
-            {item.comingSoon ? <Notice tone="gray" className="mt-3">Storelib doesn&apos;t send orders to {item.name} yet. Your key is ready for when it does, and orders for it are marked to send by hand until then.</Notice> : null}
+            {item.paused ? (
+              <Notice tone="gray" className="mt-3">{item.name} is paused on Storelib for now. Anything already set up keeps its settings.</Notice>
+            ) : item.comingSoon && item.kind === "commerce" ? (
+              <Notice tone="gray" className="mt-3">Storelib doesn&apos;t send orders to {item.name} yet. Your key is ready for when it does, and orders for it are marked to send by hand until then.</Notice>
+            ) : null}
           </section>
 
           <section className={cn(CARD, "p-4 sm:p-6")} aria-labelledby="integration-install" data-integration-install="">
             <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">Install</h3>
             <div className="mt-3">
-              {item.kind === "tracker" && item.trackerId ? (
+              {item.kind === "listed" || (item.paused && !installed) ? (
+                <NotifyMe item={item} />
+              ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (
                 <ul>
@@ -367,6 +432,45 @@ function TrackerInstall({ item, value, ready, onSaved }: { item: Integration; va
           {busy ? "Saving" : value ? "Save" : "Install"}
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * TELL ME WHEN IT'S READY. A Coming soon integration has nothing to install,
+ * so its Install section is one press that counts the store as asking for it
+ * (a request in /admin, once per store). "You're on the list" only once the
+ * request is really kept.
+ */
+function NotifyMe({ item }: { item: Integration }) {
+  const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  const ask = async () => {
+    setState("sending")
+    setError(null)
+    const r = await api("/api/store/integrations/request", { method: "POST", body: { name: item.name, integrationId: item.id } })
+    if (!r.ok) {
+      setState("idle")
+      return setError(r.error)
+    }
+    setState("sent")
+  }
+  return (
+    <div className="space-y-3" data-integration-notify={item.id}>
+      <p className="text-[14px] leading-[21px] text-[#4b5563]">Not available yet. Ask for it and you&apos;ll be counted: the most asked for are built first.</p>
+      {error ? <Notice>{error}</Notice> : null}
+      {state === "sent" ? (
+        <p className="inline-flex items-center gap-1.5 text-[13.5px] font-medium text-[#067647]" data-integration-notified="">
+          <Check className="h-4 w-4" aria-hidden />
+          You&apos;re on the list for {item.name}.
+        </p>
+      ) : (
+        <div className="flex justify-end">
+          <button type="button" className={BTN_PRIMARY} disabled={state === "sending"} onClick={() => void ask()}>
+            {state === "sending" ? "Sending" : "Tell me when it's ready"}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
