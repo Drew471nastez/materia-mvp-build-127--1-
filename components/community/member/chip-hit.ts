@@ -38,7 +38,7 @@
  *   PRESS_FROM of the way, then it eases to full over PRESS_IN_MS, and lets go
  *   over PRESS_OUT_MS. Opacity only, on the compositor.
  *   The ink is one piece that glides from the old pill to the new one over
- *   GLIDE_MS (chip-ink.tsx), transform only, so it keeps moving while the new
+ *   GLIDE_MS (chip-ink.tsx), translate and scale only, so it keeps moving while the new
  *   list is drawn.
  */
 
@@ -50,8 +50,8 @@ export const GAP = 8
 export const HIT_X = GAP / 2 + 0.5
 /** And above and below, into the row's own padding (the row has room for exactly this, so nothing is clipped). */
 export const HIT_Y = 6
-/** The height that takes a tap on a phone: never under Apple's 44. */
-export const TOUCH_H = PILL_H + 2 * HIT_Y
+/** The height that takes a tap on a phone, never under Apple's 44: the hit area is measured from inside the pill's 1px hairline. */
+export const TOUCH_H = PILL_H - 2 + 2 * HIT_Y
 
 /** A press and a release this far apart are one tap, not a scroll. */
 export const TAP_SLOP = 10
@@ -146,7 +146,7 @@ export function pressAt(ms: number): number {
 
 /**
  * The ink's three pieces for a pill at `left` of `width` and height `h` (chip-ink.tsx): two round ends of the pill's height
- * and a body between them, so moving and resizing it is translate and scaleX alone, and the round ends never stretch.
+ * and a body between them, so moving and resizing it is translate and scale alone, and the round ends never stretch.
  * BODY is the body's drawn width before its scale.
  */
 export const BODY = 100

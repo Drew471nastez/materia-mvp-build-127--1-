@@ -14,7 +14,7 @@
  *
  * This one moves on the compositor alone. The ink is three pieces: a round
  * end the pill's height on each side and a plain body between them. Moving it
- * to another pill is a translate of each end and a translate and scaleX of
+ * to another pill is a translate of each end and a translate and scale of
  * the body (chip-hit.ts inkParts), so a round end never stretches and nothing
  * waits for the page's thread. GLIDE_MS on iOS's own deceleration curve.
  *
@@ -31,7 +31,7 @@
 import { useLayoutEffect, useRef } from "react"
 import { BODY, GLIDE_EASE, GLIDE_MS, inkParts } from "./chip-hit"
 
-const INK = "pointer-events-none absolute left-0 top-0 bg-[#1a1a2e] will-change-transform"
+const INK = "pointer-events-none absolute left-0 top-0 bg-[#1a1a2e] [will-change:translate,scale]"
 
 interface Placed {
   left: number
@@ -61,9 +61,10 @@ export function ChipInk({ active }: { active: string | null }) {
         cap.style.height = `${p.h}px`
       }
       body.style.height = `${p.h}px`
-      start.style.transform = `translate3d(${parts.start}px, ${p.top}px, 0)`
-      end.style.transform = `translate3d(${parts.end}px, ${p.top}px, 0)`
-      body.style.transform = `translate3d(${parts.body}px, ${p.top}px, 0) scaleX(${parts.scale})`
+      start.style.translate = `${parts.start}px ${p.top}px`
+      end.style.translate = `${parts.end}px ${p.top}px`
+      body.style.translate = `${parts.body}px ${p.top}px`
+      body.style.scale = `${parts.scale} 1`
     }
     const still = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const settle = () => {
@@ -81,7 +82,7 @@ export function ChipInk({ active }: { active: string | null }) {
     ink.style.opacity = "1"
     row.setAttribute("data-ink-gliding", "")
     void ink.offsetWidth
-    const t = `transform ${GLIDE_MS}ms ${GLIDE_EASE}`
+    const t = `translate ${GLIDE_MS}ms ${GLIDE_EASE}, scale ${GLIDE_MS}ms ${GLIDE_EASE}`
     for (const part of [start, body, end]) part.style.transition = t
     draw(now)
     window.clearTimeout(timer.current)

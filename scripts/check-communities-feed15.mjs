@@ -53,7 +53,7 @@ const expect = (ok, what, got) => {
 const say = (what, got) => console.log(`        ${what}: ${typeof got === "object" ? JSON.stringify(got) : got}`)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-/* ── Real photographs, through the optimizer's own transform ─────────────── */
+/* ── Real photographs, through the optimizer's own conversion ─────────────── */
 const PHOTO_LIST = existsSync(PHOTOS) ? readdirSync(PHOTOS).filter((f) => /\.(jpe?g|png)$/i.test(f)).sort() : []
 if (!PHOTO_LIST.length) {
   console.log("no photographs to serve: set PHOTOS_DIR to a folder of real JPEGs")
@@ -365,8 +365,8 @@ try {
       window.__moved = 0
       const content = document.querySelector("[data-pull-content]")
       const look = () => {
-        const m = content && new DOMMatrix(getComputedStyle(content).transform)
-        if (m) window.__moved = Math.max(window.__moved, Math.abs(m.m42))
+        const wrap = content?.parentElement
+        if (content && wrap) window.__moved = Math.max(window.__moved, Math.abs(content.getBoundingClientRect().top - wrap.getBoundingClientRect().top))
         requestAnimationFrame(look)
       }
       requestAnimationFrame(look)
@@ -675,7 +675,8 @@ try {
         const fresh = imgs.filter((el) => !el.__img)
         const cards = [...document.querySelectorAll("[data-feed-list] > [data-post]")]
         const content = document.querySelector("[data-pull-content]")
-        const tf = content ? Math.round(new DOMMatrix(getComputedStyle(content).transform).m42 * 10) / 10 : 0
+        /* How far the pull holds the page down: the content's top against its wrapper's. */
+        const tf = content ? Math.round((content.getBoundingClientRect().top - content.parentElement.getBoundingClientRect().top) * 10) / 10 : 0
         out.push({ t: Math.round(performance.now() - t0), tf, dim: dim.length, freshImgs: fresh.length, freshCards: cards.filter((c) => !c.__card).length, y: Math.round(scrollY), count: document.querySelector("[data-feed-list] [data-post] [data-like-count], [data-feed-list] [data-post] button[aria-pressed]")?.textContent ?? "" })
         if (performance.now() - t0 < 4000) requestAnimationFrame(look)
       }
@@ -713,7 +714,7 @@ try {
     const reads = await p.evaluate(() => window.__reads)
     const settled = await p.evaluate(() => {
       const c = document.querySelector("[data-pull-content]")
-      return c ? getComputedStyle(c).transform : "none"
+      return c ? Math.round((c.getBoundingClientRect().top - c.parentElement.getBoundingClientRect().top) * 10) / 10 : 0
     })
     const flash = frames.filter((f) => f.dim > 0)
     const remountCards = Math.max(...frames.map((f) => f.freshCards))
@@ -730,7 +731,7 @@ try {
       /* The page home and still: the content back at rest, and how long after the release it took. */
       const moves = frames.filter((f, i) => i > 0 && f.y !== frames[i - 1].y)
       say("the content wrapper at rest", settled)
-      expect(settled === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(settled), "the pull settles home", settled)
+      expect(settled === 0, "the pull settles home", settled)
       say("scroll moves after the pull", moves.length)
       /* How long the page stayed held after the data was in: the last read's answer, then the first frame back at rest. */
       const readAt = await p.evaluate(() => (window.__readAt ? Math.round(window.__readAt - window.__t0) : null))
@@ -780,7 +781,7 @@ try {
         const chain = []
         for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
           const c = getComputedStyle(n)
-          if (c.opacity !== "1" || c.zIndex !== "auto" || c.transform !== "none" || c.backdropFilter !== "none" || c.mixBlendMode !== "normal") chain.push([n.tagName, (n.className.baseVal ?? n.className).slice(0, 60), c.opacity, c.zIndex, c.transform.slice(0, 24), c.mixBlendMode])
+          if (c.opacity !== "1" || c.zIndex !== "auto" || c.backdropFilter !== "none" || c.mixBlendMode !== "normal") chain.push([n.tagName, (n.className.baseVal ?? n.className).slice(0, 60), c.opacity, c.zIndex, c.mixBlendMode])
         }
         const at = document.elementFromPoint(b.left + 200, b.top + 120)
         return { opacity: cs.opacity, bg: cs.backgroundColor, animation: cs.animationName, list: getComputedStyle(el.firstElementChild).opacity, anims: el.getAnimations().map((a) => [a.animationName, a.playState, a.currentTime]), at: at?.closest("[data-community-search-panel]") ? "panel" : at?.outerHTML.slice(0, 120), chain }
