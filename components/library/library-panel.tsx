@@ -7,32 +7,31 @@ import { LIBRARY_HOME } from "@/lib/library/paths"
 import { cleanPath, isLibraryProduct, showsLibraryTabs } from "./library-tab-list"
 import { LibraryContentShell } from "./library-content-shell"
 import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
+import { CONTENT_IN_MS, landContent } from "@/lib/ui/pill-switch"
 
 /**
  * ===========================================================================
  *  THE LIBRARY'S STAGE: HOW ONE SCREEN BECOMES THE NEXT
  * ===========================================================================
- * "Switching between the pill tabs should feel very smooth and clean, not
- * that direct." It was a hard cut: the old screen stayed at full strength
- * until the new route committed, then the new one appeared at 0.2 and faded
- * up, so the eye saw the old screen vanish in one frame. Now every move the
- * library makes between its own screens is a cross fade in place, played
- * from the press, not from the server's answer:
+ * ROUND 17: A PILL'S SCREEN IS IN PLACE ON THE FRAME IT ARRIVES. The owner:
+ * "Paid communities, library, settings: switching in between pill shapes is
+ * not smooth there." Round 16 made a community's space pills quiet, and the
+ * library still cross faded: a still copy of the old screen laid over the
+ * new one and dissolving over 180ms, so for about 130ms the two screens'
+ * words were on the glass together, one through the other (filmed at 4x CPU
+ * by scripts/check-library-switch.mjs, frames +725ms to +826ms of its
+ * filmstrip). Now a pill's screen replaces the last one in a single frame,
+ * as the space pills' list does, and lands with the short soft fade every
+ * row of pills shares (lib/ui/pill-switch.ts landContent: from 0.6 to whole
+ * over 120ms, on the compositor). No copy is made, so the press costs
+ * nothing either. A cold pill whose route draws its loading.tsx first lands
+ * that shape the same way, and the screen lands again when it replaces the
+ * shape: never the shape and the screen together.
  *
- *   THE PRESS. A still copy of what is on the screen is laid over it
- *   (position fixed, where it was, under the site header) and fades out
- *   over OUT_MS. Under it, in the same frame and at full strength, is the
- *   next screen's shape (library-skeletons.tsx). The copy fading over a
- *   whole picture is a true dissolve: the page's background never shows
- *   between the two, so there is no blank frame and no dip, and only one
- *   layer moves, on the compositor. Nothing waits for the network to start.
- *
- *   THE ANSWER. When the route commits (a pill's screen is prefetched whole,
- *   so usually before the fade has finished) the real screen takes the
- *   shape's place, whole, under whatever is still fading, and the shape is
- *   copied over it to dissolve the same way (SETTLE_MS). A cold screen that
- *   shows its route's loading.tsx first is waited through: the shape stays
- *   until the real screen replaces the route's skeleton.
+ * The pill itself answers the press (library-tabs.tsx); every tab's screen
+ * is read whole ahead of time, so the screen usually follows within a frame
+ * or two, and the router keeps each one (next.config.mjs staleTimes), so
+ * going back to a pill is instant.
  *
  * WHICH MOVES. Found by listening to clicks on links anywhere on the page,
  * so a pill, the header's heart, "Your wishlist" in an empty library and a
@@ -48,6 +47,9 @@ import { TabsHeaderStill, skeletonFor } from "./library-skeletons"
  *   back   the product's Library control back to the list. The same fade
  *          the other way, with the pills drawn still in the shape, and the
  *          list's scroll put back where it was.
+ *
+ * The "open" and "back" kinds below still cross fade with a copy; nothing
+ * starts them while the library sits inside the profile (moveOf).
  *
  * The browser's own back and forward are NOT faded: on an iPhone the swipe
  * already draws its own move, and a second one after it is the double
@@ -318,9 +320,11 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
   const lastLeave = useRef<Leave | null>(null)
   /* The live screen fading out by itself, before its route has answered. */
   const liveFade = useRef<Animation | null>(null)
-  /* A route's own skeleton on the screen after a pill press: a still copy of it, to dissolve over the screen that replaces it. */
-  const skeletonCopy = useRef<{ copy: HTMLElement; dy: number } | null>(null)
-  /* The panel's height held through a pill's cross fade. */
+  /* A route's own skeleton on the screen after a pill press, waiting for the screen that replaces it. */
+  const skeletonUp = useRef(false)
+  /* A pill's screen is on its way in this commit: it lands as it is painted. */
+  const tabLanding = useRef(false)
+  /* The panel's height held while a pill's screen lands. */
   const tabHold = useRef<number | null>(null)
 
   /**
@@ -449,21 +453,16 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
 
   /**
    * ===========================================================================
-   *  A PILL'S SCREEN, CROSS FADED INTO THE NEXT
+   *  A PILL'S SCREEN, IN PLACE OF THE LAST (round 17)
    * ===========================================================================
    * Told in the commit that brings the next screen, before React has changed
-   * a single element of the old one. A still copy of the old screen is laid
-   * over the window exactly where it is and dissolves over the new screen,
-   * which is whole under it from that same frame: a true cross fade, so no
-   * frame shows the page's grey between the two (the flash), and only the
-   * copy's opacity moves, on the compositor. The title and the pills are
-   * outside what is copied and never move. The panel keeps its height for
-   * the fade, so a shorter screen does not pull the page up under the finger.
-   *
-   * Nothing waits for this: a prefetched pill commits a frame or two after
-   * the press, the pill having lit on the press itself (library-tabs.tsx).
-   * The browser's own back and forward are not faded (an iPhone's swipe
-   * draws its own move), and reduced motion swaps at once.
+   * a single element of the old one: the panel keeps the height it has for
+   * the landing, so a shorter screen does not pull the page up under the
+   * finger, and lets go of it once the screen has landed (letGo keeps what the
+   * scroll needs). The landing itself is played in the layout effect below,
+   * on the frame the new screen is first painted. Round 16 laid a copy of the
+   * old screen over the new one here and dissolved it, which is what showed
+   * two screens at once.
    */
   const beforeCommit = useCallback((to: string) => {
     const p = pendingRef.current
@@ -475,46 +474,40 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
       clearLiveVisualState(live)
       return
     }
-    if (p || !live || traversal.current || reducedMotion()) return
+    if (p || !live || traversal.current) return
     if (moveOf(pathRef.current, cleanPath(to)) !== "tab") return
     const panel = panelRef.current
     if (panel) panel.style.minHeight = `${Math.ceil(panel.getBoundingClientRect().height)}px`
-    skeletonCopy.current = null
-    lastLeave.current = leaveCopy(live, CROSS_MS, false, 1, true)
+    tabLanding.current = true
     if (tabHold.current) window.clearTimeout(tabHold.current)
     tabHold.current = window.setTimeout(() => {
       tabHold.current = null
-      if (!skeletonCopy.current) letGo(true)
-    }, CROSS_MS + 120)
+      if (!skeletonUp.current) letGo(true)
+    }, CONTENT_IN_MS + 60)
   }, [letGo])
 
   /**
-   * A cold pill: its route drew its loading.tsx shape first. A still copy of
-   * that shape is kept (it is small), and when the real screen replaces it
-   * the copy is laid where the shape was and dissolves over the screen, so
-   * the shape never cuts to the screen either. Read in a MutationObserver,
-   * which runs after React has changed the page and before it is painted.
+   * A cold pill: its route drew its loading.tsx shape first, which landed
+   * like any screen. When the real screen replaces it, the screen lands in
+   * its place the same way: the shape is gone in that frame. Read in a
+   * MutationObserver, which runs after React has changed the page and before
+   * it is painted.
    */
   const watchSkeleton = useCallback(() => {
     const live = liveRef.current
     if (!live || pendingRef.current) return
-    const skeleton = live.querySelector<HTMLElement>("[data-library-skeleton]")
-    if (skeleton) {
-      if (!skeletonCopy.current && showsLibraryTabs(pathRef.current) && !reducedMotion()) {
-        skeletonCopy.current = { copy: stillCopy(skeleton, true), dy: skeleton.getBoundingClientRect().top - live.getBoundingClientRect().top }
-      }
+    if (live.querySelector("[data-library-skeleton]")) {
+      if (showsLibraryTabs(pathRef.current)) skeletonUp.current = true
       return
     }
-    const kept = skeletonCopy.current
-    if (!kept) return
-    skeletonCopy.current = null
-    const r = live.getBoundingClientRect()
-    layLeaving(kept.copy, { left: r.left, top: r.top + kept.dy, width: r.width }, SETTLE_MS, false, 1, true)
+    if (!skeletonUp.current) return
+    skeletonUp.current = false
+    landContent(live)
     if (tabHold.current) window.clearTimeout(tabHold.current)
     tabHold.current = window.setTimeout(() => {
       tabHold.current = null
       letGo(true)
-    }, SETTLE_MS + 120)
+    }, CONTENT_IN_MS + 60)
   }, [letGo])
 
   /* Every plain press on a link to another library screen, wherever the link is. */
@@ -619,9 +612,13 @@ export function LibraryPanel({ head, children }: { head?: ReactNode; children: R
     if (!p) {
       /* Arrived without a press here: the browser's back or forward, or a link from elsewhere. */
       if (traversal.current && scrolls.has(path)) jump(scrolls.get(path) ?? 0)
-      /* A pill's cross fade holds the panel's height until it is over (beforeCommit); anything else lets go now. */
+      /* A pill's landing holds the panel's height until it is over (beforeCommit); anything else lets go now. */
       if (panelRef.current && !tabHold.current) panelRef.current.style.minHeight = ""
       traversal.current = false
+      if (tabLanding.current) {
+        tabLanding.current = false
+        landContent(liveRef.current)
+      }
       if (moveOf(prevPath, path) === "tab") watchSkeleton()
       return
     }

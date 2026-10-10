@@ -45,6 +45,7 @@ import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { postEditHref, type ProfilePostView, type ProfilePostsPage } from "@/lib/communities/member-profile-view"
 import { ACCOUNT_REFRESH_SCOPE } from "@/lib/profile/refresh-scope"
 import { cn } from "@/lib/utils"
+import { markPostFromAccount, takeAccountPostsStale } from "@/lib/profile/post-return"
 
 /** The next page's address (app/api/account/posts/route.ts). */
 export const ACCOUNT_POSTS_API = "/api/account/posts"
@@ -82,13 +83,23 @@ function Row({ post, now, onDelete }: { post: ProfilePostView; now: number; onDe
   const router = useRouter()
   const row = useRef<HTMLLIElement | null>(null)
   const items: ActionMenuItem[] = []
-  if (post.canEdit) items.push({ label: "Edit post", icon: <PenIcon size={16} />, onClick: () => router.push(postEditHref(post.href)) })
+  if (post.canEdit)
+    items.push({
+      label: "Edit post",
+      icon: <PenIcon size={16} />,
+      onClick: () => {
+        /* The post opens over its feed with its editor (?edit=1, shared-post.tsx) and closes back here. */
+        markPostFromAccount(post.id)
+        router.push(postEditHref(post.href))
+      },
+    })
   if (post.canDelete) items.push({ label: "Delete post", icon: <TrashBinMinimalisticIcon size={16} />, variant: "destructive", onClick: () => onDelete(post, row.current) })
   const tally = counts(post)
   return (
     <li ref={row} className="relative" data-account-post={post.id}>
       <Link
         href={post.href}
+        onClick={() => markPostFromAccount(post.id)}
         className={cn("-mx-2 flex items-start gap-3 rounded-xl px-2 py-3 outline-none transition-colors hover:bg-[#f7f7f8] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15", items.length ? "pr-11" : "")}
       >
         <Thumb post={post} />
@@ -166,6 +177,10 @@ export function AccountPosts({ initial, now }: { initial: ProfilePostsPage; now:
     setState("idle")
     setClock(Date.now())
   }
+  /* Back from a post opened here (lib/profile/post-return.ts): the router kept this page as it was, so its first page is read again, quietly. */
+  useEffect(() => {
+    if (takeAccountPostsStale()) void first.current()
+  }, [])
   useEffect(() => {
     const onPull = (event: Event) => {
       const detail = (event as CustomEvent<PullRefreshDetail>).detail

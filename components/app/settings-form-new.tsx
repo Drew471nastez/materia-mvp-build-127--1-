@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
-import { Fragment, useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
+import { useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -54,7 +54,7 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
-import { prefetchGet } from "@/components/physical/ui"
+import { prefetchGet, whenGets } from "@/components/physical/ui"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
@@ -122,6 +122,28 @@ const TAB_GROUPS = [
 type TabId = typeof TABS[number]["id"]
 
 const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
+
+/* A pill's own fill fades in where it is, on one gentle ease out (as before the sheet). */
+const TAB_FADE_MS = 150
+const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+
+/**
+ * What each section reads when it opens, so Settings can fetch it ahead
+ * (components/physical/ui prefetchGet) and show a section only once it is
+ * whole. A section that reads nothing of its own shows at once.
+ */
+const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
+  store: (p) => ["/api/store/settings", ...(p ? ["/api/physical/settings"] : [])],
+  checkout: () => ["/api/store/settings"],
+  channels: () => ["/api/store/channels"],
+  taxes: () => ["/api/store/taxes"],
+  activity: () => ["/api/store/activity"],
+  shipping: () => ["/api/physical/settings"],
+  locations: () => ["/api/physical/settings"],
+  returns: (p) => ["/api/store/reasons", ...(p ? ["/api/physical/settings"] : [])],
+  integrations: (p) => ["/api/store/integrations", "/api/store/integrations/catalog", ...(p ? ["/api/physical/integrations"] : [])],
+}
+const tabData = (id: TabId, physical: boolean): string[] => TAB_DATA[id]?.(physical) ?? []
 /** Tabs that exist only while physical commerce is on in /admin. */
 /** Behind the physical commerce switch in /admin. */
 const COMMERCE_TABS = new Set<string>(["shipping", "locations"])
@@ -445,37 +467,29 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
    * empty pane that fills a beat after. Billing too.
    */
   useEffect(() => {
-    const run = () => {
-      prefetchGet([
-        "/api/store/settings",
-        "/api/store/taxes",
-        "/api/store/channels",
-        "/api/store/reasons",
-        "/api/store/integrations",
-        "/api/store/integrations/catalog",
-        ...(physicalCommerce ? ["/api/physical/settings", "/api/physical/integrations"] : []),
-      ])
+    /* Right after the first draw, not when the browser is idle: a section pressed a second after opening must find its data here. */
+    const t = window.setTimeout(() => {
+      prefetchGet([...new Set(Object.keys(TAB_DATA).flatMap((id) => tabData(id as TabId, physicalCommerce)))])
       void loadBilling()
-    }
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
-    if (w.requestIdleCallback) {
-      const id = w.requestIdleCallback(run, { timeout: 1200 })
-      return () => w.cancelIdleCallback?.(id)
-    }
-    const t = window.setTimeout(run, 300)
+    }, 0)
     return () => window.clearTimeout(t)
   }, [physicalCommerce, loadBilling])
   const formRef = useRef<HTMLFormElement>(null)
   const pillRowRef = useRef<HTMLDivElement>(null)
-  /* The open section's pill is always in view in the row: a section opened by its address, or the last pill pressed. */
+  /*
+    THE PRESSED PILL COMES TO THE MIDDLE OF THE ROW, as it did before the
+    sheet: press one near an edge and the row glides so it sits centred, the
+    ones beyond it slide into view, and the next press is a thumb away. A
+    section opened by its address is placed there without the glide.
+  */
+  const pillPlaced = useRef(false)
   useEffect(() => {
     const row = pillRowRef.current
     const pill = row?.querySelector<HTMLElement>(`[data-settings-tab="${activeTab}"]`)
     if (!row || !pill) return
-    const left = pill.offsetLeft - 16
-    const right = pill.offsetLeft + pill.offsetWidth + 16 - row.clientWidth
-    if (row.scrollLeft > left) row.scrollTo({ left, behavior: "smooth" })
-    else if (row.scrollLeft < right) row.scrollTo({ left: right, behavior: "smooth" })
+    const left = Math.max(0, Math.min(row.scrollWidth - row.clientWidth, pill.offsetLeft - (row.clientWidth - pill.offsetWidth) / 2))
+    row.scrollTo({ left, behavior: pillPlaced.current ? "smooth" : ("instant" as ScrollBehavior) })
+    pillPlaced.current = true
   }, [activeTab])
   const [panelEntrance, setPanelEntrance] = useState(false)
   /*
@@ -486,7 +500,30 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     reads activeTab and is drawn at once; the panel reads this deferred copy,
     built just after, with the old panel on screen until the new one is ready.
   */
-  const panelTab = useDeferredValue(activeTab)
+  /*
+    THE PILL AT ONCE, THE SECTION WHEN IT IS WHOLE. The pill reads activeTab
+    and fills on the press. The section reads panelTab, which follows once
+    what the new section shows has been read (Taxes its regions, Shipping
+    its zones...): fetched ahead when Settings opened, so normally at once,
+    and never kept waiting more than 450ms. Until then the section that was
+    there stays, so there is never an empty page with the content dropping
+    in after it; the new one fades in already complete.
+  */
+  const [panelTab, setPanelTab] = useState<TabId>(activeTab)
+  useEffect(() => {
+    if (panelTab === activeTab) return
+    let live = true
+    const urls = tabData(activeTab, physicalCommerce)
+    const show = () => {
+      if (live) startTransition(() => setPanelTab(activeTab))
+    }
+    if (urls.length === 0) show()
+    else void Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, 450))]).then(show)
+    return () => {
+      live = false
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, physicalCommerce])
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -825,6 +862,24 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      * in one frame and without a smooth scroll, and any pin left by an older
      * build is cleared.
      */
+    /* Placed when the new section is shown (placeForPanel below), so the old one never jumps on its own first. */
+    scrollPending.current = true
+    /* The new panel fades in, for a press only (not on load, not on a re-render). */
+    setPanelEntrance(true)
+    setActiveTab(newTab)
+    if (newTab === "domains") fetchDomains()
+    // Persist tab in URL so refresh stays on the same tab
+    const url = new URL(window.location.href)
+    url.searchParams.set("tab", newTab)
+    url.searchParams.delete("section")
+    window.history.replaceState({}, "", url.toString())
+  }
+
+  const scrollPending = useRef(false)
+  /* Before the new section is painted: the scroll goes to the section's top, under the pills. */
+  useLayoutEffect(() => {
+    if (!scrollPending.current) return
+    scrollPending.current = false
     /* The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
     const scroller = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
     /*
@@ -839,16 +894,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
        clearing it before measuring laid the page out short and the browser pulled the scroll to the top. */
     if (formRef.current) formRef.current.style.minHeight = held ? `${scroller!.clientHeight}px` : ""
     if (scroller && scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: "instant" as ScrollBehavior })
-    /* The new panel fades in, for a press only (not on load, not on a re-render). */
-    setPanelEntrance(true)
-    setActiveTab(newTab)
-    if (newTab === "domains") fetchDomains()
-    // Persist tab in URL so refresh stays on the same tab
-    const url = new URL(window.location.href)
-    url.searchParams.set("tab", newTab)
-    url.searchParams.delete("section")
-    window.history.replaceState({}, "", url.toString())
-  }
+  }, [panelTab])
 
   const handleSubmit = async (e?: React.FormEvent | Event) => {
     if (e && 'preventDefault' in e) e.preventDefault()
@@ -1294,15 +1340,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           the title's. From 640px the pill sits at the top right, as wide as
           its address needs, up to 360px.
         */}
-        <div data-settings-header="" className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-bold leading-tight text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]">{t("settings.title")}</h1>
-            <p className="mt-1 text-[14px] leading-snug text-[#6b7280]">{t("settings.subtitle")}</p>
-          </div>
-          <div data-settings-pill="" className="flex min-w-0 shrink-0 sm:max-w-[360px] sm:justify-end sm:pt-0.5">
-            <ShareStorelib size="sm" className="md:hidden max-w-full" addresses={shareAddresses} platforms={sharePlatforms} />
+        {/* On a phone as before the sheet: the title and the address pill on one row, centred on each other, the line under them. */}
+        <div data-settings-header="" className="mb-5 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 sm:mb-6 sm:items-start sm:gap-y-0">
+          <h1 className="col-start-1 row-start-1 text-[22px] font-bold leading-tight text-[#1a1a2e] sm:text-[26px]">{t("settings.title")}</h1>
+          <div data-settings-pill="" className="col-start-2 row-start-1 flex min-w-0 justify-end sm:row-span-2 sm:max-w-[360px] sm:justify-self-end sm:pt-0.5">
+            <ShareStorelib size="sm" className="md:hidden max-w-[min(calc((100vw-32px)*0.522),184px)] sm:max-w-[270px]" addresses={shareAddresses} platforms={sharePlatforms} />
             <ShareStorelib className="hidden md:inline-flex max-w-full" addresses={shareAddresses} platforms={sharePlatforms} />
           </div>
+          <p className="col-span-2 row-start-2 text-[14px] leading-snug text-[#6b7280] sm:col-span-1 sm:col-start-1 sm:mt-1">{t("settings.subtitle")}</p>
         </div>
 
         {/*
@@ -1327,6 +1372,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                         key={tab.id}
                         type="button"
                         onClick={() => handleTabChange(tab.id)}
+                        onPointerEnter={() => prefetchGet(tabData(tab.id, physicalCommerce))}
                         aria-current={on ? "page" : undefined}
                         data-settings-side-tab={tab.id}
                         className={`flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 text-left text-[14px] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
@@ -1356,36 +1402,41 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           data-settings-tabs=""
           role="tablist"
           aria-label="Settings"
-          className="sticky top-0 z-[4] -mx-4 mb-5 overflow-x-auto bg-[#f8f9fa]/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="-mx-4 mb-5 overflow-x-auto px-4 sm:mb-6 sm:-mx-6 sm:px-6 lg:hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
-          <div className="flex w-max items-center gap-1.5">
-            {TAB_GROUPS.map((group, gi) => {
-              const list = shownTabs.filter((tab) => tab.group === group.id)
-              if (list.length === 0) return null
+          {/*
+            THE PILLS AS THEY WERE (before the sheet, the owner's reference):
+            words on the page's grey, the open one on a soft grey fill with a
+            hairline. Each pill carries its own fill, which fades in where it
+            is and never slides across from the last one; nothing scales.
+          */}
+          <div className="flex h-[44px] w-max items-center gap-1 p-1 sm:h-[48px]">
+            {shownTabs.map((tab) => {
+              const Icon = tab.icon
+              const on = activeTab === tab.id
               return (
-                <Fragment key={group.id}>
-                  {gi > 0 ? <span aria-hidden className="mx-1 h-5 w-px shrink-0 bg-[#e3e5e8]" /> : null}
-                  {list.map((tab) => {
-                    const Icon = tab.icon
-                    const on = activeTab === tab.id
-                    return (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={on}
-                        onClick={() => handleTabChange(tab.id)}
-                        data-settings-tab={tab.id}
-                        className={`inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[14px] font-medium outline-none transition-[background-color,border-color,color] duration-150 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent] ${
-                          on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] active:bg-[#f3f4f6]"
-                        }`}
-                      >
-                        <Icon className="h-4 w-4 shrink-0" aria-hidden />
-                        {labelOf(tab.id)}
-                      </button>
-                    )
-                  })}
-                </Fragment>
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={on}
+                  onClick={() => handleTabChange(tab.id)}
+                  onPointerDown={() => prefetchGet(tabData(tab.id, physicalCommerce))}
+                  data-settings-tab={tab.id}
+                  style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+                  className={`relative flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-medium outline-none transition-[color,background-color] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:px-4 sm:py-2.5 sm:text-[14px] [-webkit-tap-highlight-color:transparent] ${
+                    on ? "text-[#1a1a2e]" : "text-[#6b7280] active:bg-[#f3f4f6]/70"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    data-settings-tab-fill=""
+                    style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
+                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-opacity motion-reduce:transition-none ${on ? "opacity-100" : "opacity-0"}`}
+                  />
+                  <Icon className="relative h-4 w-4 shrink-0" aria-hidden />
+                  <span className="relative">{labelOf(tab.id)}</span>
+                </button>
               )
             })}
           </div>

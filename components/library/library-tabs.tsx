@@ -7,6 +7,7 @@ import type { PrefetchKind } from "next/dist/client/components/router-reducer/ro
 import { cleanPath as clean, libraryTabs, showsLibraryTabs } from "./library-tab-list"
 import { LIBRARY_TITLE, LIBRARY_TITLE_GAP } from "./library-ui"
 import { useFirstTap } from "@/lib/navigation/first-tap"
+import { PILL_FADE_EASE, PILL_FADE_MS, PILL_FILL, PILL_PRESS, PILL_WORDS, PILL_WORDS_OFF, PILL_WORDS_ON, pressPill, releasePill } from "@/lib/ui/pill-switch"
 import { watchNavigation } from "@/lib/nav/stuck-navigation"
 
 /**
@@ -31,17 +32,19 @@ import { watchNavigation } from "@/lib/nav/stuck-navigation"
  * for separate pills rather than the underlined row it was, in Storelib's
  * own style, so each one is Explore's category pill (components/explore/
  * explore-page-client.tsx): white on a hairline, and the chosen one pressed
- * in on a grey fill. They switch the way /app settings switches its tabs
- * (components/app/settings-form-new.tsx): every pill carries its own fill,
- * the pressed pill's fill fades in and grows from 96% where it is, the old
- * one fades out where it is, and the words ease from grey to ink, all over
- * 150ms on one ease out. A press also dips the pill to 97%. Only opacity and
- * scale move, so the compositor carries it.
+ * in on a grey fill.
+ *
+ * THEY SWITCH THE WAY A COMMUNITY'S SPACE PILLS DO (round 17, lib/ui/
+ * pill-switch.ts): the chosen pill's own fill fades in where it is over
+ * 140ms and the one it leaves fades out the same way, the words turn colour
+ * in one step, a finger lands as a light tint. Nothing slides and nothing
+ * scales: round 16's own grew from 96% and dipped to 97% on the press, which
+ * the space pills had stopped doing.
  *
  * THE PILL ANSWERS THE PRESS, NOT THE SERVER. The tabs are routes, and a
  * route can take a moment. The pressed pill is chosen on the press itself
- * and the address catches up. The screen under the row cross fades into
- * the next one the moment it arrives (components/library/library-panel.tsx),
+ * and the address catches up. The screen under the row is replaced by the
+ * next one in the frame it arrives (components/library/library-panel.tsx),
  * and the row itself never moves or fades. Every tab is fetched whole while
  * the page is idle, and again the moment a pointer comes near one, so by
  * the time a finger lands the next screen is usually already on the phone.
@@ -53,15 +56,16 @@ import { watchNavigation } from "@/lib/nav/stuck-navigation"
  */
 export { LIBRARY_TABS, showsLibraryTabs } from "./library-tab-list"
 
-/** Settings' own numbers (components/app/settings-form-new.tsx TAB_FADE_MS, TAB_EASE). */
-export const TAB_FADE_MS = 150
-export const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+/** The space pills' numbers (lib/ui/pill-switch.ts), so every row of pills moves alike. */
+export const TAB_FADE_MS = PILL_FADE_MS
+export const TAB_EASE = PILL_FADE_EASE
 
 /** A whole page, data included, rather than the shell a Link fetches on its own. */
 const FULL = "full" as PrefetchKind
 
+/* White on a hairline, the same size chosen or not: the fill, the press and the words are layers inside it (lib/ui/pill-switch.ts). */
 const PILL =
-  "relative inline-flex h-10 sm:h-9 shrink-0 cursor-pointer select-none items-center justify-center whitespace-nowrap rounded-full border bg-white px-4 text-[13px] font-medium outline-none transition-[color,scale] active:scale-[0.97] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none motion-reduce:active:scale-100 [-webkit-tap-highlight-color:transparent]"
+  "group/pill relative isolate inline-flex h-10 sm:h-9 shrink-0 cursor-pointer touch-manipulation select-none items-center justify-center whitespace-nowrap rounded-full border border-[#e4e7ec] bg-white px-4 text-[13px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
 
 type IdleWindow = Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
 
@@ -78,7 +82,6 @@ function LibraryPill({
   label,
   active,
   current,
-  panelEntrance,
   onPress,
   onTap,
   onWarm,
@@ -87,7 +90,6 @@ function LibraryPill({
   label: string
   active: boolean
   current: boolean
-  panelEntrance: boolean
   onPress: () => void
   onTap: () => void
   onWarm: () => void
@@ -111,10 +113,20 @@ function LibraryPill({
       data-active={active ? "true" : "false"}
       onPointerDown={(e) => {
         onWarm()
+        if (e.button === 0 && !active) pressPill(e.currentTarget)
         tap.onPointerDown(e)
       }}
-      onPointerUp={tap.onPointerUp}
-      onPointerCancel={tap.onPointerCancel}
+      onPointerUp={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerUp(e)
+      }}
+      onPointerCancel={(e) => {
+        releasePill(e.currentTarget)
+        tap.onPointerCancel()
+      }}
+      onPointerLeave={(e) => {
+        if (e.pointerType === "mouse") releasePill(e.currentTarget)
+      }}
       onClick={(e) => {
         /* Not ours: a new tab, a new window, a context menu. */
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
@@ -127,19 +139,12 @@ function LibraryPill({
       }}
       onPointerEnter={onWarm}
       onFocus={onWarm}
-      style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-      className={`${PILL} ${active ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#6b7280] hover:text-[#1a1a2e]"}`}
+      className={PILL}
     >
+      <span aria-hidden data-pill-press="" className={PILL_PRESS} />
       {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
-      <span
-        aria-hidden
-        data-library-tab-fill=""
-        style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-        className={`pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] ${panelEntrance ? "transition-[opacity,scale]" : "transition-none"} motion-reduce:transition-none ${
-          active ? "scale-100 opacity-100" : "scale-[0.96] opacity-0"
-        }`}
-      />
-      <span className="pointer-events-none relative">{label}</span>
+      <span aria-hidden data-library-tab-fill="" className={`${PILL_FILL} ${active ? "opacity-100" : "opacity-0"}`} />
+      <span className={`${PILL_WORDS} ${active ? PILL_WORDS_ON : PILL_WORDS_OFF}`}>{label}</span>
     </Link>
   )
 }
@@ -152,7 +157,7 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
   const shows = showsLibraryTabs(pathname)
   /* The pill pressed, ahead of the address. Dropped once the address arrives. */
   const [pressed, setPressed] = useState<string | null>(null)
-  /* After the first press, pill fills animate like /app settings (panelEntrance). */
+  /* After the first press the row glides a chosen pill into view; on load it is put there at once. */
   const [panelEntrance, setPanelEntrance] = useState(false)
   const trackRef = useRef<HTMLDivElement>(null)
   const [edges, setEdges] = useState({ left: false, right: false })
@@ -257,7 +262,6 @@ export function LibraryTabs({ communities = false }: { communities?: boolean } =
                   label={tab.label}
                   active={active}
                   current={tab.href === path}
-                  panelEntrance={panelEntrance}
                   onPress={() => press(tab.href)}
                   onWarm={() => warm(tab.href)}
                   onTap={() => {

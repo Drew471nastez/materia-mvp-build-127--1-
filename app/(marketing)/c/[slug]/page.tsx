@@ -1,7 +1,7 @@
 import { personName } from "@/lib/profile/display-name"
 import { permanentRedirect, redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
 
 interface CreatorPageProps {
   params: Promise<{ slug: string }>
@@ -20,9 +20,10 @@ export async function generateMetadata({ params }: CreatorPageProps) {
   if (!creator) {
     return { title: "Creator Not Found" }
   }
+  const [face] = await attachCreatorProfiles(supabase, [creator as typeof creator & { profile?: { display_name?: string | null } | null }])
 
   return {
-    title: personName({ name: (creator.profile as unknown as { display_name?: string | null } | null)?.display_name, slug: (creator as { slug?: string | null }).slug }),
+    title: personName({ name: face?.profile?.display_name, slug: (creator as { slug?: string | null }).slug }),
     description: creator.headline || creator.bio || "Check out this creator on Storelib",
   }
 }
@@ -32,11 +33,13 @@ export default async function CreatorPage({ params }: CreatorPageProps) {
   const supabase = await createClient()
 
   // Find creator by slug and get their username
-  const { data: creator } = await supabase
+  const { data: found } = await supabase
     .from("creators")
-    .select("user_id, profile:profiles!creators_user_id_fkey(username)")
+    .select("user_id")
     .eq("slug", slug)
     .single()
+  /* Their username is on their profile, its own read: creators.user_id points at auth.users, so a profile cannot be embedded here. */
+  const [creator] = found ? await attachCreatorProfiles(supabase, [found as { user_id?: string | null; profile?: { username?: string | null } | null }]) : [null]
 
   if (creator?.profile?.username) {
     /* The old address of a creator's page, moved for good: a 308, so a search

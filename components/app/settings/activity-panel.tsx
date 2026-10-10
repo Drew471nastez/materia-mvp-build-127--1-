@@ -9,7 +9,7 @@
 import * as React from "react"
 import { FileImage, Package, Settings2, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_SECONDARY, Card, Notice, api } from "@/components/physical/ui"
+import { BTN_SECONDARY, Card, Notice, api, peekGet } from "@/components/physical/ui"
 import { GROUP_LABELS, actorLabel, describeActivity, groupOf, type ActivityEntry, type ActivityGroup } from "@/lib/activity/actions"
 
 type Filter = "all" | ActivityGroup
@@ -31,9 +31,11 @@ const timeOf = (iso: string) => new Intl.DateTimeFormat(undefined, { hour: "nume
 
 export function ActivityPanel() {
   const [filter, setFilter] = React.useState<Filter>("all")
-  const [entries, setEntries] = React.useState<ActivityEntry[] | null>(null)
-  const [more, setMore] = React.useState(false)
-  const [missing, setMissing] = React.useState(false)
+  /* Drawn at once from what Settings fetched ahead (components/physical/ui prefetchGet). */
+  const kept = peekGet<Page>("/api/store/activity")
+  const [entries, setEntries] = React.useState<ActivityEntry[] | null>(kept?.entries ?? null)
+  const [more, setMore] = React.useState(kept?.more ?? false)
+  const [missing, setMissing] = React.useState(kept?.missing ?? false)
   const [error, setError] = React.useState<string | null>(null)
   const [loadingMore, setLoadingMore] = React.useState(false)
 
@@ -47,7 +49,8 @@ export function ActivityPanel() {
 
   React.useEffect(() => {
     let live = true
-    setEntries(null)
+    /* A change of filter clears the list; the first read keeps what was fetched ahead on screen. */
+    if (filter !== "all" || !peekGet("/api/store/activity")) setEntries(null)
     setError(null)
     void fetchPage(filter, null).then((r) => {
       if (!live) return

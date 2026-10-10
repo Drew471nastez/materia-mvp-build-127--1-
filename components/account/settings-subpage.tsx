@@ -140,6 +140,12 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
   const closed = useRef(false)
   const scrollY = useRef(0)
   const [entered, setEntered] = useState(false)
+  /*
+    THE SECTION YOU ARE ON SURVIVES THE FULL READ (round 17). The screen is built again when the whole settings read lands
+    (key "seed" to "full", below), and it used to open again on the section it was asked for: a pill pressed while the read
+    was on its way was undone a moment later, and read as a pill that needed a second tap.
+  */
+  const sectionNow = useRef<SettingsSection>(section)
   /* Counted over the page (lib/ui/layers.ts): it covers the tab bar, which holds still under it and is there when it slides away. */
   useLayer("screen", true, panel)
 
@@ -216,7 +222,7 @@ function SettingsLayer({ section, data, full = false, onClose }: { section: Sett
         <div className="px-4 pb-8 pt-3 sm:px-6" data-settings-sheet-body="">
           {data ? (
             /* Built again once the full read lands: the fields copy their values in once, and a city typed into the seed's empty location would otherwise save the country as nothing. */
-            <AccountSettings key={full ? "full" : "seed"} {...data} initialSection={section} onBack={close} />
+            <AccountSettings key={full ? "full" : "seed"} {...data} initialSection={sectionNow.current} onSection={(key) => (sectionNow.current = key)} onBack={close} />
           ) : (
             <>
               <BackControl fallback="/account" label="Back to profile" onBack={close} className="h-11 w-11 rounded-[10px]" />

@@ -128,9 +128,10 @@ console.log("\nNo light bar of the profile's own: one header on the screen")
     while the other was taken away in the same frame, which the eye reads
     as a cut ("not so direct, smooth clean").
   */
-  check("the sections dissolve rather than cut", /function SectionSwap/.test(settings) && /const SWAP_OUT_MS = \d+/.test(settings) && /const SWAP_IN_MS = \d+/.test(settings) && /<SectionSwap section=\{section\}>/.test(settings))
-  check("  the whole move is under a quarter of a second", (Number(settings.match(/SWAP_OUT_MS = (\d+)/)?.[1] ?? 0) + Number(settings.match(/SWAP_IN_MS = (\d+)/)?.[1] ?? 0)) <= 250)
-  check("  a fade that never finishes still lands, and reduced motion just changes", /window\.setTimeout\(land, SWAP_OUT_MS \+ 160\)/.test(settings) && /prefers-reduced-motion: reduce/.test(settings))
+  /* Round 17, changed on purpose (the owner: "switching in between pill shapes is not smooth"): the fade out then in was a quarter second of a half drawn page, and every section was built again on every visit. */
+  check("the section picked is in place on its frame, each one kept once opened", /function KeptSections/.test(settings) && /<KeptSections\s+section=\{section\}/.test(settings) && /hidden=\{s\.key !== section\}/.test(settings) && !/function SectionSwap/.test(settings))
+  check("  it lands with the shared short soft fade, holding the height while it does", /landContent\(panes\.current\.get\(section\)/.test(settings) && /holdHeight\(box\.current\)/.test(settings) && /letGoHeight\(box\.current/.test(settings))
+  check("  reduced motion just changes (the shared landing does nothing under it)", /prefers-reduced-motion: reduce/.test(read("lib/ui/pill-switch.ts")))
   /* "The photo icon there is too big in the profile avatar circle in the settings." */
   const avatarPhoto = code("components/account/account-photo.tsx")
   check("the camera badge is a badge, not a second button", /h-\[26px\] w-\[26px\][^"]*ring-\[2\.5px\]/.test(avatarPhoto) && /<Camera className="h-\[13px\] w-\[13px\]"/.test(avatarPhoto))
@@ -166,8 +167,9 @@ console.log("\nSettings: the Skool shape, in Storelib's own parts")
   const library = code("components/library/library-tabs.tsx")
   /* Four now: Privacy holds the profile's two switches (show activity, show communities), asked for with profiles for everybody. */
   check("five sections (Notifications since round 12), Profile first, so Edit profile lands on the profile's fields", /\{ key: "profile", label: "Profile" \}[\s\S]*\{ key: "account", label: "Account" \}[\s\S]*\{ key: "privacy", label: "Privacy" \}[\s\S]*\{ key: "preferences", label: "Preferences" \}/.test(settings) && /initialSection = "profile"/.test(settings) && /useState<SectionKey>\(initialSection\)/.test(settings))
-  check("the pills are the library's pills: 36px, white on a hairline, the chosen one on #e2e4e8", /h-9 shrink-0 cursor-pointer select-none items-center whitespace-nowrap rounded-full border bg-white px-3\.5 text-\[14px\]/.test(settings) && /bg-\[#e2e4e8\]/.test(settings) && /bg-\[#e2e4e8\]/.test(library))
-  check("switching the same way, 150ms on one ease out, fading and growing in place", /const PILL_FADE_MS = 150/.test(settings) && /const PILL_EASE = "cubic-bezier\(0\.33, 1, 0\.68, 1\)"/.test(settings) && /on \? "scale-100 opacity-100" : "scale-\[0\.96\] opacity-0"/.test(settings) && /const TAB_FADE_MS = 150/.test(library))
+  /* Round 17: one fill for every row of pills (lib/ui/pill-switch.ts), the space pills' quiet switch: opacity only over 140ms, nothing scaling. */
+  check("the pills are the library's pills: 36px, white on a hairline, the chosen one on #e2e4e8", /h-9 shrink-0 cursor-pointer touch-manipulation select-none items-center whitespace-nowrap rounded-full border border-\[#e4e7ec\] bg-white px-3\.5 text-\[14px\]/.test(settings) && /PILL_FILL/.test(settings) && /PILL_FILL/.test(library) && /bg-\[#e2e4e8\]/.test(read("lib/ui/pill-switch.ts")))
+  check("switching the same way: the fill fades in place over the space pills' 140ms, nothing grows", /cn\(PILL_FILL, on \? "opacity-100" : "opacity-0"\)/.test(settings) && /const TAB_FADE_MS = PILL_FADE_MS/.test(library) && /export const PILL_FADE_MS = 140/.test(read("lib/ui/pill-switch.ts")) && !/scale-\[0\.96\]/.test(settings + library))
   check("only the compositor's properties move", !/transition-\[[^\]]*(width|height|left|top|padding|margin)/.test(settings))
   check("the fields are /app Settings' fields: a hairline box, violet on focus, 16px on a phone so iOS does not zoom", /focus:border-\[#8b5cf6\] focus:ring-2 focus:ring-\[#8b5cf6\]\/20/.test(settings) && /text-\[16px\] sm:text-\[14px\]/.test(settings))
   check("a label over each field and a line of help under it", /htmlFor="account-name"/.test(settings) && /htmlFor="account-bio"/.test(settings) && /const HELP = /.test(settings))

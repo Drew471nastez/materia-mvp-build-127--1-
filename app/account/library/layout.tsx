@@ -54,8 +54,8 @@ async function appBannerPhone(): Promise<Phone | null> {
  * hub stands aside here (lib/profile/owner-pills.ts showsProfileHeader),
  * and the head of the stage is the library's title over its sub pills
  * (components/library/library-tabs.tsx). What is left here is what only
- * the library has: its gates, the purchase sync, the stage that cross fades
- * one tab into the next (components/library/library-panel.tsx), and the
+ * the library has: its gates, the purchase sync, the stage that puts
+ * one tab's screen in place of the last (components/library/library-panel.tsx), and the
  * app's banner under it. Every screen inside is the same component
  * it always was; only the addresses moved (lib/library/paths.ts), and every
  * old /library address answers with the new one (app/library/[[...path]]).
@@ -88,15 +88,15 @@ export default async function LibraryLayout({ children }: { children: React.Reac
     <div data-page="library">
       <HtmlClass name="with-page-library" />
       <PurchaseSyncProvider />
-      {/* The sub pills and the screen under them, which cross fades from one to the next (library-panel.tsx). */}
+      {/* The sub pills and the screen under them, each in place of the last (library-panel.tsx). */}
       <LibraryPullRefresh>
         <LibraryPanel head={<LibraryTabs communities={communities} />}>{children}</LibraryPanel>
       </LibraryPullRefresh>
       {/*
         THE APP'S BANNER SITS UNDER THE LIBRARY, NOT OVER IT: "do not use
         the banner above the library, use it under, at the page". Outside
-        the panel on purpose, so it holds still while the screens cross fade
-        over each other, and the phone it is for is known on the server, so
+        the panel on purpose, so it holds still while the screens
+        change, and the phone it is for is known on the server, so
         nothing shifts when the page hydrates.
       */}
       <OpenInApp phone={bannerFor} />

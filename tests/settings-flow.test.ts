@@ -78,9 +78,9 @@ check(
   !/Skeleton Card 1/.test(settings) && !/animate-\[shimmer_1\.5s_ease-in-out_infinite\]/.test(settings),
 )
 check(
-  /* The panel reads a deferred copy of the tab (panelTab), so the pill changes first. */
+  /* Changed on purpose: the panel follows the pill once the new section's data is read (panelTab), so it shows whole, never empty. */
   "the panel is keyed on the tab, so one replaces another instead of being edited into it",
-  /const panelTab = useDeferredValue\(activeTab\)/.test(settings) && /<div key=\{panelTab\} data-settings-panel=\{panelTab\} className=\{panelEntrance \? "settings-panel" : undefined\}>/.test(settings),
+  /const \[panelTab, setPanelTab\] = useState<TabId>\(activeTab\)/.test(settings) && /whenGets\(urls\)/.test(settings) && /<div key=\{panelTab\} data-settings-panel=\{panelTab\} className=\{panelEntrance \? "settings-panel" : undefined\}>/.test(settings),
 )
 {
   /* The fade is put on by a press and nothing else: not the first paint, not ?tab= on load, not a re-render. */
@@ -148,8 +148,9 @@ check(
   check(
     /* Changed on purpose (round T): the pill row is gone. Under 1024px Settings opens on a list of its sections in their groups, and a row opens one. */
     /* Changed on purpose (round V, the owner): the pill row is back under 1024px, in the groups' order, and the list of rows is gone. */
-    "under 1024px a row of pills in the groups' order, held at the top; no list of rows",
-    !/data-settings-tab-fill=""/.test(settings) && /data-settings-tabs=""/.test(settings) && /className="sticky top-0 z-\[4\]/.test(settings) && !/data-settings-list=""/.test(settings),
+    /* Changed on purpose (the owner: "the pill shapes how it was"): the pills as before the sheet, each with its own fill that fades in place, centred on a press. */
+    "under 1024px a row of pills in the groups' order, the pressed one centred; no list of rows",
+    /data-settings-tab-fill=""/.test(settings) && /data-settings-tabs=""/.test(settings) && /pill\.offsetLeft - \(row\.clientWidth - pill\.offsetWidth\) \/ 2/.test(settings) && !/data-settings-list=""/.test(settings),
   )
   check(
     "no tab is scaled under the finger, and the selected tab is announced",

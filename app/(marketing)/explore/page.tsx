@@ -91,19 +91,28 @@ async function personalizationOn(
 /** What the grid shows of a product. */
 const PRODUCT_COLUMNS =
   "id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average"
-/** Its creator and their face, the same fields the two separate reads asked for. */
-const CREATOR_EMBED = "creator:creators(id, user_id, slug, niche_tags, profile:profiles!creators_user_id_fkey(id, display_name, avatar_url, username))"
+/**
+ * ITS CREATOR, EMBEDDED ON products.creator_id (the key checkout embeds on).
+ * Not their face: creators.user_id points at auth.users, not at profiles,
+ * so there is no key between creators and profiles for PostgREST to follow,
+ * and an embed of profiles on creators_user_id_fkey was refused on every load ("Could not
+ * find a relationship between 'creators' and 'profiles' in the schema
+ * cache", 750 times in a week), after which the page read everything again
+ * in three steps. The faces are one read by user id, beside the others.
+ */
+const CREATOR_EMBED = "creator:creators(id, user_id, slug, niche_tags)"
+/** The face a card draws, the same fields the separate read always asked for. */
+const PROFILE_FIELDS = "id, display_name, avatar_url, username"
 
 type Supabase = Awaited<ReturnType<typeof createClient>>
 
 /*
-  THE CATALOGUE IN ONE ROUND TRIP. The products, then their creators, then
-  the creators' profiles were three reads in a row, each waiting for the one
-  before; the creator and the profile are embedded in the products' read now
-  (the same foreign keys lib/security/public-columns names), so the grid
-  waits for one answer. Should the embedded read ever be refused (a renamed
-  key, a policy on the join), the three reads below it are the fallback and
-  the page is exactly what it was.
+  THE CATALOGUE IN TWO ROUND TRIPS, NEITHER OF THEM REFUSED. The products with
+  their creators in one read; then, together, the creators' faces, the
+  products their creators took off Explore and the membership intervals. It
+  was a refused read, then products, creators and profiles one after another.
+  Should the creators embed ever be refused (a renamed key), the products are
+  read alone and the creators beside the faces, so the page is never empty.
 */
 async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any[]> {
   const read = (columns: string) =>
@@ -120,38 +129,49 @@ async function readCatalog(supabase: Supabase, searchQuery: string): Promise<any
   let { data: products, error } = (await read(`${PRODUCT_COLUMNS}, ${CREATOR_EMBED}`)) as { data: any[] | null; error: { message: string } | null }
   let embedded = !error
   if (error) {
-    console.error("[ExplorePage] Embedded catalogue read refused, reading in three steps:", error.message)
+    console.error("[ExplorePage] Creators embed refused, reading them on their own:", error.message)
     ;({ data: products, error } = (await read(PRODUCT_COLUMNS)) as { data: any[] | null; error: { message: string } | null })
     embedded = false
   }
   if (error) console.error("[ExplorePage] Products error:", error.message)
   if (!products || products.length === 0) return []
+
+  const one = (c: any) => (Array.isArray(c) ? c[0] ?? null : c ?? null)
+  /* The creators, embedded; only on a refused embed a read of their own. */
+  const creatorsPromise: Promise<any[]> = embedded
+    ? Promise.resolve(products.map((p) => one(p.creator)).filter(Boolean))
+    : (async () => {
+        const ids = [...new Set(products!.map((p) => p.creator_id).filter(Boolean))]
+        if (!ids.length) return []
+        const { data } = await supabase.from("creators").select("id, user_id, slug, niche_tags").in("id", ids)
+        return data || []
+      })()
+  const profilesPromise = creatorsPromise.then(async (creators) => {
+    const userIds = [...new Set(creators.map((c) => c.user_id).filter(Boolean))]
+    if (!userIds.length) return [] as any[]
+    const { data } = await supabase.from("profiles").select(PROFILE_FIELDS).in("id", userIds)
+    return (data || []) as any[]
+  })
+  /* A yearly only membership says "/year" on its card (lib/memberships/intervals). */
+  const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
   /* Settings › Sales channels: a product its creator took off Explore is not here. */
-  const offExplore = await offChannelAmong(createAdminClient(), products.map((p) => p.id), "marketplace")
+  const together = Promise.all([
+    offChannelAmong(createAdminClient(), products.map((p) => p.id), "marketplace"),
+    creatorsPromise,
+    profilesPromise,
+    intervalsPromise,
+  ])
+  const [offExplore, creators, profiles, intervals] = await together
   if (offExplore.size) products = products.filter((p) => !offExplore.has(p.id))
 
-  /* A yearly only membership says "/year" on its card (lib/memberships/intervals); asked beside the creators. */
-  const intervalsPromise = planIntervals(supabase, products.filter((p) => p.type === "membership").map((p) => p.id))
-
-  let creatorOf: (p: any) => any = (p) => {
-    const c = Array.isArray(p.creator) ? p.creator[0] : p.creator
-    if (!c) return null
-    const profile = Array.isArray(c.profile) ? c.profile[0] ?? null : c.profile ?? null
-    return { ...c, profile }
-  }
-  if (!embedded) {
-    const ids = [...new Set(products.map((p) => p.creator_id).filter(Boolean))]
-    const { data: creators } = ids.length ? await supabase.from("creators").select("id, user_id, slug, niche_tags").in("id", ids) : { data: [] as any[] }
-    const userIds = (creators || []).map((c) => c.user_id).filter(Boolean)
-    const { data: profiles } = userIds.length ? await supabase.from("profiles").select("id, display_name, avatar_url, username").in("id", userIds) : { data: [] as any[] }
-    creatorOf = (p) => {
-      const creator = (creators || []).find((c) => c.id === p.creator_id)
-      const profile = creator ? (profiles || []).find((x) => x.id === creator.user_id) ?? null : null
-      return creator ? { ...creator, profile } : null
-    }
+  const creatorById = new Map(creators.map((c) => [c.id, c]))
+  const profileById = new Map(profiles.map((x) => [x.id, x]))
+  const creatorOf = (p: any) => {
+    const creator = creatorById.get(p.creator_id) ?? one(p.creator)
+    if (!creator) return null
+    return { ...creator, profile: profileById.get(creator.user_id) ?? null }
   }
 
-  const intervals = await intervalsPromise
   return products.map((product) => ({
     ...product,
     ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),

@@ -164,9 +164,10 @@ console.log("\n5. THE FIRST TAP ON A PILL")
   check("a drift past the slop is a scroll", !isTap({ x: 10, y: 10, t: 0 }, 10 + TAP_SLOP_PX + 1, 10, 120))
   check("a long press is the platform's", !isTap({ x: 10, y: 10, t: 0 }, 10, 10, TAP_MAX_MS + 1))
   check("no pointer down, no tap", !isTap(null, 0, 0, 0))
-  check("each pill answers on the lift, through the shared hook", /useFirstTap<HTMLAnchorElement>/.test(tabs) && /onPointerUp=\{tap\.onPointerUp\}/.test(tabs) && /onPointerCancel=\{tap\.onPointerCancel\}/.test(tabs))
+  check("each pill answers on the lift, through the shared hook", /useFirstTap<HTMLAnchorElement>/.test(tabs) && /onPointerUp=\{(tap\.onPointerUp|\(e\) => \{\s*releasePill\(e\.currentTarget\)\s*tap\.onPointerUp\(e\))/.test(tabs) && /onPointerCancel=\{(tap\.onPointerCancel|\(e\) => \{\s*releasePill\(e\.currentTarget\)\s*tap\.onPointerCancel\(\))/.test(tabs))
   check("a tap moves through the router with no scroll, a mouse click stays the Link's own", /router\.push\(tab\.href, \{ scroll: false \}\)/.test(tabs) && /return false/.test(tabs))
-  check("the label never takes the finger from the pill", /className="pointer-events-none relative">\{label\}/.test(tabs))
+  /* Round 17: the words are the shared PILL_WORDS layer (lib/ui/pill-switch.ts), pointer-events-none as before. */
+  check("the label never takes the finger from the pill", /className=\{`\$\{PILL_WORDS\} [^`]*`\}>\{label\}/.test(tabs) && /PILL_WORDS =\s*"pointer-events-none /.test(readCode("lib/ui/pill-switch.ts")))
   check("the browser's click after a tap is swallowed, never a second move", /CLICK_ECHO_MS/.test(readCode("lib/navigation/first-tap.ts")) && /e\.preventDefault\(\)\s*return/.test(readCode("lib/navigation/first-tap.ts")))
   check("a tap that is the second half of a back's double tap is not a pill press", /if \(backInFlight\(\)\) return/.test(readCode("lib/navigation/first-tap.ts")))
 }
