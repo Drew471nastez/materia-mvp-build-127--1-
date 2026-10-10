@@ -50,6 +50,7 @@ import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { useCommunityNavigator } from "@/lib/communities/client/navigator"
 import {
   activityVerb,
+  fullPageHref,
   postEditHref,
   type MemberProfileData,
   type ProfileActivityView,
@@ -94,12 +95,6 @@ const monthYear = (iso: string | null) => {
   if (!iso) return null
   const d = new Date(iso)
   return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" })
-}
-
-/** The full page's address from inside a community: it carries the way back to this very place. */
-export function fullPageHref(pageHref: string, slug: string, profileRef: string): string {
-  const back = `/community/${slug}?profile=${encodeURIComponent(profileRef)}`
-  return `${pageHref}?${new URLSearchParams({ from: "community", back })}`
 }
 
 /** The clock for times: the server's on the first render (so hydration agrees), then this device's. */
@@ -493,7 +488,7 @@ type SelfTab = "posts" | "activity"
 
 /**
  * Posts and Activity, both mounted, one shown: switching is a class, never a
- * read. The fill under the chosen tab moves on transform alone (200ms, the
+ * read. The fill under the chosen tab moves on translate alone (200ms, the
  * tab bar's curve), and reduced motion has it simply there.
  */
 function SelfTabs({ tab, onTab }: { tab: SelfTab; onTab: (t: SelfTab) => void }) {

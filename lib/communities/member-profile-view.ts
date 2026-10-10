@@ -155,12 +155,18 @@ export function ownPostRights(input: {
   const canDelete = mine && open && inIt
   const muted = !!member?.muted_until && Date.parse(member.muted_until) > now
   const archived = community.status === "archived" || !!community.archived_at
-  return { canDelete, canEdit: canDelete && !muted && !archived }
+  return { canEdit: canDelete && !muted && !archived, canDelete }
 }
 
 /** Where a post opens with its editor (the post page opens its composer on ?edit=1). */
 export function postEditHref(href: string): string {
   return `${href}${href.includes("?") ? "&" : "?"}edit=1`
+}
+
+/** A person's full page from inside a community: it carries the way back to this very place (lib/profile/back communityBackTarget reads it). */
+export function fullPageHref(pageHref: string, slug: string, profileRef: string): string {
+  const back = `/community/${slug}?profile=${encodeURIComponent(profileRef)}`
+  return `${pageHref}?${new URLSearchParams({ from: "community", back })}`
 }
 
 /** "Commented on", "Joined", ... : the verb of an activity line. */

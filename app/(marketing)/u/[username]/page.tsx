@@ -42,7 +42,8 @@ import { missingColumn } from "@/lib/reviews/store"
 import { headers } from "next/headers"
 import { ProfileSocial } from "@/components/profile/profile-social"
 import { ProfileTopBar, TopBarBack } from "@/components/profile/profile-top-bar"
-import { cameFromElsewhere, refererPath } from "@/lib/profile/back"
+import { ProfileArrival } from "@/components/profile/profile-arrival"
+import { cameFromElsewhere, communityBackTarget, refererPath } from "@/lib/profile/back"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { profileShareImageUrl, profileShareVersion } from "@/lib/profile/profile-seo"
 import type { ActionScheme } from "@/components/profile/follow-button"
@@ -151,7 +152,7 @@ export const dynamic = "force-dynamic"
 
 interface StorefrontPageProps {
   params: Promise<{ username: string }>
-  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string }>
+  searchParams: Promise<{ src?: string; embedded?: string; scheme?: string; from?: string; back?: string }>
 }
 
 export async function generateMetadata({ params }: StorefrontPageProps) {
@@ -352,7 +353,7 @@ export async function generateMetadata({ params }: StorefrontPageProps) {
 
 export default async function StorefrontPage({ params, searchParams }: StorefrontPageProps) {
   const { username } = await params
-  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from } = await searchParams
+  const { src, embedded: embeddedParam, [SCHEME_PREVIEW_PARAM]: schemeParam, from, back } = await searchParams
   /**
    * Inside /creator-page this page IS the editor, so the controls that
    * would take somebody to the editor have nowhere to go, and links into /app
@@ -614,7 +615,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const requestHost = (requestHeaders.get("host") || "").toLowerCase()
   const ownPaths = [`/${username}`, `/u/${username}`, ...(profile.username ? [`/${profile.username}`, `/u/${profile.username}`, `/@${profile.username}`] : [])]
   if (requestHost && !/^(www\.)?storelib\.com$|^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(requestHost)) ownPaths.push("/")
-  const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
+  /* Opened from a person's profile inside a community: the way back lands there even with nothing behind (lib/profile/back communityBackTarget). */
+  const backTarget = communityBackTarget(back)
+  const backShown = !!backTarget || from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
   /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
   const offPage = catalogue && catalogue.length ? await offChannel(createAdminClient(), creator.id, "creator_page") : new Set<string>()
@@ -1154,7 +1157,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           only the default.
         */}
         <div
-          className="min-h-screen overflow-x-hidden"
+          /* clip, not hidden: hidden makes this a scroll box of its own, and the top bar's sticky would stick to it rather than the window. */
+          className="min-h-screen overflow-x-clip"
           /* The element a scheme press repaints before the render lands (scheme-preview). */
           data-storefront-root=""
           /**
@@ -1189,6 +1193,8 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
           helper the header itself calls: one character of difference and this
           downloads the avatar a second time and shows it no sooner.
         */}
+        {/* Arriving from a community: a native push, and the cover only once it is whole (round 15, components/profile/profile-arrival). */}
+        <ProfileArrival />
         {/* No bar above the cover (lib/storefront/subscribe-bar-visibility.ts), so the way back is this slim one, in the scheme's colours. */}
         {!embedded && !showsSubscribeBar() ? (
           <ProfileTopBar
@@ -1197,6 +1203,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
             avatarUrl={profile.avatar_url ?? null}
             colors={{ background: chrome.bar.backgroundColor, text: chrome.bar.textColor }}
             width="max-w-[1150px]"
+            fallback={backTarget ?? undefined}
           />
         ) : null}
 
@@ -1492,7 +1499,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         </>
       )}
       <div
-        className="min-h-screen overflow-x-hidden"
+        className="min-h-screen overflow-x-clip"
         style={{ background: STOREFRONT_PAGE_BACKGROUND }}
       >
         <CaptureTouch creatorId={creator.id} property="creator_page" />
@@ -1516,8 +1523,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
         renderer passes no editor callbacks, so nothing editor-only leaks onto a
         public page.
       */}
+      <ProfileArrival />
       {!embedded && !showsSubscribeBar() ? (
-        <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" />
+        <ProfileTopBar initiallyShown={backShown} name={profile.display_name || username} avatarUrl={profile.avatar_url ?? null} width="max-w-[1150px]" fallback={backTarget ?? undefined} />
       ) : null}
       <ShopHeaderRenderer
         settings={defaultShopHeaderSettings}

@@ -469,7 +469,8 @@ async function main() {
     check("not from anywhere else", !cameFromBrowsing("/library") && !cameFromBrowsing("/communityx") && !cameFromBrowsing(null))
     check("the referer counts only on our own host", refererPath("https://storelib.com/community/x", "storelib.com") === "/community/x" && refererPath("https://evil.example/community/x", "storelib.com") === null)
     const bar = read("components/profile/profile-top-bar.tsx")
-    check("history back with Explore as the fallback", /backThen\(\(\) => router\.push\(fallback\)\)/.test(bar) && /fallback = "\/explore"/.test(bar))
+    /* Round 15: with nothing of ours behind the arrow goes straight to the fallback (the community it came from), never a dead back. */
+    check("history back when a page of ours is behind, else straight to the fallback (Explore unless a community is named)", /goBackOr\(fallback, \(href\) => router\.push\(href\)\)/.test(bar) && /fallback = "\/explore"/.test(bar))
     /* "The back control lives in the top bar next to the person's avatar ... not as a pill under it." */
     check("the way back is a chevron in a top bar, never a pill", /export function TopBarBack/.test(bar) && /export function ProfileTopBar/.test(bar) && /aria-label="Back"/.test(bar) && !/>\s*Back\s*</.test(bar))
     /* Round 12: the slim bar is a person's page's own top bar too, drawn always; the chevron goes in front only when they came from somewhere. */
