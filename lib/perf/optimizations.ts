@@ -52,4 +52,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     note:
       "The published install, its settings, the product and home pages' sections and the section files only change on Publish, and were read again for every visitor. They are held with the site under its publish tag now (lib/website-builder/product-page-theme.ts, ownerOf), and the product's pricing comes from its own row. The product, its options, stock and files are still read fresh per visit. Server time to the answer at 20ms a round trip: 126ms to 53ms (5 waves to 2).",
   },
+  {
+    id: "site-collection-members-held",
+    title: "A collection page on a creator's website asks the database nothing per visit instead of 3 times",
+    area: "storefront",
+    shippedAt: "2026-10-10",
+    before: { metric: "database round trips per collection page visit on a website", value: 3, unit: "queries" },
+    after: { metric: "database round trips per collection page visit on a website", value: 0, unit: "queries" },
+    note: "The collection, the shop's products and the collection's members are held with the shop for its minute, under its tag (lib/website-builder/collection-members.ts), like the cards and sections on the same page already were. Server time to the answer at 20ms a round trip: 72ms to 14ms.",
+  },
 ]

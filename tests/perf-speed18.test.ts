@@ -182,9 +182,38 @@ async function productPageTheme() {
   check("a failed read of the files is thrown and nothing is held", !!failedFiles.error && !nextCache.cacheEntries().some((e) => e.key.includes("section-sources")))
 }
 
+async function collectionPages() {
+  section("A collection page's members are held with the shop (lib/website-builder/collection-members.ts)")
+  const { collectionMembers } = await import("@/lib/website-builder/collection-members")
+  const { creatorShopTag } = await import("@/lib/website-builder/published-site")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const first = await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
+  const again = await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
+  const mayaIds = new Set(fixture.tables.products.filter((p) => p.creator_id === SITE.creatorId).map((p) => p.id))
+  check("read once, then held for the next visitor", first.foreground === 3 && again.foreground === 0 && (first.value?.productIds.length ?? 0) > 0, [first.foreground, again.foreground])
+  check("only the shop's own products are members", (first.value?.productIds ?? []).every((id) => mayaIds.has(id)))
+  const crossed = await visit(() => collectionMembers(OTHER.creatorId, "maya-best"))
+  check("another shop asking for Maya's handle finds nothing", crossed.value === null)
+  const missing1 = await visit(() => collectionMembers(SITE.creatorId, "no-such-collection"))
+  const missing2 = await visit(() => collectionMembers(SITE.creatorId, "no-such-collection"))
+  check("a collection that is not there is asked again, never held as a 404", missing1.value === null && missing2.foreground > 0)
+  const held = nextCache.cacheEntries().filter((e) => e.key.includes("collection-members"))
+  check("held under the shop's tag, keyed by creator and handle", held.length === 1 && held[0].tags[0] === creatorShopTag(SITE.creatorId) && held[0].key.includes(SITE.creatorId) && held[0].key.includes("maya-best"))
+  /* A product leaves the collection; the shop tag (a deleted product, lib/products/forget-product.ts) or the minute clears it. */
+  fixture.tables.product_collection_items = fixture.tables.product_collection_items.filter((i) => i.product_id !== first.value?.productIds[0])
+  nextCache.clock.advance(61_000)
+  await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
+  await settle()
+  const later = await visit(() => collectionMembers(SITE.creatorId, "maya-best"))
+  check("within the shop's minute the page lists what the collection holds now", !later.value?.productIds.includes(first.value!.productIds[0]))
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
+  await collectionPages()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
