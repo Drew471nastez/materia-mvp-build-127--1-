@@ -39,7 +39,7 @@ import "server-only"
 
 import { cleanEmail, CODE_TTL_MS, mintPending, mintSession, readPending } from "./token"
 import { checkCode, issueCode } from "./codes"
-import { findOrCreateCustomer } from "./customers"
+import { cleanName, findOrCreateCustomer, renameCustomer } from "./customers"
 import { codeEmail } from "./code-email"
 import type { Db } from "./db"
 
@@ -63,7 +63,13 @@ export type SignInRefusal = "email" | "site" | "limit" | "unavailable" | "send" 
 
 export type RequestResult = { ok: true; pending: string; email: string } | { ok: false; why: SignInRefusal }
 
-export async function requestCode(input: { host: string; email: unknown; returnPath: string }, deps: SignInDeps): Promise<RequestResult> {
+/**
+ * `name` is what a theme's Create account form asked for (first and last
+ * name). It rides in the signed note, never in the database, until the code
+ * proves the email; then it becomes the new account's name. An account that
+ * already has a name keeps it: nobody renames an account by asking for a code.
+ */
+export async function requestCode(input: { host: string; email: unknown; returnPath: string; name?: unknown }, deps: SignInDeps): Promise<RequestResult> {
   const now = deps.now ?? Date.now()
   const email = cleanEmail(input.email)
   if (!email) return { ok: false, why: "email" }
@@ -79,7 +85,8 @@ export async function requestCode(input: { host: string; email: unknown; returnP
   const sent = await deps.send({ to: email, ...mail }).catch(() => ({ success: false }))
   if (!sent.success) return { ok: false, why: "send" }
 
-  const pending = mintPending({ codeId: issued.codeId, email, creatorId: owner.creatorId, host: input.host, returnPath: input.returnPath }, now)
+  const name = cleanName(input.name) || null
+  const pending = mintPending({ codeId: issued.codeId, email, creatorId: owner.creatorId, host: input.host, returnPath: input.returnPath, name }, now)
   if (!pending) return { ok: false, why: "unavailable" }
   return { ok: true, pending, email }
 }
@@ -101,6 +108,10 @@ export async function verifyCode(input: { host: string; pending: string | null; 
 
   const found = await findOrCreateCustomer(deps.db, { creatorId: owner.creatorId, email: checked.email }, now)
   if (found.ok === false) return { ok: false, why: found.why }
+
+  /* The name from a Create account form, for an account that has none yet. */
+  const named = note.n ? cleanName(note.n) : null
+  if (named && !(found.customer.name ?? "").trim()) await renameCustomer(deps.db, { customerId: found.customer.id, creatorId: owner.creatorId }, named).catch(() => false)
 
   const session = mintSession({ customerId: found.customer.id, creatorId: owner.creatorId, host: input.host }, now)
   if (!session) return { ok: false, why: "unavailable" }

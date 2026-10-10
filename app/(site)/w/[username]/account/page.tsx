@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic"
 interface PageProps {
   params: Promise<{ username: string }>
   /** `edit=name` opens the name for changing; `profile=` is how the save went. */
-  searchParams: Promise<{ profile?: string; edit?: string }>
+  searchParams: Promise<{ profile?: string; edit?: string; deleted?: string }>
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -49,7 +49,7 @@ export default async function SiteAccountPage({ params, searchParams }: PageProp
   return renderAccountPage(username, "account", {
     customer: account as unknown as Record<string, unknown>,
     wishlist: wishlistObject(cards, true),
-    notice: sp.profile === "saved" ? "Saved." : sp.profile === "error" ? "That name could not be saved. Try again." : null,
+    notice: sp.profile === "saved" ? "Saved." : sp.profile === "error" ? "That name could not be saved. Try again." : sp.deleted === "no" ? "Your account could not be deleted. Try again." : null,
     edit: sp.edit === "name" ? "name" : null,
   })
 }

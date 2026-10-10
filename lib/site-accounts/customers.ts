@@ -100,3 +100,27 @@ export async function renameCustomer(db: Db, scope: { customerId: string; creato
     return false
   }
 }
+
+/**
+ * DELETES THE CUSTOMER'S OWN ACCOUNT ON THIS WEBSITE, and nothing else. The
+ * row goes, and with it what they saved (site_customer_wishlist cascades)
+ * and any sign in code still waiting for their email here. Their orders stay
+ * with the creator, the way a shop keeps its sales records when a customer
+ * closes their account: the receipts were sent to the email, not to the
+ * account. Signing in again with the same email makes a new, empty account.
+ */
+export async function deleteCustomer(db: Db, scope: { customerId: string; creatorId: string }): Promise<boolean> {
+  if (!UUID.test(scope.customerId) || !UUID.test(scope.creatorId)) return false
+  try {
+    const found = await customerById(db, scope)
+    if (!found) return false
+    /* Also gone by the foreign key's cascade; said here too, so it never rests on that alone. */
+    await db.from("site_customer_wishlist").delete().eq("customer_id", scope.customerId)
+    const { data, error } = await db.from(CUSTOMERS).delete().eq("id", scope.customerId).eq("creator_id", scope.creatorId).select("id")
+    if (error || !Array.isArray(data) || data.length !== 1) return false
+    await db.from("site_customer_codes").delete().eq("creator_id", scope.creatorId).eq("email", found.email)
+    return true
+  } catch {
+    return false
+  }
+}

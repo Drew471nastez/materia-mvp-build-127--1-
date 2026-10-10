@@ -121,6 +121,8 @@ export const SITE_ROUTES = Object.freeze({
   account_verify_url: "/api/site-account/verify",
   /** POST `name`: the signed-in customer's name. */
   account_profile_url: "/api/site-account/profile",
+  /** POST `confirm=delete`: deletes the signed-in customer's own account on this website. */
+  account_delete_url: "/api/site-account/delete",
   account_logout_url: "/account/logout",
   /** The password page a website shows while it asks for a password. */
   password_url: "/password",

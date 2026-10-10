@@ -111,6 +111,21 @@
           </a>
         </div>
       {% endif %}
+
+      {# Closing the account, the way a shop's own account page offers it:
+         a quiet link at the end that opens one sentence and one button, so
+         it takes two presses and no script. The button posts the session's
+         own account to the delete route; nothing in the form names it. #}
+      {% if settings.show_delete %}
+        <details class="acct__block del" id="delete">
+          <summary class="acct__link">{{ settings.delete_label }}</summary>
+          <p class="acct__empty">{{ settings.delete_text }}</p>
+          <form class="del__form" method="post" action="{{ routes.account_delete_url }}" data-storelib-form="native">
+            <input type="hidden" name="confirm" value="delete">
+            <button class="s__btn s__btn--secondary" type="submit">{{ settings.delete_confirm }}</button>
+          </form>
+        </details>
+      {% endif %}
     {% else %}
       {# Nobody signed in. The live page sends them to sign in before it gets
          here; this is what the page says if it is ever drawn without them. #}
@@ -214,6 +229,9 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
   border-bottom: 1px solid var(--s-border); text-decoration: none;
 }
 .entry__text { font-size: var(--section-text-size, 15px); color: var(--s-heading); }
+.del > summary { list-style: none; color: var(--s-para); }
+.del > summary::-webkit-details-marker { display: none; }
+.del__form { margin: 16px 0 0; max-width: 320px; }
 .entry__go { font-size: 15px; font-weight: 500; color: var(--s-heading); text-decoration: underline; text-underline-offset: 4px; }
 
 .s__btn {
@@ -271,6 +289,11 @@ a.item__row:hover .item__title { text-decoration: underline; text-underline-offs
     { "type": "text", "id": "wishlist_saved", "label": "After the count", "default": "saved" },
     { "type": "text", "id": "wishlist_empty", "label": "When there are none", "default": "Nothing saved yet." },
     { "type": "text", "id": "wishlist_link", "label": "Link to the Wishlist", "default": "View" },
+    { "type": "header", "id": "hdr_delete", "label": "Delete account" },
+    { "type": "toggle", "id": "show_delete", "label": "Let customers delete their account", "default": true },
+    { "type": "text", "id": "delete_label", "label": "Link", "default": "Delete account" },
+    { "type": "text", "id": "delete_text", "label": "Line", "default": "This deletes your account and saved items on this website. Your past orders stay with the store." },
+    { "type": "text", "id": "delete_confirm", "label": "Button", "default": "Delete my account" },
     { "type": "header", "id": "hdr_signed_out", "label": "Signed out" },
     { "type": "text", "id": "signed_out_text", "label": "Line", "default": "Sign in to see your orders and saved items." },
     { "type": "text", "id": "signin_label", "label": "Button", "default": "Sign in" },
