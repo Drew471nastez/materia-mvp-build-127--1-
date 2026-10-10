@@ -93,7 +93,7 @@ async function main() {
     check("  a custom physical one stays out while physical commerce is off", !applyCatalogOverrides(visibleIntegrations(false), rows.filter((r): r is NonNullable<typeof r> => !!r), false).some((i) => i.id === "sendcloud"))
     check("  an icon is an https image or a file of ours, never a script address", safeLogoUrl("javascript:alert(1)") === null && safeLogoUrl("/integrations/x.svg") === "/integrations/x.svg" && safeLogoUrl("http://x.com/a.png") === null)
     const ui = read("components/app/settings/integrations-directory.tsx")
-    check("the directory: real statuses, Storelib's own mark, Tell me when it's ready, Back where you were", /function StatusBadge/.test(ui) && /data-integration-mark="storelib"/.test(ui) && /Tell me when it's ready/.test(ui) && /listScroll\.current/.test(ui) && /integration-grid-in/.test(ui))
+    check("the directory: real statuses, Storelib's own mark, Tell me when it's ready, Back where you were", /function StatusBadge/.test(ui) && /data-integration-mark="storelib"/.test(ui) && /Tell me when it's ready/.test(ui) && /listScroll\.current/.test(ui) && /data-integration-grid=""/.test(ui) && !/active:scale/.test(ui))
     const req = read("app/api/store/integrations/request/route.ts")
     check("a request says sent only once it is kept, and never shows a store the SQL part", /return physicalJson\(\{ ok: true \}\)/.test(req) && !/Run SQL part/.test(req) && /already: true/.test(req))
     const admin = read("app/api/admin/integrations/route.ts")

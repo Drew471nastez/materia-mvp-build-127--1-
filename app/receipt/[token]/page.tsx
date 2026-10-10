@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
+import { physicalOrderPageFor } from "@/lib/receipts/physical-order"
 import { headers } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -10,6 +11,8 @@ import { invoiceForReceipt } from "@/lib/checkout/invoice"
 import type { ReceiptViewer } from "@/lib/receipts/view"
 import { getStoreUrl } from "@/lib/url-helpers"
 import { ReceiptView } from "./receipt-view"
+import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
+import { appUrl } from "@/lib/notify/urls"
 
 export const dynamic = "force-dynamic"
 
@@ -44,6 +47,9 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
   if (!isPlausibleToken(token)) notFound()
 
   const admin = createAdminClient()
+  /* A thing that ships is followed on its order page (status, delivery, tracking, returns), never a download receipt (lib/receipts/physical-order.ts). */
+  const orderPage = await physicalOrderPageFor(admin, token)
+  if (orderPage) redirect(orderPage)
   const loaded = await loadReceiptByToken(admin, token)
   if (!loaded) notFound()
 
@@ -77,5 +83,8 @@ export default async function ReceiptPage({ params }: { params: Promise<{ token:
   }
 
   const storeHref = receipt.seller.username ? getStoreUrl(receipt.seller.username) : null
-  return <ReceiptView receipt={receipt} viewer={viewer} locale={locale} storeHref={storeHref} />
+  /* Get help with this order: offered once the tables exist, with the open case when there is one. */
+  const [ready, open] = await Promise.all([casesReady(admin), openCaseFor(admin, { orderId: receipt.primary.orderId })])
+  const help = ready ? { openCase: open ? { link: buyerCaseLink(appUrl("/").replace(/\/$/, ""), open.id), status: open.status } : null } : null
+  return <ReceiptView receipt={receipt} viewer={viewer} locale={locale} storeHref={storeHref} help={help} />
 }

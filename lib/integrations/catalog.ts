@@ -232,16 +232,25 @@ function fromProvider(p: ProviderInfo): Integration {
  * yet. "Tell me when it's ready" is a request, counted in /admin, so the
  * order they are built in follows what stores ask for.
  */
-const LISTED: { id: string; name: string; category: IntegrationCategory; physical: boolean; summary: string; about: string; docsUrl: string }[] = [
+const LISTED: { id: string; name: string; category: IntegrationCategory; physical: boolean; summary: string; about: string; docsUrl: string; logo?: string }[] = [
+  { id: "aftership", name: "AfterShip", category: "shipping", physical: true, logo: "/integrations/aftership.svg", summary: "A branded tracking page and delivery updates for every parcel.", about: "AfterShip would follow each shipment across carriers and send your buyers branded delivery updates and a tracking page.", docsUrl: "https://www.aftership.com/docs" },
+  { id: "easyship", name: "Easyship", category: "shipping", physical: true, summary: "Compare carriers and print discounted labels, with duties shown at checkout.", about: "Easyship would compare rates from many carriers, print labels at its discounted prices and work out duties and taxes for orders going abroad.", docsUrl: "https://developers.easyship.com/" },
+  { id: "sendcloud", name: "Sendcloud", category: "shipping", physical: true, summary: "Labels from European carriers, shipping rules and a returns portal.", about: "Sendcloud would print labels from European carriers in bulk, apply your shipping rules and give buyers a returns portal.", docsUrl: "https://api.sendcloud.dev/" },
+  { id: "bigbuy", name: "BigBuy", category: "dropshipping", physical: true, summary: "A European wholesaler that ships from Spain, fast across the EU.", about: "BigBuy would supply products from its warehouse in Spain and ship your orders across Europe under your store's name.", docsUrl: "https://api.bigbuy.eu/" },
+  { id: "dropified", name: "Dropified", category: "dropshipping", physical: true, summary: "Import products from many suppliers and order them in one click.", about: "Dropified would import products from AliExpress, eBay and private label suppliers and place your orders with them in one click.", docsUrl: "https://www.dropified.com/" },
+  { id: "prodigi", name: "Prodigi", category: "print_on_demand", physical: true, summary: "Gallery quality art prints, framed prints and photo books.", about: "Prodigi would print your art prints, framed prints, canvases and photo books in its labs in the UK, Europe, the US and Australia and ship them to your buyers.", docsUrl: "https://www.prodigi.com/print-api/docs/" },
+  { id: "hotjar", name: "Hotjar", category: "analytics", physical: false, logo: "/integrations/hotjar.svg", summary: "Heatmaps, recordings and quick surveys on your website.", about: "Hotjar would load on your website to show where visitors click and scroll, record sessions, and ask short on-page surveys.", docsUrl: "https://help.hotjar.com/" },
+  { id: "snapchat-pixel", name: "Snapchat Pixel", category: "advertising", physical: false, logo: "/integrations/snapchat.svg", summary: "Measure and retarget your Snapchat ads.", about: "The Snap Pixel would load on your website and report page views and purchases to Snapchat Ads Manager, for audiences and conversion tracking.", docsUrl: "https://businesshelp.snapchat.com/s/article/snap-pixel-about" },
+  { id: "reddit-pixel", name: "Reddit Pixel", category: "advertising", physical: false, logo: "/integrations/reddit.svg", summary: "Track conversions and build audiences for Reddit ads.", about: "The Reddit Pixel would load on your website and report page views and purchases to Reddit Ads, so you can measure campaigns and retarget visitors.", docsUrl: "https://business.reddithelp.com/s/article/Install-the-Reddit-Pixel-on-your-website" },
   { id: "dsers", name: "DSers", category: "dropshipping", physical: true, summary: "AliExpress products, orders placed with the supplier in bulk.", about: "DSers imports products from AliExpress and places your orders with the supplier for you.", docsUrl: "https://www.dsers.com/" },
   { id: "zendrop", name: "Zendrop", category: "dropshipping", physical: true, summary: "US and global suppliers with fast shipping and custom packaging.", about: "Zendrop finds suppliers, fulfils orders and can add your own packaging.", docsUrl: "https://www.zendrop.com/" },
   { id: "spocket", name: "Spocket", category: "dropshipping", physical: true, summary: "Suppliers in the US and Europe, shipped straight to your buyer.", about: "Spocket lists products from suppliers mostly in the US and Europe and ships them to your buyers.", docsUrl: "https://www.spocket.co/" },
   { id: "autods", name: "AutoDS", category: "dropshipping", physical: true, summary: "Product imports, price and stock monitoring, automatic orders.", about: "AutoDS imports products, keeps their price and stock in step with the supplier and orders them automatically.", docsUrl: "https://www.autods.com/" },
   { id: "syncee", name: "Syncee", category: "dropshipping", physical: true, summary: "Wholesale and dropshipping suppliers from one marketplace.", about: "Syncee connects you with wholesale and dropshipping suppliers and keeps their catalogue in sync.", docsUrl: "https://syncee.com/" },
-  { id: "mailchimp", name: "Mailchimp", category: "email", physical: false, summary: "Your subscribers and buyers in your Mailchimp audience.", about: "Mailchimp would receive your Storelib subscribers and buyers in one of your audiences, with their consent.", docsUrl: "https://mailchimp.com/developer/" },
-  { id: "brevo", name: "Brevo", category: "email", physical: false, summary: "Email and SMS campaigns to your Storelib contacts.", about: "Brevo would receive your Storelib contacts for email and SMS campaigns.", docsUrl: "https://developers.brevo.com/" },
-  { id: "zapier", name: "Zapier", category: "automation", physical: false, summary: "Send new orders and subscribers to thousands of apps.", about: "Zapier would start your Zaps from Storelib events: a new order, a new subscriber, a refund.", docsUrl: "https://zapier.com/" },
-  { id: "make", name: "Make", category: "automation", physical: false, summary: "Visual automations started by your store's events.", about: "Make would start your scenarios from Storelib events, like a new order or a new subscriber.", docsUrl: "https://www.make.com/" },
+  { id: "mailchimp", logo: "/integrations/mailchimp.svg", name: "Mailchimp", category: "email", physical: false, summary: "Your subscribers and buyers in your Mailchimp audience.", about: "Mailchimp would receive your Storelib subscribers and buyers in one of your audiences, with their consent.", docsUrl: "https://mailchimp.com/developer/" },
+  { id: "brevo", logo: "/integrations/brevo.svg", name: "Brevo", category: "email", physical: false, summary: "Email and SMS campaigns to your Storelib contacts.", about: "Brevo would receive your Storelib contacts for email and SMS campaigns.", docsUrl: "https://developers.brevo.com/" },
+  { id: "zapier", logo: "/integrations/zapier.svg", name: "Zapier", category: "automation", physical: false, summary: "Send new orders and subscribers to thousands of apps.", about: "Zapier would start your Zaps from Storelib events: a new order, a new subscriber, a refund.", docsUrl: "https://zapier.com/" },
+  { id: "make", logo: "/integrations/make.svg", name: "Make", category: "automation", physical: false, summary: "Visual automations started by your store's events.", about: "Make would start your scenarios from Storelib events, like a new order or a new subscriber.", docsUrl: "https://www.make.com/" },
 ]
 
 function fromListed(l: (typeof LISTED)[number]): Integration {
@@ -249,7 +258,7 @@ function fromListed(l: (typeof LISTED)[number]): Integration {
     id: l.id,
     name: l.name,
     category: l.category,
-    logo: null,
+    logo: l.logo ?? null,
     builtIn: false,
     physical: l.physical,
     kind: "listed",

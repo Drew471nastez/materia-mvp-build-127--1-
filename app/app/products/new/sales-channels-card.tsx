@@ -20,7 +20,15 @@ export interface SalesChannelsHandle {
 
 type Loaded = { channels: Channel[]; defaultKey: string | null; ready: boolean; off: string[] }
 
-export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onChange?: () => void }>(function SalesChannelsCard({ productId, cardClass, titleClass, onChange }, ref) {
+/*
+  THINGS THAT SHIP SELL ON THE ONLINE STORE. The creator page and Explore
+  list downloads, courses and memberships only (they check out with no
+  address), so for a physical product those two are shown as not applying,
+  with the reason, instead of a tick that would do nothing.
+*/
+const DIGITAL_ONLY = new Set(["creator_page", "marketplace"])
+
+export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onChange?: () => void; physical?: boolean }>(function SalesChannelsCard({ productId, cardClass, titleClass, onChange, physical = false }, ref) {
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
   const [on, setOn] = React.useState<Set<string>>(new Set())
   const dirty = React.useRef(false)
@@ -75,20 +83,34 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
     })
     onChange?.()
   }
-  const listedCount = loaded.channels.filter((c) => on.has(channelKey(c))).length
+  const applies = (c: Channel) => !(physical && DIGITAL_ONLY.has(c.kind))
+  const usable = loaded.channels.filter(applies)
+  const listedCount = usable.filter((c) => on.has(channelKey(c))).length
 
   return (
     <div className={cardClass} data-sales-channels="">
       <div>
         <h2 className={titleClass}>Sales channels</h2>
         <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-          {listedCount === 0 ? "Listed nowhere: sold by its link alone." : `Listed on ${listedCount} of ${loaded.channels.length}.`}
+          {listedCount === 0 ? "Listed nowhere: sold by its link alone." : `Listed on ${listedCount} of ${usable.length}.`}
         </p>
       </div>
       <ul className="-mx-1 space-y-0.5">
         {loaded.channels.map((c) => {
           const key = channelKey(c)
           const id = `channel-${key}`
+          if (!applies(c))
+            return (
+              <li key={key} data-channel-not-for-physical={c.kind}>
+                <div className="flex items-start gap-3 rounded-lg px-1 py-2">
+                  <span aria-hidden className="mt-0.5 h-4 w-4 shrink-0 rounded border border-[#e5e7eb] bg-[#f3f4f6]" />
+                  <span className="min-w-0">
+                    <span className="block text-[14px] font-medium leading-5 text-[#9ca3af]">{c.name}</span>
+                    <span className="block text-[12.5px] leading-[18px] text-[#9ca3af]">For downloads, courses and memberships. Things that ship sell on your Online store.</span>
+                  </span>
+                </div>
+              </li>
+            )
           return (
             <li key={key}>
               <label htmlFor={id} className={cn("flex cursor-pointer items-start gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-[#f8f9fa]", !c.enabled && "opacity-60")}>
@@ -107,7 +129,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
       </ul>
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
         Its link works wherever it&apos;s listed.{" "}
-        <Link href="/app/settings?tab=channels" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+        <Link href="/app/settings?tab=channels" prefetch={false} className="font-medium text-[#1a1a2e] underline underline-offset-2">
           Manage channels
         </Link>
       </p>

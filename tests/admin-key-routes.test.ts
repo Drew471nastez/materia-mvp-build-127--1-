@@ -112,6 +112,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "physical/checkout/complete/route.ts": "Stripe's return after paying for a physical order: keyed by the Checkout Session id, which Stripe re-reads and must be paid; it only writes that session's own order once (lib/physical/checkout-server)",
   "physical/order-status/[token]/return/route.ts": "a buyer asking to return items: the order's random receipt token is the credential, rate limited; it only opens a return request the shop then approves",
   "physical/storefront/product/route.ts": "a published physical product's options, prices and whether each can be bought, for its public page; never costs, SKUs, locations or exact stock",
+  "order-help/route.ts": "a buyer opens a case about their order with the order's own receipt token, the key they already hold; the buyer's email comes from the order, never the request, and it is rate limited by address and by email",
+  "order-help/[id]/route.ts": "a buyer reads and writes their own case with its private link's secret, checked against the stored hash; nothing is read or written without it",
   "offers/bundles/route.ts": "the bundles a published product is in, with each item's public title, picture and price, for its public page; only a store's active offers and published products, and the checkout prices the cart again on the server",
   "memberships/confirm/route.ts": "after joining: the subscription's own current client secret, which only the paying page holds, is the credential; it only brings the row up to date from Stripe, rate limited",
 

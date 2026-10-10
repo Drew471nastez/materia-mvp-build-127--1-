@@ -15,7 +15,7 @@
 import * as React from "react"
 import { Globe, Plus, Compass, UserRound, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Card, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 import { MAX_CHANNELS, channelKey, type Channel } from "@/lib/store/channels"
 
 type Setup = { channels: Channel[]; defaultKey: string | null; ready: boolean }
@@ -23,7 +23,7 @@ type Setup = { channels: Channel[]; defaultKey: string | null; ready: boolean }
 const ICON: Record<string, React.ComponentType<{ className?: string }>> = { storefront: Globe, creator_page: UserRound, marketplace: Compass, custom: Tag }
 
 export function ChannelsPanel() {
-  const [setup, setSetup] = React.useState<Setup | null>(null)
+  const [setup, setSetup] = React.useState<Setup | null>(() => peekGet<Setup>("/api/store/channels"))
   const [error, setError] = React.useState<string | null>(null)
   const [editing, setEditing] = React.useState<Channel | "new" | null>(null)
 

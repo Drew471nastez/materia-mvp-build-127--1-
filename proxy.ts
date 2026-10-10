@@ -78,6 +78,8 @@ const RESERVED_PATHS = [
   "/community",
   "/native-start",
   "/receipt",
+  /* A buyer's case about an order (lib/support/cases.ts): a platform page, linked from the platform's emails. */
+  "/order-help",
   /* The page a website cover's screenshot is taken of. A platform surface,
      never a creator's site: on a subdomain or custom domain it must not be
      read as a page of that site. */
@@ -854,9 +856,9 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "access", "account", "account-deletion", "admin", "api", "app", "auth", "blog", "c",
   "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
-  "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase", "receipt",
+  "onboarding", "onepage-preview", "order-help", "p", "pay", "pricing", "privacy", "products", "purchase", "receipt",
   "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
-  "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email",
+  "store-builder", "stripe-done", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
 

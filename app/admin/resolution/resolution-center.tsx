@@ -3,19 +3,22 @@
 import * as React from "react"
 
 import { Banner, Button, Filters, Panel, Placeholder } from "../_console/ui"
+import { BuyerCases } from "./buyer-cases"
 import { PRIORITIES, STATUS_FOR_ADMIN, TOPIC_LABELS, type Priority, type TicketMessage, type TicketStatus, type TicketSummary } from "@/lib/support/tickets"
 
 /**
  * ===========================================================================
  *  RESOLUTION CENTER
  * ===========================================================================
- * Two lists Storelib works through:
+ * Three lists Storelib works through:
  *
  *   Requests   stores asking for help (/app/support, SQL part 114): Needs a
  *              reply first, the most pressing at the top. A request opens
  *              into its thread, with Storelib's internal notes in amber, a
  *              reply box, "Suggest a reply" (a draft from Storelib AI to read
  *              and change, never sent on its own), whose turn and priority.
+ *   Buyer cases  a buyer's problem with an order, once the buyer or the
+ *              store asked Storelib to step in (./buyer-cases.tsx, part 117).
  *   Disputes   every recorded chargeback and inquiry (part 82): the store,
  *              the amount, the reason, the evidence deadline and whether the
  *              store has answered.
@@ -51,7 +54,8 @@ async function call<T>(url: string, init?: { method?: string; body?: unknown }):
 }
 
 export function ResolutionCenter() {
-  const [tab, setTab] = React.useState<"requests" | "disputes">("requests")
+  const [tab, setTab] = React.useState<"requests" | "cases" | "disputes">("requests")
+  const [caseCount, setCaseCount] = React.useState<number | null>(null)
   const [status, setStatus] = React.useState<TicketStatus>("open")
   const [tickets, setTickets] = React.useState<AdminTicket[] | null>(null)
   const [counts, setCounts] = React.useState<Record<TicketStatus, number> | null>(null)
@@ -60,8 +64,11 @@ export function ResolutionCenter() {
   const [note, setNote] = React.useState<Note | null>(null)
 
   React.useEffect(() => {
-    const id = new URLSearchParams(window.location.search).get("ticket")
+    const params = new URLSearchParams(window.location.search)
+    const id = params.get("ticket")
     if (id) setOpenId(id)
+    /* A buyer case linked from the inbox email opens on its own tab. */
+    if (params.get("case")) setTab("cases")
   }, [])
 
   const loadTickets = React.useCallback(async (s: TicketStatus) => {
@@ -107,7 +114,7 @@ export function ResolutionCenter() {
         <div className="mb-5 flex min-w-0 flex-wrap items-end justify-between gap-3">
           <div className="min-w-0">
             <h1 className="text-[20px] font-semibold tracking-[-0.015em] sm:text-[22px]">Resolution center</h1>
-            <p className="mt-0.5 text-[13px] text-[#9b9ba6]">Stores asking for help, and every payment dispute.</p>
+            <p className="mt-0.5 text-[13px] text-[#9b9ba6]">Stores asking for help, buyers' problems with orders, and every payment dispute.</p>
           </div>
           <Filters
             label="Show"
@@ -118,6 +125,7 @@ export function ResolutionCenter() {
             }}
             options={[
               { id: "requests", label: counts ? `Requests (${counts.open})` : "Requests" },
+              { id: "cases", label: caseCount !== null ? `Buyer cases (${caseCount})` : "Buyer cases" },
               { id: "disputes", label: "Disputes" },
             ]}
           />
@@ -131,7 +139,9 @@ export function ResolutionCenter() {
           </div>
         ) : null}
 
-        {tab === "requests" ? (
+        {tab === "cases" ? (
+          <BuyerCases onCount={setCaseCount} />
+        ) : tab === "requests" ? (
           openId ? (
             <TicketView id={openId} onBack={() => openTicket(null)} onNote={setNote} onChanged={() => void loadTickets(status)} />
           ) : (

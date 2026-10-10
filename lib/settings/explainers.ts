@@ -37,7 +37,8 @@ export const EXPLAINERS = {
     lines: [
       "A location is any place that holds your stock: your home, a warehouse, a fulfillment center, or a supplier who ships for you.",
       "Each product's stock is counted per location. When an order comes in, it is assigned to the default location, and its stock goes down there.",
-      "Turn on local pickup for a location and buyers nearby can collect their order there for free.",
+      "Who ships the orders says what happens to an order with items from there: you ship it yourself, or it's emailed to a partner who ships it, and you add their tracking number.",
+      "Turn on local pickup for a location and buyers nearby can collect their order there for free. Your default location's address is where return emails tell buyers to send items.",
     ],
     guide: "/help/physical-products/local-pickup",
   },
@@ -59,6 +60,7 @@ export const EXPLAINERS = {
       "When returns are on, a buyer sees Request a return on their order page for as many days as your return window.",
       "They pick a reason from your list and the items. You get an email and approve or decline it from the order.",
       "Once the items are back, mark them received: you choose whether they go back into stock, and you refund the buyer from the same screen.",
+      "The buyer gets an email at each step: approved (with where to send it), received, and refunded.",
     ],
     guide: "/help/physical-products/returns-physical",
   },
@@ -103,7 +105,7 @@ export const EXPLAINERS = {
     art: "packages",
     lines: [
       "A package is a box or mailer you ship in, with its size and empty weight.",
-      "Storelib adds the package weight to the products inside when it works out a weight based rate or buys a label.",
+      "Storelib adds the package's empty weight to the products inside when it works out a weight based shipping rate, so the buyer pays for what the parcel really weighs.",
       "Mark the one you use most as the default.",
     ],
   },

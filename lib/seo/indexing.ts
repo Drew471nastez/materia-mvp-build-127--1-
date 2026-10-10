@@ -204,6 +204,7 @@ const CUSTOM_DOMAIN_PLATFORM_PATHS = [
   "marketplace",
   "native-start",
   "onboarding",
+  "order-help",
   "purchase",
   "receipt",
   "sell",

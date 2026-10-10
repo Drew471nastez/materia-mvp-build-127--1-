@@ -2,14 +2,14 @@ import { NextResponse } from "next/server"
 import { shopCaller } from "@/lib/physical/auth"
 import { previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { resolveCreatorIdentity } from "@/lib/email"
-import { getMainDomain } from "@/lib/url-helpers"
+import { storeIdentity } from "@/lib/store/identity-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
 /**
  * Settings › Customer emails: one email as it is sent, drawn by its own
- * template with the store's name, address for questions and creator page,
+ * template with the store's name, logo, contact and website,
  * and sample items and buyer (lib/emails/customer-catalog.ts). The owner's
  * alone; the page shows it in a sandboxed frame.
  */
@@ -18,15 +18,18 @@ export async function GET(request: Request) {
   if (c instanceof NextResponse) return c
   const id = new URL(request.url).searchParams.get("id") ?? ""
   const db = c.db
-  const [identity, { data: creator }] = await Promise.all([
+  const [identity, store, { data: creator }] = await Promise.all([
     resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
-    db.from("creators").select("username, slug, payout_currency").eq("id", c.creatorId).maybeSingle(),
+    storeIdentity(db, c.creatorId).catch(() => null),
+    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
   ])
-  const handle = (creator?.username || creator?.slug || "") as string
+  /* The same store the sent email signs with: its name, logo, contact and website (lib/store/identity-server.ts). */
   const mail = previewCustomerEmail(id, {
-    name: identity.fromName || "Your store",
-    supportEmail: identity.replyTo || null,
-    storeUrl: handle ? `https://${getMainDomain()}/${encodeURIComponent(handle)}` : null,
+    name: store?.name || identity.fromName || "Your store",
+    supportEmail: store?.email || identity.replyTo || null,
+    storeUrl: store?.websiteUrl ?? null,
+    logoUrl: store?.logoUrl ?? null,
+    phone: store?.phone ?? null,
     currency: (creator?.payout_currency as string | null) || "USD",
   })
   if (!mail) return NextResponse.json({ error: "That email was not found." }, { status: 404 })

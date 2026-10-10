@@ -167,6 +167,17 @@ export async function loadPackages(db: Db, creatorId: string): Promise<ShippingP
   }))
 }
 
+/** The default package's empty weight in grams, for weight based rates: the one chosen in settings, else the one marked default, else none. */
+export async function defaultPackageGrams(db: Db, creatorId: string): Promise<number> {
+  try {
+    const [{ data: s }, packages] = await Promise.all([db.from("commerce_settings").select("default_package_id").eq("creator_id", creatorId).maybeSingle(), loadPackages(db, creatorId)])
+    const chosen = packages.find((p) => p.id === s?.default_package_id) ?? packages.find((p) => p.isDefault) ?? null
+    return chosen ? Math.max(0, Number(chosen.weightGrams) || 0) : 0
+  } catch {
+    return 0
+  }
+}
+
 export async function loadTaxRates(db: Db, creatorId: string): Promise<TaxRateRow[]> {
   const { data } = await db.from("commerce_tax_rates").select("id, country, region, name, rate_bps").eq("creator_id", creatorId).order("country").limit(500)
   return ((data ?? []) as Record<string, any>[]).map((r) => ({ id: r.id, country: r.country, region: r.region ?? null, name: r.name, rateBps: r.rate_bps }))

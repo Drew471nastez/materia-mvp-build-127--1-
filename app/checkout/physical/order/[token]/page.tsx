@@ -9,6 +9,9 @@ import { progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
 import { reasonsFor } from "@/lib/store/reasons-server"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { storeIdentity } from "@/lib/store/identity-server"
+import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
+import { appUrl } from "@/lib/notify/urls"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -30,10 +33,12 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     if (order?.status === "pending") return <PendingOrder reason="unpaid" />
     notFound()
   }
-  const [{ data: shop }, settings, reasons] = await Promise.all([
-    db.from("creators").select("display_name, username, avatar_url, support_email").eq("id", order.creatorId).maybeSingle(),
+  const [store, settings, reasons, ready, open] = await Promise.all([
+    storeIdentity(db, order.creatorId),
     loadSettings(db, order.creatorId),
     reasonsFor(db, order.creatorId, "return"),
+    casesReady(db),
+    openCaseFor(db, { checkoutId: order.id }),
   ])
   const returnable = returnableQuantities(progressOf(order))
   const since = Date.parse(order.lines.some((l) => l.requiresShipping) ? (order.shipments.find((s) => s.shippedAt)?.shippedAt ?? "") : (order.paidAt ?? ""))
@@ -47,7 +52,8 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     <OrderStatusView
       token={token}
       justPaid={paid === "1"}
-      shop={{ name: (shop?.display_name as string) || (shop?.username as string) || "The shop", avatar: (shop?.avatar_url as string) || null, email: (shop?.support_email as string) || null }}
+      shop={{ name: store.name, avatar: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl }}
+      help={ready ? { openCase: open ? { link: buyerCaseLink(appUrl("/").replace(/\/$/, ""), open.id), status: open.status } : null } : null}
       order={{
         id: order.id,
         status: order.status,

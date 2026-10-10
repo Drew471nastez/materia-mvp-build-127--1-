@@ -21,7 +21,7 @@
  * network: tests/category-suggest.test.ts.
  */
 
-import { CATEGORY_GROUPS, groupOfCategory, isCategory } from "./category-groups"
+import { categoryGroupsFor, groupOfCategory, isCategory, isCategoryFor, type CategoryKind } from "./category-groups"
 import { toStorageUrl } from "@/lib/storage/media-url"
 
 /* ── what a request may carry ─────────────────────────────────────────── */
@@ -41,6 +41,8 @@ export interface SuggestInput {
   title: string
   text: string
   images: string[]
+  /** Which list to choose from: things that ship, or downloads and services. */
+  kind?: CategoryKind
 }
 
 export type ParsedRequest =
@@ -87,7 +89,8 @@ export function parseSuggestRequest(raw: string, opts: { storageOrigin: string; 
     return { ok: false, status: 400, error: "Not JSON." }
   }
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, status: 400, error: "Not an object." }
-  const { title = "", text = "", images = [] } = body as Record<string, unknown>
+  const { title = "", text = "", images = [], kind = "digital" } = body as Record<string, unknown>
+  if (kind !== "physical" && kind !== "digital") return { ok: false, status: 400, error: "Wrong types." }
   if (typeof title !== "string" || typeof text !== "string" || !Array.isArray(images)) return { ok: false, status: 400, error: "Wrong types." }
   if (title.length > SUGGEST_LIMITS.title || text.length > SUGGEST_LIMITS.text) return { ok: false, status: 413, error: "Too much to read." }
   if (images.length > SUGGEST_LIMITS.images || images.some((u) => typeof u !== "string")) return { ok: false, status: 400, error: "Too many pictures." }
@@ -95,6 +98,7 @@ export function parseSuggestRequest(raw: string, opts: { storageOrigin: string; 
     title: title.trim(),
     text: plainText(text),
     images: (images as string[]).filter((u) => isOwnStorageImage(u, opts.storageOrigin, opts.creatorId)),
+    kind,
   }
   if (!input.title && !input.text && input.images.length === 0) return { ok: false, status: 400, error: "Nothing to read." }
   return { ok: true, input }
@@ -316,13 +320,13 @@ const KEYWORDS: Record<string, { keywords: string[]; weight: number }[]> = {
   ],}
 
 /** The best keyword match in the words given, or null under three characters or with no match. */
-export function keywordSuggestion(words: string): string | null {
+export function keywordSuggestion(words: string, kind: CategoryKind = "digital"): string | null {
   const text = plainText(words)
   if (text.length < 3) return null
-  const lower = text.toLowerCase()
+  const lower = ` ${text.toLowerCase()} `
   let best: string | null = null
   let bestScore = 0
-  for (const [category, groups] of Object.entries(KEYWORDS)) {
+  for (const [category, groups] of Object.entries(kind === "physical" ? PHYSICAL_KEYWORDS : KEYWORDS)) {
     let score = 0
     for (const group of groups) {
       for (const keyword of group.keywords) {
@@ -336,6 +340,76 @@ export function keywordSuggestion(words: string): string | null {
     }
   }
   return best
+}
+
+/**
+ * Things that ship, by the words people use for them. Matched on word
+ * starts (" mug" finds "mugs" and not "smug"), the longer and more specific
+ * the better.
+ */
+const PHYSICAL_KEYWORDS: Record<string, { keywords: string[]; weight: number }[]> = {
+  "T-Shirts": [{ keywords: [" t-shirt", " tshirt", " tee ", " tees"], weight: 10 }],
+  "Hoodies & Sweatshirts": [{ keywords: [" hoodie", " sweatshirt", " crewneck", " pullover"], weight: 10 }],
+  "Hats & Caps": [{ keywords: [" hat", " cap ", " caps", " beanie", " bucket hat", " snapback"], weight: 10 }],
+  "Bags & Backpacks": [{ keywords: [" tote", " bag", " backpack", " purse", " handbag"], weight: 9 }],
+  "Underwear & Socks": [{ keywords: [" sock", " underwear", " boxer"], weight: 9 }],
+  "Dresses": [{ keywords: [" dress"], weight: 9 }],
+  "Outerwear": [{ keywords: [" jacket", " coat", " parka", " windbreaker"], weight: 9 }],
+  "Sneakers": [{ keywords: [" sneaker", " trainer", " running shoe"], weight: 10 }],
+  "Necklaces": [{ keywords: [" necklace", " pendant", " chain"], weight: 10 }],
+  "Rings": [{ keywords: [" ring ", " rings", " band ring"], weight: 9 }],
+  "Earrings": [{ keywords: [" earring", " studs", " hoops"], weight: 10 }],
+  "Bracelets": [{ keywords: [" bracelet", " bangle"], weight: 10 }],
+  "Skincare": [{ keywords: [" serum", " moisturizer", " moisturiser", " face cream", " cleanser", " skincare", " sunscreen"], weight: 10 }],
+  "Makeup": [{ keywords: [" lipstick", " mascara", " foundation", " eyeshadow", " blush", " makeup"], weight: 10 }],
+  "Fragrance": [{ keywords: [" perfume", " fragrance", " cologne", " eau de"], weight: 10 }],
+  "Bath & Body": [{ keywords: [" soap", " body wash", " bath bomb", " lotion", " body butter"], weight: 9 }],
+  "Hair Care": [{ keywords: [" shampoo", " conditioner", " hair oil", " hair mask"], weight: 9 }],
+  "Candles": [{ keywords: [" candle", " wax melt"], weight: 10 }],
+  "Wall Art & Prints": [{ keywords: [" art print", " poster print", " framed print", " canvas print", " wall art"], weight: 10 }],
+  "Printed Posters": [{ keywords: [" poster"], weight: 8 }],
+  "Decorative Accents": [{ keywords: [" vase", " cushion", " pillow cover", " decor", " ornament"], weight: 8 }],
+  "Plants & Planters": [{ keywords: [" planter", " plant pot", " succulent", " houseplant"], weight: 9 }],
+  "Mugs & Cups": [{ keywords: [" mug", " cup ", " cups", " tumbler"], weight: 10 }, { keywords: [" coffee mug", " ceramic mug", " tea cup"], weight: 6 }],
+  "Drinkware": [{ keywords: [" water bottle", " bottle", " glass", " flask"], weight: 7 }],
+  "Cookware": [{ keywords: [" pan ", " pot ", " skillet", " dutch oven"], weight: 8 }],
+  "Coffee": [{ keywords: [" coffee", " espresso", " beans", " roast"], weight: 10 }],
+  "Tea": [{ keywords: [" tea ", " matcha", " herbal tea", " loose leaf"], weight: 10 }],
+  "Honey & Spreads": [{ keywords: [" honey", " jam", " spread", " preserve"], weight: 10 }],
+  "Sweets & Chocolate": [{ keywords: [" chocolate", " candy", " sweets", " fudge"], weight: 10 }],
+  "Spices": [{ keywords: [" spice", " seasoning", " pepper", " salt blend"], weight: 9 }],
+  "Sauces & Condiments": [{ keywords: [" hot sauce", " sauce", " ketchup", " mustard", " dressing"], weight: 9 }],
+  "Baked Goods": [{ keywords: [" bread", " cookie", " cake", " pastry", " sourdough"], weight: 9 }],
+  "Wine & Spirits": [{ keywords: [" wine", " gin", " whisky", " whiskey", " vodka", " rum"], weight: 10 }],
+  "Notebooks & Journals": [{ keywords: [" notebook", " journal", " sketchbook", " diary"], weight: 9 }],
+  "Planners & Calendars": [{ keywords: [" planner", " calendar", " agenda"], weight: 9 }],
+  "Printed Greeting Cards": [{ keywords: [" greeting card", " birthday card", " card set"], weight: 10 }],
+  "Paper & Stickers": [{ keywords: [" sticker", " washi", " decal"], weight: 10 }],
+  "Printed Books": [{ keywords: [" hardcover", " paperback", " book"], weight: 8 }],
+  "Vinyl Records": [{ keywords: [" vinyl", " lp ", " record "], weight: 10 }],
+  "CDs": [{ keywords: [" cd ", " compact disc"], weight: 9 }],
+  "Merch": [{ keywords: [" merch", " band shirt", " tour"], weight: 7 }],
+  "Instruments": [{ keywords: [" guitar", " ukulele", " keyboard", " synth", " drum "], weight: 8 }],
+  "Studio Equipment": [{ keywords: [" microphone", " audio interface", " monitor speaker", " midi controller"], weight: 9 }],
+  "Headphones": [{ keywords: [" headphone", " earbuds", " earphones"], weight: 10 }],
+  "Phone Cases": [{ keywords: [" phone case", " iphone case", " case for iphone"], weight: 10 }],
+  "Chargers & Batteries": [{ keywords: [" charger", " power bank", " battery", " cable"], weight: 8 }],
+  "Original Artwork": [{ keywords: [" original painting", " painting", " watercolor", " oil on canvas"], weight: 9 }],
+  "Handmade Ceramics": [{ keywords: [" ceramic", " pottery", " stoneware", " porcelain"], weight: 9 }],
+  "Yarn & Knitting": [{ keywords: [" yarn", " knitting", " crochet", " wool"], weight: 9 }],
+  "Craft Kits": [{ keywords: [" kit ", " diy kit", " craft kit", " embroidery kit"], weight: 8 }],
+  "Toys": [{ keywords: [" toy"], weight: 8 }],
+  "Plush Toys": [{ keywords: [" plush", " stuffed animal", " teddy"], weight: 10 }],
+  "Board Games": [{ keywords: [" board game", " tabletop"], weight: 10 }],
+  "Puzzles": [{ keywords: [" puzzle", " jigsaw"], weight: 10 }],
+  "Yoga": [{ keywords: [" yoga mat", " yoga block", " yoga"], weight: 9 }],
+  "Fitness Equipment": [{ keywords: [" dumbbell", " kettlebell", " resistance band", " gym"], weight: 9 }],
+  "Dog Supplies": [{ keywords: [" dog ", " puppy", " dogs"], weight: 8 }],
+  "Cat Supplies": [{ keywords: [" cat ", " kitten", " cats"], weight: 8 }],
+  "Collars & Leashes": [{ keywords: [" collar", " leash", " harness"], weight: 9 }],
+  "Pet Food & Treats": [{ keywords: [" pet food", " dog treat", " cat treat", " kibble"], weight: 10 }],
+  "Gift Sets": [{ keywords: [" gift set", " gift box", " hamper"], weight: 9 }],
+  "Subscription Boxes": [{ keywords: [" subscription box", " monthly box"], weight: 10 }],
 }
 
 /* ── the two together ─────────────────────────────────────────────────── */
@@ -356,21 +430,22 @@ export async function resolveSuggestion(
   input: SuggestInput,
   ask: ((input: SuggestInput) => Promise<unknown>) | null,
 ): Promise<Suggestion> {
+  const kind = input.kind ?? "digital"
   if (ask) {
     try {
       const choice = readAnswer(await ask(input))
-      if (choice) return { ...choice, source: "ai" }
+      if (choice && isCategoryFor(choice.category, kind)) return { ...choice, source: "ai" }
     } catch {
       /* The keywords below are the answer. */
     }
   }
-  const category = keywordSuggestion(`${input.title} ${input.text}`)
+  const category = keywordSuggestion(`${input.title} ${input.text}`, kind)
   return category ? { category, group: groupOfCategory(category), source: "keywords" } : { category: null, group: null, source: "none" }
 }
 
 /** The list, as the model is shown it: one group a line, its categories after. */
-export function categoryListText(): string {
-  return CATEGORY_GROUPS.map((g) => `${g.name}: ${g.categories.join(" | ")}`).join("\n")
+export function categoryListText(kind: CategoryKind = "digital"): string {
+  return categoryGroupsFor(kind).map((g) => `${g.name}: ${g.categories.join(" | ")}`).join("\n")
 }
 
 /**
@@ -378,7 +453,7 @@ export function categoryListText(): string {
  * same title, words and pictures are never asked about twice in a visit.
  */
 export function contentKey(input: SuggestInput): string {
-  const s = `${input.title}\u0000${input.text}\u0000${input.images.join("\u0000")}`
+  const s = `${input.kind ?? "digital"}\u0000${input.title}\u0000${input.text}\u0000${input.images.join("\u0000")}`
   let h = 0x811c9dc5
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i)

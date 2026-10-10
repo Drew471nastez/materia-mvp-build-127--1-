@@ -44,6 +44,18 @@ export default async function HelpPage() {
       </header>
 
       <div className={`${HELP_CONTAINER} py-10 sm:py-14`}>
+        {/* The page most people come for: what happens when something goes wrong, for both sides. */}
+        <Link
+          href="/help/questions"
+          className="mb-10 flex items-center justify-between gap-4 rounded-2xl border border-[#e5e7eb]/60 bg-white p-5 shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-[border-color,box-shadow] duration-200 hover:border-[#dfe2e6] hover:shadow-[0_2px_10px_-4px_rgba(17,24,39,0.10)] sm:p-6"
+          data-help-questions-link=""
+        >
+          <span className="min-w-0">
+            <span className="block text-[17px] font-semibold tracking-tight text-[#1a1a2e]">What happens if...</span>
+            <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">An order you can&apos;t fill, a parcel that never came, a refund, a download that won&apos;t open. What happens and what to do, for stores and buyers.</span>
+          </span>
+          <span aria-hidden className="shrink-0 text-[20px] text-[#9ca3af]">&rarr;</span>
+        </Link>
         <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
           {categories.map((category) => {
             const articles = helpArticlesIn(category.slug)

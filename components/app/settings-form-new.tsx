@@ -54,6 +54,7 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
+import { prefetchGet } from "@/components/physical/ui"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
@@ -438,6 +439,32 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   useEffect(() => {
     if (activeTab === "billing") void loadBilling()
   }, [activeTab, loadBilling])
+  /*
+   * Every tab's settings, fetched quietly once the first one has drawn, so a
+   * tab opened later draws at once (peekGet in each panel) instead of an
+   * empty pane that fills a beat after. Billing too.
+   */
+  useEffect(() => {
+    const run = () => {
+      prefetchGet([
+        "/api/store/settings",
+        "/api/store/taxes",
+        "/api/store/channels",
+        "/api/store/reasons",
+        "/api/store/integrations",
+        "/api/store/integrations/catalog",
+        ...(physicalCommerce ? ["/api/physical/settings", "/api/physical/integrations"] : []),
+      ])
+      void loadBilling()
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+    if (w.requestIdleCallback) {
+      const id = w.requestIdleCallback(run, { timeout: 1200 })
+      return () => w.cancelIdleCallback?.(id)
+    }
+    const t = window.setTimeout(run, 300)
+    return () => window.clearTimeout(t)
+  }, [physicalCommerce, loadBilling])
   const formRef = useRef<HTMLFormElement>(null)
   const pillRowRef = useRef<HTMLDivElement>(null)
   /* The open section's pill is always in view in the row: a section opened by its address, or the last pill pressed. */

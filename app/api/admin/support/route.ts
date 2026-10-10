@@ -13,6 +13,7 @@ export async function GET(request: NextRequest) {
   const denied = await requireAdmin()
   if (denied) return denied
   const out = await adminList(createAdminClient(), { status: request.nextUrl.searchParams.get("status"), q: request.nextUrl.searchParams.get("q") })
-  if (!out.ok) return NextResponse.json({ error: out.error }, { status: out.status, headers: NO_STORE })
+  /* Storelib is told what to do about it, not what a store is told. */
+  if (!out.ok) return NextResponse.json({ error: out.status === 503 ? "The support tables aren't in the database yet. Run SQL part 114 (it's in supabase/sql/all-in-three, file 2), then reload." : out.error, notReady: out.status === 503 }, { status: out.status, headers: NO_STORE })
   return NextResponse.json({ tickets: out.tickets, counts: out.counts }, { headers: NO_STORE })
 }

@@ -27,7 +27,7 @@ import { regionsOf } from "@/lib/physical/regions"
 import { percentText } from "@/lib/tax/rules"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
 
 interface Region {
   id: string
@@ -64,7 +64,8 @@ const regionName = (r: Pick<Region, "country" | "region">) => {
 
 export function TaxesPanel() {
   const physical = usePhysicalCommerceEnabled()
-  const [setup, setSetup] = React.useState<Setup | null>(null)
+  /* Drawn at once from what Settings fetched while the person was on another tab (prefetchGet). */
+  const [setup, setSetup] = React.useState<Setup | null>(() => peekGet<Setup>("/api/store/taxes"))
   const [error, setError] = React.useState<string | null>(null)
   const [creating, setCreating] = React.useState<string | null>(null)
   const [open, setOpen] = React.useState<string | null>(null)
