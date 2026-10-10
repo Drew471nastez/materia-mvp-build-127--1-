@@ -29,6 +29,7 @@
 import { createServer } from "node:http"
 import { mkdirSync, readFileSync } from "node:fs"
 import { basename } from "node:path"
+import { readBasketParams } from "../lib/checkout/basket-link"
 import JSZip from "jszip"
 import puppeteer from "puppeteer-core"
 import sharp from "sharp"
@@ -373,14 +374,22 @@ async function run(zipPath: string) {
       /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
       await visit("/products/linen-shirt-3")
       lastCheckout = null
+      /* The site's /checkout answers with a redirect to Storelib's branded checkout (lib/checkout/basket-link): its lines ride in the address. */
+      const onBasket = (r: { url(): string }) => {
+        try {
+          const u = new URL(r.url())
+          if (u.pathname === "/checkout/cart" && u.searchParams.get("items")) lastCheckout = { items: readBasketParams(u.searchParams).items }
+        } catch {}
+      }
+      page.on("request", onBasket)
       const buyNow = await page.evaluate(() => {
         const b = document.querySelector<HTMLButtonElement>("[data-storelib-buy-now]")
         if (!b) return false
         b.click()
         return true
       })
-      /* The handoff page posts the lines to the basket checkout and follows the address it answers. */
       for (let t = 0; t < 40 && !lastCheckout; t++) await new Promise((r) => setTimeout(r, 200))
+      page.off("request", onBasket)
       await visit("/cart")
       const kept = await page.evaluate(async () => (await fetch("/cart.js")).json())
       const sentItems = (lastCheckout as { items?: { quantity?: number }[] } | null)?.items ?? []
