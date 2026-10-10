@@ -88,8 +88,8 @@ try {
       if (row.startsWith("product:") && !menu.querySelector(`[data-page-row='${row}']`)) menu.querySelector("[data-page-group-toggle='products']")?.click()
     }, row)
     await p.waitForFunction((row) => !!document.querySelector(`.wb-pages-menu [data-page-row='${row}']`), { timeout: 8000 }, row).catch(async () => { console.log("rows:", await p.evaluate(() => [...document.querySelectorAll(".wb-pages-menu [data-page-row], .wb-pages-menu [data-page-group-toggle]")].map((r) => r.getAttribute("data-page-row") ?? `toggle:${r.getAttribute("data-page-group-toggle")}`))); throw new Error(`no row ${row}`) })
-    const r = await p.evaluate((row) => { const el = document.querySelector(`.wb-pages-menu [data-page-row='${row}']`); el.scrollIntoView({ block: "center" }); const b = el.getBoundingClientRect(); return { x: b.left + b.width / 2, y: b.top + b.height / 2 } }, row)
-    await p.mouse.click(r.x, r.y)
+    await sleep(300)
+    await p.evaluate((row) => { const el = document.querySelector(`.wb-pages-menu [data-page-row='${row}']`); (el.matches("button, a") ? el : el.querySelector("button, a") ?? el).click() }, row)
   }
   const shown = () => p.evaluate(() => ({
     canvas: document.getElementById("wb-preview-root")?.innerText ?? "",
@@ -98,6 +98,7 @@ try {
 
   /* ONE AFTER ANOTHER: A held back, then B. */
   await open("product:prod-1")
+  if (process.env.DEBUG) { await sleep(2500); console.log("after A:", JSON.stringify(await shown()).slice(0, 300), await p.evaluate(() => window.probeCalls.filter((c) => /products|sections/.test(c)).slice(-6))) }
   await sleep(150)
   await open("product:prod-3")
   await sleep(1500)

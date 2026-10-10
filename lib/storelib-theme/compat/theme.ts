@@ -609,8 +609,9 @@ export class CompatTheme {
   // ── The layout ──
 
   /** The whole document of a page: the layout, with the page's sections where it says. */
-  renderDocument(ctx: Ctx, content: string, head: { extraHead?: string; extraBodyEnd?: string } = {}): string {
-    const path = this.fileFor("layout", "theme")
+  renderDocument(ctx: Ctx, content: string, head: { extraHead?: string; extraBodyEnd?: string; layout?: string } = {}): string {
+    /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
+    const path = (head.layout && head.layout !== "theme" ? this.fileFor("layout", head.layout) : null) ?? this.fileFor("layout", "theme")
     const tree = path ? this.tree(path) : null
     if (!tree) return `<!doctype html><html><head><meta charset="utf-8">${head.extraHead ?? ""}</head><body>${content}${head.extraBodyEnd ?? ""}</body></html>`
     ctx.globals.content_for_layout = content

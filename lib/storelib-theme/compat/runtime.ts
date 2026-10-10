@@ -429,7 +429,8 @@ function renderNode(n: Node, ctx: Ctx, out: string[]): void {
       return
     }
     case "verbatim": push(out, ctx, n.body); return
-    case "layout": ctx.registers.layout = evaluate(n.name, ctx); return
+    /* `{% layout none %}` names no variable: it is the page without a layout, as an ajax template asks. */
+    case "layout": ctx.registers.layout = evaluate(n.name, ctx) ?? "none"; return
     case "unknown": ctx.env.unknownTag?.(n.name); return
   }
 }

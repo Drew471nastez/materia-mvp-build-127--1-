@@ -119,6 +119,10 @@ const files: Record<string, string> = {
   "blocks/price.storelib": `${wrapCompatTemplate(`<b data-block-id="{{ block.id }}">{{ closest.product.title }} {{ closest.product.price | money }}</b>`)}\n\n<schema>\n${JSON.stringify({ name: "Price", settings: [] })}\n</schema>\n`,
   "sections/cart-count.storelib": `${wrapCompatTemplate(`<span class="count">{{ cart.item_count }}</span>`)}\n\n<schema>\n${JSON.stringify({ type: "cart-count", name: "Cart", settings: [] })}\n</schema>\n`,
   "sections/featured-product.storelib": `${wrapCompatTemplate(`<p class="fp">{% if section.settings.product == blank %}Example product title{% else %}{{ section.settings.product.title }}{% endif %}</p>`)}\n\n<schema>\n${JSON.stringify({ type: "featured-product", name: "Featured product", settings: [], shopify: { name: "Featured product", settings: [{ type: "product", id: "product" }] } })}\n</schema>\n`,
+  /* Horizon's drawer: drawn by the section rendering API only, and nothing on the cart page. */
+  "sections/drawer.storelib": `${wrapCompatTemplate(`{% if template.name != 'cart' %}<aside>{{ cart.item_count }} on {{ template.name }}</aside>{% endif %}`)}\n\n<schema>\n${JSON.stringify({ type: "drawer", name: "Drawer", settings: [] })}\n</schema>\n`,
+  /* An older theme's ajax cart drawer: an alternate template with no layout. */
+  "templates/cart.drawer.liquid": `{% layout none %}<div class="drawer">{{ cart.item_count }} in the cart</div>`,
   "sections/hero.storelib": `${wrapCompatTemplate(`<h1 style="padding-top:{{ section.settings.padding-top }}px">{{ section.settings.heading }}</h1>`)}\n\n<schema>\n${JSON.stringify({ type: "hero", name: "Hero", settings: [], shopify: { name: "Hero", settings: [{ type: "text", id: "heading", default: "Hi" }, { type: "range", id: "padding-top", min: 0, max: 40, default: 4 }] } })}\n</schema>\n`,
 }
 const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` })
@@ -182,6 +186,7 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   const pages = {
     home: [{ id: "cc", type: "cart-count", group: "header" }, { id: "h", type: "hero", settings: {} }],
     product: [{ id: "cc", type: "cart-count", group: "header" }, { id: "main", type: "main-product" }],
+    cart: [{ id: "cc", type: "cart-count", group: "header" }],
   }
   const site: SiteData = { creatorId: "c", theme, pages, products, collections: [], menus: {}, shop: base.shop, host: "shop.test" }
   const call = (method: string, path: string, body: Record<string, unknown> | null, cart: ReturnType<typeof readCartCookie>["cart"], ajax = false) => {
@@ -217,6 +222,20 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   check("a product page with option values selects that option", String(variant.body).includes("Shirt 1"))
   const lost = await call("GET", "/nowhere", null, [])
   check("an address the site does not have is a 404", lost.status === 404)
+  /* "Cart drawers and add to cart should work as they would on Shopify." */
+  const fromProduct = await call("POST", "/cart/add.js", { id: "v2s", quantity: 1, sections: "drawer" }, [], true)
+  const withReferer = await answer(site, { method: "POST", path: "/cart/add.js", query: new URLSearchParams(), body: { id: "v2s", quantity: 1, sections: "drawer" }, cart: [], ajax: true, referer: "/products/shirt-1" })
+  const drawerHtml = JSON.parse(String(withReferer.body)).sections?.drawer ?? ""
+  check("  so a drawer that draws nothing on the cart page comes back with the new line in it", drawerHtml.includes("<aside>1 on product</aside>"), drawerHtml.slice(0, 160))
+  check("  and with no page to go on it is drawn about the cart, as before", !String(JSON.parse(String(fromProduct.body)).sections?.drawer ?? "").includes("<aside>"))
+  const drawer = await call("GET", "/cart?view=drawer", null, cart)
+  check("?view=drawer draws the cart's alternate template, with no layout around it", /^<div class="drawer">\d+ in the cart<\/div>$/.test(String(drawer.body)), String(drawer.body).slice(0, 120))
+  const noView = await call("GET", "/cart?view=nope", null, cart)
+  check("a view the theme does not have is the page as it is", noView.status === 200 && String(noView.body).includes("<main>"))
+  const link = await call("GET", "/cart/add?id=v2s&quantity=2", null, [])
+  check("a link to /cart/add?id=&quantity= adds and opens the cart", link.status === 303 && link.headers?.Location === "/cart" && link.cart?.[0]?.v === "v2s" && link.cart?.[0]?.q === 2, { status: link.status, cart: link.cart })
+  const perma = await call("GET", "/cart/v1l:2,v2s:1", null, [])
+  check("a cart permalink (/cart/<variant>:<quantity>,…) goes to checkout with those lines", String(perma.body).includes('"variantId":"v1l","quantity":2') && String(perma.body).includes('"variantId":"v2s","quantity":1'))
   const checkout = await call("POST", "/cart", { checkout: "1" }, cart)
   check("checkout goes to Storelib's own basket checkout with the lines", String(checkout.body).includes("/api/checkout/cart") && String(checkout.body).includes('"productId":"p1"'))
 
