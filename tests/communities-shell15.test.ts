@@ -25,6 +25,7 @@ import { readCode } from "./_source"
 import { placeFromKey, placeFromUrl, placeHref, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
 import { AHEAD_AT_ONCE, forgetPlaces, keepAlive, KEEP_ALIVE, loadPlaceData, placeMissing, readAheadAllowed, readPlace, readPlacesAhead, retryable, seedPlace, waitScreenDue, WAIT_SCREEN_MS } from "@/lib/communities/client/place-cache"
 import { chunkRecovery, hardNavigationAllowed, HARD_AGAIN_MS, loadingFailure, quietRouterRefresh } from "@/lib/communities/client/resume"
+import { fullLoadFor, SKEW_SAFE_MS } from "@/lib/ui/new-deploy"
 
 let passed = 0
 let failed = 0
@@ -212,6 +213,10 @@ async function main() {
   check("never in a loop, and again after a while", hardNavigationAllowed(s, 1_000_000 + HARD_AGAIN_MS + 1))
   check("no storage: no hard navigation (it could not know it already tried)", !hardNavigationAllowed(null))
   check("a failure inside a place stays inside the frame (an error boundary per kept screen, an error.tsx for the community)", /class PlaceBoundary extends Component/.test(host) && /export default function CommunityPlaceError/.test(code("app/(marketing)/community/[slug]/error.tsx")))
+  const behind = { from: "https://storelib.com/community/clay", href: "/explore", type: "push" as const, newDeploy: true, holdsWork: false }
+  check("a tab that knows of a newer deploy does not throw itself away while skew protection serves it", fullLoadFor({ ...behind, tabAgeMs: 30 * 60_000 }) === null)
+  check("past the window it still loads the new code at a route change", fullLoadFor({ ...behind, tabAgeMs: SKEW_SAFE_MS + 1 }) === "assign")
+  check("the browser passes the tab's age", /tabAgeMs: typeof performance !== "undefined" && performance\.timeOrigin \? Date\.now\(\) - performance\.timeOrigin : undefined/.test(code("lib/ui/new-deploy.ts")))
   const nav = code("lib/communities/client/navigator-context.tsx")
   check("back() is the app's watched back", /backThen\(\(\) => go\(\{ kind: "feed" \}, \{ replace: true \}\)\)/.test(nav))
   check("go() moves with pushState and never asks the router", /window\.history\.pushState\(/.test(nav) && !/router\.(push|replace)\(/.test(nav))
