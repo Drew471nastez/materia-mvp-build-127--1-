@@ -210,6 +210,8 @@ export interface BootstrapInput {
   country?: string
   themeName?: string
   designMode: boolean
+  /** A customer is signed in to this website (the page's `customer`): where the account button goes. */
+  signedIn?: boolean
 }
 
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
@@ -224,6 +226,32 @@ const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
 */
 const BUY_NOW = `if(!S.designMode)document.addEventListener("click",function(e){var b=e.target&&e.target.closest&&e.target.closest("[data-storelib-buy-now]");if(!b)return;var src=b.form||b.closest("form")||document.querySelector('form[action*="/cart/add"]');if(!src)return;e.preventDefault();e.stopImmediatePropagation();var f=document.createElement("form");f.method="post";f.action="/cart/add";f.style.display="none";new FormData(src).forEach(function(v,k){if(typeof v!=="string"||k==="checkout")return;var i=document.createElement("input");i.type="hidden";i.name=k;i.value=v;f.appendChild(i)});var c=document.createElement("input");c.type="hidden";c.name="checkout";c.value="1";f.appendChild(c);document.body.appendChild(f);f.submit()},true);`
 
+/*
+  THE ACCOUNT BUTTON. Dawn and Horizon draw it as <shopify-account>, a
+  component Shopify's own script defines; without that script it is an icon
+  that does nothing. Defined here as a plain link around what the theme put
+  inside it: the account page when signed in, sign in when not, on this
+  website's own host. It keeps the size the theme gave it while undefined,
+  and wraps its children once they are parsed (the definition runs in the
+  head, before the element's contents exist).
+*/
+const ACCOUNT_BUTTON = `if(window.customElements&&!customElements.get("shopify-account")){customElements.define("shopify-account",class extends HTMLElement{connectedCallback(){var el=this;el.style.display="flex";el.style.alignItems="center";el.style.justifyContent="center";el.style.minWidth="44px";el.style.minHeight="44px";if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",function(){el.wrap()},{once:true});else el.wrap()}wrap(){if(this.querySelector(":scope>a[data-storelib-account]"))return;var href=S.storelibSignedIn?"/account":"/account/login";var a=document.createElement("a");a.href=href;a.setAttribute("data-storelib-account","");a.setAttribute("aria-label",S.storelibSignedIn?"Account":"Log in");a.style.cssText="display:flex;align-items:center;justify-content:center;gap:6px;min-width:44px;min-height:44px;color:inherit;text-decoration:none";while(this.firstChild)a.appendChild(this.firstChild);if(!a.textContent.trim()&&!a.querySelector("svg,img,div,span")){a.innerHTML='<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></svg>'}a.querySelectorAll("[slot]").forEach(function(n){n.removeAttribute("slot")});this.appendChild(a)}})}`
+
+/*
+  A NEWSLETTER OR CONTACT FORM, SENT WITHOUT LEAVING THE PAGE. The theme's
+  form (posted to /contact, form_type customer or contact) is posted by
+  fetch instead; then its section is drawn again with the answer in the
+  address (customer_posted=true, or form_error) and the form is swapped for
+  the new one, so the visitor sees the theme's own thank you or error in
+  place (a theme can only draw those inside the form, where \`form\` is).
+  Only the form is swapped: a popup around it stays open. A section that draws neither, or
+  a form outside any section, gets one short line under the form. A theme
+  that sends the form itself (its handler called preventDefault) is left
+  alone. Without script the form posts as written and comes back the same
+  way (site.ts formSubmit).
+*/
+const FORMS = `if(!S.designMode)document.addEventListener("submit",function(e){var f=e.target;if(!f||f.tagName!=="FORM"||e.defaultPrevented)return;var act=(f.getAttribute("action")||"").replace(location.origin,"");var ti=f.querySelector('input[name="form_type"]');var type=ti&&ti.value;if(!/^\\/contact(?:[\\/?#]|$)/.test(act)||(type!=="customer"&&type!=="contact"))return;e.preventDefault();if(f.getAttribute("data-storelib-sending"))return;f.setAttribute("data-storelib-sending","1");var btns=[].slice.call(f.querySelectorAll('button,input[type=submit]'));btns.forEach(function(b){b.disabled=true});f.setAttribute("aria-busy","true");var sec=f.closest(".shopify-section");var data=new FormData(f);var kept={};data.forEach(function(v,k){if(typeof v==="string")kept[k]=v});var done=function(){f.removeAttribute("data-storelib-sending");f.removeAttribute("aria-busy");btns.forEach(function(b){b.disabled=false})};var note=function(x,where){var t=where||f;var old=t.parentNode&&t.parentNode.querySelector(":scope>.storelib-form-note");if(old)old.remove();var p=document.createElement("p");p.className="storelib-form-note";p.setAttribute("role",x.ok?"status":"alert");p.style.cssText="margin:12px 0 0;font-size:.95em";p.textContent=x.ok?(type==="customer"?"Thanks for subscribing.":"Thanks for writing. We'll get back to you soon."):(x.message||"It did not send. Try again.");t.insertAdjacentElement("afterend",p)};fetch("/contact",{method:"POST",body:data,credentials:"same-origin",headers:{"X-Requested-With":"XMLHttpRequest",Accept:"application/json"}}).then(function(r){return r.json().catch(function(){return{ok:false}})}).then(function(x){if(x.ok)f.reset();if(!sec||!sec.id){done();note(x);return}var q=new URLSearchParams(location.search);["customer_posted","contact_posted","form_error","form_type","section_id","sections"].forEach(function(k){q.delete(k)});if(x.ok)q.set(type+"_posted","true");else{q.set("form_error",x.code||"failed");q.set("form_type",type)}q.set("section_id",sec.id.replace(/^shopify-section-/,""));var forms=function(root){return[].slice.call(root.querySelectorAll('form')).filter(function(g){var t=g.querySelector('input[name="form_type"]');return t&&t.value===type})};var at=forms(sec).indexOf(f);var before=f.innerText;return fetch(location.pathname+"?"+q.toString(),{credentials:"same-origin"}).then(function(r){if(!r.ok)throw 0;return r.text()}).then(function(html){var t=document.createElement("template");t.innerHTML=html.trim();var n=t.content.firstElementChild;if(!n||n.id!==sec.id)throw 0;var nf=forms(n)[at];if(!nf)throw 0;f.replaceWith(nf);if(!x.ok)Object.keys(kept).forEach(function(k){if(k==="form_type"||k==="utf8")return;nf.querySelectorAll('[name="'+(window.CSS&&CSS.escape?CSS.escape(k):k)+'"]').forEach(function(i){if(i.type!=="hidden"&&i.type!=="checkbox"&&i.type!=="radio"&&i.type!=="submit")i.value=kept[k]})});if(nf.innerText===before)note(x,nf);var m=nf.querySelector('[role=alert],[role=status],.form__message,.newsletter-form__message,.errors')||(nf.nextElementSibling&&nf.nextElementSibling.classList.contains("storelib-form-note")?nf.nextElementSibling:null);if(m){if(!m.hasAttribute("tabindex"))m.setAttribute("tabindex","-1");m.focus({preventScroll:true})}}).catch(function(){done();note(x)})}).catch(function(){done();note({ok:false})})});`
+
 /* The next page fetched while the visitor rests on its link, as on a Storelib theme's site (lib/website-builder/prefetch-rules.ts). */
 const PREFETCH = `if(!S.designMode&&HTMLScriptElement.supports&&HTMLScriptElement.supports("speculationrules")){var sr=document.createElement("script");sr.type="speculationrules";sr.textContent=${JSON.stringify(JSON.stringify(SITE_PREFETCH_RULES))};document.head.appendChild(sr)}`
 
@@ -237,8 +265,9 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     routes: { root: "/" },
     designMode: i.designMode,
     storelib: true,
+    storelibSignedIn: i.signedIn === true,
   }
-  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};${BUY_NOW}${PREFETCH}})();</script>`
+  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};${BUY_NOW}${PREFETCH}${ACCOUNT_BUTTON}${FORMS}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */

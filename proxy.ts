@@ -415,17 +415,35 @@ function compatAnswers(pathname: string, request: NextRequest): boolean {
      and goes to the apex like any other site's (PLATFORM_APEX_PATHS). */
   if (pathname.startsWith("/checkout/")) return false
   /*
-    The visitor's account and wishlist are Storelib's own pages. A visit to
-    one is drawn by the theme, its header and footer around the page in a
-    frame (lib/storelib-theme/compat/site.ts, accountShell); the frame's own
-    request, a form posted there and signing out go to the page itself.
+    THE VISITOR'S ACCOUNT is drawn by the theme itself, on this host, with
+    no frame (lib/storelib-theme/compat/site.ts, accountPage): sign in, the
+    account, the addresses, and the theme's own account forms posted there.
+    Only signing out is the website's own route, the same for every site.
   */
-  if (pathname === "/account" || pathname.startsWith("/account/") || pathname === "/wishlist") {
+  if (pathname === "/account" || pathname.startsWith("/account/")) return pathname !== "/account/logout"
+  /*
+    The wishlist is Storelib's own page. A visit to it is drawn by the
+    theme, its header and footer around the page in a frame of this same
+    site (accountShell); the frame's own request goes to the page itself.
+  */
+  if (pathname === "/wishlist") {
     const framed = request.headers.get("sec-fetch-dest") === "iframe" || request.nextUrl.searchParams.has("sl_embed")
     const reading = request.method === "GET" || request.method === "HEAD"
-    return reading && !framed && pathname !== "/account/logout"
+    return reading && !framed
   }
   return pathname !== "/robots.txt" && pathname !== "/sitemap.xml"
+}
+
+/**
+ * THE WISHLIST IN AN IMPORTED THEME'S FRAME. vercel.json sends
+ * `X-Frame-Options: DENY` on every path, so the frame accountShell puts the
+ * wishlist in (lib/storelib-theme/compat/site.ts) was refused and drew a
+ * blank rectangle. Only that request (/wishlist with ?sl_embed) may be
+ * framed, and only by this same origin: `frame-ancestors 'self'`, which takes
+ * precedence over X-Frame-Options where both are sent.
+ */
+function selfFramedWishlist(response: NextResponse, request: NextRequest): void {
+  if (request.nextUrl.pathname === "/wishlist" && request.nextUrl.searchParams.has("sl_embed")) response.headers.set("Content-Security-Policy", "frame-ancestors 'self'")
 }
 
 /** /policies/refund-policy, as Shopify writes it, to /refund-policy, where a site of Storelib's own keeps it; null for any other address. */
@@ -1233,6 +1251,7 @@ export async function proxy(request: NextRequest) {
       }
       /* Let in with a pass: this answer is this visitor's, never one for a shared cache to hand on. */
       if (guarded) rewritten.headers.set("Cache-Control", "private, no-store")
+      selfFramedWishlist(rewritten, request)
 
       return rewritten
     }
@@ -1607,6 +1626,7 @@ export async function proxy(request: NextRequest) {
       if (rewritePath.startsWith("/u/")) r.headers.set("Cache-Control", "private, no-cache, must-revalidate")
       if (guardedDomain) r.headers.set("Cache-Control", "private, no-store")
       if (isCustomDomain) r.headers.set("x-custom-domain", host.split(":")[0])
+      selfFramedWishlist(r, request)
       return r
     }
     /* Why a storefront is no-cache, set in `respond` just above: */

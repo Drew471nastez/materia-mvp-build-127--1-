@@ -34,7 +34,7 @@ export interface Env {
   /** `{% block 'name', … %}…{% endblock %}`: blocks/<name>, with what was between the tags as its `content`. */
   placedBlock?(ctx: Ctx, name: string, args: Record<string, unknown>, content: string): string
   /** `{% form %}`: the opening and closing markup around the body, and what the body sees as `form`. */
-  form?(ctx: Ctx, type: string, obj: unknown, args: Record<string, unknown>): { open: string; close: string; form: Record<string, unknown> }
+  form?(ctx: Ctx, type: string, obj: unknown, args: Record<string, unknown>): { open: string; close: string; form: Record<string, unknown>; body?: (html: string) => string }
   /** `{% paginate %}`: the page of the list the body sees, and the `paginate` object. */
   paginate?(ctx: Ctx, list: unknown, by: number): { page: unknown; paginate: Record<string, unknown> }
   /** A tag nobody knows: drawn as nothing, and reported. */
@@ -454,7 +454,10 @@ function renderNode(n: Node, ctx: Ctx, out: string[]): void {
       const f = ctx.env.form ? ctx.env.form(ctx, type, obj, args) : { open: "<form>", close: "</form>", form: {} }
       push(out, ctx, f.open)
       ctx.frames.push({ form: f.form })
-      try { renderNodes(n.body, ctx, out) } finally { ctx.frames.pop() }
+      /* `body`: the form's own markup, changed before it is written (a sign up form's password field, which Storelib never reads). */
+      const inner: string[] = f.body ? [] : out
+      try { renderNodes(n.body, ctx, inner) } finally { ctx.frames.pop() }
+      if (f.body) { const shown = f.body(inner.join("")); if (shown) out.push(shown) }
       push(out, ctx, f.close)
       return
     }

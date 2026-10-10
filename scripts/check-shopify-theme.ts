@@ -118,7 +118,7 @@ async function serve(zipPath: string) {
       res.end(JSON.stringify({ url: "http://127.0.0.1/__checkout_opened" }))
       return
     }
-    /* The account page itself, as Storelib draws it inside the theme's shell (the proxy sends the framed request there). */
+    /* The wishlist page itself, as Storelib draws it inside the theme's shell (the proxy sends the framed request there). */
     if (url.searchParams.has("sl_embed")) {
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
       res.end(`<!doctype html><html><head></head><body style="margin:0"><main style="padding:40px;height:420px">Sign in to your account</main></body></html>`)
@@ -211,13 +211,14 @@ async function run(zipPath: string) {
         const p = await page.evaluate(() => ({ header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), words: /Returns are accepted within 30 days/.test(document.body.textContent ?? "") }))
         check(`${at} draws the policy in the theme's header and footer`, p.header && p.footer && p.words, JSON.stringify(p))
       }
+      /* The account: drawn by the theme on this host (no frame, which X-Frame-Options: DENY refuses live); a guest is sent to sign in. */
       await visit("/account")
-      await new Promise((r) => setTimeout(r, 800))
       const acc = await page.evaluate(() => {
-        const f = document.getElementById("sl-account-frame") as HTMLIFrameElement | null
-        return { header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), framed: !!f && (f.getAttribute("src") ?? "").includes("sl_embed=1"), fits: f ? Math.round(f.getBoundingClientRect().height) : 0, words: f?.contentDocument?.body.textContent?.includes("Sign in to your account") ?? false }
+        const form = document.querySelector<HTMLFormElement>('form[action="/account/login"], form[action="/api/site-account/code"]')
+        const email = form?.querySelector<HTMLInputElement>('input[type=email], input[name="customer[email]"], input[name=email]')
+        return { path: location.pathname, header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), frame: !!document.querySelector("iframe#sl-account-frame"), email: !!email && email.getBoundingClientRect().width > 40, password: !!document.querySelector("input[type=password]") }
       })
-      check("/account is Storelib's account page inside the theme's header and footer, as tall as it is", acc.header && acc.footer && acc.framed && acc.words && acc.fits >= 420 && acc.fits < 700, JSON.stringify(acc))
+      check("/account sends a guest to sign in: a visible email form in the theme's header and footer, no frame, no password", acc.path === "/account/login" && acc.header && acc.footer && !acc.frame && acc.email && !acc.password, JSON.stringify(acc))
       const all = await shirtsOn("/collections/all")
       const dear = await shirtsOn("/collections/all?filter.v.price.gte=60")
       check("the collection draws its filters", all.drawn, `${all.shirts} shirts`)

@@ -16,7 +16,13 @@
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
  *   forms             /contact (contact and newsletter): Storelib's own
- *                     contact and subscribe endpoints
+ *                     contact and subscribe endpoints, then back to the
+ *                     page with the theme's own thank you or error
+ *   the account       /account  /account/login  /account/register
+ *                     /account/addresses: the theme's own customers/*
+ *                     templates when it has them, Storelib's sign in and
+ *                     account markup in its header and footer when not
+ *                     (./account.ts); the forms post to Storelib's routes
  *
  * Pure apart from what `SiteData` hands it, so the route, the preview and
  * the tests all drive the same function.
@@ -32,6 +38,8 @@ import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
 import { facet } from "./facets"
+import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
+import { signInNotice } from "@/lib/website-builder/account-pages"
 
 type O = Record<string, unknown>
 
@@ -82,6 +90,14 @@ export interface SiteRequest {
   ajax?: boolean
   /** The page the request came from (path and query, this site's own): what `sections` are drawn about when the request names no `sections_url`. */
   referer?: string
+  /** Who is visiting, from the website's own session cookie (the route reads it; lib/site-accounts/session.ts). */
+  account?: SiteAccount
+  /**
+   * Sends a contact message or a newsletter sign up through Storelib's own
+   * endpoints, which carry the spam checks and the rate limits (the route
+   * calls them with this request's own headers). Absent, nothing is sent.
+   */
+  submit?: (kind: "subscribe" | "contact", payload: O) => Promise<{ ok: boolean; status: number }>
 }
 
 export interface SiteResponse {
@@ -137,7 +153,9 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart)
 
   /* ── forms ── */
-  if (method === "POST" && (path === "/contact" || path === "/account" || path === "/contact/")) return formHandoff(site, req)
+  if (method === "POST" && (path === "/contact" || path === "/contact/" || (path === "/account" && String(req.body?.form_type ?? "") === "customer"))) return await formSubmit(site, req)
+  /* A theme's sign in, sign up and address forms are posted to Storelib's account routes by the site route (accountFormPost); one that reaches here is sent to sign in. */
+  if (method === "POST" && (path === "/account" || path.startsWith("/account/"))) return redirect("/account/login")
   /* Storelib's own menus link the shop as /products; Shopify sends that address to every product, as here. */
   if (path === "/products" && (method === "GET" || method === "HEAD")) {
     const q = req.query.toString()
@@ -182,12 +200,38 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   /* ── pages ── */
   const route = await pageFor(site, path, req)
   if (!route) return notFound(site, req)
+  if (route.redirect) return redirect(route.redirect)
   const sectionId = req.query.get("section_id")
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
+}
+
+/**
+ * A POST one of the theme's account forms makes, and what it means on
+ * Storelib, for the site route to carry out (it needs the request's own
+ * cookies and headers, which this pure handler never sees):
+ *
+ *   code   sign in, Create account and Forgot password (/account/login,
+ *          /account, /account/register, /account/recover): every one is
+ *          "email me a code", Storelib's own code route with the email,
+ *          where to land, and the name a Create account form asked for
+ *   back   an address form (/account/addresses): addresses are saved by
+ *          checkout, so there is nothing to keep; back to the list
+ *
+ * Null for anything else: signing out, and a newsletter form posted to
+ * /account (form_type customer), which is answered here like /contact.
+ */
+export function accountFormPost(method: string, path: string, body: O | null): { kind: "code"; email: string; returnPath: string; name: string } | { kind: "back"; to: string } | null {
+  if (method.toUpperCase() !== "POST") return null
+  const p = decodePath(path)
+  if ((p !== "/account" && !p.startsWith("/account/")) || p === "/account/logout") return null
+  const type = String(body?.form_type ?? "")
+  if (type === "customer") return null
+  if (p.startsWith("/account/addresses") || type === "customer_address") return { kind: "back", to: "/account/addresses" }
+  return { kind: "code", ...themeSignInFields(body) }
 }
 
 function decodePath(p: string): string {
@@ -212,6 +256,8 @@ interface Route {
   status?: number
   /** Drawn in the theme's layout in place of the page's own sections. */
   content?: string
+  /** Not a page: the visitor belongs elsewhere (signed in at the sign in page, a guest at the account). */
+  redirect?: string
 }
 
 const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -234,6 +280,87 @@ function shell(site: SiteData, req: SiteRequest, path: string, title: string, co
  * is shown between them in a frame of the same site, as tall as its
  * content; a link pressed inside opens at the top, in this shell again.
  */
+/**
+ * THE VISITOR'S ACCOUNT, on the website's own host and in its own header and
+ * footer. The theme's own template where it has one (customers/login,
+ * customers/register, customers/account), drawn with the signed-in
+ * `customer`; Storelib's sign in and account markup (./account.ts) where it
+ * has none, and for the code step and the addresses, which no Shopify theme
+ * draws for an emailed code or for addresses saved at checkout.
+ *
+ * A signed-in visitor at the sign in page goes on to their account (or where
+ * they were going); a guest at the account goes to sign in, as on Shopify.
+ */
+function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
+  const customer = req.account?.customer ?? null
+  const signIn = path.match(/^\/account\/(login|register|recover|reset|activate)(?:\/|$)/)
+  if (signIn) {
+    const back = safeReturn(req.query.get("return")) ?? safeReturn(req.query.get("return_to")) ?? "/account"
+    if (customer) return { ...shell(site, req, path, "Account", ""), redirect: back }
+    const pending = req.query.get("step") === "email" ? null : (req.account?.pending ?? null)
+    const error = req.query.get("error")
+    /* A code refused after this browser's note ran out lands on the email step, and says to start again there (as the native sign in page does). */
+    const notice = signInNotice(!pending && (error === "code" || error === "expired" || error === "tries") ? "restart" : error) ?? (pending && req.query.get("sent") === "1" ? "A new code is on its way." : null)
+    const register = signIn[1] === "register"
+    const title = register ? "Create account" : "Sign in"
+    if (pending) return shell(site, req, path, title, signInContent({ step: "code", email: pending.email, returnTo: back, notice }), "customers/login")
+    const own = themeAccountTemplate(site, req, register ? "customers/register" : "customers/login", path, title, notice ? { customer_login: notice } : null)
+    if (own) return own
+    return shell(site, req, path, title, signInContent({ step: "email", returnTo: back, notice, register }), register ? "customers/register" : "customers/login")
+  }
+  if (!customer) {
+    const q = path === "/account" ? "" : `?return=${encodeURIComponent(path)}`
+    return { ...shell(site, req, path, "Sign in", ""), redirect: `/account/login${q}` }
+  }
+  if (path === "/account") {
+    const notice = req.query.get("profile") === "saved" ? "Saved." : req.query.get("profile") === "error" ? "That name could not be saved. Try again." : req.query.get("deleted") === "no" ? "Your account could not be deleted. Try again." : null
+    const edit = req.query.get("edit")
+    if (!edit && !notice) {
+      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras())
+      if (own) return own
+    }
+    return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
+  }
+  if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order's own page is its receipt, which each order on the account page links to. */
+  return { ...shell(site, req, path, "Account", ""), redirect: "/account" }
+}
+
+/** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */
+function accountExtras(): string {
+  return `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
+}
+
+/**
+ * The theme's own customers/<name> template, as a page in its header and
+ * footer: a JSON template's sections, or a Liquid template drawn as written.
+ * Null when the theme has neither (Dawn and Horizon, whose accounts moved to
+ * Shopify's hosted pages). `after` is markup put below the template's own.
+ */
+function themeAccountTemplate(site: SiteData, req: SiteRequest, template: string, path: string, title: string, formErrors: Record<string, string> | null, after = ""): Route | null {
+  const files = site.theme.files
+  const chrome = (sectionsOf(site, "home") ?? []).filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay")
+  const page = basePage(site, req, { template, path, title, ...(formErrors ? { formErrors: { ...(formErrorsOf(req) ?? {}), ...formErrors } } : {}) })
+  const json = files[`templates/${template}.json`]
+  if (json !== undefined) {
+    let sections: StoredSection[] = []
+    try {
+      sections = groupSections(json).map((s) => ({ ...s, type: site.theme.typeOf(s.type) }) as unknown as StoredSection)
+    } catch {
+      return null
+    }
+    /* Only a template whose sections the theme has: one that names a missing section would draw an empty page. */
+    if (!sections.length || sections.some((s) => files[`sections/${s.type}.storelib`] === undefined)) return null
+    if (!after) return { page, sections: [...chrome.filter((s) => s.group === "header"), ...sections, ...chrome.filter((s) => s.group !== "header")] }
+    const ctx = pageContextFor(site.theme, page, [...chrome, ...sections])
+    const content = sections.filter((s) => !s.hidden).map((s, i) => drawSection(site.theme, ctx, s, i).html).join("") + after
+    return { page, sections: chrome, content }
+  }
+  if (files[`templates/${template}.liquid`] !== undefined) return { page, sections: chrome }
+  return null
+}
+
+/** The wishlist, which is Storelib's own page, shown in a frame of the same site between the theme's header and footer. */
 function accountShell(site: SiteData, req: SiteRequest, path: string): Route {
   const q = new URLSearchParams(req.query)
   q.set("sl_embed", "1")
@@ -256,8 +383,32 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     menus: site.menus,
     shop: site.shop,
     cart: cartLines(site, req.cart),
+    customer: req.account?.customer ? themeCustomer(req.account.customer) : null,
+    formErrors: formErrorsOf(req),
     ...extra,
   }
+}
+
+/**
+ * WHY A FORM ON THIS PAGE DID NOT GO THROUGH, from the address it came back
+ * to: `?form_error=<code>&form_type=customer` after a newsletter or contact
+ * post, `?error=<why>` on the sign in pages (lib/website-builder/
+ * account-pages signInNotice). Fixed sentences for fixed codes: nothing the
+ * address says is printed.
+ */
+const FORM_ERRORS: Record<string, string> = {
+  email: "Enter a valid email address.",
+  check: "Check the form and try again.",
+  limit: "That is a lot at once. Try again in a few minutes.",
+  failed: "It did not send. Try again.",
+}
+
+function formErrorsOf(req: SiteRequest): Record<string, string> | null {
+  const out: Record<string, string> = {}
+  const type = req.query.get("form_type")
+  const code = req.query.get("form_error")
+  if ((type === "customer" || type === "contact") && code && FORM_ERRORS[code]) out[type] = FORM_ERRORS[code]
+  return Object.keys(out).length ? out : null
 }
 
 /**
@@ -299,8 +450,9 @@ function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
-  /* The account pages and the wishlist, drawn by Storelib inside the theme's header and footer (accountShell). */
-  if ((path === "/account" || path.startsWith("/account/") || path === "/wishlist") && path !== "/account/logout") return accountShell(site, req, path)
+  /* The visitor's account, on this host in the theme (accountPage); the wishlist, Storelib's own page in the theme's header and footer (accountShell). */
+  if ((path === "/account" || path.startsWith("/account/")) && path !== "/account/logout") return accountPage(site, req, path)
+  if (path === "/wishlist") return accountShell(site, req, path)
   const at = (key: string, extra: Partial<CompatPage> = {}, status?: number): Route | null => {
     const sections = sectionsOf(site, key)
     if (!sections) return null
@@ -611,7 +763,7 @@ async function sectionsFor(site: SiteData, req: SiteRequest, cart: CartEntry[], 
   const [path, search] = [from.split("?")[0] || "/", from.split("?")[1] ?? ""]
   const after: SiteRequest = { ...req, method: "GET", body: null, cart, note, query: new URLSearchParams(search) }
   const route = await pageFor(site, decodePath(path), after).catch(() => null)
-  if (route && route.content === undefined) {
+  if (route && route.content === undefined && !route.redirect) {
     const r = sectionsAnswer(site, route.page, route.sections, ids, true)
     return JSON.parse(String(r.body)) as Record<string, string | null>
   }
@@ -722,15 +874,26 @@ m.textContent=(x.b&&x.b.error)||"Checkout could not open. Try again.";var a=docu
 }
 
 /**
- * A contact form or a newsletter sign up, sent to the creator's inbox and
- * Subscribers through Storelib's own endpoints (which carry the spam checks),
- * then back to the page with `contact_posted=true`, so the theme shows its
- * own thank you.
+ * A CONTACT FORM OR A NEWSLETTER SIGN UP, sent to the creator's inbox and
+ * Subscribers through Storelib's own endpoints (`req.submit`, which carry
+ * the spam checks and the rate limits), then straight back, as Shopify does:
+ *
+ *   a script's post   (the page's own forms, caught by the site runtime in
+ *                     ./shims.ts) JSON: `{ ok }`, or `{ ok: false, code }`.
+ *                     The page then draws the form's section again with the
+ *                     theme's own thank you or error.
+ *   a plain post      (no script) a redirect to the page it came from with
+ *                     `customer_posted=true` or `contact_posted=true`, so
+ *                     the theme draws its own thank you; or with
+ *                     `form_error=<code>`, so it draws its own error.
+ *
+ * Never a page of its own: the white "Sending" page this used to answer with was
+ * a blank white page in the middle of the visitor's shop.
  */
-function formHandoff(site: SiteData, req: SiteRequest): SiteResponse {
+async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
   const b = req.body ?? {}
-  const type = String(b.form_type ?? "contact")
-  const back = safeReturn(b.return_to) ?? "/"
+  const type = String(b.form_type ?? "contact") === "customer" ? "customer" : "contact"
+  const back = safeReturn(b.return_to) ?? safeReturn(req.referer) ?? "/"
   const flat = (k: string) => {
     const v = b[k] ?? b[`contact[${k}]`] ?? b[`customer[${k}]`]
     return typeof v === "string" ? v.slice(0, 5000) : ""
@@ -739,14 +902,19 @@ function formHandoff(site: SiteData, req: SiteRequest): SiteResponse {
   const subscribe = type === "customer"
   const payload = subscribe
     ? { creator_id: site.creatorId, email, placement: "footer" }
-    : { creator_id: site.creatorId, name: flat("name") || flat("first_name"), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, page: "contact" }
-  const done = `${back.split("#")[0]}${back.includes("?") ? "&" : "?"}${subscribe ? "customer" : "contact"}_posted=true${subscribe ? "#footer" : "#contact_form"}`
-  const data = JSON.stringify({ payload, done, endpoint: subscribe ? "/api/website-builder/subscribe" : "/api/website-builder/contact", back }).replace(/</g, "\\u003c")
-  return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>${escapeHtml(site.shop.name)}</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,-apple-system,sans-serif;color:#1a1a2e;background:#f8f9fa}main{max-width:360px;padding:24px;text-align:center}a{color:inherit}</style></head>
-<body><main><p id="m">Sending…</p></main><script>(function(){var d=${data};var m=document.getElementById("m");
-fetch(d.endpoint,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d.payload)}).then(function(r){return r.json().catch(function(){return{}}).then(function(b){return{ok:r.ok,b:b}})}).then(function(x){if(x.ok){location.replace(d.done);return}
-m.textContent=(x.b&&x.b.error)||"It did not send. Try again.";var a=document.createElement("a");a.href=d.back;a.textContent="Go back";m.after(a)}).catch(function(){m.textContent="Could not reach the server. Check your connection and try again."})})();</script></body></html>`)
+    : { creator_id: site.creatorId, name: flat("name") || [flat("first_name"), flat("last_name")].filter(Boolean).join(" "), email, message: flat("body") || flat("message") || flat("comment"), consent: false, company: "", elapsed: 15000, page: "contact" }
+  const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : { ok: false, status: 503 }
+  const code = result.ok ? null : result.status === 400 ? (subscribe || !/@/.test(email) ? "email" : "check") : result.status === 429 ? "limit" : "failed"
+  if (req.ajax) return json(result.ok ? { ok: true, form_type: type } : { ok: false, form_type: type, code, message: FORM_ERRORS[code ?? "failed"] }, result.ok ? 200 : result.status >= 400 ? result.status : 500)
+  const [path, hash] = [back.split("#")[0], subscribe ? "#footer" : "#contact_form"]
+  const q = new URLSearchParams(path.split("?")[1] ?? "")
+  for (const k of ["customer_posted", "contact_posted", "form_error", "form_type"]) q.delete(k)
+  if (result.ok) q.set(`${type}_posted`, "true")
+  else {
+    q.set("form_error", code ?? "failed")
+    q.set("form_type", type)
+  }
+  return redirect(`${path.split("?")[0] || "/"}?${q.toString()}${hash}`)
 }
 
 // ── Cookies ─────────────────────────────────────────────────────────────────
