@@ -2766,7 +2766,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       (customAddableSections leaves them out), and what else fits the group.
     */
     /* The Overlay group: what floats over the page, and nothing that is a header or a footer. */
-    if (addGroup === "overlay") return all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
+    if (addGroup === "overlay") {
+      const floats = all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
+      /* An imported theme seldom says a section floats: what does comes first, then any of its sections that is not a header or a footer (a custom Liquid bar, a newsletter popup). */
+      return compatInstall ? [...new Set([...floats, ...all.filter((t) => !kindOfType(t))])] : floats
+    }
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
@@ -2774,7 +2778,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
-    const all = compatInstall ? ownSectionTypes : [...ADDABLE_SECTIONS, ...ownSectionTypes]
+    /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
+    if (compatInstall) return ownSectionTypes.length > 0
+    const all = [...ADDABLE_SECTIONS, ...ownSectionTypes]
     return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
   }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */

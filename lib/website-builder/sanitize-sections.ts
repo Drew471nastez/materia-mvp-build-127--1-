@@ -15,7 +15,7 @@ import { SECTION_SCHEMAS } from "./section-schemas"
 import { withMediaUrls } from "@/lib/storage/media-url"
 import { schemaFromStorelib, themeBlockCatalog } from "./storelib-schemas"
 import { MAX_BLOCK_DEPTH } from "@/lib/storelib-theme/types"
-import { htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
+import { compatHtmlFieldsOf, htmlFieldsOf, sanitizeSettings, type HtmlFieldMap } from "./sanitize"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import type { SectionInstance, SectionSchema } from "./types"
 
@@ -70,7 +70,8 @@ function blockFieldsFor(type: string, blockType: string): HtmlFieldMap {
  * The install's file wins over the theme's for the same type, because that
  * file is what draws it.
  */
-export type OwnSectionFields = Record<string, { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap> }>
+/** `exact`: an imported Shopify section's file, cleaned by its own types alone (sanitize.ts, compatHtmlFieldsOf). */
+export type OwnSectionFields = Record<string, { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap>; exact?: boolean }>
 
 type SectionFile = { path: string; content?: string | null; draft_content?: string | null }
 
@@ -86,8 +87,10 @@ export function ownSectionFields(files: readonly SectionFile[] | null | undefine
       const read = schemaFromStorelib(source, file.path)
       if (read.ok !== true) continue
       const own = (out[type] ??= { section: {}, blocks: {} })
-      Object.assign(own.section, htmlFieldsOf(read.schema.fields))
-      for (const block of read.schema.blocks ?? []) Object.assign((own.blocks[block.type] ??= {}), htmlFieldsOf(block.fields))
+      const fieldsOf = read.schema.imported ? compatHtmlFieldsOf : htmlFieldsOf
+      if (read.schema.imported) own.exact = true
+      Object.assign(own.section, fieldsOf(read.schema.fields))
+      for (const block of read.schema.blocks ?? []) Object.assign((own.blocks[block.type] ??= {}), fieldsOf(block.fields))
     }
   }
   return out
@@ -146,13 +149,13 @@ function themeBlockFieldsFor(type: string): HtmlFieldMap {
 }
 
 /** One block and every block inside it. The same object back when nothing changed. */
-function sanitizeBlock<B extends LooseBlock>(b: B, fields: HtmlFieldMap, depth: number): B {
-  const settings = sanitizeSettings(b.settings, fields)
+function sanitizeBlock<B extends LooseBlock>(b: B, fields: HtmlFieldMap, depth: number, exact = false): B {
+  const settings = sanitizeSettings(b.settings, fields, exact ? { byId: false } : undefined)
   let blocks = b.blocks
   if (Array.isArray(blocks) && blocks.length && depth < MAX_BLOCK_DEPTH) {
     let touched = false
     const next = blocks.map((c) => {
-      const cleaned = sanitizeBlock(c, themeBlockFieldsFor(c.type), depth + 1)
+      const cleaned = sanitizeBlock(c, exact ? {} : themeBlockFieldsFor(c.type), depth + 1, exact)
       if (cleaned !== c) touched = true
       return cleaned
     })
@@ -170,26 +173,28 @@ function sanitizeBlock<B extends LooseBlock>(b: B, fields: HtmlFieldMap, depth: 
  */
 export type OwnFields = OwnSectionFields | SchemaLookup
 
-function ownOf(own: OwnFields | undefined, type: string): { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap> } | undefined {
+function ownOf(own: OwnFields | undefined, type: string): { section: HtmlFieldMap; blocks: Record<string, HtmlFieldMap>; exact?: boolean } | undefined {
   if (!own) return undefined
   if (typeof own !== "function") return own[type]
   const schema = own(type)
   if (!schema) return undefined
+  const fieldsOf = schema.imported ? compatHtmlFieldsOf : htmlFieldsOf
   const blocks: Record<string, HtmlFieldMap> = {}
-  for (const block of schema.blocks ?? []) blocks[block.type] = htmlFieldsOf(block.fields)
-  return { section: htmlFieldsOf(schema.fields), blocks }
+  for (const block of schema.blocks ?? []) blocks[block.type] = fieldsOf(block.fields)
+  return { section: fieldsOf(schema.fields), blocks, ...(schema.imported ? { exact: true } : {}) }
 }
 
 /** One section, settings and blocks. The same object back when nothing changed. */
 export function sanitizeSection<T extends LooseSection>(section: T, own?: OwnFields): T {
   const mine = ownOf(own, section.type)
-  const settings = sanitizeSettings(section.settings, mine ? mine.section : fieldsFor(section.type))
+  const exact = mine?.exact === true
+  const settings = sanitizeSettings(section.settings, mine ? mine.section : fieldsFor(section.type), exact ? { byId: false } : undefined)
   let blocks = section.blocks
   if (blocks?.length) {
     let touched = false
     const next = blocks.map((b) => {
       const local = mine ? mine.blocks[b.type] : SECTION_SCHEMAS[section.type]?.blocks?.some((d) => d.type === b.type) ? blockFieldsFor(section.type, b.type) : undefined
-      const cleaned = sanitizeBlock(b, local ?? themeBlockFieldsFor(b.type), 1)
+      const cleaned = sanitizeBlock(b, local ?? (exact ? {} : themeBlockFieldsFor(b.type)), 1, exact)
       if (cleaned !== b) touched = true
       return cleaned
     })

@@ -37,9 +37,9 @@ check("picked by its address (what Storelib's picker stores)", titleOf(typedValu
 check("a membership product, left out of the shop's list, still resolves", titleOf(typedValue("product", "/products/yogaclass-bachata-members", res())) === "YogaClass Bachata: Members")
 check("picked by id", titleOf(typedValue("product", "p-yoga", res())) === "YogaClass Bachata: Members")
 check("@current is the page's product", titleOf(typedValue("product", "@current", res({ current: yoga }))) === "YogaClass Bachata: Members")
-check("@current off a product page is nothing (the theme's placeholder)", typedValue("product", "@current", res()) === null)
+check("@current off a product page is the shop's first product, never a placeholder", titleOf(typedValue("product", "@current", res())) === "Wildflower honey")
 check("a product list by addresses", (typedValue("product_list", ["/products/wildflower-honey", "/products/yogaclass-bachata-members"], res()) as unknown[]).length === 2)
-check("an unknown product is nothing", typedValue("product", "/products/nope", res()) === null)
+check("a product the shop doesn't have is the shop's first (the original store's handle)", titleOf(typedValue("product", "/products/nope", res())) === "Wildflower honey")
 
 console.log("\nWired")
 const theme = read("lib/storelib-theme/compat/theme.ts")

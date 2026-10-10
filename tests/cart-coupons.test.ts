@@ -257,6 +257,17 @@ async function main() {
     check("a physical product is left out of this basket and named: it ships, so it has its own checkout", r.ok === true && r.lines.length === 1 && r.totalCents === 1000 && r.dropped.length === 1, r)
   }
   {
+    /* A code for the shipped product alone, on a cart that also holds a download: the physical checkout prices it, so it is not refused here. */
+    const E = "00000000-0000-4000-8000-0000000000e5"
+    const db = shop([coupon({ product_ids: [E] })], [product(E, "c1", 4000, { type: "physical" })])
+    const r = await priceCart(db, { items: [{ productId: A }, { productId: E }], couponCode: "SAVE20" })
+    check("a cart that ships is not refused for a code that fits only its shipped product", r.ok === true && r.ships.length === 2 && r.coupon === null && r.discountCents === 0, r)
+    const off = await priceCart(db, { items: [{ productId: A }, { productId: E }], couponCode: "SAVE20", handOff: false })
+    check("  while physical commerce is off nothing is handed over and the code is tried on what is left", off.ok === false && off.error === "That code does not apply to anything in your cart.", off)
+    const validate = code("app/api/coupons/validate/route.ts")
+    check("  and Apply says to add it on the next page before anything else about the code", validate.indexOf("cart.ships.length > 0") < validate.indexOf("if (!cart.coupon)") && /handOff/.test(validate))
+  }
+  {
     const r = await priceCart(shop([coupon()]), { items: [{ productId: A }, { productId: D }] })
     check("without a code: the free product is left out and named, the rest at full price", r.ok === true && r.coupon === null && r.totalCents === 1000 && r.dropped.join() === "P4", r)
   }

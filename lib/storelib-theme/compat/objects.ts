@@ -15,6 +15,7 @@
  */
 import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
+import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 
 type O = Record<string, unknown>
 
@@ -154,7 +155,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   })
 
   const prices = variants.map((v) => v.price as number)
-  const description = extra.descriptionHtml ?? (typeof s.description === "string" ? escapeParagraphs(s.description) : "")
+  const description = extra.descriptionHtml ?? (typeof s.description === "string" ? descriptionHtmlOf(s.description) : "")
   const product: O = {
     [OUTPUT]: title,
     id: card.id,
@@ -207,6 +208,16 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   return product
 }
 
+/**
+ * A description as a theme prints it: a product's rich text is HTML already
+ * (the product editor writes it), so it is cleaned and kept, never escaped
+ * into visible tags; plain text becomes paragraphs. The same rule the live
+ * product page uses (lib/website-builder/compat-site.ts).
+ */
+function descriptionHtmlOf(text: string): string {
+  return /<[a-z][\s\S]*>/i.test(text) ? sanitizeRichText(text) : escapeParagraphs(text)
+}
+
 function escapeParagraphs(text: string): string {
   const esc = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   return esc.split(/\n{2,}/).map((p) => `<p>${p.replace(/\n/g, "<br>")}</p>`).join("")
@@ -234,7 +245,7 @@ export function collectionObject(c: CollectionLike, productsFor?: (c: Collection
     title: c.title,
     handle: c.handle,
     url: c.url ?? `/collections/${c.handle}`,
-    description: c.description ? escapeParagraphs(c.description) : "",
+    description: c.description ? descriptionHtmlOf(c.description) : "",
     image,
     featured_image: image ?? (products[0]?.featured_image as O | null) ?? null,
     products,
@@ -475,17 +486,31 @@ export function typedValue(type: string, value: unknown, r: Resources): unknown 
       const src = typeof value === "string" ? r.imageUrl(value) : ""
       return src ? imageObject(src) : null
     }
-    case "product":
-      return typeof value === "string" ? productById(r, value) : null
-    case "product_list":
-      return Array.isArray(value) ? value.map((v) => productById(r, String(v))).filter(Boolean) : []
+    /*
+      A HANDLE FROM THE STORE THE THEME CAME FROM ("the-linen-shirt" in its
+      settings_data.json) is a product this shop does not have. It is the
+      shop's first product, as an unknown collection handle is the shop's
+      products (collectionByHandle): a featured product never draws the
+      theme's "Example product title" on a shop that has products.
+    */
+    case "product": {
+      if (typeof value !== "string" || !value) return null
+      return productById(r, value) ?? (r.products[0] ? productById(r, r.products[0].id) : null)
+    }
+    case "product_list": {
+      if (!Array.isArray(value)) return []
+      const found = value.map((v) => productById(r, String(v))).filter(Boolean)
+      if (found.length > 0 || value.length === 0) return found
+      return r.products.slice(0, value.length).map((p) => productById(r, p.id)).filter(Boolean)
+    }
     case "collection":
       return typeof value === "string" ? collectionByHandle(r, value) : null
     case "collection_list":
       return Array.isArray(value) ? value.map((v) => collectionByHandle(r, String(v))).filter(Boolean) : []
     case "link_list": {
       const handle = String(value ?? "")
-      const menu = r.menus[handle]
+      /* A menu of the store the theme came from ("main-menu-1", "mega-menu") is the shop's own: its footer menu for a footer's, its main menu for the rest. */
+      const menu = r.menus[handle] ?? (handle ? r.menus[/footer/i.test(handle) ? "footer" : "main-menu"] ?? r.menus["main-menu"] : undefined)
       return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
     }
     case "color_scheme":
@@ -566,7 +591,7 @@ function shopDefault(s: ShopifySetting, value: unknown, r: Resources): unknown {
   const empty = value === undefined || value === null || value === ""
   if (!empty || r.products.length === 0) return value
   if (s.type === "collection" && s.id === "collection") return "all"
-  if (s.type === "product" && s.id === "product") return r.products[0].id
+  if (s.type === "product" && /^(featured_?)?product(_?\d+)?$/i.test(String(s.id ?? ""))) return r.products[0].id
   return value
 }
 
