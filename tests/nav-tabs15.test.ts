@@ -255,7 +255,7 @@ async function main() {
     check("arrival is by path: a query the page adds itself is the same place", arrivedAt("/account/library", "/account/library?purchase=success") && !arrivedAt("/account/library", "/account"))
     const pills = code("components/profile/profile-owner-pills.tsx")
     check("the profile's pills decide on the lift (first tap), keep the page showing with the line only, and watch the press",
-      /useFirstTap<HTMLAnchorElement>/.test(pills) && /onPointerUp=\{tap\.onPointerUp\}/.test(pills) && /startRouteLoading\(\{ lineOnly: true \}\)\s*router\.push\(p\.href, \{ scroll: false \}\)\s*watchNavigation\(p\.href\)/.test(pills))
+      /useFirstTap<HTMLAnchorElement>/.test(pills) && /onPointerUp=\{(tap\.onPointerUp|\(e\) => \{\s*releasePill\(e\.currentTarget\)\s*tap\.onPointerUp\(e\))/.test(pills) && /startRouteLoading\(\{ lineOnly: true \}\)\s*router\.push\(p\.href, \{ scroll: false \}\)\s*watchNavigation\(p\.href\)/.test(pills))
     check("so do the tab bar's presses and the library's own pills", /watchNavigation\(href\)/.test(code("components/nav/buyer-tab-bar.tsx")) && /watchNavigation\(tab\.href\)/.test(code("components/library/library-tabs.tsx")))
   }
 

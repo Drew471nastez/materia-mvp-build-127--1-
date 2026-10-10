@@ -25,10 +25,18 @@
  * At 390x844 (touch) and 1440x900. A filmstrip of one press on each surface
  * at each size is written to SHOTS_DIR.
  *
+ * AND THE POSTS PILL, END TO END ("the posts don't work"), SURFACES=posts:
+ * the list from every community, Show more reading the next page, Delete
+ * post asking first and folding the row away once the server said yes, a
+ * pull at the top (a real finger drag on the phone) reading the first page
+ * again, Edit post going to the post with ?edit=1, and that post, opened by
+ * its address over its feed, opening its editor at once and closing back to
+ * the account. No console errors anywhere.
+ *
  *   PROBE_CSS=source node scripts/check-pills17.mjs
  *   ROOT=dir        render another checkout (the base, for the before frames)
  *   REPORT_ONLY=1   print the numbers, do not fail
- *   SIZES=390 SURFACES=account,settings
+ *   SIZES=390 SURFACES=account,settings,posts
  */
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { createServer } from "node:http"
@@ -115,6 +123,15 @@ await build({
 const js = readFileSync(join(stubs, "app.js"), "utf8")
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><style>${inter}</style><style>${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script src="/app.js"></script></body></html>`
 
+/* Every API request the page made, for the posts checks. */
+let asked = []
+const AGO = (h) => new Date(Date.parse("2026-10-10T12:00:00Z") - h * 3600_000).toISOString()
+const PAGE_TWO = { id: "p4", title: "Kiln wash recipe that stopped my shelves pitting", excerpt: "Equal parts alumina hydrate and kaolin, two thin coats.", space: "General", at: AGO(300), reactions: 7, comments: 1, href: "/community/clay-studio/post/p4", imageUrl: null, community: { id: "c1", slug: "clay-studio", name: "Clay Studio", logoUrl: null }, canEdit: true, canDelete: true }
+/* What a pull reads again: the first page as the server has it now (the one deleted is gone, one edited has its new title). */
+const FIRST_AGAIN = [
+  { id: "p1", title: "First firing of the new glaze (edited)", excerpt: "Came out greener than the test tile.", space: "Show and tell", at: AGO(3), reactions: 4, comments: 2, href: "/community/clay-studio/post/p1", imageUrl: null, community: { id: "c1", slug: "clay-studio", name: "Clay Studio", logoUrl: null }, canEdit: true, canDelete: true },
+  { id: "p3", title: "Studio hours over the holidays", excerpt: null, space: null, at: AGO(120), reactions: 11, comments: 0, href: "/community/clay-studio/post/p3", imageUrl: null, community: { id: "c1", slug: "clay-studio", name: "Clay Studio", logoUrl: null }, canEdit: false, canDelete: true },
+]
 /* The Notifications section's own read, answered after a moment, as the server does. */
 const PUSH = { enabled: true, devices: 1, kinds: {}, emails: {}, communities: [], tz: "Europe/Lisbon", quiet: null }
 const server = createServer((req, res) => {
@@ -133,7 +150,16 @@ const server = createServer((req, res) => {
     }
   }
   if (url.pathname.startsWith("/api/")) {
-    const body = url.pathname.includes("push") || url.pathname.includes("notification") ? PUSH : { items: [], posts: [], next: null }
+    ;(asked ||= []).push(`${req.method} ${url.pathname}${url.search}`)
+    let body = url.pathname.includes("push") || url.pathname.includes("notification") ? PUSH : { items: [], posts: [], next: null }
+    if (url.pathname === "/api/account/posts") body = url.searchParams.get("cursor") === "more" ? { posts: [PAGE_TWO], next: null } : { posts: FIRST_AGAIN, next: "more" }
+    if (req.method === "DELETE") body = { ok: true }
+    /* One post read again by the opened post: not here, so it keeps the one it was given (post-overlay.tsx). */
+    if (req.method === "GET" && /^\/api\/community\/[^/]+\/posts\/[^/]+$/.test(url.pathname)) {
+      res.writeHead(404, { "content-type": "application/json" })
+      return res.end(JSON.stringify({ error: "not_found" }))
+    }
+    if (/\/comments$/.test(url.pathname)) body = { comments: [], nextCursor: null, commentsEnabled: true, mediaReady: true, me: { name: "Alex Morgan", avatarUrl: null } }
     return setTimeout(() => {
       res.writeHead(200, { "content-type": "application/json" })
       res.end(JSON.stringify(body))
@@ -289,7 +315,7 @@ const PLAN = {
 }
 
 for (const [label, vp] of [["390", PHONE], ["1440", DESK]].filter(([l]) => SIZES.includes(l))) {
-  for (const surface of SURFACES) {
+  for (const surface of SURFACES.filter((x) => PLAN[x])) {
     const plan = PLAN[surface]
     let page = await open(vp, plan.path)
     /* The page settles and reads ahead whatever it reads ahead when idle. */
@@ -353,6 +379,111 @@ for (const [label, vp] of [["390", PHONE], ["1440", DESK]].filter(([l]) => SIZES
     )
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
     await page.close()
+  }
+}
+
+/* ── THE POSTS PILL, END TO END ── */
+const ROWS = () => [...document.querySelectorAll("[data-account-post]")].map((n) => n.getAttribute("data-account-post"))
+async function choose(page, vp, rowId, label) {
+  await press(page, vp, `[data-account-post="${rowId}"] [data-account-post-more]`)
+  await sleep(500)
+  /* The menu on a computer, the app's sheet on a phone: either way the item is a button with these words. */
+  const item = await page.evaluateHandle((label) => [...document.querySelectorAll("button, [role=menuitem]")].find((n) => n.textContent?.trim() === label && n.getBoundingClientRect().height > 0), label)
+  if (!item.asElement()) return false
+  if (vp.hasTouch) await item.asElement().tap()
+  else await item.asElement().click()
+  return true
+}
+if (SURFACES.includes("posts")) {
+  const scope = (readFileSync(join(root, "lib/profile/refresh-scope.ts"), "utf8").match(/ACCOUNT_REFRESH_SCOPE = "([^"]+)"/) ?? [])[1]
+  for (const [label, vp] of [["390", PHONE], ["1440", DESK]].filter(([l]) => SIZES.includes(l))) {
+    console.log(`\nthe Posts pill at ${label}`)
+    asked = []
+    const page = await open(vp, "/account/posts")
+    await sleep(800)
+    expect((await page.evaluate(ROWS)).join() === "p1,p2,p3", "your posts from every community, newest first", await page.evaluate(ROWS))
+    expect(await page.evaluate(() => !!document.querySelector('[data-profile-owner-pill="posts"][data-active="true"]')), "the Posts pill is lit")
+    await page.screenshot({ path: join(shots, `posts-${label}.png`) })
+
+    await press(page, vp, "[data-account-posts-more]")
+    await sleep(900)
+    expect(asked.includes("GET /api/account/posts?cursor=more") && (await page.evaluate(ROWS)).join() === "p1,p2,p3,p4" && !(await page.$("[data-account-posts-more]")), "Show more reads the next page and adds it under the list", { asked, rows: await page.evaluate(ROWS) })
+
+    const opened = await choose(page, vp, "p2", "Delete post")
+    await sleep(500)
+    await page.screenshot({ path: join(shots, `posts-delete-ask-${label}.png`) })
+    const confirm = await page.evaluateHandle(() => [...document.querySelectorAll("button")].find((n) => n.textContent?.trim() === "Delete" && n.getBoundingClientRect().height > 0))
+    if (confirm.asElement()) vp.hasTouch ? await confirm.asElement().tap() : await confirm.asElement().click()
+    await sleep(1200)
+    expect(opened && !!confirm.asElement() && asked.includes("DELETE /api/community/c2/posts/p2") && (await page.evaluate(ROWS)).join() === "p1,p3,p4", "Delete post asks first, then the row folds away once the server said yes", { opened, asked: asked.filter((a) => a.startsWith("DELETE")), rows: await page.evaluate(ROWS) })
+
+    asked = []
+    if (vp.hasTouch) {
+      /* A finger pulling down from the top of the page, as on the phone. */
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await sleep(200)
+      const cdp = await page.createCDPSession()
+      const at = (y) => [{ x: 195, y, id: 1 }]
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: at(220) })
+      for (let y = 230; y <= 520; y += 15) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: at(y) })
+        await sleep(16)
+      }
+      await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })
+    } else {
+      await page.evaluate((scope) => window.dispatchEvent(new CustomEvent("storelib:pull-refresh", { detail: { scope } })), scope)
+    }
+    await sleep(1500)
+    expect(asked.includes("GET /api/account/posts") && (await page.evaluate(ROWS)).join() === "p1,p3" && (await page.evaluate(() => document.querySelector('[data-account-post="p1"] [data-account-post-title]')?.textContent || "")).includes("(edited)"), `a pull at the top reads the first page again${vp.hasTouch ? " (a real finger drag)" : ""}`, { asked, rows: await page.evaluate(ROWS) })
+
+    const edited = await choose(page, vp, "p1", "Edit post")
+    await sleep(900)
+    const went = await page.evaluate(() => ({ at: location.pathname + location.search, mark: sessionStorage.getItem("storelib:post-from-account") }))
+    expect(edited && went.at === "/community/clay-studio/post/p1?edit=1" && /"id":"p1"/.test(went.mark || ""), "Edit post goes to the post with ?edit=1, marked as opened from the account", went)
+    expect(page.errors.length === 0, "no console errors on the Posts pill", page.errors.slice(0, 3))
+    await page.close()
+
+    /* The post, opened by its address with ?edit=1, as Edit post lands. */
+    const post = await browser.newPage()
+    post.errors = []
+    post.on("pageerror", (e) => post.errors.push(`${e}${process.env.DEBUG ? `\n${e.stack}` : ""}`))
+    post.on("console", (m) => m.type() === "error" && !/Failed to load resource/.test(m.text()) && post.errors.push(`console: ${m.text()}`))
+    await post.setViewport(vp)
+    const PID = "a0000000-0000-4000-8000-000000000001"
+    await post.goto(`${origin}/account/posts`, { waitUntil: "load" })
+    await post.evaluate((pid) => {
+      sessionStorage.setItem("storelib:post-from-account", JSON.stringify({ id: pid, at: Date.now() }))
+      history.pushState({}, "", `/community/clay-studio/post/${pid}?edit=1`)
+    }, PID)
+    await post.reload({ waitUntil: "load" })
+    await sleep(1600)
+    const editor = await post.evaluate(() => {
+      const title = document.querySelector("[data-composer-title]")
+      /* The editor's own Save (the composer's), not the post's bookmark, which is also called Save. */
+      const save = [...document.querySelectorAll("[data-composer-row] ~ * button, button")].find((b) => b.closest("[data-composer-row], form, [data-composer]") !== null && /^Save/.test(b.textContent?.trim() || "") && b.getBoundingClientRect().height > 0)
+      return { title: title ? title.value ?? title.textContent : null, save: !!save, at: location.pathname + location.search }
+    })
+    await post.screenshot({ path: join(shots, `post-edit-${label}.png`) })
+    expect(!!editor.title && /First firing/.test(editor.title) && editor.save, "the post opens with its editor (Save), filled with the post", editor)
+    expect(editor.at === `/community/clay-studio/post/${PID}`, "and ?edit=1 leaves the address, so a reload or Back does not open it again", editor.at)
+    if (process.env.DEBUG) {
+      post.on("console", (m) => console.log("      page:", m.text()))
+      post.on("framenavigated", (fr) => fr === post.mainFrame() && console.log("      navigated", fr.url()))
+      await post.evaluate(() => {
+        const ob = history.back.bind(history)
+        history.back = () => { console.log(`back, length ${history.length}`); ob() }
+        addEventListener("popstate", () => console.log(`popstate ${location.pathname}`))
+      })
+    }
+    /* Closing: the editor first, then the post; the post goes back to the account, not into the feed. */
+    await post.keyboard.press("Escape")
+    await sleep(700)
+    await post.keyboard.press("Escape")
+    await post.waitForFunction(() => location.pathname === "/account/posts", { timeout: 5000 }).catch(() => {})
+    const back = await post.evaluate(() => ({ at: location.pathname, stale: sessionStorage.getItem("storelib:account-posts-stale") }))
+    expect(back.at === "/account/posts", "closed, it goes back to the account's Posts, which reads its list again", back)
+    expect(post.errors.length === 0, "no console errors on the post", post.errors.slice(0, 3))
+    await post.close()
   }
 }
 

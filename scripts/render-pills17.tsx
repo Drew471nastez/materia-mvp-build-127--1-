@@ -7,6 +7,8 @@
  *   /account/posts         your posts from every community (components/account/account-posts.tsx)
  *   /account/communities   the communities you are in (the list accountCommunitiesBody draws)
  *   /account/settings      Settings and its section pills (components/account/account-settings.tsx)
+ *   /community/<slug>/post/<id>   a post of yours opened by its address (components/community/member/
+ *                          shared-post.tsx), where the account's Edit post and its rows land
  *
  * THE ROUTER, STOOD IN FOR the way Next's moves: the probe's next/navigation reads the path from a context this file
  * updates in a transition. A page the router was asked to prefetch commits on the press; one it was not waits for the
@@ -24,6 +26,10 @@ import { LibraryCommunitiesList } from "@/components/community/public/library-li
 import type { LibraryCommunityRow } from "@/components/community/public/types"
 import type { CommunityCard } from "@/lib/communities/types"
 import type { ProfilePostView } from "@/lib/communities/member-profile-view"
+import { LocaleProvider } from "@/components/locale-provider"
+import { SharedPost } from "@/components/community/member/shared-post"
+import { allowedActions } from "@/lib/communities/permissions"
+import type { FeedPostView, ViewerView } from "@/lib/communities/types"
 
 const w = window as unknown as {
   __path?: string
@@ -172,4 +178,45 @@ function NavApp() {
   )
 }
 
-createRoot(document.getElementById("app")!).render(<NavApp />)
+/* A post of yours, opened by its address over its community's feed: what the account's rows and Edit post open. */
+const ME = { id: "u1", name: "Alex Morgan", username: "alexmorgan", avatarUrl: null, role: "member" as const, level: 3, hasStorefront: false }
+const VIEWER: ViewerView = { userId: "u1", signedIn: true, role: "member", status: "active", active: true, tierId: null, level: 3, points: 84, isOwner: false, isCreatorAccount: false, mutedUntil: null, can: allowedActions("member") }
+const MY_POST: FeedPostView = {
+  id: "a0000000-0000-4000-8000-000000000001",
+  communityId: "c1",
+  space: { id: "s-show", slug: "show-and-tell", name: "Show and tell" },
+  kind: "post",
+  title: "First firing of the new glaze",
+  body: "<p>Came out greener than the test tile. Anyone else seeing that with the celadon?</p>",
+  bodyText: "Came out greener than the test tile. Anyone else seeing that with the celadon?",
+  media: [],
+  pinned: false,
+  featured: false,
+  locked: false,
+  status: "published",
+  author: ME,
+  reactionCount: 4,
+  commentCount: 0,
+  reacted: false,
+  bookmarked: false,
+  poll: null,
+  createdAt: ago(3),
+  editedAt: null,
+  lastActivityAt: ago(3),
+  canEdit: true,
+  canModerate: false,
+} as FeedPostView
+
+function PostRoute() {
+  return (
+    <LocaleProvider>
+      <SharedPost slug="clay-studio" post={MY_POST} viewer={VIEWER} readOnly={false}>
+        <div data-probe-feed="" className="min-h-svh bg-[#f8f9fa] p-6 text-[14px] text-[#6b7280]">
+          The community's feed
+        </div>
+      </SharedPost>
+    </LocaleProvider>
+  )
+}
+
+createRoot(document.getElementById("app")!).render(location.pathname.startsWith("/community/") ? <PostRoute /> : <NavApp />)

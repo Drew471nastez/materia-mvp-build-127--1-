@@ -92,7 +92,7 @@ console.log("\nThe profile center's pills")
   /* Round 5: "Library opens as its own page ... WITHOUT the profile hero above them". */
   check("the person's header stands over Activity, Posts and Communities only: not over the library, not over Settings", showsProfileHeader("/account") && showsProfileHeader("/account/posts") && showsProfileHeader("/account/communities") && !showsProfileHeader("/account/library") && !showsProfileHeader("/account/library/wishlist") && !showsProfileHeader("/account/library/courses/c1") && !showsProfileHeader("/account/settings"))
   const pills = read("components/profile/profile-owner-pills.tsx")
-  check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /transition-\[opacity/.test(pills) && /opacity-100" : "opacity-0"/.test(pills))
+  check("the pressed pill answers the press, its fill fading in where it is", /setPressed\(p\.key\)/.test(pills) && /PILL_FILL/.test(pills) && /opacity-100" : "opacity-0"/.test(pills))
   const member = read("components/profile/member-profile-page.tsx")
   /* Round 12: /@handle is the creator page's template; on your own, Edit profile sits on the cover as a creator's does, and Follow is not there. The pills stay /account's. */
   check("/@<my handle> for me: Edit profile on the cover, my activity, no Follow", /ownerActions=\{isSelf \? <PersonOwnerActions \/> : null\}/.test(member) && /isSelf=\{isSelf\}/.test(member) && /label: "Activity"/.test(member))
