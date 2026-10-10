@@ -9,6 +9,7 @@ import { attributionForCheckout } from "@/lib/attribution/server"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
 import { startCheckout } from "@/lib/physical/checkout-server"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -55,6 +56,9 @@ export async function POST(request: Request) {
   const origin = { ...(sent ?? {}), surface: "website" as const }
   const attribution = shopId ? await attributionForCheckout(db, { creatorId: shopId, source: "website", origin, sent: body.origin }) : null
 
+  /* The store's Settings › Checkout: what is asked for, and whether an account comes first. */
+  const config = await loadCheckoutConfig(db, shopId)
+
   const started = await startCheckout(db, {
     shopId,
     items: body.items,
@@ -71,6 +75,9 @@ export async function POST(request: Request) {
     buyerId: user?.id ?? null,
     platformOrigin,
     backUrl,
+    config,
+    buyerEmailConfirmed: !!user?.email_confirmed_at,
+    emailOptIn: body.emailOptIn,
   })
   if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
   if (started.free) {

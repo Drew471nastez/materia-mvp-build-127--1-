@@ -19,10 +19,12 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart
 } from "lucide-react"
 import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
+import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
+import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -71,7 +73,9 @@ const TABS = [
   { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account", line: "What others see and what we send" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "account", line: "Emails and alerts you get" },
   { id: "billing", label: "Plan", icon: CreditCard, group: "account", line: "Your plan, invoices and payment card" },
+  { id: "store", label: "Store details", icon: Store, group: "store", line: "Name, contact, phone and country" },
   { id: "payments", label: "Payments", icon: Wallet, group: "store", line: "How buyers pay you and payouts" },
+  { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
   /* The shop's own tax rates: only while physical commerce is on, until checkout reads them for every product. */
   { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
   { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
@@ -1814,6 +1818,18 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "notifications" && <NotificationPreferencesPanel />}
 
           {panelTab === "ai_memory" && <AiMemoryPanel />}
+
+          {/* Settings › Store details and Checkout: every store, whatever it sells. */}
+          {panelTab === "store" && (
+            <StoreDetailsPanel
+              onSupportEmail={(email) => {
+                /* The same address Profile shows: kept in step, and not an unsaved change there. */
+                setSupportEmail(email)
+                initialSupportEmail.current = email
+              }}
+            />
+          )}
+          {panelTab === "checkout" && <CheckoutPanel />}
 
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}

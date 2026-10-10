@@ -1,4 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { NextResponse, after } from "next/server"
 import type Stripe from "stripe"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
@@ -109,6 +110,10 @@ export async function POST(request: Request) {
     statement_descriptor: string | null
   } | null
   if (!creator) return NextResponse.json({ error: "This product is not available." }, { status: 404 })
+  /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
+  const checkoutConfig = await loadCheckoutConfig(admin, creator.id)
+  if (checkoutConfig.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
+  if (checkoutConfig.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
   /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
   if ((product as { community_id?: string | null }).community_id) {
     const { checkoutGate } = await import("@/lib/communities/server/join")
@@ -324,7 +329,8 @@ export async function POST(request: Request) {
     const optedIn = body.emailOptIn === true
     const source = contactSourceOfOrder(origin, product.id)
     after(async () => {
-      await recordCheckoutStart(admin, {
+      /* Settings › Checkout › Abandoned checkouts: off, a start is never written, so no reminder can follow it. */
+      if (checkoutConfig.abandonedRecovery) await recordCheckoutStart(admin, {
         creatorId: creator.id,
         productId: product.id,
         variantId: variant?.id ?? null,

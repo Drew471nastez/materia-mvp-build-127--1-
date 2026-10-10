@@ -164,6 +164,8 @@ export interface Address {
   postalCode: string | null
   country: string
   phone: string | null
+  /** Asked for only when Settings › Checkout asks for it. */
+  company?: string | null
 }
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "expired" | "cancelled" | "refunded" | "partially_refunded"

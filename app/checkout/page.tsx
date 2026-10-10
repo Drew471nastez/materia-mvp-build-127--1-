@@ -21,6 +21,8 @@ import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import MembershipCheckout from "./membership-checkout"
 import { RouteLoadingBar } from "@/components/navigation/route-loading-bar"
 import { providerFor } from "@/lib/payments/service"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { createAdminClient as checkoutAdmin } from "@/lib/supabase/admin"
 import type { CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 
 interface CheckoutPageProps {
@@ -206,10 +208,16 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
   }
 
   /* Who takes the payment: Stripe, or Airwallex for a creator on Storelib Payments' rollout (lib/payments). */
-  const paymentProvider = creator?.id ? await providerFor(creator.id) : "stripe"
+  const [paymentProvider, checkoutConfig] = await Promise.all([
+    creator?.id ? providerFor(creator.id) : Promise.resolve("stripe" as const),
+    /* The store's Settings › Checkout: the news box, the name rule, an account first (lib/store/checkout-config). */
+    loadCheckoutConfig(checkoutAdmin(), creator?.id),
+  ])
 
   return (
     <CheckoutPageClient
+      checkoutConfig={checkoutConfig}
+      emailConfirmed={!!user?.email_confirmed_at}
       paymentProvider={paymentProvider}
       product={{
         id: product.id,

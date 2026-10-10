@@ -53,6 +53,7 @@ import { resolveSellerEmail, sendSellerNotificationEmail } from "@/lib/email"
 import type { Db } from "./auth"
 import { priceCheckout, quoteCheckout, readItems, type PricedCheckout } from "./checkout-pricing-server"
 import { readAddress } from "./address"
+import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { isPickupOptionId } from "./pickup"
 import { addOrderEvent } from "./events-server"
 import { queueLowStockAlerts, queueOrderConfirmation, queueForwarding } from "./jobs-server"
@@ -80,6 +81,12 @@ export interface StartInput {
   platformOrigin: string
   /** Where the buyer goes back to if they leave Stripe's page. */
   backUrl: string
+  /** The store's Settings › Checkout (lib/store/checkout-config); what checkout always did when absent. */
+  config?: CheckoutConfig
+  /** The signed in buyer has confirmed their email address. */
+  buyerEmailConfirmed?: boolean
+  /** Ticked "Email me with news and offers". Only read when the store shows the box. */
+  emailOptIn?: unknown
 }
 
 export type StartResult =
@@ -115,6 +122,10 @@ function snapshotLine(l: PricedLine) {
 export type LineSnapshot = ReturnType<typeof snapshotLine>
 
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
+  const config = input.config ?? DEFAULT_CHECKOUT
+  /* Settings › Checkout, checked here as well as on the page: an account first, and a confirmed one. */
+  if (config.requireAccount && !input.buyerId) return { ok: false, status: 401, error: "Sign in or create an account to check out.", field: "account" }
+  if (config.requireConfirmedEmail && !input.buyerEmailConfirmed) return { ok: false, status: 403, error: "Confirm your email address to check out. We sent you a link when you signed up.", field: "account" }
   const email = clean(input.email, 254).toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, status: 400, error: "Enter your email address.", field: "email" }
   const clientKey = clean(input.clientKey, 120)
@@ -137,11 +148,13 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   const wantsPickup = priced.requiresShipping && isPickupOptionId(input.deliveryOptionId)
   let address: Address | null = null
   if (priced.requiresShipping && !wantsPickup) {
-    const read = readAddress(input.address)
+    const read = readAddress(input.address, config)
     if (read.ok === false) return { ok: false, status: 400, error: read.error, field: read.field }
     address = read.address
   }
   if (wantsPickup && !clean(input.name, 200)) return { ok: false, status: 400, error: "Enter the name the order is under.", field: "name" }
+  if (wantsPickup && config.nameFields === "first_and_last" && !/\S+\s+\S+/.test(clean(input.name, 200))) return { ok: false, status: 400, error: "Enter your first and last name.", field: "name" }
+  if (wantsPickup && config.phone === "required" && !clean(input.phone, 40)) return { ok: false, status: 400, error: "Enter a phone number for the pickup.", field: "phone" }
   const q = await quoteCheckout(db, priced, address, input.deliveryOptionId)
   if (priced.requiresShipping) {
     if (wantsPickup) {
@@ -248,6 +261,16 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     return { ok: false, status: insertError?.code === "42P01" ? 503 : 500, error: insertError?.code === "42P01" ? "This shop is not ready to sell physical products yet." : "Could not start the checkout." }
   }
   const checkoutId = checkout.id as string
+  /*
+    The news box, ticked: kept on the checkout so the paid order records a
+    yes (recordCartCustomer, "ticked"). Written apart from the insert, so a
+    database without SQL part 109's column only loses the yes, never the
+    checkout.
+  */
+  if (config.marketingOptIn && input.emailOptIn === true) {
+    const { error: optError } = await db.from("commerce_checkouts").update({ email_opt_in: true }).eq("id", checkoutId)
+    if (optError) console.warn("[physical] news consent not kept:", optError.code)
+  }
 
   /* The stock, all lines or none (a pickup holds it at the pickup point). */
   const holds = q.lines
@@ -647,7 +670,7 @@ async function onceForOrder(
     origin: s.origin,
     attribution: co.attribution ?? null,
   }
-  await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null))
+  await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.lines[0]?.product_id ?? null, co.email_opt_in === true ? "ticked" : "none"))
   if (co.coupon_id) await step("coupon use", () => recordCouponUse(db, co.coupon_id, co.coupon_holder))
   await step("ledger", () => recordSale(db, { creatorId: co.creator_id, orderId: s.firstOrderId, total: s.paidTotal, fee: s.fee, destinationPaymentId: s.destinationPaymentId }))
   await step("order email", () => queueOrderConfirmation(db, co.id, co.creator_id))
