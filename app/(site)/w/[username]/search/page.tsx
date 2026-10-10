@@ -10,6 +10,7 @@ import { catalogPage } from "@/lib/products/catalog-filters"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 /**
  * ===========================================================================
@@ -94,6 +95,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
       />
       {/* A page of the website like any other: one view, with its own path. */}
       <TrackView creatorId={site.creatorId} />
+      <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )

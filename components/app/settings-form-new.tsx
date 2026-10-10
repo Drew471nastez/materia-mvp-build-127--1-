@@ -21,7 +21,7 @@ import {
   User, FileText, ChevronLeft,
   ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2
 } from "lucide-react"
-import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
+import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
@@ -90,8 +90,8 @@ const TABS = [
   { id: "shipping", label: "Shipping and delivery", icon: Truck, group: "commerce", line: "Rates, zones and packages" },
   { id: "locations", label: "Locations", icon: MapPin, group: "commerce", line: "Where stock is kept and ships from" },
   { id: "returns", label: "Returns and refunds", icon: Undo2, group: "commerce", line: "Return window and reasons" },
-  /* Shippo, Printful, Gelato and the rest: the commerce integrations, while physical commerce is on. */
-  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "Services connected to your store" },
+  /* Analytics and ad pixels for every store; Shippo, Printful, Gelato and the rest while physical commerce is on (components/app/settings/integrations-directory.tsx). */
+  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "Analytics, pixels and services you connect" },
 ] as const
 
 /*
@@ -117,7 +117,7 @@ type TabId = typeof TABS[number]["id"]
 const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 /** Tabs that exist only while physical commerce is on in /admin. */
 /** Behind the physical commerce switch in /admin. */
-const COMMERCE_TABS = new Set<string>(["shipping", "locations", "integrations"])
+const COMMERCE_TABS = new Set<string>(["shipping", "locations"])
 
 /**
  * Where an older address meant to go. Shipping held four parts behind
@@ -1849,7 +1849,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           {/* Integrations: shipping, print on demand, dropshipping and fulfillment services (components/physical/integrations-marketplace.tsx). */}
-          {panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace />}
+          {panelTab === "integrations" && <IntegrationsDirectory />}
 
           {/* Payments Tab */}
           {panelTab === "payments" && (

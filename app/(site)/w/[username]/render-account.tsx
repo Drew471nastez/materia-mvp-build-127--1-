@@ -33,6 +33,7 @@ import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { renderWithSources } from "@/lib/website-builder/storefront-render"
 import { dressPage, publishedShopByName } from "@/lib/website-builder/published-site"
 import { ACCOUNT_PAGE_PATHS, accountPageSections } from "@/lib/website-builder/account-pages"
@@ -122,6 +123,7 @@ export async function renderAccountPage(
           other, and a visit to either counts in Analytics, with its path. The
           account pages (sign in, orders, profile) are private. */}
       {(key === "contact" || key === "wishlist") && <TrackView type="store" creatorId={site.creatorId} />}
+      <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )

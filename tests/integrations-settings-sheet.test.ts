@@ -37,7 +37,8 @@ console.log("\nThe Integrations section\n")
   check("and the card never claims orders are sent where they are not", /Storelib does not send orders to \{provider\.name\} yet/.test(market))
   check("the provider's own logo when one is named, else its initial", /provider\.logo \?/.test(market) || /if \(provider\.logo\)/.test(market))
   const settings = read("components/app/settings-form-new.tsx")
-  check("Settings has Integrations, behind the physical commerce switch", /\{ id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "[^"]+" \}/.test(settings) && /<IntegrationsMarketplace \/>/.test(settings))
+  /* Changed on purpose (round T): Integrations is every store's now (analytics and pixels); the commerce providers inside it still follow the switch (lib/integrations/catalog visibleIntegrations). */
+  check("Settings has Integrations for every store, the directory in it", /\{ id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "[^"]+" \}/.test(settings) && /panelTab === "integrations" && <IntegrationsDirectory \/>/.test(settings))
   /* Changed on purpose (round T): Integrations is a section of Settings beside Shipping, so Shipping no longer carries a card that points to it. */
   check("Shipping keeps no second copy of the integrations", !/function IntegrationRow/.test(read("components/physical/shipping-settings.tsx")) && /id: "integrations", label: "Integrations"/.test(settings))
 }

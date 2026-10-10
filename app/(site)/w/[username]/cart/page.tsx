@@ -8,6 +8,7 @@ import { resolveSectionColors } from "@/lib/storelib-theme/color-schemes"
 import { getMainDomain } from "@/lib/url-helpers"
 import { siteMetadata } from "../render-site"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 /**
  * ===========================================================================
@@ -57,6 +58,7 @@ export default async function SiteCartPage({ params }: PageProps) {
     <>
     {/* The cart is a page of the website too: one view, with its own path. */}
     <TrackView creatorId={site.creatorId} />
+    <StoreTracking creatorId={site.creatorId} />
     <ThemePage
       theme={site.themeSettings}
       sections={sections}

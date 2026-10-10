@@ -382,7 +382,7 @@ console.log("\nThe switch, in the app")
   /* Changed on purpose (round T): Shipping's parts are sections of their own, all behind the switch. Taxes and
      Returns and refunds now belong to every store (tests/taxes-t, tests/reasons-t); return reasons and the return
      window inside the latter still follow the switch. */
-  check("Settings shows Shipping, Locations and Integrations only while it is on", /const COMMERCE_TABS = new Set<string>\(\["shipping", "locations", "integrations"\]\)/.test(settings) && /TABS\.filter\(\(tab\) => !COMMERCE_TABS\.has\(tab\.id\) \|\| physicalCommerce\)/.test(settings) && /\{physicalCommerce && <ShippingSettings part="returns" \/>\}/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" \/>/.test(settings) && /panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace \/>/.test(settings))
+  check("Settings shows Shipping and Locations only while it is on, and the commerce integrations with them", /const COMMERCE_TABS = new Set<string>\(\["shipping", "locations"\]\)/.test(settings) && /INTEGRATIONS\.filter\(\(i\) => physical \|\| !i\.physical\)/.test(code("lib/integrations/catalog.ts")) && /TABS\.filter\(\(tab\) => !COMMERCE_TABS\.has\(tab\.id\) \|\| physicalCommerce\)/.test(settings) && /\{physicalCommerce && <ShippingSettings part="returns" \/>\}/.test(settings) && /panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" \/>/.test(settings) && /panelTab === "integrations" && <IntegrationsDirectory \/>/.test(settings))
   for (const page of ["app/app/inventory/page.tsx", "app/checkout/physical/page.tsx"]) {
     check(`${page} is a 404 while it is off`, /await requirePhysicalPage\(\)/.test(code(page)))
   }

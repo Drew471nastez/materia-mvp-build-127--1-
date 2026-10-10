@@ -404,6 +404,7 @@ const SUITES = [
   "tests/taxes-t.test.ts",
   "tests/reasons-t.test.ts",
   "tests/channels-t.test.ts",
+  "tests/integrations-t.test.ts",
   "tests/business-switch-flow.test.ts",
   "tests/push-recipients.test.ts",
   "tests/onboarding-polish.test.ts",

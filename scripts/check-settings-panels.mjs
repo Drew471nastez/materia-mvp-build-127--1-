@@ -8,7 +8,7 @@
  * control is cut, and what a press sends is what the panel says it does.
  */
 import { execFileSync } from "node:child_process"
-import { existsSync, mkdtempSync, writeFileSync } from "node:fs"
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
@@ -38,6 +38,15 @@ const API = {
 
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--force-device-scale-factor=1"] })
 const page = await browser.newPage()
+/* The integrations' marks are site paths (/integrations/…): served from public/ here, as the site would. */
+await page.setRequestInterception(true)
+page.on("request", (req) => {
+  const m = req.url().match(/^file:\/\/\/integrations\/([a-z0-9.-]+)$/)
+  if (!m) return req.continue()
+  const file = join(root, "public", "integrations", m[1])
+  if (!existsSync(file)) return req.respond({ status: 404, body: "" })
+  req.respond({ status: 200, contentType: m[1].endsWith(".svg") ? "image/svg+xml" : "image/png", body: readFileSync(file) })
+})
 let bad = 0
 const say = (ok, line) => { if (!ok) bad++; console.log(`  ${ok ? "ok   " : "FAIL "} ${line}`) }
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
@@ -52,6 +61,8 @@ const fits = () => page.evaluate(() => {
   const over = document.documentElement.scrollWidth - innerWidth
   const cut = [...document.querySelectorAll("button, label, p, h2, span, option")].filter((el) => {
     if (!(el instanceof HTMLElement) || !el.offsetParent) return false
+    /* A row that scrolls sideways on purpose (the integrations' pills) runs past the edge by design. */
+    if (el.closest("[data-integration-pills]")) return false
     const r = el.getBoundingClientRect()
     return r.right > innerWidth + 1 || (el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).overflow !== "visible" && el.tagName === "BUTTON")
   }).map((el) => (el.textContent || "").trim().slice(0, 40))
@@ -203,6 +214,52 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
   say(ticks.length === 4 && ticks.filter(Boolean).length === 1 && ticks[3], `a new product starts on the chosen channel alone: ${ticks.join(", ")} ("${line}")`)
   const c2 = await fits()
   say(c2.over <= 0 && c2.cut.length === 0, `nothing runs off the side or is cut (${c2.over}px over)`)
+
+  console.log(`\nIntegrations on ${name}`)
+  const INT = { "GET /api/store/integrations": { tracking: { meta_pixel: "1234567890123456" }, ready: true }, "PUT /api/store/integrations": { tracking: { meta_pixel: "1234567890123456", ga4: "G-ABCD1234" }, ready: true }, "GET /api/physical/integrations": { integrations: [{ provider: "shippo", status: "needs_setup", url: null, keyHint: "a1b2", secretHint: null, lastSyncAt: null, lastError: null, verifiedAt: "2026-10-01T00:00:00Z", mode: "test" }] } }
+  await open("integrations", vp, { ...API, ...INT })
+  await wait(200)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/integrations-${vp.width}.png`, fullPage: true })
+  const d1 = await fits()
+  say(d1.over <= 0 && d1.cut.length === 0, `nothing runs off the side or is cut (${d1.over}px over${d1.cut.length ? `, cut: ${d1.cut.join(" | ")}` : ""})`)
+  const dir = await page.evaluate(() => ({
+    cards: document.querySelectorAll("[data-integration-card]").length,
+    pills: [...document.querySelectorAll("[data-integration-pills] button")].map((b) => b.textContent.replace(/\s+/g, " ").trim()),
+    logos: [...document.querySelectorAll("[data-integration-card] img")].filter((i) => i.complete && i.naturalWidth > 0).length,
+    imgs: document.querySelectorAll("[data-integration-card] img").length,
+    meta: document.querySelector('[data-integration-card="meta-pixel"]')?.textContent ?? "",
+    builtIn: document.querySelector('[data-integration-card="manual"]')?.textContent ?? "",
+  }))
+  say(dir.cards >= 15 && dir.pills[0].startsWith("All") && dir.pills.some((p) => /^Installed/.test(p)) && dir.pills.some((p) => /^Advertising\s*\d/.test(p)), `cards and pills with counts: ${dir.cards} cards; ${dir.pills.join(" · ")}`)
+  say(dir.imgs >= 13 && dir.logos === dir.imgs, `every service's own mark loads: ${dir.logos} of ${dir.imgs}`)
+  say(/Installed/.test(dir.meta) && /Built in/.test(dir.builtIn), "a saved pixel says Installed; a built in one says Built in")
+  await page.type("[data-integrations-search]", "pixel")
+  await wait(100)
+  const found = await page.evaluate(() => [...document.querySelectorAll("[data-integration-card]")].map((b) => b.getAttribute("data-integration-card")))
+  say(found.includes("meta-pixel") && found.includes("tiktok-pixel") && !found.includes("printful"), `search narrows the list: ${found.join(", ")}`)
+  await page.evaluate(() => document.querySelector('[data-integration-card="meta-pixel"]').click())
+  await wait(250)
+  const pg = await page.evaluate(() => ({ page: !!document.querySelector('[data-integration-page="meta-pixel"]'), url: location.search, text: document.querySelector("[data-integration-page]")?.textContent ?? "", value: document.querySelector("#tracker-meta_pixel")?.value }))
+  say(pg.page && /integration=meta-pixel/.test(pg.url) && /About/.test(pg.text) && /At a glance/.test(pg.text) && /Data ownership/.test(pg.text) && pg.value === "1234567890123456", `the page: About, At a glance, Data ownership, Install with the saved ID, in the address (${pg.url})`)
+  if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/integration-page-${vp.width}.png`, fullPage: true })
+  const d2 = await fits()
+  say(d2.over <= 0 && d2.cut.length === 0, `the page fits (${d2.over}px over${d2.cut.length ? `, cut: ${d2.cut.join(" | ")}` : ""})`)
+  if (name === "a computer") {
+    await page.evaluate(() => document.querySelector("[data-integration-back]").click())
+    await wait(150)
+    await page.focus("[data-integrations-search]")
+    for (let k = 0; k < 8; k++) await page.keyboard.press("Backspace")
+    await wait(100)
+    const back = await page.evaluate(() => ({ q: document.querySelector("[data-integrations-search]")?.value, cards: [...document.querySelectorAll("[data-integration-card]")].map((b) => b.getAttribute("data-integration-card")).slice(0, 4), page: !!document.querySelector("[data-integration-page]") }))
+    say(!back.page && back.q === "" && back.cards.includes("google-analytics"), `Back returns to the whole list: ${JSON.stringify(back)}`)
+    await page.evaluate(() => document.querySelector('[data-integration-card="google-analytics"]')?.click())
+    await wait(200)
+    await page.type("#tracker-ga4", "ua-123")
+    await page.evaluate(() => [...document.querySelectorAll("[data-tracker-install] button")].find((b) => /Install|Save/.test(b.textContent)).click())
+    await wait(200)
+    const sent = await page.evaluate(() => window.__sent.filter((x) => x.path === "/api/store/integrations"))
+    say(sent.length === 1 && sent[0].body.id === "ga4" && sent[0].body.value === "ua-123", `Install sends the ID as typed; the server checks it: ${JSON.stringify(sent[0]?.body)}`)
+  }
 
   console.log(`\nThe checkout's tax line on ${name}`)
   await open("totals", vp)

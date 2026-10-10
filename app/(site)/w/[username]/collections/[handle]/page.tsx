@@ -13,6 +13,7 @@ import { MAX_PICKED_PRODUCTS, pickedProducts } from "@/lib/website-builder/store
 import { siteMetadata } from "../../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 export const dynamic = "force-dynamic"
 
@@ -87,6 +88,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
         emptyDetail="Nothing in this collection yet."
       />
       <TrackView creatorId={site.creatorId} />
+      <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )

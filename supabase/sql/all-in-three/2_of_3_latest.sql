@@ -2702,5 +2702,16 @@ DO $do$ BEGIN IF to_regclass('public.sales_channels') IS NULL THEN RETURN; END I
 DO $do$ BEGIN IF to_regclass('public.product_channel_listings') IS NULL THEN RETURN; END IF; CREATE INDEX IF NOT EXISTS product_channel_listings_off_idx ON public.product_channel_listings (creator_id, product_id) WHERE NOT listed; END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('111', '111_sales_channel_kinds.sql', 'ee72c9fa10eaab15a95d7dda664d605d3403375a3fb369a0d87dc72fcd714093') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 112_integrations.sql
+/* Integrations for every store, run after part 109. `store_settings.tracking`: the analytics and ad pixel IDs a store adds in Settings › Integrations (Google Analytics, Tag Manager, Google Ads, Meta, TikTok, Pinterest), as one small object of IDs; the website loads each service's own tag with its ID and nothing else, and every ID is checked against its service's format on the way in and on the way out. `integration_requests`: the service a store asks Storelib to support, read by Storelib in /admin, at most five a day a store. Owner read, server written. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_settings') IS NULL THEN RAISE NOTICE 'integrations: store_settings is not there yet (part 109).'; RETURN; END IF; ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS tracking jsonb NOT NULL DEFAULT '{}'::jsonb; ALTER TABLE public.store_settings DROP CONSTRAINT IF EXISTS store_settings_tracking_shape, ADD CONSTRAINT store_settings_tracking_shape CHECK (jsonb_typeof(tracking) = 'object' AND pg_column_size(tracking) < 2048); END $do$;
+CREATE TABLE IF NOT EXISTS public.integration_requests (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, name text NOT NULL CHECK (length(btrim(name)) BETWEEN 1 AND 80), note text CHECK (note IS NULL OR length(note) <= 600), status text NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'planned', 'done', 'declined')), created_at timestamptz NOT NULL DEFAULT now());
+CREATE INDEX IF NOT EXISTS integration_requests_creator_idx ON public.integration_requests (creator_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS integration_requests_new_idx ON public.integration_requests (created_at DESC) WHERE status = 'new';
+ALTER TABLE public.integration_requests ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS integration_requests_owner_read ON public.integration_requests;
+CREATE POLICY integration_requests_owner_read ON public.integration_requests FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.creators c WHERE c.id = integration_requests.creator_id AND c.user_id = auth.uid()));
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('112', '112_integrations.sql', '7371730a1431d3fd321261788577261fcfbc1e75b39fbb014af7f94f5d27454c') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
