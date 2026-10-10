@@ -171,6 +171,21 @@ const scenarios: Scenario[] = [
       return body
     },
   },
+  ...(["products", "orders", "customers"] as const).map((name) => ({
+    name: `app-${name} (signed in)`,
+    held: "per visit (private)",
+    cookies: signedInCookies(SITE.userId),
+    headers: { host: "storelib.com", "user-agent": "Mozilla/5.0 (iPhone)" },
+    run: async () => {
+      const pages = {
+        products: () => import("@/app/app/products/page"),
+        orders: () => import("@/app/app/orders/page"),
+        customers: () => import("@/app/app/customers/page"),
+      }
+      const page = await pages[name]()
+      return (page.default as (p: unknown) => Promise<unknown>)({ searchParams: Promise.resolve({}), params: Promise.resolve({}) })
+    },
+  })),
   {
     name: "onepage",
     held: "route",

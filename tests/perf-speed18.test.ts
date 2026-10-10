@@ -402,6 +402,20 @@ async function sharedConfigs() {
   check("a failed shared read is not held, and the page reads fresh instead", !nextCache.cacheEntries().some((e) => e.key.includes("store-config")) && configReads(failed) === 2)
 }
 
+async function appCreator() {
+  section("/app reads the creator's two halves at once (lib/auth/request-scope.ts)")
+  const { creatorForRequest } = await import("@/lib/auth/request-scope")
+  useFixture(buildFixture())
+  const mine = await visit(() => creatorForRequest(SITE.userId), { cookies: signedInCookies(SITE.userId) })
+  const creatorTrips = mine.trips.filter((t) => t.table === "creators")
+  const c = mine.value as unknown as Record<string, unknown> | null
+  check("the public half on the user's own client and the private half on the service role, both by the user's own id", creatorTrips.length === 2 && creatorTrips.some((t) => t.key === "user") && creatorTrips.some((t) => t.key === "service") && creatorTrips.every((t) => t.query.includes(`user_id=eq.${SITE.userId}`)))
+  check("asked together, not one after the other", creatorTrips.length === 2 && Math.abs(creatorTrips[0].at - creatorTrips[1].at) < 5)
+  check("the same row, both halves merged", c?.id === SITE.creatorId && c?.slug === SITE.username && c?.stripe_account_id === `acct_${PRIVATE_MARKER}`)
+  const none = await visit(() => creatorForRequest("99999999-9999-4999-8999-999999999999"), { cookies: signedInCookies(SITE.userId) })
+  check("somebody with no creator row has no creator", none.value === null)
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
@@ -410,6 +424,7 @@ async function main() {
   await explore()
   await profileByName()
   await sharedConfigs()
+  await appCreator()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

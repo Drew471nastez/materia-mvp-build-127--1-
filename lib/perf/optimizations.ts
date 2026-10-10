@@ -124,4 +124,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "server time to the answer per public community page visit at 20ms a round trip", value: 111, unit: "ms" },
     note: "The sales page's gallery and live numbers need only the community, and waited for its tiers, its creator and their products first. They are asked beside the tiers now (lib/communities/server/public.ts). Same 12 reads, the same answers; the page stays per visitor.",
   },
+  {
+    id: "app-creator-halves-together",
+    title: "Every /app page that needs the creator gets it a round trip sooner",
+    area: "dashboard",
+    shippedAt: "2026-10-10",
+    before: { metric: "server time to the answer for /app/products at 20ms a round trip", value: 90, unit: "ms" },
+    after: { metric: "server time to the answer for /app/products at 20ms a round trip", value: 73, unit: "ms" },
+    note: "creatorForRequest (lib/auth/request-scope.ts, used by 20 files under /app) read the creator's public columns on the user's client and then its private columns on the service role by the id it had just found. Both are asked at once now by the signed in user's own id (creators.user_id is unique), and the private half is still used only when the user's own client returned the row. /app/customers: 116ms to 92ms. Measured with scripts/measure-speed18.mjs, signed in.",
+  },
 ]
