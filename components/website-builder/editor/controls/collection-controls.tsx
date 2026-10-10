@@ -15,6 +15,7 @@
  * that has been deleted, or is not theirs, stays in the setting named as
  * missing until somebody removes it: it is still in the section's settings.
  */
+import { EmptyPicker } from "./empty-picker"
 import * as React from "react"
 import { ArrowDown, ArrowUp, GripVertical, Plus, Search, X } from "lucide-react"
 
@@ -121,10 +122,7 @@ function CollectionMenu({
 function Unavailable({ list }: { list: PickerCollection[] | null | undefined }) {
   if (list === null) return <p className={NOTE}>Your collections could not be loaded. Reload the builder to try again.</p>
   return (
-    <div className="space-y-1">
-      <p className={NOTE}>You have no collections yet. Make one in Products › Collections, from any of your products.</p>
-      <a href="/app/products/collections" target="_blank" rel="noopener" className={TEXT_BUTTON}>Create a collection</a>
-    </div>
+    <EmptyPicker kind="collection" />
   )
 }
 

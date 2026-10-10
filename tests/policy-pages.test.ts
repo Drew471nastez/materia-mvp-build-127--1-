@@ -326,9 +326,9 @@ async function main() {
       "a toolbar press keeps the selection, or there is nothing to format",
       /onMouseDown=\{\(e\) => \{\s*e\.preventDefault\(\)/.test(rich),
     )
-    check("everything that leaves it is sanitised", /sanitizeRichText\(el\.innerHTML\)/.test(rich))
+    check("everything that leaves it is sanitised", /sanitizeRichText\(withoutValueChips\(el\.innerHTML\)\)/.test(rich))
     check("a paste arrives as text, not as someone else's markup", /insertText/.test(rich) && /e\.preventDefault\(\)/.test(rich))
-    check("and the value is only written in when it came from elsewhere", /if \(el\.innerHTML !== incoming\)/.test(rich))
+    check("and the value is only written in when it came from elsewhere", /const shown = withValueChips\(incoming\)\s*\n\s*if \(el\.innerHTML !== shown\)/.test(rich))
     check("what it can produce is styled, so formatting is visible", /\.wb-richtext h2/.test(css) && /\.wb-richtext ul/.test(css))
 
     check("the box starts at one line", /rows=\{1\}/.test(auto))

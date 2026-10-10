@@ -40,6 +40,8 @@ export interface SiteData {
   /** The published page rows, by key. */
   pages: Record<string, StoredSection[]>
   products: (CardLike & { descriptionHtml?: string })[]
+  /** Every published product a picker may name (memberships and tiers included). */
+  pickable?: CardLike[]
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shop: CompatPage["shop"]
@@ -189,6 +191,7 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
     host: site.host,
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
+    pickable: site.pickable,
     collections: site.collections,
     menus: site.menus,
     shop: site.shop,

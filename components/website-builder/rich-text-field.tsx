@@ -58,6 +58,40 @@ const BLOCKS = [
   { label: "Heading 4", tag: "h4" },
 ] as const
 
+/*
+ * A DYNAMIC VALUE IS A CHIP, NOT CODE. `{{ closest.collection.title }}` typed
+ * or picked into the text reads as a small labelled pill ("Collection title")
+ * while it is edited, one piece the caret moves past and Backspace removes
+ * whole; what is saved is the value itself, unchanged.
+ */
+const VALUE_IN_TEXT = /\{\{\s*([a-zA-Z_][\w.]*(?:\s*\|\s*[\w]+(?::[^}]*)?)*)\s*\}\}/g
+const CHIP = /<span[^>]*\bdata-value="([^"]*)"[^>]*>[\s\S]*?<\/span>/g
+const CHIP_STYLE = "display:inline-flex;align-items:center;padding:0 7px;margin:0 1px;border-radius:999px;background:#eef2ff;color:#4338ca;font-size:0.86em;font-weight:500;line-height:1.6;white-space:nowrap;user-select:all;vertical-align:baseline"
+
+/** What a value is called on its chip: its last two names, read as words. */
+function valueLabel(expr: string): string {
+  const path = expr.split("|")[0].trim().split(".").filter((p) => p && p !== "closest" && p !== "settings")
+  const words = path.slice(-2).join(" ").replace(/_/g, " ").trim()
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : expr
+}
+
+function escapeAttr(v: string): string {
+  return v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
+}
+
+export function withValueChips(html: string): string {
+  if (!html.includes("{{")) return html
+  /* Only in text, never inside a tag's attributes. */
+  return html.replace(/(^|>)([^<]*)/g, (_m, open: string, text: string) =>
+    open + text.replace(VALUE_IN_TEXT, (_v, expr: string) => `<span data-value="${escapeAttr(expr.trim())}" contenteditable="false" style="${CHIP_STYLE}">${escapeAttr(valueLabel(expr))}</span>`),
+  )
+}
+
+export function withoutValueChips(html: string): string {
+  if (!html.includes("data-value=")) return html
+  return html.replace(CHIP, (_m, expr: string) => `{{ ${expr.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&amp;/g, "&")} }}`)
+}
+
 export function RichTextField({
   value,
   onChange,
@@ -136,7 +170,8 @@ export function RichTextField({
     const incoming = value ?? ""
     if (incoming === sent.current) return
     sent.current = null
-    if (el.innerHTML !== incoming) el.innerHTML = incoming
+    const shown = withValueChips(incoming)
+    if (el.innerHTML !== shown) el.innerHTML = shown
     setEmpty(!el.textContent?.trim())
   }, [value])
 
@@ -144,7 +179,21 @@ export function RichTextField({
     const el = ref.current
     if (!el) return
     setEmpty(!el.textContent?.trim())
-    const clean = sanitizeRichText(el.innerHTML)
+    /* A value just typed or inserted becomes its chip at once, with the caret after it. */
+    if (VALUE_IN_TEXT.test(el.textContent ?? "")) {
+      VALUE_IN_TEXT.lastIndex = 0
+      el.innerHTML = withValueChips(el.innerHTML)
+      const sel = window.getSelection()
+      if (sel) {
+        const range = document.createRange()
+        range.selectNodeContents(el)
+        range.collapse(false)
+        sel.removeAllRanges()
+        sel.addRange(range)
+      }
+    }
+    VALUE_IN_TEXT.lastIndex = 0
+    const clean = sanitizeRichText(withoutValueChips(el.innerHTML))
     if (clean !== value) {
       sent.current = clean
       onChange(clean)

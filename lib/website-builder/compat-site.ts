@@ -17,6 +17,7 @@
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorByName, creatorShopTag, siteCatalogue } from "@/lib/website-builder/published-site"
+import { catalogCards } from "@/lib/website-builder/shop-products"
 import { siteCollections } from "@/lib/website-builder/storefront-collections-server"
 import { storeMenusOrNull } from "@/lib/website-builder/store-menus-server"
 import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
@@ -125,9 +126,11 @@ export async function compatSiteByName(name: string, host: string, previewToken:
   const version = draft ? `draft-${Date.now()}` : String(row.published_at ?? "1").replace(/[^0-9A-Za-z]/g, "")
   const rowsKey = `${row.id}:${version}`
   let rows = draft ? null : rowsHeld.get(rowsKey) ?? null
-  const [pageRows, products, collections, menus] = await Promise.all([
+  const [pageRows, products, catalog, collections, menus] = await Promise.all([
     admin.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", row.id),
     siteCatalogue(creator.creatorId, { cached: !draft }),
+    /* What a featured product may be picked from, as in the builder: memberships and tiers too. */
+    catalogCards(admin as never, creator.creatorId).catch(() => []),
     collectionsOf(creator.creatorId),
     storeMenusOrNull(admin, creator.creatorId),
     rows ? Promise.resolve() : installFiles(admin, row.id, draft).then((r) => { rows = r }),
@@ -149,13 +152,14 @@ export async function compatSiteByName(name: string, host: string, previewToken:
     theme,
     pages,
     products,
+    pickable: catalog,
     collections,
     menus: compatMenus(menus as never, Object.keys(pages)),
     shop: { name: creator.displayName, currency: "USD", moneyFormat: "${{amount}}" },
     host,
     designMode: false,
     product: async (handle) => {
-      const card = products.find((p) => p.settings.slug === handle || p.id === handle)
+      const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null
       const { data } = await admin.from("products").select("description").eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
       const raw = (data as { description?: string | null } | null)?.description ?? ""

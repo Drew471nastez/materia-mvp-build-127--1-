@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils"
 import { useEditorFieldEnv, type PickerProduct } from "./context"
 import { ADD_BUTTON, ICON_BUTTON, NOTE } from "./styles"
 import { useReorder } from "./use-reorder"
+import { EmptyPicker } from "./empty-picker"
 
 const DEFAULT_LIMIT = 12
 
@@ -114,7 +115,7 @@ export function ProductListControl({
       )}
 
       {products.length === 0 ? (
-        <p className={NOTE}>Products you publish in your shop can be chosen here.</p>
+        <EmptyPicker kind="product" />
       ) : chosen.length >= max ? (
         <p className={NOTE}>This section shows {max} at most. Remove one to add another.</p>
       ) : (
@@ -225,7 +226,7 @@ export function ProductPickerControl({ value, onChange, label }: { value: string
       ) : null}
 
       {products.length === 0 && !onProductPage ? (
-        <p className={NOTE}>Products you publish in your shop can be chosen here.</p>
+        <EmptyPicker kind="product" />
       ) : (
         <FieldPopover
           open={open}

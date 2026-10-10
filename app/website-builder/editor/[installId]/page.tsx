@@ -1040,6 +1040,8 @@ export type DeviceMode = "desktop" | "mobile"
 const FULL_SCREEN_KEY = "wb:full-screen"
 /** How long the sidebar takes to fold away or come back. */
 const FULL_SCREEN_MS = 320
+/** A product section's Details block (Horizon's _product-details, product-details, a "details" group): where its buttons and text belong. */
+const PRODUCT_DETAILS_BLOCK = /(^|[-_])(product[-_]?)?(details|info|information)$/i
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -3168,22 +3170,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [])
   /** Full screen as it applies right now: a computer, looking at the preview. */
   const fullView = fullScreen && !isMobileView && previewMode === "preview"
-  /* The button beside the size: the fold, and the browser's own full screen with it where it has one. */
+  /*
+    The button beside the size: the canvas only (the owner: "it should not make
+    the whole browser full screen, only the editor canvas"). The sidebar folds
+    away on its own width and opacity (FULL_SCREEN_MS), the canvas grows into
+    the room, and again or Escape brings it back the same way.
+  */
   const toggleCanvasFullScreen = useCallback((on: boolean) => {
     if (on) setPreviewMode("preview")
     setFullScreen(on)
-    try {
-      if (on && !document.fullscreenElement && document.documentElement.requestFullscreen) void document.documentElement.requestFullscreen().catch(() => {})
-      if (!on && document.fullscreenElement && document.exitFullscreen) void document.exitFullscreen().catch(() => {})
-    } catch {
-      /* the fold alone */
-    }
-  }, [setFullScreen])
-  /* Escape out of the browser's full screen leaves the editor's too. */
-  useEffect(() => {
-    const left = () => { if (!document.fullscreenElement) setFullScreen(false) }
-    document.addEventListener("fullscreenchange", left)
-    return () => document.removeEventListener("fullscreenchange", left)
   }, [setFullScreen])
   /**
    * THE SECTIONS FOLLOW ONE FOLD LATER. Turning the canvas's inspector off
@@ -4722,8 +4717,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const section = sectionsRef.current.find(s => s.id === sectionId)
     if (!section) return
     const schema = schemaFor(section.type, storelibSources, librarySchemas)
-    const parent = opts.parent ? resolvePath(section.blocks, opts.parent) : []
-    if (!parent) return
+    const asked = opts.parent ? resolvePath(section.blocks, opts.parent) : []
+    if (!asked) return
+    let parent: string[] = asked
+    /*
+      INTO THE PRODUCT'S DETAILS, NOT UNDER THE PRODUCT. A theme's product
+      section (Horizon's "Product information") is a media block and a Details
+      block, both static, side by side; a block added to the section itself
+      lands after both, under the picture and the details (the owner: "it
+      puts the blocks under the section instead of in the information side").
+      Added to the section, a block goes into its Details block when that
+      block can hold it, as Shopify's editor offers it.
+    */
+    if (!opts.parent && !PRODUCT_DETAILS_BLOCK.test(blockType) && !/media|gallery/i.test(blockType)) {
+      const details = (section.blocks ?? []).find((b) => b.static && PRODUCT_DETAILS_BLOCK.test(b.type))
+      if (details) {
+        const into = [details.id]
+        const owner = ownerOf(schema, section, into)
+        const inner = owner ? blockDefAt(schema, [...into, blockType], blockType) : null
+        if (owner && inner && blockRoom(owner.owner, owner.siblings, inner, blockType, section, { depth: 2, size: 1, height: 1 }).ok) parent = into
+      }
+    }
     const at = ownerOf(schema, section, parent)
     if (!at) return
     const def = blockDefAt(schema, [...parent, blockType], blockType)
@@ -6172,7 +6186,20 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * fail on type errors. tests/react-binding.test.ts is what catches it now.
    */
 
+  /*
+    NEVER A BLANK SIDEBAR. A section panel whose section is gone (deleted,
+    another page opened, the page still loading) drew nothing at all: the
+    Sections tab with an empty column under it. It draws the sections list
+    instead, and the effect below puts the panel state right once the page
+    has loaded.
+  */
+  const panelSectionGone = selectedPanel.type === "section" && !sections.some((s) => s.id === (selectedPanel as { sectionId: string }).sectionId)
+  const shownPanel: Panel = panelSectionGone && sidebarMode !== "settings" ? { type: "pages" } : selectedPanel
+  useEffect(() => {
+    if (panelSectionGone && !sectionsLoading) setSelectedPanel({ type: "pages" })
+  }, [panelSectionGone, sectionsLoading])
   const renderSidebarContent = () => {
+    const selectedPanel = shownPanel
     // ── Page browser mode ──
     if (pageBrowserOpen) return renderPageBrowser()
 
@@ -8079,7 +8106,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             )
           })()}
 
-          {/* FULL SCREEN, beside the size (the owner: "a fullscreen button next to desktop and mobile"): the sidebar folds away and the browser goes full screen; again, or Escape, and it all comes back. */}
+          {/* FULL SCREEN, beside the size (the owner: "a fullscreen button next to desktop and mobile"): the sidebar folds away and the canvas takes the room; again, or Escape, and it all comes back. */}
           {!isMobileView && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -9220,6 +9247,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   pageKey={currentPage}
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
+                  catalog={catalogCardsForCanvas}
                   collections={compatCollections}
                   menus={compatCanvasMenus}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}

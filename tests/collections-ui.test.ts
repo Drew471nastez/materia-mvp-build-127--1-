@@ -41,7 +41,8 @@ console.log("\nWhere it lives\n")
   check("/app/collections redirects there for good", /permanentRedirect\("\/app\/products\/collections"\)/.test(moved) && !/<CollectionsClient/.test(moved))
   check("the sidebar's Collections, under Products, goes there", /\{ href: "\/app\/products\/collections", label: "Collections" \}/.test(read("components/app/sidebar.tsx")))
   check("  and the products page's Collections button", /<Link href="\/app\/products\/collections" data-products-collections=""/.test(read("app/app/products/products-client.tsx")))
-  check("  and the builder's Create a collection", /href="\/app\/products\/collections"[^>]*>Create a collection</.test(read("components/website-builder/editor/controls/collection-controls.tsx")))
+  /* October 2026: the empty picker is a small card with the one thing to do (controls/empty-picker.tsx). */
+  check("  and the builder's Create a collection", /<EmptyPicker kind="collection" \/>/.test(read("components/website-builder/editor/controls/collection-controls.tsx")) && /"\/app\/products\/collections"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")) && /"Create"/.test(read("components/website-builder/editor/controls/empty-picker.tsx")))
   check("nothing links to /app/collections any more", ![read("components/app/sidebar.tsx"), read("app/app/products/products-client.tsx"), read("components/website-builder/editor/controls/collection-controls.tsx")].some((s) => /["']\/app\/collections["']/.test(s)))
   check("it is a list, not the product editor: the setup widget and the slow-load spinner treat it like one",
     /\^\\\/app\\\/products\\\/\(\?!collections\(\\\/\|\$\)\)\[\^\/\]\+/.test(read("components/app/sidebar.tsx"))
