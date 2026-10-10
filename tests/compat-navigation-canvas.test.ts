@@ -57,6 +57,9 @@ async function main() {
     check("  and one the shop has is that product", (own.choose_gift_wrap_product as { title?: string } | null)?.title === "Shirt 1")
     const section = typedSettings([{ type: "product", id: "product" }], { product: "the-original-shirt" }, res)
     check("a section's featured product still falls back to the shop's first", (section.product as { title?: string } | null)?.title === "Shirt 1")
+    const blogTheme = new CompatTheme({ "layout/theme.liquid": "<html><body>{{ content_for_layout }}</body></html>" }, {}, { assetUrl: (n) => `/a/${n}` })
+    const blog = blogTheme.pageContext({ ...page, template: "blog", path: "/blogs/news" }).globals.blog as { title?: string; articles?: unknown[] } | null
+    check("a blog page has its blog, titled by its address and with no posts (Dawn's main-blog drew nothing at all)", blog?.title === "News" && Array.isArray(blog?.articles) && blog!.articles!.length === 0, blog)
     check("the theme's settings are read exactly", /typedSettings\(allSettings, this\.settingsValues, res, resolverFor\(\(\) => pageCtx\), \{ exactProducts: true \}\)/.test(read("lib/storelib-theme/compat/theme.ts")))
   }
 

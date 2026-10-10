@@ -452,6 +452,8 @@ export class CompatTheme {
       search,
       customer: page.customer ?? null,
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
+      /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
+      blog: page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null,
       blogs: {},
       articles: {},
       pages: {},
@@ -864,6 +866,13 @@ export function groupSections(json: string | undefined): CompatSectionInstance[]
   if (!g?.sections) return []
   const order = Array.isArray(g.order) ? g.order : Object.keys(g.sections)
   return order.filter((id) => g.sections![id]).map((id) => instanceFromJson(id, g.sections![id]))
+}
+
+/** A blog of no posts, named by its address (/blogs/news is News). */
+function emptyBlog(path: string): Record<string, unknown> {
+  const handle = path.match(/^\/blogs\/([^/?#]+)/)?.[1] ?? "news"
+  const title = handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase())
+  return { [OUTPUT]: title, id: handle, handle, title, url: `/blogs/${handle}`, articles: [], articles_count: 0, tags: [], all_tags: [], comments_enabled: false, moderated: false, metafields: {} }
 }
 
 /**
