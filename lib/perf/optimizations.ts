@@ -88,4 +88,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database time of the profile lookup per creator page visit, 100,000 profiles", value: 0.11, unit: "ms" },
     note: "storelib.com/<name> and /member/<name> asked `username ILIKE <name>`, which no plain index answers: a trigram index scan at best (4.8ms) and a whole table scan when the name starts with a common word (49ms), measured on Postgres 16 by scripts/measure-speed18-indexes.mjs. The exact name is asked first now and the username index answers it in 0.11ms; a name typed in another case than it is stored is asked again the old way. No schema change: SQL part 127 was not needed.",
   },
+  {
+    id: "creator-page-reads-together",
+    title: "A creator page is answered two waves of reads sooner",
+    area: "creator pages",
+    shippedAt: "2026-10-10",
+    before: { metric: "server time to the answer per creator page visit at 20ms a round trip", value: 113, unit: "ms" },
+    after: { metric: "server time to the answer per creator page visit at 20ms a round trip", value: 71, unit: "ms" },
+    note: "How many the creator follows, whether the viewer follows them, where they are from and which products are off the page waited for the whole first batch and then for each other. They need only the profile, the creator and the viewer, so they start with the batch now. Same 12 reads per visit, the same answers, nothing cached: the page is still per viewer.",
+  },
 ]

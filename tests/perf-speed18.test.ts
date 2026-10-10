@@ -329,6 +329,11 @@ async function profileByName() {
   check("a name ILIKE read as a pattern is now its own page, not a 404", (pattern.value as { username?: string } | null)?.username === "a_b")
   const nobody = await visit(() => publicProfileByName(db(), "nobody-here"))
   check("nobody by that name is still nobody", nobody.value === null)
+  const page = code("app/(marketing)/u/[username]/page.tsx")
+  const batch = page.indexOf("{ data: catalogue, error: productsError }")
+  const started = ["const followingPromise = Promise.resolve(", "const viewerFollowsPromise = viewerPromise.then(", "const placePromise = readProfileLocation(", "const offPagePromise = offChannel("]
+  check("the creator page starts its follow counts, location and channels with its first batch, not after it", started.every((s) => page.indexOf(s) > 0 && page.indexOf(s) < batch) && /followingPromise,\s*viewerFollowsPromise,\s*headers\(\),[\s\S]{0,200}placePromise,\s*\]\)/.test(page) && /await offPagePromise/.test(page))
+  check("and the viewer's own follow is still asked only for a signed in visitor who is not the owner", /data\.user && data\.user\.id !== profile\.id\s*\?\s*supabase\.from\("follows"\)\.select\("id"\)\.eq\("follower_id", data\.user\.id\)\.eq\("following_id", profile\.id\)/.test(page))
   check("the creator page and the member profile both read it this way", /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
 }
 
