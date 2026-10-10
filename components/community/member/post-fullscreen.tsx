@@ -54,6 +54,7 @@ import { useEffect, useLayoutEffect, useRef } from "react"
 import { createPortal } from "react-dom"
 import { ChevronLeft } from "lucide-react"
 import { useLayer } from "@/lib/ui/layers"
+import { hapticTap } from "@/lib/native-bridge"
 import { edgeSwipeEnvironment } from "@/lib/navigation/edge-swipe"
 import { useKeyboardPlan } from "./visible-box"
 import { footCss } from "./keyboard-plan"
@@ -335,8 +336,8 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   }, [])
 
   /*
-    ── THE READOUT'S LONG PRESS ── on the face beside the comment box. Held still for KB_DEBUG_PRESS_MS: on (or off), a tick
-    of vibration where the phone has it, and the panel shown at once.
+    ── THE READOUT'S LONG PRESS ── on the face beside the comment box. Held still for KB_DEBUG_PRESS_MS: on (or off), a light
+    tap of the phone's haptics (hapticTap, which reaches iOS too), and the panel shown at once.
   */
   useEffect(() => {
     const page = pageRef.current
@@ -356,11 +357,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       timer = window.setTimeout(() => {
         timer = 0
         const on = toggleKbDebug()
-        try {
-          navigator.vibrate?.(12)
-        } catch {
-          /* No vibration here. */
-        }
+        hapticTap("light")
         const panel = debugRef.current
         if (panel) {
           panel.hidden = !on
