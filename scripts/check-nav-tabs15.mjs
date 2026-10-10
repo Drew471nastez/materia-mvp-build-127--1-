@@ -163,6 +163,7 @@ console.log(`\n${OLD ? "BEFORE (the base's bar)" : "NOW"} at 390x844, outside a 
   await step(p, "  and a moment later", async () => {}, true)
   await p.evaluate(() => { window.__webkit = false })
   await step(p, "post open", () => call(p, "open", "post"), true)
+  await p.screenshot({ path: join(shots, `${OLD ? "old" : "new"}-post-open-390.png`) })
   await step(p, "comment field focused (the keyboard is up)", () => p.focus("[data-probe-field=comment]"), false)
   await p.evaluate(() => { window.__webkit = true })
   await step(p, "post closed with the comment field focused (WebKit)", () => call(p, "close", "post"), true)
@@ -173,6 +174,14 @@ console.log(`\n${OLD ? "BEFORE (the base's bar)" : "NOW"} at 390x844, outside a 
   await step(p, "one closing while the next opens: post out, composer in, one commit", async () => { await call(p, "open", "post"); await sleep(100); await call(p, "swap", "post", "composer") }, "covered")
   await step(p, "and back: composer out, post in, one commit", () => call(p, "swap", "composer", "post"), true)
   await step(p, "post closed", () => call(p, "close", "post"), true)
+  await call(p, "open", "composer", true)
+  await sleep(300)
+  await p.screenshot({ path: join(shots, `${OLD ? "old" : "new"}-composer-open-390.png`) })
+  await p.evaluate(() => { window.__webkit = true })
+  await call(p, "close", "composer")
+  await frames(p, 2)
+  await p.screenshot({ path: join(shots, `${OLD ? "old" : "new"}-composer-closed-390.png`) })
+  await p.evaluate(() => { window.__webkit = false })
   await step(p, "a class the server printed for a layer that never ran, then the address moves", async () => {
     await p.evaluate(() => {
       document.documentElement.classList.add("has-page-layer")
