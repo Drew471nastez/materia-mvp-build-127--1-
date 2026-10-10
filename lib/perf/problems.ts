@@ -23,7 +23,7 @@
  */
 
 import { AREA_LABEL, MIN_SAMPLES, type Area } from "./config"
-import { formatValue, measureScore, type Aggregate, type Unit } from "./scoring"
+import { METRIC_LINES, formatValue, measureScore, type Aggregate, type Unit } from "./scoring"
 
 export interface ErrorGroupRow {
   detail: string
@@ -48,11 +48,11 @@ export interface Problem {
 }
 
 const SLOW: Record<string, { title: string; unit: Unit; good: number; poor: number }> = {
-  lcp: { title: "Slow to load", unit: "ms", good: 2500, poor: 4000 },
-  inp: { title: "Slow to answer a tap", unit: "ms", good: 200, poor: 500 },
-  cls: { title: "Moves while loading", unit: "cls", good: 0.1, poor: 0.25 },
-  nav: { title: "Slow to open from a tap", unit: "ms", good: 400, poor: 1000 },
-  api: { title: "Slow API route", unit: "ms", good: 300, poor: 1000 },
+  lcp: { title: "Slow to load", ...METRIC_LINES.lcp },
+  inp: { title: "Slow to answer a tap", ...METRIC_LINES.inp },
+  cls: { title: "Moves while loading", ...METRIC_LINES.cls },
+  nav: { title: "Slow to open from a tap", ...METRIC_LINES.nav },
+  api: { title: "Slow API route", ...METRIC_LINES.api },
 }
 
 export function whereOf(area: string, route: string): string {

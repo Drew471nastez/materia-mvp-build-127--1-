@@ -9,8 +9,10 @@
  *    them (LCP, INP, CLS, FCP, TTFB) they are Google's; the rest are
  *    Storelib's own and say so.
  *
- * 2. A MEASUREMENT SCORES 100 at or under its good line, falls in a straight
- *    line to 50 at the poor line, and on to 0 at twice the poor line.
+ * 2. A MEASUREMENT SCORES 100 at zero, 90 on its good line, 50 on its poor
+ *    line and 0 at twice the poor line, in straight lines between. So a page
+ *    exactly on Google's good line reads 90, the start of the "good" band,
+ *    and two pages that are both good can still be told apart.
  *
  * 3. A MEASUREMENT COUNTS ONLY WITH ENOUGH DATA: a 75th percentile needs
  *    MIN_SAMPLES samples, a rate needs MIN_RATE_BASE of what it divides by.
@@ -95,11 +97,12 @@ export interface SubScoreDef {
 
 /* ── Rule 2 ────────────────────────────────────────────────────────────── */
 
-/** 100 at or under good, 50 at poor, 0 at twice poor; straight lines between. */
+/** 100 at zero, 90 on the good line, 50 on the poor line, 0 at twice poor; straight lines between. */
 export function measureScore(value: number, good: number, poor: number): number {
   if (!Number.isFinite(value)) return 0
-  if (value <= good) return 100
-  if (value <= poor) return Math.round(100 - (50 * (value - good)) / (poor - good))
+  if (value <= 0) return 100
+  if (value <= good) return Math.round(100 - (10 * value) / good)
+  if (value <= poor) return Math.round(90 - (40 * (value - good)) / (poor - good))
   return Math.max(0, Math.round(50 - (50 * (value - poor)) / poor))
 }
 
@@ -141,14 +144,24 @@ export function apiErrorShare(aggs: Aggregate[], area: string): Reading {
 
 /* ── The measurements ──────────────────────────────────────────────────── */
 
+/**
+ * The good and poor lines of every timed metric. LCP, INP, CLS, FCP and TTFB
+ * are Google's (web.dev); the time from a tap to the next screen and the API
+ * answer time are Storelib's own.
+ */
+export const METRIC_LINES: Record<"lcp" | "inp" | "cls" | "fcp" | "ttfb" | "nav" | "api", { label: string; short: string; unit: Unit; good: number; poor: number; lines: "google" | "storelib" }> = {
+  lcp: { label: "Loading (LCP)", short: "LCP", unit: "ms", good: 2500, poor: 4000, lines: "google" },
+  inp: { label: "Responsiveness (INP)", short: "INP", unit: "ms", good: 200, poor: 500, lines: "google" },
+  cls: { label: "Layout shift (CLS)", short: "CLS", unit: "cls", good: 0.1, poor: 0.25, lines: "google" },
+  fcp: { label: "First paint (FCP)", short: "FCP", unit: "ms", good: 1800, poor: 3000, lines: "google" },
+  ttfb: { label: "Server response (TTFB)", short: "TTFB", unit: "ms", good: 800, poor: 1800, lines: "google" },
+  nav: { label: "Tap to next screen", short: "Tap", unit: "ms", good: 400, poor: 1000, lines: "storelib" },
+  api: { label: "API answer time", short: "API", unit: "ms", good: 300, poor: 1000, lines: "storelib" },
+}
+
 type VitalKind = "lcp" | "inp" | "cls" | "nav"
 
-const VITAL: Record<VitalKind, { label: string; unit: Unit; good: number; poor: number; lines: "google" | "storelib" }> = {
-  lcp: { label: "Loading (LCP)", unit: "ms", good: 2500, poor: 4000, lines: "google" },
-  inp: { label: "Responsiveness (INP)", unit: "ms", good: 200, poor: 500, lines: "google" },
-  cls: { label: "Layout shift (CLS)", unit: "cls", good: 0.1, poor: 0.25, lines: "google" },
-  nav: { label: "Tap to next screen", unit: "ms", good: 400, poor: 1000, lines: "storelib" },
-}
+const VITAL = METRIC_LINES
 
 function vital(kind: VitalKind, area: string, where: string, device = "*"): MeasureDef {
   const v = VITAL[kind]
@@ -179,11 +192,11 @@ function jsErrors(area: string, where: string): MeasureDef {
 
 const API_P75: MeasureDef = {
   key: "api.p75",
-  label: "API answer time",
+  label: METRIC_LINES.api.label,
   source: "Timed API routes, 75th percentile",
   unit: "ms",
-  good: 300,
-  poor: 1000,
+  good: METRIC_LINES.api.good,
+  poor: METRIC_LINES.api.poor,
   lines: "storelib",
   read: (aggs) => p75Of(aggs, "*", "api"),
 }
