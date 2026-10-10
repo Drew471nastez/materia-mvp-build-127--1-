@@ -27,6 +27,7 @@
  * with. No shop id means no storage.
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import {
   addLine,
   cartCount,
@@ -113,6 +114,13 @@ export function SiteCartProvider({ shopId, cartType = "drawer", children }: { sh
   useEffect(() => {
     if (!key) { setReady(true); return }
     try {
+      /* Back from paying for this whole cart (lib/checkout/basket-link): it is an order now, so the bag is empty. */
+      const url = new URL(window.location.href)
+      if (url.searchParams.get(CLEAR_CART_PARAM) === "clear") {
+        url.searchParams.delete(CLEAR_CART_PARAM)
+        window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash)
+        window.localStorage.removeItem(key)
+      }
       setLines(parseCart(window.localStorage.getItem(key)))
     } catch {
       /* Private mode, blocked site data, a quota error on read: an empty

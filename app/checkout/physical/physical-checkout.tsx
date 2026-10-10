@@ -12,8 +12,17 @@
  * picks Ship or Pick up first; picking up needs no address. Where nothing
  * ships to the address, the page says so and Pay stays off.
  * Pay sends ids, the address and the chosen option; the server prices it
- * all again, holds the stock and opens Stripe's page for the payment. A
- * failed attempt makes a new key, so the next one is a new checkout.
+ * all again, holds the stock and makes the payment. A failed attempt makes a
+ * new key, so the next one is a new checkout.
+ *
+ * THE PAYMENT STAYS ON THIS PAGE. Pay used to open Stripe's hosted page,
+ * with none of the shop on it. Now the page turns to its payment step: the
+ * shop's bar stays (./parts/shop-bar), a line says where it is going and
+ * how, with Change, and Stripe's form opens under it (Embedded Checkout)
+ * with the order, the delivery and the tax as the server priced them.
+ * Change lets go of that checkout's stock at once (abandonCheckout) and
+ * brings the form back. In the app's shell, where Stripe.js cannot run,
+ * Pay opens Stripe's own page as before.
  */
 
 import * as React from "react"
@@ -29,6 +38,9 @@ import { addressFormat } from "@/lib/address/format"
 import { countryName } from "@/lib/checkout/countries"
 import { actionKey } from "@/components/physical/ui"
 import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
+import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe-js"
+import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
+import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 
 interface QuoteLine {
   productId: string
@@ -91,14 +103,18 @@ function guessCountry(): string {
 export function PhysicalCheckout({
   shopId,
   shopName,
-  shopAvatar,
+  brand,
+  shopUrl = null,
   config = DEFAULT_CHECKOUT,
   buyer = { signedIn: true, confirmed: true },
   backTo = null,
 }: {
   shopId: string | null
   shopName: string
-  shopAvatar: string | null
+  /** The shop across the top: its website's logo, or its photo beside its name (lib/checkout/brand-server). */
+  brand?: ShopBrand
+  /** The shop's website home, for its name and Continue shopping. */
+  shopUrl?: string | null
   /** Where Back goes: the page the buyer came from, when it is one of this store's own sites (checked on the server). */
   backTo?: string | null
   /** The store's Settings › Checkout (lib/store/checkout-config): which fields are asked for, and whether an account comes first. */
@@ -137,6 +153,10 @@ export function PhysicalCheckout({
   const [paying, setPaying] = React.useState(false)
   const [payError, setPayError] = React.useState<{ message: string; field: string | null } | null>(null)
   const clientKey = React.useRef(actionKey())
+  /* The payment step: Stripe's form for the checkout Pay made, inside this page. */
+  const [payment, setPayment] = React.useState<{ clientSecret: string } | null>(null)
+  const [changing, setChanging] = React.useState(false)
+  const bar = brand ?? { name: shopName, imageUrl: null, kind: null }
 
   /* The cart: from the address, else this browser's cart for the shop. */
   React.useEffect(() => {
@@ -278,10 +298,24 @@ export function PhysicalCheckout({
           emailOptIn: config.marketingOptIn ? emailOptIn : false,
           clientKey: clientKey.current,
           returnUrl: backUrl ?? window.location.href,
+          /* Stripe's form inside this page; Stripe's own page in the app's shell, where Stripe.js cannot run. */
+          ...(isCapacitorShell() ? {} : { ui: "embedded" }),
         }),
       })
       const data = await res.json().catch(() => ({}))
-      if (!res.ok || typeof data.url !== "string") {
+      if (res.ok && typeof data.clientSecret === "string" && data.free !== true) {
+        setPayment({ clientSecret: data.clientSecret })
+        setPaying(false)
+        /* The browser's Back from the payment step comes back to the form, as Change does. */
+        try {
+          window.history.pushState({ ...(window.history.state ?? {}), physicalStep: "payment" }, "")
+        } catch {
+          /* Back leaves the page, as before. */
+        }
+        window.scrollTo({ top: 0 })
+        return
+      }
+      if (!res.ok || typeof data.url !== "string" || !data.url) {
         clientKey.current = actionKey()
         setPayError({ message: typeof data.error === "string" ? data.error : "Could not start the payment.", field: typeof data.field === "string" ? data.field : null })
         setPaying(false)
@@ -302,6 +336,24 @@ export function PhysicalCheckout({
       setPaying(false)
     }
   }
+
+  /* Back from the payment step: this checkout lets go of its stock, and the next Pay is a new one. */
+  const change = async () => {
+    setChanging(true)
+    const key = clientKey.current
+    clientKey.current = actionKey()
+    await fetch("/api/physical/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "abandon", shopId, clientKey: key }) }).catch(() => null)
+    setPayment(null)
+    setChanging(false)
+  }
+
+  React.useEffect(() => {
+    if (!payment) return
+    const back = () => void change()
+    window.addEventListener("popstate", back)
+    return () => window.removeEventListener("popstate", back)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [payment])
 
   const missing = (() => {
     if (needsSignIn || needsConfirm) return "account"
@@ -476,35 +528,69 @@ export function PhysicalCheckout({
 
   if (items !== null && (items.length === 0 || !shopId)) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center bg-[#f8f9fa] px-6 text-center">
-        <ShoppingBag className="h-8 w-8 text-[#c4c8cf]" strokeWidth={1.5} />
-        <h1 className="mt-3 text-[22px] font-semibold text-[#1a1a2e]">Your cart is empty</h1>
-        {backUrl ? (
-          <a href={backUrl} className="mt-3 text-[15px] font-medium text-[#1a1a2e] underline underline-offset-4">
-            Continue shopping
-          </a>
-        ) : null}
-      </main>
+      <div className="min-h-dvh bg-[#f8f9fa]">
+        <ShopBar brand={bar} backTo={backUrl} shopUrl={shopUrl} />
+        <main className="flex min-h-[70vh] flex-col items-center justify-center px-6 text-center">
+          <ShoppingBag className="h-8 w-8 text-[#c4c8cf]" strokeWidth={1.5} />
+          <h1 className="mt-3 text-[22px] font-semibold text-[#1a1a2e]">Your cart is empty</h1>
+          {backUrl || shopUrl ? (
+            <a href={shopUrl ?? backUrl ?? "/"} className="mt-3 text-[15px] font-medium text-[#1a1a2e] underline underline-offset-4">
+              Continue shopping
+            </a>
+          ) : null}
+        </main>
+      </div>
+    )
+  }
+
+  /* The payment step: where it is going and how, Change, and Stripe's form with the order as the server priced it. */
+  if (payment) {
+    const shipTo = quote?.requiresShipping
+      ? mode === "pickup"
+        ? (quote.pickups ?? []).find((p) => p.id === optionId)?.name ?? "Pickup"
+        : [address.line1, address.city, address.country ? countryName(address.country) : ""].filter(Boolean).join(", ")
+      : null
+    const method = quote?.requiresShipping && mode === "ship" ? quote.delivery.options.find((o) => o.id === optionId)?.name ?? null : null
+    return (
+      <div className="min-h-dvh bg-white" data-physical-step="payment">
+        <ShopBar brand={bar} backTo={backUrl} shopUrl={shopUrl} />
+        <div className="mx-auto max-w-[1120px] px-4 pt-5 sm:px-7 lg:px-[60px]">
+          <div className="flex items-start gap-3 rounded-xl border border-[#e5e7eb] px-4 py-3 text-[13.5px] leading-[20px]" data-payment-recap="">
+            <dl className="min-w-0 flex-1 space-y-1">
+              <div className="flex gap-3">
+                <dt className="w-16 shrink-0 text-[#6b7280]">Contact</dt>
+                <dd className="min-w-0 truncate text-[#1a1a2e]">{email}</dd>
+              </div>
+              {shipTo ? (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-[#6b7280]">{mode === "pickup" ? "Pickup" : "Ship to"}</dt>
+                  <dd className="min-w-0 truncate text-[#1a1a2e]">{shipTo}</dd>
+                </div>
+              ) : null}
+              {method ? (
+                <div className="flex gap-3">
+                  <dt className="w-16 shrink-0 text-[#6b7280]">Method</dt>
+                  <dd className="min-w-0 truncate text-[#1a1a2e]">{method}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <button type="button" onClick={() => (window.history.state?.physicalStep === "payment" ? window.history.back() : void change())} disabled={changing} className="shrink-0 text-[13.5px] font-medium text-[#1a1a2e] underline underline-offset-4 disabled:opacity-50">
+              Change
+            </button>
+          </div>
+        </div>
+        <div className="checkout-enter mx-auto min-h-[560px] max-w-[1120px] pb-[max(2rem,env(safe-area-inset-bottom))] pt-2 sm:pt-4">
+          <EmbeddedCheckoutProvider key={payment.clientSecret} stripe={getStripePromise()} options={{ clientSecret: payment.clientSecret }}>
+            <EmbeddedCheckout className="physical-embedded-checkout" />
+          </EmbeddedCheckoutProvider>
+        </div>
+      </div>
     )
   }
 
   return (
     <main className="min-h-dvh bg-white lg:bg-[linear-gradient(90deg,#ffffff_55%,#f8f9fa_55%)]">
-      <header className="border-b border-[#eef0f2] bg-white">
-        <div className="mx-auto flex h-16 max-w-[1080px] items-center justify-between px-4 sm:px-6">
-          <a href={backUrl ?? "#"} className="flex min-w-0 items-center gap-2.5">
-            {shopAvatar ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={shopAvatar} alt="" className="h-8 w-8 rounded-full border border-[#e5e7eb] object-cover" />
-            ) : null}
-            <span className="truncate text-[17px] font-semibold text-[#1a1a2e]">{shopName}</span>
-          </a>
-          <span className="flex items-center gap-1.5 text-[13px] text-[#6b7280]">
-            <Lock className="h-3.5 w-3.5" />
-            Secure checkout
-          </span>
-        </div>
-      </header>
+      <ShopBar brand={bar} backTo={backUrl} shopUrl={shopUrl} />
 
       {/* A phone: the order folds at the top. */}
       <div className="border-b border-[#eef0f2] bg-[#f8f9fa] lg:hidden">
@@ -701,7 +787,7 @@ export function PhysicalCheckout({
 
             <button type="button" onClick={pay} disabled={!canPay} className="flex h-14 w-full items-center justify-center gap-2 rounded-[12px] bg-[#1a1a2e] text-[16px] font-semibold text-white shadow-[0_1px_2px_rgba(16,24,40,0.16)] transition-colors hover:bg-[#2a2a44] disabled:cursor-not-allowed disabled:opacity-50">
               <Lock className="h-4 w-4" />
-              {paying ? "Opening secure payment" : t && t.totalCents === 0 ? "Place order" : t ? `Pay ${money(t.totalCents)}` : "Pay"}
+              {paying ? "Opening payment" : t && t.totalCents === 0 ? "Place order" : "Continue to payment"}
             </button>
             <p className="text-center text-[12.5px] leading-[18px] text-[#6b7280]">
               {missing === "delivery" && quote?.requiresShipping ? (mode === "pickup" ? "Choose a pickup point to continue. " : "Choose a shipping method to continue. ") : ""}

@@ -117,6 +117,7 @@ const SUITES = [
   "tests/header-elements.test.ts",
   "tests/site-cart.test.ts",
   "tests/cart-checkout.test.ts",
+  "tests/basket-checkout.test.ts",
   "tests/checkout-safety.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",

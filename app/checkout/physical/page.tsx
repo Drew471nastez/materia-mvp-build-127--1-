@@ -3,9 +3,10 @@ import { requirePhysicalPage } from "@/lib/physical/gate"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { PhysicalCheckout } from "./physical-checkout"
-import { loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
+import { checkoutBrand, type CheckoutBrand } from "@/lib/checkout/brand-server"
 
 export const dynamic = "force-dynamic"
 
@@ -13,7 +14,8 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
 
 /**
  * The checkout for a cart with something to ship: email, delivery address,
- * delivery option, then Stripe's page for the payment. Only while physical
+ * delivery option, then the payment: Stripe's form inside the page, under
+ * the shop's own bar (Stripe's hosted page in the app's shell). Only while physical
  * commerce is on in /admin. ?shop= is the shop, ?items= the cart (ids and
  * quantities, lib/physical/cart-link.ts), else this browser's cart for the
  * shop; ?return= where Back goes.
@@ -21,22 +23,21 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
 export default async function PhysicalCheckoutPage({ searchParams }: { searchParams: Promise<{ shop?: string; items?: string; return?: string }> }) {
   await requirePhysicalPage()
   const { shop, return: asked } = await searchParams
-  let shopName = "Checkout"
-  let shopAvatar: string | null = null
+  let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
+  let backTo: string | null = null
   if (shop && /^[0-9a-f-]{36}$/i.test(shop)) {
     const db = createAdminClient()
-    /* The store's own name (Settings › Store details) before the person's, and how its checkout behaves (Settings › Checkout). */
-    const [{ data }, storeName, checkout] = await Promise.all([
-      db.from("creators").select("display_name, username, avatar_url").eq("id", shop).maybeSingle(),
-      loadStoreName(db, shop),
+    /* The shop across the top, as the basket checkout draws it: its website's logo, its store name before the person's (lib/checkout/brand-server), and how its checkout behaves (Settings › Checkout). */
+    const [shopBrand, checkout, returns] = await Promise.all([
+      checkoutBrand(db, shop),
       loadCheckoutConfig(db, shop),
+      /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
+      asked ? checkoutReturns({ creatorId: shop, cancel: asked }) : Promise.resolve({ cancel: null }),
     ])
-    if (data) {
-      shopName = storeName || (data.display_name as string) || (data.username as string) || shopName
-      shopAvatar = (data.avatar_url as string) || null
-    }
+    brand = shopBrand
     config = checkout
+    backTo = returns.cancel
   }
   /* Who is buying, for a store that asks for an account first (Settings › Checkout). */
   let buyer = { signedIn: false, confirmed: false }
@@ -46,7 +47,6 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     } = await (await createClient()).auth.getUser()
     buyer = { signedIn: !!user, confirmed: !!user?.email_confirmed_at }
   }
-  /* Back goes to the store's own website only: any other address in ?return= is dropped (lib/checkout/site-hosts.ts). */
-  const backTo = shop && /^[0-9a-f-]{36}$/i.test(shop) && asked ? (await checkoutReturns({ creatorId: shop, cancel: asked })).cancel : null
-  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={shopName} shopAvatar={shopAvatar} config={config} buyer={buyer} backTo={backTo} />
+  const shopUrl = backTo ? `${new URL(backTo).origin}/` : null
+  return <PhysicalCheckout shopId={shop && /^[0-9a-f-]{36}$/i.test(shop) ? shop : null} shopName={brand.name} brand={brand} shopUrl={shopUrl} config={config} buyer={buyer} backTo={backTo} />
 }

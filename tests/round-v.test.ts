@@ -102,7 +102,7 @@ const boot = shopifyBootstrap({ currency: "USD", designMode: false, shopName: "S
 check("the page catches it before a theme's own submit handler, and posts with checkout", /closest\("\[data-storelib-buy-now\]"\)/.test(boot) && /stopImmediatePropagation/.test(boot) && /c\.name="checkout"/.test(boot) && /,true\)/.test(boot))
 check("not in the builder's canvas", /if\(!S\.designMode\)document\.addEventListener\("click"/.test(boot))
 const site = read("lib/storelib-theme/compat/site.ts")
-check("the site sends that item alone to checkout and leaves the cart as it was", /field\(req\.body, "checkout"\) !== undefined\) return \{ \.\.\.checkoutHandoff\(site, asked\), cart: req\.cart/.test(site))
+check("the site sends that item alone to checkout and leaves the cart as it was", /field\(req\.body, "checkout"\) !== undefined\) return \{ \.\.\.checkoutHandoff\(site, asked, false\), cart: req\.cart/.test(site))
 
 console.log("\nPages between pages")
 const rules = JSON.stringify(SITE_PREFETCH_RULES)

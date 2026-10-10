@@ -8,8 +8,8 @@ import { cleanOrigin } from "@/lib/orders/order-source"
 import { attributionForCheckout } from "@/lib/attribution/server"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
-import { startCheckout } from "@/lib/physical/checkout-server"
-import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { abandonCheckout, startCheckout } from "@/lib/physical/checkout-server"
+import { loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,6 +25,11 @@ export async function POST(request: Request) {
   if (off) return off
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
+  /* Back from the payment form to change something: this tab's checkout lets go of its stock (abandonCheckout). */
+  if (body.action === "abandon") {
+    const done = await abandonCheckout(createAdminClient(), { shopId: typeof body.shopId === "string" ? body.shopId : null, clientKey: body.clientKey })
+    return physicalJson({ ok: done })
+  }
   const limited = await rateLimit({
     bucket: "payment",
     subjects: [addressSubject(request), emailSubject(body.email)],
@@ -78,6 +83,8 @@ export async function POST(request: Request) {
     config,
     buyerEmailConfirmed: !!user?.email_confirmed_at,
     emailOptIn: body.emailOptIn,
+    embedded: body.ui === "embedded",
+    shopName: body.ui === "embedded" && shopId ? await loadStoreName(db, shopId) : null,
   })
   if (started.ok === false) return physicalJson({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
   if (started.free) {
@@ -88,5 +95,5 @@ export async function POST(request: Request) {
       ;(await cookies()).set("materia_session", co.session_fingerprint, { httpOnly: true, secure: !local, sameSite: "lax", maxAge: 60 * 60 * 24 * 365, path: "/", domain: local ? undefined : `.${main}` })
     }
   }
-  return physicalJson({ url: started.url, free: started.free })
+  return physicalJson({ url: started.url, free: started.free, ...(started.clientSecret ? { clientSecret: started.clientSecret } : {}) })
 }

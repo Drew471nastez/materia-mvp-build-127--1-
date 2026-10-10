@@ -79,7 +79,7 @@ console.log("\nBoth checkouts read the settings, and the routes check them\n")
 console.log("\nThe store's name is what orders are from\n")
 {
   check("the sender name prefers Settings › Store details", /from\("store_settings"\)\.select\("store_name"\)/.test(read("lib/email.tsx")))
-  check("the physical checkout's header too", /storeName \|\| \(data\.display_name as string\)/.test(read("app/checkout/physical/page.tsx")))
+  check("the physical checkout's header too", /checkoutBrand\(db, shop\)/.test(read("app/checkout/physical/page.tsx")) && /str\(settings\?\.store_name\) \|\| str\(profile\?\.display_name\)/.test(read("lib/checkout/brand-server.ts")))
 }
 
 console.log("\nSettings has both sections, for every store\n")
