@@ -41,6 +41,8 @@ export interface CompatCanvasProps {
   pageKey: string
   sections: StoredSection[]
   products: ProductCard[]
+  /** Every product a picker may name (memberships and tiers included), for a featured product picked in the sidebar. */
+  catalog?: ProductCard[]
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   shopName: string
@@ -75,6 +77,7 @@ const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.
 
 export function CompatCanvas(props: CompatCanvasProps) {
   const { installId, sources, theme: settings, pageKey, products, collections, menus, shopName } = props
+  const catalog = props.catalog
   /* A slider under a finger: its section is drawn again with each value, before the editor commits it (lib/website-builder/live-settings.ts). */
   const sections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
   const box = useRef<HTMLDivElement | null>(null)
@@ -117,11 +120,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     again for every letter typed into a heading: the frame reloaded under the
     person typing, and the last letter went to the page being thrown away.
   */
-  const dataKey = JSON.stringify([products, collections, menus, shopName])
-  const dataRef = useRef({ products, collections, menus, shopName })
-  dataRef.current = { products, collections, menus, shopName }
+  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName])
+  const dataRef = useRef({ products, catalog, collections, menus, shopName })
+  dataRef.current = { products, catalog, collections, menus, shopName }
   const page = useMemo((): CompatPage => {
-    const { products, collections, menus, shopName } = dataRef.current
+    const { products, catalog, collections, menus, shopName } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const sample = products[0] ?? null
     const firstCollection = collections[0] ?? null
@@ -133,6 +136,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       designMode: true,
       host: "",
       products,
+      pickable: catalog,
       collections,
       menus,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },

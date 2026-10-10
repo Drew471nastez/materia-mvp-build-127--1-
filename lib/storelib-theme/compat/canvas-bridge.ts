@@ -22,9 +22,10 @@ export const CANVAS_BRIDGE = `
   var post = function (m) { m.storelib = 1; try { parent.postMessage(m, "*"); } catch (e) {} };
   var css = document.createElement("style");
   css.setAttribute("data-sl", "");
-  css.textContent = "[data-sl-hover]{outline:1px dashed rgba(139,92,246,.7)!important;outline-offset:-1px!important}" +
-    "[data-sl-selected]{outline:2px solid #8b5cf6!important;outline-offset:-2px!important}" +
-    "[data-sl-selected-block]{outline:2px solid #8b5cf6!important;outline-offset:2px!important}";
+  /* Storelib's own canvas selection (components/website-builder/sections/_shared.tsx): solid blue, never a dashed purple. */
+  css.textContent = "[data-sl-hover]{outline:1.5px solid rgba(59,130,246,.5)!important;outline-offset:-1.5px!important}" +
+    "[data-sl-selected]{outline:1.5px solid #3b82f6!important;outline-offset:-1.5px!important}" +
+    "[data-sl-selected-block]{outline:1.5px solid #3b82f6!important;outline-offset:2px!important}";
   document.head.appendChild(css);
   var sectionOf = function (el) { return el && el.closest ? el.closest(".shopify-section") : null; };
   var idOf = function (s) { return s ? s.getAttribute("data-section-id") || s.id.replace(/^shopify-section-/, "") : null; };

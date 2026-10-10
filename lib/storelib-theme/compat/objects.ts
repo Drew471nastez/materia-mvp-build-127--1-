@@ -392,6 +392,13 @@ export function fontLinks(fonts: O[]): string[] {
 
 export interface Resources {
   products: CardLike[]
+  /**
+   * Every published product a picker may name, the shop's list included: a
+   * product sold as a membership or a community tier is left out of the
+   * shop's own list but can be picked for a featured product. Lookups by id
+   * read this; listings read `products`.
+   */
+  catalog?: CardLike[]
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   /** Colour schemes by id, already made objects (schemesObject). */
@@ -408,7 +415,8 @@ function productById(r: Resources, idOrHandle: string): O | null {
   r.productCache ??= new Map()
   const hit = r.productCache.get(idOrHandle)
   if (hit) return hit
-  const card = r.products.find((p) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle)
+  const matches = (p: CardLike) => p.id === idOrHandle || String(p.settings.slug ?? "") === idOrHandle || handleize(String(p.settings.title ?? "")) === idOrHandle
+  const card = r.products.find(matches) ?? r.catalog?.find(matches)
   if (!card) return null
   const obj = productObject(card)
   r.productCache.set(idOrHandle, obj)

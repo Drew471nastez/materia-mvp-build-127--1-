@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs"
 import { explainSaveProblem } from "../lib/website-builder/save-problem"
 import { sectionDisplayName } from "../lib/website-builder/section-name"
 import { signedOutForSure } from "../lib/auth/session-read"
+import { withValueChips, withoutValueChips } from "../components/website-builder/rich-text-field"
 
 let passed = 0
 let failed = 0
@@ -44,7 +45,7 @@ console.log("\nDragging an open section carries the row, not its blocks\n")
 check("its blocks fold while it is carried", /\{lifted \? null : t\.under\}/.test(read("components/website-builder/editor/sections-list.tsx")))
 
 console.log("\nFull screen, and nothing moves when a drawer opens\n")
-check("a full screen button beside the size", /data-wb-full-toggle=""/.test(editor) && /requestFullscreen/.test(editor) && /fullscreenchange/.test(editor))
+check("a full screen button beside the size, for the canvas only (never the browser)", /data-wb-full-toggle=""/.test(editor) && !/requestFullscreen/.test(editor))
 check("the canvas keeps its scrollbar's room while a drawer holds it still", /scroller\.style\.scrollbarGutter = "stable"/.test(read("components/website-builder/drawer-frame.ts")))
 check("and an imported theme's frame does too", /html\{scrollbar-gutter:stable\}/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 
@@ -62,6 +63,24 @@ console.log("\nA failed read of the user never shows a signed-in person as signe
   check("no session, or a refused token, is", signedOutForSure({ name: "AuthSessionMissingError" }, null) && signedOutForSure({ status: 401 }, null) && signedOutForSure(null, null))
   const header = read("components/platform/platform-header-client.tsx")
   check("the site header keeps what it drew and asks again", /if \(!user && !signedOutForSure\(error, user\)\) \{/.test(header) && /if \(readAuthSnapshot\(\)\?\.signedIn\) return/.test(header))
+}
+
+console.log("\nRound 3: the canvas, the apps, imported products, the sidebar\n")
+{
+  check("full screen folds the editor and never takes the browser full screen", !/requestFullscreen/.test(editor) && /const toggleCanvasFullScreen = useCallback\(\(on: boolean\) => \{\s*if \(on\) setPreviewMode\("preview"\)\s*setFullScreen\(on\)\s*\}/.test(editor))
+  const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
+  check("an imported theme's selection is Storelib's solid blue, never dashed purple", /outline:1\.5px solid #3b82f6/.test(bridge) && !/outline:[^;"]*dashed/.test(bridge) && !/139,92,246|8b5cf6/.test(bridge))
+  const guard = read("components/platform/native-link-guard.tsx")
+  const bridgeNative = read("lib/native-bridge.ts")
+  check("in the apps, the creator's View live, Preview and View page open in the phone's browser", /export function openInBrowser/.test(bridgeNative) && /if \(onCreatorTools\(\)\) return openInBrowser\(url\)/.test(bridgeNative) && /\(newWindow && inCreatorTools\(\)\) \|\| a\.hasAttribute\("data-open-browser"\)/.test(guard))
+  check("a picked product is found in the whole catalogue (memberships too), in the builder and on the live site", /r\.catalog\?\.find\(matches\)/.test(read("lib/storelib-theme/compat/objects.ts")) && /catalog=\{catalogCardsForCanvas\}/.test(editor) && /pickable: catalog/.test(read("lib/website-builder/compat-site.ts")))
+  check("a block added to a product section goes into its Details block", /PRODUCT_DETAILS_BLOCK\.test\(b\.type\)/.test(editor))
+  check("an empty product or collection picker offers to add one", /<EmptyPicker kind="product" \/>/.test(read("components/website-builder/editor/controls/product-list-control.tsx")) && /<EmptyPicker kind="collection" \/>/.test(read("components/website-builder/editor/controls/collection-controls.tsx")))
+  const html = '<p>Shop {{ closest.collection.title }} <a href="/x?{{ keep }}">x</a></p>'
+  const chips = withValueChips(html)
+  check("a dynamic value in the text editor is a chip named in words", /data-value="closest\.collection\.title"[^>]*>Collection title<\/span>/.test(chips) && chips.includes('href="/x?{{ keep }}"'))
+  check("and it is saved exactly as it was", withoutValueChips(chips) === html)
+  check("the sidebar never goes blank when its section is gone", /const shownPanel: Panel = panelSectionGone && sidebarMode !== "settings" \? \{ type: "pages" \} : selectedPanel/.test(editor))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
