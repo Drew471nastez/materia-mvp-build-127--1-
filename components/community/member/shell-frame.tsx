@@ -115,6 +115,8 @@ import { CommunityNavigatorProvider, useCommunityNavigator, type CommunityNaviga
 import { placeFromUrl, placeKey, placeTab, slotKeyOf, slugFromPath, type Place } from "@/lib/communities/client/places"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
+import { holdLeavingStill } from "@/lib/navigation/leaving-still"
+import { tabSwapInProgress } from "@/lib/nav/tab-swap"
 import type { MemberProfileData } from "@/lib/communities/member-profile-view"
 import { MemberProfilePlace } from "./place-views"
 
@@ -516,6 +518,15 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
     const onClick = (e: MouseEvent) => {
       if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
       const a = anchor(e)
+      /* Out to Explore (the community menu's row, any link there): the frame pops away as it goes (LEAVING, below). */
+      if (a && !a.target) {
+        try {
+          const to = new URL(a.href, window.location.href)
+          if (to.origin === window.location.origin && /^\/explore(\/|$)/.test(to.pathname)) leavingRef.current = "pop"
+        } catch {
+          /* Not an address: nothing to do. */
+        }
+      }
       const p = a ? placeOf(a) : null
       if (!p) return
       const onScreen = placeFromUrl(window.location.pathname, window.location.search)
@@ -540,6 +551,26 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       root?.removeEventListener("mouseover", onIntent)
     }
   }, [community.slug])
+
+  /*
+    ENTERING AND LEAVING LIKE A NATIVE PUSH AND POP (round 15, the owner: "from a community I click the hamburger, then
+    Explore: Explore appears too fast, too direct"). Arriving from outside (Explore, a card), the frame slides in from the
+    right and settles (300ms, translate and opacity on the compositor). Leaving for Explore, a copy of the frame as it stood
+    is laid over the page in the commit that takes it away and slides off to the right, under the tab bar, with Explore
+    already drawn beneath it (lib/navigation/leaving-still.ts: never a view transition, which would freeze the screen while
+    Explore loads). Neither under reduced motion, nor inside the app's own tab swap (it already moves the page).
+  */
+  const leavingRef = useRef<"pop" | null>(null)
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      el.animate([{ translate: "36px 0", opacity: 0.6 }, { translate: "0 0", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+    }
+    return () => {
+      if (leavingRef.current === "pop" && el) holdLeavingStill(el, 320, { motion: "pop", under: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const homeHref = `/community/${community.slug}`
   useEffect(
