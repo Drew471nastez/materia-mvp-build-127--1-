@@ -6,9 +6,14 @@
  * every visit, shaped as the repository's SQL makes them (the columns those
  * lookups read, and every index the repository's SQL creates on them), fills
  * them at the size of a platform with a few thousand creators, and times
- * each lookup as PostgREST asks it, with EXPLAIN ANALYZE, before and after
- * supabase/sql/run-now/127_public_lookup_indexes.sql. It prints the plan
- * each one used, so "after" is seen to be the index and not a warm cache.
+ * each lookup as PostgREST asks it, with EXPLAIN ANALYZE, printing the plan
+ * each one used. Round 18 ran it to decide whether part 127 (H18B's reserved
+ * SQL part) was needed: it was not. The repository's indexes answer every
+ * hot lookup but one, the creator page's ILIKE on the username, which the
+ * code now asks as an exact match first (lib/profile/profile-by-name.ts);
+ * both are timed here. Should a part 127 ever be written as
+ * supabase/sql/run-now/127_public_lookup_indexes.sql, it is run twice and
+ * every lookup is timed again after it.
  *
  *   SPEED18_PG="-h /tmp/pgs18 -U storelib" node scripts/measure-speed18-indexes.mjs
  *   PROFILES=300000 SPEED18_PG=... node scripts/measure-speed18-indexes.mjs
