@@ -278,8 +278,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       icon: NAV_ICONS.products,
       children: [
         { href: "/app/coupons", label: "Coupons" },
-        /* Bundles and checkout offers apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
-        ...(physicalCommerce ? [{ href: "/app/offers", label: "Upsells and bundles" }] : []),
         { href: "/app/reviews", label: "Reviews" },
         /* No Memberships row: memberships are communities now (Community, below, while the switch is on). A creator's existing ones still open at /app/memberships. */
       ],
@@ -337,6 +335,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     { href: "/app/products/collections", label: "Collections" },
   )
   mainNavItems.find((item) => item.href === "/app/products")?.children?.push({ href: "/app/files", label: "Files" })
+  /* Upsells and bundles beside Coupons: they apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
+  if (physicalCommerce) mainNavItems.find((item) => item.href === "/app/products")?.children?.splice(mainNavItems.find((item) => item.href === "/app/products")!.children!.findIndex((c) => c.href === "/app/coupons") + 1, 0, { href: "/app/offers", label: "Upsells and bundles" })
 
   // Expandable groups (parent nav items with children).
   // Always collapsed on mount — user opens manually via the chevron. No

@@ -81,7 +81,7 @@ check("a store edits its own, with physical commerce on, and it's in the activit
 check("every product an offer names must be the store's", /One of those products isn't in your store any more/.test(read("lib/offers/offers-server.ts")))
 check("the product page and website product section show bundles", /<BundleOffers/.test(read("components/physical/buy-box.tsx")))
 check("the checkout shows Add to your order", /<CheckoutSuggestions/.test(read("app/checkout/physical/physical-checkout.tsx")))
-check("Products has Upsells and bundles while physical commerce is on", /physicalCommerce \? \[\{ href: "\/app\/offers", label: "Upsells and bundles" \}\] : \[\]/.test(read("components/app/sidebar.tsx")))
+check("Products has Upsells and bundles beside Coupons while physical commerce is on", /if \(physicalCommerce\) mainNavItems\.find\([\s\S]{0,200}\{ href: "\/app\/offers", label: "Upsells and bundles" \}/.test(read("components/app/sidebar.tsx")))
 const sql = read("supabase/sql/run-now/115_store_offers.sql")
 check("SQL: the migration is the same part, owner reads, only the server writes", sql === read("supabase/migrations/20261207_store_offers.sql") && /store_offers_owner_read/.test(sql) && /REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public\.store_offers FROM PUBLIC, anon, authenticated/.test(sql))
 check("SQL: the shapes are held by the database too", /cardinality\(product_ids\) BETWEEN 2 AND 5/.test(sql) && /discount_value BETWEEN 1 AND 90/.test(sql))
