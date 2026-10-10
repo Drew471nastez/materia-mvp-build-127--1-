@@ -187,6 +187,22 @@ const scenarios: Scenario[] = [
     },
   })),
   {
+    name: "view beacon (POST /api/track-view)",
+    held: "per view, after the page",
+    headers: { host: "maya.storelib.com", origin: "https://maya.storelib.com", "sec-fetch-site": "same-origin", "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", "x-forwarded-for": "203.0.113.7" },
+    run: async () => {
+      const route = await import("@/app/api/track-view/route")
+      const { NextRequest } = await import("next/server")
+      const req = new NextRequest("https://maya.storelib.com/api/track-view", {
+        method: "POST",
+        headers: { host: "maya.storelib.com", origin: "https://maya.storelib.com", "sec-fetch-site": "same-origin", "user-agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", "x-forwarded-for": "203.0.113.7", "content-type": "text/plain" },
+        body: JSON.stringify({ creatorId: SITE.creatorId, href: "https://maya.storelib.com/about" }),
+      })
+      const res = (await route.POST(req as never)) as Response
+      return `status ${res.status}`
+    },
+  },
+  {
     name: "onepage",
     held: "route",
     headers: { host: "storelib.me", "x-forwarded-for": "203.0.113.9", "user-agent": "Mozilla/5.0 (iPhone)" },

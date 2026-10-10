@@ -433,6 +433,32 @@ async function ordersPage() {
   check("a failed products read still stops the page, never an empty list", !!broken.error && /could not read products/.test(String((broken.error as Error).message)))
 }
 
+async function rateLimits() {
+  section("A rate limit counts its windows at once and decides as before (lib/api/rate-limit.ts)")
+  const { rateLimit } = await import("@/lib/api/rate-limit")
+  const windows = [{ limit: 3, seconds: 60 }, { limit: 5, seconds: 3600 }]
+  const hits = (n: number, minutesAgo: number) => Array.from({ length: n }, (_, i) => ({ id: `hit-${minutesAgo}-${i}`, bucket: "t", subject: "ip:1", created_at: new Date(Date.now() - minutesAgo * 60_000 - i * 1000).toISOString() }))
+  const run = async (rows: Record<string, unknown>[], fail = false) => {
+    const f = buildFixture()
+    f.tables.rate_limit_hits = rows
+    if (fail) f.fail = ["rate_limit_hits"]
+    useFixture(f)
+    const r = await visit(() => rateLimit({ bucket: "t", subjects: ["ip:1"], windows, message: "Slow down" }))
+    const res = r.value as Response | null
+    return { r, status: res ? res.status : null, retry: res ? res.headers.get("retry-after") : null, rows: f.tables.rate_limit_hits.length }
+  }
+  const under = await run(hits(1, 0))
+  const counts = under.r.trips.filter((t) => t.table === "rate_limit_hits" && t.method === "HEAD")
+  check("under every limit: allowed, and this hit is recorded", under.status === null && under.rows === 2)
+  check("both windows counted at once", counts.length === 2 && Math.abs(counts[0].at - counts[1].at) < 5)
+  const minute = await run(hits(3, 0))
+  check("over the first window: refused with its own wait, and the refusal not recorded", minute.status === 429 && minute.retry === "60" && minute.rows === 3)
+  const hour = await run(hits(5, 10))
+  check("over only the second: refused with the second's wait", hour.status === 429 && hour.retry === "3600" && hour.rows === 5)
+  const broken = await run(hits(9, 0), true)
+  check("a count that fails allows, as it always did", broken.status === null)
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
@@ -443,6 +469,7 @@ async function main() {
   await sharedConfigs()
   await appCreator()
   await ordersPage()
+  await rateLimits()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))

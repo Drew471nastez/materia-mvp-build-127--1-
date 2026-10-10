@@ -202,6 +202,8 @@ export function buildFixture(): Fixture {
         { id: uuid("42", 1), creator_id: OTHER.creatorId, product_id: b.products[0].id, status: "completed", amount_cents: 999, buyer_email: "leo-buyer@example.com", created_at: iso(1) },
       ],
       commerce_checkouts: [],
+      analytics_events: [],
+      rate_limit_hits: [],
       communities: [
         { id: uuid("51", 1), creator_id: SITE.creatorId, owner_user_id: SITE.userId, slug: "maya-club", name: "Maya Club", tagline: "Making things together", description: "<p>A place to make things.</p>", visibility: "public", access: "free", status: "published", category: "design", language: "en", member_count: 240, post_count: 512, discovery_enabled: true, approval_required: false, default_role: "member", rules: [], faq: [], created_at: iso(5000) },
       ],

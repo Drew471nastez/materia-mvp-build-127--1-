@@ -142,4 +142,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "server time to the answer for /app/orders at 20ms a round trip", value: 69, unit: "ms" },
     note: "The orders are found by their creator (or through their product), never by the product ids read first, which only name each row's product (lib/orders/load-rows.ts). Both are asked together now; a failed products read still stops the page rather than drawing an empty list.",
   },
+  {
+    id: "rate-limit-windows-together",
+    title: "Every rate limited route counts its limit windows at once",
+    area: "api",
+    shippedAt: "2026-10-10",
+    before: { metric: "database waves of a rate limit check with two windows", value: 3, unit: "round trips" },
+    after: { metric: "database waves of a rate limit check with two windows", value: 2, unit: "round trips" },
+    note: "lib/api/rate-limit.ts (162 call sites: every form, write and the page view beacon) counted each window in turn before recording the hit. The counts are asked together now and read back in the same order, so the first failure or the first window over its limit decides exactly as before. The page view beacon every published page sends: 170ms to 150ms of function time at 20ms a round trip.",
+  },
 ]
