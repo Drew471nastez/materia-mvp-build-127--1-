@@ -108,7 +108,10 @@ async function main() {
       const m = posted[posted.length - 1] as { id: number }
       for (const l of listeners.message ?? []) l({ data: { storelib: 1, type: "response", id: m.id, status: 200, contentType: "application/json", body } })
     }
+    /* The request is asked once its body is read: a turn later. */
+    const tick = () => new Promise((r) => setTimeout(r, 0))
     const pending = f("/cart/add.js", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: "v1s", quantity: 1 }) })
+    await tick()
     const req = posted[posted.length - 1] as { type: string; method: string; url: string; ajax: boolean; body: { id: string } }
     check("fetch('/cart/add.js') is asked of the builder, as a script's JSON request", req.type === "request" && req.method === "POST" && req.url === "/cart/add.js" && req.ajax === true && req.body.id === "v1s", req)
     reply(JSON.stringify({ id: "v1s", quantity: 1 }))
@@ -120,14 +123,22 @@ async function main() {
     form.append("updates[]", "1")
     form.append("updates[]", "2")
     void f("/cart/update", { method: "POST", body: form })
+    await tick()
     const formReq = posted[posted.length - 1] as { body: { id: string; items: { id: string }[]; updates: string[] }; ajax: boolean }
     check("a FormData body is read as the live route reads it (items[0][id], updates[])", formReq.body.id === "v2s" && formReq.body.items[0].id === "v2l" && formReq.body.updates.join() === "1,2" && formReq.ajax === false, formReq.body)
     reply("{}")
     void f("srcdoc?section_id=drawer")
+    await tick()
     check("an address made from location.pathname (\"srcdoc\") is this page", (posted[posted.length - 1] as { url: string }).url === "/products/shirt-1?section_id=drawer")
     reply("")
     void f("null/cart.js")
+    await tick()
     check("one made from location.origin (\"null\") is the website's address after it", (posted[posted.length - 1] as { url: string }).url === "/cart.js")
+    reply("{}")
+    void f(new Request("https://storelib.com/cart/change.js", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ line: 1, quantity: 0 }) }) as unknown as string)
+    await tick()
+    const fromRequest = posted[posted.length - 1] as { url: string; body: { quantity: number } }
+    check("a Request made beforehand is asked with its own body", fromRequest.url === "/cart/change.js" && fromRequest.body.quantity === 0, fromRequest)
     reply("{}")
     const asked = posted.length
     await f("/api/site-theme/assets/x/theme.js")

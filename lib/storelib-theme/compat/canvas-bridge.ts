@@ -465,7 +465,9 @@ export const CANVAS_REQUESTS = `
     try { h = new Headers(init.headers || (isReq ? input.headers : undefined)); } catch (e) { h = new Headers(); }
     var type = h.get("content-type") || (typeof FormData !== "undefined" && init.body instanceof FormData ? "multipart/form-data" : "");
     var ajax = h.get("x-requested-with") === "XMLHttpRequest" || /json/i.test(type) || /application\\/json/i.test(h.get("accept") || "");
-    return ask(method, path, fields(init.body, type), ajax).then(function (r) {
+    /* A Request made beforehand carries its own body. */
+    var body = isReq && init.body === undefined && method !== "GET" && method !== "HEAD" ? input.clone().text() : Promise.resolve(init.body);
+    return body.then(function (b) { return ask(method, path, fields(b, type), ajax); }).then(function (r) {
       answered(r);
       var empty = r.status === 204 || r.status === 304 || r.checkout;
       return new Response(empty ? null : r.body, { status: r.checkout ? 200 : r.status < 200 || r.status > 599 ? 200 : r.status, headers: { "Content-Type": r.contentType || "text/plain" } });
