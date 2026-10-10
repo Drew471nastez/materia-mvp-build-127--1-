@@ -19,6 +19,12 @@
  *                are from, a short bio, the counts; then Follow (the one
  *                Follow, calm both ways, at one fixed size) and the door to
  *                their full page.
+ *   THE BOARD    round 18 (C18, items 10 to 13): under the head, their
+ *                activity here (components/community/member/activity-board.tsx:
+ *                the day grid, their level and points, the facts). The band
+ *                is taller, the photo bigger and it opens in the creator
+ *                page's viewer, and Visit page is a push there and a pop
+ *                back (useFullPage below).
  *   SOMEBODY     their posts in this community that I may read here, newest
  *                first, a page at a time as the list nears its end.
  *   ME           NOT HERE ANY MORE (round 16). The owner: "I didn't mean for
@@ -46,6 +52,8 @@ import { TrashBinMinimalisticIcon } from "@solar-icons/react/linear/trash-bin-mi
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { FollowButton, useFollow } from "@/components/profile/follow-button"
 import { DecodedCover } from "@/components/profile/decoded-cover"
+import { AvatarLightbox } from "@/components/storefront/avatar-lightbox"
+import { armPageMotion, holdPageMotion, takeArmedMotion } from "@/lib/navigation/page-push"
 import { coverCropStyle } from "@/lib/images/cover-crop"
 import { optimizedImageUrl } from "@/lib/images/optimized-url"
 import { relativeTime } from "@/lib/communities/format"
@@ -64,6 +72,7 @@ import { api, apiBase } from "./api"
 import type { ConfirmState } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
 import { MemberAvatar } from "./member-avatar"
+import { ActivityBoard } from "./activity-board"
 import { RoleBadge } from "./role-badge"
 import { toast } from "./toast"
 import { ICON_BTN } from "./ui"
@@ -80,7 +89,7 @@ export interface MemberProfilePlaceProps {
 }
 
 /** The card every block of the place sits on: Storelib's white, a hairline and a 1px soft shadow. */
-const CARD = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+const CARD = "rounded-2xl border border-[#eceef1] bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 /** Storelib's quiet secondary, at the Follow button's height and rounding, so the two sit as a pair. */
 const SECONDARY =
   "inline-flex h-10 min-w-[128px] shrink-0 cursor-pointer touch-manipulation select-none items-center justify-center gap-1.5 rounded-xl border border-[#d9dbe0] bg-white px-5 text-[14px] font-medium text-[#1a1a2e] shadow-[inset_0_-1px_0_rgba(0,0,0,0.08),0_1px_0_rgba(0,0,0,0.05)] outline-none transition-colors duration-150 pointer-fine:hover:bg-[#f7f7f8] active:bg-[#f1f2f4] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/25 [-webkit-tap-highlight-color:transparent]"
@@ -111,6 +120,42 @@ function useNow(serverNow: number): number {
 
 /* ── The head ─────────────────────────────────────────────────────────── */
 
+/** The router's "full" prefetch (the whole page, not only up to its loading screen), as shell-frame.tsx asks. */
+const FULL = "full" as never
+/** Full pages already asked for in this tab: each once. */
+const prefetched = new Set<string>()
+/** How long the profile is on screen before its full page is read ahead, so a quick look costs nothing. */
+export const PAGE_AHEAD_MS = 900
+
+/**
+ * VISIT PAGE, A PUSH AND A POP (round 18, item 12). The full page is read
+ * ahead in full (once the profile has been on screen PAGE_AHEAD_MS, or at
+ * once on a press, a hover or focus), so the press lands on a page that is
+ * ready, never on its loading screen. The press arms a push: in the commit
+ * that takes the community away, a copy of it drifts left under the full page
+ * as that comes in from the right edge (lib/navigation/page-push.ts, the
+ * full page's half in components/profile/profile-arrival.tsx). Its back arrow
+ * pops it off to the right over this place, which comes back as it was.
+ */
+function useFullPage(href: string | null) {
+  const router = useRouter()
+  const ahead = useCallback(() => {
+    if (!href || prefetched.has(href)) return
+    prefetched.add(href)
+    try {
+      router.prefetch(href, { kind: FULL })
+    } catch {
+      prefetched.delete(href)
+    }
+  }, [href, router])
+  useEffect(() => {
+    if (!href) return
+    const t = window.setTimeout(ahead, PAGE_AHEAD_MS)
+    return () => window.clearTimeout(t)
+  }, [href, ahead])
+  return ahead
+}
+
 function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberProfileData; community: MemberProfilePlaceProps["community"]; profileRef: string; signedIn: boolean }) {
   const { person, self } = data
   const [followers, setFollowers] = useState(person.followers)
@@ -122,19 +167,41 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
     onChange: (on) => setFollowers((n) => Math.max(0, n + (on ? 1 : -1))),
     onError: (message) => toast(message),
   })
-  const joined = monthYear(person.joinedAt)
-  const cover = person.coverUrl ? optimizedImageUrl(person.coverUrl, 720) : null
+  /* The board says when they joined and their level; without one (an older answer) the line under the name still does. */
+  const joined = data.board ? null : monthYear(person.joinedAt)
+  const level = data.board ? null : person.level
+  const cover = person.coverUrl ? optimizedImageUrl(person.coverUrl, 900) : null
+  const pageHref = person.pageHref ? fullPageHref(person.pageHref, community.slug, profileRef) : null
+  const ahead = useFullPage(pageHref)
+  const head = useRef<HTMLElement | null>(null)
+
+  /* The commit that takes the community away after Visit page: the community, as it stood, slides under the page that comes. */
+  useLayoutEffect(() => {
+    const el = head.current
+    return () => {
+      if (!takeArmedMotion("push")) return
+      holdPageMotion((el?.closest("[data-community-shell]") as HTMLElement | null) ?? el?.closest("[data-member-profile-place]") ?? null, "push")
+    }
+  }, [])
+
   return (
-    <header className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
-      {/* THE BAND'S HEIGHT IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it comes. */}
-      <div className={cn("relative w-full overflow-hidden", cover ? "h-[124px] bg-[#eceef1] sm:h-[168px]" : "h-14 bg-[#f3f4f6] sm:h-16")} data-member-profile-cover={cover ? "image" : "plain"}>
+    <header ref={head} className={cn(CARD, "overflow-hidden")} data-member-profile-head="">
+      {/*
+        THE BAND'S HEIGHT IS DRAWN FIRST: the picture fills a box that already exists, so nothing under it moves when it
+        comes. Round 18 (item 10): taller, with a picture 160px on a phone and 208px wider up, and the plain band 96px and
+        112px, so the photo straddles a band rather than a strip.
+      */}
+      <div className={cn("relative w-full overflow-hidden", cover ? "h-[160px] bg-[#eceef1] sm:h-[208px]" : "h-[96px] bg-[#f3f4f6] sm:h-[112px]")} data-member-profile-cover={cover ? "image" : "plain"}>
         {cover ? <DecodedCover src={cover} style={coverCropStyle(person.coverCrop)} /> : null}
       </div>
       <div className="relative px-4 pb-5 sm:px-6">
-        <div className="-mt-[40px] flex items-end justify-between gap-3 sm:-mt-[46px]">
-          <span className="relative inline-flex shrink-0 rounded-full bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" data-member-profile-avatar="">
-            <MemberAvatar src={person.avatarUrl} name={person.name} size={88} sizedByClass className="h-[80px] w-[80px] sm:h-[88px] sm:w-[88px]" />
-          </span>
+        <div className="-mt-[51px] flex items-end justify-between gap-3 sm:-mt-[59px]">
+          {/* Round 18 (item 13): bigger, and a press opens it the way a creator page's photo opens (its own viewer, reused). */}
+          <AvatarLightbox src={person.avatarUrl} name={person.name}>
+            <span className="relative inline-flex shrink-0 rounded-full bg-white p-[3px] shadow-[0_1px_2px_rgba(16,24,40,0.08)]" data-member-profile-avatar="">
+              <MemberAvatar src={person.avatarUrl} name={person.name} size={112} sizedByClass className="h-[96px] w-[96px] sm:h-[112px] sm:w-[112px]" />
+            </span>
+          </AvatarLightbox>
         </div>
         <div className="mt-3 min-w-0">
           <h1 className="flex min-w-0 items-center gap-2 text-[20px] font-bold leading-[1.25] tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]" data-member-profile-name="">
@@ -143,10 +210,10 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
           </h1>
           <p className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 text-[13.5px] leading-5 text-[#6b7280]" data-member-profile-meta="">
             {person.username ? <span className="truncate">@{person.username}</span> : null}
-            {person.level && person.level > 1 ? (
+            {level && level > 1 ? (
               <>
                 <span aria-hidden className="text-[#c4c8cf]">·</span>
-                <span className="whitespace-nowrap">Level {person.level}</span>
+                <span className="whitespace-nowrap">Level {level}</span>
               </>
             ) : null}
             {joined ? (
@@ -176,8 +243,21 @@ function ProfileHead({ data, community, profileRef, signedIn }: { data: MemberPr
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-2" data-member-profile-actions="">
           {self ? null : <FollowButton following={follow.following} busy={follow.busy} onClick={follow.toggle} name={person.name} data-member-profile-follow="" />}
-          {person.pageHref ? (
-            <Link href={fullPageHref(person.pageHref, community.slug, profileRef)} className={SECONDARY} data-member-profile-page="">
+          {pageHref ? (
+            <Link
+              href={pageHref}
+              prefetch={false}
+              className={SECONDARY}
+              onPointerDown={ahead}
+              onMouseEnter={ahead}
+              onFocus={ahead}
+              onClick={(e) => {
+                if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+                ahead()
+                armPageMotion("push")
+              }}
+              data-member-profile-page=""
+            >
               {person.hasStorefront ? "Visit page" : "Full profile"}
             </Link>
           ) : null}
@@ -493,6 +573,7 @@ export function MemberProfilePlace({ community, viewer, profileRef, data }: Memb
   return (
     <section className="mx-auto flex w-full max-w-[680px] flex-col gap-4 py-2" data-member-profile-place="person" aria-label={`${data.person.name}'s profile`}>
       <ProfileHead data={data} community={community} profileRef={profileRef} signedIn={signedIn} />
+      {data.board ? <ActivityBoard board={data.board} name={data.person.name} /> : null}
       <div data-profile-panel="posts">
         <h2 className="mb-2.5 px-1 text-[15px] font-semibold text-[#1a1a2e]">Posts in {community.name}</h2>
         <PostList

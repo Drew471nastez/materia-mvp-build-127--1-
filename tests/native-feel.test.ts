@@ -194,7 +194,8 @@ check(
    * it covers at the bottom comes out at zero after the pan; giving that
    * the floor padded half a screen of white over a real keyboard.
    */
-  /const keyboard = keyboardFor\(seen, readPublishedKeyboardInset\(\)\)/.test(sheet)
+  /* Round 17: an optional keyboardRoom is asked first, where it is given; the floor otherwise. */
+  /const keyboard = keyboardFor\(seen, (keyboardRoomRef\.current\?\.\(\) \?\? )?readPublishedKeyboardInset\(\)\)/.test(sheet)
     && /from "@\/lib\/ui\/keyboard-safe-sheet"/.test(sheet),
 )
 check(

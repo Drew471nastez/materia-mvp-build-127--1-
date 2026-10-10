@@ -22,6 +22,7 @@ import { join, basename } from "node:path"
 
 const SUITES = [
   "tests/perf-speed18.test.ts",
+  "tests/perf-health18.test.ts",
   "tests/profile-display-name.test.ts",
   "tests/new-tab-links.test.ts",
   "tests/lean-images.test.ts",
@@ -462,6 +463,7 @@ const SUITES = [
   "tests/communities-member.test.ts",
   "tests/communities-classroom.test.ts",
   "tests/communities-learn.test.ts",
+  "tests/learn18.test.ts",
   "tests/communities-creator.test.ts",
   "tests/communities-shell.test.ts",
   "tests/communities-growth.test.ts",
@@ -481,6 +483,7 @@ const SUITES = [
   "tests/communities-posts13.test.ts",
   "tests/communities-post15.test.ts",
   "tests/communities-post16.test.ts",
+  "tests/communities-post17.test.ts",
   "tests/communities-feed-rank.test.ts",
   "tests/communities-admin13.test.ts",
   "tests/communities-events-admin.test.ts",
@@ -490,6 +493,7 @@ const SUITES = [
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",
+  "tests/member18.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",

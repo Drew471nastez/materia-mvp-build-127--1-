@@ -21,6 +21,8 @@
  *                   Delete where I may; and my recent activity.
  */
 
+import type { MemberBoard } from "./member-activity"
+
 /** The page size of both post lists. Small enough for the first screen to come at once, big enough to fill a phone. */
 export const PROFILE_POSTS_PAGE = 8
 /** How many things of my recent activity are shown. */
@@ -125,6 +127,8 @@ export interface MemberProfileData {
   posts: ProfilePostsPage
   /** My recent activity, on my own profile only. */
   activity: ProfileActivityView[] | null
+  /** Somebody else's activity board here (round 18): the day grid, level and points, and the facts. Absent on my own. */
+  board?: MemberBoard | null
   /** The server's clock for the first render, so times read the same after hydration. */
   now: number
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { addressSubject, rateLimit, LIMITS } from "@/lib/api/rate-limit"
 import { requireCommunitiesOn } from "@/lib/communities/flag"
 import { exploreCommunities } from "@/lib/communities/server/explore"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,7 +19,7 @@ export const dynamic = "force-dynamic"
  * whole category instead.
  * A 404 communities_off while the switch is off.
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const url = new URL(request.url)
@@ -31,3 +32,6 @@ export async function GET(request: Request) {
   const page = await exploreCommunities({ q, sort: url.searchParams.get("sort"), cursor: url.searchParams.get("cursor"), limit, category: url.searchParams.get("c"), sub: url.searchParams.get("sub"), price: url.searchParams.get("price") })
   return NextResponse.json({ items: page.items, next: page.next, ...(page.broadened ? { broadened: true } : {}) }, { headers: { "Cache-Control": q ? "no-store" : "public, s-maxage=30, stale-while-revalidate=120" } })
 }
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const GET = timed("explore", "/api/explore/communities", handleGET)

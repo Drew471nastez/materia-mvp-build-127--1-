@@ -158,6 +158,15 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
     setPip({ can: !!doc.pictureInPictureEnabled || !!vid?.webkitSupportsPresentationMode?.("picture-in-picture"), on: false })
   }, [])
 
+  /*
+    PUT AWAY, IT STOPS (round 18). Going back from a lesson keeps its screen mounted and hidden (the community's place host
+    holds it under <Activity>, whose hiding runs this cleanup), and a hidden video went on playing its sound under Learn.
+  */
+  useEffect(() => {
+    const el = videoRef.current
+    return () => el?.pause()
+  }, [])
+
   const savePrefs = useCallback((patch: Partial<typeof prefs>) => {
     setPrefs((p) => {
       const nextPrefs = { ...p, ...patch }
@@ -629,9 +638,10 @@ export function LessonVideo({ source, startAt, autoPlay, poster, next, renew, on
         </div>
       ) : null}
 
+      {/* Waiting: the same small spinner as the lesson's still (course-player.tsx), and only past 300ms, so a video read ahead never blinks one. */}
       {waiting && !failed && !ended ? (
-        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <Loader2 className="h-9 w-9 animate-spin text-white/85" aria-label="Loading" />
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-100 transition-opacity delay-300 duration-300 starting:opacity-0 motion-reduce:transition-none">
+          <Loader2 className="h-6 w-6 animate-spin text-white/60" aria-label="Loading" />
         </div>
       ) : null}
 
