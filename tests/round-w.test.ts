@@ -10,6 +10,7 @@ import { join } from "node:path"
 import { CASE_REASONS, readNewCase, reasonsFor, statusAfterMessage, caseLink } from "@/lib/support/cases"
 import { orderCancelledEmail, refundEmail, returnEmail, shipmentEmail } from "@/lib/physical/email-templates"
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
+import { quoteDelivery } from "@/lib/physical/rates"
 
 let passed = 0
 let failed = 0
@@ -87,6 +88,19 @@ console.log("\nEmails a buyer gets, signed by the store")
   const orders = read("lib/physical/orders-server.ts")
   check("cancelling emails the buyer; a refund does, once per total", /queueCancelledEmail\(db, checkoutId, creatorId\)/.test(orders) && (orders.match(/queueRefundEmail\(/g) ?? []).length >= 2 && /email:refund:\$\{checkoutId\}:\$\{refundedCents\}/.test(job))
   check("no em dashes or filler words", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(shipped.html + approved.html))
+}
+
+console.log("\nThe box counts toward a weight based rate")
+{
+  const rate = { id: "r1", zoneId: "z", name: "Standard", kind: "weight", priceCents: 0, minValue: null, maxValue: null, tiers: [{ from: 0, priceCents: 500 }, { from: 1000, priceCents: 900 }], freeOverCents: null, minDays: null, maxDays: null, active: true, position: 0 }
+  const profiles = [{ id: "p", name: "General", isDefault: true, zones: [{ id: "z", profileId: "p", name: "World", restOfWorld: true, countries: [], regions: [], rates: [rate] }] }]
+  const lines = [{ shippingProfileId: null, quantity: 1, lineCents: 2000, weightGrams: 900, requiresShipping: true }]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const q = (g: number) => quoteDelivery(profiles as any, lines, "RO", undefined, { packageGrams: g })
+  const price = (r: ReturnType<typeof q>) => (r.ok && r.options[0] ? r.options[0].priceCents : -1)
+  check("900 g of items alone is in the first tier", price(q(0)) === 500, price(q(0)))
+  check("with a 200 g box it's 1.1 kg, the next tier", price(q(200)) === 900, price(q(200)))
+  check("checkout reads the default package's weight", /defaultPackageGrams\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-pricing-server.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

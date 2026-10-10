@@ -187,6 +187,8 @@ export function quoteDelivery(
   lines: QuoteLine[],
   destination: string | Destination,
   carrierQuotes?: ReadonlyMap<string, number>,
+  /** The empty weight of the box it ships in (Settings › Shipping › Packages, the default one), added once per parcel. */
+  opts: { packageGrams?: number } = {},
 ): Quote {
   const shippable = lines.filter((l) => l.requiresShipping && l.quantity > 0)
   if (shippable.length === 0) return { ok: true, required: false, options: [] }
@@ -203,6 +205,9 @@ export function quoteDelivery(
     group.totals.items!.push({ grams: Math.max(0, line.weightGrams), quantity: line.quantity })
     groups.set(profile.id, group)
   }
+  /* Each profile ships as its own parcel, so each carries the box's weight once. Item weight rates price the items alone. */
+  const box = Math.max(0, Math.round(opts.packageGrams ?? 0))
+  if (box > 0) for (const g of groups.values()) g.totals.grams += box
 
   const perProfile: { profileId: string; rates: { rate: ShippingRate; price: number }[] }[] = []
   const unshippable: string[] = []

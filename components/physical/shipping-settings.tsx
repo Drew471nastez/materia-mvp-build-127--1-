@@ -108,6 +108,17 @@ const KIND_LABEL: Record<LocationKind, string> = {
   custom: "Other",
 }
 
+/** A partner's place: they pack and ship, so orders are sent to them and buyers never collect there. */
+const PARTNER_KINDS: LocationKind[] = ["print_on_demand", "dropshipper", "supplier", "third_party_logistics"]
+
+/** What each answer to "Who ships the orders?" means, said under the choice. */
+const FORWARDING_HELP: Record<string, string> = {
+  none: "You pack and ship orders from here, and mark them shipped in Orders with the tracking number.",
+  email: "Each new order with items from here is emailed to this partner with the items and the address. You add their tracking number in Orders when they ship.",
+  webhook: "Each new order is sent to your own system as a signed request. Set the address in Integrations.",
+  provider: "Storelib can't send orders to providers yet. Orders from here are flagged for you to send yourself.",
+}
+
 const RATE_KIND_LABEL: Record<RateKind, string> = {
   flat: "Flat rate",
   free: "Free shipping",
@@ -921,16 +932,26 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
+  /* The type sets sensible answers below it: a partner ships and gets the orders by email, and nobody picks up from them; your own place ships itself. */
+  const setKind = (kind: LocationKind) =>
+    setF((x) => {
+      const partner = PARTNER_KINDS.includes(kind)
+      const wasPartner = PARTNER_KINDS.includes(x.kind)
+      if (partner && !wasPartner) return { ...x, kind, forwarding: x.forwarding === "none" ? "email" : x.forwarding, pickupEnabled: false }
+      if (!partner && wasPartner) return { ...x, kind, forwarding: x.forwarding === "email" || x.forwarding === "provider" ? "none" : x.forwarding }
+      return { ...x, kind }
+    })
+  const partner = PARTNER_KINDS.includes(f.kind)
   const format = addressFormat(f.country)
   const postalOff = !!f.postalCode.trim() && !postalLooksRight(f.country, f.postalCode)
   return (
     <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Name">
-          <TextInput autoFocus={!initial} value={f.name} maxLength={80} placeholder="Studio" onChange={(e) => set({ name: e.target.value })} />
+        <Field label="Name" hint={f.pickupEnabled ? "Buyers see it when they choose pickup" : "Only you see this"}>
+          <TextInput autoFocus={!initial} value={f.name} maxLength={80} placeholder={partner ? "Printful" : "Studio"} onChange={(e) => set({ name: e.target.value })} />
         </Field>
-        <Field label="Type">
-          <SelectInput value={f.kind} onChange={(v) => set({ kind: v as LocationKind })}>
+        <Field label="Type" hint={partner ? "A partner who packs and ships for you" : "A place of your own"}>
+          <SelectInput value={f.kind} onChange={(v) => setKind(v as LocationKind)}>
             {(Object.keys(KIND_LABEL) as LocationKind[]).map((k) => (
               <option key={k} value={k}>
                 {KIND_LABEL[k]}
@@ -949,11 +970,15 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
             ))}
           </SelectInput>
         </Field>
-        <Field label="Address" className="sm:col-span-2">
-          <TextInput value={f.addressLine1} maxLength={200} onChange={(e) => set({ addressLine1: e.target.value })} autoComplete="address-line1" />
+        <Field
+          label={partner ? "Address (optional)" : "Address"}
+          hint={partner ? "Where the partner ships from, if you know it. For your own records." : f.pickupEnabled ? "Where buyers collect their orders. For your default location, it's also where return emails tell buyers to send items." : "Where parcels leave from. For your default location, it's also where return emails tell buyers to send items."}
+          className="sm:col-span-2"
+        >
+          <TextInput value={f.addressLine1} maxLength={200} placeholder="Street and number" onChange={(e) => set({ addressLine1: e.target.value })} autoComplete="address-line1" />
         </Field>
-        <Field label="Apartment, suite (optional)" className="sm:col-span-2">
-          <TextInput value={f.addressLine2} maxLength={200} onChange={(e) => set({ addressLine2: e.target.value })} autoComplete="address-line2" />
+        <Field label="Apartment, suite, floor (optional)" className="sm:col-span-2">
+          <TextInput value={f.addressLine2} maxLength={200} placeholder="Apartment 4, 2nd floor" onChange={(e) => set({ addressLine2: e.target.value })} autoComplete="address-line2" />
         </Field>
         <Field label="City">
           <TextInput value={f.city} maxLength={120} onChange={(e) => set({ city: e.target.value })} autoComplete="address-level2" />
@@ -977,23 +1002,24 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
         <Field label={format.postal.required ? format.postal.label : `${format.postal.label} (optional)`} hint={postalOff ? `That doesn't look like a ${format.postal.label.replace(/ \(.*\)$/, "")}${format.postal.example ? `, like ${format.postal.example}` : ""}.` : undefined}>
           <TextInput value={f.postalCode} maxLength={20} onChange={(e) => set({ postalCode: e.target.value })} autoComplete="postal-code" placeholder={format.postal.example} />
         </Field>
-        <Field label="Phone (optional)">
-          <TextInput value={f.phone} maxLength={40} inputMode="tel" onChange={(e) => set({ phone: e.target.value })} />
-        </Field>
-        <Field label="Email" hint={f.forwarding === "email" ? "New orders for this location go here" : undefined}>
-          <TextInput value={f.email} maxLength={254} inputMode="email" onChange={(e) => set({ email: e.target.value })} />
-        </Field>
-        <Field label="Who ships orders from here" className="sm:col-span-2">
+        <Field label="Who ships the orders?" className="sm:col-span-2" hint={FORWARDING_HELP[f.forwarding]}>
           <SelectInput value={f.forwarding} onChange={(v) => set({ forwarding: v as typeof f.forwarding })}>
-            <option value="none">I do: I ship them myself</option>
-            <option value="email">A supplier: email each order to them</option>
+            <option value="none">I do, from here</option>
+            <option value="email">A partner: email each order to them</option>
             <option value="webhook">My own system: send each order to my webhook</option>
             <option value="provider">A fulfillment provider (not connected yet)</option>
           </SelectInput>
         </Field>
+        {/* The email is only asked for when it's used: orders are emailed there. */}
+        {f.forwarding === "email" ? (
+          <Field label="Orders email" hint="Each new order for this location is sent here">
+            <TextInput value={f.email} maxLength={254} inputMode="email" placeholder="orders@partner.com" onChange={(e) => set({ email: e.target.value })} />
+          </Field>
+        ) : null}
+        <Field label="Phone (optional)" hint="Kept with the location for you and couriers. Buyers don't see it.">
+          <TextInput value={f.phone} maxLength={40} inputMode="tel" placeholder="+40 712 345 678" onChange={(e) => set({ phone: e.target.value })} />
+        </Field>
       </div>
-      {f.forwarding === "webhook" ? <Notice tone="gray">Set your webhook address and secret in Integrations.</Notice> : null}
-      {f.forwarding === "provider" ? <Notice tone="amber">Storelib can't send orders to providers yet. Orders from here are flagged for you to send yourself.</Notice> : null}
       {/*
         WHAT HAPPENS HERE, in one list rather than a toggle, a card with a
         toggle in it and another toggle under it. Pickup's details open
@@ -1005,7 +1031,7 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
         <div className="py-3">
           <Toggle label="Ships orders from here" description="Off to keep stock here without shipping from it." checked={f.fulfillsOrders} onChange={(v) => set({ fulfillsOrders: v })} />
         </div>
-        <div className="py-3">
+        {partner ? null : <div className="py-3">
           <Toggle
             label={
               <span className="inline-flex items-center gap-1.5">
@@ -1040,7 +1066,7 @@ function LocationForm({ initial, onCancel, onSaved }: { initial?: Location; onCa
               </Field>
             </div>
           ) : null}
-        </div>
+        </div>}
         {initial ? (
           <div className="py-3">
             <Toggle label="In use" description="Off to keep this location without shipping from it or offering pickup." checked={f.active} onChange={(v) => set({ active: v })} />
