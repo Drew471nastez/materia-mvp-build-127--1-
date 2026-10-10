@@ -67,7 +67,19 @@
  * make room, with a warm highlight that fades, the page scrolling smoothly
  * to it when it is out of sight (arrive.ts useArrivals).
  *
- * THE TOOLBAR ON THE KEYBOARD (round 10). The visible part follows the
+ * ROUND 17: ON A PHONE, THE WEBSITE BUILDER'S SHEET. The owner names the
+ * website builder's sheet on a phone as the feel they want, so the screen is
+ * that sheet (components/website-builder/mobile-editor-sheet.tsx: its rise,
+ * its close, its drag, its light dim), nothing behind it moving, scaling or
+ * darkening at the edges. The keyboard is the sheet's own way, the same as
+ * every working bottom sheet's: the sheet stays down to the foot, white, and
+ * its content is lifted by the keyboard's room, which in the iOS app is the
+ * decision table's number (visible-box.ts appKeyboardRoom, keyboard-plan.ts)
+ * made in the focus itself, before iOS can pan the page (the page jumping up
+ * and glitching when the title was tapped). Round 10's toolbar dock below is
+ * no longer used on a phone; the notes are kept for its history.
+ *
+ * THE TOOLBAR ON THE KEYBOARD (round 10, replaced in round 17). The visible part followed the
  * viewport at once, with no CSS transition (a transition on its height
  * moved the toolbar a different way from the top, which jumps with a pan,
  * and left an empty strip under it for a quarter second when the keyboard
@@ -100,7 +112,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { createPortal, flushSync } from "react-dom"
+import { flushSync } from "react-dom"
 import { BarChart3, Check, ChevronDown, Clapperboard, GripVertical, Link2, Loader2, Paperclip, Plus, X } from "lucide-react"
 import { MemberAvatar } from "./member-avatar"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -130,8 +142,8 @@ import { MEMBER_VIDEO_MAX_BYTES } from "@/lib/video/types"
 import type { ComposerSpace, LinkPreview } from "./view-types"
 import { useComposeRequests } from "@/lib/communities/client/compose-intent"
 import { useLayer } from "@/lib/ui/layers"
-import { CLOSE_MS as SHEET_DOWN_MS, OPEN_MS as SHEET_UP_MS } from "./page-sheet"
-import { SheetBackdrop, communityFrame, sheetStage, type SheetStage } from "./page-sheet-stage"
+import { MobileEditorSheet, sheetMoveMs } from "@/components/website-builder/mobile-editor-sheet"
+import { appKeyboardRoom } from "./visible-box"
 import { feedRestore } from "./post-motion"
 
 export interface ComposerProps {
@@ -238,11 +250,6 @@ const FADE_COMING = "cubic-bezier(0, 0, 0.2, 1)"
 const CLOSED_FALLBACK_H = 72
 /** How long the Post button shows its check before the editor closes. */
 const SENT_HOLD_MS = 260
-/** The toolbar's move to its new place on the keyboard, over the keyboard's own time and on a curve close to its own (a quick start, a long settle). */
-const DOCK_MS = 250
-const DOCK_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-/** A keyboard expected to go down that has not after this is taken to be staying. */
-const DOCK_GIVE_UP_MS = 700
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -436,11 +443,10 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   const editorRef = useRef<HTMLDivElement>(null)
   const sheetRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const visibleRef = useRef<HTMLDivElement>(null)
+  /* The website builder's sheet is up (false from the moment it starts to go down). */
+  const [sheetUp, setSheetUp] = useState(false)
   const toolbarRef = useRef<HTMLDivElement>(null)
-  /* The phone's screen as a page sheet (page-sheet-stage.tsx): its driver, the dim and edge under it, and the feed's scroll when it opened. */
-  const sheetStageRef = useRef<SheetStage | null>(null)
-  const sheetBackdropRef = useRef<HTMLDivElement>(null)
+  /* The feed's scroll when the phone's sheet opened (put back under it before it closes). */
   const notedScroll = useRef<number | null>(null)
   /* How tall the closed field was, for the editor growing out of it. */
   const closedH = useRef(0)
@@ -710,9 +716,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     if (leaving.current) return
     const end = () => {
       leaving.current = false
-      /* At the move's last frame the community is at its own size: let go of, nothing shows. */
-      sheetStageRef.current?.release()
       setSheetIn(false)
+      setSheetUp(false)
       setOpen(false)
       if (!edit) setFilled(false)
       if (edit) {
@@ -734,33 +739,15 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     }
     if (phone) {
       /*
-        THE SAME SHEET, IN REVERSE (round 16, the owner: "when I close it, it doesn't close smoothly"). Down on the spring from
-        wherever the open has got to, the community coming forward behind it (page-sheet.ts). Nothing inside moves on the way:
-        the visible part is frozen where it stood, so the keyboard going down with the screen (the field lets go of the caret
-        now, as iOS's own sheets do) moves no field and no toolbar. The feed is put back first, under the covering screen.
+        DOWN ON THE WEBSITE BUILDER'S SHEET (round 17): the sheet's own close, over its own time. The field lets go of the
+        caret now, so the keyboard goes down with the sheet; the feed is put back first, under the covering sheet.
       */
-      const vis = visibleRef.current
-      if (vis) {
-        const r = vis.getBoundingClientRect()
-        const top = r.top - el.getBoundingClientRect().top
-        vis.setAttribute("data-frozen", "")
-        vis.style.top = `${Math.round(top)}px`
-        vis.style.height = `${Math.round(r.height)}px`
-      }
       const active = document.activeElement as HTMLElement | null
       if (active && el.contains(active)) active.blur()
       const back = notedScroll.current === null ? null : feedRestore(notedScroll.current, window.scrollY)
       if (back !== null) window.scrollTo({ top: back, behavior: "instant" as ScrollBehavior })
-      const st = sheetStageRef.current
-      if (!st) {
-        window.setTimeout(finish, 0)
-        return
-      }
-      st.stop()
-      const from = st.at()
-      st.set(from)
-      void st.run(from, 0, SHEET_DOWN_MS, { hold: true }).then(finish)
-      window.setTimeout(finish, SHEET_DOWN_MS + 300)
+      setSheetUp(false)
+      window.setTimeout(finish, sheetMoveMs() + 40)
       return
     }
     /* The page keeps its scroll as the editor folds (the browser would otherwise move it to follow a post on screen). */
@@ -822,54 +809,33 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
   })
 
   /*
-    The phone's screen rises as iOS's page sheet (round 16, page-sheet.ts), from the first frame it is painted in, the
-    community easing back behind it; the same motion as an opened post, so the two read as one family.
-    NO OVERFLOW LOCK ON <html> ANY MORE. It was `overflow: hidden` on the document while the screen was up, taken off in the
-    commit that took the screen away: on iOS that restyled the whole page in the close's last frame (the feed under it
-    jumped, "it glitches and flashes things in the community feed"), and iOS keeps a scroll view stuck for a moment after its
-    overflow comes back (post-overlay.tsx found the same). The screen covers the page; the page's overscroll is held, and its
-    scroll is noted and put back under the screen before it closes (shut).
+    ROUND 17: THE PHONE'S SCREEN IS THE WEBSITE BUILDER'S SHEET (mobile-editor-sheet.tsx), rising on its own move from its
+    first frame, its fields drawn before it moves (in this commit, so the move never carries their first draw), the page
+    behind held where it is by its scroll alone (holdPage "scroll": no overflow switched off, which on iOS restyled the whole
+    page in the close's last frame and left the feed's scroll stuck). The page's overscroll is held too, and its scroll is
+    noted and put back under the sheet before it closes (shut). Nothing behind it moves, scales or darkens at its edges.
+    THE FIELD TAKES THE CARET ONCE THE SHEET HAS ARRIVED: a keyboard rising while the sheet still moved changed the visible
+    height in the middle of the move.
   */
   useLayoutEffect(() => {
     if (!sheet) return
-    const el = sheetRef.current
     const html = document.documentElement
     const prev = html.style.overscrollBehavior
     html.style.overscrollBehavior = "none"
     notedScroll.current = window.scrollY
-    /* Edit post rises over an opened post, not over the community: only the screen moves then. */
-    const st = el ? sheetStage(el, editing ? null : sheetBackdropRef.current, editing ? null : communityFrame()) : null
-    sheetStageRef.current = st
-    /*
-      THE FIELD TAKES THE CARET ONCE THE SCREEN HAS ARRIVED. A keyboard that
-      rose while the screen was still sliding changed the visible height in
-      the middle of the slide (the whole page restyled for it); now the
-      screen slides alone, then the keyboard comes.
-    */
-    const arrived = () => {
-      setSheetIn(true)
-      setFilled(true)
-      /* On the frame after, so a screen that had no move (reduced motion) has its fields drawn before the caret goes in. */
-      requestAnimationFrame(focusFirst)
-    }
-    let fill = 0
-    if (st && el && typeof el.animate === "function" && !reducedMotion()) {
-      st.set(0)
-      void st.run(0, 1, SHEET_UP_MS).then(() => {
+    setFilled(true)
+    setSheetUp(true)
+    const t = window.setTimeout(
+      () => {
         if (leaving.current) return
-        /* Arrived: it covers the screen, so the community is let go of (unseen) for as long as it is open. */
-        st.release()
-        arrived()
-      })
-      fill = requestAnimationFrame(() => setFilled(true))
-    } else {
-      st?.set(1)
-      st?.release()
-      arrived()
-    }
+        setSheetIn(true)
+        /* On the frame after, so the fields are drawn before the caret goes in. */
+        requestAnimationFrame(focusFirst)
+      },
+      reducedMotion() ? 0 : sheetMoveMs(),
+    )
     return () => {
-      cancelAnimationFrame(fill)
-      st?.release()
+      window.clearTimeout(t)
       html.style.overscrollBehavior = prev
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -917,8 +883,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
 
   /* The field being typed in stays in sight when the visible part changes (keep-in-sight.ts). */
   useKeepFieldInSight(sheet, () => scrollRef.current)
-  /* The toolbar rides the keyboard on the compositor (THE TOOLBAR ON THE KEYBOARD). */
-  useToolbarDock(sheet && sheetIn, visibleRef, toolbarRef)
+  /* The keyboard's room in the iOS app, for the sheet to make in the focus itself (keyboard-plan.ts). */
+  const keyboardRoom = useCallback(() => appKeyboardRoom(sheetRef.current), [])
 
   /* Edit post: the change sent, the check shown, the editor folded, then the post as it now is handed back. */
   const save = async () => {
@@ -1310,64 +1276,60 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
           {inPlace ? editorBlock : null}
         </div>
       )}
-      {sheet
-        ? createPortal(
-            <>
-              {/* Under the screen: the dim, and the dark edge round the community as it eases back (page-sheet-stage.tsx). */}
-              <div className={`pointer-events-none fixed inset-0 ${editing ? "z-[134]" : "z-[124]"}`} data-composer-backdrop="">
-                <SheetBackdrop ref={sheetBackdropRef} />
+      {sheet ? (
+        /* The website builder's sheet (round 17): its rise and close, its drag, its light dim; over an opened post for Edit post. */
+        <MobileEditorSheet
+          open={sheetUp}
+          onOpenChange={(next) => {
+            if (!next) void cancel()
+          }}
+          peekHeight={0}
+          detents={[0.94]}
+          openFull
+          layer="raised"
+          zIndex={editing ? 135 : 125}
+          holdPage="scroll"
+          keyboard="sheet"
+          keyboardRoom={keyboardRoom}
+          className="bg-white [--wb-sheet-skirt:#fff]"
+        >
+          <div
+            ref={sheetRef}
+            aria-label={editing ? "Edit post" : "New post"}
+            data-composer="sheet"
+            data-composer-edit={editing ? "" : undefined}
+            data-composer-sheet-in={sheetIn ? "true" : "false"}
+            className="flex min-h-0 flex-1 flex-col bg-white"
+          >
+            <div className="shrink-0 border-b border-[#f0f1f3]">
+              <div className="flex h-12 items-center gap-2 px-2">
+                {/* The field keeps the caret through the press (no blur), so the keyboard goes down with the sheet. */}
+                <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
+                  Cancel
+                </button>
+                <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
+                <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} />
               </div>
-              <div
-                ref={sheetRef}
-                role="dialog"
-                aria-modal="true"
-                aria-label={editing ? "Edit post" : "New post"}
-                data-composer="sheet"
-                data-composer-edit={editing ? "" : undefined}
-                data-composer-sheet-in={sheetIn ? "true" : "false"}
-                /* The whole window, white, under the keyboard too: nothing behind ever shows as the keyboard comes and goes. Edit post opens over an opened post (130), so above it. */
-                className={`fixed inset-0 rounded-t-[12px] bg-white ${editing ? "z-[135]" : "z-[125]"}`}
-              >
-                <div
-                  /* The part that can be seen (THE KEYBOARD ON A PHONE); a keyboard's arrival is carried over 250ms rather than in one frame. */
-                  ref={visibleRef}
-                  className="group/vis absolute inset-x-0 top-[var(--vv-top,0px)] flex h-[var(--vv-h,100dvh)] flex-col"
-                  data-composer-visible=""
-                >
-                <div className="shrink-0 border-b border-[#f0f1f3] pt-[env(safe-area-inset-top)]">
-                  <div className="flex h-14 items-center gap-2 px-2">
-                    {/*
-                      The field keeps the caret through the press (no blur), so the keyboard goes down with the
-                      screen once it has gone rather than as it starts to slide: a keyboard closing changes the
-                      visible height, and the whole page restyles for it, which belongs after the move.
-                    */}
-                    <button type="button" onPointerDown={(e) => e.preventDefault()} onMouseDown={(e) => e.preventDefault()} onClick={() => void cancel()} className={`${BTN_SECONDARY} px-3.5`} disabled={sent} data-composer-cancel="">
-                      Cancel
-                    </button>
-                    <span className="min-w-0 flex-1 truncate text-center text-[16px] font-semibold text-[#1a1a2e]">{editing ? "Edit post" : "New post"}</span>
-                    <PostButton busy={busy} sent={sent} ready={ready} onClick={submit} className="px-4" label={actionLabel} />
+            </div>
+            <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
+              {filled ? (
+                <>
+                  <div className="mb-3 flex min-w-0 items-center gap-2">
+                    <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
+                    <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
+                    <span className="min-w-0">{spacePicker}</span>
                   </div>
-                </div>
-                <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-3" data-composer-scroll="" data-composer-filled={filled ? "" : undefined}>
-                  {filled ? (
-                    <>
-                      <div className="mb-3 flex min-w-0 items-center gap-2">
-                        <MemberAvatar src={me.avatarUrl} name={me.name} alt="" size={32} />
-                        <span className="shrink-0 text-[14px] text-[#6b7280]">Posting in</span>
-                        <span className="min-w-0">{spacePicker}</span>
-                      </div>
-                      {fields}
-                    </>
-                  ) : null}
-                </div>
-                {/* On the keyboard when it is up (no home bar to clear then), above the home bar when it is not. Its room is kept while the fields are on their way, so nothing moves when they come. */}
-                <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-[max(6px,env(safe-area-inset-bottom))] pt-1.5 group-data-[kb=up]/vis:pb-1.5" data-composer-toolbar="">{filled ? tools : <div className="h-10" aria-hidden />}</div>
-                </div>
-              </div>
-            </>,
-              document.body,
-          )
-        : null}
+                  {fields}
+                </>
+              ) : null}
+            </div>
+            {/* On the keyboard when it is up: the sheet pads its content by the keyboard's room. */}
+            <div ref={toolbarRef} className="relative z-[1] shrink-0 border-t border-[#f0f1f3] bg-white px-2 pb-1.5 pt-1.5" data-composer-toolbar="">
+              {filled ? tools : <div className="h-10" aria-hidden />}
+            </div>
+          </div>
+        </MobileEditorSheet>
+      ) : null}
       {leaveDialog}
     </>
   )
@@ -1404,120 +1366,6 @@ function PostButton({ busy, sent, ready, onClick, className = "", label = "Post"
       </span>
     </button>
   )
-}
-
-const TYPES_TEXT = /^(text|search|url|tel|email|password|number)$/
-function takesKeys(el: Element | null): boolean {
-  const e = el as HTMLElement | null
-  if (!e) return false
-  if (e.isContentEditable || e.tagName === "TEXTAREA") return true
-  return e.tagName === "INPUT" && TYPES_TEXT.test(((e as HTMLInputElement).type || "text").toLowerCase())
-}
-
-/** The vertical part of an element's translate as drawn now (an animation's current value included). */
-function drawnY(el: HTMLElement): number {
-  const t = getComputedStyle(el).translate
-  if (!t || t === "none") return 0
-  return parseFloat(t.split(" ")[1] ?? "0") || 0
-}
-
-/**
- * THE TOOLBAR ON THE KEYBOARD (see the top of this file). While `active`
- * (the phone's editor on screen): every time the visible part changes,
- * before that frame is painted, the toolbar is moved back to where it was
- * drawn and slides to its new place; `data-kb` on the visible part says
- * whether the keyboard is up (the toolbar's padding over the home bar
- * follows it, from the same frame). A field losing focus to nothing that
- * types means the keyboard is on its way down: the visible part is let go
- * to the whole window at once (the report then changes nothing), and taken
- * back if the keyboard stays.
- */
-function useToolbarDock(active: boolean, visible: React.RefObject<HTMLDivElement | null>, toolbar: React.RefObject<HTMLDivElement | null>) {
-  useEffect(() => {
-    const vis = visible.current
-    const bar = toolbar.current
-    if (!active || !vis || !bar) return
-    const html = document.documentElement
-    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-    /* Where the toolbar is laid out (its drawn offset taken away). */
-    let laidTop = bar.getBoundingClientRect().top - drawnY(bar)
-    /* A keyboard about to come up or go down that has not said so yet, and how tall the last one was. */
-    let expecting: "up" | "down" | null = null
-    let lastKb = 0
-    let giveUp = 0
-    const kbOpen = () => html.dataset.keyboard === "open"
-    const mark = () => {
-      vis.dataset.kb = (kbOpen() && expecting !== "down") || expecting === "up" ? "up" : "down"
-    }
-    const dock = () => {
-      const off = drawnY(bar)
-      const now = bar.getBoundingClientRect().top - off
-      /* Laid out where it already was going (the report after an expected keyboard): the move under way carries on untouched. */
-      if (Math.abs(now - laidTop) < 1) return
-      const was = laidTop + off
-      for (const a of bar.getAnimations()) a.cancel()
-      laidTop = now
-      const d = was - laidTop
-      if (Math.abs(d) < 1 || reduce || typeof bar.animate !== "function") return
-      bar.animate([{ translate: `0 ${d}px` }, { translate: "0 0" }], { duration: DOCK_MS, easing: DOCK_EASE })
-    }
-    /* The visible part ahead of the report: the whole window for a keyboard going down, the window less the last keyboard for one coming up. */
-    const expect = (next: "up" | "down" | null) => {
-      expecting = next
-      window.clearTimeout(giveUp)
-      vis.style.top = next ? "0px" : ""
-      vis.style.height = next === "down" ? "100%" : next === "up" ? `calc(100% - ${lastKb}px)` : ""
-      if (next) giveUp = window.setTimeout(() => (expect(null), mark(), dock()), DOCK_GIVE_UP_MS)
-    }
-    /*
-      The vars and data-keyboard are written on <html> together, in the task
-      that heard the viewport change; this hears them right after it (a
-      mutation's callback), before any frame is painted with the new place,
-      so the toolbar is never drawn there before its move has started.
-    */
-    /* CLOSING (round 16): the screen's visible part is frozen where it stood (shut), so the keyboard going down with it moves nothing inside. */
-    const frozen = () => vis.hasAttribute("data-frozen")
-    const onChange = () => {
-      if (frozen()) return
-      if (kbOpen()) {
-        const layout = vis.parentElement?.clientHeight ?? window.innerHeight
-        const shown = parseFloat(getComputedStyle(html).getPropertyValue("--vv-h")) || layout
-        const top = parseFloat(getComputedStyle(html).getPropertyValue("--vv-top")) || 0
-        if (layout - shown - top > layout * 0.2) lastKb = layout - shown - top
-      }
-      if ((expecting === "down" && !kbOpen()) || (expecting === "up" && kbOpen())) expect(null)
-      mark()
-      dock()
-    }
-    const watch = new MutationObserver(onChange)
-    const onFocusOut = () =>
-      requestAnimationFrame(() => {
-        if (frozen() || takesKeys(document.activeElement) || !kbOpen() || !vis.isConnected) return
-        expect("down")
-        mark()
-        dock()
-      })
-    const onFocusIn = (e: FocusEvent) => {
-      if (frozen() || !takesKeys(e.target as Element)) return
-      if (expecting === "down") expect(null)
-      else if (!kbOpen() && lastKb > 0) expect("up")
-      else return
-      mark()
-      dock()
-    }
-    mark()
-    watch.observe(html, { attributes: true, attributeFilter: ["style", "data-keyboard"] })
-    document.addEventListener("focusout", onFocusOut)
-    document.addEventListener("focusin", onFocusIn)
-    return () => {
-      watch.disconnect()
-      window.clearTimeout(giveUp)
-      document.removeEventListener("focusout", onFocusOut)
-      document.removeEventListener("focusin", onFocusIn)
-      vis.style.top = ""
-      vis.style.height = ""
-    }
-  }, [active, visible, toolbar])
 }
 
 /** The poll's fields: the Storelib field with its hairline and 1px shadow. */

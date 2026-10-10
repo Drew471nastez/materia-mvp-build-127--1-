@@ -27,6 +27,8 @@ interface KeyboardInfo {
 interface KeyboardPlugin {
   addListener(event: "keyboardWillShow" | "keyboardDidShow", fn: (info: KeyboardInfo) => void): Promise<PluginListenerHandle>
   addListener(event: "keyboardWillHide" | "keyboardDidHide", fn: () => void): Promise<PluginListenerHandle>
+  /** iOS only: hold the web view's own scroll, so iOS does not pan the page to a focused field. */
+  setScroll(options: { isDisabled: boolean }): Promise<void>
 }
 
 const Keyboard = registerPlugin<KeyboardPlugin>("Keyboard")
@@ -62,6 +64,27 @@ function start() {
 export function nativeKeyboardHeight(): number {
   start()
   return height
+}
+
+/**
+ * ROUND 17: THE WEB VIEW'S OWN SCROLL HELD WHILE THE COMMENT BOX IS TYPED IN (the plugin's setScroll, iOS only). With the
+ * plugin the box is put exactly on the keyboard from its height; if iOS also panned the page to the field, the box would
+ * end the pan above the keys (keyboard-plan.ts NEVER TWICE). The post's own scroller is an element of its own, so it still
+ * scrolls. Let go the moment the box is not typed in. Nothing at all without the plugin, or off iOS.
+ */
+let scrollHeld = false
+export function holdNativeScroll(on: boolean): void {
+  if (on === scrollHeld) return
+  if (!nativeKeyboardAvailable()) return
+  try {
+    if (Capacitor.getPlatform() !== "ios") return
+  } catch {
+    return
+  }
+  scrollHeld = on
+  void Keyboard.setScroll({ isDisabled: on }).catch(() => {
+    scrollHeld = false
+  })
 }
 
 /** Told whenever that height changes; returns the way to stop listening. */

@@ -37,7 +37,13 @@
  * (nothing of it is visible then) and taken up again, invisibly, as a close
  * or a pull begins.
  *
- * Pure: no DOM, no React (page-sheet-stage.tsx does the drawing), so
+ * ROUND 17 (ARCH17, and the owner: "a black thing shaped into the edges"):
+ * nothing draws this sheet any more. The opened post moves on post-morph.ts
+ * and post-stage.ts, the composer on the website builder's sheet; nothing
+ * behind either scales, rounds its corners or shows a dark edge. The
+ * numbers stay, pure, for round 16's suite.
+ *
+ * Pure: no DOM, no React, so
  * tests/communities-post16.test.ts holds these numbers as written.
  */
 

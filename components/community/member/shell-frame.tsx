@@ -527,7 +527,8 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
       } catch {
         return null
       }
-      if (url.origin !== window.location.origin || url.hash) return null
+      /* A comment's link carries #c-<comment> (every comment notification does): it is still the post, opened over the place (round 17). */
+      if (url.origin !== window.location.origin || (url.hash && !/^#(c-[\w-]+|comments)$/.test(url.hash))) return null
       if ((slugFromPath(url.pathname) || "").toLowerCase() !== community.slug.toLowerCase() || !isPostAddress(url.pathname)) return null
       const parsed = parsePostParam(url.pathname.split("/").pop() || "")
       return parsed ? (parsed.kind === "uuid" ? parsed.id : parsed.short) : null
