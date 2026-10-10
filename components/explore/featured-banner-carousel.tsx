@@ -1,7 +1,7 @@
 "use client"
 
 import { personName } from "@/lib/profile/display-name"
-import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode } from "react"
+import { useState, useEffect, useCallback, useRef, TouchEvent, ReactNode, type PointerEvent } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ChevronLeft, ChevronRight } from "lucide-react"
@@ -117,12 +117,18 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
     setCurrentIndex((prev) => (prev + 1) % totalSlides)
   }, [totalSlides])
 
-  const handleMouseEnter = useCallback(() => {
+  /*
+    A MOUSE ONLY (round 18). A tap sends the browser's made up mouseenter, and on a tablet it showed the arrows and paused
+    the slides until something else was touched: a hover that was never there. Pointer events say which it was.
+  */
+  const handleMouseEnter = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse") return
     setIsHovered(true)
     setIsPaused(true)
   }, [])
 
-  const handleMouseLeave = useCallback(() => {
+  const handleMouseLeave = useCallback((e: PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType !== "mouse") return
     setIsHovered(false)
     setIsPaused(false)
     lastTimeRef.current = 0
@@ -182,8 +188,8 @@ export function FeaturedBannerCarousel({ products, overlay }: FeaturedBannerCaro
       <div
         className="relative w-full rounded-2xl overflow-hidden bg-neutral-200 touch-pan-y md:min-h-[231px] md:max-h-[315px]"
         style={{ aspectRatio: "3.15 / 1", minHeight: "220px", maxHeight: "300px" }}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onPointerEnter={handleMouseEnter}
+        onPointerLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

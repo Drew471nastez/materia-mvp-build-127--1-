@@ -251,7 +251,7 @@ export const ProductCard = memo(function ProductCard({
   return (
     <div
       data-product-card=""
-      className="group flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-all duration-300 ease-out [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
+      className="group isolate flex h-full flex-col overflow-hidden rounded-lg border border-border/60 bg-card transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]"
       style={
         surface?.backgroundColor || surface?.borderColor || surface?.textColor
           ? { backgroundColor: surface.backgroundColor, borderColor: surface.borderColor, color: surface.textColor }
@@ -269,6 +269,16 @@ export const ProductCard = memo(function ProductCard({
       onClickCapture={onClickCapture}
     >
       {/*
+        THE HOVER, IN AND OUT THE SAME (round 18: "too bumpy"). The cover's
+        zoom is Tailwind's `scale`, its own CSS property, and the transition
+        named `transform`, so it jumped the whole way in one frame on the way
+        in and again on the way out while the shadow faded beside it. The
+        transition names `scale` now, the zoom is smaller (2%), and the card
+        fades only its border and shadow (not `all`), over the same curve both
+        ways. `isolate` keeps the zooming cover inside the card's rounded
+        corners in Safari while it moves. All of it behind a real mouse (the
+        `hover` variant, app/globals.css): a finger sees none of it.
+
         THE PRESS IS ANSWERED BY THE CARD DIPPING, AND BY NOTHING ELSE.
 
         There was a 3px bar across the top of the card while the navigation
@@ -302,7 +312,7 @@ export const ProductCard = memo(function ProductCard({
               fill
               sizes={leanSizesValue ?? sizes}
               className={
-                "object-cover transition-[transform,opacity] duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.03] " +
+                "object-cover transition-[scale,opacity] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-[opacity] [@media(hover:hover)]:group-hover:scale-[1.02] " +
                 (coverShown || priority ? "opacity-100" : "opacity-0")
               }
               priority={priority}

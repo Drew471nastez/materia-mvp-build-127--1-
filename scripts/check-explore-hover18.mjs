@@ -107,7 +107,7 @@ const READ = (ms) => `new Promise((done) => {
   requestAnimationFrame(tick)
 })`
 
-/* How a value travels from its first frame to its last: its largest single step as a share of the whole, and the frames it moved on. */
+/* How a value travels from its first frame to its last: its largest step per 17ms as a share of the whole, and the frames it moved on. */
 function travel(series, key) {
   const v = series.map((f) => f[key])
   const total = Math.abs(v[v.length - 1] - v[0])
@@ -117,8 +117,9 @@ function travel(series, key) {
   let first = -1
   let last = -1
   for (let i = 1; i < v.length; i++) {
-    const d = Math.abs(v[i] - v[i - 1])
-    if (d > 0) {
+    /* A step is weighed by the time it covered: a long frame (the CPU is slowed) may carry more, a snap carries it all in one. */
+    const d = Math.abs(v[i] - v[i - 1]) / Math.max(1, (series[i].t - series[i - 1].t) / 17)
+    if (v[i] !== v[i - 1]) {
       moving++
       if (first < 0) first = i - 1
       last = i

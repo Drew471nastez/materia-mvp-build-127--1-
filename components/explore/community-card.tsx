@@ -286,7 +286,7 @@ export function ExploreCommunityCard({
         data-community-card={card.slug}
         data-layout="row"
         className={cn(
-          "group/community flex min-h-[72px] w-full min-w-0 items-center gap-3.5 rounded-lg border border-border/60 bg-card px-3.5 py-3.5 outline-none transition-[border-color,box-shadow] duration-300 ease-out focus-visible:ring-2 active:brightness-[0.98] sm:gap-4 sm:px-5 sm:py-4 [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
+          "group/community flex min-h-[72px] w-full min-w-0 items-center gap-3.5 rounded-lg border border-border/60 bg-card px-3.5 py-3.5 outline-none transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:ring-2 active:brightness-[0.98] sm:gap-4 sm:px-5 sm:py-4 [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
           ring,
         )}
       >
@@ -313,7 +313,7 @@ export function ExploreCommunityCard({
       data-community-card={card.slug}
       data-layout="grid"
       className={cn(
-        "group/community flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-card outline-none transition-[border-color,box-shadow] duration-300 ease-out focus-visible:ring-2 active:brightness-[0.98] [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
+        "group/community isolate flex h-full w-full min-w-0 flex-col overflow-hidden rounded-lg border border-border/60 bg-card outline-none transition-[border-color,box-shadow] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] focus-visible:ring-2 active:brightness-[0.98] [@media(hover:hover)]:hover:border-border [@media(hover:hover)]:hover:shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)]",
         ring,
       )}
     >
@@ -328,7 +328,7 @@ export function ExploreCommunityCard({
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : undefined}
             decoding="async"
-            className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-out motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.03]"
+            className="absolute inset-0 h-full w-full object-cover transition-[scale] duration-500 ease-[cubic-bezier(0.33,1,0.68,1)] motion-reduce:transition-none [@media(hover:hover)]:group-hover/community:scale-[1.02]"
           />
         ) : (
           <div className={cn("absolute inset-0 flex items-center justify-center", storefront ? "bg-muted" : "bg-[#f1f2f4]")}>
