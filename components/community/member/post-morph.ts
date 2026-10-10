@@ -73,7 +73,7 @@ export const FADE_SPLIT = 0.3
  * rastered before the move starts, and it cannot show: 0.002 of a step of 255 is under half of one level of any colour, so
  * not one pixel changes. The fade through is still never two contents at once on the screen.
  */
-export const GONE = 0.002
+export const GONE = 0.0015
 
 /** The scrim over the community at its deepest (black at this alpha): light, the feed reads through it. */
 export const SCRIM = 0.16
