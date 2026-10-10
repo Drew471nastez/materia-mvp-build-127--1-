@@ -39,6 +39,9 @@ import "server-only"
  * going to an event, a new level); a comment names its post only when I may
  * still read that post.
  *
+ * THEIR ACTIVITY BOARD (round 18, item 11): memberBoard below, the day grid
+ * from SQL part 125 in one call, their level and points, and the facts.
+ *
  * Every read is the service role's after these checks, as every community
  * read is.
  */
@@ -59,7 +62,7 @@ import {
   type ProfilePostsPage,
 } from "../member-profile-view"
 import type { Viewer } from "./context"
-import type { Db } from "./db"
+import { missing, type Db } from "./db"
 import { accessOf, canSeeSpace, cursorAfter, decodeCursor, keysetCondition, listSpaces } from "./feed"
 import { ownedProductIds } from "./membership"
 import { displayName } from "./directory"
@@ -67,6 +70,8 @@ import { followCounts, isFollowing } from "@/lib/profile/follows"
 import { locationLine, readProfileLocation } from "@/lib/profile/location"
 import { parseProfileCover } from "@/lib/profile/cover"
 import { personHref } from "@/lib/profile/person-href"
+import { TIME_ZONE_COOKIE, isTimeZone, readTimeZone } from "@/lib/orders/time-zone"
+import { boardFrom, parseActivityAnswer, standingOf, zoneToday, type LevelStep, type MemberBoard } from "../member-activity"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -138,12 +143,13 @@ interface MemberFacts {
   role: Role
   tier_id: string | null
   level: number | null
+  points?: number | null
   joined_at: string | null
   muted_until: string | null
   banned_at: string | null
 }
 
-const MEMBER_FACTS = "community_id, status, role, tier_id, level, joined_at, muted_until, banned_at"
+const MEMBER_FACTS = "community_id, status, role, tier_id, level, points, joined_at, muted_until, banned_at"
 
 const communityOf = (c: { id: string; slug: string; name: string; logo_url: string | null }): ProfileCommunity => ({ id: c.id, slug: c.slug, name: c.name, logoUrl: c.logo_url })
 
@@ -347,6 +353,99 @@ export async function myRecentActivity(db: Db, userId: string, mine: MyCommuniti
   return out
 }
 
+/* ── Their activity board here (round 18) ─────────────────────────────── */
+
+/**
+ * The time zone the board's days are counted in: the storelib_tz cookie the
+ * app writes (lib/orders/time-zone), UTC when there is none or outside a
+ * request (a test).
+ */
+async function viewerZone(): Promise<string> {
+  try {
+    const { cookies } = await import("next/headers")
+    return readTimeZone((await cookies()).get(TIME_ZONE_COOKIE)?.value)
+  } catch {
+    return "UTC"
+  }
+}
+
+/** The community's levels, lowest first; empty when it has none or they cannot be read. */
+async function levelSteps(db: Db, communityId: string): Promise<LevelStep[]> {
+  const found = await rows<{ level: number; name: string; min_points: number }>(() => db.from("community_levels").select("level, name, min_points").eq("community_id", communityId))
+  return found.map((l) => ({ level: Number(l.level), name: String(l.name ?? ""), minPoints: Math.max(0, Number(l.min_points) || 0) })).sort((a, b) => a.level - b.level)
+}
+
+/** Their published posts here, all time, counted on the author index. Null when it cannot be counted. */
+async function postCount(db: Db, communityId: string, userId: string): Promise<number | null> {
+  try {
+    const { count, error } = await db
+      .from("community_feed_posts")
+      .select("id", { count: "exact", head: true })
+      .eq("author_id", userId)
+      .eq("community_id", communityId)
+      .eq("status", "published")
+      .is("deleted_at", null)
+    return error || typeof count !== "number" ? null : count
+  } catch {
+    return null
+  }
+}
+
+/**
+ * THE BOARD: the day grid, their level and points, and the facts, for
+ * somebody's profile in this community.
+ *
+ *   THE GRID   one call to community_member_activity (SQL part 125): their
+ *              published posts and comments and the likes they gave here,
+ *              counted per day in the viewer's zone over the last
+ *              BOARD_WEEKS weeks, plus their all time post and comment counts.
+ *              The function reads each table on its author or user index
+ *              (part 125 adds the comments one), so a member with years of
+ *              history costs the rows of one year, aggregated in the
+ *              database, and one round trip. Before part 125 has run the call
+ *              answers "no such function": no grid, the posts counted on
+ *              their own (the author index is already there), the comments
+ *              left out (they have no author index until then). Never an
+ *              error on the page.
+ *   STANDING   their level and points (community_members, kept by the points
+ *              trigger) on the community's levels, only where it counts
+ *              points.
+ */
+export async function memberBoard(
+  db: Db,
+  community: Pick<CommunityRow, "id" | "gamification_enabled">,
+  member: Pick<MemberFacts, "level" | "points" | "joined_at">,
+  userId: string,
+  opts: { now?: number; tz?: string } = {},
+): Promise<MemberBoard> {
+  const tz = opts.tz && isTimeZone(opts.tz) ? opts.tz : await viewerZone()
+  const today = zoneToday(opts.now ?? Date.now(), tz)
+  const from = boardFrom(today)
+  const [answer, steps] = await Promise.all([
+    (async () => {
+      try {
+        const { data, error } = await db.rpc("community_member_activity", { p_community: community.id, p_user: userId, p_from: from, p_tz: tz })
+        if (error) {
+          if (!missing(error)) console.error(`[communities] activity board not read: ${(error as { message?: string }).message ?? "error"}`)
+          return null
+        }
+        return parseActivityAnswer(data, today, from)
+      } catch {
+        return null
+      }
+    })(),
+    community.gamification_enabled ? levelSteps(db, community.id) : Promise.resolve(null),
+  ])
+  const posts = answer ? answer.posts : await postCount(db, community.id, userId)
+  return {
+    grid: answer?.grid ?? null,
+    standing: steps ? standingOf(member.level, member.points, steps) : null,
+    joinedAt: member.joined_at ?? null,
+    posts,
+    comments: answer ? answer.comments : null,
+  }
+}
+
 /* ── The place ────────────────────────────────────────────────────────── */
 
 /**
@@ -369,7 +468,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
   if (!self && (!theirs || theirs.status !== "active" || theirs.banned_at)) return null
 
   const mine = self ? await myCommunities(db, viewer.userId) : null
-  const [cover, place, counts, following, storefront, posts, activity] = await Promise.all([
+  const [cover, place, counts, following, storefront, posts, activity, board] = await Promise.all([
     coverOf(db, person.id),
     readProfileLocation(db, person.id),
     followCounts(db, person.id),
@@ -377,6 +476,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
     hasStorefront(db, person.id),
     mine ? myPostsPage(db, viewer.userId, null, mine) : communityPostsPage(db, community, viewer, person.id, null),
     mine ? myRecentActivity(db, viewer.userId, mine) : Promise.resolve(null),
+    !self && theirs ? memberBoard(db, community, theirs, person.id, { now }) : Promise.resolve(null),
   ])
   const role = theirs?.role && theirs.role !== "member" ? (theirs.role as ProfilePerson["role"]) : null
   const page = personHref({ username: person.username, hasStorefront: storefront })
@@ -403,6 +503,7 @@ export async function loadMemberProfile(db: Db, community: CommunityRow, viewer:
     scope: self ? "all" : "community",
     posts,
     activity,
+    board,
     now,
   }
 }
