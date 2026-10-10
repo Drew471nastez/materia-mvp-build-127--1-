@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { addTaxRegion, loadTaxSetup } from "@/lib/tax/server"
+import { recordActivity, taxRegionLabel } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -13,5 +14,7 @@ export async function POST(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const done = await addTaxRegion(c.db, c.creatorId, body)
   if (!done.ok) return physicalJson({ error: done.error }, done.status)
-  return physicalJson(await loadTaxSetup(c.db, c.creatorId))
+  const setup = await loadTaxSetup(c.db, c.creatorId)
+  await recordActivity(c.db, c, { action: "tax.region_added", subjectType: "tax_region", subjectLabel: taxRegionLabel(body) })
+  return physicalJson(setup)
 }

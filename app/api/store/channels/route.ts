@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { createChannel, deleteChannel, loadChannels, setDefaultChannel, updateChannel } from "@/lib/store/channels-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,6 +30,7 @@ async function write(request: Request, run: Run) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const out = await run(body, c.db, c.creatorId)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
+  await recordActivity(c.db, c, { action: "settings.channels" })
   return physicalJson(out.setup as Record<string, unknown>)
 }
 

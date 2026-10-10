@@ -130,6 +130,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `110_taxes.sql` | Taxes for every store: `commerce_settings.tax_digital` (off for every store), `commerce_tax_overrides` (one product's own rate in one region), and `orders.tax_cents` and `tax_country` for digital orders. Owner read, server written. Safe to run again. | 7 | 3,001 |
 | `111_sales_channel_kinds.sql` | Sales channels by kind: `sales_channels.kind` is `storefront` (the website), `creator_page` (storelib.com/name and the one page), `marketplace` (Explore) or `custom`, one of each built-in kind a store. A product leaves one only when someone takes it off. Safe to run again. | 5 | 1,709 |
 | `112_integrations.sql` | Integrations for every store: `store_settings.tracking` (the analytics and ad pixel IDs the website loads: Google Analytics, Tag Manager, Google Ads, Meta, TikTok, Pinterest; IDs only, checked both ways) and `integration_requests` (Request integration, read in /admin). Owner read, server written. Safe to run again. | 9 | 2,170 |
+| `113_store_activity.sql` | A store's activity log: `store_activity_log` (who changed what and when: settings, orders, files from the server; products from a trigger on create, delete, rename, price and status; never blocks the change; owner reads, only the server writes) | 12 | 4125 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 34,416 |
 
 Parts `01` to `61` all run as the editor's normal role. `90` is the one

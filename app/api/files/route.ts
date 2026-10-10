@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { deleteLibraryFile, listLibrary } from "@/lib/files/library"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,5 +26,6 @@ export async function DELETE(request: Request) {
   const body = await readBody(request)
   const out = await deleteLibraryFile(c.db, { userId: c.userId, creatorId: c.creatorId }, body?.bucket, body?.path)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
+  await recordActivity(c.db, c, { action: "file.deleted", subjectType: "file", subjectLabel: String(body?.path ?? "").split("/").pop() })
   return physicalJson({ ok: true })
 }

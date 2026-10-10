@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
 import { cancelOrder, checkoutOfOrderRow, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateShipment } from "@/lib/physical/orders-server"
+import { recordActivity } from "@/lib/activity/log-server"
+import { orderNumberOf } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -32,6 +34,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   return_move approve, decline, receive (restock), close a return
  *   refunded    after the existing refund route refunded lines: catch up
  */
+const ORDER_ACTIVITY: Record<string, string> = { processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", cancel: "order.cancelled", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
+
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await physicalCaller()
   if (c instanceof NextResponse) return c
@@ -86,5 +90,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return physicalJson({ error: "Unknown action." }, 400)
   }
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
+  await recordActivity(c.db, c, { action: ORDER_ACTIVITY[String(body.action)], subjectType: "order", subjectId: id, subjectLabel: `#${orderNumberOf(id)}` })
   return physicalJson({ order: result.order })
 }

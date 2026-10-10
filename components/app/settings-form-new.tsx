@@ -19,7 +19,7 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2, History
 } from "lucide-react"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
@@ -58,6 +58,7 @@ import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
+import { ActivityPanel } from "@/components/app/settings/activity-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -89,6 +90,8 @@ const TABS = [
   { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
   { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store", line: "What Storelib AI remembers about your store" },
+  /* Every change made to the store, who made it and when (components/app/settings/activity-panel.tsx). */
+  { id: "activity", label: "Activity", icon: History, group: "store", line: "Every change made to your store" },
   /* Shipping and delivery, locations and returns: only while physical commerce is on in /admin. */
   { id: "shipping", label: "Shipping and delivery", icon: Truck, group: "commerce", line: "Rates, zones and packages" },
   { id: "locations", label: "Locations", icon: MapPin, group: "commerce", line: "Where stock is kept and ships from" },
@@ -1845,6 +1848,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "taxes" && <TaxesPanel />}
           {panelTab === "channels" && <ChannelsPanel />}
           {panelTab === "emails" && <CustomerEmailsPanel />}
+          {panelTab === "activity" && <ActivityPanel />}
           {panelTab === "returns" && (
             <div className="space-y-4 sm:space-y-6">
               {physicalCommerce && <ShippingSettings part="returns" />}

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { headers } from "next/headers"
 import { physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { detectedCountry, loadStoreSettings, saveStoreSettings } from "@/lib/store/settings-server"
+import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -31,5 +32,6 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const saved = await saveStoreSettings(c.db, c.creatorId, body)
   if (!saved.ok) return physicalJson({ error: saved.error }, saved.status)
+  await recordActivity(c.db, c, { action: "checkout" in body ? "settings.checkout" : "settings.store" })
   return physicalJson({ settings: saved.settings })
 }

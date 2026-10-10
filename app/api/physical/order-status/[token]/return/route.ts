@@ -4,6 +4,8 @@ import { physicalApiGate } from "@/lib/physical/gate"
 import { physicalJson, readBody } from "@/lib/physical/auth"
 import { loadSettings } from "@/lib/physical/config-server"
 import { openReturn } from "@/lib/physical/orders-server"
+import { recordActivity } from "@/lib/activity/log-server"
+import { orderNumberOf } from "@/lib/receipts/rules"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -33,5 +35,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   const items = Array.isArray(body.items) ? (body.items as { orderId: string; quantity: number }[]).filter((i) => typeof i?.orderId === "string") : []
   const result = await openReturn(db, co.id, { creatorId: co.creator_id, by: "buyer", items, reason: body.reason, note: body.note })
   if (result.ok === false) return physicalJson({ error: result.error }, result.status ?? 400)
+  await recordActivity(db, { creatorId: co.creator_id }, { action: "order.return_opened", actor: "buyer", subjectType: "order", subjectId: co.id, subjectLabel: `#${orderNumberOf(co.id)}` })
   return physicalJson({ ok: true })
 }
