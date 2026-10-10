@@ -24,7 +24,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
-import { CANVAS_NETWORK, answerCanvasRequest, type CanvasRequest } from "@/lib/storelib-theme/compat/canvas-network"
+import { CANVAS_NETWORK, CANVAS_SHOWN, answerCanvasRequest, type CanvasRequest } from "@/lib/storelib-theme/compat/canvas-network"
 import type { CartEntry, SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -192,7 +192,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     }
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line, and ask the shop for things (canvas-network.ts). */
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")}</script>${CANVAS_NETWORK}`)
+    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${CANVAS_HEAD}<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")}</script>${CANVAS_NETWORK}${CANVAS_SHOWN}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -216,6 +216,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     if (!compatTheme) return
     const list = sectionsRef.current
+    /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
+    if (front() && front()!.key !== docKey) scrollY.current = 0
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
@@ -357,7 +359,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
         slot.loaded = true
         if (isFront) setPainted(true)
         if (!isFront) {
-          win.postMessage({ storelib: 1, type: "scroll", top: scrollY.current }, "*")
+          win.postMessage({ storelib: 1, type: "scroll", top: slot.key === slotsRef.current[0]?.key ? scrollY.current : 0 }, "*")
           requestAnimationFrame(() => promote(slot.n))
         }
       } else if (m.type === "reload") {

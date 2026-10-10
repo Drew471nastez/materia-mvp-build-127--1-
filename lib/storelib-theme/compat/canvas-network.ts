@@ -89,6 +89,27 @@ X.send=function(body){
 };
 })();</script>`
 
+/**
+ * ANOTHER PAGE COMES FORWARD WHEN IT CAN BE SEEN, NOT WHEN ITS LAST PICTURE
+ * IS IN. A page opened in the canvas loads behind the one on screen and
+ * takes its place on its "loaded" message (compat-canvas.tsx). That was the
+ * window's load: every picture and video on the page, two seconds and more
+ * on a long home page, while the old page sat there after the click. Now it
+ * is sent once the page has started (its DOMContentLoaded has run), its
+ * fonts are in and the pictures in its first screen are, or 700ms from that
+ * at most; the rest arrive as they do on any website.
+ */
+export const CANVAS_SHOWN = `<script data-sl-shown>(function(){
+var sent=false,send=function(){if(sent)return;sent=true;requestAnimationFrame(function(){requestAnimationFrame(function(){try{parent.postMessage({storelib:1,type:"loaded",scrollY:scrollY},"*")}catch(e){}})})};
+document.addEventListener("DOMContentLoaded",function(){setTimeout(function(){
+  var start=performance.now();
+  var firstScreen=function(){return Array.prototype.filter.call(document.images,function(i){if(i.complete)return false;var r=i.getBoundingClientRect();return r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight})};
+  var check=function(){if(sent)return;if(!firstScreen().length||performance.now()-start>700)return send();setTimeout(check,50)};
+  var fonts=document.fonts&&document.fonts.ready;
+  if(fonts)Promise.race([fonts,new Promise(function(r){setTimeout(r,400)})]).then(check,check);else check();
+},0)});
+})();</script>`
+
 export interface CanvasRequest {
   id: number
   method: string

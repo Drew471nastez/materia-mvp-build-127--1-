@@ -57,16 +57,18 @@ export const PAGE_END_ID = "sl-page-end"
   #sl-page-end, as Horizon does for its #MainContent), and its fade in waits,
   paused, with the page being left on screen, until its DOMContentLoaded
   has run. Then the two cross-fade and the theme's own entrance plays once,
-  from the start, as it does on a first visit. Never longer than 1.2 seconds
+  from the start, as it does on a first visit. Never longer than a second
   from the click, so a slow page still shows what it has; only when a
   transition runs (a link followed on this site, never a first visit or a
-  reload).
+  reload). A page drawn as text only (an imported theme's, which carries
+  the blocker): a Storelib theme's page is React's, streamed, and starts
+  itself.
 
   A PRESS DURING THE FADE ENDS IT, so a tap is never answered late.
 */
 export const NAVIGATION_HEAD_SCRIPT = `(function(){try{
 var ua=navigator.userAgent||"",d=document,root=d.documentElement,head=d.head||root;
-var blocker=d.getElementById("sl-render-blocker");
+var blocker=d.getElementById("sl-render-blocker"),drawnAsText=!!blocker;
 var off=(/\\bAndroid\\b/i.test(ua)&&/;\\s?wv\\)/i.test(ua))||/\\b(FBAN|FBAV|FB_IAB|FBIOS|Instagram|musical_ly|Bytedance|BytedanceWebview|trill|TikTok)(?:\\b|_)/i.test(ua)||Number(navigator.hardwareConcurrency)<=2||Number(navigator.deviceMemory)<=2;
 if(off){if(blocker)blocker.remove();var s=d.createElement("style");s.setAttribute("data-storelib-navigation-off","");s.textContent="@view-transition{navigation:none}";head.appendChild(s);return}
 var act=window.navigation&&navigation.activation;
@@ -77,7 +79,7 @@ d.addEventListener("DOMContentLoaded",function(){setTimeout(function(){started=t
 addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;
 var skip=function(){try{t.skipTransition()}catch(x){}};["pointerdown","keydown"].forEach(function(n){d.addEventListener(n,skip,{once:true,capture:true})});
 var go=function(){root.removeAttribute("data-sl-arriving")};
-if(!started){root.setAttribute("data-sl-arriving","");waiting=go;setTimeout(go,Math.max(0,1200-performance.now()))}
+if(drawnAsText&&!started){root.setAttribute("data-sl-arriving","");waiting=go;setTimeout(go,Math.max(0,1000-performance.now()))}
 t.finished.then(go,go)});
 }catch(e){}})();`
 
