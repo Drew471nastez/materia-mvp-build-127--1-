@@ -23,7 +23,14 @@
  */
 import type { Place } from "./places"
 import { placeKey } from "./places"
-import type { PlaceAnswer, PlaceData } from "./place-data"
+
+/*
+  A PLACE'S DATA, AS THIS CACHE SEES IT: anything with a kind. The full shape is place-data.ts's PlaceData (the props of every
+  screen), which the host reads it as; the cache never looks inside, and keeping its import out of here keeps the screens'
+  modules out of whatever imports the cache (the test suite included).
+*/
+export type PlaceData = { kind: string }
+type PlaceAnswer = { ok: true; key: string; data: PlaceData } | { ok: false; error: string }
 
 /** Visited places kept mounted (React's Activity, hidden): the four most recent. */
 export const KEEP_ALIVE = 4
@@ -31,6 +38,8 @@ export const KEEP_ALIVE = 4
 export const WAIT_SCREEN_MS = 250
 /** A place read longer ago than this is read again quietly when it is shown. */
 export const PLACE_FRESH_MS = 60_000
+/** Reading ahead skips a place read within this long (round 24: "a place read within the last four minutes is not asked for twice"). */
+export const AHEAD_FRESH_MS = 4 * 60_000
 /** How many places are read ahead at once. */
 export const AHEAD_AT_ONCE = 2
 /** A read that failed is tried once more after this long (a phone that just woke gets its connection back). */
@@ -192,11 +201,11 @@ export function placeLoading(communityId: string, place: Place): boolean {
  * Every place's first screen, read ahead `AHEAD_AT_ONCE` at a time, skipping what is held and fresh. Stops when `stopped()`
  * says so (the member left the community) and never starts on Save-Data or 2G.
  */
-export async function readPlacesAhead(communityId: string, places: Place[], stopped: () => boolean, conn: ConnectionFacts | null = connectionFacts()): Promise<number> {
+export async function readPlacesAhead(communityId: string, places: Place[], stopped: () => boolean, conn: ConnectionFacts | null = connectionFacts(), fresh: number = AHEAD_FRESH_MS): Promise<number> {
   if (!readAheadAllowed(conn)) return 0
   const queue = places.filter((p) => {
     const have = readPlace(communityId, p)
-    return !(have && !placeStale(have.at, Date.now())) && !placeMissing(communityId, p)
+    return !(have && !placeStale(have.at, Date.now(), fresh)) && !placeMissing(communityId, p) && !placeLoading(communityId, p)
   })
   let read = 0
   const lane = async () => {

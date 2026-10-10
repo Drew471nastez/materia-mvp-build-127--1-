@@ -49,6 +49,7 @@ import { usePathname, useSearchParams } from "next/navigation"
 import { addressFor, useCommunityNavigator, type GoOptions } from "@/lib/communities/client/navigator-context"
 import { placeFromUrl, placeKey, screenKey, type Place } from "@/lib/communities/client/places"
 import type { PlaceData } from "@/lib/communities/client/place-data"
+import type { PlaceData as HeldData } from "@/lib/communities/client/place-cache"
 import { keepAlive, loadPlaceData, placeMissing, placeStale, readPlace, readPlacesAhead, seedPlace, subscribePlaces, WAIT_SCREEN_MS } from "@/lib/communities/client/place-cache"
 import { feedSpaceUrlsActive } from "@/lib/community/feed-space-address"
 import { dispatchPullRefresh } from "@/components/ui/pull-to-refresh"
@@ -128,18 +129,23 @@ export interface PlaceScreens {
   middle: React.ReactNode
 }
 
+/** The cache holds a place's data as it arrived; it is what the place's loader returned (lib/communities/server/places.ts). */
+const asPlace = (d: HeldData | null | undefined): PlaceData | null => (d ?? null) as PlaceData | null
+
 function readNow(communityId: string, place: Place, chat: ReadonlySet<string>): PlaceData | null {
-  const own = readPlace(communityId, place)?.data ?? null
+  const own = asPlace(readPlace(communityId, place)?.data)
   if (own) return own
   /* The feed's lists are one screen: any of them draws it, and the feed switches to the list the address says. */
-  if (screenKey(place, chat) === "feed") return readPlace(communityId, { kind: "feed" })?.data ?? readPlace(communityId, { kind: "saved" })?.data ?? null
+  if (screenKey(place, chat) === "feed") return asPlace(readPlace(communityId, { kind: "feed" })?.data ?? readPlace(communityId, { kind: "saved" })?.data)
   return null
 }
 
-/** The places read ahead once the community is on screen: every place in the row, and the member's own profile. */
+/** The places read ahead once the community is on screen: every place in the row, the member's own profile, and Membership. */
 export function aheadPlaces(entries: { key: string }[], withProfile: boolean): Place[] {
   const out: Place[] = []
-  for (const e of entries) {
+  /* The places a member opens most come first (round 24): the Leaderboard, then Members, then the row in its order. */
+  const rank = (k: string) => (k === "leaderboard" ? 0 : k === "members" ? 1 : 2)
+  for (const e of [...entries].sort((a, b) => rank(a.key) - rank(b.key))) {
     if (e.key === "home") out.push({ kind: "feed" })
     else if (e.key === "classroom") out.push({ kind: "learn" })
     else if (e.key === "events") out.push({ kind: "calendar" })
@@ -148,6 +154,8 @@ export function aheadPlaces(entries: { key: string }[], withProfile: boolean): P
     else if (e.key === "about") out.push({ kind: "about" })
   }
   if (withProfile) out.push({ kind: "profile", ref: "me" })
+  /* The member's own Membership page, from the "..." menu, is read ahead with the places (round 13). */
+  out.push({ kind: "membership" })
   return out
 }
 
@@ -249,7 +257,7 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
     void loadPlaceData(communityId, shown.place).then((got) => {
       const k = kept.current.get(shown.key)
       if (got && k) {
-        k.data = got.data
+        k.data = asPlace(got.data)
         arrived()
       }
     })
@@ -354,13 +362,13 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
       /* Learn and About draw straight from their props; the rest hold their first data in state and are drawn again. */
       const inPlace = p.kind === "learn" || p.kind === "about"
       if (routedOwns(key)) {
-        kept.current.set(key, { place: p, data: got.data, version: 1, failed: false })
+        kept.current.set(key, { place: p, data: asPlace(got.data), version: 1, failed: false })
         setDetached(key)
         return
       }
       const k = kept.current.get(key)
       if (k) {
-        k.data = got.data
+        k.data = asPlace(got.data)
         if (!inPlace) k.version++
       }
       arrived()
@@ -399,7 +407,8 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
       cancelAnimationFrame(raf)
       cancel()
     }
-  }, [communityId, aheadList])
+    /* AND AGAIN ON EVERY MOVE (round 24): a place read over four minutes ago is read again, so none goes stale behind the member. */
+  }, [communityId, aheadList, shown.key])
 
   /* ── The middle ── */
   const routedVisible = routedKey === null ? !atPlace : routedOwns(shown.key)

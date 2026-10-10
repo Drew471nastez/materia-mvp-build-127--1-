@@ -46,6 +46,15 @@ export async function networkAnswers(timeoutMs: number = NETWORK_ANSWER_MS): Pro
 }
 
 let refreshing = false
+/** The router a refresh is waiting for the network for, asked again by `whenOnline`. */
+let waitingRouter: { refresh: () => void } | null = null
+
+function whenOnline() {
+  window.removeEventListener("online", whenOnline)
+  const r = waitingRouter
+  waitingRouter = null
+  if (r) quietRouterRefresh(r)
+}
 
 /**
  * router.refresh(), but only once the network answers, never while one is already on its way, and when it does not answer,
@@ -57,11 +66,8 @@ export function quietRouterRefresh(router: { refresh: () => void }) {
   void networkAnswers().then((ok) => {
     refreshing = false
     if (ok) return router.refresh()
-    const back = () => {
-      window.removeEventListener("online", back)
-      quietRouterRefresh(router)
-    }
-    window.addEventListener("online", back)
+    waitingRouter = router
+    window.addEventListener("online", whenOnline)
   })
 }
 

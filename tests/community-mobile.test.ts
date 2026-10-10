@@ -41,8 +41,11 @@ console.log("\nGOING BACK: clear of the bars, by translate and scale")
 console.log("\nMOVING BETWEEN PLACES")
 {
   const sf = read("components/community/member/shell-frame.tsx")
-  check("the places are read ahead again on every move, through the app's plan, Leaderboard and Members first", /prefetchOnIdle\(router, ordered\.filter\(\(h\) => h !== here\)\)/.test(sf) && /\[ordered, router, pathname\]/.test(sf) && /leaderboard\$\/\.test\(h\) \? 0/.test(sf))
-  check("an arrival by Back does not land like a new page, and one after a loading screen lands once", /arrivedByBack\(\)/.test(sf) && /n\.style\.animation = "none"/.test(sf) && /child\.matches\("\[data-page-title\]"\)/.test(sf))
+  /* Round 15: places are data now, read ahead by the place host (place-host.tsx) through the place cache, on the same rules. */
+  const host = read("components/community/member/place-host.tsx")
+  const cache = read("lib/communities/client/place-cache.ts")
+  check("the places are read ahead again on every move, through the app's plan, Leaderboard and Members first", /void readPlacesAhead\(communityId, aheadList, \(\) => stopped\)/.test(host) && /\}, \[communityId, aheadList, shown\.key\]\)/.test(host) && /k === "leaderboard" \? 0 : k === "members" \? 1 : 2/.test(host) && /AHEAD_FRESH_MS = 4 \* 60_000/.test(cache) && /readAheadAllowed\(conn\)/.test(cache))
+  check("an arrival by Back does not land like a new page, and one after a loading screen lands once", /if \(how\.history\) return/.test(host) && /if \(child\.matches\("\[data-page-title\]"\)\) continue/.test(host))
   for (const [place, title] of [["leaderboard", "Leaderboard"], ["members", "Members"], ["membership", "Membership"], ["notifications", "Notifications"]] as const) {
     const f = `${MEMBER}/${place}/loading.tsx`
     check(`${place}: its loading screen draws its title at once, never an empty column`, existsSync(join(process.cwd(), f)) && new RegExp(`<PlaceLoading title="${title}"`).test(read(f)))
