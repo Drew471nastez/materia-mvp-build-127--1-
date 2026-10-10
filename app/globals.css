@@ -7862,6 +7862,15 @@ html.capacitor .home-card li > :is(a, button):active {
   html[data-buyer-tabs="shown"] [data-chat] {
     padding-bottom: calc(var(--buyer-tabs-h) + 12px);
   }
+  /* AN OPENED POST KEEPS THE BAR (round 15, lib/ui/layers.ts). The post is a
+     layer at z 130 that the bar stays over, Instagram's way, so while one is
+     open and nothing covering is, the bar is lifted over it; the post's
+     comment box stands on --buyer-tabs-h. The composer (125, 135) and the
+     picture viewer (160) cover the bar instead, and while one of them is
+     open data-tabs-over is off, so the bar is back under them. */
+  html[data-tabs-over] [data-buyer-tab-bar] {
+    z-index: 131;
+  }
 }
 
 /* Community join bars (data-community-fixed-foot) publish their height as

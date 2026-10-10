@@ -72,6 +72,8 @@ import { Suspense, useEffect, useLayoutEffect, useRef, useState, useSyncExternal
 
 import { LibraryIcon as LibraryLinear } from "@solar-icons/react/linear/library"
 import { LibraryIcon as LibraryBold } from "@solar-icons/react/bold/library"
+import { AddSquareIcon as ComposeLinear } from "@solar-icons/react/linear/add-square"
+import { AddSquareIcon as ComposeBold } from "@solar-icons/react/bold/add-square"
 
 import { NAV_ICONS, FILL_MS, FILL_CURVE, type NavIconPair } from "@/components/app/sidebar-desktop-nav"
 import { PERSON_ICONS, SEARCH_ICONS } from "@/components/nav/buyer-tab-icons"
@@ -93,13 +95,17 @@ import {
 } from "@/components/nav/tab-lens"
 import { readAuthSnapshot, subscribeAuthSnapshot } from "@/lib/auth/auth-snapshot"
 import { useExploreMarketplaceEnabled } from "@/components/platform/explore-marketplace-context"
-import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf } from "@/lib/nav/buyer-tabs"
+import { SIGNED_OUT_PROFILE_HREF, buyerTabFor, buyerTabsAt, buyerTabsBelongOn, communityOf, discoverHomeHref, discoverModeFromCookie, type BuyerTabKey } from "@/lib/nav/buyer-tabs"
+import { useNavigatorOutsideCommunity } from "@/lib/communities/client/navigator"
+import { requestCompose } from "@/lib/communities/client/compose-intent"
 import { openCommunitySearch, refocusCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { COMMUNITY_HOME_BOOT, COMMUNITY_HOME_LIVE_FLAG, communityContext, enterCommunityContext, useCommunityContext } from "@/lib/nav/community-context"
 import { useBuyerTabsWhere } from "@/lib/nav/use-buyer-tabs-where"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
+import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
+import { watchNavigation } from "@/lib/nav/stuck-navigation"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -167,11 +173,49 @@ const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
  * on. Search keeps its glass and Profile is a person rather than the photo:
  * components/nav/buyer-tab-icons.tsx says why for both.
  */
-const ICONS: Record<"home" | "search" | "library" | "profile", NavIconPair> = {
+const ICONS: Record<BuyerTabKey, NavIconPair> = {
   home: NAV_ICONS.dashboard,
   search: SEARCH_ICONS,
   library: { line: LibraryLinear, fill: LibraryBold },
+  /* Create post, in Library's place inside a community: a plus in Solar's rounded square, the same family and weight. */
+  compose: { line: ComposeLinear, fill: ComposeBold },
   profile: PERSON_ICONS,
+}
+
+/**
+ * THE THIRD SLOT CHANGES CALMLY (round 15). Going into a community, Library
+ * becomes Create post; coming out, back again. The slot is one element the
+ * whole time (its key does not change), and the two glyphs sit in it on top of
+ * each other: the one leaving fades out and settles a little smaller while the
+ * one arriving fades in from a little smaller, on opacity and scale alone.
+ * Nothing else on the bar moves, so the change reads as the slot changing its
+ * mind rather than as a new bar.
+ */
+const SWAP_MS = 220
+function ThirdSlotGlyph({ shownKey, on }: { shownKey: "library" | "compose"; on: boolean }) {
+  return (
+    <span className="relative block" style={{ width: GLYPH, height: GLYPH }}>
+      {(["library", "compose"] as const).map((key) => {
+        const here = key === shownKey
+        return (
+          <span
+            key={key}
+            aria-hidden={!here || undefined}
+            data-third-slot={key}
+            data-third-slot-shown={here ? "" : undefined}
+            className="absolute inset-0 motion-reduce:!transition-none"
+            style={{
+              opacity: here ? 1 : 0,
+              scale: here ? "1" : "0.86",
+              transition: `opacity ${SWAP_MS}ms ${EASE}, scale ${SWAP_MS}ms ${EASE}`,
+            }}
+          >
+            <NavIcon icon={ICONS[key]} active={here && on} color="currentColor" box={GLYPH} layer />
+          </span>
+        )
+      })}
+    </span>
+  )
 }
 
 /* ── Who is signed in ────────────────────────────────────────────────────── */
@@ -197,21 +241,71 @@ function isTyping(el: Element | null): boolean {
   if (el instanceof HTMLInputElement) return TYPED.test(el.type || "text") && !el.readOnly
   return el instanceof HTMLElement && el.isContentEditable
 }
-/** True while the software keyboard is up, as near as a page can know: a field that takes typing has the focus. */
+/**
+ * True while the software keyboard is up, as near as a page can know: a field
+ * that takes typing has the focus.
+ *
+ * A FIELD TAKEN AWAY WHILE IT HAS THE FOCUS SAYS NOTHING (round 15, the owner:
+ * "when I trigger the new post thing it hides the mobile navigation bar
+ * completely, and then I have to do something so that it appears again").
+ * The composer keeps the caret in its field through Cancel and Post, so the
+ * keyboard goes down with the screen; the screen is then taken out of the
+ * document with the field still focused. WebKit (every iPhone, Safari and the
+ * app alike) sends no focusout for that, by the letter of the spec, so this
+ * kept believing a keyboard was up and kept the bar slid out of sight until
+ * some other field was touched and let go. The same for a comment field in a
+ * post that was closed, and a search field whose screen went.
+ *
+ * So the answer is asked again whenever it could have changed without an
+ * event: while it says "typing", any change to the document (the field's
+ * screen leaving), the visible viewport resizing (the keyboard going down),
+ * the page being shown again, and any layer opening or closing
+ * (lib/ui/layers.ts). Asking is reading document.activeElement, which is
+ * <body> once the focused field has gone.
+ */
 function useTyping(): boolean {
   const [typing, setTyping] = useState(false)
   useEffect(() => {
-    const check = () => setTyping(isTyping(document.activeElement))
+    let raf = 0
+    let watching: MutationObserver | null = null
+    const watch = (on: boolean) => {
+      if (on && !watching && typeof MutationObserver === "function") {
+        watching = new MutationObserver(later)
+        watching.observe(document.body, { childList: true, subtree: true })
+      } else if (!on && watching) {
+        watching.disconnect()
+        watching = null
+      }
+    }
+    const check = () => {
+      raf = 0
+      const now = isTyping(document.activeElement)
+      watch(now)
+      setTyping(now)
+    }
     /* Out is asked a frame later: moving from one field to the next blurs
        the first before the second has the focus, and the bar must not bob
        up and down between them. */
-    const onOut = () => requestAnimationFrame(check)
+    const later = () => {
+      if (!raf) raf = requestAnimationFrame(check)
+    }
     check()
+    const vv = window.visualViewport
     document.addEventListener("focusin", check)
-    document.addEventListener("focusout", onOut)
+    document.addEventListener("focusout", later)
+    vv?.addEventListener("resize", later)
+    window.addEventListener("pageshow", later)
+    document.addEventListener("visibilitychange", later)
+    const stopLayers = subscribeLayers(later)
     return () => {
+      if (raf) cancelAnimationFrame(raf)
+      watch(false)
       document.removeEventListener("focusin", check)
-      document.removeEventListener("focusout", onOut)
+      document.removeEventListener("focusout", later)
+      vv?.removeEventListener("resize", later)
+      window.removeEventListener("pageshow", later)
+      document.removeEventListener("visibilitychange", later)
+      stopLayers()
     }
   }, [])
   return typing
@@ -225,10 +319,13 @@ function useTyping(): boolean {
  * it is asked in this empty child under its own Suspense rather than by the
  * bar, which then renders on the server like any other part of the page.
  */
-function QueryWatch({ onChange }: { onChange: (query: string) => void }) {
+function QueryWatch({ onChange, onProfile }: { onChange: (query: string) => void; onProfile: (profile: string | null) => void }) {
   const params = useSearchParams()
   const q = (params?.get("q") ?? "").trim()
+  /* Inside a community, ?profile=me is your own profile there: the Profile tab's page. */
+  const profile = params?.get("profile")?.toLowerCase() ?? null
   useEffect(() => onChange(q), [q, onChange])
+  useEffect(() => onProfile(profile), [profile, onProfile])
   return null
 }
 
@@ -272,6 +369,7 @@ function TabBar({
   const signedIn = useSignedIn()
   const typing = useTyping()
   const [query, setQuery] = useState("")
+  const [profileParam, setProfileParam] = useState<string | null>(null)
   /*
     INSIDE A COMMUNITY THE BAR IS THE COMMUNITY'S (lib/nav/buyer-tabs.ts):
     Home is its home, Search its own search screen, Library and Profile the
@@ -318,7 +416,16 @@ function TabBar({
     before React is running at all.
   */
   const tabsNow = () => (community ? tabs : buyerTabsAt(pathname, exploreMarketplaceEnabled, communityContext()))
-  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled, homeCommunity })
+  /*
+    THE COMMUNITY'S OWN NAVIGATOR (round 15, lib/communities/client/navigator.ts).
+    Inside a community Home and Profile are places of its shell, not pages:
+    the navigator moves to them with no server page, and it says which place is
+    on screen, which is what lights Profile on your own profile there.
+  */
+  const nav = useNavigatorOutsideCommunity()
+  const navHere = community && nav?.inCommunity ? nav : null
+  const placeProfile = navHere ? (navHere.place.kind === "profile" ? navHere.place.ref : null) : profileParam
+  const current = buyerTabFor(pathname, { query: query !== "", sellerSurface, exploreMarketplaceEnabled, homeCommunity, profile: placeProfile })
 
   /*
     WHERE A PRESS IS GOING, until the address says it has arrived. The /app
@@ -329,14 +436,29 @@ function TabBar({
     Without it the lens would go back to the old tab while a slow page loads.
   */
   const [toward, setToward] = useState<number | null>(null)
-  useEffect(() => setToward(null), [pathname])
+  useEffect(() => setToward(null), [pathname, current])
+  /*
+    HOME IS DISCOVER AS YOU LEFT IT (lib/nav/buyer-tabs.ts discoverHomeHref):
+    products or communities, read from Discover's own cookie after the page has
+    woken (the server never knows it), and again on every move, so a mode
+    chosen on Discover is the one Home goes back to.
+  */
+  const [discoverMode, setDiscoverMode] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      setDiscoverMode(discoverModeFromCookie(document.cookie))
+    } catch {
+      /* no cookies to read: the bare address */
+    }
+  }, [pathname])
   /* The page a press is taking the bar to, and where on it to land (lib/navigation/tab-scroll.ts). */
   const arrival = useRef<{ href: string; y: number | null } | null>(null)
 
   const hrefOf = (index: number, from: ReturnType<typeof buyerTabsAt> = tabs): string => {
     const tab = from[index]
     const home = community || (from === tabs ? homeCommunity : communityContext())
-    if (!tab) return home ? `/community/${home}` : exploreMarketplaceEnabled ? "/explore" : "/account/library"
+    if (!tab) return home ? `/community/${home}` : exploreMarketplaceEnabled ? discoverHomeHref(discoverMode) : "/account/library"
+    if (tab.key === "home" && tab.href === "/explore") return discoverHomeHref(discoverMode)
     return tab.key === "profile" && !signedIn ? SIGNED_OUT_PROFILE_HREF : tab.href
   }
 
@@ -360,12 +482,32 @@ function TabBar({
       */
       if (tab.key === "search" && community && openCommunitySearch(community)) return
       if (tab.key === "search" && openSearchOverlay(query)) return
+      /*
+        CREATE POST (round 15): the composer, asked for through
+        lib/communities/client/compose-intent.ts. A composer on screen opens
+        at once; when there is none (you are on Learn, or a profile), the
+        community's feed is brought back, without a page, and its composer
+        takes the request as it mounts. The bar does not hold the composer:
+        the composer covers the bar while it is open (lib/ui/layers.ts) and
+        the bar is simply there again when it closes.
+      */
+      if (tab.key === "compose" && community) {
+        if (requestCompose()) return
+        if (navHere) navHere.go({ kind: "feed" }, { scroll: "keep" })
+        else router.push(`/community/${community}`, { scroll: false })
+        return
+      }
+      /* Home and Profile inside a community are its places: the navigator moves there, no server page (a second tap on the one you are on goes to its top). */
+      if (navHere && signedIn && (tab.key === "home" || tab.key === "profile")) {
+        navHere.go(tab.key === "home" ? { kind: "feed" } : { kind: "profile", ref: "me" })
+        return
+      }
       const href = hrefOf(index, now)
       /*
         THE TAB YOU ARE ALREADY ON takes you to the top of it, as a phone's
         own tab bar does.
       */
-      if (index === current && pathname === tab.href) {
+      if (index === current && pathname === href.split(/[?#]/)[0]) {
         const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
         window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" })
         return
@@ -381,7 +523,7 @@ function TabBar({
       /* Profile inside a community: hold a bar-shaped space before the page
          arrives, so Storelib's header cannot flash in and the community bar
          can take that place on the first paint. */
-      if (tab.key === "profile" && communityContext()) {
+      if (tab.key === "profile" && href.startsWith("/account") && communityContext()) {
         document.documentElement.setAttribute("data-account-community-pending", "")
       }
       /*
@@ -398,12 +540,15 @@ function TabBar({
          next page is actually slow. */
       startRouteLoading({ lineOnly: true })
       /* In the app, a tab between the community and the account changes page in one piece (lib/nav/tab-swap.ts). */
-      const crosses = (tab.key === "home") !== !!communityOf(pathname)
+      const crosses = !!communityOf(href) !== !!communityOf(pathname)
       if (!(crosses && swapTabPage(() => router.push(href, { scroll: false }), href))) router.push(href, { scroll: false })
+      /* A press that never arrives (a read the router waits on that never settles) is made again as a page load (lib/nav/stuck-navigation.ts). */
+      watchNavigation(href)
     },
     onPress: (index) => {
       /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */
-      if (index !== current && tabs[index]?.key !== "search") prefetchHref(router, hrefOf(index), "press")
+      const key = tabs[index]?.key
+      if (index !== current && key !== "search" && key !== "compose" && !(navHere && (key === "home" || key === "profile"))) prefetchHref(router, hrefOf(index), "press")
     },
     /* No squeeze on a tap: see NO BUMP ON A TAP above. */
     give: false,
@@ -425,14 +570,17 @@ function TabBar({
   const prefetchKey = tabs.map((_, i) => hrefOf(i)).join(" ")
   useEffect(() => {
     if (!window.matchMedia?.("(max-width: 767px)").matches) return
-    const hrefs = tabs.flatMap((tab, i) => (tab.key === "search" || i === current ? [] : [hrefOf(i)]))
+    /* Search and Create post are screens over the page, and inside a community Home and Profile are the shell's places: nothing to fetch for any of them. */
+    const hrefs = tabs.flatMap((tab, i) =>
+      tab.key === "search" || tab.key === "compose" || i === current || (navHere && (tab.key === "home" || tab.key === "profile")) ? [] : [hrefOf(i)],
+    )
     /* The page you are about to open, whole, as soon as this bar is up.
        Idle-only reads were still in flight when Home or Profile was tapped,
        so the router fetched again and the spinner sat on a blank page. */
     for (const href of hrefs) prefetchHref(router, href, "press")
     return prefetchOnIdle(router, hrefs)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefetchKey, current, router])
+  }, [prefetchKey, current, router, !!navHere])
 
   /* The tab that was pressed has arrived: back to where it was left (see EACH TAB KEEPS ITS PLACE), before the frame is painted. */
   useLayoutEffect(() => {
@@ -455,7 +603,18 @@ function TabBar({
     the cookie banner lifts over it. "away" while a field has the focus,
     when the bar has slid out of sight and the buy bar may come back down.
   */
-  const away = typing
+  /*
+    A LAYER OVER THE BAR LEAVES IT WHERE IT IS (round 15, lib/ui/layers.ts).
+    The composer and the picture viewer cover the bar; a field in them has the
+    focus nearly all the time they are open, and the bar used to slide away
+    under them and then slide back up after they had gone, a beat late, or
+    not at all (A FIELD TAKEN AWAY..., above). Under a layer that covers it the
+    bar holds still, so it is simply there the moment the layer goes.
+  */
+  const layers = useTabBarLayers()
+  const away = typing && !layers.covered
+  /* A route change lets go of any layer left over (an element that left without its cleanup, a class the server printed). */
+  useEffect(() => sweepLayers(), [pathname])
   useEffect(() => {
     const root = document.documentElement
     root.setAttribute("data-buyer-tabs", away ? "away" : "shown")
@@ -479,11 +638,14 @@ function TabBar({
           COMMUNITY'S BEFORE THE PAGE IS AWAKE in lib/nav/community-context. */}
       <script dangerouslySetInnerHTML={{ __html: COMMUNITY_HOME_BOOT }} />
       <Suspense fallback={null}>
-        <QueryWatch onChange={setQuery} />
+        <QueryWatch onChange={setQuery} onProfile={setProfileParam} />
       </Suspense>
 
       <div
         data-buyer-tab-bar={away ? "away" : "shown"}
+        /* Under a layer that covers it, out of reach of a screen reader and the keyboard's Tab too. */
+        aria-hidden={layers.covered || undefined}
+        inert={layers.covered || undefined}
         className="fixed inset-x-0 bottom-0 z-50 bg-white md:hidden"
         style={{
           boxShadow: BAR_SHADOW,
@@ -576,7 +738,8 @@ function TabBar({
             const href = hrefOf(i)
             return (
               <Link
-                key={tab.key}
+                /* Library and Create post are one slot (THE THIRD SLOT CHANGES CALMLY): the same element either side of the change. */
+                key={tab.key === "compose" ? "library" : tab.key}
                 ref={(el) => { linkRefs.current[i] = el }}
                 href={href}
                 prefetch={false}
@@ -593,7 +756,11 @@ function TabBar({
                 className="relative flex flex-1 items-center justify-center outline-none focus-visible:rounded-xl focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20"
                 style={{ color: on ? ACTIVE_TEXT : REST_TEXT, transition: `color ${FILL_MS}ms ${FILL_CURVE}` }}
               >
-                <NavIcon icon={ICONS[tab.key]} active={on} color="currentColor" box={GLYPH} layer />
+                {tab.key === "library" || tab.key === "compose" ? (
+                  <ThirdSlotGlyph shownKey={tab.key} on={on} />
+                ) : (
+                  <NavIcon icon={ICONS[tab.key]} active={on} color="currentColor" box={GLYPH} layer />
+                )}
               </Link>
             )
           })}

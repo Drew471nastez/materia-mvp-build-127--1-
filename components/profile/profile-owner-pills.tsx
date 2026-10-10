@@ -27,6 +27,17 @@
  * allow (lib/nav/prefetch-policy.ts), and a finger landing on a pill reads
  * its page at once if that has not happened yet. The router keeps them warm
  * for staleTimes (next.config.mjs).
+ *
+ * THE FIRST TAP IS THE TAP (round 15, the owner: "the Settings pill ... I have
+ * to double click on it"). A pill was a plain link, and a phone turns a touch
+ * into a click only when nothing else claims it: a finger landing while the
+ * page was still gliding from a flick was spent stopping the glide, and iOS
+ * sent no click at all. Each pill now decides on the lift, the way Edit
+ * profile and the library's pills do (lib/navigation/first-tap.ts), and a
+ * mouse or the keyboard keeps the plain click.
+ *
+ * AND A PRESS THAT NEVER ARRIVES IS SENT AGAIN (lib/nav/stuck-navigation.ts):
+ * the Library pill that spun for ten seconds and left you on the profile.
  */
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
@@ -34,7 +45,11 @@ import { useEffect, useState } from "react"
 import { EDIT_PROFILE_HREF, ownerPillFor, ownerPillLinks, type OwnerPillKey } from "@/lib/profile/owner-pills"
 import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { openSettingsSubpage, settingsStaysHere, warmSettings } from "@/components/account/settings-subpage"
+import { startRouteLoading } from "@/components/navigation/route-loading-bar"
+import { useFirstTap } from "@/lib/navigation/first-tap"
+import { watchNavigation } from "@/lib/nav/stuck-navigation"
 import { cn } from "@/lib/utils"
+import type { OwnerPill as OwnerPillLink } from "@/lib/profile/owner-pills"
 
 export { ownerPillLinks } from "@/lib/profile/owner-pills"
 
@@ -75,49 +90,71 @@ export function ProfileOwnerPills({ communities, creator = false, active: fixed,
     <nav aria-label="Your pages" className={cn("-mx-4 sm:mx-0", className)} data-profile-owner-pills="">
       <div className="overflow-x-auto overflow-y-hidden overscroll-x-contain overscroll-y-none px-4 py-0 scrollbar-hide touch-pan-x sm:px-0">
         <div className="mx-auto flex w-max items-center gap-2">
-          {pills.map((p) => {
-            const on = p.key === active
-            return (
-              <Link
-                key={p.key}
-                href={p.href}
-                prefetch={p.key === "library" || p.key === "communities" ? true : false}
-                scroll={false}
-                aria-current={p.key === fromPath ? "page" : undefined}
-                data-profile-owner-pill={p.key}
-                data-active={on ? "true" : "false"}
-                onPointerDown={() => {
-                  if (p.key !== fromPath) prefetchHref(router, p.href, "press")
-                  if (p.key === "settings" && settingsStaysHere()) void warmSettings()
-                }}
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+          {pills.map((p) => (
+            <OwnerPill
+              key={p.key}
+              pill={p}
+              on={p.key === active}
+              current={p.key === fromPath}
+              onPress={() => {
+                if (p.key === "settings" && settingsStaysHere()) {
                   /* In the app and on a phone, Settings is a layer over the profile, not another address. */
-                  if (p.key === "settings" && settingsStaysHere()) {
-                    e.preventDefault()
-                    openSettingsSubpage("profile")
-                    return
-                  }
-                  if (p.key !== fromPath) setPressed(p.key)
-                }}
-                style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
-                className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
-              >
-                {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
-                <span
-                  aria-hidden
-                  style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
-                  className={cn(
-                    "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
-                    on ? "opacity-100" : "opacity-0",
-                  )}
-                />
-                <span className="relative">{p.label}</span>
-              </Link>
-            )
-          })}
+                  openSettingsSubpage("profile")
+                  return
+                }
+                if (p.key === fromPath) return
+                setPressed(p.key)
+                /* The page that is showing stays; the line says so if the next one is slow (the tab bar does the same). */
+                startRouteLoading({ lineOnly: true })
+                router.push(p.href, { scroll: false })
+                watchNavigation(p.href)
+              }}
+              onDown={() => {
+                if (p.key !== fromPath) prefetchHref(router, p.href, "press")
+                if (p.key === "settings" && settingsStaysHere()) void warmSettings()
+              }}
+            />
+          ))}
         </div>
       </div>
     </nav>
+  )
+}
+
+/** One pill: answers the first tap on the lift (useFirstTap), a mouse or the keyboard on the click. */
+function OwnerPill({ pill: p, on, current, onPress, onDown }: { pill: OwnerPillLink; on: boolean; current: boolean; onPress: () => void; onDown: () => void }) {
+  const tap = useFirstTap<HTMLAnchorElement>(() => {
+    onPress()
+    return true
+  })
+  return (
+    <Link
+      href={p.href}
+      prefetch={p.key === "library" || p.key === "communities" ? true : false}
+      scroll={false}
+      aria-current={current ? "page" : undefined}
+      data-profile-owner-pill={p.key}
+      data-active={on ? "true" : "false"}
+      onPointerDown={(e) => {
+        tap.onPointerDown(e)
+        onDown()
+      }}
+      onPointerUp={tap.onPointerUp}
+      onPointerCancel={tap.onPointerCancel}
+      onClick={tap.onClick}
+      style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
+      className={cn(PILL, on ? "border-[#d7dadf] text-[#1a1a2e]" : "border-[#e4e7ec] text-[#4b5563] hover:text-[#1a1a2e]")}
+    >
+      {/* This pill's own fill: it fades in where it is, never slides over from the last one. */}
+      <span
+        aria-hidden
+        style={{ transitionDuration: `${FADE_MS}ms`, transitionTimingFunction: EASE }}
+        className={cn(
+          "pointer-events-none absolute -inset-px rounded-full border border-[#d7dadf] bg-[#e2e4e8] shadow-[inset_0_1px_1.5px_rgba(15,23,42,0.07),inset_0_-1px_0_rgba(255,255,255,0.45)] transition-[opacity,scale] motion-reduce:transition-none",
+          on ? "opacity-100" : "opacity-0",
+        )}
+      />
+      <span className="relative">{p.label}</span>
+    </Link>
   )
 }
