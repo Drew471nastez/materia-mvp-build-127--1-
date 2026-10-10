@@ -67,13 +67,16 @@ import {
   type FeedTarget,
 } from "./feed-cache"
 import { feedListHref } from "@/lib/community/feed-space-address"
+import { useCommunityNavigator, useRegisterPlaceRefresh, type Place } from "@/lib/communities/client/navigator"
+import { PULL_REFRESH_EVENT, type PullRefreshDetail } from "@/components/ui/pull-to-refresh"
+import { COMMUNITY_FEED_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 import { sectionFromPath } from "./nav"
 import { PlaceSpinner, WAIT_MS } from "./place-spinner"
-import { snapPageTop } from "./return-scroll"
 import { warmPostFaces } from "./member-avatar"
 import { EditSpacesContext, FIRST_CARDS, PostCard, PostCardPlaceholder, type PostUpdate } from "./post-card"
 import { SortMenu } from "./sort-menu"
 import { followChosenChip, SpaceChips, type ChipPick } from "./space-chips"
+import { LIST_AFTER_MS } from "./chip-hit"
 import { toast } from "./toast"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, CARD } from "./ui"
 import type { SpaceView } from "./view-types"
@@ -153,6 +156,21 @@ export function targetFromPath(
   return fallback
 }
 
+/** The list a navigator place shows, or null for a place that is not one of the feed's (the feed is kept hidden meanwhile). */
+export function targetFromPlace(place: Place, spaces: SpaceView[] | undefined): FeedTarget | null {
+  if (place.kind === "feed") return { kind: "all" }
+  if (place.kind === "saved") return { kind: "saved" }
+  if (place.kind !== "space" || !spaces) return null
+  const want = place.slug.toLowerCase()
+  const space = spaces.find((s) => s.slug.toLowerCase() === want)
+  return space && space.kind !== "chat" ? { kind: "space", id: space.id } : null
+}
+
+/** The navigator place for a chip. */
+export function placeOfPick(pick: ChipPick): Place {
+  return pick.kind === "all" ? { kind: "feed" } : pick.kind === "saved" ? { kind: "saved" } : { kind: "space", slug: pick.slug }
+}
+
 function sameTarget(a: FeedTarget, b: FeedTarget): boolean {
   return a.kind === b.kind && (a.kind !== "space" || a.id === (b as { id: string }).id)
 }
@@ -163,6 +181,19 @@ function targetIdOf(t: FeedTarget): string {
 }
 function targetFromId(id: string): FeedTarget {
   return id.startsWith("space:") ? { kind: "space", id: id.slice(6) } : id === "saved" ? { kind: "saved" } : { kind: "all" }
+}
+
+/**
+ * The row of pills where the member can see it: left alone when it is on screen (where the finger just was), brought back to
+ * just under the community's bar when it is hidden under it. Never a jump to the page's top.
+ */
+export function keepPillsInView(root: HTMLElement | null) {
+  const row = root?.querySelector<HTMLElement>("[data-space-chips]")
+  if (!row || typeof window === "undefined") return
+  const bar = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--community-top")) || 0
+  const top = row.getBoundingClientRect().top
+  if (top >= bar - 1) return
+  window.scrollTo({ top: Math.max(0, window.scrollY + top - bar - 8), behavior: "instant" as ScrollBehavior })
 }
 
 /*
@@ -201,11 +232,19 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   */
   const onPost = /\/post\//.test(livePath || pathname || "")
   const lastList = useRef<FeedTarget>(start)
-  const fromPath = onPost ? lastList.current : targetFromPath(livePath || pathname, slug, spaces, start, liveSearch)
-  if (!onPost) lastList.current = fromPath
+  /*
+    IN THE COMMUNITY'S SHELL (round 15) the list is the navigator's place: All, a feed space and Saved are one slot with this one
+    feed in it (lib/communities/client/places.ts slotKeyOf), so a pill is navigator.go and the list follows the place. While
+    another place is on screen this feed is kept hidden and keeps the list it had. Outside a shell (a caller drawing FeedView,
+    a probe) the address is read as before.
+  */
+  const nav = useCommunityNavigator()
+  const fromNav = nav.inCommunity ? targetFromPlace(nav.place, spaces) : null
+  const fromPath = fromNav ?? (onPost || nav.inCommunity ? lastList.current : targetFromPath(livePath || pathname, slug, spaces, start, liveSearch))
+  if (fromNav || !onPost) lastList.current = fromPath
   /* A click marks its list at once; the address catching up clears the mark (never a post opened over it). */
   const [picked, setPicked] = useState<{ target: FeedTarget; from: string } | null>(null)
-  if (picked && !onPost && picked.from !== (livePath || pathname)) setPicked(null)
+  if (picked && !onPost && picked.from !== (livePath || pathname) + (liveSearch || "")) setPicked(null)
   const [sort, setSort] = useState<FeedSortValue>("default")
 
   /*
@@ -231,17 +270,24 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     one's handover. A backup timer applies the list if the frames never run (a hidden tab), so a switch cannot stay on the
     previous space's posts.
   */
+  /*
+    AFTER THE INK HAS MOSTLY ARRIVED (round 15). The ink glides on the compositor (chip-ink.tsx), but a phone's compositor
+    still waits for the page's thread to hand it each frame, and building the new list is the longest piece of work a switch
+    does (60 to 105ms at 4x CPU). Two frames after the tap was the glide's fastest part, and that is where it stuttered. The
+    list now comes LIST_AFTER_MS after the tap, when the glide's curve has done most of its travel and only its slow end is
+    left: the step it can lose there is a pixel or two.
+  */
   useEffect(() => {
     if (!behind) return
     const next = { id: targetId, sort }
-    let second = 0
-    const first = requestAnimationFrame(() => {
-      second = requestAnimationFrame(() => flushSync(() => setList(next)))
-    })
-    const backup = window.setTimeout(() => setList(next), 160)
+    let frame = 0
+    const wait = window.setTimeout(() => {
+      frame = requestAnimationFrame(() => flushSync(() => setList(next)))
+    }, LIST_AFTER_MS)
+    const backup = window.setTimeout(() => setList(next), LIST_AFTER_MS + 160)
     return () => {
-      cancelAnimationFrame(first)
-      cancelAnimationFrame(second)
+      window.clearTimeout(wait)
+      cancelAnimationFrame(frame)
       window.clearTimeout(backup)
     }
   }, [behind, targetId, sort])
@@ -324,7 +370,7 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
           const now = shownRef.current.key === key ? shownRef.current.view : have
           const merged = mergeQuiet(now, fresh)
           writeView(key, merged.view)
-          setShown({ key, view: merged.view })
+          if (merged.view !== now) setShown({ key, view: merged.view })
           if (merged.added.length) {
             window.setTimeout(() => {
               if (keyRef.current === key) window.dispatchEvent(new CustomEvent(FRESH_POSTS_EVENT, { detail: { key, posts: merged.added } }))
@@ -423,12 +469,17 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   )
   const hrefOf = (pick: ChipPick) => feedListHref(base, pick)
 
-  /* A chip the member pressed: once that list is the one on screen, the page is at its top. Not on Back. */
+  /*
+    THE PAGE STAYS WHERE THE FINGER IS (round 15). A pill pressed: once its list is the one on screen, the page used to jump to
+    its very top (snapPageTop), which moved the row of pills under the finger by however far the page had been scrolled: a
+    bump with every switch. The pills are where the member just tapped, so the page stays; only when the row is under the
+    community's bar (Back to a list from far down, the sort menu's Saved) is it brought back just below the bar. Not on Back.
+  */
   const snapOnList = useRef(false)
   useLayoutEffect(() => {
     if (!snapOnList.current || list.id !== targetId) return
     snapOnList.current = false
-    snapPageTop()
+    keepPillsInView(rootRef.current)
   }, [list.id, targetId])
 
   /* A chip: the list switches here and the address follows; a list already on screen only scrolls the feed back into view. */
@@ -446,6 +497,11 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
       community, Saved is /saved). pushState lets Back, a reload and a copied
       link land on it without loading another page.
     */
+    if (nav.inCommunity) {
+      /* The shell moves the address (pushState) and the place; the list follows it above. The page is kept where it is. */
+      nav.go(placeOfPick(p), { scroll: "keep" })
+      return
+    }
     setPicked({ target: next, from: href })
     if (typeof window !== "undefined") {
       const cur = window.location.pathname + window.location.search
@@ -531,6 +587,40 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     })
   }, [communityId, key, listSort, listTarget])
   const onLive = useCallback((v: CachedView) => setShown({ key, view: v }), [key])
+
+  /*
+    PULL TO REFRESH, IN PLACE (round 15). The list on screen is read again and merged into itself (feed-cache.ts mergeQuiet):
+    every card stays the same element, a post with nothing new keeps the very same object (so its card and its pictures are
+    not drawn again at all), a post with new counts or words takes them where it is, and posts new to the list go to FeedLive,
+    which slides them in at the top for a reader there. The pages already read stay. It settles once the merged list has
+    been drawn, so the pull lets go the moment the data is in. The shell's navigator.refresh() calls it for the feed's slot
+    (lib/communities/client/navigator-context.tsx useRegisterPlaceRefresh); the page's pull event does too, for a feed drawn
+    outside the shell.
+  */
+  const listRefs = useRef({ target: listTarget, sort: listSort })
+  listRefs.current = { target: listTarget, sort: listSort }
+  const refreshList = useCallback(async () => {
+    const k = keyRef.current
+    const { target: t, sort: s } = listRefs.current
+    const fresh = await loadView(communityId, t, s)
+    if (!fresh || keyRef.current !== k) return
+    const now = shownRef.current.key === k ? shownRef.current.view : (readView(k) ?? fresh)
+    const merged = mergeQuiet(now, fresh)
+    writeView(k, merged.view)
+    if (merged.view !== now) setShown({ key: k, view: merged.view })
+    if (merged.added.length) window.dispatchEvent(new CustomEvent(FRESH_POSTS_EVENT, { detail: { key: k, posts: merged.added } }))
+    await new Promise<void>((done) => requestAnimationFrame(() => done()))
+  }, [communityId])
+  useRegisterPlaceRefresh(spaces ? "feed" : `feed-view:${communityId}`, refreshList)
+  useEffect(() => {
+    if (!spaces) return
+    const on = (e: Event) => {
+      const detail = (e as CustomEvent<PullRefreshDetail>).detail
+      if (detail?.scope === COMMUNITY_FEED_REFRESH_SCOPE) detail.done = refreshList()
+    }
+    window.addEventListener(PULL_REFRESH_EVENT, on)
+    return () => window.removeEventListener(PULL_REFRESH_EVENT, on)
+  }, [spaces, refreshList])
 
   /* What follows the list on screen: the space's line, the composer, the empty words; all of the list's, so they change with it. */
   const space = listTarget.kind === "space" ? (spaces?.find((s) => s.id === listTarget.id) ?? null) : null

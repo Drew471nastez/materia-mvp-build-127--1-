@@ -70,6 +70,23 @@ export const PRESS_OUT_MS = 240
 /** The ink's glide from one pill to the next, and its curve (iOS's own deceleration). */
 export const GLIDE_MS = 320
 export const GLIDE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/** When the new list is drawn after a tap (feed.tsx): past the glide's fast part, so the work of drawing it lands on its slow end. */
+export const LIST_AFTER_MS = 110
+
+/** How far along its way the ink is `ms` into the glide (the curve's progress, for the tests): the cubic bezier solved for x. */
+export function glideAt(ms: number): number {
+  const x = Math.min(1, Math.max(0, ms / GLIDE_MS))
+  const [x1, y1, x2, y2] = [0.32, 0.72, 0, 1]
+  const bez = (t: number, a: number, b: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3
+  let lo = 0
+  let hi = 1
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2
+    if (bez(mid, x1, x2) < x) lo = mid
+    else hi = mid
+  }
+  return bez((lo + hi) / 2, y1, y2)
+}
 
 export interface Box {
   left: number

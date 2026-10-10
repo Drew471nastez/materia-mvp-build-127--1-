@@ -37,6 +37,7 @@
 import Link from "next/link"
 import { CLICK_AFTER_MS, isTap, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, type Press } from "./chip-hit"
 import { ChipInk } from "./chip-ink"
+import { placeHref } from "@/lib/communities/client/places"
 import { spaceGlyph } from "./space-glyph"
 import type { SpaceView } from "./view-types"
 
@@ -179,10 +180,12 @@ export function rememberedSpaces(slug: string): SpaceView[] | null {
 let down: (Press & { id: number }) | null = null
 let tookAt = 0
 
-/** A pill's canonical address: the same on the server and in the browser, for a new tab, a reload, or a page with no script. */
-function chipHref(base: string, slug: string | null): string {
-  return slug ? `${base}/space/${encodeURIComponent(slug)}` : base
-}
+/*
+  A PILL'S ADDRESS IS THE CANONICAL ONE (placeHref), the same on the server and in the browser. It used to be drawn by
+  feedListHref, which asks the browser whether it is a phone: the server drew /space/<x>, a phone's first render wanted
+  ?space=<x>, and React kept the server's (it does not mend an attribute on hydration). The shell's navigator decides the
+  address a tap puts up; this one is for a new tab, a reload or a page with no script.
+*/
 
 export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIntent, sort }: SpaceChipsProps) {
   if (typeof window !== "undefined") drawn.set(slug, spaces)
@@ -256,7 +259,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
             return (
               <Link
                 key={s.id}
-                href={chipHref(base, s.slug)}
+                href={placeHref(slug, { kind: "space", slug: s.slug })}
                 aria-current={on ? "page" : undefined}
                 data-space-chip={s.slug}
                 className={`${CHIP} ${on ? CHIP_ON : CHIP_OFF}`}

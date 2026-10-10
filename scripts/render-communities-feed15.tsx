@@ -22,6 +22,7 @@ import { ShellFrame } from "@/components/community/member/shell-frame"
 import { FeedColumns } from "@/components/community/member/columns"
 import { CommunityFeed } from "@/components/community/member/feed"
 import { LocaleProvider } from "@/components/locale-provider"
+import { CommunityNavigatorProvider, placeFromUrl, useCommunityNavigator } from "@/lib/communities/client/navigator"
 import { ViewportVars } from "@/components/viewport-vars"
 import { allowedActions } from "@/lib/communities/permissions"
 import type { FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
@@ -183,6 +184,13 @@ const topBar: TopBarData = {
   manageHref: null,
 }
 
+/* The navigator's refresh, for the probe: what a pull asks the shell for (navigator.refresh, the feed's registered one). */
+function RefreshHandle() {
+  const nav = useCommunityNavigator()
+  ;(window as unknown as { __refreshFeed?: () => Promise<void> }).__refreshFeed = () => nav.refresh()
+  return null
+}
+
 function Screen() {
   const first = makePosts(0)
   return (
@@ -210,9 +218,18 @@ try {
 } catch {
   /* fine */
 }
+/* ?nav=0 draws the feed with no shell navigator, as a caller outside the community's shell would. */
+const withNav = params.get("nav") !== "0"
 createRoot(document.getElementById("app")!).render(
   <LocaleProvider>
     <ViewportVars />
-    <Screen />
+    {withNav ? (
+      <CommunityNavigatorProvider slug={community.slug} initial={placeFromUrl(location.pathname, location.search) ?? { kind: "feed" }} chatSpaces={new Set()}>
+        <RefreshHandle />
+        <Screen />
+      </CommunityNavigatorProvider>
+    ) : (
+      <Screen />
+    )}
   </LocaleProvider>,
 )

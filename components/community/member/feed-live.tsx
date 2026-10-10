@@ -17,11 +17,9 @@
  *   posts go in when it is pressed (the page scrolls up smoothly first) or
  *   when the reader scrolls back up on their own.
  *
- *   PULL TO REFRESH. The page's pull (components/ui/pull-to-refresh.tsx)
- *   sends `storelib:pull-refresh` with detail.scope "community-feed"; the
- *   first page of the list on screen is read again, swapped in place, any
- *   post new to it slides in, and `detail.done` is the promise the pull's
- *   spinner waits for.
+ *   PULL TO REFRESH (round 15: feed.tsx refreshList). The list on screen is
+ *   read again and merged into itself; posts new to it come here through
+ *   FRESH_POSTS_EVENT and slide in at the top, as a quiet refresh's do.
  *
  *   THE MEMBER'S OWN POST is put in by the composer (feed.tsx onPosted), so
  *   its broadcast coming back is skipped by id.
@@ -243,25 +241,6 @@ export function FeedLive({ communityId, viewerId, feedKey, target, sort, onView 
       cancelAnimationFrame(raf)
     }
   }, [waiting.length])
-
-  /* PULL TO REFRESH: the first page again, in place; the pull waits for it. */
-  useEffect(() => {
-    const onPull = (e: Event) => {
-      const detail = (e as CustomEvent<{ scope?: string; done?: Promise<unknown> }>).detail
-      if (!detail || detail.scope !== PULL_SCOPE) return
-      const { feedKey: key, target: t, sort: s } = now.current
-      const before = new Set((readView(key)?.posts ?? []).map((p) => p.id))
-      detail.done = loadView(communityId, t, s).then((fresh) => {
-        if (!fresh || now.current.feedKey !== key) return
-        setWaiting([])
-        const added = fresh.posts.filter((p) => !before.has(p.id) && !p.pinned).map((p) => p.id)
-        if (added.length && before.size) arrive(added)
-        now.current.onView(fresh)
-      })
-    }
-    window.addEventListener(PULL_EVENT, onPull)
-    return () => window.removeEventListener(PULL_EVENT, onPull)
-  }, [communityId])
 
   const show = () => {
     const list = waitingRef.current
