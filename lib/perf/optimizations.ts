@@ -23,4 +23,23 @@ export type Optimization = {
   note?: string
 }
 
-export const OPTIMIZATIONS: Optimization[] = []
+/*
+  H18B's entries are measured with scripts/measure-speed18.mjs: the real
+  route code over a realistic fixture, every database round trip counted,
+  each taking 20ms (a Vercel function to Supabase in the same region), run
+  before and after the change in one process each. Round trips are what the
+  change removes and do not depend on the network; the milliseconds assume
+  that 20ms and say so in the note.
+*/
+export const OPTIMIZATIONS: Optimization[] = [
+  {
+    id: "proxy-site-questions-together",
+    title: "A website's page is routed in three waves of reads instead of twelve in a row",
+    area: "storefront",
+    shippedAt: "2026-10-10",
+    before: { metric: "database round trips before a connected domain's page is routed, first visit in a minute", value: 12, unit: "queries" },
+    after: { metric: "database round trips before a connected domain's page is routed, first visit in a minute", value: 5, unit: "queries" },
+    note:
+      "proxy.ts asked whether the theme is imported, whether it is an AI site, whether a website is published and whether it wants a password one after another, and two of those walked the same name to creator to install chain. Now the chain is read once (lib/website-builder/route-facts.ts), the domain's creator rides along with the domain, and the questions start together. At 20ms a round trip: 266ms to 83ms on a connected domain, 136ms to 70ms on a storelib.com subdomain (6 to 5 round trips). Paid on every visit that comes more than 20 to 60 seconds after the last one on that server, which for most creators' sites is every visit, and before the page the edge already holds.",
+  },
+]
