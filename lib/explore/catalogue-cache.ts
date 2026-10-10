@@ -38,13 +38,18 @@ const TTL = 60
  */
 class EmptyCatalogue extends Error {}
 
-export function cachedExploreCatalogue<T extends unknown[]>(read: () => Promise<T>): Promise<T> {
+/**
+ * `key` names the list: /explore's grid and the category pages' build the
+ * same catalogue by their own code, so each keeps its own copy, and one tag
+ * clears both.
+ */
+export function cachedExploreCatalogue<T extends unknown[]>(read: () => Promise<T>, key = "explore-catalogue"): Promise<T> {
   const nonEmpty = async () => {
     const rows = await read()
     if (!Array.isArray(rows) || rows.length === 0) throw new EmptyCatalogue("no products read")
     return rows
   }
-  return unstable_cache(nonEmpty, ["explore-catalogue"], { revalidate: TTL, tags: [EXPLORE_CATALOGUE_TAG] })()
+  return unstable_cache(nonEmpty, [key], { revalidate: TTL, tags: [EXPLORE_CATALOGUE_TAG] })()
 }
 
 /** A product changed: the next visitor's refresh shows it (stale while revalidating). */

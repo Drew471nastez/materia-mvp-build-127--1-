@@ -149,6 +149,29 @@ const scenarios: Scenario[] = [
     },
   },
   {
+    name: "explore-category",
+    held: "route",
+    run: async () => {
+      const m = await import("@/app/(marketing)/explore/[category]/page")
+      return (m.default as (p: unknown) => Promise<unknown>)({ params: Promise.resolve({ category: "design" }), searchParams: Promise.resolve({}) })
+    },
+  },
+  {
+    name: "community-landing",
+    held: "route",
+    run: async () => {
+      const layout = await import("@/app/(marketing)/community/[slug]/layout")
+      const page = await import("@/app/(marketing)/community/[slug]/page")
+      const params = Promise.resolve({ slug: "maya-club" })
+      const [, , body] = await Promise.all([
+        (layout.default as (p: unknown) => Promise<unknown>)({ children: null, params }),
+        page.generateMetadata({ params }),
+        (page.default as (p: unknown) => Promise<unknown>)({ params, searchParams: Promise.resolve({}) }),
+      ])
+      return body
+    },
+  },
+  {
     name: "onepage",
     held: "route",
     headers: { host: "storelib.me", "x-forwarded-for": "203.0.113.9", "user-agent": "Mozilla/5.0 (iPhone)" },
@@ -201,6 +224,8 @@ async function heldBy(name: string): Promise<string> {
     onepage: () => import("@/app/(marketing)/l/[slug]/page"),
     "creator-page": () => import("@/app/(marketing)/[sellername]/page"),
     "marketplace-product": () => import("@/app/(marketing)/p/[slug]/page"),
+    "community-landing": () => import("@/app/(marketing)/community/[slug]/page"),
+    "explore-category": () => import("@/app/(marketing)/explore/[category]/page"),
   }
   const m = await mods[name]?.()
   if (!m) return scenarios.find((s) => s.name === name)?.held ?? "?"
@@ -213,8 +238,9 @@ function summary(label: string, r: VisitResult<unknown>, ms0: number) {
   const err = r.error as { kind?: string; message?: string } | undefined
   return {
     label,
-    trips: r.foreground,
-    behind: r.background,
+    /* Counted after the refreshes behind the visit have finished, so they are all in. */
+    trips: r.trips.filter((t) => !t.background).length,
+    behind: r.trips.filter((t) => t.background).length,
     ms: r.ms,
     ms0,
     error: err ? (err.kind ? `${err.kind}${(err as { to?: string }).to ? ` ${(err as { to?: string }).to}` : ""}` : String(err.message ?? err).slice(0, 120)) : null,

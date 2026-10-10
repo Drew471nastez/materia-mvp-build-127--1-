@@ -106,4 +106,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database round trips per signed out repeat visit to a marketplace product page", value: 0, unit: "queries" },
     note: "When the shared copy of a store or product page config held nothing (most creators publish no product page config), every visit asked again on its own session in case the session could see more. A visitor with no session asks with the same anon role, so that read is skipped for them (lib/supabase/session-cookie.ts) and kept for anyone signed in; a failed shared read is no longer held for a minute. The creator page's shop config is read from the same shared copy for signed out visitors and fresh for anyone signed in, so a creator sees their publish at once. Creator page: 12 to 10 reads per signed out visit. Marketplace product page at 20ms a round trip: 29ms to 4ms.",
   },
+  {
+    id: "explore-category-catalogue-shared",
+    title: "An Explore category page asks the database nothing per visit instead of 5 times",
+    area: "explore",
+    shippedAt: "2026-10-10",
+    before: { metric: "database round trips per Explore category page visit", value: 5, unit: "queries" },
+    after: { metric: "database round trips per Explore category page visit", value: 0, unit: "queries" },
+    note: "/explore/<category> built the same newest hundred products with their creators per visit, in four waves. It is held for a minute under Explore's tag like the main grid (its own copy), read as a signed out visitor, cleared by a product save and expired by a takedown. Server time to the answer at 20ms a round trip: 100ms to 2ms.",
+  },
 ]

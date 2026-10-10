@@ -195,6 +195,14 @@ export function buildFixture(): Fixture {
       store_channels: [],
       settings: [],
       store_menus: [],
+      platform_flags: [{ key: "communities", enabled: true }],
+      communities: [
+        { id: uuid("51", 1), creator_id: SITE.creatorId, owner_user_id: SITE.userId, slug: "maya-club", name: "Maya Club", tagline: "Making things together", description: "<p>A place to make things.</p>", visibility: "public", access: "free", status: "published", category: "design", language: "en", member_count: 240, post_count: 512, discovery_enabled: true, approval_required: false, default_role: "member", rules: [], faq: [], created_at: iso(5000) },
+      ],
+      community_tiers: [],
+      community_access_products: [],
+      community_members: [],
+      community_spaces: [],
       /* Maya published her creator page's shop; Leo never did. */
       store_builder_configs: [{ id: uuid("61", 1), creator_id: SITE.creatorId, page_type: "shop", published_config: { globalSettings: { themePreset: "maya-preset" } }, draft_config: { globalSettings: { themePreset: DRAFT_MARKER } }, published_at: iso(100) }],
       product_page_configs: [],

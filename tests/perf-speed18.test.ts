@@ -308,6 +308,17 @@ async function explore() {
   const empty = await visit(() => cachedExploreCatalogue(async () => [] as unknown[]))
   check("nor is an empty answer", !!empty.error && !nextCache.cacheEntries().some((e) => e.key.includes("explore-catalogue")))
 
+  const category = await import("@/app/(marketing)/explore/[category]/page")
+  nextCache.resetCache()
+  useFixture(buildFixture())
+  const renderCategory = () => category.default({ params: Promise.resolve({ category: "design" }), searchParams: Promise.resolve({}) } as never)
+  const c1 = await visit(renderCategory)
+  const c2 = await visit(renderCategory)
+  const categoryHeld = JSON.stringify(nextCache.cacheEntries().filter((e) => e.key.includes("explore-category-catalogue")).map((e) => e.value))
+  check("a category page's catalogue is held too, read as a stranger, under the same tag", c1.trips.some((t) => t.table === "products") && !c2.trips.some((t) => t.table === "products" || t.table === "creators" || t.table === "profiles") && c1.trips.filter((t) => t.table === "products" || t.table === "creators" || t.table === "profiles").every((t) => t.key === "anon") && nextCache.cacheEntries().some((e) => e.key.includes("explore-category-catalogue") && e.tags.includes(EXPLORE_CATALOGUE_TAG)))
+  check("and holds no draft and nothing private", categoryHeld.length > 100 && !categoryHeld.includes(DRAFT_MARKER) && !categoryHeld.includes(PRIVATE_MARKER))
+  check("its own copy, never /explore's", nextCache.cacheEntries().filter((e) => e.tags.includes(EXPLORE_CATALOGUE_TAG)).length === 1)
+
   const saveRoute = code("app/api/revalidate/route.ts")
   check("a product save clears Explore and the creator's website shop", /exploreCatalogueChanged\(\)/.test(saveRoute) && /revalidateTag\(creatorShopTag\(owned\.creator_id\), "max"\)/.test(saveRoute) && /\.eq\("creator_id", creator\.id\)/.test(saveRoute))
   check("a ban and a closed account take their products off it at once", /exploreCatalogueTakenDown\(\)/.test(code("app/api/admin/creators/moderate/route.ts")) && /exploreCatalogueTakenDown\(\)/.test(code("lib/account/delete-account.ts")))

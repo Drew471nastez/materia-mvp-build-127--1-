@@ -31,11 +31,13 @@ import { execFileSync, execSync } from "node:child_process"
 import { existsSync, mkdirSync, rmSync, writeFileSync, statSync } from "node:fs"
 import { join, resolve } from "node:path"
 import { build } from "esbuild"
+import { createRequire } from "node:module"
 
 const root = process.cwd()
 const dir = join(root, ".speed18-probe")
 mkdirSync(dir, { recursive: true })
 const realReact = resolve(root, "node_modules/react/index.js")
+const requireFromRoot = createRequire(join(root, "package.json"))
 
 function plugin(srcRoot) {
   const shims = join(root, "scripts/speed18/shims")
@@ -50,6 +52,15 @@ function plugin(srcRoot) {
       b.onResolve({ filter: /^next\/[a-z-]+$/ }, (args) => ({ path: `${args.path}.js`, external: true }))
       /* A stylesheet, ours or a package's: nothing to count. */
       b.onResolve({ filter: /(\.css$|^[a-z@][^.]*\/css(\/[^.]*)?$)/ }, () => ({ path: "css", namespace: "empty" }))
+      /* A package's own subpath that Node's ESM loader will not resolve by name (a directory, no exports map): imported by its file. */
+      b.onResolve({ filter: /^(@[a-z0-9-]+\/)?[a-z0-9.-]+\/[a-z0-9./-]+$/ }, (args) => {
+        if (args.path.startsWith("next/") || args.path.startsWith("@/")) return undefined
+        try {
+          return { path: requireFromRoot.resolve(args.path), external: true }
+        } catch {
+          return undefined
+        }
+      })
       b.onResolve({ filter: /^server-only$/ }, () => ({ path: "server-only", namespace: "empty" }))
       b.onResolve({ filter: /^__REAL_REACT__$/ }, () => ({ path: realReact, external: true }))
       b.onResolve({ filter: /^react$/ }, (args) => (args.importer.endsWith("react-cache.ts") ? undefined : { path: join(shims, "react-cache.ts") }))

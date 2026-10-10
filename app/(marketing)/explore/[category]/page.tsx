@@ -9,6 +9,8 @@ import { planIntervals } from "@/lib/memberships/intervals"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { offChannelAmong } from "@/lib/store/channel-filter"
+import { cachedExploreCatalogue } from "@/lib/explore/catalogue-cache"
+import { createPublicReadClient } from "@/lib/supabase/public-read"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -102,20 +104,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export const dynamic = "force-dynamic"
 
-export default async function CategoryPage({ params, searchParams }: Props) {
-  const { category } = await params
-  /* Read here so the first HTML is already the subcategory: the heading, the
-     pressed pill and the list. It was read in an effect after hydration, so a
-     link to ?sub=fonts painted every Design product first and then swapped. */
-  const subParam = (await searchParams)?.sub
-  const initialSub = typeof subParam === "string" ? subParam : undefined
+type Supabase = Awaited<ReturnType<typeof createClient>>
 
-  if (!VALID_CATEGORIES.includes(category)) {
-    notFound()
-  }
-
-  const supabase = await createClient()
-
+/*
+  THE CATALOGUE THIS PAGE DRAWS, ONE COPY FOR EVERYBODY. The newest hundred
+  published products with their creators' faces, the same for every visitor
+  (category filtering happens in the browser). It was read for each one, four
+  round trips in a row; it is held for a minute under Explore's tag now and
+  cleared with it (lib/explore/catalogue-cache.ts), read as a signed out
+  visitor would read it.
+*/
+async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
   // Fetch ALL published products - same query as the working /explore page
   // Category filtering is done client-side for relevance-based sorting
   /* A product that sells a community tier is found through its community, not here (lib/communities/listing). */
@@ -182,6 +181,25 @@ export default async function CategoryPage({ params, searchParams }: Props) {
       }
     })
   }
+
+  return productsWithCreators
+}
+
+
+export default async function CategoryPage({ params, searchParams }: Props) {
+  const { category } = await params
+  /* Read here so the first HTML is already the subcategory: the heading, the
+     pressed pill and the list. It was read in an effect after hydration, so a
+     link to ?sub=fonts painted every Design product first and then swapped. */
+  const subParam = (await searchParams)?.sub
+  const initialSub = typeof subParam === "string" ? subParam : undefined
+
+  if (!VALID_CATEGORIES.includes(category)) {
+    notFound()
+  }
+
+  /* Held for a minute and cleared by a product save or a takedown (lib/explore/catalogue-cache.ts). An empty or failed read is drawn as it was and never held. */
+  const productsWithCreators: any[] = await cachedExploreCatalogue(() => readCategoryCatalogue(createPublicReadClient() as unknown as Supabase), "explore-category-catalogue").catch(() => [])
 
   const categoryLabel = CATEGORY_LABELS[category] || category
 
