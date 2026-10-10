@@ -40,7 +40,7 @@
  */
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { X } from "lucide-react"
+import { ChevronLeft, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { backThen } from "@/lib/navigation/go-back"
 
@@ -51,6 +51,21 @@ const OUT_MS = 300
 const FLICK = 0.55
 /** How far a finger must pull down on content at its top before the sheet, not the page, is what moves. */
 const PULL_SLOP = 6
+
+/*
+  BELOW 1024px SETTINGS IS A PAGE, NOT A SHEET (round V, the owner: "like it
+  was before, the whole settings page, with those pill shapes"). The same
+  component and the same address, drawn edge to edge from the top with a
+  Back at its head: no handle, no drag, no dim, and it comes and goes with a
+  short fade, as every other page of the app does. Read when it is needed,
+  never stored, so turning a tablet changes it at once.
+*/
+const PAGE_QUERY = "(max-width: 1023.98px)"
+function asPage(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.(PAGE_QUERY).matches
+}
+const PAGE_IN_MS = 200
+const PAGE_OUT_MS = 150
 
 function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
@@ -79,6 +94,10 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
   React.useLayoutEffect(() => {
     const el = panel.current
     if (!here || !el || reducedMotion() || typeof el.animate !== "function") return
+    if (asPage()) {
+      el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: PAGE_IN_MS, easing: "ease-out" })
+      return
+    }
     el.animate([{ transform: "translate3d(0, 100%, 0)" }, { transform: "translate3d(0, 0, 0)" }], { duration: IN_MS, easing: EASE })
     scrim.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: IN_MS, easing: "ease-out" })
   }, [here])
@@ -117,7 +136,9 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           else router.replace("/app")
         }
         if (!el || !motion) return back()
-        const a = el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${h}px, 0)` }], { duration: ms, easing: EASE, fill: "forwards" })
+        const a = asPage()
+          ? el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: PAGE_OUT_MS, easing: "ease-in", fill: "forwards" })
+          : el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: `translate3d(0, ${h}px, 0)` }], { duration: ms, easing: EASE, fill: "forwards" })
         scrim.current?.animate([{ opacity: scrim.current.style.opacity || "1" }, { opacity: 0 }], { duration: ms, easing: "ease-out", fill: "forwards" })
         let done = false
         const finish = () => {
@@ -246,7 +267,8 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
 
   const begin = React.useCallback((y: number) => {
     const el = panel.current
-    if (!el || leaving.current) return false
+    /* A page does not drag. */
+    if (!el || leaving.current || asPage()) return false
     el.getAnimations?.().forEach((a) => a.cancel())
     drag.current = { y, t: performance.now(), dy: 0, v: 0, h: el.offsetHeight || window.innerHeight, frame: 0 }
     return true
@@ -390,7 +412,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
 
   return (
     <div className="fixed inset-0 z-[54]" data-settings-sheet-root="" data-settings-sheet-mode={overlay ? "over" : "page"}>
-      <div ref={scrim} aria-hidden className="absolute inset-0 bg-[#0f1115]/30" onClick={() => close()} data-settings-sheet-scrim="" />
+      <div ref={scrim} aria-hidden className="absolute inset-0 bg-[#0f1115]/30 max-lg:hidden" onClick={() => close()} data-settings-sheet-scrim="" />
       <div
         ref={panel}
         role="dialog"
@@ -406,13 +428,16 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
             not a page of its own.
           */
           "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-[#fafafa] shadow-[0_-10px_40px_-18px_rgba(15,17,21,0.30)]",
-          "top-[max(52px,calc(env(safe-area-inset-top)+36px))] md:top-[max(64px,12vh)]",
+          "lg:top-[max(64px,12vh)]",
+          /* Below 1024px: a page from the very top, square, on the app's own grey. */
+          "max-lg:top-0 max-lg:rounded-none max-lg:bg-[#f8f9fa] max-lg:shadow-none max-lg:pt-[env(safe-area-inset-top)]",
         )}
       >
         {/* The handle and the strip it sits in: the part of the sheet that drags, a thumb's height so it is easy to find. */}
         <div
           className={cn(
             "relative z-[3] flex h-11 shrink-0 cursor-grab touch-none select-none items-center justify-center bg-[#fafafa] transition-shadow duration-200 ease-out active:cursor-grabbing",
+            "max-lg:cursor-default max-lg:justify-start max-lg:bg-[#f8f9fa] max-lg:px-2 max-lg:active:cursor-default",
             scrolled && "shadow-[0_1px_0_rgba(15,17,21,0.06)]",
           )}
           onPointerDown={onPointerDown}
@@ -421,12 +446,22 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           onPointerCancel={onPointerUp}
           data-settings-sheet-handle=""
         >
-          <span aria-hidden className="h-[5px] w-10 rounded-full bg-[#d4d6db]" />
+          <span aria-hidden className="h-[5px] w-10 rounded-full bg-[#d4d6db] max-lg:hidden" />
+          {/* On a page, the way out is Back at its top left, where every page of the app keeps it. */}
+          <button
+            type="button"
+            onClick={() => close()}
+            className="flex h-10 items-center gap-0.5 rounded-full pl-1 pr-3 text-[15px] font-medium text-[#1a1a2e] outline-none transition-colors active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 lg:hidden [-webkit-tap-highlight-color:transparent]"
+            data-settings-page-back=""
+          >
+            <ChevronLeft className="h-5 w-5" aria-hidden />
+            Back
+          </button>
           <button
             type="button"
             onClick={() => close()}
             aria-label="Close settings"
-            className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 sm:right-3 [-webkit-tap-highlight-color:transparent]"
+            className="absolute right-2 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full text-[#4b5563] outline-none transition-colors hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 max-lg:hidden sm:right-3 [-webkit-tap-highlight-color:transparent]"
             data-settings-sheet-close=""
           >
             <X className="h-5 w-5" />
