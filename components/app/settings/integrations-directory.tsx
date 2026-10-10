@@ -20,6 +20,7 @@
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { ArrowLeft, ExternalLink, Search, Check } from "lucide-react"
+import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
@@ -91,8 +92,9 @@ export function Mark({ item, size = 44 }: { item: Pick<Integration, "logo" | "na
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" style={{ width: size * 0.5, height: size * 0.5 }}>
           {art}
         </svg>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/storelib-mark.svg" alt="" width={badge} height={badge} decoding="async" style={{ width: badge, height: badge }} className="absolute -bottom-1 -right-1 rounded-[6px] shadow-[0_0_0_2px_#fff]" />
+        <span className="absolute -bottom-1 -right-1 rounded-[7px] bg-white p-[2px]">
+          <StorelibLogo size={badge} alt="" />
+        </span>
       </span>
     )
   }

@@ -53,7 +53,7 @@ const EXCLUDED_SUBDOMAINS = ["www", "app", "api", "admin", "dashboard", "localho
  * need the session, and the session is host-only on storelib.com, so a
  * checkout begun on a creator's own address is sent home to finish.
  */
-const PLATFORM_APEX_PATHS = ["/checkout", "/purchase", "/receipt", "/access", "/order-help"]
+const PLATFORM_APEX_PATHS = ["/checkout", "/purchase", "/receipt", "/access"]
 
 // Reserved paths that should not be rewritten on subdomains
 const RESERVED_PATHS = [

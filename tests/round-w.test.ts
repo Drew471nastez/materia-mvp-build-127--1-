@@ -56,7 +56,7 @@ check("the store answers from Support › From buyers", /BuyerCaseThread/.test(r
 check("Storelib answers from Resolution center › Buyer cases", /<BuyerCases onCount/.test(read("app/admin/resolution/resolution-center.tsx")))
 check("the admin is told which SQL part is missing", /Run SQL part 114/.test(read("app/api/admin/support/route.ts")) && /SQL part 117/.test(read("app/api/admin/cases/route.ts")))
 check("buyers get help from the order page and the receipt", /<OrderHelp kind="physical"/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /<OrderHelp kind="digital"/.test(read("app/receipt/[token]/receipt-view.tsx")))
-check("/order-help is a platform path on every host", /"\/order-help"\]/.test(read("proxy.ts")))
+check("/order-help is Storelib's on every host, and closed to search engines on a creator's domain", /"\/order-help"/.test(read("proxy.ts")) && /"order-help"/.test(read("lib/seo/indexing.ts")))
 
 console.log("\nA thing that ships has no download receipt")
 const receiptPage = read("app/receipt/[token]/page.tsx")
@@ -115,7 +115,7 @@ console.log("\nIntegrations")
   check("the new ones are listed, never shown as installed", INTEGRATIONS.filter((i) => ["aftership", "hotjar", "snapchat-pixel"].includes(i.id)).every((i) => i.kind === "listed" && i.comingSoon))
   check("every logo a card points at is a real file", INTEGRATIONS.every((i) => !i.logo || existsSync(join(process.cwd(), "public", i.logo))), INTEGRATIONS.filter((i) => i.logo && !existsSync(join(process.cwd(), "public", i.logo))).map((i) => i.logo))
   const ui = read("components/app/settings/integrations-directory.tsx")
-  check("Storelib's own carry Storelib's real mark, on light grey", /\/storelib-mark\.svg/.test(ui) && !/>S<\/span>/.test(ui) && !/violet/.test(ui))
+  check("Storelib's own carry Storelib's real mark, on light grey", /<StorelibLogo size=\{badge\}/.test(ui) && !/>S<\/span>/.test(ui) && !/violet/.test(ui))
   check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
 }
 
