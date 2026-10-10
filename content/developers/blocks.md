@@ -161,6 +161,12 @@ A static block is one the template places itself, at a fixed spot, instead of in
 
 @[library-section:image_grid]
 
+### A product's Details block holds its blocks
+
+A product section is often two static blocks side by side: the pictures, and the details (title, price, options, buttons). Shopify's Horizon names them `_product-media-gallery` and `_product-details`. Whatever the section's own `{% content_for "blocks" %}` draws comes after both, full width, under the product.
+
+So the builder keeps a rule for every theme: in a product section (one whose type says `product`, or one with a media block beside a static block called details, info or information), a block at the section's own level that the Details block can hold is moved into it, at its end. The editor does it when the page opens and after any drag or AI edit, and the website does it as it draws, so a page saved before the rule looks the same. Pictures stay where they are, and so does a block the Details block can't hold. Dragging a block out of Details to under the product isn't offered. The rule is `lib/website-builder/product-details-rule.ts`.
+
 ## Presets
 
 A **preset** is a state a section, or a theme block, arrives in. It is written in the file, so changing what Add section adds is changing a few lines of JSON, and every preset is a card in Add section (or an entry in Add block) the moment the file saves.

@@ -269,6 +269,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
         <div className={cn("flex flex-col gap-8", twoColumns && "@[768px]:flex-row @[768px]:items-start @[768px]:gap-[var(--pp-gap)]")}>
           <div className={cn("w-full min-w-0", twoColumns && "@[768px]:w-[var(--pp-media-w)] @[768px]:shrink-0")} data-product-media-column="">
             <ProductMedia
+              /* Another product starts at its own first picture, never at the one the last product was resting on. */
+              key={product.id}
               images={sample ? [] : images}
               title={product.title}
               layout={layout}

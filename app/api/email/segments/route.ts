@@ -6,7 +6,7 @@
  */
 import { NextResponse } from "next/server"
 import { isResponse, noStore, readJson, requireCreator } from "@/lib/email-campaigns/route-auth"
-import { readRules } from "@/lib/email-campaigns/segments"
+import { NO_PRODUCTS_ERROR, namesNoProducts, readRules } from "@/lib/email-campaigns/segments"
 import { segmentMemberIds } from "@/lib/email-campaigns/segments-server"
 
 export const runtime = "nodejs"
@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   const body = await readJson(request)
   const name = typeof body.name === "string" ? body.name.replace(/\s+/g, " ").trim().slice(0, 80) : ""
   if (!name) return NextResponse.json({ error: "Give the segment a name." }, { status: 400, headers: noStore })
+  if (namesNoProducts(body.rules)) return NextResponse.json({ error: NO_PRODUCTS_ERROR }, { status: 400, headers: noStore })
   const rules = readRules(body.rules)
   const { count } = await ctx.admin.from("email_segments").select("id", { count: "exact", head: true }).eq("creator_id", ctx.creatorId)
   if ((count ?? 0) >= MAX_SEGMENTS) return NextResponse.json({ error: `That's ${MAX_SEGMENTS} segments. Delete one you no longer use first.` }, { status: 400, headers: noStore })

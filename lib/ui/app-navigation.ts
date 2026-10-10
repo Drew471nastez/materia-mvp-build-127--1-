@@ -55,7 +55,7 @@
  */
 
 import { useSyncExternalStore } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useSearchParams } from "next/navigation"
 
 /** On a computer, below this a navigation shows nothing: most are over before it. */
 export const NAV_BAR_AFTER_MS = 300
@@ -422,6 +422,20 @@ export function useShownPath(): string {
   const pathname = usePathname()
   const nav = useAppNavigation()
   return pendingPath(nav) ?? pathname
+}
+
+/**
+ * The query beside useShownPath: the one being opened while a navigation is
+ * underway, the one showing otherwise. For the rows whose address is a query
+ * (Settings › Integrations, each integration under it). useSearchParams needs
+ * no Suspense boundary here: the rows are drawn by /app's layout, which reads
+ * headers() and so is never prerendered.
+ */
+export function useShownSearch(): string {
+  const search = useSearchParams()
+  const nav = useAppNavigation()
+  if (pendingPath(nav) !== null && nav?.href) return nav.href.split("#")[0].split("?")[1] ?? ""
+  return search?.toString() ?? ""
 }
 
 /**

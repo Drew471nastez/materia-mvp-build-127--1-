@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { rateLimit, addressSubject, LIMITS } from "@/lib/api/rate-limit"
 import { priceCart, priceOrder } from "@/lib/checkout/pricing"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 
 /**
  * POST /api/coupons/validate
@@ -48,9 +49,12 @@ export async function POST(request: NextRequest) {
 
   try {
     if (Array.isArray(body.items)) {
-      const cart = await priceCart(createAdminClient(), { items: body.items, couponCode: typeof body.code === "string" ? body.code : "" })
+      const handOff = await isPhysicalCommerceEnabled().catch(() => false)
+      const cart = await priceCart(createAdminClient(), { items: body.items, couponCode: typeof body.code === "string" ? body.code : "", handOff })
       if (cart.ok === false) return NextResponse.json({ ok: false, error: cart.error })
-      /* A cart that ships is priced, code and all, by the physical checkout it goes on to. */
+      /* A cart that ships is priced, code and all, by the physical checkout it
+         goes on to. priceCart does not try the code on such a cart, so a code
+         for the shipped product is not refused here for fitting nothing else. */
       if (cart.ships.length > 0) return NextResponse.json({ ok: false, error: "Something in this cart ships. Press Check out and add the code on the next page." })
       if (!cart.coupon) return NextResponse.json({ ok: false, error: cart.lines.length === 0 ? "These products can't be bought right now." : "That code is not valid." })
       return NextResponse.json({

@@ -24,6 +24,7 @@ import { blockTypeFromPath, isPrivateBlock, listFromPreset, presetTree } from "@
 import type { SectionPreset as EnginePreset, SectionSchema as EngineSchema, SettingDefinition } from "@/lib/storelib-theme/types"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
+import { contentForStatics } from "./product-details-rule"
 import type { BlockInstance, BlockSchema, SchemaField, SchemaFieldType, SectionPreset, SectionSchema } from "./types"
 
 function field(s: SettingDefinition): SchemaField {
@@ -102,13 +103,7 @@ function editorPresets(type: string, presets: EnginePreset[]): SectionPreset[] {
  * the compatible profile (lib/storelib-theme/compat) and not Storelib's own.
  */
 function compatStatics(markup: string): { type: string; id: string }[] {
-  const out: { type: string; id: string }[] = []
-  for (const m of markup.matchAll(/\{%-?\s*content_for\s+['"]block['"]\s*,([^%]*)-?%\}/g)) {
-    const type = m[1].match(/\btype\s*:\s*['"]([^'"]+)['"]/)?.[1]
-    const id = m[1].match(/\bid\s*:\s*['"]([^'"]+)['"]/)?.[1]
-    if (type && id && !out.some((o) => o.id === id)) out.push({ type, id })
-  }
-  return out
+  return contentForStatics(markup)
 }
 
 /** The static blocks a template places, read from the template without compiling the rest of the file. */

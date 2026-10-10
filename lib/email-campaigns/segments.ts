@@ -48,6 +48,18 @@ export function readRules(raw: unknown): SegmentRules {
   return { joinedWithinDays: days, source, purchased: purchased === "products" && productIds.length === 0 ? "any" : purchased, productIds: purchased === "products" ? productIds : [] }
 }
 
+/**
+ * "Bought one of these products" with none named. readRules reads that as
+ * "anyone", which is everybody on the list, so a segment like it is refused
+ * when it is saved rather than kept as something far wider than it says.
+ */
+export function namesNoProducts(raw: unknown): boolean {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>
+  return r.purchased === "products" && readRules(raw).productIds.length === 0
+}
+
+export const NO_PRODUCTS_ERROR = "Pick at least one product, or choose who to send to another way."
+
 /** A segment's rules in a line, for the picker: "Joined in the last 30 days · bought something". */
 export function describeRules(r: SegmentRules, productTitle: (id: string) => string | null = () => null): string {
   const parts: string[] = []

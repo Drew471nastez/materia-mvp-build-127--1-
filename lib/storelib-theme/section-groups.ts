@@ -118,6 +118,11 @@ const BUILT_IN_GROUPS: Record<string, SectionGroup[]> = {
 /* What floats over the page rather than sitting in it: a popup, a bar fixed to the bottom of a phone, back to top, a chat button. */
 const OVERLAY = /\b(pop[ _-]?up|modal|back[ _-]?to[ _-]?top|scroll[ _-]?to[ _-]?top|mobile[ _-]?(nav|navigation|bar|menu|tab[ _-]?bar|dock)|bottom[ _-]?(nav|navigation|bar|menu|dock)|tab[ _-]?bar|cookie[ _-]?(bar|banner|consent)?|age[ _-]?(gate|verification|check)|exit[ _-]?intent|floating|whats[ _-]?app|chat[ _-]?(button|bubble|widget)|quick[ _-]?view)\b/i
 
+/** Whether a section's name or type reads as something that floats over the page: a popup, a phone tab bar, back to top. */
+export function floatsOverPage(nameOrType: string): boolean {
+  return OVERLAY.test(nameOrType.replace(/[_-]+/g, " "))
+}
+
 const ANNOUNCEMENT = /\bannouncement(s)?\b|\bannouncement[ _-]?bar\b|\b(promo|notice|offer)[ _-]?bar\b|^announcement/i
 
 const saysGroups = (v: unknown) => !!v && typeof v === "object" && !Array.isArray(v) && Array.isArray((v as { groups?: unknown }).groups)

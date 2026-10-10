@@ -61,6 +61,20 @@ interface Quote {
 const INPUT =
   "h-12 w-full rounded-[10px] border border-[#d9dce1] bg-white px-3.5 text-[15px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#1a1a2e] focus:ring-[3px] focus:ring-[rgba(26,26,46,0.08)] aria-[invalid=true]:border-[#dc2626]"
 
+/*
+  THE NAME STAYS IN THE FIELD. A placeholder disappears with the first letter,
+  and a filled form became a column of values nobody could tell apart (is that
+  the city or the region?). The label sits in the field and moves up, small,
+  once something is in it or it has focus, as a store's checkout does on
+  Shopify. Pure CSS (the input's own placeholder, kept invisible, tells it).
+*/
+const FLOAT_INPUT = `${INPUT} peer h-[52px] pt-[17px] placeholder:text-transparent`
+const FLOAT_LABEL =
+  "pointer-events-none absolute left-3.5 right-3.5 top-1/2 -translate-y-1/2 truncate text-[15px] text-[#9ca3af] transition-[top,font-size,transform,color] duration-150 ease-out peer-focus:top-[8px] peer-focus:translate-y-0 peer-focus:text-[11.5px] peer-focus:text-[#6b7280] peer-[:not(:placeholder-shown)]:top-[8px] peer-[:not(:placeholder-shown)]:translate-y-0 peer-[:not(:placeholder-shown)]:text-[11.5px] peer-[:not(:placeholder-shown)]:text-[#6b7280]"
+const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[empty=true]:pt-0 data-[empty=true]:text-transparent`
+const FLOAT_SELECT_LABEL =
+  "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,transform] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
+
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
 }
@@ -80,10 +94,13 @@ export function PhysicalCheckout({
   shopAvatar,
   config = DEFAULT_CHECKOUT,
   buyer = { signedIn: true, confirmed: true },
+  backTo = null,
 }: {
   shopId: string | null
   shopName: string
   shopAvatar: string | null
+  /** Where Back goes: the page the buyer came from, when it is one of this store's own sites (checked on the server). */
+  backTo?: string | null
   /** The store's Settings › Checkout (lib/store/checkout-config): which fields are asked for, and whether an account comes first. */
   config?: CheckoutConfig
   buyer?: { signedIn: boolean; confirmed: boolean }
@@ -125,14 +142,13 @@ export function PhysicalCheckout({
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const fromLink = decodeItems(params.get("items"))
-    const ret = params.get("return")
-    if (ret && /^https?:\/\//.test(ret)) setBackUrl(ret)
+    if (backTo) setBackUrl(backTo)
     if (fromLink.length) {
       setItems(fromLink)
     } else if (shopId) {
       try {
         const lines = parseCart(window.localStorage.getItem(cartStorageKey(shopId)))
-        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })))
+        setItems(lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity, ...(typeof l.customPriceCents === "number" ? { customPriceCents: l.customPriceCents } : {}) })))
         setFromCart(true)
       } catch {
         setItems([])
@@ -148,7 +164,7 @@ export function PhysicalCheckout({
         /* Nothing saved. */
       }
     }
-  }, [shopId])
+  }, [shopId, backTo])
 
   /* The server's prices, asked again when anything that changes them changes. */
   const ask = React.useRef(0)
@@ -427,16 +443,17 @@ export function PhysicalCheckout({
   ) : null
 
   const field = (key: keyof typeof address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
-    <label className="block">
-      <span className="sr-only">{label}</span>
+    <label className="relative block">
       <input
         {...props}
         value={address[key]}
         placeholder={label}
+        aria-label={label}
         aria-invalid={payError?.field === key || undefined}
         onChange={(e) => setAddress((a) => ({ ...a, [key]: e.target.value }))}
-        className={INPUT}
+        className={FLOAT_INPUT}
       />
+      <span aria-hidden className={FLOAT_LABEL}>{label}</span>
     </label>
   )
 
@@ -444,13 +461,13 @@ export function PhysicalCheckout({
   const nameFields = (purpose?: string) =>
     config.nameFields === "first_and_last" ? (
       <div className="grid grid-cols-2 gap-3">
-        <label className="block">
-          <span className="sr-only">First name</span>
-          <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="First name" autoComplete="given-name" aria-invalid={payError?.field === "name" || undefined} className={INPUT} />
+        <label className="relative block">
+          <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="First name" aria-label="First name" autoComplete="given-name" aria-invalid={payError?.field === "name" || undefined} className={FLOAT_INPUT} />
+          <span aria-hidden className={FLOAT_LABEL}>First name</span>
         </label>
-        <label className="block">
-          <span className="sr-only">Last name</span>
-          <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Last name" autoComplete="family-name" aria-invalid={payError?.field === "name" || undefined} className={INPUT} />
+        <label className="relative block">
+          <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Last name" aria-label="Last name" autoComplete="family-name" aria-invalid={payError?.field === "name" || undefined} className={FLOAT_INPUT} />
+          <span aria-hidden className={FLOAT_LABEL}>Last name</span>
         </label>
       </div>
     ) : (
@@ -535,9 +552,9 @@ export function PhysicalCheckout({
 
             <div className="space-y-3">
               <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Contact</h2>
-              <label className="block">
-                <span className="sr-only">Email</span>
-                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" placeholder="Email" aria-invalid={payError?.field === "email" || undefined} className={INPUT} />
+              <label className="relative block">
+                <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" placeholder="Email" aria-label="Email" aria-invalid={payError?.field === "email" || undefined} className={FLOAT_INPUT} />
+                <span aria-hidden className={FLOAT_LABEL}>Email</span>
               </label>
               <p className="text-[12.5px] text-[#6b7280]">Your receipt and shipping updates go here.</p>
               {config.marketingOptIn ? (
@@ -604,16 +621,16 @@ export function PhysicalCheckout({
               <div className="space-y-3">
                 <h2 className="text-[19px] font-semibold text-[#1a1a2e]">Delivery</h2>
                 <label className="block">
-                  <span className="sr-only">Country</span>
                   <div className="relative">
-                    <select value={address.country} onChange={(e) => setAddress((a) => ({ ...a, country: e.target.value, region: "" }))} autoComplete="country" aria-invalid={payError?.field === "country" || undefined} className={cn(INPUT, "appearance-none pr-10")}>
-                      <option value="">Country</option>
+                    <select value={address.country} data-empty={!address.country} aria-label="Country/region" onChange={(e) => setAddress((a) => ({ ...a, country: e.target.value, region: "" }))} autoComplete="country" aria-invalid={payError?.field === "country" || undefined} className={FLOAT_SELECT}>
+                      <option value="">Country/region</option>
                       {COUNTRIES.map((c) => (
                         <option key={c.code} value={c.code}>
                           {c.name}
                         </option>
                       ))}
                     </select>
+                    <span aria-hidden data-empty={!address.country} className={FLOAT_SELECT_LABEL}>Country/region</span>
                     <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
                   </div>
                 </label>
@@ -626,9 +643,8 @@ export function PhysicalCheckout({
                   {field("city", "City", { autoComplete: "address-level2" })}
                   {!addressFormat(address.country).region ? null : regionsOf(address.country).length ? (
                     <label className="block">
-                      <span className="sr-only">{addressFormat(address.country).region?.label}</span>
                       <div className="relative">
-                        <select value={address.region} onChange={(e) => setAddress((a) => ({ ...a, region: e.target.value }))} autoComplete="address-level1" className={cn(INPUT, "appearance-none pr-9")}>
+                        <select value={address.region} data-empty={!address.region} aria-label={addressFormat(address.country).region?.label} onChange={(e) => setAddress((a) => ({ ...a, region: e.target.value }))} autoComplete="address-level1" aria-invalid={payError?.field === "region" || undefined} className={FLOAT_SELECT}>
                           <option value="">{addressFormat(address.country).region?.label}</option>
                           {regionsOf(address.country).map((r) => (
                             <option key={r.code} value={r.code}>
@@ -636,6 +652,7 @@ export function PhysicalCheckout({
                             </option>
                           ))}
                         </select>
+                        <span aria-hidden data-empty={!address.region} className={FLOAT_SELECT_LABEL}>{addressFormat(address.country).region?.label}</span>
                         <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
                       </div>
                     </label>

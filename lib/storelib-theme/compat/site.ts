@@ -236,16 +236,21 @@ function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> &
   }
 }
 
-/** Sections for a page key, with the header and footer groups of the home page when the page has none of its own. */
+/**
+ * Sections for a page key, wearing the site's header, footer and overlay:
+ * the home page's, as the builder draws every page (universal-chrome.ts,
+ * withUniversalChrome). A page's own copy is used only where home has none
+ * of that group. Reading the page's own copy first drew a stale header, or
+ * a page with a header and no footer, where the builder showed home's.
+ */
 function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
   const own = site.pages[key]
   if (!own) return null
   const parts = pageParts(own)
-  const home = pageParts(site.pages.home ?? [])
-  /* The Overlay group is the site's, as the header and footer are: a page without its own wears the home page's. */
-  const overlay = parts.overlay.length ? [] : home.overlay
-  if (parts.header.length || parts.footer.length) return [...own, ...overlay]
-  return [...home.header, ...own, ...home.footer, ...overlay]
+  if (key === "home" || !site.pages.home) return [...parts.header, ...parts.template, ...parts.footer, ...parts.overlay]
+  const home = pageParts(site.pages.home)
+  const pick = (group: "header" | "footer" | "overlay") => (home[group].length ? home[group] : parts[group])
+  return [...pick("header"), ...parts.template, ...pick("footer"), ...pick("overlay")]
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
@@ -551,6 +556,8 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
     const items = itemsOf(req.body)
     if (!items.length) return error("Choose an option to add.")
     const added: CartEntry[] = []
+    /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
+    const asked: CartEntry[] = []
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
@@ -559,6 +566,7 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
+      asked.push({ k, p: hit.card.id, v, q: qty, ...(item.properties ? { props: item.properties } : {}) })
       if (existing) existing.q = Math.min(MAX_QTY, existing.q + qty)
       else {
         if (cart.length >= MAX_LINES) return error("The cart is full.")
@@ -566,6 +574,8 @@ function cartAction(site: SiteData, req: SiteRequest, action: string, ajax: bool
       }
       added.push(cart.find((e) => e.k === k)!)
     }
+    /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked), cart: req.cart, note: req.note ?? "" }
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
@@ -706,7 +716,7 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx()) }
+      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
     } catch {
       return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
     }

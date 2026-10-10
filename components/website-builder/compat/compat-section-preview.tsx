@@ -145,6 +145,47 @@ export function previewDocument(theme: CompatTheme, page: CompatPage, section: S
 
 const TALLEST = 1.1
 
+/*
+  LIGHT TO SCROLL, INSTANT TO COME BACK TO. A card's page was drawn the
+  moment it neared the screen, on the main thread, several in one scroll
+  frame: the list stuttered as it moved. Now each card asks a queue, which
+  draws one page per idle moment. And what was drawn and measured is kept
+  for the theme, so switching to another category and back shows the cards
+  at once, at their own heights, with nothing to rebuild or jump.
+*/
+type Cache = { docs: Map<string, string | null>; heights: Map<string, number>; blank: Set<string> }
+const caches = new WeakMap<CompatTheme, Cache>()
+function cacheFor(theme: CompatTheme): Cache {
+  let c = caches.get(theme)
+  if (!c) caches.set(theme, (c = { docs: new Map(), heights: new Map(), blank: new Set() }))
+  return c
+}
+const queue: (() => void)[] = []
+let draining = false
+function drain() {
+  const job = queue.shift()
+  if (!job) {
+    draining = false
+    return
+  }
+  job()
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+  if (w.requestIdleCallback) w.requestIdleCallback(drain, { timeout: 120 })
+  else window.setTimeout(drain, 16)
+}
+/** Runs `job` when the page is idle, one at a time; the returned function takes it back out if it has not run. */
+function whenIdle(job: () => void): () => void {
+  queue.push(job)
+  if (!draining) {
+    draining = true
+    window.setTimeout(drain, 0)
+  }
+  return () => {
+    const at = queue.indexOf(job)
+    if (at >= 0) queue.splice(at, 1)
+  }
+}
+
 export const CompatPreviewBox = memo(function CompatPreviewBox({
   type,
   presetIndex,
@@ -163,12 +204,15 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
   const ctx = useCompatPreview()
   const box = useRef<HTMLDivElement | null>(null)
   const frame = useRef<HTMLIFrameElement | null>(null)
+  const key = `${type}:${presetIndex}`
+  const cache = ctx?.theme ? cacheFor(ctx.theme) : null
   const [seen, setSeen] = useState(false)
-  const [drawnHeight, setDrawnHeight] = useState<number | null>(null)
+  const [drawnHeight, setDrawnHeight] = useState<number | null>(() => cache?.heights.get(key) ?? null)
   /* A section with nothing to show until it is filled in (apps, custom code): its name instead of a blank card. */
-  const [blank, setBlank] = useState(false)
+  const [blank, setBlank] = useState(() => cache?.blank.has(key) ?? false)
   /* Shown once it has been measured, faded in: never a white box that jumps to its height. */
   const [shown, setShown] = useState(false)
+  const [srcDoc, setSrcDoc] = useState<string | null>(() => cache?.docs.get(key) ?? null)
 
   /* Built the first time it comes near the screen, then kept. */
   useEffect(() => {
@@ -188,14 +232,24 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     return () => io.disconnect()
   }, [seen])
 
-  const srcDoc = useMemo(() => {
-    if (!seen || !ctx?.theme) return null
-    try {
-      return previewDocument(ctx.theme, ctx.page, previewSectionFor(type, presetIndex, schema))
-    } catch {
-      return null
+  /* Drawn once per theme, in the idle queue; a card already drawn this visit comes straight from the cache. */
+  useEffect(() => {
+    if (!seen || !ctx?.theme || !cache) return
+    if (cache.docs.has(key)) {
+      setSrcDoc(cache.docs.get(key) ?? null)
+      return
     }
-  }, [seen, ctx, type, presetIndex, schema])
+    return whenIdle(() => {
+      let doc: string | null = null
+      try {
+        doc = previewDocument(ctx.theme!, ctx.page, previewSectionFor(type, presetIndex, schema))
+      } catch {
+        doc = null
+      }
+      cache.docs.set(key, doc)
+      setSrcDoc(doc)
+    })
+  }, [seen, ctx, cache, key, type, presetIndex, schema])
 
   const scale = width > 0 ? width / renderWidth : 0.3
   const tallest = Math.round(width * TALLEST)
@@ -207,7 +261,10 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     if (!doc?.body) return
     /* The body, not the document: the document is never shorter than the frame, so it could only grow. */
     const h = Math.ceil(doc.body.getBoundingClientRect().height)
-    if (h > 0) setDrawnHeight(h)
+    if (h > 0) {
+      setDrawnHeight(h)
+      cache?.heights.set(key, h)
+    }
     setShown(true)
     const root = doc.querySelector<HTMLElement>(".shopify-section") ?? doc.body
     const shows = [...root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")].some((el) => {
@@ -216,6 +273,8 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       return /^(IMG|SVG|VIDEO|PICTURE|CANVAS|INPUT)$/i.test(el.tagName) || (el.textContent ?? "").trim().length > 0
     })
     setBlank(!shows)
+    if (!shows) cache?.blank.add(key)
+    else cache?.blank.delete(key)
   }
 
   return (

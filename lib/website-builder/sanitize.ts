@@ -211,6 +211,25 @@ export function htmlFieldsOf(fields: { id: string; type?: string }[] | undefined
 }
 
 /**
+ * AN IMPORTED SHOPIFY THEME'S SETTINGS, by type alone. Shopify draws an
+ * `html` or `liquid` setting as written (an SVG icon, a <style>, a custom
+ * element, an embed), and a `text` called `description` is just text; the
+ * id list above, made for Storelib's own sections, took the SVG and the
+ * style out of them, so an imported section lost its icons and its look
+ * the moment it was saved. Only rich text is cleaned: it is what a visitor
+ * never writes but a theme prints raw. The theme's own scripts already run
+ * on the creator's site, so markup they wrote into a setting is no wider.
+ */
+export function compatHtmlFieldsOf(fields: { id: string; type?: string }[] | undefined): HtmlFieldMap {
+  const out: HtmlFieldMap = {}
+  for (const f of fields ?? []) {
+    if (f.type === "richtext") out[f.id] = "rich"
+    else if (f.type === "inline_richtext") out[f.id] = "inline"
+  }
+  return out
+}
+
+/**
  * One instance's settings and blocks, cleaned. Unknown keys are left alone:
  * this only touches what a schema calls HTML or what a renderer is known to
  * inject, and anything else is data the engine has no business rewriting.
@@ -218,6 +237,7 @@ export function htmlFieldsOf(fields: { id: string; type?: string }[] | undefined
 export function sanitizeSettings(
   settings: Record<string, unknown> | undefined,
   fields: HtmlFieldMap,
+  opts?: { byId?: boolean },
 ): Record<string, unknown> {
   if (!settings) return {}
   let changed = false
@@ -229,7 +249,7 @@ export function sanitizeSettings(
     if (clean !== value) { out[id] = clean; changed = true }
   }
   // Also clean by id alone, for a section whose schema is not to hand.
-  for (const [id, kind] of Object.entries(HTML_SETTING_IDS)) {
+  if (opts?.byId !== false) for (const [id, kind] of Object.entries(HTML_SETTING_IDS)) {
     if (fields[id]) continue
     const value = settings[id]
     if (typeof value !== "string" || !value) continue

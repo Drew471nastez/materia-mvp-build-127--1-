@@ -108,6 +108,7 @@ import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementL
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
 import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
@@ -1040,8 +1041,6 @@ export type DeviceMode = "desktop" | "mobile"
 const FULL_SCREEN_KEY = "wb:full-screen"
 /** How long the sidebar takes to fold away or come back. */
 const FULL_SCREEN_MS = 320
-/** A product section's Details block (Horizon's _product-details, product-details, a "details" group): where its buttons and text belong. */
-const PRODUCT_DETAILS_BLOCK = /(^|[-_])(product[-_]?)?(details|info|information)$/i
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -2450,6 +2449,8 @@ function BlockTreeFor({
       const def = defOf(above.type)
       return levelTakes(def ? { accepts: def.accepts, max_blocks: def.max_blocks } : undefined, false, above.blocks ?? [], b, parent.length + 1)
     }
+    /* Out of a product's Details block to under the product: not offered (lib/website-builder/product-details-rule.ts). */
+    if (parent.length === 1 && staysInDetails(section.type, section.blocks, outer?.siblings.find((x) => x.id === parent[0])?.type, schema.statics ?? [])) return false
     return parent.length > 0 && levelTakes(outer?.owner, parent.length === 1, outer?.siblings ?? [], b, parent.length - 1)
   }
   const onNest = (i: number, dir: 1 | -1) => {
@@ -2765,7 +2766,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       (customAddableSections leaves them out), and what else fits the group.
     */
     /* The Overlay group: what floats over the page, and nothing that is a header or a footer. */
-    if (addGroup === "overlay") return all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
+    if (addGroup === "overlay") {
+      const floats = all.filter((t) => groupsOf(t).includes("overlay") && !kindOfType(t))
+      /* An imported theme seldom says a section floats: what does comes first, then any of its sections that is not a header or a footer (a custom Liquid bar, a newsletter popup). */
+      return compatInstall ? [...new Set([...floats, ...all.filter((t) => !kindOfType(t))])] : floats
+    }
     const own = addGroup as "header" | "footer"
     const ownKinds = Object.keys(customSchemas).filter((t) => (customSchemas[t].presets?.length ?? 0) > 0 && kindOfType(t) === own).sort()
     const fits = all.filter((t) => groupsOf(t).includes(own))
@@ -2773,7 +2778,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [ownSectionTypes, builderCommunities, builderCollections, addGroup, librarySchemas, kindOfType, customSchemas, compatInstall])
   /** Whether anything this site can add floats over the page: the Overlay group is shown when it does. */
   const overlayAddable = useMemo(() => {
-    const all = compatInstall ? ownSectionTypes : [...ADDABLE_SECTIONS, ...ownSectionTypes]
+    /* An imported theme always has the Overlay group: a phone tab bar, a popup or back to top can be added there. */
+    if (compatInstall) return ownSectionTypes.length > 0
+    const all = [...ADDABLE_SECTIONS, ...ownSectionTypes]
     return all.some((t) => sectionGroupsFor(librarySchemas[t] as never, { type: t, kind: kindOfType(t) }).includes("overlay"))
   }, [compatInstall, ownSectionTypes, librarySchemas, kindOfType])
   /** A header (or footer) chosen while another is drawn: it replaces that one once the creator says so. */
@@ -3223,6 +3230,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [products, setProducts] = useState<{ id: string; title: string; slug: string; thumbnail_url: string; price_cents: number; compare_at_cents: number | null; description: string; whats_included: string[]; gallery_urls: string[] }[]>([])
   const [productsLoading, setProductsLoading] = useState(false)
   const [selectedProductPage, setSelectedProductPage] = useState<string | null>(null)
+  /** The id of the product the product page is showing: an imported theme's canvas draws exactly this one, not the shop's first. */
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(null)
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
@@ -3232,6 +3241,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * successful page change, because arriving somewhere answers it.
    */
   const [missingPath, setMissingPath] = useState<string | null>(null)
+  /** Counts page and product switches, so only the last one asked for is drawn (a slower answer to an earlier one is dropped). */
+  const pageNav = useRef(0)
   // If the editor is opened directly on a product deep-link, keep the canvas
   // in "loading" state from the very first render until the deep-link effect
   // has injected `_product_data` — otherwise the canvas would briefly render
@@ -3964,12 +3975,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       // Load new page sections, then — if not home — splice in home's
       // header/footer so every page renders identically to home.
+      const nav = ++pageNav.current
       const [loaded, homeHF] = await Promise.all([
         fetchPageSections(page),
         page !== "home"
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
           : Promise.resolve<Chrome>({}),
       ])
+      /* Another page or product was picked while this one loaded: that one draws, this one never does. */
+      if (nav !== pageNav.current) return
       /* Home included, for the reason on the initial load above. */
       const merged = CHROMELESS_PAGES.has(page) ? withoutChrome(loaded) : mergeWithHomeHeaderFooter(loaded, page !== "home" ? homeHF : chromeOf(loaded))
 
@@ -3996,6 +4010,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        */
       setCurrentPage(page)
       setSelectedProductPage(null)
+      setSelectedProductId(null)
       setEditAllProductPages(false)
       setSections(merged)
       updatePageUrl(page)
@@ -4055,6 +4070,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }, [currentPage, selectedProductPage])
 
   const handleSelectProductPage = async (productId: string, productTitle: string) => {
+    /* The latest click wins: a slower answer for a product picked before it never draws over it. */
+    const nav = ++pageNav.current
     setSectionsLoading(true)
     // A product page is another page: the history describes the one being
     // left. See `clearHistory`.
@@ -4119,6 +4136,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       fetchProductWithRetry(),
       leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
     ])
+    if (nav !== pageNav.current) return
 
     // Use API response first, fall back to list data
     const productData = productRes?.product ?? fallbackData
@@ -4144,6 +4162,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     /** One commit: the page, the product it is showing, and its sections. */
     setSelectedProductPage(productTitle)
+    setSelectedProductId(productId)
     setCurrentPage("product")
     setSections(merged)
     updatePageUrl("product", slugForUrl)
@@ -4224,6 +4243,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const pageChangeRef = useRef(handlePageChange)
   pageChangeRef.current = handlePageChange
+  const selectedProductIdRef = useRef(selectedProductId)
+  selectedProductIdRef.current = selectedProductId
   const selectProductRef = useRef(handleSelectProductPage)
   selectProductRef.current = handleSelectProductPage
   const productsRef = useRef(products)
@@ -4765,6 +4786,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSelectedBlockId(pathKey([...parent, newBlock.id]))
     setIsDirty(true)
   }
+
+  /**
+   * A PRODUCT'S BLOCKS STAY IN ITS DETAILS COLUMN (lib/website-builder/
+   * product-details-rule.ts). A page saved with blocks at a product section's
+   * own level (they were drawn under the product), and anything a drag, an
+   * undo or Storelib AI puts there, is moved into the Details block, so the
+   * sidebar, the canvas and the website agree. Not an edit of its own: it is
+   * saved with the next one, and the website already draws it this way.
+   */
+  useEffect(() => {
+    let changed = false
+    const next = sections.map((s) => {
+      const schema = schemaFor(s.type, storelibSources, librarySchemas)
+      const takes = (detailsType: string, type: string) => {
+        const def = blockSchemaIn(schema, blockCatalog, detailsType)
+        return addableBlocks({ accepts: def?.accepts }, blockCatalog).some((k) => k.type === type)
+      }
+      const homed = blocksIntoDetails(s.type, s.blocks, takes, schema?.statics ?? [])
+      if (!homed) return s
+      changed = true
+      /* The block being edited keeps being edited, at its new address. */
+      const details = homed.find((b) => b.static && PRODUCT_DETAILS_BLOCK.test(b.type))
+      const kept = new Set(homed.map((b) => b.id))
+      const moved = (s.blocks ?? []).filter((b) => !kept.has(b.id)).map((b) => b.id)
+      if (details) setSelectedBlockId((key) => (key && moved.includes(key) ? pathKey([details.id, key]) : key))
+      return { ...s, blocks: homed }
+    })
+    if (changed) setSections(next)
+  }, [sections, storelibSources, librarySchemas, blockCatalog])
 
   /** The same block again, right below it, with its own ids all the way down. */
   const duplicateBlock = (sectionId: string, blockKey: string) => {
@@ -7038,6 +7088,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (inspectorRef.current && !chrome) return
     const to = compatPageForHref(href, rowPageKeysRef.current)
     if (!to) return
+    /* A link to a product opens that product's page, as on the website, not the shop's first product. */
+    const linked = to.product ? productsRef.current.find((p) => p.slug === to.product || p.id === to.product) : null
+    if (linked) {
+      if (currentPageRef.current === "product" && selectedProductIdRef.current === linked.id) return
+      holdCanvasWhileOpening()
+      void selectProductRef.current(linked.id, linked.title)
+      return
+    }
     if (to.key === currentPageRef.current) {
       if (!to.product) document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: 0 }, "*")
       return
@@ -9248,6 +9306,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   sections={canvasSections as unknown as StoredSection[]}
                   products={shopCards}
                   catalog={catalogCardsForCanvas}
+                  productId={currentPage === "product" ? selectedProductId : null}
                   collections={compatCollections}
                   menus={compatCanvasMenus}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : "My store"}
@@ -9457,6 +9516,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setEditAllProductPages(true)
                 setEditAllConfirmOpen(false)
                 setSelectedProductPage(null)
+                setSelectedProductId(null)
               }}
             >
               Start Editing All
