@@ -240,6 +240,22 @@ export function schemeVars(scheme: ActionScheme | null | undefined): React.CSSPr
 const SWAP = "transition-opacity duration-[260ms] [transition-delay:-28ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
 
 /**
+ * AND BACK THE OTHER WAY, CALMER (round 15). The owner: "it's too direct
+ * when I unfollow someone". Following to Follow is the one switch that
+ * covers a light face with a dark one, and on SWAP's curve (most of its
+ * travel in the first 60ms) the dark fill landed almost at once: a light
+ * button turning black under the thumb. So the switch back takes a little
+ * longer on a curve that starts slowly and ends slowly, and the labels
+ * cross on it too: the dark grows in rather than switching on. Opacity only,
+ * the same box, so it is the same calm change both ways, and still under
+ * the press (the first frame already moves).
+ * A CSS transition plays the timing of the state it is going TO, so the
+ * classes below are picked by the state each part arrives at.
+ */
+export const CALM_MS = 380
+const CALM = "transition-opacity duration-[380ms] [transition-delay:-16ms] ease-[cubic-bezier(0.45,0,0.25,1)] motion-reduce:transition-none"
+
+/**
  * ONE FACE FADES, NEVER TWO. Following is drawn under Follow and is solid
  * the moment it is the state, so only the dark face fades over it: halfway
  * through a switch the button is half dark over white, never two half
@@ -248,7 +264,7 @@ const SWAP = "transition-opacity duration-[260ms] [transition-delay:-28ms] ease-
  * whole again, then goes.
  */
 const QUIET_UNDER = "opacity-100 transition-none"
-const QUIET_AWAY = "opacity-0 transition-opacity duration-0 delay-[260ms] motion-reduce:delay-0"
+const QUIET_AWAY = "opacity-0 transition-opacity duration-0 delay-[380ms] motion-reduce:delay-0"
 
 /**
  * THE SETTLE. A layer over the arriving face, a shade off its colour, that
@@ -258,6 +274,8 @@ const QUIET_AWAY = "opacity-0 transition-opacity duration-0 delay-[260ms] motion
 const SETTLE = "pointer-events-none absolute inset-0 rounded-[inherit] motion-reduce:transition-none"
 const SETTLING = "opacity-0 transition-opacity duration-[480ms] ease-[cubic-bezier(0.22,1,0.36,1)]"
 const UNSETTLED = "opacity-100 transition-opacity duration-0 delay-[280ms]"
+/** Following's settle layer is put back only once the calm way back has fully covered its face. */
+const UNSETTLED_LATE = "opacity-100 transition-opacity duration-0 delay-[400ms]"
 
 /**
  * THE CHECK THAT DRAWS ITSELF: lucide's check, as one path measured as 1
@@ -274,6 +292,8 @@ const CHECK_HIDDEN = "[transition:stroke-dashoffset_220ms_cubic-bezier(0.22,1,0.
  * shown at the start of a fade in, hidden at the end of a fade out.
  */
 const LABEL = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[260ms] [transition-delay:-28ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+/** The labels on the way back to Follow: the same crossing as the dark face, on CALM's curve. */
+const LABEL_CALM = "relative col-start-1 row-start-1 inline-flex items-center gap-1.5 whitespace-nowrap transition-[opacity,visibility] duration-[380ms] [transition-delay:-16ms] ease-[cubic-bezier(0.45,0,0.25,1)] motion-reduce:transition-none"
 
 /**
  * NOTHING TO WORK OUT ON A PRESS. cn() runs tailwind-merge, which parses
@@ -390,21 +410,21 @@ export function FollowButton({
       {/* The face: one box for both states; a press shades it and a switch crossfades it. */}
       <span className={FACE_BOX} data-follow-face="">
         <span aria-hidden className={join(look.quiet, following ? QUIET_UNDER : QUIET_AWAY)} data-follow-fill="following">
-          <span className={join(SETTLE, look.quietSettle, following ? SETTLING : UNSETTLED)} data-follow-settle="following" />
+          <span className={join(SETTLE, look.quietSettle, following ? SETTLING : UNSETTLED_LATE)} data-follow-settle="following" />
         </span>
-        <span aria-hidden className={join(solid, SWAP, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow">
+        <span aria-hidden className={join(solid, following ? SWAP : CALM, following ? "opacity-0" : "opacity-100")} data-follow-fill="follow">
           <span className={join(SETTLE, solidSettle, following ? UNSETTLED : SETTLING)} data-follow-settle="follow" />
         </span>
         {/* Both labels in one cell, always laid out: the button is the width of the wider one in both states. */}
         <span
-          className={join(LABEL, solidInk, following ? "invisible opacity-0" : "visible opacity-100")}
+          className={join(following ? LABEL : LABEL_CALM, solidInk, following ? "invisible opacity-0" : "visible opacity-100")}
           aria-hidden={following || undefined}
           data-follow-label="follow"
         >
           Follow
         </span>
         <span
-          className={join(LABEL, look.quietInk, following ? "visible opacity-100" : "invisible opacity-0")}
+          className={join(following ? LABEL : LABEL_CALM, look.quietInk, following ? "visible opacity-100" : "invisible opacity-0")}
           aria-hidden={!following || undefined}
           data-follow-label="following"
         >

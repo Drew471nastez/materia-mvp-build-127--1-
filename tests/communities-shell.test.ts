@@ -264,7 +264,8 @@ async function main() {
     check("a storefront is /<handle>", personHref({ username: "Ana", hasStorefront: true }) === "/ana")
     check("anybody else is /@handle", personHref({ username: "sam", hasStorefront: false }) === "/@sam")
     check("no username, no page", personHref({ username: null, hasStorefront: false }) === "/" && personHref({ username: "  ", hasStorefront: true }) === "/")
-    check("inside a community, no handle yet goes through the old address, which only redirects", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "sam" }) === "/@sam")
+    /* Round 15, the owner: a profile inside a community is /community/<slug>?profile=<handle>, with no page load. */
+    check("inside a community, a name opens the profile in the community; no handle yet goes through the old member address", memberHref("club", { id: "u1", username: null }) === "/community/club/members/u1" && memberHref("club", { id: "u1", username: "Sam" }) === "/community/club?profile=sam")
     for (const f of ["post-card.tsx", "comments.tsx", "chat.tsx", "leaderboard.tsx", "members.tsx"]) {
       const src = code(`components/community/member/${f}`)
       check(`${f}: names link through memberHref and say who they are, for the card`, /memberHref\(/.test(src) && /data-person-id=\{/.test(src) && !/href=\{`\$\{base\}\/members\/\$\{author\.id\}`\}|href=\{`\/community\/\$\{slug\}\/members\/\$\{(c\.author|m\.author|r|m)\.(id|userId)\}`\}/.test(src))
