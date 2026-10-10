@@ -5,6 +5,7 @@ import * as React from "react"
 import { Banner, Button, Filters, Panel, Placeholder, SearchField } from "../_console/ui"
 import { CATEGORY_NAMES, INTEGRATIONS, type IntegrationCategory } from "@/lib/integrations/catalog"
 import type { Availability, CatalogOverride } from "@/lib/integrations/overrides"
+import { Mark } from "@/components/app/settings/integration-mark"
 
 /**
  * ===========================================================================
@@ -201,8 +202,8 @@ function Catalog({ data, onSaved }: { data: Data; onSaved: (err: string | null, 
   const [adding, setAdding] = React.useState(false)
   const words = q.toLowerCase().split(/\s+/).filter(Boolean)
   const rows = [
-    ...INTEGRATIONS.map((i) => ({ id: i.id, name: byId.get(i.id)?.name ?? i.name, category: byId.get(i.id)?.category ?? i.category, kind: i.kind === "listed" ? "Coming soon in code" : i.builtIn ? "Built in" : i.kind === "tracker" ? "Installs by ID" : i.comingSoon ? "Key only" : "Connects", custom: false })),
-    ...custom.map((o) => ({ id: o.id, name: o.name ?? o.id, category: o.category ?? ("automation" as IntegrationCategory), kind: "Added here", custom: true })),
+    ...INTEGRATIONS.map((i) => ({ id: i.id, name: byId.get(i.id)?.name ?? i.name, logo: byId.get(i.id)?.logoUrl ?? i.logo, category: byId.get(i.id)?.category ?? i.category, kind: i.kind === "listed" ? "Coming soon in code" : i.builtIn ? "Built in" : i.kind === "tracker" ? "Installs by ID" : i.comingSoon ? "Key only" : "Connects", custom: false })),
+    ...custom.map((o) => ({ id: o.id, name: o.name ?? o.id, logo: o.logoUrl ?? null, category: o.category ?? ("automation" as IntegrationCategory), kind: "Added here", custom: true })),
   ].filter((r) => words.every((w) => `${r.name} ${r.id} ${CATEGORY_NAMES[r.category]}`.toLowerCase().includes(w)))
   return (
     <div className="space-y-4">
@@ -225,6 +226,8 @@ function Catalog({ data, onSaved }: { data: Data; onSaved: (err: string | null, 
             return (
               <li key={r.id} className="px-4 py-2.5">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  {/* The mark stores see (components/app/settings/integration-mark): a wrong icon address shows here first. */}
+                  <Mark item={{ id: r.id, name: r.name, logo: r.logo }} size={28} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[13.5px] text-[#ededf0]">
                       {r.name} <span className="text-[#6b6b76]">· {CATEGORY_NAMES[r.category]} · {r.kind}</span>
