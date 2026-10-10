@@ -5,8 +5,8 @@
  *   PILLS     the hit area covers the gaps and is 44px or more tall; a tap is
  *             taken on the release; the pull leaves a tap's roll alone
  *   PRESS     something on the first frame, then an ease, then a slower let go
- *   INK       one ink in three pieces gliding on translate and scale; the list follows
- *             once the glide has done most of its travel
+ *   INK       round 16: each pill's own ink fades in or out where it is (the
+ *             glide is gone); the list follows once the fade is nearly whole
  *   KEYS      the same posts keep their cards: keyed by id, patched in place,
  *             an unchanged post keeps the very same object
  *   PICTURES  each slot's sizes against the boxes measured in the real frame,
@@ -21,7 +21,7 @@
  * Run with:  pnpm run test:push
  */
 import { readCode, readSource } from "./_source"
-import { CLICK_AFTER_MS, GAP, GLIDE_MS, HIT_X, HIT_Y, LIST_AFTER_MS, PILL_H, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, PULL_TAP_SLOP, TAP_SLOP, TOUCH_H, BODY, chipAt, coversGap, glideAt, hitBox, inkParts, isTap, pressAt } from "@/components/community/member/chip-hit"
+import { CLICK_AFTER_MS, GAP, HIT_X, HIT_Y, LIST_AFTER_MS, PILL_FADE_MS, PILL_H, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, PULL_TAP_SLOP, TAP_SLOP, TOUCH_H, chipAt, coversGap, fadeAt, hitBox, isTap, pressAt } from "@/components/community/member/chip-hit"
 import { FEED_PICTURE_QUALITY, FEED_SLOTS, NEXT_IMAGE_WIDTHS, coverFactor, feedSlot, fileWidthFor, loadPolicy, scaleSizes, slotWidthAt } from "@/lib/images/slots"
 import { mergeQuiet, samePost, type CachedView } from "@/components/community/member/feed-cache"
 import { PULL_TAP_SLOP as HOOK_SLOP, rollOf } from "@/hooks/use-pull-to-refresh"
@@ -44,7 +44,6 @@ const code = (p: string) => readCode(p)
 
 function main() {
   const chips = code("components/community/member/space-chips.tsx")
-  const ink = code("components/community/member/chip-ink.tsx")
   const feed = code("components/community/member/feed.tsx")
   const media = code("components/community/member/media.tsx")
   const hook = code("hooks/use-pull-to-refresh.ts")
@@ -63,7 +62,7 @@ function main() {
     check("HIT_X is half the gap and half a pixel", HIT_X === GAP / 2 + 0.5)
     check("the place that takes a tap on a phone is 44px or more tall", TOUCH_H >= 44 && PILL_H === 40, TOUCH_H)
     check("the pill's ::after draws that hit area: HIT_X sideways, HIT_Y up and down, square so the gap's corners are covered", chips.includes(`after:-inset-x-[${HIT_X}px]`) && chips.includes(`after:-inset-y-[${HIT_Y}px]`) && !/after:rounded/.test(chips))
-    check("the row has exactly that room above and below (py-1.5 inside a -my-1 track), so the hit area is never clipped", HIT_Y === 6 && /group\/row relative isolate flex w-max items-center gap-2 py-1\.5/.test(chips) && /className="-my-1 min-w-0 flex-1 overflow-x-auto/.test(chips))
+    check("the row has exactly that room above and below (py-1.5 inside a -my-1 track), so the hit area is never clipped", HIT_Y === 6 && /"relative isolate flex w-max items-center gap-2 py-1\.5/.test(chips) && /className="-my-1 min-w-0 flex-1 overflow-x-auto/.test(chips))
     check("a release near where the finger landed is a tap; a drag or a long rest is not", isTap({ x: 0, y: 0, t: 0 }, { x: 6, y: 5, t: 120 }) && !isTap({ x: 0, y: 0, t: 0 }, { x: TAP_SLOP + 1, y: 0, t: 120 }) && !isTap({ x: 0, y: 0, t: 0 }, { x: 0, y: 0, t: 900 }) && !isTap(null, { x: 0, y: 0, t: 0 }))
     check("a finger's tap is taken on the release, whatever the browser did with the click", /onPointerUp: \(e: React\.PointerEvent<HTMLAnchorElement>\) => \{[\s\S]{0,400}isTap\(started, \{ x: e\.clientX, y: e\.clientY, t: performance\.now\(\) \}\)[\s\S]{0,120}tookAt = performance\.now\(\)\s*onPick\(pick\)/.test(chips))
     check("the click after it is the same tap, not a second switch; a keyboard's or a mouse's click still switches", /if \(performance\.now\(\) - tookAt < CLICK_AFTER_MS\) return\s*onPick\(pick\)/.test(chips) && CLICK_AFTER_MS >= 500 && /down = e\.pointerType === "mouse"/.test(chips))
@@ -86,15 +85,12 @@ function main() {
     check("no colour jump left on the pill itself (no data-[pressed] or active background)", !/data-\[pressed\]:bg-/.test(chips) && !/active:bg-/.test(chips))
   }
 
-  console.log("\nINK: one piece gliding on the compositor")
+  /* Round 16: the owner found round 15's glide exaggerated; tests/account-pills16.test.ts holds the fade in place. */
+  console.log("\nINK: each pill's own, fading in place")
   {
-    const p = inkParts(100, 140, 40)
-    check("the round ends keep their size: one at the pill's left, one at its right less its height", p.start === 100 && p.end === 100 + 140 - 40)
-    check("the body spans between the ends' centres by scaleX alone", p.body === 120 && Math.abs(p.scale * BODY - 100) < 1e-9)
-    check("the glide moves translate and scale only, on iOS's curve, GLIDE_MS", /part\.style\.transition = t/.test(ink) && /const t = `translate \$\{GLIDE_MS\}ms \$\{GLIDE_EASE\}, scale \$\{GLIDE_MS\}ms \$\{GLIDE_EASE\}`/.test(ink) && /body\.style\.scale = `\$\{parts\.scale\} 1`/.test(ink) && GLIDE_MS >= 250 && GLIDE_MS <= 400)
-    check("the list is drawn once the glide has done most of its travel", glideAt(LIST_AFTER_MS) > 0.8 && LIST_AFTER_MS < 160, glideAt(LIST_AFTER_MS))
+    check("the list is drawn once the fade is nearly whole", fadeAt(LIST_AFTER_MS) > 0.9 && LIST_AFTER_MS <= PILL_FADE_MS, fadeAt(LIST_AFTER_MS))
     check("feed.tsx hands the list over LIST_AFTER_MS after the tap, and a newer tap cancels it", /window\.setTimeout\(\(\) => \{\s*frame = requestAnimationFrame\(\(\) => flushSync\(\(\) => setList\(next\)\)\)\s*\}, LIST_AFTER_MS\)/.test(feed) && /window\.clearTimeout\(wait\)/.test(feed))
-    check("the resting inks hide and the gliding one shows in the same frame (a row attribute, no transition on the resting ink)", /group-data-\[ink-gliding\]\/row:opacity-0/.test(chips) && /row\.setAttribute\("data-ink-gliding", ""\)/.test(ink) && !/const FILL =[^\n]*transition-opacity/.test(chips))
+    check("no gliding ink: every pill draws its own, and it moves by opacity alone", !/ChipInk|ink-gliding/.test(chips) && /const FILL =\s*"[^"]*transition-opacity/.test(chips))
   }
 
   console.log("\nKEYS: the same posts keep their cards")
@@ -166,7 +162,7 @@ function main() {
 
   console.log("\nCOPY")
   {
-    const files = ["components/community/member/chip-hit.ts", "components/community/member/chip-ink.tsx", "components/community/member/feed-cache.ts", "components/community/member/feed-live.tsx", "components/community/member/space-chips.tsx", "components/community/member/feed.tsx", "components/community/member/media.tsx", "components/community/member/search.tsx", "lib/images/slots.ts", "scripts/check-communities-feed15.mjs", "scripts/render-communities-feed15.tsx"]
+    const files = ["components/community/member/chip-hit.ts", "components/community/member/feed-cache.ts", "components/community/member/feed-live.tsx", "components/community/member/space-chips.tsx", "components/community/member/feed.tsx", "components/community/member/media.tsx", "components/community/member/search.tsx", "lib/images/slots.ts", "scripts/check-communities-feed15.mjs", "scripts/render-communities-feed15.tsx"]
     /* The words are spelled out in pieces here so this file does not hold them itself. */
     const banned = new RegExp(["\\u2014", "unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "trans" + "form"].map((w) => (w.startsWith("\\") ? w : `\\b${w}`)).join("|"), "i")
     const bad = files.filter((f) => banned.test(readSource(f)))

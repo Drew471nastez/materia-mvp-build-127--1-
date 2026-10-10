@@ -61,7 +61,7 @@ async function main() {
     const chips = code("components/community/member/space-chips.tsx")
     check("a chip is touch-action: manipulation (no double tap to zoom swallowing a quick second tap)", /const CHIP =\s*[`"][^`"]*touch-manipulation/.test(chips))
     check("a chip never scales on press, and its hover is not a hover:border class (those lose their easing on touch)", !/scale-/.test(chips) && !/hover:border/.test(chips))
-    check("a little more depth: a two pixel soft shadow at rest, sunk when pressed", /shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /* Round 15: the press is its own layer, sunk by an inset shadow. */ /const PRESS = "[^"]*shadow-\[inset_/.test(chips))
+    check("a little more depth: a two pixel soft shadow at rest, a light tint when pressed", /shadow-\[0_1px_2px_rgba\(16,24,40,0\.07\)/.test(chips) && /* Round 16: the press is its own layer, a light tint (the owner: subtle, simple, clean); round 15 sank it by an inset shadow. */ /const PRESS = "[^"]*bg-\[#f1f2f4\]/.test(chips))
     const ui = code("components/community/member/ui.ts")
     check("the tabs, the buttons and the pills are touch-action: manipulation and never scale", /group\/tab[^"]*touch-manipulation/.test(ui) && !/active:scale/.test(ui))
   }

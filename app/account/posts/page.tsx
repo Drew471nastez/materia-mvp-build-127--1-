@@ -6,7 +6,6 @@ import { communitiesEnabled } from "@/lib/communities/flag"
 import { admin } from "@/lib/communities/server/db"
 import { myPostsPage } from "@/lib/communities/server/member-profile"
 import { AccountPosts } from "@/components/account/account-posts"
-import { ACCOUNT_POSTS } from "@/lib/profile/owner-pills"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Posts" }
@@ -22,7 +21,7 @@ export const metadata: Metadata = { title: "Posts" }
  */
 export default async function AccountPostsPage() {
   if (!(await communitiesEnabled())) notFound()
-  const user = await pageUser(accountLoginPath(ACCOUNT_POSTS))
+  const user = await pageUser(accountLoginPath("/account/posts"))
   if (!user) return null
   const first = await myPostsPage(admin(), user.id, null).catch(() => ({ posts: [], next: null }))
   return <AccountPosts initial={first} now={Date.now()} />

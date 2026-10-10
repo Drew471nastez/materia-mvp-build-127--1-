@@ -22,8 +22,7 @@
  *   THE DEAD GAP. A pill took taps only on its own 40px pill: the 8px between
  *   two pills and the band above and below belonged to the row.
  *   THE FLASH. A press turned the pill grey in 70ms, three frames: a flash,
- *   not an ease. The chosen pill's ink crossfaded in place over 150ms, so the
- *   ink blinked from one pill to the other rather than going there.
+ *   not an ease.
  *
  * WHAT IT IS NOW
  *   The pull waits for a finger to travel PULL_TAP_SLOP before it moves the
@@ -34,12 +33,19 @@
  *   Every pill's hit area reaches HIT_X into each gap (so the two meet in the
  *   middle of it) and HIT_Y above and below, which on a phone makes the place
  *   that takes a tap TOUCH_H tall.
- *   The press is its own grey layer: on the first frame it is already
+ *   The press is its own light tint: on the first frame it is already
  *   PRESS_FROM of the way, then it eases to full over PRESS_IN_MS, and lets go
  *   over PRESS_OUT_MS. Opacity only, on the compositor.
- *   The ink is one piece that glides from the old pill to the new one over
- *   GLIDE_MS (chip-ink.tsx), translate and scale only, so it keeps moving while the new
- *   list is drawn.
+ *
+ * ROUND 16: THE FILL APPEARS WHERE IT IS. Round 15 made the chosen pill's
+ * ink one piece that glided across the row to the next pill over 320ms. The
+ * owner: "I don't like the animation when I click a space pill and how the
+ * pill and the highlight move. It's too exaggerated: make it more smooth,
+ * subtle, simple, clean." Nothing slides now. Each pill keeps its own fill
+ * in its own place; the chosen one's fades in over PILL_FADE_MS while the one
+ * it leaves fades out over the same time and curve, and the words cross over
+ * with them. Opacity only, so no pill changes its size or place and the
+ * compositor draws it while the page builds the new list.
  */
 
 /** The pill as drawn on a phone. */
@@ -65,18 +71,24 @@ export const PULL_TAP_SLOP = 8
 
 /** The press layer: part of the way on the first frame, then an ease to full, and a slower let go. */
 export const PRESS_FROM = 0.35
-export const PRESS_IN_MS = 140
-export const PRESS_OUT_MS = 240
-/** The ink's glide from one pill to the next, and its curve (iOS's own deceleration). */
-export const GLIDE_MS = 320
-export const GLIDE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-/** When the new list is drawn after a tap (feed.tsx): past the glide's fast part, so the work of drawing it lands on its slow end. */
+export const PRESS_IN_MS = 100
+export const PRESS_OUT_MS = 180
+/** The chosen pill's fill coming in, and the one it leaves going, in place: short and soft, the same both ways. */
+export const PILL_FADE_MS = 140
+export const PILL_FADE_EASE = "cubic-bezier(0.25, 0.1, 0.25, 1)"
+/**
+ * When the words on the two pills turn (dark to white and back), in one step: as the ink reaches 0.4 of the way (fadeAt;
+ * half is at 41ms). Filmed at 4x CPU, turning at the exact half left a frame of dark words on a 60% ink, and a short
+ * crossover a frame with no words at all.
+ */
+export const WORD_TURN_MS = 34
+/** When the new list is drawn after a tap (feed.tsx): with the fade nearly whole, so the work of drawing it lands on its end. */
 export const LIST_AFTER_MS = 110
 
-/** How far along its way the ink is `ms` into the glide (the curve's progress, for the tests): the cubic bezier solved for x. */
-export function glideAt(ms: number): number {
-  const x = Math.min(1, Math.max(0, ms / GLIDE_MS))
-  const [x1, y1, x2, y2] = [0.32, 0.72, 0, 1]
+/** How far the fade is `ms` after the tap (the curve's progress, for the tests): the cubic bezier solved for x. */
+export function fadeAt(ms: number): number {
+  const x = Math.min(1, Math.max(0, ms / PILL_FADE_MS))
+  const [x1, y1, x2, y2] = [0.25, 0.1, 0.25, 1]
   const bez = (t: number, a: number, b: number) => 3 * a * t * (1 - t) ** 2 + 3 * b * t * t * (1 - t) + t ** 3
   let lo = 0
   let hi = 1
@@ -142,15 +154,4 @@ export function pressAt(ms: number): number {
   const t = Math.min(1, ms / PRESS_IN_MS)
   const eased = 1 - Math.pow(1 - t, 3)
   return PRESS_FROM + (1 - PRESS_FROM) * eased
-}
-
-/**
- * The ink's three pieces for a pill at `left` of `width` and height `h` (chip-ink.tsx): two round ends of the pill's height
- * and a body between them, so moving and resizing it is translate and scale alone, and the round ends never stretch.
- * BODY is the body's drawn width before its scale.
- */
-export const BODY = 100
-export function inkParts(left: number, width: number, h: number): { start: number; end: number; body: number; scale: number } {
-  const w = Math.max(width, h)
-  return { start: left, end: left + w - h, body: left + h / 2, scale: (w - h) / BODY }
 }

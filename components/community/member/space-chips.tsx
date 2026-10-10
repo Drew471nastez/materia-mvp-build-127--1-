@@ -21,8 +21,8 @@
  * deeper one and the faintest light along its top edge. Nothing scales, so
  * nothing bumps, and every chip is touch-action: manipulation, so iOS never
  * holds a quick second tap back to see whether it is a double tap to zoom.
- * Round 15 replaced the press, the fill and how a tap is taken (chip-hit.ts
- * says why, with the measurements; below, THE LAYERS).
+ * Round 15 replaced the press and how a tap is taken (chip-hit.ts says why,
+ * with the measurements; below, THE LAYERS); round 16 the fill's motion.
  *
  * ONE ROW at every width: the chips scroll sideways when they do not fit
  * (a thumb, a trackpad, or Tab, which scrolls the focused chip into view),
@@ -36,13 +36,12 @@
  */
 import Link from "next/link"
 import { CLICK_AFTER_MS, isTap, PRESS_FROM, PRESS_IN_MS, PRESS_OUT_MS, type Press } from "./chip-hit"
-import { ChipInk } from "./chip-ink"
 import { placeHref } from "@/lib/communities/client/places"
 import { spaceGlyph } from "./space-glyph"
 import type { SpaceView } from "./view-types"
 
 /*
-  ROUND 15: ONE TAP, NO FLASH, NO BUMP (chip-hit.ts says what was wrong and the numbers; chip-ink.tsx the glide).
+  ROUND 15: ONE TAP, NO FLASH, NO BUMP (chip-hit.ts says what was wrong and the numbers).
 
   A pill is white on its hairline and stays exactly its size and place whether chosen or not: the ink and the press are
   layers inside it, the words are two copies on top of each other (dark and white) that cross over on opacity, so choosing
@@ -50,33 +49,41 @@ import type { SpaceView } from "./view-types"
   and below, into the row's padding (the row is py-1.5 inside a -my-1 track, the same height as before). A pseudo
   element's taps belong to its pill, so this costs no node and no layout.
 
-  THE LAYERS, in the row's own stacking context (isolate): a pill's white and hairline; its press (z-0); the gliding ink
-  (chip-ink.tsx, z-1) and each pill's own resting ink (z-1); the words (z-2).
+  ROUND 16: NOTHING SLIDES ACROSS THE ROW. Round 15's ink glided from the old pill to the new one over 320ms (chip-ink.tsx,
+  gone); the owner found it exaggerated. Every pill now carries its own ink, always there and only shown on the chosen one:
+  choosing another fades the new one in and the old one out, in place, over PILL_FADE_MS on one soft curve, and the words
+  cross over with them. Opacity only, on the compositor.
+
+  THE LAYERS, in the row's own stacking context (isolate): a pill's white and hairline; its press (z-0); its ink (z-1); the
+  words (z-2).
 */
 const CHIP =
-  "group/chip relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[background-color,box-shadow] duration-150 ease-out after:absolute after:-inset-x-[4.5px] after:-inset-y-[6px] after:content-[''] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
-/* The chosen pill: no shadow of its own (its ink carries one). */
+  "group/chip relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[background-color,box-shadow] duration-[140ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] after:absolute after:-inset-x-[4.5px] after:-inset-y-[6px] after:content-[''] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
+/* The chosen pill: no shadow of its own (its ink carries one). The shadow changes on the fade's own time. */
 const CHIP_ON = "shadow-none"
 const CHIP_OFF = "shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#f5f6f7]"
-/* The resting ink, over the hairline (-inset-px); hidden in the same frame the gliding one is up (chip-ink.tsx). */
+/* Every pill's own ink, over the hairline (-inset-px), shown only on the chosen one: it fades in and out where it is (PILL_FADE_MS in chip-hit.ts). */
 const FILL =
-  "pointer-events-none absolute -inset-px z-[1] rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] group-data-[ink-gliding]/row:opacity-0"
-/* The press: grey, inside the hairline, eased in and out by pressChip() and releaseChip() below (opacity only). */
-const PRESS = "pointer-events-none absolute inset-0 z-0 rounded-full bg-[#eceef1] opacity-0 shadow-[inset_0_1px_2px_rgba(16,24,40,0.08)]"
+  "pointer-events-none absolute -inset-px z-[1] rounded-full bg-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.2),0_2px_5px_-2px_rgba(16,24,40,0.22),inset_0_1px_0_rgba(255,255,255,0.09)] transition-opacity duration-[140ms] ease-[cubic-bezier(0.25,0.1,0.25,1)] motion-reduce:transition-none"
+/* The press: a light tint inside the hairline, eased in and out by pressChip() and releaseChip() below (opacity only). */
+const PRESS = "pointer-events-none absolute inset-0 z-0 rounded-full bg-[#f1f2f4] opacity-0"
 /*
-  THE WORDS CROSS OVER WITH THE INK. The glide's curve puts the ink most of the way there in its first third, so the new
-  pill's white words come in from 60ms over 180ms while its dark words go over the same time (never a frame with neither),
-  and the old pill's words turn back at once over 180ms. Opacity, so they keep time while the list is drawn.
+  THE WORDS TURN WHEN THE INK IS ABOUT HALF THERE (WORD_TURN_MS in chip-hit.ts). Two copies of one word, dark and white, one
+  shown. Crossing them over on the ink's own curve (round 16's first try, filmed at 4x CPU) left a frame where the words were
+  the same grey as the half drawn ink and the pill read empty; any crossover has that frame wherever the two meet. So the
+  words turn in one step (steps(1, end) over WORD_TURN_MS) as the ink reaches half way, where either colour stands clear of
+  it, and the ink alone does the easing. A real transition, not a delay, so the compositor runs it with the ink and a busy
+  page cannot hold it back.
 */
-const WORD = "z-[2] col-start-1 row-start-1 truncate transition-opacity duration-[180ms] ease-out motion-reduce:transition-none"
-const DARK_ON = "opacity-0 delay-[60ms]"
+const WORD = "z-[2] col-start-1 row-start-1 truncate transition-opacity duration-[34ms] ease-[steps(1,end)] motion-reduce:transition-none"
+const DARK_ON = "opacity-0"
 const DARK_OFF = "opacity-100"
-const WHITE_ON = "opacity-100 delay-[60ms]"
+const WHITE_ON = "opacity-100"
 const WHITE_OFF = "opacity-0"
 
-/** The chosen pill's ink at rest. */
+/** A pill's ink: always there, seen only while the pill is the chosen one. */
 function Fill({ on }: { on: boolean }) {
-  return on ? <span aria-hidden data-chip-fill="" className={FILL} /> : null
+  return <span aria-hidden data-chip-fill={on ? "on" : "off"} className={`${FILL} ${on ? "opacity-100" : "opacity-0"}`} />
 }
 
 /** A pill's words, dark and white, one shown. */
@@ -246,8 +253,7 @@ export function SpaceChips({ slug, spaces, active, savedOn = false, onPick, onIn
         {...(onPick ? { onScroll: (e: React.UIEvent<HTMLDivElement>) => void (e.currentTarget.dataset.scrolledAt = String(performance.now())) } : {})}
       >
         {/* 6px above and below: the pills' hit areas reach into it, and a pill's one pixel shadow is not cut by the scrolling track. */}
-        <div className="group/row relative isolate flex w-max items-center gap-2 py-1.5 pl-4 pr-6 sm:pl-0">
-          <ChipInk active={allOn ? "all" : (active ?? null)} />
+        <div className="relative isolate flex w-max items-center gap-2 py-1.5 pl-4 pr-6 sm:pl-0">
           <Link href={base} aria-current={allOn ? "page" : undefined} data-space-chip="all" className={`${CHIP} ${allOn ? CHIP_ON : CHIP_OFF}`} {...switching({ kind: "all" })}>
             <span aria-hidden data-chip-press="" className={PRESS} />
             <Fill on={allOn} />
