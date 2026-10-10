@@ -7,10 +7,12 @@
  * a 390x844 phone, every frame sampled:
  *
  *   POST      a photo post whose card sits mostly under the tab bar is
- *             opened and closed with the back button: before the close the
- *             feed is moved (unseen, under the post) so the card is clear of
- *             the header and the bar, and the page lands on it there; no
- *             frame of the way back ends on the bar
+ *             opened and closed with the back button. Round 15: the post is
+ *             pushed in from the right and goes back out to the right
+ *             (components/community/member/post-motion.ts), never landing
+ *             on its card, so the feed is left exactly where it was (it used
+ *             to be moved to bring the card clear of the bars); no frame of
+ *             the way back is over the tab bar
  *   VIEWER    a picture in the opened post grows out of its tile and goes
  *             back into it by translate and scale only: no frame of either
  *             way animates clip-path (which WebKit repaints on the main
@@ -186,10 +188,10 @@ export const isNativePlatform = () => false
     return { top: Math.round(r.top), bottom: Math.round(r.bottom), scroll: Math.round(scrollY) }
   })
   const b1 = await band()
-  expect(after.top >= b1.top && after.bottom <= b1.bottom, "after the close the card is in full view, between the header and the tab bar", { card: after, band: b1 })
-  const landing = closeFrames.filter(Boolean).filter((f) => f.o > 0.05 && f.h < 700)
-  const last = landing[landing.length - 1]
-  expect(!!last && last.bottom <= b1.bottom + 2, "the post's last visible frames land above the tab bar, not over it", { last, bar: b1.bottom, frames: closeFrames.length })
+  expect(after.scroll === before.scroll && after.top === before.top, "after the close the feed is exactly where it was: nothing moved it to meet the card", { before, after })
+  const seen = closeFrames.filter(Boolean).filter((f) => f.o > 0.05)
+  const overBar = seen.filter((f) => f.bottom > b1.bottom + 2)
+  expect(seen.length > 0 && overBar.length === 0, "no frame of the way back is over the tab bar (the page ends at its top)", { overBar: overBar.slice(0, 3), bar: b1.bottom, frames: closeFrames.length })
   expect(closeFrames.length >= 8, "the way back is drawn over several frames", closeFrames.length)
   await p.screenshot({ path: join(shots, "post-closed.png") })
 

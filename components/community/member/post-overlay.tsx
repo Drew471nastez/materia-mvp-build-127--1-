@@ -6,7 +6,8 @@
  * ===========================================================================
  * Pressing a card opens its post where the member is: on a computer a
  * panel over the feed (the feed stays where it was under a light scrim), on
- * a phone a sheet that slides up over it. The address becomes the post's
+ * a phone a full screen page pushed in from the right over it, under the tab
+ * bar (post-fullscreen.tsx, round 15). The address becomes the post's
  * own (/community/<slug>/post/<id>) without loading a page, so a reload or a
  * shared link lands on the post page; Back, Escape, the close button, a
  * press on the scrim or a pull down on the phone's sheet close it (one step

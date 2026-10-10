@@ -565,6 +565,42 @@ export const isNativePlatform = () => false
     expect(!s.errors.length, "no page errors in the app", s.errors.slice(0, 2))
     await p.close()
   }
+  /* ── A COMPUTER: the panel over the feed is as it was ── */
+  if (process.env.DESKTOP !== "0") {
+    const p = await browser.newPage()
+    await p.setViewport({ width: 1440, height: 900 })
+    const errors = []
+    p.on("pageerror", (e) => errors.push(String(e).slice(0, 300)))
+    await p.setRequestInterception(true)
+    p.on("request", (r) => {
+      const url = r.url()
+      if (url.startsWith(`${ORIGIN}/api/`) && /\/posts\/[^/?]+(\?|$)/.test(url)) return void r.respond({ status: 404, contentType: "application/json", body: "{}" })
+      if (url.startsWith(`${ORIGIN}/api/`)) return void r.respond({ status: 200, contentType: "application/json", body: JSON.stringify(/\/comments/.test(url) ? { comments: [], nextCursor: null, commentsEnabled: true, mediaReady: true, me: { name: "Sam Carter", avatarUrl: null } } : { ok: true }) })
+      if (url.startsWith(`${ORIGIN}/`)) return void r.respond({ status: 200, contentType: "text/html", body: html })
+      if (url.startsWith("data:")) return void r.continue()
+      return void r.respond({ status: 204, body: "" })
+    })
+    await p.goto(`${ORIGIN}/community/bandido`, { waitUntil: "load" })
+    await sleep(800)
+    const at = await p.evaluate(() => {
+      const r = document.querySelector('article[data-post="p-pic"] [data-post-excerpt]').getBoundingClientRect()
+      return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) }
+    })
+    await p.mouse.click(at.x, at.y)
+    await sleep(700)
+    const panel = await p.evaluate(() => {
+      const el = document.querySelector('[data-post-overlay="panel"]')
+      const r = el?.getBoundingClientRect()
+      return r ? { w: Math.round(r.width), top: Math.round(r.top), phone: !!document.querySelector("[data-post-fullscreen]"), composer: document.querySelector('[data-post-overlay="panel"] [data-comments-composer]')?.getAttribute("data-comments-composer") ?? null } : null
+    })
+    await p.screenshot({ path: join(shots, `${LABEL}-desktop-open.png`) })
+    expect(!!panel && !panel.phone && panel.w === 760, "DESKTOP: the post opens as the panel over the feed, as before", panel)
+    await p.evaluate(() => document.querySelector('[data-post-overlay="panel"] [data-post-overlay-close]').click())
+    await sleep(700)
+    expect(await p.evaluate(() => !document.querySelector('[data-post-overlay="panel"]')), "and closes", null)
+    expect(!errors.length, "no page errors on a computer", errors.slice(0, 2))
+    await p.close()
+  }
   console.log(JSON.stringify({ label: LABEL, throttle: THROTTLE, summary }))
   console.log(`\n  sheets in ${shots}`)
   await browser.close()
