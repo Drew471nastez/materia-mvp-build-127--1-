@@ -73,6 +73,8 @@ console.log("\nHOST: the place under an opened post stays (finding B)")
   check("and a post it cannot read opens its own page, so a press is never dead", /window\.location\.assign\(href\)/.test(opener))
   const shared = read("components/community/member/shared-post.tsx")
   check("a post opened by its link closes by giving the address back in place, not a router move (the feed under it is not drawn again)", /window\.history\.replaceState\(window\.history\.state, "", home\)/.test(shared) && !/router\.replace/.test(shared))
+  const search = read("components/community/member/search.tsx")
+  check("a post picked from the community's search opens over the place too (both search screens)", (search.match(/if \(openResultOver\(href, options\)\) return\s*router\.push\(href\)/g) ?? []).length === 2 && /return !!o && openPostOver\(o\.key\.slice\("post:"\.length\)\)/.test(search))
   const page = read("app/(marketing)/community/[slug]/(member)/post/[postId]/page.tsx")
   check("the post route seeds the shell with the feed under the shared post", /<SharedPost slug=\{community\.slug\}[^>]*>\s*<PlacePage slug=\{community\.slug\} place=\{\{ kind: "feed" \}\} \/>\s*<\/SharedPost>/.test(page) && !/<CommunityFeed/.test(page))
 }

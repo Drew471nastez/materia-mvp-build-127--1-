@@ -43,6 +43,7 @@ import { CalendarDays, GraduationCap, PlayCircle, Search, X } from "lucide-react
 import { MemberAvatar } from "./member-avatar"
 import { relativeTime } from "@/lib/communities/format"
 import { postPath } from "@/lib/communities/post-url"
+import { openPostOver } from "@/lib/communities/client/open-post"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
@@ -76,6 +77,16 @@ export interface SearchOption {
   key: string
   group: "posts" | "members" | "spaces" | "lessons" | "events"
   href: string
+}
+
+/**
+ * A POST PICKED FROM THE RESULTS OPENS OVER THE PLACE (round 16), as from the feed: a card on screen or the place host's
+ * reader (post-opener.tsx) opens it, and the place under it stays. It used to be the post's own page, asked of the router:
+ * a second feed drawn under the post, and the place left behind. Anything else, or a post nobody can open, goes by address.
+ */
+export function openResultOver(href: string, options: SearchOption[]): boolean {
+  const o = options.find((x) => x.group === "posts" && x.href === href)
+  return !!o && openPostOver(o.key.slice("post:".length))
 }
 
 /** The results in the order they are drawn and stepped through: posts, members, spaces, the classroom, events. */
@@ -517,9 +528,10 @@ export function CommunitySearchField({ communityId, slug, className = "" }: { co
       setOpen(false)
       s.setQ("")
       input.current?.blur()
+      if (openResultOver(href, options)) return
       router.push(href)
     },
-    [router, s],
+    [router, s, options],
   )
   const onKey = useKeys(options.length, active, setActive, () => go(options[active].href))
 
@@ -666,9 +678,10 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
     (href: string) => {
       close(false)
       s.setQ("")
+      if (openResultOver(href, options)) return
       router.push(href)
     },
-    [close, router, s],
+    [close, router, s, options],
   )
   const onKey = useKeys(options.length, active, setActive, () => go(options[active].href))
 
