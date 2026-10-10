@@ -27,12 +27,22 @@
  *                drawn by the server with the page) is left exactly as it is:
  *                no fade to replay.
  *
+ * VISIT PAGE AND BACK (round 18, C18 item 12). Opened with a member
+ * profile's Visit page, the page comes in from the right edge over the
+ * community as it drifts left under it (lib/navigation/page-push.ts, armed by
+ * the press in components/community/member/member-profile.tsx) instead of the
+ * short push above. Its own back arrow arms a pop: in the commit that takes
+ * this page away it slides off to the right over the page it returns to. A
+ * way back the system draws (the app's edge swipe, a browser's swipe) is
+ * never armed, so it never moves twice.
+ *
  * Renders an empty marker as the first child of the page's root and works
  * on that root (its parent), so no page's markup or position changes.
  * Reduced motion: no push and no fade, the page and its cover simply there.
  */
 import { useLayoutEffect, useRef } from "react"
 import { previousPath } from "@/lib/navigation/in-app-history"
+import { armPageMotion, arriveWithPageMotion, holdPageMotion, takeArmedMotion } from "@/lib/navigation/page-push"
 
 /** The push: how far from the right the page starts, and for how long it moves. */
 export const ARRIVAL_SHIFT_PX = 28
@@ -55,6 +65,19 @@ const COVER_SELECTOR = "[data-cover-band] img, [data-profile-cover-band] img"
 
 export function ProfileArrival() {
   const marker = useRef<HTMLSpanElement | null>(null)
+  /* Our back arrow arms a pop; the commit that takes this page away plays it. */
+  useLayoutEffect(() => {
+    const root = marker.current?.parentElement
+    if (!root || typeof document === "undefined") return
+    const onPress = (e: MouseEvent) => {
+      if (e.button === 0 && !e.metaKey && !e.ctrlKey && (e.target as Element | null)?.closest?.("[data-profile-back-button]")) armPageMotion("pop")
+    }
+    document.addEventListener("click", onPress, true)
+    return () => {
+      document.removeEventListener("click", onPress, true)
+      if (takeArmedMotion("pop")) holdPageMotion(root, "pop")
+    }
+  }, [])
   useLayoutEffect(() => {
     const root = marker.current?.parentElement
     if (!root || typeof window === "undefined") return
@@ -65,7 +88,10 @@ export function ProfileArrival() {
     if (hydrating && !previousPath()) return
 
     const prev = previousPath()
-    if (!reduced && arrivesFromCommunity(prev, window.location.search) && typeof root.animate === "function") {
+    /* Pushed by Visit page in this same commit: it moves with the community leaving, and nothing of its own. */
+    if (arriveWithPageMotion(root)) {
+      /* The cover below is still held until decoded. */
+    } else if (!reduced && arrivesFromCommunity(prev, window.location.search) && typeof root.animate === "function") {
       root.animate(
         [
           { translate: `${ARRIVAL_SHIFT_PX}px 0`, opacity: 0.001 },

@@ -118,6 +118,7 @@ import { parsePostParam } from "@/lib/communities/post-url"
 import { quietRouterRefresh } from "@/lib/communities/client/resume"
 import { usePlaceScreens } from "./place-host"
 import { holdLeavingStill } from "@/lib/navigation/leaving-still"
+import { arriveWithPageMotion } from "@/lib/navigation/page-push"
 import { tabSwapInProgress } from "@/lib/nav/tab-swap"
 import type { MemberProfileData } from "@/lib/communities/member-profile-view"
 import { MemberProfilePlace } from "./place-views"
@@ -588,7 +589,9 @@ function Frame({ community, viewer, topBar, unreadMessages = null, wall = null, 
   const leavingRef = useRef<"pop" | null>(null)
   useLayoutEffect(() => {
     const el = rootRef.current
-    if (landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+    /* Back from a full page opened with Visit page: it comes from the left under the page popping off (lib/navigation/page-push.ts), not with the push in from outside. */
+    const popped = landing && arriveWithPageMotion(el)
+    if (!popped && landing && el && typeof el.animate === "function" && !tabSwapInProgress() && !window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
       el.animate([{ translate: "36px 0", opacity: 0.6 }, { translate: "0 0", opacity: 1 }], { duration: 300, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
     }
     return () => {

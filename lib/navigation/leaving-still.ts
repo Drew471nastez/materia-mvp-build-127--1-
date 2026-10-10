@@ -58,7 +58,7 @@ export const STILL_CAP_MS = 1200
 export const STILL_ATTR = "data-leaving-still"
 
 /** The part of a clone a clone does not carry: what is typed, where things are scrolled to. */
-function copyLiveState(from: HTMLElement, to: HTMLElement) {
+export function copyLiveState(from: HTMLElement, to: HTMLElement) {
   const pair = <T extends HTMLElement>(selector: string, put: (a: T, b: T) => void) => {
     const a = from.querySelectorAll<T>(selector)
     const b = to.querySelectorAll<T>(selector)
@@ -82,7 +82,7 @@ function copyLiveState(from: HTMLElement, to: HTMLElement) {
 }
 
 /** A copy of `el` for the still: no ids, no second frame, nothing live inside it. */
-function copyFor(el: HTMLElement): HTMLElement {
+export function copyFor(el: HTMLElement): HTMLElement {
   const copy = el.cloneNode(true) as HTMLElement
   copy.removeAttribute("id")
   for (const node of Array.from(copy.querySelectorAll("[id]"))) node.removeAttribute("id")
