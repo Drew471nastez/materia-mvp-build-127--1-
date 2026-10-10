@@ -84,7 +84,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { EMBED_NAMES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA } from "@/lib/communities/post-media"
 import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
-import { landComment, scrollCommentIntoView } from "./arrive"
+import { holdAnchor, LAND_MS, landComment, scrollCommentIntoView } from "./arrive"
 import { BodyText } from "./body-text"
 import type { ConfirmState, ReportTargetRef } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
@@ -516,13 +516,23 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.communityId, post.id, visitor])
 
+  /*
+    MORE COMMENTS, WITH NOTHING MOVING UNDER THE READER (round 14's reference, lifted in round 15). The next page goes on the
+    end, under what is being read, so nothing above it changes height; each of its rows rises into place the way a comment
+    that arrives live does, rather than all appearing at once, and the browser's scroll anchoring is held off while they land
+    so it does not correct a change that is already drawn as a move.
+  */
   const more = async () => {
     if (!cursor || loading) return
     setLoading(true)
     const r = await api<CommentsPageData>(`${base}/posts/${post.id}/comments?cursor=${encodeURIComponent(cursor)}`)
     setLoading(false)
     if (!r.ok) return toast(r.error)
-    setComments((list) => [...(list ?? []), ...r.data.comments.filter((c) => !(list ?? []).some((x) => x.id === c.id))])
+    const here = new Set((listRef.current ?? []).map((c) => c.id))
+    const next = r.data.comments.filter((c) => !here.has(c.id))
+    for (const c of next) landing.current.set(c.id, "live")
+    holdAnchor(LAND_MS + 200)
+    setComments((list) => [...(list ?? []), ...next.filter((c) => !(list ?? []).some((x) => x.id === c.id))])
     setCursor(r.data.nextCursor)
   }
 

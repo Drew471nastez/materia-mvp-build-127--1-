@@ -208,6 +208,7 @@ console.log("\nSOURCE: the push")
   check("the comment box stands on white while it is typed in", /\[\[data-typing\]_&\]:bg-white/.test(cm))
   check("the post page's dock stands on the visible screen's foot while typed in, with a white skirt", /useVisibleBox\(\s*dockPhone,/.test(cm) && /dock\.style\.bottom = box\.aboveTabs \? COMMENT_COMPOSER_DOCK_BOTTOM/.test(cm) && /data-comments-dock-skirt/.test(cm))
   check("the post page's back reaches the screen's edge on a phone, 48px tall", /max-sm:-ml-3 max-sm:h-12 max-sm:min-w-\[64px\]/.test(read("components/community/member/post-page.tsx")))
+  check("more comments rise in one by one with the page's anchoring held, nothing above them moving", /for \(const c of next\) landing\.current\.set\(c\.id, "live"\)\s*holdAnchor\(LAND_MS \+ 200\)/.test(cm))
   check("a comment's face keeps its room from the first frame", /data-comment-face=""/.test(cm) && /\$\{small \? "h-7 w-7" : "h-8 w-8"\}`\} data-person-link/.test(cm))
 }
 
