@@ -353,6 +353,22 @@ export const isNativePlatform = () => false
     }
     const open1 = await record(s, "open", () => tap(at.x, at.y), 1600)
     await sleep(400)
+    /* SAVE: the button keeps its width and its bookmark keeps its place through a save and an unsave. */
+    const saveBox = () =>
+      p.evaluate(() => {
+        const b = document.querySelector("[data-post-fullscreen] [data-save]")
+        const r = b.getBoundingClientRect()
+        const i = b.querySelector("span").getBoundingClientRect()
+        return { w: Math.round(r.width * 10) / 10, x: Math.round(r.left * 10) / 10, ix: Math.round(i.left * 10) / 10, on: b.getAttribute("aria-pressed") }
+      })
+    const s0 = await saveBox()
+    await p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-save]").click())
+    await sleep(500)
+    const s1 = await saveBox()
+    await p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-save]").click())
+    await sleep(500)
+    const s2 = await saveBox()
+    expect(s0.on === "false" && s1.on === "true" && s2.on === "false" && s0.w === s1.w && s1.w === s2.w && s0.ix === s1.ix && s1.ix === s2.ix, "SAVE: one width and the bookmark in one place, saved and unsaved", [s0, s1, s2])
     const back = await p.evaluate(() => {
       const b = document.querySelector("[data-post-fullscreen] [data-post-overlay-close]")
       const r = b?.getBoundingClientRect()

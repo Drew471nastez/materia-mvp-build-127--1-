@@ -219,5 +219,17 @@ console.log("\nSOURCE: the composer")
   check("the spaces it is handed carry their slug (feed.tsx)", /slug: s\.slug, kind: s\.kind/.test(read("components/community/member/feed.tsx")))
 }
 
+console.log("\nSOURCE: Save, the viewer, a card answering openPost")
+{
+  const sb = read("components/community/member/save-button.tsx")
+  check("Save and Saved share one cell, so the button never changes width", /<span className="grid" aria-hidden>[\s\S]{0,200}>Save<\/span>[\s\S]{0,200}>Saved<\/span>/.test(sb))
+  check("the bookmark's two faces crossfade in one cell", (sb.match(/col-start-1 row-start-1 h-\[18px\] w-\[18px\]/g) ?? []).length === 2)
+  check("only a press that saves settles the icon (not the first draw, not the server's answer)", /if \(!pressed\.current\) return/.test(sb) && /if \(!on \|\| !el/.test(sb))
+  const pc = read("components/community/member/post-card.tsx")
+  check("the opened post uses it", /import \{ SaveButton \} from "\.\/save-button"/.test(pc) && !/function SaveButton/.test(pc))
+  check("a card on screen answers openPost for its own post", /useOpenPostRequests\(\(r\) => \{\s*if \(full \|\| editing \|\| r\.postId !== post\.id\) return false/.test(pc))
+  check("the picture viewer is a counted 'viewer' layer", /useLayer\("viewer", true, rootRef\)/.test(read("components/community/member/lightbox.tsx")))
+}
+
 console.log(`\n  ${passed} passed, ${failed} failed\n`)
 if (failed) process.exit(1)
