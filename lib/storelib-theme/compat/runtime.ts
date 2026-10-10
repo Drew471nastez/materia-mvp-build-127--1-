@@ -127,6 +127,10 @@ export function isBlank(v: unknown): boolean {
   if (typeof v === "string") return v.trim() === ""
   if (Array.isArray(v)) return v.length === 0
   if (typeof v === "object") {
+    /* `assign x = blank` holds the literal, which prints as nothing and is blank, as on Shopify. */
+    if (v === BLANK || v === EMPTY) return true
+    /* The cart is blank and empty when it holds nothing (`cart == empty`, Dawn's and most themes' test). */
+    if (typeof (v as Record<string, unknown>).empty === "boolean" && "item_count" in v) return (v as Record<string, unknown>).empty === true
     const out = (v as Record<string, unknown>)[OUTPUT]
     if (out !== undefined) return isBlank(out)
     return Object.keys(v).length === 0
@@ -138,6 +142,8 @@ export function isEmpty(v: unknown): boolean {
   if (v instanceof LFloat) return false
   if (typeof v === "string") return v === ""
   if (Array.isArray(v)) return v.length === 0
+  if (v === BLANK || v === EMPTY) return true
+  if (v && typeof v === "object" && typeof (v as Record<string, unknown>).empty === "boolean" && "item_count" in v) return (v as Record<string, unknown>).empty === true
   if (v && typeof v === "object") return Object.keys(v).filter((k) => k !== OUTPUT).length === 0
   return false
 }
