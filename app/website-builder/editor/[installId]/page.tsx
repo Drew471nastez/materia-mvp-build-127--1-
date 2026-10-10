@@ -3949,9 +3949,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       await saveDraft({ quiet: true })
     }
     switchingPage.current = true
-    const mine = ++openRequest.current
     // The history describes the page being left. See `clearHistory`.
     clearHistory()
+    const mine = ++openRequest.current
     /** Arriving somewhere answers "that page does not exist". */
     setMissingPath(null)
     /**
@@ -4027,7 +4027,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setSectionsLoading(false)
       setCanvasLoading(false)
     } finally {
-      if (mine === openRequest.current) switchingPage.current = false
+      switchingPage.current = false
     }
   }
 
@@ -4053,24 +4053,25 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   /** A section to scroll to on the page being opened, from a link like `/about#section-x`. */
   const pendingAnchor = useRef<string | null>(null)
-  /* Which page the canvas last showed, so only opening ANOTHER page fades it in (not the editor's first draw). */
-  const pageShown = useRef<string | null>(null)
   useLayoutEffect(() => {
     /* The page is here, so the hold that kept the canvas still while it was
        being fetched ends now, before the one move it was protecting. */
     openingPage.current = false
-    const root = document.getElementById("wb-preview-root")
-    root?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
-    /*
-      ANOTHER PAGE FADES IN, briefly, rather than replacing the last one in a
-      single frame. Opacity only, on the page inside the canvas, never below
-      a third: it is the same canvas, showing a different page.
-    */
+    document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior })
+  }, [currentPage, selectedProductPage])
+  /**
+   * ANOTHER PAGE FADES IN, briefly, rather than replacing the last one in a
+   * single frame. Opacity only, on the page inside the canvas, never below a
+   * third: it is the same canvas, showing a different page. Not on the
+   * editor's first draw, which is not a change of page.
+   */
+  const pageShown = useRef<string | null>(null)
+  useLayoutEffect(() => {
     const key = `${currentPage}|${selectedProductPage ?? ""}`
     const before = pageShown.current
     pageShown.current = key
     if (before === null || before === key) return
-    const page = root?.firstElementChild as HTMLElement | null
+    const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
     const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
     if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
@@ -4186,8 +4187,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
     /** One commit: the page, the product it is showing, and its sections. */
-    setSelectedProductPage(productTitle)
     setSelectedProductId(productId)
+    setSelectedProductPage(productTitle)
     setCurrentPage("product")
     setSections(merged)
     updatePageUrl("product", slugForUrl)
