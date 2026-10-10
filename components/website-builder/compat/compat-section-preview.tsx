@@ -28,7 +28,7 @@
 import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
-import { drawPage, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
+import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { SectionSchema } from "@/lib/website-builder/types"
 
@@ -38,6 +38,7 @@ interface CompatPreviewValue {
 }
 
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
+const keptThemes = new WeakMap<Record<string, string>, { key: string; sources: Record<string, string>; theme: CompatTheme }>()
 
 /** Whether the library's cards are an imported theme's, drawn here. */
 export function useCompatPreview(): CompatPreviewValue | null {
@@ -69,14 +70,20 @@ export function CompatPreviewProvider({
 
   const theme = useMemo(() => {
     if (!files) return null
+    /* The same theme for every opening of the dialog while nothing it is made of changed: its parsed files and its drawn layout are kept with it. */
+    const key = `${installId}|${JSON.stringify(settings ?? {})}`
+    const kept = keptThemes.get(files)
+    if (kept && kept.key === key && kept.sources === sources) return kept.theme
     const rows = { ...sources, ...files }
     const media = assetAddresses(rows)
     try {
-      return themeOfInstall(rows, settings ?? {}, {
+      const made = themeOfInstall(rows, settings ?? {}, {
         assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
         assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
         imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
       })
+      keptThemes.set(files, { key, sources, theme: made })
+      return made
     } catch {
       return null
     }
@@ -127,13 +134,60 @@ export function previewSectionFor(type: string, presetIndex: number, schema: Sec
   return { id, type, settings: preset?.settings ?? {}, blocks: blocksOf(preset?.blocks, id) }
 }
 
+/*
+ * THE LAYOUT, DRAWN ONCE. Every card's document is the theme's layout (its
+ * head, its stylesheets, its colour schemes) around one section, and the
+ * layout is the same for all of them: drawn once a theme and kept, and only
+ * the section drawn for each card. On a large theme that was most of the
+ * time the dialog took to fill.
+ */
+const PREVIEW_SLOT = "<!--storelib-preview-section-->"
+const shells = new WeakMap<CompatTheme, Map<CompatPage, string>>()
+
+function previewShell(theme: CompatTheme, page: CompatPage): string {
+  let byPage = shells.get(theme)
+  if (!byPage) shells.set(theme, (byPage = new Map()))
+  const hit = byPage.get(page)
+  if (hit) return hit
+  let shell = cleanPreview(fullPreview(theme, page, [], PREVIEW_SLOT))
+  /*
+    The body holds only the page's <main> around the section: the layout's
+    drawers, cart, search, phone tab bar and popups are not the card's to
+    show, and on a large theme they were half of every card's document.
+  */
+  const at = shell.indexOf(PREVIEW_SLOT)
+  const body = shell.match(/<body\b[^>]*>/i)
+  const mainAt = at > 0 ? shell.lastIndexOf("<main", at) : -1
+  if (body && body.index !== undefined && mainAt > body.index) {
+    const mainOpen = shell.slice(mainAt, shell.indexOf(">", mainAt) + 1)
+    shell = `${shell.slice(0, body.index)}${body[0]}${mainOpen}${PREVIEW_SLOT}</main></body></html>`
+  }
+  byPage.set(page, shell)
+  return shell
+}
+
 /** The whole document a card's frame shows. Exported so the rule can be read back in a test. */
 export function previewDocument(theme: CompatTheme, page: CompatPage, section: StoredSection): string {
-  const { html } = drawPage(theme, page, [section], {
+  const shell = previewShell(theme, page)
+  if (shell.includes(PREVIEW_SLOT)) {
+    const ctx = pageContextFor(theme, page, [section])
+    const { html } = drawSection(theme, ctx, section, 0)
+    return shell.replace(PREVIEW_SLOT, () => cleanPreview(html))
+  }
+  return cleanPreview(fullPreview(theme, page, [section]))
+}
+
+function fullPreview(theme: CompatTheme, page: CompatPage, sections: StoredSection[], content?: string): string {
+  const { html } = drawPage(theme, page, sections, {
+    ...(content !== undefined ? { content } : {}),
     scripts: false,
     /* No scrollbar, nothing that moves, and the page as tall as the section. */
     extraHead: "<style data-storelib-preview>html,body{margin:0!important;overflow:hidden!important;min-height:0!important;height:auto!important;background:#fff}*,*::before,*::after{animation:none!important;transition:none!important}.scroll-trigger,[class*='animate--'],[data-aos],[data-animate],[data-reveal],.reveal,.fade-in,.js-animate,.animate-on-scroll,.wow{opacity:1!important;transform:none!important;visibility:visible!important;clip-path:none!important}</style>",
   })
+  return html
+}
+
+function cleanPreview(html: string): string {
   /* No script tag at all: the frame could not run one anyway, and each one it is handed is a console error. */
   return withoutScripts(html)
     /* A stylesheet loaded "print, then all on load" (Dawn's way) is simply on: the handler that would switch it cannot run here. */

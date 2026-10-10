@@ -163,7 +163,8 @@ async function run(zipPath: string) {
       await page.setRequestInterception(true)
       page.on("request", (r) => {
         const u = r.url()
-        if (/shopify(cdn|cloud)?\.com/.test(u)) { shopifyHits.push(u); return r.abort() }
+        /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
+        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); return r.abort() }
         if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
         if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
         if (process.env.DEBUG && u.startsWith(base) && !/assets/.test(u)) console.log("    >", r.method(), u.slice(base.length, base.length + 140), (r.postData() ?? "").slice(0, 200))
@@ -235,7 +236,9 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 1200))
       const priceAfter = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer']")?.textContent ?? "").replace(/\s+/g, " ").trim())
-      check("choosing Large changes the price", !!picked && priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked || "no picker"}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
+      /* A product template with no picker (a bundle selector instead, as Posturex's demo) has nothing to choose. */
+      if (picked) check("choosing Large changes the price", priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
+      else console.log("  --    this product template has no variant picker")
 
       const clicked = await page.evaluate(() => {
         const b = document.querySelector<HTMLButtonElement>("form[data-type='add-to-cart-form'] button[type='submit'], form[action='/cart/add'] button[name='add'], form[action='/cart/add'] button[type='submit']")
@@ -245,14 +248,16 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 2000))
       const cart = await page.evaluate(async () => (await fetch("/cart.js")).json())
-      check("Add to cart puts it in the cart", clicked && cart.item_count === 1, `clicked ${clicked}, item_count ${cart.item_count}, ${cart.items?.[0]?.title ?? ""}`)
+      /* A bundle preselected by the theme adds its products together: at least the one, and it is in the cart. */
+      const added = cart.item_count ?? 0
+      check("Add to cart puts it in the cart", clicked && added >= 1 && (cart.items ?? []).some((i: { title?: string }) => /Linen shirt 2/.test(i.title ?? "")), `clicked ${clicked}, item_count ${added}, ${cart.items?.[0]?.title ?? ""}`)
       const bubble = await page.evaluate(() => {
-        const el = document.querySelector(".cart-count-bubble, cart-icon .cart-bubble__text-count, .cart-bubble__text-count, [ref='cartBubbleCount']")
+        const el = document.querySelector(".cart-count-bubble, cart-icon .cart-bubble__text-count, .cart-bubble__text-count, [ref='cartBubbleCount'], header .cart-count")
         /* Dawn writes the number twice: once to see, once for a screen reader ("1 item"). The one to see. */
         const shown = el?.querySelector("[aria-hidden='true']") ?? el
         return (shown?.textContent ?? "").trim()
       })
-      check("the header's cart count says 1", bubble === "1", `"${bubble}"`)
+      check("the header's cart count says what the cart holds", bubble === String(added), `"${bubble}" for ${added}`)
       await page.screenshot({ path: `${OUT}/${name}-${label}-added.png` })
 
       await visit("/cart")
@@ -267,7 +272,7 @@ async function run(zipPath: string) {
       })
       await new Promise((r) => setTimeout(r, 2000))
       const after = await page.evaluate(async () => (await fetch("/cart.js")).json())
-      check("+ makes the quantity 2", plus && after.item_count === 2, `clicked ${plus}, item_count ${after.item_count}`)
+      check("+ adds one", plus && after.item_count === added + 1, `clicked ${plus}, item_count ${added} to ${after.item_count}`)
 
       /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
       await visit("/products/linen-shirt-3")
@@ -284,7 +289,7 @@ async function run(zipPath: string) {
       const kept = await page.evaluate(async () => (await fetch("/cart.js")).json())
       const sentItems = (lastCheckout as { items?: { quantity?: number }[] } | null)?.items ?? []
       check("Buy it now goes straight to checkout with that item alone", buyNow && sentItems.length === 1 && sentItems[0]?.quantity === 1, `button ${buyNow}, sent ${JSON.stringify(sentItems).slice(0, 120)}`)
-      check("  and the cart is left as it was", kept.item_count === 2, `item_count ${kept.item_count}`)
+      check("  and the cart is left as it was", kept.item_count === after.item_count, `item_count ${after.item_count} then ${kept.item_count}`)
 
       /* The search box. */
       await visit("/")
