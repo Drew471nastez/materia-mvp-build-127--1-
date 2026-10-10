@@ -47,7 +47,7 @@ import * as ReactRuntime from "react"
 import { Component, createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import { usePathname, useSearchParams } from "next/navigation"
 import { addressFor, useCommunityNavigator, type GoOptions } from "@/lib/communities/client/navigator-context"
-import { placeFromUrl, placeKey, screenKey, type Place } from "@/lib/communities/client/places"
+import { atPlaceFor, isPostAddress, placeFromUrl, placeKey, screenKey, type Place } from "@/lib/communities/client/places"
 import type { PlaceData } from "@/lib/communities/client/place-data"
 import type { PlaceData as HeldData } from "@/lib/communities/client/place-cache"
 import { keepAlive, loadPlaceData, placeMissing, placeStale, readPlace, readPlacesAhead, seedPlace, subscribePlaces, WAIT_SCREEN_MS } from "@/lib/communities/client/place-cache"
@@ -56,6 +56,8 @@ import { dispatchPullRefresh } from "@/components/ui/pull-to-refresh"
 import { COMMUNITY_FEED_REFRESH_SCOPE, COMMUNITY_LEADERBOARD_REFRESH_SCOPE, COMMUNITY_MEMBERS_REFRESH_SCOPE } from "@/lib/communities/refresh-scope"
 import { preloadPlaceView, preloadPlaceViews, PlaceView, PlaceWaiting } from "./place-views"
 import { BTN_SECONDARY } from "./ui"
+import { PostOpener } from "./post-opener"
+import type { ViewerView } from "@/lib/communities/types"
 import { hardNavigationAllowed, loadingFailure } from "@/lib/communities/client/resume"
 
 /*
@@ -163,14 +165,22 @@ export function aheadPlaces(entries: { key: string }[], withProfile: boolean): P
  * The host as a hook, so the frame around it can lay its columns out for the place actually in the middle (About and a
  * lesson are wider) on the same frame the middle changes.
  */
-export function usePlaceScreens({ communityId, slug, chatSpaces, entries, renderProfile, children }: { communityId: string; slug: string; chatSpaces: readonly string[]; entries: { key: string }[]; renderProfile?: (ref: string, data: unknown) => React.ReactNode; children: React.ReactNode }): PlaceScreens & { hooks: { beforeGo: (from: Place, to: Place, opts: GoOptions & { history?: boolean }) => void; prefetch: (p: Place) => void; refresh: (p: Place) => Promise<void> } } {
+export function usePlaceScreens({ communityId, slug, chatSpaces, entries, renderProfile, viewer = null, readOnly = false, children }: { communityId: string; slug: string; chatSpaces: readonly string[]; entries: { key: string }[]; renderProfile?: (ref: string, data: unknown) => React.ReactNode; /** Who is looking: with it, a post no card on screen holds opens over the place (post-opener.tsx). */ viewer?: ViewerView | null; readOnly?: boolean; children: React.ReactNode }): PlaceScreens & { hooks: { beforeGo: (from: Place, to: Place, opts: GoOptions & { history?: boolean }) => void; prefetch: (p: Place) => void; refresh: (p: Place) => Promise<void> } } {
   const nav = useCommunityNavigator()
   const chat = useMemo(() => new Set(chatSpaces.map((s) => s.toLowerCase())), [chatSpaces])
   const active = nav.place
   const activeKey = screenKey(active, chat)
   const pathname = usePathname()
   const search = useSearchParams()
-  const atPlace = placeFromUrl(pathname || "", search?.toString() ?? "") !== null
+  /*
+    A POST OPEN OVER A PLACE KEEPS THE PLACE (round 16, ARCH16 finding B). The opened post's address is not a place, and
+    everything below (which slot is visible, whether a kept screen shows) was decided from whether the address is one: open
+    a post and the place under it could be hidden, or swapped for the routed slot, until it closed. Whatever the host was at
+    when the post's address came, it stays at, on the open, while it is open and on every kind of close.
+  */
+  const heldAtPlace = useRef<boolean | null>(null)
+  const atPlace = atPlaceFor(pathname || "", search?.toString() ?? "", heldAtPlace.current ?? false)
+  if (!isPostAddress(pathname)) heldAtPlace.current = atPlace
 
   /* Re-drawn when a place arrives in the cache. */
   const [, arrived] = useReducer((n: number) => n + 1, 0)
@@ -451,6 +461,8 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
               </Activity>
             )
           })}
+        {/* A post that no card on screen holds (a profile's row, a notification) opens over the place, which stays (round 16). */}
+        {viewer ? <PostOpener communityId={communityId} slug={slug} viewer={viewer} readOnly={readOnly} /> : null}
       </div>
     </HostFacts.Provider>
   )

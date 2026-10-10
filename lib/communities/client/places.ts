@@ -220,6 +220,24 @@ export function placeFromUrl(pathname: string, search: string): Place | null {
   }
 }
 
+/** A post's own address in a community: /community/<slug>/post/<id or words-shortid>. */
+export function isPostAddress(pathname: string | null | undefined): boolean {
+  const path = (pathname || "").split(/[?#]/)[0].replace(/\/+$/, "")
+  return /^\/community\/[^/]+\/post\/[^/]+$/.test(path)
+}
+
+/**
+ * WHETHER THE SHELL IS AT A PLACE, WITH A POST OPEN OVER IT (round 16, ARCH16 finding B). Opening a post pushes the post's
+ * own address, which is not a place; the host used to read that as "the router's page is showing", so while a post was
+ * open (and as it closed) the place under it could be hidden or swapped for the routed slot. A post's address now keeps
+ * whatever the host was at before it (`held`): the place under the post never changes because of the address. An
+ * address that is neither a place nor a post (another page entirely) is not a place.
+ */
+export function atPlaceFor(pathname: string, search: string, held: boolean): boolean {
+  if (placeFromUrl(pathname, search) !== null) return true
+  return held && isPostAddress(pathname)
+}
+
 /**
  * THE SLOT A PLACE IS DRAWN IN (the coordinator's rule for round 15). All, every feed space and Saved are lists of ONE
  * feed: they share the slot "feed" and one CommunityFeed, which reads the list from useCommunityNavigator().place and
