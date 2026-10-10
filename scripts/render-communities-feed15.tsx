@@ -191,7 +191,10 @@ window.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
       const want = url.searchParams.get("space")
       const all = makePosts(w.__version ?? 0)
       const posts = want ? all.filter((p) => p.space?.id === want) : all
-      return reply({ pinned: [], posts, nextCursor: null }, w.__feedWait ?? 120)
+      return reply({ pinned: [], posts, nextCursor: null }, w.__feedWait ?? 120).then((r) => {
+        ;(w as unknown as { __readAt: number }).__readAt = performance.now()
+        return r
+      })
     }
     if (url.pathname.endsWith("/live")) return reply({ topic: "community-live:probe" })
     /* The community's search: what the server answers for "glaze" (and its index, empty, so the server's answer is drawn). */

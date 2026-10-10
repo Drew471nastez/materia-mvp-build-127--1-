@@ -232,6 +232,49 @@ try {
       window.__ev = []
       for (const type of ["pointerdown", "pointerup", "pointercancel", "click"]) document.addEventListener(type, (e) => window.__ev.push(`${type}@${e.target.closest?.("[data-space-chip]")?.getAttribute("data-space-chip") ?? e.target.tagName}`), true)
     })
+    /*
+      THE ROW'S OWN HIT TEST, with no finger size: Chromium widens a touch to the nearest target (its touch adjustment, which
+      is why the taps above land even in a gap on the old row), Safari does much less. Every pixel along the pills' middle
+      line, and 4px above and below the pills, between the first pill and the last one wholly on screen: whose is it?
+    */
+    const strict = await p.evaluate(() => {
+      const chips = [...document.querySelectorAll("[data-space-chip]")]
+      const track = document.querySelector("[data-space-chips-track]").getBoundingClientRect()
+      const boxes = chips.map((c) => c.getBoundingClientRect()).filter((b) => b.left >= track.left && b.right <= track.right - 24)
+      const left = Math.ceil(boxes[0].left)
+      const right = Math.floor(boxes[boxes.length - 1].right)
+      const mid = (boxes[0].top + boxes[0].bottom) / 2
+      /* 4px past the pill's outer edge: its hit area is 6px past its inner (padding) edge, a hairline inside that. */
+      const lines = { middle: mid, above: boxes[0].top - 4, below: boxes[0].bottom + 4 }
+      const out = {}
+      for (const [name, y] of Object.entries(lines)) {
+        let dead = 0
+        let all = 0
+        for (let x = left; x <= right; x++) {
+          all++
+          if (!document.elementFromPoint(x, y)?.closest("[data-space-chip]")) dead++
+        }
+        const c = boxes[1] ?? boxes[0]
+        const hit = document.elementFromPoint((c.left + c.right) / 2, y)
+        out[name] = { dead, all, atPillMiddle: hit?.closest("[data-space-chip]") ? "pill" : `${hit?.tagName}.${String(hit?.className).slice(0, 50)}` }
+      }
+      /* And every pixel inside each gap between two neighbouring pills, top to bottom of the pills. */
+      let gapDead = 0
+      let gapAll = 0
+      for (let i = 0; i + 1 < boxes.length; i++) {
+        for (let x = Math.ceil(boxes[i].right); x < boxes[i + 1].left; x++) {
+          for (let y = Math.ceil(boxes[i].top); y < boxes[i].bottom; y += 4) {
+            gapAll++
+            if (!document.elementFromPoint(x, y)?.closest("[data-space-chip]")) gapDead++
+          }
+        }
+      }
+      out.gaps = { dead: gapDead, all: gapAll, pills: boxes.length }
+      return out
+    })
+    say("points along the row that belong to no pill", strict)
+    results[`strict${RADIUS}`] = strict
+    expect(Object.values(strict).every((v) => v.dead === 0), "every point between and around the pills belongs to a pill", strict)
     const rows = []
     /* Keep the first chips in view: every tap is on a chip whose whole row of neighbours is on screen. */
     const plan = []
@@ -300,6 +343,7 @@ try {
       return { h: Math.round(b.height), afterInset: [hit.left, hit.right, hit.top, hit.bottom] }
     })
     say("a pill's box and its hit area", geometry)
+
     await p.screenshot({ path: join(shots, `${LABEL}-taps-390.png`), clip: { x: 0, y: 0, width: 390, height: 420 } })
     await p.close()
     }
@@ -630,7 +674,9 @@ try {
         })
         const fresh = imgs.filter((el) => !el.__img)
         const cards = [...document.querySelectorAll("[data-feed-list] > [data-post]")]
-        out.push({ t: Math.round(performance.now() - t0), dim: dim.length, freshImgs: fresh.length, freshCards: cards.filter((c) => !c.__card).length, y: Math.round(scrollY), count: document.querySelector("[data-feed-list] [data-post] [data-like-count], [data-feed-list] [data-post] button[aria-pressed]")?.textContent ?? "" })
+        const content = document.querySelector("[data-pull-content]")
+        const tf = content ? Math.round(new DOMMatrix(getComputedStyle(content).transform).m42 * 10) / 10 : 0
+        out.push({ t: Math.round(performance.now() - t0), tf, dim: dim.length, freshImgs: fresh.length, freshCards: cards.filter((c) => !c.__card).length, y: Math.round(scrollY), count: document.querySelector("[data-feed-list] [data-post] [data-like-count], [data-feed-list] [data-post] button[aria-pressed]")?.textContent ?? "" })
         if (performance.now() - t0 < 4000) requestAnimationFrame(look)
       }
       requestAnimationFrame(look)
@@ -686,6 +732,14 @@ try {
       say("the content wrapper at rest", settled)
       expect(settled === "none" || /matrix\(1, 0, 0, 1, 0, 0\)/.test(settled), "the pull settles home", settled)
       say("scroll moves after the pull", moves.length)
+      /* How long the page stayed held after the data was in: the last read's answer, then the first frame back at rest. */
+      const readAt = await p.evaluate(() => (window.__readAt ? Math.round(window.__readAt - window.__t0) : null))
+      const pulled = frames.findIndex((f) => f.tf > 0)
+      const home = frames.findIndex((f, i) => i > pulled && f.t >= (readAt ?? 0) && f.tf === 0)
+      const settleMs = readAt !== null && home >= 0 ? frames[home].t - readAt : null
+      say("the data was in at, and the page home", { readAt, homeAt: home >= 0 ? frames[home].t : null, after: settleMs, deepest: Math.max(...frames.map((f) => f.tf)) })
+      results["pull-settle-390"] = { readAt, settleMs }
+      expect(settleMs !== null && settleMs < 700, "the page is home within 700ms of the data being in (the spinner's floor and its spring)", settleMs)
     }
     return { p, frames }
   }

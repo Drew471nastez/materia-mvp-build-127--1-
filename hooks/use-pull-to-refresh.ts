@@ -122,6 +122,15 @@ const LATERAL_DECIDE_PX = 3
  */
 export const PULL_TAP_SLOP = 8
 
+/**
+ * What a touch that landed at the top of the page has become once its finger has gone `travel` px down (negative: up):
+ * still a tap (nothing moves, nothing is cancelled), a pull (it starts from zero at the slop), or a scroll (let go).
+ */
+export function rollOf(travel: number): "tap" | "pull" | "scroll" {
+  if (Math.abs(travel) < PULL_TAP_SLOP) return "tap"
+  return travel > 0 ? "pull" : "scroll"
+}
+
 /* ── The settle spring ─────────────────────────────────────────────────────
    Stepped in rAF, transform only. ζ = 24 / (2·√260) = 0.74, so it overshoots
    by about 3% of the travel (a pixel and a half off a 48px snap) and is still
@@ -880,10 +889,10 @@ export function usePullToRefresh(
 
       /* A TAP'S ROLL: left alone, uncancelled and unpainted, until it has gone PULL_TAP_SLOP down (or as far up, a scroll). */
       if (!pastSlop) {
-        const travel = e.touches[0].clientY - downY
-        if (Math.abs(travel) < PULL_TAP_SLOP) return
+        const roll = rollOf(e.touches[0].clientY - downY)
+        if (roll === "tap") return
         pastSlop = true
-        if (travel > 0) startY = downY + PULL_TAP_SLOP
+        if (roll === "pull") startY = downY + PULL_TAP_SLOP
       }
 
       const dy = e.touches[0].clientY - startY

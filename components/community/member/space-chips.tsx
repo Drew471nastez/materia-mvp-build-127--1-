@@ -54,7 +54,7 @@ import type { SpaceView } from "./view-types"
   (chip-ink.tsx, z-1) and each pill's own resting ink (z-1); the words (z-2).
 */
 const CHIP =
-  "group/chip relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[background-color,box-shadow] duration-150 ease-out after:absolute after:-inset-x-[4.5px] after:-inset-y-[6px] after:rounded-full after:content-[''] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
+  "group/chip relative inline-flex h-10 shrink-0 touch-manipulation select-none items-center gap-1.5 whitespace-nowrap rounded-full border border-[#e1e4e8] bg-white px-3.5 text-[14px] font-medium outline-none transition-[background-color,box-shadow] duration-150 ease-out after:absolute after:-inset-x-[4.5px] after:-inset-y-[6px] after:content-[''] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 motion-reduce:transition-none sm:h-9 sm:text-[13.5px] [-webkit-tap-highlight-color:transparent]"
 /* The chosen pill: no shadow of its own (its ink carries one). */
 const CHIP_ON = "shadow-none"
 const CHIP_OFF = "shadow-[0_1px_2px_rgba(16,24,40,0.07),0_1px_1px_rgba(16,24,40,0.03)] [@media(hover:hover)]:hover:bg-[#f5f6f7]"
