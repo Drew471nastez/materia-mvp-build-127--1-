@@ -181,7 +181,7 @@ const BUSY_HOOK = () => {
 let html = ""
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--hide-scrollbars"] })
 
-async function session({ app = false, width = 390, height = 844, path = "/community/clay-studio" } = {}) {
+async function session({ app = false, ua = null, width = 390, height = 844, path = "/community/clay-studio" } = {}) {
   const p = await browser.newPage()
   await p.setViewport({ width, height, isMobile: width < 640, hasTouch: width < 640, deviceScaleFactor: 1 })
   const errors = []
@@ -195,6 +195,7 @@ async function session({ app = false, width = 390, height = 844, path = "/commun
     return void r.respond({ status: 204, body: "" })
   })
   await p.evaluateOnNewDocument(BUSY_HOOK)
+  if (ua) await p.setUserAgent(ua)
   if (app) {
     await p.setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 Capacitor StorelibWindows/1")
     await p.evaluateOnNewDocument(() => document.addEventListener("DOMContentLoaded", () => document.documentElement.classList.add("capacitor")))
@@ -353,8 +354,243 @@ async function partFrames() {
     expect(!s.errors.length, `no page errors (${tag})`, s.errors.slice(0, 3))
     await s.p.close()
   }
+  /* THE COMPOSER: the feed's field opens it, Cancel closes it; the same measure, with and without the busy loop. */
+  for (const busy of [0, BUSY_MS]) {
+    const s = await session()
+    await s.p.evaluate(() => window.scrollTo(0, 0))
+    await sleep(400)
+    const field = await s.p.evaluate(() => {
+      const r = document.querySelector("[data-composer-open]")?.getBoundingClientRect()
+      return r ? { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) } : null
+    })
+    if (!field) {
+      expect(false, "the composer's field is on screen")
+      await s.p.close()
+      continue
+    }
+    await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+    const tag = busy ? `busy${busy}` : "calm"
+    const open = await record(s, `compose-open-${tag}`, () => s.tap(field.x, field.y), 1500, busy)
+    const cancel = await s.p.evaluate(() => {
+      const r = document.querySelector('[data-composer="sheet"] [data-composer-cancel]').getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    const close = await record(s, `compose-close-${tag}`, () => s.tap(cancel.x, cancel.y), 1500, busy)
+    await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+    for (const seq of [open, close]) {
+      const r = judgeFrames(seq)
+      out[seq.name] = r
+      console.log(`  ${seq.name}: ${r.moving} frames while it moves (${r.motionMs}ms), longest gap ${r.longestGapMs}ms, first frame ${r.startLatencyMs}ms after the start, busy loop ${r.busyMs}ms from +${r.busyAt}ms   at ${JSON.stringify(r.at)}`)
+      await contactSheet(seq, `${LABEL}-${seq.name}.png`)
+    }
+    expect(!s.errors.length, `no page errors (composer ${tag})`, s.errors.slice(0, 3))
+    await s.p.close()
+  }
   console.log(JSON.stringify({ label: LABEL, part: "frames", out: Object.fromEntries(Object.entries(out).map(([k, v]) => [k, { ...v, gaps: undefined, at: undefined, long: undefined }])) }))
   return out
+}
+
+/* The colour of the screen at some points (a screenshot read back through a canvas). */
+async function pixels(s, points) {
+  reader ??= await browser.newPage()
+  await s.p.bringToFront()
+  const png = await s.p.screenshot({ encoding: "base64" })
+  return reader.evaluate(
+    async (data, pts) => {
+      const img = new Image()
+      img.src = `data:image/png;base64,${data}`
+      await img.decode()
+      const c = new OffscreenCanvas(img.width, img.height)
+      const g = c.getContext("2d")
+      g.drawImage(img, 0, 0)
+      return pts.map(([x, y]) => {
+        const d = g.getImageData(x, y, 1, 1).data
+        return [d[0], d[1], d[2]]
+      })
+    },
+    png,
+    points,
+  )
+}
+const white = (rgb) => rgb.every((v) => v >= 250)
+
+async function openPost(s) {
+  const at = await centerOf(s, PIC)
+  await sleep(300)
+  await s.tap(at.x, at.y)
+  await sleep(1600)
+}
+
+/*
+  ── WHAT CLIPS ROUND 16's WHITE BLOCK AND SKIRTS ── (ARCH17 section 3) Run against any checkout: the iOS app at 390x844, the
+  comment box typed in, the ancestors of the box that clip listed, and then, with the page made 64px short (a number that
+  is off) and the skirts hidden, whether the block alone still paints white below the page's foot. Then the skirts back.
+*/
+async function partClip() {
+  console.log("\nCLIP: does anything cut the white under the comment box? (the iOS app, 390x844)")
+  const s = await session({ app: true })
+  await openPost(s)
+  await s.p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea").focus())
+  await sleep(700)
+  const facts = await s.p.evaluate(() => {
+    const dock = document.querySelector("[data-post-fullscreen] [data-comments-composer]")
+    const out = []
+    for (let el = dock.parentElement; el && el !== document.documentElement; el = el.parentElement) {
+      const cs = getComputedStyle(el)
+      const clips = cs.overflowX !== "visible" || cs.overflowY !== "visible" || (cs.contain && /paint|strict|content/.test(cs.contain)) || cs.clipPath !== "none"
+      if (clips) out.push(`${el.tagName.toLowerCase()}${Array.from(el.attributes).filter((a) => a.name.startsWith("data-") || a.name === "role").map((a) => `[${a.name}]`).join("")} overflow ${cs.overflowX}/${cs.overflowY}`)
+    }
+    const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+    const shadow = getComputedStyle(dock).boxShadow
+    return { clippers: out, shadow: shadow.slice(0, 120), pageBottom: Math.round(page.getBoundingClientRect().bottom), dockBottom: Math.round(dock.getBoundingClientRect().bottom) }
+  })
+  console.log(`  the box's ancestors that clip: ${JSON.stringify(facts.clippers)}`)
+  console.log(`  the box's shadow: ${facts.shadow}   page foot ${facts.pageBottom}, box foot ${facts.dockBottom}`)
+  /* The fault: the page 64px short of where it was, the skirts hidden, so only the block could paint under it. */
+  const cut = await s.p.evaluate(() => {
+    const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+    const r = page.getBoundingClientRect()
+    page.style.height = `${Math.round(r.height - 64)}px`
+    const st = document.createElement("style")
+    st.id = "probe-no-skirt"
+    st.textContent = "[data-post-skirt],[data-comments-dock-skirt]{visibility:hidden!important}"
+    document.head.appendChild(st)
+    return Math.round(page.getBoundingClientRect().bottom)
+  })
+  await sleep(300)
+  const below = [cut + 8, cut + 30, cut + 56].flatMap((y) => [[30, y], [195, y], [360, y]])
+  const alone = await pixels(s, below)
+  await s.p.bringToFront()
+  await s.p.screenshot({ path: join(shots, `${LABEL}-clip-block-alone.png`) })
+  const blockReaches = alone.every(white)
+  console.log(`  page made short to ${cut}: below it, with only the block, ${blockReaches ? "white" : "NOT white"} ${JSON.stringify(alone.slice(0, 6))}`)
+  await s.p.evaluate(() => document.getElementById("probe-no-skirt").remove())
+  await sleep(200)
+  const withSkirt = await pixels(s, below)
+  await s.p.bringToFront()
+  await s.p.screenshot({ path: join(shots, `${LABEL}-clip-with-skirt.png`) })
+  console.log(`  and with the skirt: ${withSkirt.every(white) ? "white" : "NOT white"}`)
+  console.log(JSON.stringify({ label: LABEL, part: "clip", clippers: facts.clippers, blockReachesPastPage: blockReaches, skirtWhite: withSkirt.every(white) }))
+  expect(!s.errors.length, "no page errors (clip)", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
+/*
+  ── THE KEYBOARD (keyboard-plan.ts) ── the decision table on the page: the iOS app (the box on the keys IN the focus, from
+  the table, the page white to the screen's foot), the app with a pan reported, iPhone Safari with and without a pan, Android
+  with a web view that shrank, and the readout's long press on the face beside the box.
+*/
+const SAFARI = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1"
+const ANDROID = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36"
+const BOX = () => {
+  const page = document.querySelector("[data-post-fullscreen] [role=dialog]")
+  const box = page.querySelector("[data-comment-box=comment]").getBoundingClientRect()
+  const pr = page.getBoundingClientRect()
+  return { source: page.dataset.box, typing: page.hasAttribute("data-typing"), foot: page.style.getPropertyValue("--post-foot"), pageTop: Math.round(pr.top), pageBottom: Math.round(pr.bottom), boxBottom: Math.round(box.bottom) }
+}
+const fakeViewport = (top, height) => {
+  const vv = window.visualViewport
+  Object.defineProperty(vv, "offsetTop", { configurable: true, get: () => top })
+  Object.defineProperty(vv, "height", { configurable: true, get: () => height })
+  vv.dispatchEvent(new Event("resize"))
+}
+async function partKeyboard() {
+  console.log("\nKEYBOARD: the comment box on the keys, per environment (390x844)")
+  const out = {}
+  /* 1. The iOS app without the plugin (the build the owner has): placed in the focus itself, from the table. */
+  {
+    const s = await session({ app: true })
+    await openPost(s)
+    const atFocus = await s.p.evaluate((boxFn) => {
+      const ta = document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea")
+      ta.focus()
+      /* Read in the same task as the focus: what iOS would see when it decides whether to pan. */
+      return new Function(`return (${boxFn})()`)()
+    }, BOX.toString())
+    await sleep(600)
+    const settled = await s.p.evaluate(BOX)
+    const under = await pixels(s, [520, 600, 700, 770].flatMap((y) => [[30, y], [195, y], [360, y]]))
+    await s.p.bringToFront()
+    await s.p.screenshot({ path: join(shots, `${LABEL}-keyboard-app.png`) })
+    out.app = { atFocus, settled, whiteUnder: under.every(white) }
+    expect(atFocus.typing && atFocus.source === "table" && atFocus.boxBottom <= 464 && atFocus.boxBottom >= 448, "the iOS app: the box is on the keys (844 - 380 = 464) in the focus itself, before iOS could pan", atFocus)
+    expect(settled.pageTop === 0 && settled.pageBottom === 844, "the page reaches the foot of the screen, never shortened to the keyboard", settled)
+    expect(under.every(white), "everything under the box down the screen is the page's own white", under.slice(0, 6))
+    /* 2. The same app, with iOS reporting a 62px pan (76.jpg): the page follows it and the room is the keyboard less the pan. */
+    await s.p.evaluate(fakeViewport, 62, 844)
+    await sleep(300)
+    const panned = await s.p.evaluate(BOX)
+    out.appPanned = panned
+    expect(panned.source === "table" && panned.pageTop === 62 && panned.boxBottom - 62 <= 464 && panned.boxBottom - 62 >= 448, "a 62px pan reported: the box is still on the keys on the screen (its foot at 526 in the page, 464 on the screen), never lifted twice", panned)
+    expect(!s.errors.length, "no page errors (app)", s.errors.slice(0, 3))
+    await s.p.close()
+  }
+  /* 3. iPhone Safari: the visual viewport says it all, the pan included. */
+  {
+    const s = await session({ ua: SAFARI })
+    await openPost(s)
+    await s.p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea").focus())
+    await s.p.evaluate(fakeViewport, 0, 464)
+    await sleep(300)
+    const still = await s.p.evaluate(BOX)
+    await s.p.evaluate(fakeViewport, 120, 464)
+    await sleep(300)
+    const panned = await s.p.evaluate(BOX)
+    out.safari = { still, panned }
+    expect(still.source === "visual" && still.boxBottom <= 464 && still.boxBottom >= 448 && still.pageBottom === 844, "iPhone Safari: the visible part's height places it (on the keys at 464), the page still to the foot", still)
+    expect(panned.source === "visual" && panned.pageTop === 120 && panned.boxBottom - 120 <= 464 && panned.boxBottom - 120 >= 448, "Safari panned 120px: on the keys on the screen, no keyboard height added on top", panned)
+    expect(!s.errors.length, "no page errors (Safari)", s.errors.slice(0, 3))
+    await s.p.close()
+  }
+  /* 4. Android: the web view itself shrank (464 tall): nothing to add. */
+  {
+    const s = await session({ ua: ANDROID })
+    await openPost(s)
+    await s.p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea").focus())
+    await s.p.setViewport({ width: 390, height: 464, isMobile: true, hasTouch: true, deviceScaleFactor: 1 })
+    await sleep(400)
+    const shrunk = await s.p.evaluate(BOX)
+    out.android = shrunk
+    expect(shrunk.source === "visual" && shrunk.foot === "0px" && shrunk.boxBottom <= 464 && shrunk.boxBottom >= 448, "Android, the web view shrank: no room added, the box on the keys", shrunk)
+    expect(!s.errors.length, "no page errors (Android)", s.errors.slice(0, 3))
+    await s.p.close()
+  }
+  /* 5. The readout: a long press on the face beside the box turns it on, remembered on this phone; again, off. */
+  {
+    const s = await session({ app: true })
+    await openPost(s)
+    const face = await s.p.evaluate(() => {
+      const r = document.querySelector("[data-post-fullscreen] [data-comment-box=comment] > [data-app-avatar]").getBoundingClientRect()
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+    })
+    await s.touch("touchStart", face.x, face.y)
+    await sleep(1700)
+    await s.touch("touchEnd", face.x, face.y)
+    await sleep(200)
+    const on = await s.p.evaluate(() => ({ stored: localStorage.getItem("storelib:kbdebug"), shown: !document.querySelector("[data-kbdebug]").hidden, text: document.querySelector("[data-kbdebug]").textContent }))
+    await s.p.evaluate(() => document.querySelector("[data-post-fullscreen] [data-comments-composer] textarea").focus())
+    await sleep(500)
+    const numbers = await s.p.evaluate(() => document.querySelector("[data-kbdebug]").textContent)
+    await s.p.bringToFront()
+    await s.p.screenshot({ path: join(shots, `${LABEL}-readout.png`) })
+    expect(on.stored === "1" && on.shown, "a 1.5s press on the face beside the box turns the readout on, remembered on this phone", on)
+    expect(/ios-app  used table  typing/.test(numbers) && /vv\.offsetTop/.test(numbers) && /comment box top/.test(numbers), "typing, it shows the numbers that placed the box", numbers)
+    await s.p.evaluate(() => document.activeElement?.blur())
+    await s.touch("touchStart", face.x, face.y)
+    await sleep(500)
+    await s.touch("touchEnd", face.x, face.y)
+    const short = await s.p.evaluate(() => localStorage.getItem("storelib:kbdebug"))
+    expect(short === "1", "a short press does nothing to it", short)
+    await s.touch("touchStart", face.x, face.y)
+    await sleep(1700)
+    await s.touch("touchEnd", face.x, face.y)
+    const off = await s.p.evaluate(() => ({ stored: localStorage.getItem("storelib:kbdebug"), shown: !document.querySelector("[data-kbdebug]").hidden }))
+    expect(off.stored === null && !off.shown, "the same long press turns it off", off)
+    out.readout = { on, numbers, off }
+    expect(!s.errors.length, "no page errors (readout)", s.errors.slice(0, 3))
+    await s.p.close()
+  }
+  console.log(JSON.stringify({ label: LABEL, part: "keyboard", out }))
 }
 
 try {
@@ -364,6 +600,8 @@ try {
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Clay Studio</title><style>${fonts}${css}</style><style>body{margin:0;font-family:Inter,system-ui,sans-serif}</style></head><body><div id="app"></div><script>${js.replace(/<\/script/gi, "<\\/script")}</script></body></html>`
   })()
   if (PART === "all" || PART === "frames") await partFrames()
+  if (PART === "all" || PART === "clip") await partClip()
+  if (PART === "all" || PART === "keyboard") await partKeyboard()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()
