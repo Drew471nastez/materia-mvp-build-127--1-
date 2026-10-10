@@ -96,8 +96,40 @@ export const PRIVATE_PROFILE_COLUMNS = [
 export const CREATOR_CARD = "id, user_id, slug, username, display_name, avatar_url, bio, headline, niche_tags"
 /** The profile fields a card shows. */
 export const PROFILE_CARD = "id, username, display_name, avatar_url"
-/** A creator with their profile, embedded in another table's select. */
-export const CREATOR_WITH_PROFILE = `${CREATOR_CARD}, profile:profiles!creators_user_id_fkey(${PROFILE_CARD})` as const
+/**
+ * A creator, embedded in another table's select. It used to embed the
+ * creator's profile on `profiles!creators_user_id_fkey`, but creators.user_id
+ * points at auth.users, not at profiles, so PostgREST knows no relationship
+ * between the two and refused every read that asked ("Could not find a
+ * relationship between 'creators' and 'profiles' in the schema cache"):
+ * the library's entitlements, the dashboard's purchases and the old /c/
+ * address came back empty. The profile is its own read now,
+ * attachCreatorProfiles below, and every reader keeps `creator.profile`.
+ */
+export const CREATOR_WITH_PROFILE = CREATOR_CARD
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ProfileReader = { from: (table: string) => any }
+
+/**
+ * Fills `profile` (the public card fields) on each creator, in one read by
+ * the creators' user ids. Mutates the creators it is given and returns them;
+ * a failed read leaves `profile` null and never throws, so a page draws with
+ * the creator's own name instead.
+ */
+export async function attachCreatorProfiles<T extends { user_id?: string | null; profile?: unknown } | null | undefined>(db: ProfileReader, creators: T[]): Promise<T[]> {
+  const ids = [...new Set(creators.map((c) => c?.user_id).filter((id): id is string => typeof id === "string" && id.length > 0))]
+  if (ids.length === 0) return creators
+  try {
+    const { data, error } = await db.from("profiles").select(PROFILE_CARD).in("id", ids)
+    if (error) return creators
+    const byId = new Map(((data as Array<{ id: string }> | null) ?? []).map((p) => [p.id, p]))
+    for (const c of creators) if (c && c.user_id) (c as { profile?: unknown }).profile = byId.get(c.user_id) ?? null
+  } catch {
+    /* the page draws with the creator's own name */
+  }
+  return creators
+}
 
 function without<T>(row: T, keys: readonly string[]): T {
   if (!row || typeof row !== "object") return row

@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { fillOwnedProducts } from "@/lib/library/owned-products"
 import { Package, Download } from "lucide-react"
-import { CREATOR_WITH_PROFILE, PROFILE_CARD } from "@/lib/security/public-columns"
+import { CREATOR_WITH_PROFILE, PROFILE_CARD, attachCreatorProfiles } from "@/lib/security/public-columns"
 
 export default async function DashboardProductsPage() {
   const supabase = await createClient()
@@ -26,6 +26,8 @@ export default async function DashboardProductsPage() {
     .eq("buyer_id", user!.id)
 
   /* Archived or unpublished since it was bought: still theirs (lib/library/owned-products). */
+  /* The sellers' faces are their own read (lib/security/public-columns attachCreatorProfiles). */
+  await attachCreatorProfiles(createAdminClient(), (entitlements ?? []).map((e: any) => e.creator))
   const owned = await fillOwnedProducts(createAdminClient(), entitlements)
   const products = owned.filter((e) => e.product?.type === "digital") || []
 
