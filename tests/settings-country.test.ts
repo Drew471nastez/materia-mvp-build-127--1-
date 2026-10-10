@@ -103,9 +103,10 @@ check("and it never reaches under the clock's safe area", /export const SHEET_UN
 console.log("\n6. The header on a phone")
 /* Round V: the phone's list became the pill row again, which follows the header. */
 const header = form.slice(form.indexOf('data-settings-header=""'), form.indexOf('data-settings-tabs=""'))
-check("nothing in the header is cut: the title and its line wrap, the pill has a row of its own on a phone",
-  /flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between/.test(header) && /font-bold[^"]*\[overflow-wrap:anywhere\]/.test(header) && !/truncate/.test(header) && /md:hidden max-w-full/.test(header))
-check("from 640px the pill is at the top right beside both, as wide as its address up to 360px", /sm:max-w-\[360px\] sm:justify-end/.test(header))
+/* Changed on purpose (the owner: "on mobile, how it was before"): the title and the address pill share the first row again, the line under both. */
+check("on a phone the title and the pill share a row, centred on each other, the line under them",
+  /grid grid-cols-\[auto_minmax\(0,1fr\)\] items-center/.test(header) && /col-span-2 row-start-2/.test(header) && !/truncate/.test(header) && /md:hidden max-w-\[min\(calc\(\(100vw-32px\)\*0\.522\),184px\)\]/.test(header))
+check("from 640px the pill is at the top right beside both, as wide as its address up to 360px", /sm:row-span-2 sm:max-w-\[360px\] sm:justify-self-end/.test(header))
 check("the pill no longer takes a share of the row it cannot give back", !/max-w-\[58%\]/.test(header))
 
 console.log(`\n${passed} passed, ${failed} failed`)

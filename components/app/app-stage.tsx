@@ -231,6 +231,8 @@ export function AppStage() {
   const keyRef = useRef(key)
   const firstRef = useRef(true)
   const prevPathRef = useRef(pathname)
+  /* The page Settings is up over, while it is (components/app/settings-sheet.tsx, overlay); null otherwise. */
+  const underSheetRef = useRef<string | null>(null)
 
   /* A commit at the address already showing ends the navigation too
      (lib/ui/app-navigation watchRouterCommits), and a navigation whose
@@ -265,7 +267,22 @@ export function AppStage() {
     endAppNavigation()
     if (firstRef.current) { firstRef.current = false; return }
     const pageChanged = prevPathRef.current !== pathname
+    const from = prevPathRef.current
     prevPathRef.current = pathname
+    /*
+      SETTINGS OVER A PAGE IS NOT A NEW PAGE. Opened from inside /app it is
+      drawn over the page it was opened on, which stays mounted under it
+      (app/app/@sheet/(.)settings), and closing is a Back to that same page.
+      The address changes both ways, and this used to treat each as a landing:
+      the page behind rose again and could be put back to its top as the
+      sheet opened, and again as it closed, which read as the page reloading
+      and bumping behind the sheet. Neither is a landing: the page holds still.
+    */
+    const sheetOver = !!document.querySelector('[data-settings-sheet-mode="over"]')
+    const under = underSheetRef.current
+    underSheetRef.current = sheetOver ? (under ?? from) : null
+    /* Up over the page, or closed back onto it. Going on from Settings to another page is a landing as usual. */
+    if (pageChanged && (sheetOver || (under !== null && pathname === under))) return
     /* A change of query alone (a filter, a tab, an open order) is the same
        page: no landing, and the scroll stays where the reader put it. */
     if (!pageChanged) return

@@ -40,7 +40,7 @@
  */
 import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { ChevronLeft, X } from "lucide-react"
+import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { backThen } from "@/lib/navigation/go-back"
 
@@ -411,7 +411,21 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
   if (!here) return null
 
   return (
-    <div className="fixed inset-0 z-[54]" data-settings-sheet-root="" data-settings-sheet-mode={overlay ? "over" : "page"}>
+    /*
+      BELOW 1024px, WHERE A PAGE IS: under the app's own header and beside
+      its rail, as Settings was before it became a sheet. The header with its
+      rounded corners stays drawn over it (z 49 under the header's 50), and
+      the nav pill stays over it (55). On a phone that is 68px of header, from
+      768px 58px and the 240px rail, the same offsets as <main>.
+    */
+    <div
+      className={cn(
+        "fixed inset-0 z-[54]",
+        "max-lg:z-[49] max-lg:top-[calc(68px+env(safe-area-inset-top,0px))] md:max-lg:top-[calc(58px+env(safe-area-inset-top,0px))] md:max-lg:left-[240px]",
+      )}
+      data-settings-sheet-root=""
+      data-settings-sheet-mode={overlay ? "over" : "page"}
+    >
       <div ref={scrim} aria-hidden className="absolute inset-0 bg-[#0f1115]/30 max-lg:hidden" onClick={() => close()} data-settings-sheet-scrim="" />
       <div
         ref={panel}
@@ -429,15 +443,16 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           */
           "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[20px] bg-[#fafafa] shadow-[0_-10px_40px_-18px_rgba(15,17,21,0.30)]",
           "lg:top-[max(64px,12vh)]",
-          /* Below 1024px: a page from the very top, square, on the app's own grey. */
-          "max-lg:top-0 max-lg:rounded-none max-lg:bg-[#f8f9fa] max-lg:shadow-none max-lg:pt-[env(safe-area-inset-top)]",
+          /* Below 1024px: the page area itself, square, on the app's own grey (the header above keeps the safe area). */
+          "max-lg:top-0 max-lg:rounded-none max-lg:bg-[#fafafa] max-lg:shadow-none",
         )}
       >
         {/* The handle and the strip it sits in: the part of the sheet that drags, a thumb's height so it is easy to find. */}
         <div
           className={cn(
             "relative z-[3] flex h-11 shrink-0 cursor-grab touch-none select-none items-center justify-center bg-[#fafafa] transition-shadow duration-200 ease-out active:cursor-grabbing",
-            "max-lg:cursor-default max-lg:justify-start max-lg:bg-[#f8f9fa] max-lg:px-2 max-lg:active:cursor-default",
+            /* A page has no handle and no Back strip: the header, the nav pill and the system Back are its way out, as on every other page. */
+            "max-lg:hidden",
             scrolled && "shadow-[0_1px_0_rgba(15,17,21,0.06)]",
           )}
           onPointerDown={onPointerDown}
@@ -447,16 +462,6 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           data-settings-sheet-handle=""
         >
           <span aria-hidden className="h-[5px] w-10 rounded-full bg-[#d4d6db] max-lg:hidden" />
-          {/* On a page, the way out is Back at its top left, where every page of the app keeps it. */}
-          <button
-            type="button"
-            onClick={() => close()}
-            className="flex h-10 items-center gap-0.5 rounded-full pl-1 pr-3 text-[15px] font-medium text-[#1a1a2e] outline-none transition-colors active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 lg:hidden [-webkit-tap-highlight-color:transparent]"
-            data-settings-page-back=""
-          >
-            <ChevronLeft className="h-5 w-5" aria-hidden />
-            Back
-          </button>
           <button
             type="button"
             onClick={() => close()}

@@ -273,6 +273,12 @@ export function prefetchGet(paths: string[]): void {
   }
 }
 
+/** Settles when every one of these has been read (fetched now if it wasn't kept), never with an error. */
+export function whenGets(paths: string[]): Promise<void> {
+  prefetchGet(paths)
+  return Promise.all(paths.map((p) => kept.get(p)?.result.catch(() => null) ?? Promise.resolve(null))).then(() => undefined)
+}
+
 /** What a prefetch already brought back for this address, for a panel's first draw. */
 export function peekGet<T>(path: string): T | null {
   const e = kept.get(path)

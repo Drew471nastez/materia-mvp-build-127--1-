@@ -128,6 +128,9 @@ const NotificationsHost = memo(forwardRef<NotificationsHandle, {
   page (components/community/creator/settings-section), right where the Setup
   pill floats, which covered the button. Hidden there like on Settings.
 */
+/** When Settings was last fetched ahead on a phone (see the warm-up in the shell below). */
+let settingsWarmedAt = 0
+
 const COMMUNITY_SETTINGS_PATH = /^\/app\/community\/[^/]+\/settings(\/|$)/
 
 export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, displayName, stripeConnected = false, stripeStatus = "not_connected", onePagePublished = false, setupProgress, businesses = [], communitiesEnabled = false }: SidebarProps) {
@@ -178,10 +181,19 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
     has a OnePage has it fetched whole (prefetchAppPage), code included, and
     again when the app comes back after longer than the router keeps it.
   */
-  /* Settings fetched whole a moment after each page settles on a computer, so the sheet rises already filled (the phone's account menu does the same). */
+  /*
+    Settings fetched whole a moment after each page settles, so it opens
+    already filled instead of empty with its sections arriving after. On a
+    phone (data and battery) at most once every few minutes, which is about
+    as long as the router keeps it.
+  */
   useEffect(() => {
-    if (isPhoneShell() || pathname.startsWith("/app/settings")) return
-    const t = window.setTimeout(() => prefetchAppPage(router, "/app/settings"), 1500)
+    if (pathname.startsWith("/app/settings")) return
+    if (isPhoneShell() && Date.now() - settingsWarmedAt < 4 * 60_000) return
+    const t = window.setTimeout(() => {
+      settingsWarmedAt = Date.now()
+      prefetchAppPage(router, "/app/settings")
+    }, isPhoneShell() ? 2000 : 1500)
     return () => window.clearTimeout(t)
   }, [pathname, router])
 
