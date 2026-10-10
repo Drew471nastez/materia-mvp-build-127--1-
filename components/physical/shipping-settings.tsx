@@ -175,7 +175,7 @@ function stopEnter(e: React.KeyboardEvent) {
   if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault()
 }
 
-export type ShippingPart = "delivery" | "locations" | "taxes" | "returns"
+export type ShippingPart = "delivery" | "locations" | "returns"
 
 export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart }) {
   const [data, setData] = React.useState<Data | null>(null)
@@ -220,7 +220,6 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
           <StockAlerts data={data} reload={load} />
         </>
       ) : null}
-      {part === "taxes" ? <Taxes data={data} reload={load} setData={setData} /> : null}
       {part === "returns" ? <ReturnsPolicy data={data} reload={load} /> : null}
 
       <p className="text-[13px] text-[#6b7280]">
@@ -1135,143 +1134,6 @@ function Packages({ data, setData }: { data: Data; setData: React.Dispatch<React
 }
 
 /* ── Taxes ─────────────────────────────────────────────────────────────── */
-
-function Taxes({ data, reload, setData }: { data: Data; reload: () => void; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
-  const s = data.settings
-  const [error, setError] = React.useState<string | null>(null)
-  const [f, setF] = React.useState({ country: "", region: "", percent: "", name: "VAT" })
-  const save = async (patch: Partial<Settings>) => {
-    setData((d) => (d ? { ...d, settings: { ...d.settings, ...patch } } : d))
-    const r = await api("/api/physical/settings", { method: "PUT", body: patch })
-    if (!r.ok) {
-      setError(r.error)
-      reload()
-    }
-  }
-  return (
-    <div className="space-y-4">
-      <Card title="Tax" description="Storelib only charges tax you set here. Check what applies to you with an accountant." help="taxes">
-        <div className="space-y-2">
-          {[
-            { id: "none", title: "Don't charge tax", line: "Prices are what buyers pay, plus delivery." },
-            { id: "manual", title: "Charge my own rates", line: "By country, or by region within a country." },
-          ].map((o) => (
-            <button key={o.id} type="button" onClick={() => save({ taxMode: o.id as Settings["taxMode"] })} aria-pressed={s.taxMode === o.id} className={cn("flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left", s.taxMode === o.id ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]")}>
-              <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", s.taxMode === o.id ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{s.taxMode === o.id ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
-              <span>
-                <span className="block text-[14px] font-medium text-[#1a1a2e]">{o.title}</span>
-                <span className="block text-[13px] text-[#6b7280]">{o.line}</span>
-              </span>
-            </button>
-          ))}
-          <div className="flex items-start gap-3 rounded-xl border border-dashed border-[#e5e7eb] px-3.5 py-3 opacity-70">
-            <span className="mt-0.5 h-4 w-4 shrink-0 rounded-full border border-[#d1d5db]" />
-            <span>
-              <span className="block text-[14px] font-medium text-[#1a1a2e]">Automatic tax</span>
-              <span className="block text-[13px] text-[#6b7280]">Calculated by a tax provider. Not available yet.</span>
-            </span>
-          </div>
-        </div>
-        {s.taxMode === "manual" ? (
-          <div className="mt-4 space-y-3">
-            <Toggle label="Prices include tax" description="Common in Europe. The tax is shown as part of the price." checked={s.pricesIncludeTax} onChange={(v) => save({ pricesIncludeTax: v })} />
-            <Toggle label="Charge tax on shipping" checked={s.taxOnShipping} onChange={(v) => save({ taxOnShipping: v })} />
-          </div>
-        ) : null}
-      </Card>
-      {s.taxMode === "manual" ? (
-        <Card title="Tax rates">
-          <div className="grid gap-2 sm:grid-cols-[1.4fr_1fr_0.7fr_0.8fr_auto] sm:items-end">
-            <Field label="Country">
-              <SelectInput value={f.country} onChange={(v) => setF({ ...f, country: v, region: "" })}>
-                <option value="">Choose</option>
-                {COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.code}>
-                    {c.name}
-                  </option>
-                ))}
-              </SelectInput>
-            </Field>
-            <Field label="State or region" hint="Optional">
-              {regionsOf(f.country).length ? (
-                <SelectInput value={f.region} onChange={(v) => setF({ ...f, region: v })}>
-                  <option value="">Whole country</option>
-                  {regionsOf(f.country).map((r) => (
-                    <option key={r.code} value={r.code}>
-                      {r.name}
-                    </option>
-                  ))}
-                </SelectInput>
-              ) : (
-                <TextInput value={f.region} maxLength={120} onChange={(e) => setF({ ...f, region: e.target.value })} placeholder="Optional" />
-              )}
-            </Field>
-            <Field label="Rate">
-              <DecimalInput value={f.percent} onChange={(v) => setF({ ...f, percent: v })} suffix="%" />
-            </Field>
-            <Field label="Name">
-              <TextInput value={f.name} maxLength={60} onChange={(e) => setF({ ...f, name: e.target.value })} />
-            </Field>
-            <button
-              type="button"
-              className={BTN_PRIMARY}
-              disabled={!f.country || !f.percent}
-              onClick={async () => {
-                const r = await api<{ taxRates: TaxRow[] }>("/api/physical/tax-rates", { body: f })
-                if (!r.ok) return setError(r.error)
-                setData((d) => (d ? { ...d, taxRates: r.data.taxRates } : d))
-                setF({ country: "", region: "", percent: "", name: f.name })
-                setError(null)
-              }}
-            >
-              Add
-            </button>
-          </div>
-          {error ? <Notice className="mt-3">{error}</Notice> : null}
-          <ul className="mt-4 divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]">
-            {data.taxRates.length === 0 ? <li className="px-3 py-3 text-[13.5px] text-[#6b7280]">No rates yet. Buyers are charged no tax until you add one.</li> : null}
-            {data.taxRates.map((t) => (
-              <li key={t.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <span className="text-[14px] text-[#1a1a2e]">
-                  {countryName(t.country)}
-                  {t.region ? `, ${regionsOf(t.country).find((r) => r.code === t.region)?.name ?? t.region}` : ""} <span className="text-[#6b7280]">· {t.name}</span>
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="text-[14px] font-medium tabular-nums">{(t.rateBps / 100).toFixed(t.rateBps % 100 ? 2 : 0)}%</span>
-                  <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label="Delete rate" onClick={async () => { const r = await api<{ taxRates: TaxRow[] }>(`/api/physical/tax-rates/${t.id}`, { method: "DELETE" }); if (r.ok) setData((d) => (d ? { ...d, taxRates: r.data.taxRates } : d)) }}>
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Card>
-      ) : null}
-    </div>
-  )
-}
-
-/* ── Saving a few fields of the shop's settings ─────────────────────────── */
-
-function useSettingsSave(reload: () => void) {
-  const [state, setState] = React.useState<"idle" | "saving" | "saved">("idle")
-  const [error, setError] = React.useState<string | null>(null)
-  const save = async (patch: Partial<Settings>) => {
-    setState("saving")
-    const r = await api("/api/physical/settings", { method: "PUT", body: patch })
-    if (!r.ok) {
-      setError(r.error)
-      setState("idle")
-      return false
-    }
-    setError(null)
-    setState("saved")
-    reload()
-    setTimeout(() => setState("idle"), 1600)
-    return true
-  }
-  return { state, error, save }
-}
 
 function SaveButton({ state, onClick, disabled }: { state: "idle" | "saving" | "saved"; onClick: () => void; disabled?: boolean }) {
   return (

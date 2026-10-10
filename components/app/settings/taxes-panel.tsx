@@ -95,12 +95,8 @@ export function TaxesPanel() {
 
   if (error && !setup) return <Notice>{error}</Notice>
   if (!setup) {
-    return (
-      <div className="space-y-4" aria-busy="true">
-        <div className="h-[150px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" />
-        <div className="h-[200px] animate-pulse rounded-2xl border border-[#e5e7eb]/60 bg-white" />
-      </div>
-    )
+    /* No outline of itself: the settings fade in when they come (settings-content-in). */
+    return <div className="min-h-[360px]" aria-busy="true" />
   }
   const currency = (setup.currency || "USD").toUpperCase()
   const suggested = setup.detectedCountry && !setup.regions.some((r) => r.country === setup.detectedCountry) ? setup.detectedCountry : null

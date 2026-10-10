@@ -82,6 +82,32 @@ export function bpsFromPercent(typed: unknown): number | null {
   return Math.round(n * 100)
 }
 
+/**
+ * What the single product checkout page needs to show the same tax the
+ * server will charge: the country rows (a digital sale has no address, so a
+ * state's own row never applies), this product's own rates, and the
+ * buyer's country as the request's address says. Null when nothing is taxed.
+ */
+export interface CheckoutTax {
+  included: boolean
+  regions: { id: string; country: string; rateBps: number }[]
+  overrides: { taxRateId: string; productId: string; rateBps: number }[]
+  country: string | null
+}
+
+export function checkoutTaxFor(
+  setup: { enabled: boolean; digital: boolean; included: boolean; regions: readonly TaxRegionRow[]; overrides: readonly TaxOverrideRow[] } | null,
+  productId: string,
+  country: string | null,
+): CheckoutTax | null {
+  if (!setup || !setup.enabled || !setup.digital) return null
+  const regions = setup.regions.filter((r) => !r.region && r.id).map((r) => ({ id: r.id as string, country: r.country.toUpperCase(), rateBps: clampBps(r.rateBps) }))
+  if (regions.length === 0) return null
+  const ids = new Set(regions.map((r) => r.id))
+  const overrides = setup.overrides.filter((o) => o.productId === productId && ids.has(o.taxRateId)).map((o) => ({ taxRateId: o.taxRateId, productId: o.productId, rateBps: clampBps(o.rateBps) }))
+  return { included: setup.included, regions, overrides, country: country ? country.toUpperCase() : null }
+}
+
 export interface DigitalTax {
   /** What is charged: the price, or the price and tax on top. */
   totalCents: number

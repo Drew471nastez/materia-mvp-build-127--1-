@@ -20,6 +20,7 @@ import Image from "next/image"
 import { ChevronDown, Package, Tag, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Reveal, Spinner, TextInput, money } from "./ui"
+import { countryName } from "@/lib/checkout/countries"
 
 export interface SummaryVariant {
   id: string
@@ -422,6 +423,7 @@ export function Totals({
   total,
   isPwyw,
   promo,
+  tax,
 }: {
   part: "top" | "bottom"
   subtotal: number
@@ -431,6 +433,8 @@ export function Totals({
   isPwyw?: boolean
   /** The promotion code's button or field, under the subtotal where Stripe puts it. */
   promo?: React.ReactNode
+  /** Settings › Taxes: the tax for the buyer's country, which they can change here. */
+  tax?: TaxLine
 }) {
   if (part === "top") {
     return (
@@ -451,10 +455,64 @@ export function Totals({
   }
   return (
     <dl data-totals="bottom" className="text-[14px]">
-      <div className="flex items-baseline justify-between gap-4 border-t border-black/[0.07] pt-4">
+      {tax && !tax.included ? <TaxRow tax={tax} /> : null}
+      <div className={cn("flex items-baseline justify-between gap-4 border-t border-black/[0.07] pt-4", tax && !tax.included && "mt-4")}>
         <dt className="text-[15px] font-semibold text-[#1a1a2e]">Total due</dt>
         <dd className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(total)}</dd>
       </div>
+      {tax && tax.included ? <TaxRow tax={tax} /> : null}
     </dl>
+  )
+}
+
+export interface TaxLine {
+  cents: number
+  rateBps: number
+  included: boolean
+  country: string | null
+  /** The countries the store has a tax region for. */
+  countries: string[]
+  onCountry: (code: string | null) => void
+  /** Keeps two copies of the summary (phone and computer) from sharing an id. */
+  suffix?: string
+}
+
+/**
+ * The tax line: "Tax" with its amount added, or "Includes … tax" under the
+ * total. The country it is for is a quiet select: a buyer elsewhere picks
+ * theirs, and a country with no region pays none, which is what it says.
+ */
+function TaxRow({ tax }: { tax: TaxLine }) {
+  const names = React.useMemo(() => {
+    const list = tax.countries.map((code) => ({ code, name: countryName(code) }))
+    if (tax.country && !tax.countries.includes(tax.country)) list.push({ code: tax.country, name: countryName(tax.country) })
+    return list.sort((a, b) => a.name.localeCompare(b.name))
+  }, [tax.countries, tax.country])
+  const id = `checkout-tax-country${tax.suffix ? `-${tax.suffix}` : ""}`
+  const label = tax.included ? (tax.cents > 0 ? `Includes ${money(tax.cents)} tax` : "No tax included") : "Tax"
+  return (
+    <div data-tax-line="" className={cn("flex items-baseline justify-between gap-4", tax.included && "mt-2")}>
+      <dt className={cn(tax.included ? "text-[13px] text-[#6b7280]" : "text-[#6b7280]")}>
+        {label}
+        <span className="text-[#9ca3af]"> · </span>
+        <label htmlFor={id} className="sr-only">
+          Country for tax
+        </label>
+        <select
+          id={id}
+          value={tax.country ?? ""}
+          onChange={(e) => tax.onCountry(e.target.value || null)}
+          className="cursor-pointer appearance-none rounded-md bg-transparent pr-1 text-inherit underline decoration-black/20 underline-offset-[3px] outline-none hover:decoration-black/40 focus-visible:ring-2 focus-visible:ring-black/10"
+        >
+          <option value="">Another country</option>
+          {names.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      </dt>
+      {tax.included ? null : <dd className="tabular-nums text-[#6b7280]">{tax.cents > 0 ? money(tax.cents) : money(0)}</dd>}
+    </div>
   )
 }

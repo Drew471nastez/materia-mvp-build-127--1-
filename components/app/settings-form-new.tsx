@@ -54,6 +54,7 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
+import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -112,7 +113,7 @@ type TabId = typeof TABS[number]["id"]
 const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 /** Tabs that exist only while physical commerce is on in /admin. */
 /** Behind the physical commerce switch in /admin. */
-const COMMERCE_TABS = new Set<string>(["shipping", "locations", "returns", "taxes", "integrations"])
+const COMMERCE_TABS = new Set<string>(["shipping", "locations", "returns", "integrations"])
 
 /**
  * Where an older address meant to go. Shipping held four parts behind
@@ -1833,7 +1834,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
-          {panelTab === "taxes" && physicalCommerce && <ShippingSettings part="taxes" />}
+          {panelTab === "taxes" && <TaxesPanel />}
           {panelTab === "returns" && physicalCommerce && <ShippingSettings part="returns" />}
 
           {/* Integrations: shipping, print on demand, dropshipping and fulfillment services (components/physical/integrations-marketplace.tsx). */}

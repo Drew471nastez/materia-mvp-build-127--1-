@@ -26,6 +26,7 @@
 
 import * as React from "react"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { digitalTax, type CheckoutTax } from "@/lib/tax/rules"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ChevronDown } from "lucide-react"
@@ -76,6 +77,8 @@ interface CheckoutPageClientProps {
   checkoutConfig?: CheckoutConfig
   /** The signed in buyer has confirmed their email. */
   emailConfirmed?: boolean
+  /** Settings › Taxes, when the store taxes digital products; null when nothing is taxed. */
+  checkoutTax?: CheckoutTax | null
   /**
    * The creator's own website page to land on after paying, checked on the
    * server against their sites (lib/checkout/return-url.ts). Null: the
@@ -168,6 +171,7 @@ export default function CheckoutPageClient({
   isLoggedIn,
   checkoutConfig = DEFAULT_CHECKOUT,
   emailConfirmed = true,
+  checkoutTax = null,
 }: CheckoutPageClientProps) {
   /* Settings › Checkout: an account first, and a confirmed one, before Pay. */
   const accountGate = checkoutConfig.requireAccount && !isLoggedIn ? "sign-in" : checkoutConfig.requireConfirmedEmail && isLoggedIn && !emailConfirmed ? "confirm" : null
@@ -211,7 +215,15 @@ export default function CheckoutPageClient({
   /** The reason a code from the link did not apply: said quietly, the buyer did nothing wrong. */
   const [codeFromLink, setCodeFromLink] = React.useState(false)
   const discountCents = applied ? Math.min(applied.discountCents, subtotal) : 0
-  const total = Math.max(0, subtotal - discountCents + tipCents)
+  /* Tax the server charges too (lib/tax/rules digitalTax): by the buyer's country, which they can change. */
+  const [taxCountry, setTaxCountry] = React.useState<string | null>(checkoutTax?.country ?? null)
+  const taxNow = checkoutTax
+    ? digitalTax(
+        { enabled: true, digital: true, included: checkoutTax.included, regions: checkoutTax.regions.map((r) => ({ ...r, region: null })), overrides: checkoutTax.overrides },
+        { taxableCents: Math.max(0, subtotal - discountCents), tipCents, productId: product.id, country: taxCountry },
+      )
+    : null
+  const total = taxNow ? taxNow.totalCents : Math.max(0, subtotal - discountCents + tipCents)
   const isFree = total === 0
 
   /* ── Buying for a business ───────────────────────────────────────── */
@@ -831,6 +843,8 @@ export default function CheckoutPageClient({
       lastName: typed ? lastName.trim() : walletName.slice(1).join(" "),
       email: payerEmail,
       emailOptIn: checkoutConfig.marketingOptIn ? emailOptIn : false,
+      /* The country the tax line was worked out for; the server checks it. */
+      taxCountry: checkoutTax ? taxCountry : null,
       agreedToTerms: agreed,
       business: businessOn ? business : null,
       /* Which page sent the buyer here and where their visit came from, for
@@ -1096,7 +1110,17 @@ export default function CheckoutPageClient({
         />
         <div className="mt-5">{tip(suffix)}</div>
         <div className="mt-5">
-          <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} total={total} />
+          <Totals
+            part="bottom"
+            subtotal={subtotal}
+            discountCents={discountCents}
+            total={total}
+            tax={
+              checkoutTax && !isFree
+                ? { cents: taxNow?.taxCents ?? 0, rateBps: taxNow?.rateBps ?? 0, included: checkoutTax.included, country: taxCountry, countries: checkoutTax.regions.map((r) => r.country), onCountry: setTaxCountry, suffix }
+                : undefined
+            }
+          />
         </div>
       </div>
     </div>

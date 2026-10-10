@@ -1,5 +1,8 @@
 import { personName } from "@/lib/profile/display-name"
-import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
+import { loadTaxForCheckout } from "@/lib/tax/server"
+import { checkoutTaxFor, digitalTax } from "@/lib/tax/rules"
+import { countryCode } from "@/lib/checkout/countries"
 import { NextResponse, after } from "next/server"
 import type Stripe from "stripe"
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
@@ -124,6 +127,23 @@ export async function POST(request: Request) {
   if (totals.totalCents <= 0) {
     return NextResponse.json({ error: "This order is free. Refresh the page to take it without paying." }, { status: 400 })
   }
+  /*
+    SETTINGS › TAXES, for a store that taxes digital products. The country is
+    the one the page showed the tax for (the buyer can change it there),
+    checked against the list, else the request's own. The arithmetic is the
+    page's (lib/tax/rules digitalTax): the code's discount comes off first, a
+    tip is never taxed, and with prices including tax the total does not
+    move. Storelib's fee stays on the price, never on the tax.
+  */
+  const taxCountry = countryCode(body.taxCountry) ?? detectedCountry(request.headers)
+  const taxView = checkoutTaxFor(await loadTaxForCheckout(admin, creator.id), product.id, taxCountry)
+  const tax = taxView
+    ? digitalTax(
+        { enabled: true, digital: true, included: taxView.included, regions: taxView.regions.map((r) => ({ ...r, region: null })), overrides: taxView.overrides },
+        { taxableCents: totals.baseCents - totals.discountCents, tipCents: totals.tipCents, productId: product.id, country: taxCountry },
+      )
+    : null
+  const chargeCents = tax ? tax.totalCents : totals.totalCents
   if (totals.totalCents < MIN_CHARGE_CENTS) {
     return NextResponse.json({ error: "The smallest card payment is $0.50. Add a tip or remove the code." }, { status: 400 })
   }
@@ -229,6 +249,11 @@ export async function POST(request: Request) {
     /* What was paid for the option: a pay-what-you-want option's stored
        price is 0 or its minimum, not the buyer's amount. */
     variant_price_cents: variant ? String(totals.baseCents) : "",
+    /* The tax in the amount, for the order's own record (orders.tax_cents) and the receipt. */
+    tax_cents: String(tax?.taxCents ?? 0),
+    tax_rate_bps: String(tax?.rateBps ?? 0),
+    tax_included: tax?.included ? "true" : "false",
+    tax_country: tax && tax.taxCents > 0 ? tax.country ?? "" : "",
     buyer_country: geoInfo.country || "",
     buyer_country_code: geoInfo.countryCode || "",
     buyer_device_type: deviceInfo.deviceType || "",
@@ -243,7 +268,7 @@ export async function POST(request: Request) {
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {
-    amount: totals.totalCents,
+    amount: chargeCents,
     currency: chargeCurrency,
     /* The methods the page's form loaded with, by name (lib/checkout/payment-methods). */
     payment_method_types: methodsFrom(body.paymentMethods),
@@ -287,7 +312,7 @@ export async function POST(request: Request) {
             quantity: 1,
             price_data: {
               currency: chargeCurrency,
-              unit_amount: totals.totalCents,
+              unit_amount: chargeCents,
               product_data: { name: String(product.title || "Storelib").slice(0, 120) },
             },
           },

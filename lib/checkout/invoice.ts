@@ -73,6 +73,10 @@ export interface InvoiceData {
   discountCents: number
   discountCode: string | null
   tipCents: number
+  /** Settings › Taxes: the tax in the total, added on top or included in the price. */
+  taxCents?: number
+  taxIncluded?: boolean
+  taxRateBps?: number
   totalCents: number
   payment: string
   reference: string | null
@@ -229,14 +233,19 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const tip = rows.reduce((n, r) => n + Math.max(0, Number(r.tip_cents) || 0), 0)
   let lines: InvoiceLine[]
   let discount: number
+  /* The tax stripe-session put in the amount (a single product only). */
+  const taxCents = !isBasket ? Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0) : 0
+  const taxIncluded = meta.tax_included === "true"
+  const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
+  const addedTax = taxIncluded ? 0 : taxCents
   if (!isBasket) {
     const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)
     const recordedBase = Number(meta.base_price_cents)
     /* The price before the code, as the checkout recorded it, when it adds
        up to what was charged; otherwise what was paid, with no discount
        line, because a document whose figures do not add up is worse. */
-    const adds = Number.isFinite(recordedBase) && recordedBase > 0 && recordedBase - recordedDiscount + tip === total
-    const base = adds ? recordedBase : total - tip
+    const adds = Number.isFinite(recordedBase) && recordedBase > 0 && recordedBase - recordedDiscount + tip + addedTax === total
+    const base = adds ? recordedBase : total - tip - addedTax
     discount = adds ? recordedDiscount : 0
     discountCode = discount > 0 ? discountCode ?? (meta.coupon_code || null) : null
     lines = [{ description: first.product?.title || meta.product_title || "Digital product", detail: first.variant_name || null, quantity: 1, unitCents: base, amountCents: base }]
@@ -324,6 +333,9 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     discountCents: discount,
     discountCode,
     tipCents: tip,
+    taxCents,
+    taxIncluded,
+    taxRateBps,
     totalCents: total,
     payment: paymentLabel(first),
     reference: first.stripe_payment_intent_id ?? first.provider_payment_id ?? null,
@@ -535,10 +547,13 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   row("Subtotal", money(inv.subtotalCents))
   if (inv.discountCents > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(inv.discountCents)}`)
   if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
+  const taxRate = inv.taxRateBps ? ` (${(inv.taxRateBps / 100).toFixed(inv.taxRateBps % 100 ? 2 : 0)}%)` : ""
+  if (inv.taxCents && !inv.taxIncluded) row(`Tax${taxRate}`, money(inv.taxCents))
   y += 2
   doc.moveTo(tLabel, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
   row("Total", money(inv.totalCents), true)
+  if (inv.taxCents && inv.taxIncluded) row(`Including tax${taxRate}`, money(inv.taxCents))
   row("Amount paid", `${money(inv.totalCents)} ${inv.currency}`, true)
   if (inv.refundedCents > 0) row("Refunded", `−${money(inv.refundedCents)} ${inv.currency}`, true)
 

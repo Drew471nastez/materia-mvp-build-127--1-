@@ -175,7 +175,15 @@ export async function loadTaxRates(db: Db, creatorId: string): Promise<TaxRateRo
 export async function loadTaxSettings(db: Db, creatorId: string, settings?: CommerceSettings): Promise<TaxSettings> {
   const s = settings ?? (await loadSettings(db, creatorId))
   if (s.taxMode !== "manual") return { mode: s.taxMode, pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates: [] }
-  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates: await loadTaxRates(db, creatorId) }
+  const [rates, overrides] = await Promise.all([loadTaxRates(db, creatorId), loadTaxOverrides(db, creatorId)])
+  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates, overrides }
+}
+
+/** Products with their own rate in a region (SQL part 110); none before the part is run. */
+export async function loadTaxOverrides(db: Db, creatorId: string): Promise<{ taxRateId: string; productId: string; rateBps: number }[]> {
+  const { data, error } = await db.from("commerce_tax_overrides").select("tax_rate_id, product_id, rate_bps").eq("creator_id", creatorId).limit(1000)
+  if (error) return []
+  return ((data ?? []) as Record<string, any>[]).map((r) => ({ taxRateId: r.tax_rate_id, productId: r.product_id, rateBps: r.rate_bps }))
 }
 
 /* ── reading input ────────────────────────────────────────────────────── */
