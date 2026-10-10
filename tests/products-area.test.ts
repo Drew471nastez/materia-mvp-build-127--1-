@@ -173,7 +173,8 @@ check("  and a live paid product says when checkout cannot take money yet", /con
   So: one question, in one place, asked by Cancel and left here for the pill.
 */
 check("the unsaved tracking still drives the leave question, and every door out asks the same one",
-  /const askToDiscard = useCallback\(async \(\): Promise<boolean> => \{\s*if \(!hasUnsavedChanges\) return true/.test(editor)
+  /* Changed on purpose: a Settings link from the editor asks Save and go, Don't save, or Stay itself, and the leave guard doesn't ask again (answeredRef). */
+  /const askToDiscard = useCallback\(async \(\): Promise<boolean> => \{\s*if \(!hasUnsavedChanges \|\| answeredRef\.current\) return true/.test(editor)
     && /title: "Discard changes\?"/.test(editor) && /confirm: "Discard", cancel: "Keep editing"/.test(editor)
     && /if \(hasUnsavedChanges && !\(await askToDiscard\(\)\)\) return/.test(editor)
     && /useEffect\(\(\) => askBeforeLeaving\(askToDiscard\), \[askToDiscard\]\)/.test(editor)

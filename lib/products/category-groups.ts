@@ -306,9 +306,47 @@ export const CATEGORY_GROUPS: CategoryGroup[] = [
   },
 ]
 
-/** Which group a category is in. Every category name is in exactly one group. */
-const GROUP_OF = new Map(CATEGORY_GROUPS.flatMap((g) => g.categories.map((c) => [c, g.name] as const)))
+/**
+ * THINGS THAT SHIP. A physical product is offered these instead, grouped
+ * the way a shop floor is (after Shopify's product taxonomy, its top levels
+ * and the categories small stores sell most). No name here is also a
+ * digital one, so a category says which kind it is.
+ */
+export const PHYSICAL_CATEGORY_GROUPS: CategoryGroup[] = [
+  { name: "Apparel", categories: ["T-Shirts", "Hoodies & Sweatshirts", "Shirts & Tops", "Dresses", "Pants & Jeans", "Shorts", "Skirts", "Outerwear", "Activewear", "Swimwear", "Underwear & Socks", "Sleepwear", "Kids' Clothing", "Baby Clothing"] },
+  { name: "Shoes", categories: ["Sneakers", "Boots", "Sandals", "Heels", "Flats", "Kids' Shoes", "Slippers"] },
+  { name: "Accessories", categories: ["Bags & Backpacks", "Wallets", "Hats & Caps", "Scarves", "Belts", "Sunglasses", "Watches", "Phone Cases", "Keychains", "Hair Accessories"] },
+  { name: "Jewelry", categories: ["Necklaces", "Rings", "Earrings", "Bracelets", "Anklets", "Jewelry Sets"] },
+  { name: "Health & Beauty", categories: ["Skincare", "Makeup", "Hair Care", "Fragrance", "Bath & Body", "Nail Care", "Shaving & Grooming", "Vitamins & Supplements", "Oral Care"] },
+  { name: "Home & Garden", categories: ["Decorative Accents", "Candles", "Wall Art & Prints", "Bedding", "Towels", "Rugs", "Lighting", "Furniture", "Storage & Organization", "Plants & Planters", "Garden Tools", "Cleaning Supplies"] },
+  { name: "Kitchen & Dining", categories: ["Mugs & Cups", "Drinkware", "Cookware", "Bakeware", "Tableware", "Kitchen Tools", "Kitchen Textiles", "Food Storage"] },
+  { name: "Food & Drink", categories: ["Coffee", "Tea", "Snacks", "Sweets & Chocolate", "Honey & Spreads", "Sauces & Condiments", "Spices", "Baked Goods", "Beverages", "Wine & Spirits", "Gift Baskets"] },
+  { name: "Arts & Crafts", categories: ["Art Supplies", "Craft Kits", "Yarn & Knitting", "Sewing & Fabric", "Paper & Stickers", "Original Artwork", "Handmade Ceramics", "Beads & Jewelry Making"] },
+  { name: "Stationery & Office", categories: ["Notebooks & Journals", "Planners & Calendars", "Pens & Pencils", "Printed Greeting Cards", "Postcards", "Desk Accessories", "Gift Wrap"] },
+  { name: "Books & Media", categories: ["Printed Books", "Magazines & Zines", "Comics", "Vinyl Records", "CDs", "Printed Posters"] },
+  { name: "Music Gear", categories: ["Instruments", "Guitar Accessories", "Studio Equipment", "Headphones", "Cables & Adapters", "Merch"] },
+  { name: "Electronics", categories: ["Phone Accessories", "Computer Accessories", "Audio", "Cameras & Photo", "Smart Home", "Chargers & Batteries", "Gadgets"] },
+  { name: "Toys & Games", categories: ["Toys", "Board Games", "Puzzles", "Card Games", "Plush Toys", "Building Sets", "Outdoor Play"] },
+  { name: "Baby & Kids", categories: ["Baby Care", "Nursery", "Feeding", "Kids' Toys", "School Supplies"] },
+  { name: "Sports & Outdoors", categories: ["Fitness Equipment", "Yoga", "Cycling", "Camping & Hiking", "Fishing", "Team Sports", "Water Sports", "Sports Apparel"] },
+  { name: "Pet Supplies", categories: ["Dog Supplies", "Cat Supplies", "Pet Food & Treats", "Pet Beds", "Pet Toys", "Collars & Leashes", "Aquarium Supplies"] },
+  { name: "Vehicles & Parts", categories: ["Car Accessories", "Bike Parts", "Motorcycle Gear"] },
+  { name: "Gifts & Seasonal", categories: ["Gift Sets", "Holiday Decor", "Party Supplies", "Wedding", "Physical Gift Cards"] },
+  { name: "Other Goods", categories: ["Bundles & Boxes", "Subscription Boxes", "Samples", "Other Physical Product"] },
+]
+
+export type CategoryKind = "physical" | "digital"
+
+/** The groups a product of this kind is offered. */
+export const categoryGroupsFor = (kind: CategoryKind = "digital"): CategoryGroup[] => (kind === "physical" ? PHYSICAL_CATEGORY_GROUPS : CATEGORY_GROUPS)
+
+/** Which group a category is in. Every category name is in exactly one group, across both lists. */
+const GROUP_OF = new Map([...CATEGORY_GROUPS, ...PHYSICAL_CATEGORY_GROUPS].flatMap((g) => g.categories.map((c) => [c, g.name] as const)))
+const PHYSICAL = new Set(PHYSICAL_CATEGORY_GROUPS.flatMap((g) => g.categories))
 const ALL = [...GROUP_OF.keys()].sort((a, b) => a.localeCompare(b))
+
+/** Is this category one a product of this kind is offered? */
+export const isCategoryFor = (category: unknown, kind: CategoryKind): category is string => typeof category === "string" && GROUP_OF.has(category) && PHYSICAL.has(category) === (kind === "physical")
 
 export const groupOfCategory = (category: string | null | undefined): string | null => (category ? GROUP_OF.get(category) ?? null : null)
 
@@ -316,12 +354,13 @@ export const groupOfCategory = (category: string | null | undefined): string | n
 export const isCategory = (category: unknown): category is string => typeof category === "string" && GROUP_OF.has(category)
 
 /** Matches first where a word starts with the query, then anywhere, each alphabetical. */
-export function searchCategories(query: string): string[] {
+export function searchCategories(query: string, kind: CategoryKind = "digital"): string[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
   const starts: string[] = []
   const inside: string[] = []
   for (const c of ALL) {
+    if (PHYSICAL.has(c) !== (kind === "physical")) continue
     const l = c.toLowerCase()
     if (l.startsWith(q) || l.includes(` ${q}`)) starts.push(c)
     else if (l.includes(q) || (GROUP_OF.get(c) ?? "").toLowerCase().includes(q)) inside.push(c)

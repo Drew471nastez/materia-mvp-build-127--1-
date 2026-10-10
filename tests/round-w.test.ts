@@ -12,6 +12,8 @@ import { orderCancelledEmail, refundEmail, returnEmail, shipmentEmail } from "@/
 import { CUSTOMER_EMAILS, previewCustomerEmail } from "@/lib/emails/customer-catalog"
 import { quoteDelivery } from "@/lib/physical/rates"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
+import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS, isCategoryFor, searchCategories } from "@/lib/products/category-groups"
+import { keywordSuggestion, parseSuggestRequest } from "@/lib/products/category-suggest"
 import { existsSync } from "node:fs"
 
 let passed = 0
@@ -114,6 +116,28 @@ console.log("\nIntegrations")
   const ui = read("components/app/settings/integrations-directory.tsx")
   check("Storelib's own carry Storelib's real mark, on light grey", /\/storelib-mark\.svg/.test(ui) && !/>S<\/span>/.test(ui) && !/violet/.test(ui))
   check("cards don't lift and pills don't shrink", !/hover:-translate-y/.test(ui) && !/active:scale/.test(ui))
+}
+
+console.log("\nThe physical product editor")
+{
+  const digital = new Set(CATEGORY_GROUPS.flatMap((g) => g.categories))
+  const physical = PHYSICAL_CATEGORY_GROUPS.flatMap((g) => g.categories)
+  check("things that ship have their own list, no name shared with downloads", physical.length > 120 && physical.every((c) => !digital.has(c)) && new Set(physical).size === physical.length)
+  check("a physical product is offered physical categories only", isCategoryFor("T-Shirts", "physical") && !isCategoryFor("T-Shirts", "digital") && !isCategoryFor("Sample Packs", "physical"))
+  check("search keeps to the list", searchCategories("shirt", "physical").includes("T-Shirts") && !searchCategories("preset", "physical").length)
+  check("suggested from the title: a mug, a hoodie, honey", keywordSuggestion("Black ceramic mug 11oz", "physical") === "Mugs & Cups" && keywordSuggestion("Oversized hoodie in sage", "physical") === "Hoodies & Sweatshirts" && keywordSuggestion("Raw wildflower honey 500g", "physical") === "Honey & Spreads", [keywordSuggestion("Black ceramic mug 11oz", "physical"), keywordSuggestion("Oversized hoodie in sage", "physical")])
+  const parsed = parseSuggestRequest(JSON.stringify({ title: "Mug", kind: "physical" }), { storageOrigin: "https://x.supabase.co", creatorId: "c" })
+  check("the suggestion route is told which list", parsed.ok && parsed.input.kind === "physical")
+  const ed = read("app/app/products/new/product-editor.tsx")
+  check("What's included is a download's, hidden for a thing that ships", /hidden=\{productType === "physical"\}\s*>\s*<div>\s*<div className="flex items-center gap-1.5">\s*<h2 className=\{CARD_TITLE\}>What's Included/.test(ed) && /productType === "physical" \? \[\] : whatsIncluded/.test(ed))
+  check("settings links in the editor stay in the app and ask Save and go, Don't save, Stay", /openSettings=\{openSettings\}/.test(ed) && /alt: "Don't save"/.test(ed) && /router\.push\(href\)/.test(ed))
+  const cards = read("components/physical/product-cards.tsx")
+  check("no editor link to settings is a plain link that leaves the app", !/<Link href="\/app\/settings/.test(cards) && !/target="_blank"/.test(cards) && /function SettingsLink/.test(cards))
+  check("tax is set up in its own tab", /\/app\/settings\?tab=taxes/.test(cards) && !/section=taxes/.test(cards))
+  check("variants start in a tap: Size, Color, Material", /OPTION_PRESETS/.test(cards) && /"S", "M", "L", "XL"/.test(cards))
+  check("advanced fields show an example", /placeholder="MUG-BLK-11"/.test(cards) && /placeholder="5901234123457"/.test(cards))
+  const ch = read("app/app/products/new/sales-channels-card.tsx")
+  check("creator page and Explore are shown as not for things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
