@@ -2996,7 +2996,7 @@ check(
    */
   [editor, modeSwitch].every((src) => {
     for (const m of src.matchAll(/transition-\[[^\]]*transform[^\]]*\]/g)) {
-      const around = src.slice(Math.max(0, m.index - 400), m.index + 400)
+      const around = src.slice(Math.max(0, (m.index ?? 0) - 400), (m.index ?? 0) + 400)
       if (/\btranslate-[xy]?-?\[?[\d.]/.test(around) || /\bscale-\[?[\d.]/.test(around)) return false
     }
     return true
