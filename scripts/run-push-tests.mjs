@@ -489,6 +489,7 @@ const SUITES = [
   "tests/communities-events-notify.test.ts",
   "tests/communities-events-member.test.ts",
   "tests/communities-profiles15.test.ts",
+  "tests/member18.test.ts",
   "tests/profiles-follows.test.ts",
   "tests/profile-one-page.test.ts",
   "tests/profile-seo-round12.test.ts",
