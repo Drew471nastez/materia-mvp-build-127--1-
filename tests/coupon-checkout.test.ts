@@ -240,7 +240,7 @@ async function main() {
   const fulfil = code("lib/checkout/fulfil-payment.ts")
   const webhook = code("app/api/stripe/webhook/route.ts")
   check("Apply prices on the server and never hands out the coupon's id", /priceOrder\(createAdminClient\(\)/.test(validate) && !/coupon\.id|priced\.coupon\.id/.test(validate))
-  check("Pay prices with the same function and charges its total", /priceOrder\(\s*admin,/.test(session) && /amount: totals\.totalCents/.test(session) && /couponCode: body\.couponCode/.test(session))
+  check("Pay prices with the same function and charges its total", /priceOrder\(\s*admin,/.test(session) && /amount: chargeCents,/.test(session) && /const chargeCents = tax \? tax\.totalCents : totals\.totalCents/.test(session) && /couponCode: body\.couponCode/.test(session))
   check("the coupon, the code and the discount go on the PaymentIntent", /coupon_id: coupon\?\.id \|\| ""/.test(session) && /coupon_code: coupon\?\.code \|\| ""/.test(session) && /discount_cents: String\(totals\.discountCents\)/.test(session))
   check("a total of $0 is refused by the card route", /if \(totals\.totalCents <= 0\)/.test(session))
   check("the free route takes only a total of $0 and counts the use once", /if \(totals\.totalCents !== 0\)/.test(free) && (free.match(/recordCouponUse\(/g) ?? []).length === 1)

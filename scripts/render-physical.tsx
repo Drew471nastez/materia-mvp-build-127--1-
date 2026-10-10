@@ -46,7 +46,7 @@ function App() {
       return (
         <div className="mx-auto max-w-[900px] bg-[#f8f9fa] p-4">
           <form onSubmit={(e) => { e.preventDefault(); (window as unknown as { submitted: number }).submitted = ((window as unknown as { submitted: number }).submitted || 0) + 1 }}>
-            <ShippingSettings />
+            <ShippingSettings part={(params.get("part") as "delivery" | "locations" | "returns" | null) ?? "delivery"} />
           </form>
         </div>
       )

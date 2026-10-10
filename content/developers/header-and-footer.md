@@ -211,13 +211,17 @@ An announcement bar, or anything else that belongs above the header on every pag
 
 `"category": "announcement"` puts a section in the header group even without `enabled_on`. Nothing else goes there: header content in the page's own sections, or page content in the header group, is the wrong group. See [Schema](/developers/schema#where-a-section-may-go).
 
-## Over the page
+## Over every page: the overlay group
 
-A popup, a bar fixed to the bottom of a phone, back to top: anything that floats over every page sits in the **Overlay group**, after the footer in the sidebar. Its schema says so:
+What floats over the page rather than sitting in it (a mobile bottom bar, a popup, a back to top button, a sticky add to cart, a cookie or age check) sits in the **overlay group**. It is the fourth group in the sidebar, under the footer, shown when the theme has such a section or the page already holds one. Like the header and footer groups, it is the same on every page.
 
 ```json
-{ "type": "promo_popup", "name": "Promo popup", "category": "overlay", "enabled_on": { "groups": ["overlay"] } }
+{ "type": "bottom_bar", "name": "Mobile bottom bar", "enabled_on": { "groups": ["overlay"] } }
 ```
+
+A section whose name or type plainly says what it is (popup, modal, back to top, bottom nav, mobile menu bar, sticky cart, cookie, age gate, chat button) may go there without saying so, and still on a page if you add it there. `"*"` in `enabled_on` and anything `disabled_on` mean the header, page and footer, never the overlay: a section goes over the page only when it is meant to. Overlay sections are drawn after the footer, so they sit on top; position them yourself (`position: fixed`) as the design needs.
+
+### What the page does for a floating section
 
 Its box has no query container, so `position: fixed` inside it is fixed to the screen, and it is drawn above the sticky header. A width-only `@media` query is read as a container query (see [Rules](/developers/rules)); for the screen's own width write it so it stays a media query, `@media not all and (min-width: 750px)`. The builder draws the section with `page.in_editor` true, in the page and visible, so it can be selected and edited; write that version too.
 

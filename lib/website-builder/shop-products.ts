@@ -55,6 +55,8 @@ import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { withoutCommunityProducts } from "@/lib/communities/listing"
 import { uniqueImages } from "@/lib/products/product-page-model"
+import { listedOn } from "@/lib/store/channels"
+import { offChannel } from "@/lib/store/channel-filter"
 
 /** One product, in the shape a block has. */
 export type ProductBlock = NonNullable<SectionInstanceData["blocks"]>[string] & { id?: string }
@@ -551,6 +553,8 @@ async function readCards(db: Db, creatorId: string, n: number, listedOnly: boole
       break
     }
     if (!rows) return []
+    /* Settings › Sales channels: a product taken off the Online store is in none of its lists (lib/store/channels). */
+    rows = listedOn(rows, await offChannel(db, creatorId, "storefront"))
     return await cardsFromRows(db, rows, creatorId)
   } catch {
     return []

@@ -28,6 +28,7 @@ import { COLLECTION_SORTS, inSmartCollection, readRules, sortProducts, type Coll
 import type { StorefrontCollection } from "@/lib/storelib-theme/types"
 import { plainText } from "@/lib/storelib-theme/values"
 import { toCard } from "./shop-products"
+import { offChannel } from "@/lib/store/channel-filter"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -97,8 +98,9 @@ export async function siteCollections(
     const listed = [...new Set(((items ?? []) as { product_id: string }[]).map((i) => i.product_id))].slice(0, 2000)
     let pq = db.from("products").select("*").eq("creator_id", creatorId).eq("status", "published")
     if (!smart) pq = listed.length ? pq.in("id", listed) : null
-    const { data: productRows } = pq ? await pq.limit(2000) : { data: [] }
-    const products = ((productRows ?? []) as Record<string, any>[]).map((p) => ({
+    const [{ data: productRows }, offStore] = await Promise.all([pq ? pq.limit(2000) : Promise.resolve({ data: [] }), offChannel(db, creatorId, "storefront")])
+    /* Settings › Sales channels: a product taken off the Online store is in none of its collections. */
+    const products = ((productRows ?? []) as Record<string, any>[]).filter((p) => !offStore.has(String(p.id))).map((p) => ({
       row: p,
       rule: {
         id: String(p.id),

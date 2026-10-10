@@ -168,12 +168,15 @@ check(
  * navigation; only if a page takes extremely long." Without one the router
  * holds the old page until the new one is ready, and the shell shows its
  * spinner only if that takes a while (components/app/app-stage.tsx). Products is
- * looked after with that page and keeps its own for now.
+ * looked after with that page and keeps its own for now. The settings sheet's
+ * slot (app/app/@sheet) keeps one too: it fills only the sheet's slot, never
+ * the page, and it draws nothing, so the page you are on stays under the sheet
+ * as it rises.
  */
 check(
   "no /app page has a route loading boundary, so the page you are on stays while the next one loads",
   (() => {
-    const offenders = loadingFiles("app/app").filter((f) => !f.startsWith("app/app/products/"))
+    const offenders = loadingFiles("app/app").filter((f) => !f.startsWith("app/app/products/") && !f.startsWith("app/app/@sheet/"))
     if (offenders.length) console.log("        " + offenders.join("\n        "))
     return offenders.length === 0
   })(),

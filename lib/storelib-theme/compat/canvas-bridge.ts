@@ -27,12 +27,14 @@ export const CANVAS_BRIDGE = `
     outline is painted with its element, so a carousel, a picture or a
     sticky child inside the section painted over it and the ring had gaps.
     Each box is fixed over the page, above everything, follows its element
-    on every scroll, resize and change, and takes no pointer.
+    on every scroll, resize and change, and takes no pointer. Storelib's own
+    canvas selection (components/website-builder/sections/_shared.tsx):
+    solid blue, never a dashed purple.
   */
-  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none;border-radius:2px}" +
-    "[data-sl-box=hover]{border:1px dashed rgba(139,92,246,.75)}" +
-    "[data-sl-box=section]{border:2px solid #8b5cf6}" +
-    "[data-sl-box=block]{border:2px solid #8b5cf6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
+  css.textContent = "[data-sl-box]{position:fixed;pointer-events:none;box-sizing:border-box;z-index:2147483646;display:none}" +
+    "[data-sl-box=hover]{border:1.5px solid rgba(59,130,246,.5)}" +
+    "[data-sl-box=section]{border:1.5px solid #3b82f6}" +
+    "[data-sl-box=block]{border:1.5px solid #3b82f6;box-shadow:0 0 0 1px rgba(255,255,255,.9)}";
   document.head.appendChild(css);
   var boxOf = function (kind) {
     var b = document.createElement("div");

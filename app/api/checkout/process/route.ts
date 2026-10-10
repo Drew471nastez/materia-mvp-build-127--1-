@@ -1,3 +1,4 @@
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
@@ -79,6 +80,12 @@ export async function POST(request: Request) {
     if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
     const { product, variant, totals, coupon } = priced
     const creator = product.creator as { id: string; user_id: string | null }
+    /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
+    {
+      const config = await loadCheckoutConfig(admin, creator.id)
+      if (config.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
+      if (config.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
+    }
     /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
     if ((product as { community_id?: string | null }).community_id) {
       const { checkoutGate } = await import("@/lib/communities/server/join")

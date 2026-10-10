@@ -94,6 +94,11 @@ const DIRECTIVES: [string, string[]][] = [
     "https://cdnjs.cloudflare.com",   // pdf.js, for reading a PDF in the browser
     "https://va.vercel-scripts.com",  // @vercel/analytics
     "https://vercel.live",            // the preview comment toolbar
+    /* A store's own analytics and ad pixels on its website, by ID only (lib/store/tracking.ts). */
+    "https://www.googletagmanager.com",
+    "https://connect.facebook.net",
+    "https://analytics.tiktok.com",
+    "https://s.pinimg.com",
   ]],
 
   /* Tailwind and every inline style attribute in the product. */
@@ -130,6 +135,15 @@ const DIRECTIVES: [string, string[]][] = [
     "https://upload.videodelivery.net",
     "https://upload.cloudflarestream.com",
     "https://video.bunnycdn.com",
+    /* Where those pixels report (lib/store/tracking.ts TRACKER_HOSTS). */
+    "https://www.googletagmanager.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+    "https://googleads.g.doubleclick.net",
+    "https://www.google.com",
+    "https://www.facebook.com",
+    "https://analytics.tiktok.com",
+    "https://ct.pinterest.com",
   ]],
 
   /* Stripe's and Airwallex's own frames, and the embed providers the sanitiser allows. */

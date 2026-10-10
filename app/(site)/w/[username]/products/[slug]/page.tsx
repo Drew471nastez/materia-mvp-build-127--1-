@@ -7,6 +7,7 @@ import { builtSiteIndexable } from "@/lib/seo/indexing"
 import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { siteLocale } from "@/lib/website-builder/site-language"
 import { siteIcons } from "@/lib/website-builder/site-icon"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -65,6 +66,8 @@ export default async function SiteProductPage({ params }: PageProps) {
       {/* What puts the price and the picture in a search result. */}
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
       {page}
+      {/* The store's analytics and ad pixels (Settings › Integrations). */}
+      <StoreTracking creatorId={creator.creatorId} />
     </>
   )
 }

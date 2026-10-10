@@ -77,7 +77,8 @@ check("the header and SmartLink ask the same list, so the navigator opens a libr
 console.log("\nThe places that sent it to Safari")
 const bridge = code("lib/native-bridge.ts")
 check("openExternal navigates the app for a Storelib address before anything opens a browser",
-  /if \(isNativeApp\(\)\) \{\s*if \(navigateInApp\(url\)\) return\s*if \(isIOS\(\)\)/.test(bridge) && /export function navigateInApp\(/.test(bridge) && /const link = nativeLinkFor\(href\)/.test(bridge))
+  /* October 2026: from the creator's own tools their live page goes to the browser (openInBrowser); everywhere else a Storelib address still navigates the app first. */
+  /if \(isNativeApp\(\)\) \{\s*if \(onCreatorTools\(\)\) return openInBrowser\(url\)\s*if \(navigateInApp\(url\)\) return\s*if \(isIOS\(\)\)/.test(bridge) && /export function navigateInApp\(/.test(bridge) && /const link = nativeLinkFor\(href\)/.test(bridge))
 const smart = code("components/smart-link.tsx")
 check("SmartLink: no target=\"_blank\" branch to the browser, and an absolute storelib.com address is a path",
   !/target === "_blank"/.test(smart) && /const link = href \? nativeLinkFor\(href\)/.test(smart) && /<Link href=\{link\.path\} \{\.\.\.linkSafeProps\}/.test(smart) && /openExternal\(link\.url\)/.test(smart) && !/toInternalHref/.test(smart))

@@ -30,7 +30,9 @@ export async function POST(request: Request) {
     if (!creator) return NextResponse.json({ error: "Creator not found" }, { status: 404 })
 
     const body = await request.json()
-    const { orderId, reason, amount } = body
+    const { orderId, amount } = body
+    /* A reason value from the store's list (lib/store/reasons), or none: never free text on the order. */
+    const reason = typeof body.reason === "string" && /^[a-z0-9_]{1,40}$/.test(body.reason) ? body.reason : null
 
     if (!orderId) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 })

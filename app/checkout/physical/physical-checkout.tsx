@@ -17,6 +17,7 @@
  */
 
 import * as React from "react"
+import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
@@ -68,7 +69,28 @@ function guessCountry(): string {
   }
 }
 
-export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: string | null; shopName: string; shopAvatar: string | null }) {
+export function PhysicalCheckout({
+  shopId,
+  shopName,
+  shopAvatar,
+  config = DEFAULT_CHECKOUT,
+  buyer = { signedIn: true, confirmed: true },
+}: {
+  shopId: string | null
+  shopName: string
+  shopAvatar: string | null
+  /** The store's Settings › Checkout (lib/store/checkout-config): which fields are asked for, and whether an account comes first. */
+  config?: CheckoutConfig
+  buyer?: { signedIn: boolean; confirmed: boolean }
+}) {
+  const needsSignIn = config.requireAccount && !buyer.signedIn
+  const needsConfirm = config.requireConfirmedEmail && buyer.signedIn && !buyer.confirmed
+  const [first, setFirst] = React.useState("")
+  const [last, setLast] = React.useState("")
+  const [emailOptIn, setEmailOptIn] = React.useState(false)
+  /* This page's own address, to come back to after signing in: read once mounted, so the server's HTML matches. */
+  const [here, setHere] = React.useState("/checkout/physical")
+  React.useEffect(() => setHere(window.location.pathname + window.location.search), [])
   const [items, setItems] = React.useState<LinkItem[] | null>(null)
   const [fromCart, setFromCart] = React.useState(false)
   const [backUrl, setBackUrl] = React.useState<string | null>(null)
@@ -77,7 +99,12 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
   const [quoting, setQuoting] = React.useState(false)
 
   const [email, setEmail] = React.useState("")
-  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "" })
+  const [address, setAddress] = React.useState({ name: "", line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" })
+  /* First and last typed apart, sent as one name, the way every order reads a name. */
+  React.useEffect(() => {
+    if (config.nameFields !== "first_and_last") return
+    setAddress((a) => ({ ...a, name: `${first.trim()} ${last.trim()}`.trim() }))
+  }, [first, last, config.nameFields])
   const [optionId, setOptionId] = React.useState<string | null>(null)
   const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
   const [codeOpen, setCodeOpen] = React.useState(false)
@@ -211,6 +238,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
           address: quote.requiresShipping && mode === "ship" ? address : null,
           deliveryOptionId: optionId,
           buyerNote: note,
+          emailOptIn: config.marketingOptIn ? emailOptIn : false,
           clientKey: clientKey.current,
           returnUrl: backUrl ?? window.location.href,
         }),
@@ -239,13 +267,18 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
   }
 
   const missing = (() => {
+    if (needsSignIn || needsConfirm) return "account"
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return "email"
     if (!quote?.requiresShipping) return null
-    if (mode === "pickup") return !address.name.trim() ? "name" : !optionId ? "delivery" : null
+    const nameOk = config.nameFields === "first_and_last" ? !!first.trim() && !!last.trim() : !!address.name.trim()
+    if (mode === "pickup") return !nameOk ? "name" : config.phone === "required" && !address.phone.trim() ? "phone" : !optionId ? "delivery" : null
     if (!address.country) return "country"
-    if (!address.name.trim()) return "name"
+    if (!nameOk) return "name"
+    if (config.company === "required" && !address.company.trim()) return "company"
     if (!address.line1.trim()) return "line1"
+    if (config.address2 === "required" && !address.line2.trim()) return "line2"
     if (!address.city.trim()) return "city"
+    if (config.phone === "required" && !address.phone.trim()) return "phone"
     if (postalCodeRequired(address.country) && !address.postalCode.trim()) return "postalCode"
     if (!optionId) return "delivery"
     return null
@@ -378,6 +411,23 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
     </label>
   )
 
+  /* One full name, or first and last apart, as Settings › Checkout asks. */
+  const nameFields = (purpose?: string) =>
+    config.nameFields === "first_and_last" ? (
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="sr-only">First name</span>
+          <input value={first} onChange={(e) => setFirst(e.target.value)} placeholder="First name" autoComplete="given-name" aria-invalid={payError?.field === "name" || undefined} className={INPUT} />
+        </label>
+        <label className="block">
+          <span className="sr-only">Last name</span>
+          <input value={last} onChange={(e) => setLast(e.target.value)} placeholder="Last name" autoComplete="family-name" aria-invalid={payError?.field === "name" || undefined} className={INPUT} />
+        </label>
+      </div>
+    ) : (
+      field("name", purpose ? `Full name, ${purpose}` : "Full name", { autoComplete: "name" })
+    )
+
   if (items !== null && (items.length === 0 || !shopId)) {
     return (
       <main className="flex min-h-dvh flex-col items-center justify-center bg-[#f8f9fa] px-6 text-center">
@@ -426,6 +476,24 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
       <div className="mx-auto grid max-w-[1080px] lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
         <section className="px-4 py-6 sm:px-6 lg:py-10 lg:pr-12">
           <div className="mx-auto max-w-[560px] space-y-7 lg:mx-0 lg:ml-auto">
+            {needsSignIn ? (
+              <div className="rounded-xl border border-[#d9dce1] bg-[#f8f9fa] px-4 py-4" data-checkout-account="sign-in">
+                <p className="text-[15px] font-semibold text-[#1a1a2e]">Sign in to check out</p>
+                <p className="mt-1 text-[13.5px] leading-[20px] text-[#4b5563]">{shopName} asks for an account before an order, so you can follow it and find it again.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <a href={`/login?next=${encodeURIComponent(here)}`} className="inline-flex h-10 items-center rounded-[10px] bg-[#1a1a2e] px-4 text-[14px] font-medium text-white">
+                    Sign in
+                  </a>
+                  <a href={`/signup?next=${encodeURIComponent(here)}`} className="inline-flex h-10 items-center rounded-[10px] border border-[#d9dce1] bg-white px-4 text-[14px] font-medium text-[#1a1a2e]">
+                    Create an account
+                  </a>
+                </div>
+              </div>
+            ) : needsConfirm ? (
+              <div className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3.5 text-[14px] text-[#92400e]" data-checkout-account="confirm">
+                Confirm your email address to place an order. Open the link we sent when you signed up, then come back to this page.
+              </div>
+            ) : null}
             {quoteError ? <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-2.5 text-[14px] text-[#991b1b]">{quoteError}</p> : null}
             {quote?.dropped.length ? <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2.5 text-[14px] text-[#92400e]">Not included: {quote.dropped.join(", ")}.</p> : null}
             {quote?.stockIssues.length ? (
@@ -443,6 +511,12 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
                 <input value={email} onChange={(e) => setEmail(e.target.value)} type="email" inputMode="email" autoComplete="email" placeholder="Email" aria-invalid={payError?.field === "email" || undefined} className={INPUT} />
               </label>
               <p className="text-[12.5px] text-[#6b7280]">Your receipt and shipping updates go here.</p>
+              {config.marketingOptIn ? (
+                <label className="flex cursor-pointer items-center gap-2.5 pt-0.5 text-[14px] text-[#374151]" data-checkout-news="">
+                  <input type="checkbox" checked={emailOptIn} onChange={(e) => setEmailOptIn(e.target.checked)} className="h-4 w-4 rounded accent-[#1a1a2e]" />
+                  Email me with news and offers from {shopName}
+                </label>
+              ) : null}
             </div>
 
             {quote?.requiresShipping && (quote.pickups?.length ?? 0) > 0 ? (
@@ -491,8 +565,8 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
                     </label>
                   ))}
                 </div>
-                {field("name", "Full name, for the pickup", { autoComplete: "name" })}
-                {field("phone", "Phone (optional)", { autoComplete: "tel", inputMode: "tel" })}
+                {nameFields("for the pickup")}
+                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone" : "Phone (optional)", { autoComplete: "tel", inputMode: "tel" }) : null}
                 <p className="text-[12.5px] text-[#6b7280]">We'll email you when your order is ready to pick up.</p>
               </div>
             ) : null}
@@ -514,9 +588,10 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
                     <ChevronDown className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#6b7280]" />
                   </div>
                 </label>
-                {field("name", "Full name", { autoComplete: "name" })}
+                {nameFields()}
+                {config.company !== "off" ? field("company", config.company === "required" ? "Company" : "Company (optional)", { autoComplete: "organization" }) : null}
                 {field("line1", "Address", { autoComplete: "address-line1" })}
-                {field("line2", "Apartment, suite (optional)", { autoComplete: "address-line2" })}
+                {config.address2 !== "off" ? field("line2", config.address2 === "required" ? "Apartment, suite or unit" : "Apartment, suite (optional)", { autoComplete: "address-line2" }) : null}
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
                   {field("city", "City", { autoComplete: "address-level2" })}
                   {regionsOf(address.country).length ? (
@@ -539,7 +614,7 @@ export function PhysicalCheckout({ shopId, shopName, shopAvatar }: { shopId: str
                   )}
                   {field("postalCode", postalCodeRequired(address.country || "US") ? "Postal code" : "Postal code (optional)", { autoComplete: "postal-code" })}
                 </div>
-                {field("phone", "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" })}
+                {config.phone !== "off" ? field("phone", config.phone === "required" ? "Phone, for the courier" : "Phone (optional, for the courier)", { autoComplete: "tel", inputMode: "tel" }) : null}
               </div>
             ) : null}
 

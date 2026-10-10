@@ -318,6 +318,15 @@ export async function resolveCreatorIdentity(
       }
     }
 
+    /* The store's own name, when it has one (Settings › Store details, store_settings.store_name, SQL part 109): what
+       receipts and order emails are from. A database without the table answers with an error and the name stays. */
+    try {
+      const { data: store } = await admin.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle()
+      if (typeof store?.store_name === "string" && store.store_name.trim()) fromName = store.store_name.trim()
+    } catch {
+      /* no store settings: the person's own name */
+    }
+
     // Also try to get the user's auth email if we still don't have a seller email
     if (!sellerEmail && creator?.user_id) {
       try {

@@ -291,6 +291,17 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     }
   }
 
+  /* Settings › Taxes: the tax inside the amount, as stripe-session worked it
+     out, on the order for receipts and reports. Its own write, so a
+     database without part 110 refuses this and nothing else. */
+  const taxCents = Math.max(0, Number.parseInt(m.tax_cents || "0", 10) || 0)
+  if (taxCents > 0) {
+    await step("tax", async () => {
+      const { error: taxError } = await admin.from("orders").update({ tax_cents: Math.min(taxCents, total), tax_country: /^[A-Z]{2}$/.test(m.tax_country || "") ? m.tax_country : null }).eq("id", order.id)
+      if (taxError) throw new Error(taxError.message)
+    })
+  }
+
   /* The company the buyer bought for, on the order itself, where the
      creator's copy of the invoice and any later one read it. Its own write
      after the order exists: a database without the column yet (part 35)

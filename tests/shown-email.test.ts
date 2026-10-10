@@ -34,8 +34,9 @@ console.log("\nThe address a person is shown\n")
 
 console.log("\nEvery screen that prints the person's own address goes through it\n")
 {
-  const settings = read("app/account/settings/page.tsx")
-  check("the profile's Settings", /displayEmail\(user\.email\) \|\| ""/.test(settings) && !/email=\{user\.email \|\| ""\}/.test(settings))
+  /* The account page's data moved into one loader shared with its overlay (lib/account/load-account-settings.ts). */
+  const settings = read("lib/account/load-account-settings.ts")
+  check("the profile's Settings", /email: displayEmail\(user\.email\) \|\| ""/.test(settings) && !/email: user\.email \|\| ""/.test(settings))
 
   const seller = read("components/app/settings-form-new.tsx")
   check("  the seller's Settings, with no raw fall back behind it", /displayEmail\(profile\.email\) \|\| ""/.test(seller) && !/\|\| profile\.email \|\|/.test(seller))

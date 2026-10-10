@@ -193,8 +193,8 @@ export const PHYSICAL_ARTICLES: HelpArticle[] = [
         head: ["Answer", "Who packs and posts", "What you do after a sale"],
         rows: [
           ["I'll ship it myself", "You", "Pack it, press Mark as shipped, add tracking."],
-          ["Fulfillment warehouse / 3PL", "Your warehouse", "Nothing, if the warehouse receives orders by email. Add their tracking when they send it."],
-          ["Dropshipping supplier", "Your supplier", "Nothing, if the supplier receives orders by email. Add their tracking when they send it."],
+          ["A fulfillment center (3PL)", "Your fulfillment center", "Nothing, if they receive orders by email. Add their tracking when they send it."],
+          ["A supplier or manufacturer", "Your supplier or manufacturer", "Nothing, if the supplier receives orders by email. Add their tracking when they send it."],
           ["Print on demand", "Your print partner", "Nothing, if the partner receives orders by email. Add their tracking when they send it."],
         ],
       },
@@ -202,7 +202,7 @@ export const PHYSICAL_ARTICLES: HelpArticle[] = [
       {
         type: "steps",
         items: [
-          "Choose Fulfillment warehouse / 3PL, Dropshipping supplier or Print on demand.",
+          "Choose A fulfillment center (3PL), A supplier or manufacturer, or Print on demand.",
           "Press New, type the partner's name and the email address they want orders sent to.",
           "Save the product. From now on every paid order with this product is emailed to that address, with the items, quantities, SKUs and the buyer's address.",
         ],

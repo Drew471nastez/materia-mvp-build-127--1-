@@ -43,8 +43,11 @@ async function isCapacitorWebView(): Promise<boolean> {
 
 export default async function AppLayout({
   children,
+  sheet,
 }: {
   children: React.ReactNode
+  /** Settings caught over the page it was opened from (app/app/@sheet/(.)settings), or nothing. */
+  sheet: React.ReactNode
 }) {
   const supabase = await createClient()
   const isNative = await isCapacitorWebView()
@@ -105,6 +108,7 @@ export default async function AppLayout({
           {arrival}
           <NativeAuthGate requireAuth loadingFallback={<AppColdStart />}>
             {children}
+            {sheet}
           </NativeAuthGate>
         </>
       )
@@ -246,6 +250,8 @@ export default async function AppLayout({
             {children}
           </div>
         </main>
+        {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh. */}
+        {sheet}
         <Toaster />
       </div>
     </AppLayoutWrapper>

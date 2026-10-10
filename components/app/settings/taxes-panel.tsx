@@ -1,0 +1,416 @@
+"use client"
+
+/**
+ * ===========================================================================
+ *  SETTINGS › TAXES
+ * ===========================================================================
+ * For every store (lib/tax/rules.ts says what each part means):
+ *
+ *   Tax              charge it or not; prices including it or not, shown
+ *                    with the store's own currency; tax on shipping (physical
+ *                    commerce on); tax on digital products too
+ *   Tax regions      a row each: the country's flag, its name (and state),
+ *                    the rate's name and the rate. "Create region" asks for
+ *                    the country (the one the person is in suggested), an
+ *                    optional state, and the rate. A row opens to change its
+ *                    rate, remove it, and give single products their own rate
+ *                    there.
+ *
+ * Nothing here charges anybody until "Charge tax" is on and the buyer's
+ * address is in a region.
+ */
+import * as React from "react"
+import { ChevronRight, Plus, Trash2 } from "lucide-react"
+import { cn } from "@/lib/utils"
+import { COUNTRIES, countryName } from "@/lib/checkout/countries"
+import { regionsOf } from "@/lib/physical/regions"
+import { percentText } from "@/lib/tax/rules"
+import { CountryFlag } from "@/components/app/settings/country-picker"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api } from "@/components/physical/ui"
+
+interface Region {
+  id: string
+  country: string
+  region: string | null
+  name: string
+  rateBps: number
+}
+interface Override {
+  id: string
+  taxRateId: string
+  productId: string
+  name: string
+  rateBps: number
+  productTitle: string | null
+}
+interface Setup {
+  enabled: boolean
+  included: boolean
+  onShipping: boolean
+  digital: boolean
+  regions: Region[]
+  overrides: Override[]
+  ready: boolean
+  detectedCountry?: string | null
+  currency?: string
+  products?: { id: string; title: string }[]
+}
+
+const regionName = (r: Pick<Region, "country" | "region">) => {
+  const state = r.region ? regionsOf(r.country).find((x) => x.code === r.region)?.name ?? r.region : null
+  return state ? `${state}, ${countryName(r.country)}` : countryName(r.country)
+}
+
+export function TaxesPanel() {
+  const physical = usePhysicalCommerceEnabled()
+  const [setup, setSetup] = React.useState<Setup | null>(null)
+  const [error, setError] = React.useState<string | null>(null)
+  const [creating, setCreating] = React.useState<string | null>(null)
+  const [open, setOpen] = React.useState<string | null>(null)
+
+  const load = React.useCallback(async () => {
+    const r = await api<Setup>("/api/store/taxes")
+    if (r.ok) setSetup(r.data)
+    else setError(r.error)
+  }, [])
+  React.useEffect(() => {
+    void load()
+  }, [load])
+
+  /* A server answer is the whole setup again; the person's own extras are kept. */
+  const take = (next: Setup) => setSetup((s) => ({ ...next, detectedCountry: s?.detectedCountry, currency: s?.currency, products: s?.products ?? next.products }))
+
+  const flip = async (patch: Partial<Pick<Setup, "enabled" | "included" | "onShipping" | "digital">>) => {
+    setSetup((s) => (s ? { ...s, ...patch } : s))
+    const r = await api<Setup>("/api/store/taxes", { method: "PUT", body: patch })
+    if (!r.ok) {
+      setError(r.error)
+      void load()
+      return
+    }
+    setError(null)
+    take(r.data)
+  }
+
+  if (error && !setup) return <Notice>{error}</Notice>
+  if (!setup) {
+    /* No outline of itself: the settings fade in when they come (settings-content-in). */
+    return <div className="min-h-[360px]" aria-busy="true" />
+  }
+  const currency = (setup.currency || "USD").toUpperCase()
+  const suggested = setup.detectedCountry && !setup.regions.some((r) => r.country === setup.detectedCountry) ? setup.detectedCountry : null
+
+  return (
+    <div className="space-y-4 sm:space-y-6" data-taxes="">
+      {!setup.ready ? <Notice tone="amber">Taxes need their database update (SQL parts 78 and 110). Until they run, nothing here is kept.</Notice> : null}
+
+      <Card title="Tax" description="Storelib charges what you set here and nothing more. Check which rates apply to you with an accountant." help="taxes">
+        <div className="space-y-4">
+          <Toggle label="Charge tax" description="Off, buyers pay your prices and nothing more." checked={setup.enabled} onChange={(v) => void flip({ enabled: v })} />
+          {setup.enabled ? (
+            <>
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-[#eceef1] px-3.5 py-3" data-tax-inclusive="">
+                <div className="min-w-0">
+                  <p className="text-[14px] font-medium text-[#1a1a2e]">{currency}</p>
+                  <p className="text-[13px] text-[#6b7280]">{setup.included ? "Prices already include tax" : "Tax is added on top of prices"}</p>
+                </div>
+                <div role="radiogroup" aria-label="Tax inclusivity" className="inline-flex shrink-0 gap-1 rounded-xl bg-[#f1f2f4] p-1">
+                  {[
+                    { id: false, label: "Added on top" },
+                    { id: true, label: "Included" },
+                  ].map((o) => (
+                    <button
+                      key={String(o.id)}
+                      type="button"
+                      role="radio"
+                      aria-checked={setup.included === o.id}
+                      onClick={() => void flip({ included: o.id })}
+                      className={cn("h-8 whitespace-nowrap rounded-lg px-2.5 text-[13px] font-medium transition-colors sm:px-3", setup.included === o.id ? "bg-white text-[#1a1a2e] shadow-[0_1px_2px_rgba(0,0,0,0.06)]" : "text-[#6b7280] hover:text-[#1a1a2e]")}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {physical ? <Toggle label="Charge tax on shipping" description="Delivery is taxed at the same rate as the items." checked={setup.onShipping} onChange={(v) => void flip({ onShipping: v })} /> : null}
+              <Toggle
+                label="Charge tax on digital products"
+                description="Downloads, courses and memberships. In the EU, VAT on digital sales is charged at the rate of the buyer's country, so add a region for each country you sell to."
+                checked={setup.digital}
+                onChange={(v) => void flip({ digital: v })}
+              />
+            </>
+          ) : null}
+        </div>
+      </Card>
+
+      <Card
+        title="Tax regions"
+        description="Where you collect tax, and the rate in each."
+        action={
+          <button type="button" className={BTN_SECONDARY} onClick={() => setCreating(setup.detectedCountry ?? "")} data-create-region="">
+            <Plus className="h-4 w-4" />
+            Create region
+          </button>
+        }
+      >
+        {setup.regions.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[#e3e5e8] px-4 py-6 text-center" data-tax-regions-empty="">
+            <p className="text-[14px] font-medium text-[#1a1a2e]">No tax regions yet</p>
+            <p className="mt-0.5 text-[13px] text-[#6b7280]">Add the countries where you have to charge tax.</p>
+            {suggested ? (
+              <button type="button" onClick={() => setCreating(suggested)} className="mt-3 inline-flex h-8 items-center gap-2 rounded-full bg-[#f1f2f4] px-3 text-[13px] font-medium text-[#374151] hover:bg-[#e8e9ec]" data-suggest-region={suggested}>
+                <CountryFlag code={suggested} />
+                Add {countryName(suggested)}
+              </button>
+            ) : null}
+          </div>
+        ) : (
+          <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-tax-regions="">
+            {setup.regions.map((r) => {
+              const own = setup.overrides.filter((o) => o.taxRateId === r.id)
+              const isOpen = open === r.id
+              return (
+                <li key={r.id} data-tax-region={r.id}>
+                  <button type="button" onClick={() => setOpen(isOpen ? null : r.id)} aria-expanded={isOpen} className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors hover:bg-[#fafafa]">
+                    <CountryFlag code={r.country} />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-medium text-[#1a1a2e]">{regionName(r)}</span>
+                      <span className="block text-[12.5px] text-[#6b7280]">
+                        {r.name}
+                        {own.length ? ` · ${own.length} product ${own.length === 1 ? "rate" : "rates"}` : ""}
+                      </span>
+                    </span>
+                    <span className="text-[14px] font-medium tabular-nums text-[#1a1a2e]">{percentText(r.rateBps)}</span>
+                    <ChevronRight className={cn("h-4 w-4 shrink-0 text-[#c4c8ce] transition-transform duration-200", isOpen && "rotate-90")} aria-hidden />
+                  </button>
+                  {isOpen ? <RegionEditor region={r} overrides={own} products={setup.products ?? []} onChange={take} onRemoved={() => setOpen(null)} /> : null}
+                </li>
+              )
+            })}
+          </ul>
+        )}
+        {error ? <Notice className="mt-3">{error}</Notice> : null}
+      </Card>
+
+      <CreateRegion
+        country={creating}
+        onClose={() => setCreating(null)}
+        onCreated={(next) => {
+          take(next)
+          setCreating(null)
+        }}
+        taken={setup.regions}
+      />
+    </div>
+  )
+}
+
+function CreateRegion({ country, onClose, onCreated, taken }: { country: string | null; onClose: () => void; onCreated: (s: Setup) => void; taken: Region[] }) {
+  const [c, setC] = React.useState("")
+  const [state, setState] = React.useState("")
+  const [rate, setRate] = React.useState("")
+  const [name, setName] = React.useState("VAT")
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (country === null) return
+    setC(country)
+    setState("")
+    setRate("")
+    setName(country === "US" || country === "CA" ? "Sales tax" : "VAT")
+    setError(null)
+  }, [country])
+  const states = c ? regionsOf(c) : []
+  const exists = taken.some((t) => t.country === c && (t.region ?? "") === state)
+  return (
+    <Modal
+      open={country !== null}
+      onClose={onClose}
+      title="Create tax region"
+      footer={
+        <>
+          <button type="button" className={BTN_SECONDARY} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className={BTN_PRIMARY}
+            disabled={!c || !rate || busy || exists}
+            onClick={async () => {
+              setBusy(true)
+              const r = await api<Setup>("/api/store/taxes/regions", { body: { country: c, region: state || null, rate, name } })
+              setBusy(false)
+              if (!r.ok) return setError(r.error)
+              onCreated(r.data)
+            }}
+          >
+            {busy ? "Creating" : "Create region"}
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-3" data-create-region-form="">
+        <Field label="Country" htmlFor="tax-country">
+          <SelectInput id="tax-country" value={c} onChange={(v) => { setC(v); setState(""); setName(v === "US" || v === "CA" ? "Sales tax" : "VAT") }}>
+            <option value="">Select country</option>
+            {COUNTRIES.map((x) => (
+              <option key={x.code} value={x.code}>
+                {x.name}
+              </option>
+            ))}
+          </SelectInput>
+        </Field>
+        {states.length ? (
+          <Field label={c === "CA" ? "Province" : "State"} hint="Leave as the whole country unless the rate is different there." htmlFor="tax-state">
+            <SelectInput id="tax-state" value={state} onChange={setState}>
+              <option value="">Whole country</option>
+              {states.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        ) : null}
+        <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
+          <Field label="Name" hint="What receipts call it." htmlFor="tax-name">
+            <TextInput id="tax-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+          </Field>
+          <Field label="Rate" htmlFor="tax-rate">
+            <DecimalInput id="tax-rate" value={rate} onChange={setRate} suffix="%" placeholder="19" />
+          </Field>
+        </div>
+        {exists ? <Notice tone="amber">{state ? "That state" : "That country"} already has a region. Open it to change its rate.</Notice> : null}
+        {error ? <Notice>{error}</Notice> : null}
+      </div>
+    </Modal>
+  )
+}
+
+function RegionEditor({ region, overrides, products, onChange, onRemoved }: { region: Region; overrides: Override[]; products: { id: string; title: string }[]; onChange: (s: Setup) => void; onRemoved: () => void }) {
+  const [rate, setRate] = React.useState(String(region.rateBps / 100))
+  const [name, setName] = React.useState(region.name)
+  const [error, setError] = React.useState<string | null>(null)
+  const [adding, setAdding] = React.useState(false)
+  const [product, setProduct] = React.useState("")
+  const [productRate, setProductRate] = React.useState("")
+  const changed = rate !== String(region.rateBps / 100) || name !== region.name
+  const free = products.filter((p) => !overrides.some((o) => o.productId === p.id))
+  return (
+    <div className="space-y-3 border-t border-[#f1f2f4] bg-[#fafafa] px-3.5 py-3.5" data-region-editor="">
+      <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
+        <Field label="Name">
+          <TextInput value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Rate">
+          <DecimalInput value={rate} onChange={setRate} suffix="%" />
+        </Field>
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          className={cn(BTN_GHOST, "text-[#b42318] hover:bg-[#fef2f2] hover:text-[#b42318]")}
+          onClick={async () => {
+            const r = await api<Setup>(`/api/store/taxes/regions/${region.id}`, { method: "DELETE" })
+            if (!r.ok) return setError(r.error)
+            onChange(r.data)
+            onRemoved()
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+          Remove region
+        </button>
+        {changed ? (
+          <button
+            type="button"
+            className={BTN_PRIMARY}
+            onClick={async () => {
+              const r = await api<Setup>(`/api/store/taxes/regions/${region.id}`, { method: "PATCH", body: { rate, name } })
+              if (!r.ok) return setError(r.error)
+              setError(null)
+              onChange(r.data)
+            }}
+          >
+            Save
+          </button>
+        ) : null}
+      </div>
+
+      <div className="border-t border-[#eceef1] pt-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[13.5px] font-medium text-[#1a1a2e]">Product rates</p>
+          {!adding && free.length ? (
+            <button type="button" className={BTN_GHOST} onClick={() => setAdding(true)}>
+              <Plus className="h-4 w-4" />
+              Add product rate
+            </button>
+          ) : null}
+        </div>
+        <p className="text-[12.5px] text-[#6b7280]">A product taxed differently here, like books or food at a reduced rate.</p>
+        {overrides.length ? (
+          <ul className="mt-2 divide-y divide-[#f1f2f4] rounded-lg border border-[#eceef1] bg-white">
+            {overrides.map((o) => (
+              <li key={o.id} className="flex items-center gap-3 px-3 py-2">
+                <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#1a1a2e]">{o.productTitle ?? "A product"}</span>
+                <span className="text-[13.5px] font-medium tabular-nums">{percentText(o.rateBps)}</span>
+                <button
+                  type="button"
+                  aria-label="Remove this product's rate"
+                  className={cn(BTN_GHOST, "w-9 px-0")}
+                  onClick={async () => {
+                    const r = await api<Setup>(`/api/store/taxes/overrides/${o.id}`, { method: "DELETE" })
+                    if (r.ok) onChange(r.data)
+                    else setError(r.error)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {adding ? (
+          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_110px_auto] sm:items-end">
+            <Field label="Product">
+              <SelectInput value={product} onChange={setProduct}>
+                <option value="">Choose a product</option>
+                {free.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title}
+                  </option>
+                ))}
+              </SelectInput>
+            </Field>
+            <Field label="Rate">
+              <DecimalInput value={productRate} onChange={setProductRate} suffix="%" />
+            </Field>
+            <div className="flex gap-2">
+              <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={BTN_PRIMARY}
+                disabled={!product || !productRate}
+                onClick={async () => {
+                  const r = await api<Setup>("/api/store/taxes/overrides", { body: { taxRateId: region.id, productId: product, rate: productRate } })
+                  if (!r.ok) return setError(r.error)
+                  setError(null)
+                  setAdding(false)
+                  setProduct("")
+                  setProductRate("")
+                  onChange(r.data)
+                }}
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+      {error ? <Notice>{error}</Notice> : null}
+    </div>
+  )
+}

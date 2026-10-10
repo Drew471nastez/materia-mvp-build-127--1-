@@ -73,6 +73,7 @@ import { resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range"
 import { homeAllTime, homeFigures, homeFromReports, homeQuestion, homeSpans, type HomeMetric } from "@/lib/analytics/home-figures"
 import type { Reports } from "@/lib/analytics/reports"
 import { NOW_STEP_MS, askReport, keptAnswer, questionOf, reportNow } from "@/lib/analytics/report-cache"
+import { PhysicalSetupCard } from "@/components/app/home/physical-setup-card"
 
 /** The old checklist's shape, still accepted from the probes that render Home with it. */
 interface SetupStep {
@@ -1370,6 +1371,9 @@ export function DashboardClient({
         <div id="store-setup-section" className="mb-8 scroll-mt-4">
           <HomeCards progress={progress} planId={subscriptionPlanId} onGuide={openGuide} onShare={canShare ? openShare : undefined} />
         </div>
+
+        {/* Shipping things: the five steps, while physical commerce is on and until they are done (components/app/home/physical-setup-card). */}
+        <PhysicalSetupCard />
 
         {/* Quick actions, two across from a tablet up (components/app/home/quick-actions) */}
         <QuickActions />

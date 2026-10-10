@@ -146,6 +146,8 @@ export interface CompatPage {
   title?: string
   description?: string
   products: CardLike[]
+  /** Every product a picker may name (Resources.catalog); the shop's list when absent. */
+  pickable?: CardLike[]
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
   product?: CardLike & { descriptionHtml?: string } | null
@@ -306,6 +308,7 @@ export class CompatTheme {
   private resources(page: CompatPage, schemes: Record<string, O>): Resources {
     return {
       products: page.products,
+      catalog: page.pickable,
       collections: page.collections,
       menus: page.menus,
       schemes,

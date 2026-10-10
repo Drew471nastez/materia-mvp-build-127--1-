@@ -162,7 +162,8 @@ async function main() {
     )
 
     const loader = readCode("app/app/settings/_server.ts")
-    const page = readCode("app/app/settings/page.tsx")
+    /* Changed on purpose (round T): the page and the sheet over a page both draw app/app/settings/_view.tsx. */
+    const page = readCode("app/app/settings/_view.tsx")
     check("the settings loader reads the newsletter back", /readNewsletter\(createAdminClient\(\), user\.email, user\.user_metadata\?\.storelib_newsletter === true\)/.test(loader) && /newsletter,\n/.test(loader))
     check("and the page hands it to the form", /newsletter=\{data\.newsletter\}/.test(page))
 

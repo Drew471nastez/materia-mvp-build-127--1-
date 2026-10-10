@@ -7,6 +7,7 @@ import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { returnableQuantities } from "@/lib/physical/status"
 import { progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
+import { reasonsFor } from "@/lib/store/reasons-server"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -28,7 +29,11 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     if (order?.status === "pending") return <PendingOrder reason="unpaid" />
     notFound()
   }
-  const [{ data: shop }, settings] = await Promise.all([db.from("creators").select("display_name, username, avatar_url, support_email").eq("id", order.creatorId).maybeSingle(), loadSettings(db, order.creatorId)])
+  const [{ data: shop }, settings, reasons] = await Promise.all([
+    db.from("creators").select("display_name, username, avatar_url, support_email").eq("id", order.creatorId).maybeSingle(),
+    loadSettings(db, order.creatorId),
+    reasonsFor(db, order.creatorId, "return"),
+  ])
   const returnable = returnableQuantities(progressOf(order))
   const since = Date.parse(order.lines.some((l) => l.requiresShipping) ? (order.shipments.find((s) => s.shippedAt)?.shippedAt ?? "") : (order.paidAt ?? ""))
   const windowOpen = settings.returnsEnabled && (!Number.isFinite(since) || Date.now() - since <= settings.returnWindowDays * 86_400_000)
@@ -55,6 +60,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         shipments: order.shipments.filter((s) => s.status !== "cancelled").map((s) => ({ id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber, trackingUrl: s.trackingUrl, shippedAt: s.shippedAt, deliveredAt: s.deliveredAt, items: s.items })),
         returns: order.returns.map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt })),
       }}
+      reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
     />
   )

@@ -208,7 +208,7 @@ async function main() {
     check("the body is checked before anything is written", route.indexOf("parseChanges(body)") < route.indexOf("setPreference("))
 
     const form = readCode("components/app/settings-form-new.tsx")
-    check("Settings has a Notifications tab, and ?tab=notifications opens it", /id: "notifications", label: "Notifications"/.test(form) && /TAB_IDS: TabId\[\] = \[[^\]]*"notifications"/.test(form) && /panelTab === "notifications" && <NotificationPreferencesPanel \/>/.test(form))
+    check("Settings has a Notifications tab, and ?tab=notifications opens it", /id: "notifications", label: "Notifications"/.test(form) && /TAB_IDS: TabId\[\] = TABS\.map\(\(tab\) => tab\.id\)/.test(form) && /panelTab === "notifications" && <NotificationPreferencesPanel \/>/.test(form))
     check("an older ?tab=privacy#notifications link lands on it too", /tab === "privacy" && window\.location\.hash === "#notifications"/.test(form))
     const panel = readCode("components/app/settings/notification-preferences.tsx")
     check("the panel reads and writes the route", /fetch\("\/api\/notifications\/preferences", \{ cache: "no-store" \}\)/.test(panel) && /method: "PUT"/.test(panel))

@@ -65,6 +65,7 @@ import { holdLayerLanding } from "@/components/app/page-layer"
 import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
+import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { cleanCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
@@ -348,6 +349,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  /* The Sales channels card, saved after the product (./sales-channels-card). */
+  const channelsRef = useRef<SalesChannelsHandle>(null)
   /* Every question the editor asks (leave, delete a file, a very large upload). */
   const [ask, confirmSheet] = useConfirm()
 
@@ -964,6 +967,12 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
       }
 
+      /* SALES CHANNELS, after the product exists, so a new product's choice is kept too. Never fails the save. */
+      if (finalProductId) {
+        const channelsError = await channelsRef.current?.save(finalProductId)
+        if (channelsError) console.warn("Sales channels were not saved:", channelsError)
+      }
+
       setHasUnsavedChanges(false)
 
       // Auto-generate ZIP bundle when product has 6+ digital files
@@ -1205,7 +1214,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       const timestamp = Date.now()
       let fileToUpload = file
       try {
-        fileToUpload = (await processImageToWidescreen(file)).processedFile
+        /* A physical product's photos go up as they were taken (the shop shows them whole); a download's or course's cover is widescreen. */
+        if (productType !== "physical") fileToUpload = (await processImageToWidescreen(file)).processedFile
       } catch (err) {
         console.error("Image processing error:", err)
       }
@@ -2089,13 +2099,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <span className="text-red-500">*</span>
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{productType === "physical" ? " Any shape: nothing is cropped." : ""}{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
-                {/* The grid, two a row, held to reorder (./media-grid.tsx). */}
+                {/* The grid, held to reorder (./media-grid.tsx): two widescreen a row, or a physical product's photos square with the cover large. */}
                 {(mediaItems.length > 0 || pendingMedia.length > 0) && (
-                  <MediaGrid items={mediaItems} pending={pendingMedia} onChange={setMediaItems} onRemove={removeMedia} />
+                  <MediaGrid items={mediaItems} pending={pendingMedia} onChange={setMediaItems} onRemove={removeMedia} shape={productType === "physical" ? "square" : "wide"} />
                 )}
 
                 {/* The upload zone, and its state while a file uploads */}
@@ -2958,6 +2968,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   </div>
                 ) : null}
               </div>
+
+              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} cardClass={CARD} titleClass={CARD_TITLE} onChange={() => setHasUnsavedChanges(true)} />
 
               {/* Settings Section */}
               <div

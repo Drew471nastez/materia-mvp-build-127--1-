@@ -68,16 +68,26 @@ export interface PendingMedia {
   progress: number
 }
 
+/**
+ * `wide`: 16:9 tiles, two to a row, for downloads and courses, whose covers
+ * are widescreen. `square`: a physical product's photos as they were taken,
+ * the way Shopify lays them out: the first (the one buyers see first) large,
+ * the rest square beside and under it, each photo whole on a light ground.
+ */
+export type MediaShape = "wide" | "square"
+
 export function MediaGrid({
   items,
   pending = [],
   onChange,
   onRemove,
+  shape = "wide",
 }: {
   items: MediaItem[]
   pending?: PendingMedia[]
   onChange: (update: (prev: MediaItem[]) => MediaItem[]) => void
   onRemove: (id: string) => void
+  shape?: MediaShape
 }) {
   const sensors = useHoldToDragSensors()
   const [activeId, setActiveId] = React.useState<UniqueIdentifier | null>(null)
@@ -129,12 +139,17 @@ export function MediaGrid({
       onDragCancel={() => setActiveId(null)}
     >
       <SortableContext items={items.map((m) => m.id)} strategy={rectSortingStrategy}>
-        <div data-media-grid="" data-dragging={activeId != null ? "" : undefined} className="grid grid-cols-2 gap-3 sm:gap-4">
+        <div
+          data-media-grid=""
+          data-media-shape={shape}
+          data-dragging={activeId != null ? "" : undefined}
+          className={shape === "square" ? "grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3" : "grid grid-cols-2 gap-3 sm:gap-4"}
+        >
           {items.map((item, index) => (
-            <MediaTile key={item.id} item={item} index={index} onRemove={onRemove} />
+            <MediaTile key={item.id} item={item} index={index} onRemove={onRemove} shape={shape} />
           ))}
           {pending.map((p) => (
-            <PendingTile key={p.id} pending={p} />
+            <PendingTile key={p.id} pending={p} shape={shape} />
           ))}
         </div>
       </SortableContext>
@@ -142,7 +157,8 @@ export function MediaGrid({
   )
 }
 
-function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; onRemove: (id: string) => void }) {
+function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: number; onRemove: (id: string) => void; shape: MediaShape }) {
+  const square = shape === "square"
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   const kind = kindOf(item)
   const src = item.type === "youtube" ? `https://img.youtube.com/vi/${parseYouTubeUrl(item.url)}/hqdefault.jpg` : item.url
@@ -153,7 +169,7 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
       ref={setNodeRef}
       data-media-id={item.id}
       data-lifted={isDragging ? "" : undefined}
-      className="relative"
+      className={cn("relative", square && index === 0 && "col-span-2 row-span-2")}
       style={{
         /* Whole pixels, both ways: the grid moves a tile sideways as well as up and down. */
         transform: transform ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)` : undefined,
@@ -164,7 +180,8 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
       <div
         data-media-tile=""
         className={cn(
-          "group/tile relative aspect-video overflow-hidden rounded-lg border bg-[#f3f4f6] select-none [-webkit-touch-callout:none]",
+          "group/tile relative overflow-hidden rounded-lg border select-none [-webkit-touch-callout:none]",
+          square ? "aspect-square bg-[#f8f9fa]" : "aspect-video bg-[#f3f4f6]",
           "transition-[scale,box-shadow,border-color] duration-150 ease-out motion-reduce:transition-none",
           isDragging
             ? "scale-[1.03] border-[#d9dbe0] shadow-[0_14px_30px_-10px_rgba(17,24,39,0.35),0_2px_6px_rgba(17,24,39,0.1)]"
@@ -181,7 +198,7 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
           height={360}
           loading={index < TILES_EAGER ? undefined : "lazy"}
           decoding="async"
-          className="h-full w-full object-cover"
+          className={cn("h-full w-full", square && item.type !== "youtube" ? "object-contain" : "object-cover")}
           draggable={false}
         />
         {item.type === "youtube" && (
@@ -247,11 +264,11 @@ function MediaTile({ item, index, onRemove }: { item: MediaItem; index: number; 
  * along its foot that fills with them. No spinner and no box: the tile is
  * already where the photo will sit, so when it lands nothing moves.
  */
-function PendingTile({ pending }: { pending: PendingMedia }) {
+function PendingTile({ pending, shape = "wide" }: { pending: PendingMedia; shape?: MediaShape }) {
   const p = Math.max(0, Math.min(100, pending.progress)) / 100
   return (
     <div data-media-pending="" className="relative animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none">
-      <div className="relative aspect-video overflow-hidden rounded-lg border border-gray-200 bg-[#f3f4f6] select-none">
+      <div className={cn("relative overflow-hidden rounded-lg border border-gray-200 select-none", shape === "square" ? "aspect-square bg-[#f8f9fa]" : "aspect-video bg-[#f3f4f6]")}>
         <img
           src={pending.preview}
           alt=""

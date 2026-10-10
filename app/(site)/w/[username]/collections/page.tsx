@@ -9,6 +9,7 @@ import { collectionsPageSections } from "@/lib/website-builder/shop-page"
 import { siteMetadata } from "../render-site"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { TrackView } from "@/components/analytics/track-view"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 /**
  * Per request, like the shop: a collection's products are the catalogue,
@@ -62,6 +63,7 @@ export default async function SiteCollectionsPage({ params }: PageProps) {
         emptyDetail="No collections yet."
       />
       <TrackView creatorId={site.creatorId} />
+      <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>
   )

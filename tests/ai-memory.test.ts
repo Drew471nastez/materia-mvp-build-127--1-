@@ -181,7 +181,7 @@ function wiringChecks() {
   const api = read("app/api/ai-memory/route.ts")
   check("the memory API never uses the service role", !/createAdminClient/.test(api) && !/createAdminClient/.test(read("app/api/ai-memory/[id]/route.ts")))
   const form = read("components/app/settings-form-new.tsx")
-  check("Settings has AI Memory under Store", /\{ id: "ai_memory", label: "AI Memory", icon: Brain, group: "store" \}/.test(form) && /panelTab === "ai_memory" && <AiMemoryPanel \/>/.test(form))
+  check("Settings has AI Memory under Store", /\{ id: "ai_memory", label: "AI Memory", icon: Brain, group: "store", line: "[^"]+" \}/.test(form) && /panelTab === "ai_memory" && <AiMemoryPanel \/>/.test(form))
   const panel = read("components/app/settings/ai-memory-panel.tsx")
   check("each memory can be deleted, and says who kept it", /aria-label=\{`Delete: \$\{m\.content\}`\}/.test(panel) && /Kept by Storelib AI/.test(panel))
   const sql = read("supabase/sql/run-now/106_ai_memory.sql")

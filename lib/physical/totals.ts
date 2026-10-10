@@ -11,11 +11,18 @@
  * is added. No rate for the country means no tax: Storelib does not invent
  * one. A provider (automatic tax) is architecture only and computes nothing
  * here until it is connected.
+ *
+ * A product can have its own rate in a region (Settings › Taxes, SQL part
+ * 110): its lines are taxed at that rate, every other line and the delivery
+ * at the region's. A store with no such rate gets exactly the sums it always
+ * did, because the taxable amount is then still taxed in one piece.
  */
 
 import { regionCode } from "./regions"
 
 export interface TotalsLine {
+  /** Only needed for a product's own rate in a region. */
+  productId?: string | null
   unitCents: number
   quantity: number
   discountCents: number
@@ -23,6 +30,7 @@ export interface TotalsLine {
 }
 
 export interface TaxRate {
+  id?: string
   country: string
   region: string | null
   rateBps: number
@@ -33,6 +41,8 @@ export interface TaxSettings {
   pricesIncludeTax: boolean
   taxOnShipping: boolean
   rates: TaxRate[]
+  /** A product's own rate in one region (commerce_tax_overrides). */
+  overrides?: { taxRateId: string; productId: string; rateBps: number }[]
 }
 
 export interface PhysicalTotals {
@@ -48,8 +58,11 @@ export interface PhysicalTotals {
 
 export const NO_TAX: TaxSettings = { mode: "none", pricesIncludeTax: false, taxOnShipping: false, rates: [] }
 
-export function taxRateFor(settings: TaxSettings, country: string | null, region: string | null): number {
-  if (settings.mode !== "manual" || !country) return 0
+const clampBps = (bps: number): number => (Number.isFinite(bps) ? Math.min(10_000, Math.max(0, Math.round(bps))) : 0)
+
+/** The region row an address falls in: its state's before its country's. */
+function rateRowFor(settings: TaxSettings, country: string | null, region: string | null): TaxRate | null {
+  if (settings.mode !== "manual" || !country) return null
   const c = country.toUpperCase()
   const r = region?.trim().toLowerCase() || null
   /* "CA" and "California" are the same state where Storelib knows the list. */
@@ -58,8 +71,11 @@ export function taxRateFor(settings: TaxSettings, country: string | null, region
     ? settings.rates.find((t) => t.country.toUpperCase() === c && !!t.region && (t.region.trim().toLowerCase() === r || (code !== null && regionCode(c, t.region) === code)))
     : null
   const national = settings.rates.find((t) => t.country.toUpperCase() === c && !t.region)
-  const bps = (regional ?? national)?.rateBps ?? 0
-  return Number.isFinite(bps) ? Math.min(10_000, Math.max(0, Math.round(bps))) : 0
+  return regional ?? national ?? null
+}
+
+export function taxRateFor(settings: TaxSettings, country: string | null, region: string | null): number {
+  return clampBps(rateRowFor(settings, country, region)?.rateBps ?? 0)
 }
 
 /** The tax inside (included) or on top of (added) an amount. */
@@ -76,19 +92,30 @@ export function physicalTotals(
   let itemsSubtotalCents = 0
   let discountCents = 0
   let taxableCents = 0
+  const row = rateRowFor(tax, opts.country ?? null, opts.region ?? null)
+  const taxRateBps = clampBps(row?.rateBps ?? 0)
+  const own = new Map<string, number>()
+  if (row?.id) for (const o of tax.overrides ?? []) if (o.taxRateId === row.id) own.set(o.productId, clampBps(o.rateBps))
+  /* Taxable amounts by rate: one piece at the region's rate unless a line has its own. */
+  const byRate = new Map<number, number>()
   for (const line of lines) {
     const gross = Math.max(0, Math.round(line.unitCents)) * Math.max(0, Math.floor(line.quantity))
     const off = Math.min(gross, Math.max(0, Math.round(line.discountCents)))
     itemsSubtotalCents += gross
     discountCents += off
-    if (line.taxable) taxableCents += gross - off
+    if (!line.taxable) continue
+    taxableCents += gross - off
+    const bps = line.productId && own.has(line.productId) ? (own.get(line.productId) as number) : taxRateBps
+    byRate.set(bps, (byRate.get(bps) ?? 0) + gross - off)
   }
   const shippingCents = Math.max(0, Math.round(opts.shippingCents))
   const shippingDiscountCents = opts.freeShipping ? shippingCents : 0
   const shippingPaid = shippingCents - shippingDiscountCents
-  const taxRateBps = taxRateFor(tax, opts.country ?? null, opts.region ?? null)
   const taxIncluded = tax.pricesIncludeTax
-  const taxCents = taxOf(taxableCents, taxRateBps, taxIncluded) + (tax.taxOnShipping ? taxOf(shippingPaid, taxRateBps, taxIncluded) : 0)
+  let itemsTax = 0
+  if (own.size === 0) itemsTax = taxOf(taxableCents, taxRateBps, taxIncluded)
+  else for (const [bps, cents] of byRate) itemsTax += taxOf(cents, bps, taxIncluded)
+  const taxCents = itemsTax + (tax.taxOnShipping ? taxOf(shippingPaid, taxRateBps, taxIncluded) : 0)
   const totalCents = itemsSubtotalCents - discountCents + shippingPaid + (taxIncluded ? 0 : taxCents)
   return { itemsSubtotalCents, discountCents, shippingCents, shippingDiscountCents, taxCents, taxRateBps, taxIncluded, totalCents }
 }

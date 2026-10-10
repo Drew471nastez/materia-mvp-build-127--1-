@@ -583,6 +583,8 @@ export function inAppHref(href: string): string {
 export function openExternal(url: string): void {
   if (typeof window === "undefined") return
   if (isNativeApp()) {
+    /* From the creator's own tools, a Storelib page is their live site being checked: the real browser (openInBrowser). */
+    if (onCreatorTools()) return openInBrowser(url)
     if (navigateInApp(url)) return
     if (isIOS()) {
       // On iOS, open in the actual Safari browser (fully external).
@@ -612,6 +614,49 @@ export function openExternal(url: string): void {
   } else {
     window.open(url, "_blank", "noopener,noreferrer")
   }
+}
+
+/**
+ * ===========================================================================
+ *  A CREATOR LOOKING AT THEIR OWN LIVE PAGE: THE REAL BROWSER
+ * ===========================================================================
+ * The owner: "in the website builder, View live or Preview, and creator pages
+ * and stores, should open in the browser, not inside the app". A buyer's
+ * Storelib address still navigates the app (navigateInApp); this is only for
+ * the creator side checking what the world sees, so it skips that and goes
+ * to Safari (iOS) or Chrome (Android). On the web, a new tab.
+ */
+/** The creator's own tools: the dashboard, the website builder, the store builder, the creator page editor. */
+export function onCreatorTools(): boolean {
+  if (typeof window === "undefined") return false
+  const path = window.location.pathname
+  return ["/app", "/website-builder", "/store-builder", "/dashboard", "/creator-page", "/onepage-preview"].some((p) => path === p || path.startsWith(`${p}/`))
+}
+
+export function openInBrowser(url: string): void {
+  if (typeof window === "undefined") return
+  if (!isNativeApp()) {
+    window.open(url, "_blank", "noopener,noreferrer")
+    return
+  }
+  /* Let this window through the link guard (components/platform/native-link-guard.tsx). */
+  ;(window as unknown as { __storelibBrowser?: string }).__storelibBrowser = url
+  if (isIOS()) {
+    try {
+      if (window.open(url, "_system")) return
+    } catch { /* fall through */ }
+    window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+    return
+  }
+  import("@capacitor/browser")
+    .then(({ Browser }) => Browser.open({ url, toolbarColor: "#ffffff" }))
+    .catch(() => {
+      try {
+        if (!window.open(url, "_system")) throw new Error("blocked")
+      } catch {
+        window.location.href = "storelib://external?url=" + encodeURIComponent(url)
+      }
+    })
 }
 
 /**

@@ -40,6 +40,7 @@ import { TrackView } from "@/components/analytics/track-view"
 import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { renderAccountPage } from "./render-account"
 import { contactSections } from "@/lib/website-builder/account-pages"
+import { StoreTracking } from "@/components/website-builder/store-tracking"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -243,6 +244,7 @@ export async function renderSite(
           (lib/analytics/property). It was one view a visit, whatever was read.
           Previews and cover renders never reach this line. */}
       <TrackView type="store" creatorId={site.creatorId} />
+      <StoreTracking creatorId={site.creatorId} />
       {/* How fast the page was for this visitor: LCP, INP and CLS, once, as
           they leave. Published pages only, like the line above. */}
       <SiteVitals installId={site.installId} />

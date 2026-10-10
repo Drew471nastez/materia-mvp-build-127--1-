@@ -5,7 +5,7 @@ import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useCallback, useDeferredValue } from "react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
 import { nativeLogOut } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
@@ -19,10 +19,12 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, ChevronRight, Globe,
   User, FileText, ChevronLeft,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2
 } from "lucide-react"
-import { IntegrationsMarketplace } from "@/components/physical/integrations-marketplace"
+import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
+import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
+import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -52,31 +54,49 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
+import { TaxesPanel } from "@/components/app/settings/taxes-panel"
+import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
+import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
 
+/*
+  EVERY SECTION, WHERE A PERSON WOULD LOOK FOR IT. Four groups, each a
+  heading over its sections: what is about you (Account), what is about the
+  shop whatever it sells (Store), how physical orders get to people
+  (Commerce, only while physical commerce is on in /admin), and the services
+  connected to it (Integrations). `line` is what a section is for, shown
+  under its name in the phone's list.
+*/
 const TABS = [
-  { id: "general", label: "General", icon: Settings, group: "account" },
-  { id: "security", label: "Security", icon: Shield, group: "account" },
-  { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account" },
-  { id: "notifications", label: "Notifications", icon: Bell, group: "account" },
-  { id: "billing", label: "Billing", icon: CreditCard, group: "account" },
-  { id: "payments", label: "Payments", icon: Wallet, group: "store" },
-  { id: "domains", label: "Domains", icon: Globe, group: "store" },
+  { id: "general", label: "Profile", icon: User, group: "account", line: "Name, photo, username and addresses" },
+  { id: "security", label: "Security", icon: Shield, group: "account", line: "Password, sign in and devices" },
+  { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account", line: "What others see and what we send" },
+  { id: "notifications", label: "Notifications", icon: Bell, group: "account", line: "Emails and alerts you get" },
+  { id: "billing", label: "Plan", icon: CreditCard, group: "account", line: "Your plan, invoices and payment card" },
+  { id: "store", label: "Store details", icon: Store, group: "store", line: "Name, contact, phone and country" },
+  { id: "payments", label: "Payments", icon: Wallet, group: "store", line: "How buyers pay you and payouts" },
+  { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
+  /* Where products are listed: the Online store, the Creator page, Explore and the store's own (components/app/settings/channels-panel.tsx). */
+  { id: "channels", label: "Sales channels", icon: Share2, group: "store", line: "Where your products are listed" },
+  /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
+  { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
+  { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
-  { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store" },
-  /* Shipping and delivery, locations, taxes and returns: only while physical commerce is on in /admin. */
-  { id: "shipping", label: "Shipping", icon: Truck, group: "commerce" },
-  /* Shippo, Printful, Gelato and the rest: the commerce integrations, while physical commerce is on. */
-  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations" },
+  { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store", line: "What Storelib AI remembers about your store" },
+  /* Shipping and delivery, locations and returns: only while physical commerce is on in /admin. */
+  { id: "shipping", label: "Shipping and delivery", icon: Truck, group: "commerce", line: "Rates, zones and packages" },
+  { id: "locations", label: "Locations", icon: MapPin, group: "commerce", line: "Where stock is kept and ships from" },
+  { id: "returns", label: "Returns and refunds", icon: Undo2, group: "commerce", line: "Return window and reasons" },
+  /* Analytics and ad pixels for every store; Shippo, Printful, Gelato and the rest while physical commerce is on (components/app/settings/integrations-directory.tsx). */
+  { id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "Analytics, pixels and services you connect" },
 ] as const
 
 /*
   THE SECTIONS IN GROUPS (the owner's reference: Account, Store, Commerce, Integrations, each a heading over its sections in
-  the sheet's left column). Nothing was removed or renamed: the same tabs, the same ?tab= addresses, in an order that says
-  what each is for.
+  the sheet's left column, and over its rows in the phone's list).
 */
 const TAB_GROUPS = [
   { id: "account", label: "Account" },
@@ -87,19 +107,30 @@ const TAB_GROUPS = [
 /*
   NO STORES TAB. "Get rid of the Stores tab in Settings. It doesn't make any
   sense." It held three cards, each a copy of something that has a home: the
-  creator page's address (General, Your addresses, which opens it), a link to
+  creator page's address (Profile, Your addresses, which opens it), a link to
   the creator page editor and a link to the OnePage editor (both in the
-  sidebar). An old ?tab=stores link opens General.
+  sidebar). An old ?tab=stores link opens Profile.
 */
 
 type TabId = typeof TABS[number]["id"]
 
-/** The selected fill fading in on its own tab, and the words' colour: one short time, one plain ease out. */
-const TAB_FADE_MS = 150
-const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
-const TAB_IDS: TabId[] = ["general", "security", "privacy", "notifications", "billing", "payments", "domains", "ai_memory", "shipping", "integrations"]
+const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 /** Tabs that exist only while physical commerce is on in /admin. */
-const COMMERCE_TABS = new Set<string>(["shipping", "integrations"])
+/** Behind the physical commerce switch in /admin. */
+const COMMERCE_TABS = new Set<string>(["shipping", "locations"])
+
+/**
+ * Where an older address meant to go. Shipping held four parts behind
+ * ?section= before each became a section of Settings of its own.
+ */
+function tabFromAddress(tab: string | null, section: string | null): string | null {
+  if (tab !== "shipping") return tab
+  if (section === "locations" || section === "stock") return "locations"
+  if (section === "taxes") return "taxes"
+  if (section === "returns" || section === "advanced") return "returns"
+  if (section === "integrations") return "integrations"
+  return tab
+}
 
 interface SettingsFormProps {
   profile: Profile & {
@@ -343,19 +374,28 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   /* A tab that no longer exists (an old ?tab=stores) is General. */
   const physicalCommerce = usePhysicalCommerceEnabled()
-  const [activeTab, setActiveTab] = useState<TabId>(() => (TAB_IDS.includes(initialTab) && (!COMMERCE_TABS.has(initialTab) || physicalCommerce) ? initialTab : "general"))
+  const searchParams = useSearchParams()
+  const addressTab = tabFromAddress(searchParams?.get("tab") ?? null, searchParams?.get("section") ?? null)
+  const allowed = (tab: string | null): tab is TabId => !!tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce)
+  const [activeTab, setActiveTab] = useState<TabId>(() => (allowed(addressTab) ? addressTab : TAB_IDS.includes(initialTab) && allowed(initialTab) ? initialTab : "general"))
+  /*
+    ON A PHONE, A LIST FIRST. Every section in its group, a row each, the
+    way a phone's own settings open; a row opens its section with a way back
+    at the top. A link to a section (?tab=) opens straight on it. From 1024px
+    the groups are a column beside the open section and this is never shown.
+  */
+  const [phoneList, setPhoneList] = useState(() => !allowed(addressTab) && !searchParams?.get("stripe"))
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
-  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce)
+  /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
+  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: "Refunds", line: "Why you refund" } : tab))
+  /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
-    id === "general" ? t("settings.general") :
+    id === "general" ? t("settings.general") === "General" ? "Profile" : t("settings.general") :
     id === "security" ? t("settings.security") :
     id === "privacy" ? t("settings.privacy") :
     id === "notifications" ? t("settings.notifications") :
-    id === "billing" ? t("settings.billing") :
     id === "payments" ? t("settings.payments") :
-    id === "shipping" ? "Shipping" :
-    id === "integrations" ? "Integrations" :
-    "Domains"
+    shownTabs.find((tab) => tab.id === id)?.label ?? TABS.find((tab) => tab.id === id)?.label ?? id
   /**
    * Billing's own data, fetched the first time the tab is opened and kept.
    *
@@ -392,9 +432,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   useEffect(() => {
     if (activeTab === "billing") void loadBilling()
   }, [activeTab, loadBilling])
-  const tabNavRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
-  const activeTabRef = useRef<HTMLButtonElement>(null)
   const [panelEntrance, setPanelEntrance] = useState(false)
   /*
     THE PILL FIRST, THE PANEL AFTER. A press used to change the pill and swap
@@ -593,9 +631,18 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       url.searchParams.set("tab", "notifications")
       url.hash = ""
       window.history.replaceState({}, "", url.pathname + url.search)
-    } else if (tab && TAB_IDS.includes(tab as TabId) && (!COMMERCE_TABS.has(tab) || physicalCommerce)) {
-      setActiveTab(tab as TabId)
-      if (tab === "domains") fetchDomains()
+    } else if (allowed(tabFromAddress(tab, params.get("section")))) {
+      const to = tabFromAddress(tab, params.get("section")) as TabId
+      setActiveTab(to)
+      setPhoneList(false)
+      if (to === "domains") fetchDomains()
+      if (to !== tab) {
+        /* An older ?tab=shipping&section= address: the section it meant, and the address says so. */
+        const url = new URL(window.location.href)
+        url.searchParams.set("tab", to)
+        url.searchParams.delete("section")
+        window.history.replaceState({}, "", url.pathname + url.search)
+      }
     } else if (tab) {
       /* A tab that is gone (?tab=stores) or never was: General, and the address says so. */
       const url = new URL(window.location.href)
@@ -605,6 +652,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
     if (stripeParam === "return" || stripeParam === "refresh") {
       setActiveTab("payments")
+      setPhoneList(false)
       loadStripeStatus()
       // Clean URL
       const url = new URL(window.location.href)
@@ -681,15 +729,6 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     }
   }
 
-  // Auto-scroll tab nav to active tab on mobile
-  useEffect(() => {
-    if (activeTabRef.current && tabNavRef.current) {
-      const container = tabNavRef.current
-      const activeEl = activeTabRef.current
-      const scrollLeft = activeEl.offsetLeft - container.offsetWidth / 2 + activeEl.offsetWidth / 2
-      container.scrollTo({ left: scrollLeft, behavior: "smooth" })
-    }
-  }, [activeTab])
 
   /*
     THE SELECTED TAB CHANGES IN PLACE. NOTHING TRAVELS ACROSS THE ROW.
@@ -707,7 +746,18 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
   // Tab change with skeleton loading animation
   const handleTabChange = (newTab: TabId) => {
-    if (newTab === activeTab) return
+    if (phoneList) {
+      /* From the phone's list: the section opens at its top, its way back above it. */
+      setPhoneList(false)
+      const box = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+      box?.scrollTo({ top: 0 })
+    }
+    if (newTab === activeTab) {
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", newTab)
+      window.history.replaceState({}, "", url.toString())
+      return
+    }
     /**
      * BILLING IS A TAB NOW, NOT A ROUTE.
      *
@@ -754,12 +804,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     if (newTab === "domains") fetchDomains()
     // Persist tab in URL so refresh stays on the same tab
     const url = new URL(window.location.href)
-    if (newTab === "general") {
-      url.searchParams.delete("tab")
-    } else {
-      url.searchParams.set("tab", newTab)
-    }
+    url.searchParams.set("tab", newTab)
+    url.searchParams.delete("section")
     window.history.replaceState({}, "", url.toString())
+  }
+
+  /* Back to the phone's list from a section. */
+  const backToList = () => {
+    setPhoneList(true)
+    const url = new URL(window.location.href)
+    url.searchParams.delete("tab")
+    url.searchParams.delete("section")
+    window.history.replaceState({}, "", url.toString())
+    const box = formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+    box?.scrollTo({ top: 0 })
   }
 
   const handleSubmit = async (e?: React.FormEvent | Event) => {
@@ -1206,7 +1264,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           the title's. From 640px the pill sits at the top right, as wide as
           its address needs, up to 360px.
         */}
-        <div data-settings-header="" className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div data-settings-header="" className={`mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between sm:gap-6 ${phoneList ? "" : "max-lg:hidden"}`}>
           <div className="min-w-0">
             <h1 className="text-[22px] font-bold leading-tight text-[#1a1a2e] [overflow-wrap:anywhere] sm:text-[26px]">{t("settings.title")}</h1>
             <p className="mt-1 text-[14px] leading-snug text-[#6b7280]">{t("settings.subtitle")}</p>
@@ -1256,45 +1314,62 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           </div>
         </nav>
         <div className="min-w-0">
-        {/* Pill-shaped Tab Navigation - Hidden scrollbar, fixed height to prevent layout shift */}
-        <div ref={tabNavRef} data-settings-tabs="" className="mb-6 sm:mb-8 lg:hidden overflow-x-auto app-gutter-bleed sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-          <div className="relative flex gap-1 p-1 w-fit h-[44px] sm:h-[48px] items-center">
-            {shownTabs.map((tab) => {
-              const Icon = tab.icon
-              const tabLabel = labelOf(tab.id)
+        {/*
+          THE PHONE'S LIST. Every section in its group, one row each, its name
+          and what it is for; a row opens the section. Below 1024px only.
+        */}
+        {phoneList ? (
+          <div className="space-y-5 pb-6 lg:hidden" data-settings-list="">
+            {TAB_GROUPS.map((group) => {
+              const list = shownTabs.filter((tab) => tab.group === group.id)
+              if (list.length === 0) return null
               return (
-                <button
-                  key={tab.id}
-                  ref={activeTab === tab.id ? activeTabRef : undefined}
-                  onClick={() => handleTabChange(tab.id)}
-                  data-settings-tab={tab.id}
-                  aria-current={activeTab === tab.id ? "page" : undefined}
-                  style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                  className={`relative flex items-center gap-1.5 px-3 sm:px-4 py-2 sm:py-2.5 rounded-full text-[13px] sm:text-[14px] font-medium transition-[color,background-color] motion-reduce:transition-none whitespace-nowrap cursor-pointer border border-transparent [-webkit-tap-highlight-color:transparent] ${
-                    activeTab === tab.id
-                      ? "text-[#1a1a2e]"
-                      : "text-[#6b7280] hover:text-[#374151] hover:bg-[#f3f4f6]/70"
-                  }`}
-                >
-                  {/* This tab's own fill: it fades in where it is, never slides over from the last tab. A tab opened by the address on load is simply on. */}
-                  <span
-                    aria-hidden
-                    data-settings-tab-fill=""
-                    style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] ${panelEntrance ? "transition-opacity" : "transition-none"} motion-reduce:transition-none ${
-                      activeTab === tab.id ? "opacity-100" : "opacity-0"
-                    }`}
-                  />
-                  <Icon className="relative h-4 w-4" />
-                  <span className="relative">{tabLabel}</span>
-                </button>
+                <section key={group.id} aria-labelledby={`settings-list-${group.id}`} data-settings-list-group={group.id}>
+                  <h2 id={`settings-list-${group.id}`} className="px-1 pb-2 text-[13px] font-medium text-[#6b7280]">
+                    {group.label}
+                  </h2>
+                  <div className="overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                    {list.map((tab, i) => {
+                      const Icon = tab.icon
+                      return (
+                        <button
+                          key={tab.id}
+                          type="button"
+                          onClick={() => handleTabChange(tab.id)}
+                          data-settings-row={tab.id}
+                          className={`flex min-h-[60px] w-full items-center gap-3 px-4 py-2.5 text-left outline-none transition-colors active:bg-[#f6f7f8] focus-visible:bg-[#f6f7f8] [-webkit-tap-highlight-color:transparent] ${i > 0 ? "border-t border-[#f0f1f3]" : ""}`}
+                        >
+                          <Icon className="h-[18px] w-[18px] shrink-0 text-[#6b7280]" aria-hidden />
+                          <span className="min-w-0 flex-1">
+                            <span className="block text-[15px] font-medium leading-5 text-[#1a1a2e]">{labelOf(tab.id)}</span>
+                            <span className="block truncate text-[13px] leading-[18px] text-[#6b7280]">{tab.line}</span>
+                          </span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-[#c4c8ce]" aria-hidden />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </section>
               )
             })}
           </div>
-        </div>
+        ) : (
+          /* A section open on a phone: the way back to the list, and the section's name. */
+          <div className="mb-4 lg:hidden" data-settings-back="">
+            <button
+              type="button"
+              onClick={backToList}
+              className="-ml-2 inline-flex h-9 items-center gap-1 rounded-lg px-2 text-[14px] font-medium text-[#4b5563] outline-none transition-colors active:bg-[#eceef1] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden />
+              Settings
+            </button>
+            <h2 className="mt-1 text-[22px] font-bold leading-tight text-[#1a1a2e]">{labelOf(activeTab)}</h2>
+          </div>
+        )}
 
         {/* Tab Content */}
-        <form ref={formRef} onSubmit={handleSubmit}>
+        <form ref={formRef} onSubmit={handleSubmit} className={phoneList ? "max-lg:hidden" : undefined}>
           {/*
             ONE KEYED WRAPPER, so React replaces the panel rather than
             reconciling one tab's fields into another's and keeping the DOM
@@ -1750,10 +1825,31 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
 
           {panelTab === "ai_memory" && <AiMemoryPanel />}
 
-          {panelTab === "shipping" && physicalCommerce && <ShippingSettings />}
+          {/* Settings › Store details and Checkout: every store, whatever it sells. */}
+          {panelTab === "store" && (
+            <StoreDetailsPanel
+              onSupportEmail={(email) => {
+                /* The same address Profile shows: kept in step, and not an unsaved change there. */
+                setSupportEmail(email)
+                initialSupportEmail.current = email
+              }}
+            />
+          )}
+          {panelTab === "checkout" && <CheckoutPanel />}
+
+          {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
+          {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
+          {panelTab === "taxes" && <TaxesPanel />}
+          {panelTab === "channels" && <ChannelsPanel />}
+          {panelTab === "returns" && (
+            <div className="space-y-4 sm:space-y-6">
+              {physicalCommerce && <ShippingSettings part="returns" />}
+              <ReasonsPanel kinds={physicalCommerce ? ["return", "refund"] : ["refund"]} />
+            </div>
+          )}
 
           {/* Integrations: shipping, print on demand, dropshipping and fulfillment services (components/physical/integrations-marketplace.tsx). */}
-          {panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace />}
+          {panelTab === "integrations" && <IntegrationsDirectory />}
 
           {/* Payments Tab */}
           {panelTab === "payments" && (

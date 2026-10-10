@@ -22,6 +22,8 @@ import { queueReturnEmail, queueShipmentEmail, enqueueJob } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
+import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
+import { reasonsFor } from "@/lib/store/reasons-server"
 
 export interface OrderLine {
   orderId: string
@@ -530,7 +532,6 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
 
 /* ── returns ──────────────────────────────────────────────────────────── */
 
-const RETURN_REASONS = ["size", "damaged", "defective", "not_as_described", "wrong_item", "changed_mind", "other"]
 
 export async function openReturn(
   db: Db,
@@ -551,7 +552,9 @@ export async function openReturn(
     const left = returnable.get(i.orderId) ?? 0
     if (i.quantity > left) return { ok: false, error: left === 0 ? "That item can't be returned." : `Only ${left} of that item can be returned.` }
   }
-  const reason = RETURN_REASONS.includes(String(input.reason)) ? String(input.reason) : "other"
+  /* The store's own return reasons (Settings › Returns and refunds); one not on the list is kept as "other". */
+  const reasonList = await reasonsFor(db, input.creatorId, "return")
+  const reason = acceptedReason(input.reason, reasonList)
   const method = ["ship_back", "drop_off", "no_return_needed"].includes(String(input.method)) ? String(input.method) : "ship_back"
   const { data: r, error } = await db
     .from("commerce_returns")
@@ -568,6 +571,11 @@ export async function openReturn(
     .select("id")
     .single()
   if (error || !r) return { ok: false, error: "The return could not be saved." }
+  /* The label it was asked with, so a reason renamed or removed later still reads as it did. Part 109; without it, nothing. */
+  await db.from("commerce_returns").update({ reason_label: reasonLabel(reason, "return", reasonList) }).eq("id", r.id).then(
+    () => undefined,
+    () => undefined,
+  )
   const lineOf = new Map(order.lines.map((l) => [l.orderId, l]))
   const { error: itemsError } = await db.from("commerce_return_items").insert(
     items.map((i) => ({ return_id: r.id, order_id: i.orderId, quantity: i.quantity, restock: i.restock && lineOf.get(i.orderId)?.type === "physical", restock_location_id: lineOf.get(i.orderId)?.locationId ?? null })),

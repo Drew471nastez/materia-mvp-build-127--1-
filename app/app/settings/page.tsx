@@ -1,32 +1,12 @@
-import { SettingsFormNew } from "@/components/app/settings-form-new"
-import { SettingsSheet } from "@/components/app/settings-sheet"
 import type { Metadata } from "next"
-import { loadSettingsData } from "./_server"
+import { SettingsSheet } from "@/components/app/settings-sheet"
+import { SettingsForm } from "./_view"
 
 export const metadata: Metadata = {
   title: "Settings",
 }
 
+/* Opened on its own (a reload, an email link): the sheet over the shell. A press inside /app is app/app/@sheet/(.)settings. */
 export default async function SettingsPage() {
-  const data = await loadSettingsData()
-  if (!data) return null
-
-  /* Drawn as one large sheet over the dashboard (components/app/settings-sheet.tsx), at the same address. */
-  return (
-    <SettingsSheet>
-    <SettingsFormNew
-      profile={data.profile}
-      creator={data.creator}
-      accountTimeZone={data.timeZone}
-      websitePublished={data.websitePublished}
-      onePageLive={data.onePageLive}
-      sharePlatforms={data.sharePlatforms}
-      website={data.website}
-      newsletter={data.newsletter}
-      otherStores={data.otherStores}
-      paymentsProvider={data.paymentsProvider}
-      initialTab="general"
-    />
-    </SettingsSheet>
-  )
+  return <SettingsSheet>{await SettingsForm()}</SettingsSheet>
 }

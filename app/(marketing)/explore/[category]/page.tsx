@@ -7,6 +7,8 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 import { STORELIB_OG_IMAGE, storelibAssetUrl } from "@/lib/brand/logo"
 import { planIntervals } from "@/lib/memberships/intervals"
 import { excludingCommunityProducts } from "@/lib/communities/listing"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { offChannelAmong } from "@/lib/store/channel-filter"
 
 /*
   The list moved to lib/explore/category-pages so that whatever DRAWS a link
@@ -117,7 +119,7 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   // Fetch ALL published products - same query as the working /explore page
   // Category filtering is done client-side for relevance-based sorting
   /* A product that sells a community tier is found through its community, not here (lib/communities/listing). */
-  const { data: products, error: productsError } = await excludingCommunityProducts((exclude) => {
+  const { data: catalogue, error: productsError } = await excludingCommunityProducts((exclude) => {
     let q = supabase
       .from("products")
       .select("id, title, slug, description, price_cents, compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, type, category, creator_id, created_at, sales_count, reviews_count, reviews_average")
@@ -130,6 +132,9 @@ export default async function CategoryPage({ params, searchParams }: Props) {
   if (productsError) {
     console.error("[CategoryPage] Products error:", productsError.message)
   }
+  /* Settings › Sales channels: a product its creator took off Explore is not here. */
+  const offExplore = catalogue?.length ? await offChannelAmong(createAdminClient(), catalogue.map((p) => p.id), "marketplace") : new Set<string>()
+  const products = catalogue ? catalogue.filter((p) => !offExplore.has(p.id)) : catalogue
 
   // Build products with creator info
   let productsWithCreators: any[] = []

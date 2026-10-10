@@ -9,10 +9,17 @@
  * when it sells, on the order line (orders.fulfillment_method), so an order
  * that mixes methods can be split into shipments by who sends each part.
  *
- *   self             the seller packs and ships, then adds tracking
- *   warehouse        a warehouse or 3PL holds the stock and ships
- *   dropship         a supplier ships straight to the buyer
+ *   self             the seller packs and ships, from home, a shop or their
+ *                    own warehouse, then adds tracking
+ *   warehouse        a fulfillment center (3PL) holds the stock and ships
+ *   dropship         a dropshipping supplier or a manufacturer ships
+ *                    straight to the buyer
  *   print_on_demand  each item is printed and shipped for the seller
+ *
+ * Together with the store's answer in Settings (fulfillment_model: self,
+ * warehouse, print on demand, dropshipping, supplier, 3PL or a mix), that
+ * covers every way a store sends things: a mix is a product, or a variant,
+ * at a time.
  *
  * WHAT HAPPENS TODAY. Self fulfilment is complete. For the other three, the
  * product points at a partner location (Settings > Shipping > Locations):
@@ -41,21 +48,21 @@ export const METHODS: Record<FulfillmentMethod, MethodInfo> = {
   self: {
     id: "self",
     title: "I'll ship it myself",
-    line: "You pack each order and send it, then add the tracking.",
+    line: "From home, a shop or your own warehouse. You pack it and add the tracking.",
     locationKinds: ["home", "warehouse", "retail", "custom"],
     afterSale: "Open the order, pack it, press Mark as shipped and add the tracking number.",
   },
   warehouse: {
     id: "warehouse",
-    title: "Fulfillment warehouse / 3PL",
-    line: "A warehouse holds your stock and ships for you.",
+    title: "A fulfillment center (3PL)",
+    line: "They store your stock, pack and ship it for you.",
     locationKinds: ["third_party_logistics", "warehouse"],
     afterSale: "The order is sent to your warehouse by email or webhook. Add their tracking when they ship it.",
   },
   dropship: {
     id: "dropship",
-    title: "Dropshipping supplier",
-    line: "Your supplier ships straight to the buyer.",
+    title: "A supplier or manufacturer",
+    line: "Dropshipping, or made to order: they ship straight to the buyer.",
     locationKinds: ["dropshipper", "supplier"],
     afterSale: "The order is emailed to your supplier with the address. Add their tracking when they ship it.",
   },

@@ -41,6 +41,8 @@ interface ProductGalleryProps {
   selectionColor?: string
   // Background color for the gallery container (for dark themes)
   backgroundColor?: string
+  /** `square` for a physical product: its photos as they were taken, whole, in a square frame. */
+  shape?: "wide" | "square"
 }
 
 export function ProductGallery({
@@ -55,7 +57,8 @@ export function ProductGallery({
   forceDesktopDotsMode = false,
   isEditorMobilePreview = false,
   selectionColor,
-  backgroundColor
+  backgroundColor,
+  shape = "wide",
 }: ProductGalleryProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
   /**
@@ -343,7 +346,8 @@ export function ProductGallery({
            slide. Nothing styles off it. */
         data-gallery-index={currentIndex}
         className={cn(
-          "relative aspect-video overflow-hidden rounded-xl w-full group",
+          "relative overflow-hidden rounded-xl w-full group",
+          shape === "square" ? "aspect-square" : "aspect-video",
           !backgroundColor && "bg-muted",
           "cursor-grab active:cursor-grabbing",
         )}
@@ -418,7 +422,8 @@ export function ProductGallery({
                 fill
                 sizes="(max-width: 768px) 100vw, (max-width: 1024px) 66vw, 50vw"
                 className={cn(
-                  "object-cover pointer-events-none select-none",
+                  shape === "square" ? "object-contain" : "object-cover",
+                  "pointer-events-none select-none",
                   "transition-opacity duration-[400ms] ease-out",
                   loaded[index] ? "opacity-100" : "opacity-0",
                 )}

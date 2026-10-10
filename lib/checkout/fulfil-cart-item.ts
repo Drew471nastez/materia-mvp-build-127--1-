@@ -163,7 +163,8 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
  * The buyer's standing with this seller, which is about the basket rather
  * than about any one line in it, so it happens once per checkout.
  */
-export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: number, firstOrderId: string | null, firstProductId?: string | null) {
+/** `basis` is "ticked" when the buyer ticked the news box on a checkout that has one (the physical checkout, Settings › Checkout). */
+export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: number, firstOrderId: string | null, firstProductId?: string | null, basis: "ticked" | "none" = "none") {
   if (!ctx.buyerEmail || !ctx.creatorId) return
   const email = ctx.buyerEmail.toLowerCase().trim()
 
@@ -185,7 +186,7 @@ export async function recordCartCustomer(ctx: FulfilContext, basketTotalCents: n
     email,
     name: `${ctx.buyerFirstName ?? ""} ${ctx.buyerLastName ?? ""}`.trim(),
     orderId: firstOrderId,
-    basis: "none",
+    basis,
     bought: true,
     source: contactSourceOfOrder(ctx.origin, firstProductId),
   })

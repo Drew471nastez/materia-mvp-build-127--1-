@@ -28,10 +28,16 @@ import { useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { isNativeApp } from "@/lib/platform-utils"
 import { nativeLinkFor } from "@/lib/native-links"
-import { navigateInApp, openInApp } from "@/lib/native-bridge"
+import { navigateInApp, onCreatorTools, openInApp, openInBrowser } from "@/lib/native-bridge"
 
 /** Pages that are half of a flow: a new window link from them opens in the sheet over them. */
 const FLOW_PAGES = ["/checkout", "/purchase"]
+/*
+  THE CREATOR'S OWN TOOLS. A new window opened from these (View live, Preview,
+  View page, View store, Open the live page) is the creator checking what the
+  world sees: it opens in the phone's browser (openInBrowser), not the app.
+*/
+const inCreatorTools = onCreatorTools
 const under = (path: string, base: string) => path === base || path.startsWith(`${base}/`)
 
 function sameHost(href: string): boolean {
@@ -87,6 +93,10 @@ export function NativeLinkGuard() {
       /* A link on the host the app is on, in this window: the WebView follows it in place already. */
       if (!newWindow && sameHost(a.href)) return
       e.preventDefault()
+      if ((newWindow && inCreatorTools()) || a.hasAttribute("data-open-browser")) {
+        openInBrowser(a.href)
+        return
+      }
       /*
         FROM CHECKOUT, A PAGE TO READ OPENS OVER IT. Terms, the refund policy
         and Privacy are new window links there; following them in place would
@@ -118,6 +128,20 @@ export function NativeLinkGuard() {
       if (href && sheet.__storelibSheet === href) {
         sheet.__storelibSheet = undefined
         return before.call(window, url as string, target, features)
+      }
+      /* openInBrowser asked for this one: the phone's own browser. */
+      const browser = window as unknown as { __storelibBrowser?: string }
+      if (href && browser.__storelibBrowser === href) {
+        browser.__storelibBrowser = undefined
+        return before.call(window, url as string, target, features)
+      }
+      /* From the creator's tools, a page of ours in a new window is the live site being checked: the browser. */
+      if (href && inCreatorTools() && target !== "_self") {
+        const link = nativeLinkFor(href)
+        if (link.kind === "path" || link.kind === "host") {
+          openInBrowser(link.kind === "path" ? new URL(link.path, window.location.origin).toString() : link.url)
+          return window
+        }
       }
       /* A popup of Stripe's site is not this window, or the app would follow it out to the browser. */
       if (href && stripeLeavesApp(href)) return fakeStripeWindow(href)

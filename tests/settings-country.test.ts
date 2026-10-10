@@ -101,7 +101,7 @@ check("focusing the search keeps the sheet's top where it opened: it is given it
 check("and it never reaches under the clock's safe area", /export const SHEET_UNDER_CLOCK = "calc\(100dvh - env\(safe-area-inset-top, 0px\) - 12px - var\(--kb-inset, 0px\)\)"/.test(choice) && /maxHeight=\{SHEET_UNDER_CLOCK\}/.test(choice))
 
 console.log("\n6. The header on a phone")
-const header = form.slice(form.indexOf('data-settings-header=""'), form.indexOf("data-settings-tabs"))
+const header = form.slice(form.indexOf('data-settings-header=""'), form.indexOf("data-settings-list"))
 check("nothing in the header is cut: the title and its line wrap, the pill has a row of its own on a phone",
   /flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between/.test(header) && /font-bold[^"]*\[overflow-wrap:anywhere\]/.test(header) && !/truncate/.test(header) && /md:hidden max-w-full/.test(header))
 check("from 640px the pill is at the top right beside both, as wide as its address up to 360px", /sm:max-w-\[360px\] sm:justify-end/.test(header))

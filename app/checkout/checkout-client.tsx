@@ -25,6 +25,8 @@
  */
 
 import * as React from "react"
+import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
+import { digitalTax, type CheckoutTax } from "@/lib/tax/rules"
 import Link from "next/link"
 import { useRouter, useSearchParams } from "next/navigation"
 import { ArrowLeft, ChevronDown } from "lucide-react"
@@ -71,6 +73,12 @@ interface CheckoutPageClientProps {
   }
   userEmail: string | null
   isLoggedIn: boolean
+  /** The store's Settings › Checkout (lib/store/checkout-config). */
+  checkoutConfig?: CheckoutConfig
+  /** The signed in buyer has confirmed their email. */
+  emailConfirmed?: boolean
+  /** Settings › Taxes, when the store taxes digital products; null when nothing is taxed. */
+  checkoutTax?: CheckoutTax | null
   /**
    * The creator's own website page to land on after paying, checked on the
    * server against their sites (lib/checkout/return-url.ts). Null: the
@@ -160,7 +168,13 @@ export default function CheckoutPageClient({
   allVariants = [],
   paymentProvider = "stripe",
   communityTerms = null,
+  isLoggedIn,
+  checkoutConfig = DEFAULT_CHECKOUT,
+  emailConfirmed = true,
+  checkoutTax = null,
 }: CheckoutPageClientProps) {
+  /* Settings › Checkout: an account first, and a confirmed one, before Pay. */
+  const accountGate = checkoutConfig.requireAccount && !isLoggedIn ? "sign-in" : checkoutConfig.requireConfirmedEmail && isLoggedIn && !emailConfirmed ? "confirm" : null
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -172,6 +186,9 @@ export default function CheckoutPageClient({
   const lastName = fullName.trim().split(/\s+/).slice(1).join(" ")
   const [emailOptIn, setEmailOptIn] = React.useState(false)
   const [agreed, setAgreed] = React.useState(false)
+  /* This page's own address, for coming back after signing in: read once mounted, so the server's HTML matches. */
+  const [here, setHere] = React.useState("/checkout")
+  React.useEffect(() => setHere(window.location.pathname + window.location.search), [])
   React.useEffect(() => {
     setFullName((v) => v || remembered("fullName") || [remembered("firstName"), remembered("lastName")].filter(Boolean).join(" "))
     setEmail((v) => v || remembered("email"))
@@ -198,7 +215,15 @@ export default function CheckoutPageClient({
   /** The reason a code from the link did not apply: said quietly, the buyer did nothing wrong. */
   const [codeFromLink, setCodeFromLink] = React.useState(false)
   const discountCents = applied ? Math.min(applied.discountCents, subtotal) : 0
-  const total = Math.max(0, subtotal - discountCents + tipCents)
+  /* Tax the server charges too (lib/tax/rules digitalTax): by the buyer's country, which they can change. */
+  const [taxCountry, setTaxCountry] = React.useState<string | null>(checkoutTax?.country ?? null)
+  const taxNow = checkoutTax
+    ? digitalTax(
+        { enabled: true, digital: true, included: checkoutTax.included, regions: checkoutTax.regions.map((r) => ({ ...r, region: null })), overrides: checkoutTax.overrides },
+        { taxableCents: Math.max(0, subtotal - discountCents), tipCents, productId: product.id, country: taxCountry },
+      )
+    : null
+  const total = taxNow ? taxNow.totalCents : Math.max(0, subtotal - discountCents + tipCents)
   const isFree = total === 0
 
   /* ── Buying for a business ───────────────────────────────────────── */
@@ -784,9 +809,11 @@ export default function CheckoutPageClient({
     }
     if (mode !== "express") {
       if (!EMAIL.test(email.trim())) return missing("email", "Enter a valid email address.")
-      /* A last name is not required: some people have one name. */
+      /* A last name is not required unless the store asks for one: some people have one name. */
       if (!firstName.trim()) return missing("name", "Enter your name.")
+      if (checkoutConfig.nameFields === "first_and_last" && !lastName.trim()) return missing("name", "Enter your first and last name.")
     }
+    if (accountGate) return accountGate === "sign-in" ? "Sign in or create an account to check out." : "Confirm your email address to check out."
     if (mode !== "free") {
       const b = checkBusinessNow()
       if (b) return b
@@ -815,7 +842,9 @@ export default function CheckoutPageClient({
       firstName: typed ? firstName.trim() : walletName[0] || payerEmail.split("@")[0] || "",
       lastName: typed ? lastName.trim() : walletName.slice(1).join(" "),
       email: payerEmail,
-      emailOptIn,
+      emailOptIn: checkoutConfig.marketingOptIn ? emailOptIn : false,
+      /* The country the tax line was worked out for; the server checks it. */
+      taxCountry: checkoutTax ? taxCountry : null,
       agreedToTerms: agreed,
       business: businessOn ? business : null,
       /* Which page sent the buyer here and where their visit came from, for
@@ -989,9 +1018,25 @@ export default function CheckoutPageClient({
           }}
         />
       </Field>
-      <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
-        Email me news and offers from {creator.name}
-      </CheckRow>
+      {checkoutConfig.marketingOptIn ? (
+        <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
+          Email me news and offers from {creator.name}
+        </CheckRow>
+      ) : null}
+      {accountGate === "sign-in" ? (
+        <div className="rounded-xl border border-[#d9dce1] bg-[#f8f9fa] px-4 py-3.5" data-checkout-account="sign-in">
+          <p className="text-[14.5px] font-semibold text-[#1a1a2e]">Sign in to check out</p>
+          <p className="mt-0.5 text-[13px] leading-[19px] text-[#4b5563]">{creator.name} asks for an account before an order, so you can find your purchase again.</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            <a href={`/login?next=${encodeURIComponent(here)}`} className="inline-flex h-9 items-center rounded-[10px] bg-[#1a1a2e] px-3.5 text-[13.5px] font-medium text-white">Sign in</a>
+            <a href={`/signup?next=${encodeURIComponent(here)}`} className="inline-flex h-9 items-center rounded-[10px] border border-[#d9dce1] bg-white px-3.5 text-[13.5px] font-medium text-[#1a1a2e]">Create an account</a>
+          </div>
+        </div>
+      ) : accountGate === "confirm" ? (
+        <p className="rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-3 text-[13.5px] text-[#92400e]" data-checkout-account="confirm">
+          Confirm your email address to place an order. Open the link we sent when you signed up, then come back here.
+        </p>
+      ) : null}
     </div>
   )
 
@@ -1065,7 +1110,17 @@ export default function CheckoutPageClient({
         />
         <div className="mt-5">{tip(suffix)}</div>
         <div className="mt-5">
-          <Totals part="bottom" subtotal={subtotal} discountCents={discountCents} total={total} />
+          <Totals
+            part="bottom"
+            subtotal={subtotal}
+            discountCents={discountCents}
+            total={total}
+            tax={
+              checkoutTax && !isFree
+                ? { cents: taxNow?.taxCents ?? 0, rateBps: taxNow?.rateBps ?? 0, included: checkoutTax.included, country: taxCountry, countries: checkoutTax.regions.map((r) => r.country), onCountry: setTaxCountry, suffix }
+                : undefined
+            }
+          />
         </div>
       </div>
     </div>

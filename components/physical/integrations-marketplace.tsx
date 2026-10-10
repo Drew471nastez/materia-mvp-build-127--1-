@@ -73,7 +73,7 @@ function ProviderMark({ provider }: { provider: ProviderInfo }) {
   )
 }
 
-function statusOf(provider: ProviderInfo, state: IntegrationState | null): { tone: "green" | "blue" | "amber" | "red" | "gray"; label: string } {
+export function statusOf(provider: ProviderInfo, state: IntegrationState | null): { tone: "green" | "blue" | "amber" | "red" | "gray"; label: string } {
   if (READY_WITHOUT_SETUP.has(provider.id)) return { tone: "green", label: "Ready" }
   if (!state || state.status === "disconnected") return { tone: "gray", label: "Not connected" }
   if (state.status === "connected") return { tone: "green", label: "Connected" }
@@ -126,8 +126,9 @@ export function IntegrationsMarketplace({ initial }: { initial?: IntegrationStat
   )
 }
 
-function IntegrationCard({ provider, state, loading, onSaved }: { provider: ProviderInfo; state: IntegrationState | null; loading: boolean; onSaved: (s: IntegrationState[]) => void }) {
-  const [open, setOpen] = React.useState(false)
+/** One provider: its status, its button, and its fields in place. Also the Install part of its page in Settings › Integrations (components/app/settings/integrations-directory.tsx), open from the start. */
+export function IntegrationCard({ provider, state, loading, onSaved, startOpen = false }: { provider: ProviderInfo; state: IntegrationState | null; loading: boolean; onSaved: (s: IntegrationState[]) => void; startOpen?: boolean }) {
+  const [open, setOpen] = React.useState(startOpen)
   const [url, setUrl] = React.useState(state?.url ?? "")
   const [secret, setSecret] = React.useState("")
   const [key, setKey] = React.useState("")

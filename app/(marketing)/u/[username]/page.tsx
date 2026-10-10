@@ -120,6 +120,7 @@ import {
 import { resolveStorefrontChrome, type StorefrontBarColors, type StoredChrome } from "@/lib/store-builder/storefront-chrome"
 import { SCHEME_PREVIEW_PARAM, previewSchemeFrom, schemeRootPaints, type RootPaint } from "@/lib/store-builder/scheme-preview"
 import { planIntervals } from "@/lib/memberships/intervals"
+import { offChannel } from "@/lib/store/channel-filter"
 
 export const dynamic = "force-dynamic"
 
@@ -613,7 +614,9 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   if (requestHost && !/^(www\.)?storelib\.com$|^localhost(:\d+)?$|^127\.0\.0\.1(:\d+)?$/.test(requestHost)) ownPaths.push("/")
   const backShown = from === "community" || from === "explore" || cameFromElsewhere(refererPath(requestHeaders.get("referer"), requestHeaders.get("host")), ownPaths)
   /* A product that sells a community tier is on the Communities tab, not in the grid (lib/communities/listing). */
-  const products = catalogue ? withoutCommunityProducts(catalogue) : catalogue
+  /* Settings › Sales channels: a product taken off the Creator page is not in its grid; its own link still opens it. */
+  const offPage = catalogue && catalogue.length ? await offChannel(createAdminClient(), creator.id, "creator_page") : new Set<string>()
+  const products = catalogue ? withoutCommunityProducts(catalogue).filter((p: { id: string }) => !offPage.has(p.id)) : catalogue
   const communityCards = await communitiesPromise
   const pageAddress = pageHost ? `https://${pageHost}/` : `https://storelib.com/${profile.username || username}`
 

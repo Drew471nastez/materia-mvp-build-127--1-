@@ -11,6 +11,8 @@ import type { ShipmentStatus } from "@/lib/physical/types"
 interface Props {
   token: string
   justPaid: boolean
+  /** The store's return reasons (Settings › Returns and refunds), as the buyer reads them. */
+  reasons?: { value: string; label: string }[]
   shop: { name: string; avatar: string | null; email: string | null }
   order: {
     id: string
@@ -63,7 +65,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
   )
 }
 
-export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Props) {
+export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons }: Props) {
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
@@ -236,7 +238,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn }: Pro
           </section>
         ) : null}
 
-        {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} /> : null}
+        {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} reasons={reasons && reasons.length ? reasons : REASONS.map(([value, label]) => ({ value, label }))} /> : null}
 
         <p className="pt-2 text-center text-[13px] text-[#6b7280]">
           Questions? {shop.email ? <a href={`mailto:${shop.email}`} className="font-medium text-[#1a1a2e] underline underline-offset-4">Email {shop.name}</a> : "Reply to your order email."}
@@ -265,10 +267,10 @@ const REASONS = [
   ["other", "Other"],
 ] as const
 
-function ReturnRequest({ token, lines }: { token: string; lines: Props["order"]["lines"] }) {
+function ReturnRequest({ token, lines, reasons }: { token: string; lines: Props["order"]["lines"]; reasons: { value: string; label: string }[] }) {
   const [open, setOpen] = React.useState(false)
   const [qty, setQty] = React.useState<Record<string, number>>({})
-  const [reason, setReason] = React.useState<string>("size")
+  const [reason, setReason] = React.useState<string>(reasons[0]?.value ?? "other")
   const [note, setNote] = React.useState("")
   const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
   const [error, setError] = React.useState<string | null>(null)
@@ -302,10 +304,13 @@ function ReturnRequest({ token, lines }: { token: string; lines: Props["order"][
           </li>
         ))}
       </ul>
-      <select value={reason} onChange={(e) => setReason(e.target.value)} className="h-11 w-full rounded-[10px] border border-[#d9dce1] px-3 text-[15px]">
-        {REASONS.map(([v, l]) => (
-          <option key={v} value={v}>
-            {l}
+      <label htmlFor="return-reason" className="sr-only">
+        Why are you returning this?
+      </label>
+      <select id="return-reason" data-return-reasons="" value={reason} onChange={(e) => setReason(e.target.value)} className="h-11 w-full rounded-[10px] border border-[#d9dce1] px-3 text-[15px]">
+        {reasons.map((r) => (
+          <option key={r.value} value={r.value}>
+            {r.label}
           </option>
         ))}
       </select>
