@@ -1214,7 +1214,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       const timestamp = Date.now()
       let fileToUpload = file
       try {
-        fileToUpload = (await processImageToWidescreen(file)).processedFile
+        /* A physical product's photos go up as they were taken (the shop shows them whole); a download's or course's cover is widescreen. */
+        if (productType !== "physical") fileToUpload = (await processImageToWidescreen(file)).processedFile
       } catch (err) {
         console.error("Image processing error:", err)
       }
@@ -2098,13 +2099,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     <span className="text-red-500">*</span>
                   </div>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
+                    Add up to {MAX_PHOTOS} photos and {MAX_YOUTUBE_VIDEOS} video{MAX_YOUTUBE_VIDEOS > 1 ? 's' : ''}. The first one is the cover.{productType === "physical" ? " Any shape: nothing is cropped." : ""}{mediaItems.length > 1 ? " Hold and drag to reorder." : ""}
                   </p>
                 </div>
 
-                {/* The grid, two a row, held to reorder (./media-grid.tsx). */}
+                {/* The grid, held to reorder (./media-grid.tsx): two widescreen a row, or a physical product's photos square with the cover large. */}
                 {(mediaItems.length > 0 || pendingMedia.length > 0) && (
-                  <MediaGrid items={mediaItems} pending={pendingMedia} onChange={setMediaItems} onRemove={removeMedia} />
+                  <MediaGrid items={mediaItems} pending={pendingMedia} onChange={setMediaItems} onRemove={removeMedia} shape={productType === "physical" ? "square" : "wide"} />
                 )}
 
                 {/* The upload zone, and its state while a file uploads */}

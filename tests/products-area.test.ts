@@ -305,7 +305,7 @@ check("the remove button is its own button above the handle; the labels take no 
 check("positions are read out, and position 1 is named the thumbnail", /`Picked up \$\{name\(active\.id\)\.toLowerCase\(\)\} of \$\{count\}\.`/.test(media) && /n === 1 \? ", the thumbnail" : ""/.test(media))
 check("only a drop commits; a cancel changes nothing", /onDragCancel=\{\(\) => setActiveId\(null\)\}/.test(media) && /arrayMove\(prev, from, to\)/.test(media))
 check("the editor draws the grid from the form's own media; the old sensors, overlay and dead touch handlers are gone",
-  /<MediaGrid items=\{mediaItems\} pending=\{pendingMedia\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
+  /<MediaGrid items=\{mediaItems\} pending=\{pendingMedia\} onChange=\{setMediaItems\} onRemove=\{removeMedia\} shape=\{productType === "physical" \? "square" : "wide"\} \/>/.test(editor) && !/SortableMediaItem|mediaSensors|activeDragItem|<DragOverlay|handleTouchStart|touchDragIndex|longPressTimerRef/.test(editor))
 
 console.log("\nThe editor's page")
 

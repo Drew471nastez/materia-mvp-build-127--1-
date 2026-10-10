@@ -1002,6 +1002,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             youtubeUrls={youtubeUrls}
             mobileDotsMode={mobileGalleryDots}
             desktopDotsMode={desktopGalleryDots}
+            shape={product.type === "physical" ? "square" : "wide"}
           />
         ) : (
           <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
