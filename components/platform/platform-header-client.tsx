@@ -29,6 +29,7 @@ import { Library, Search, LayoutDashboard, Settings, LogOut, X, ChevronRight, Li
 import { useLocale } from "@/components/locale-provider"
 import { LanguageModal } from "@/components/platform/language-modal"
 import { readAuthSnapshot, writeAuthSnapshot, clearAuthSnapshot } from "@/lib/auth/auth-snapshot"
+import { signedOutForSure } from "@/lib/auth/session-read"
 import { hasSellerAccess, sellerAccessFrom, type SellerState } from "@/lib/account/seller-access"
 import { useShellAvatar } from "@/lib/account/avatar-store"
 import { startNavigationLoading } from "@/components/app/navigation-loading-bar"
@@ -1319,6 +1320,11 @@ export function PlatformHeaderClient({
           error,
         } = await supabase.auth.getUser()
 
+        /* Could not tell (the request failed): keep what is drawn, and ask again in a moment. */
+        if (!user && !signedOutForSure(error, user)) {
+          if (mountedRef.current && isInitial) window.setTimeout(() => { if (mountedRef.current) void loadUser(false) }, 4000)
+          return readAuthSnapshot()?.userId ?? undefined
+        }
         if (error || !user) {
           if (!mountedRef.current) return
           clearAuthSnapshot()
@@ -1400,7 +1406,9 @@ export function PlatformHeaderClient({
         }
         return user.id
       } catch {
+        /* A read that threw is a read that could not tell: a signed-in header stays signed in. */
         if (!mountedRef.current) return
+        if (readAuthSnapshot()?.signedIn) return
         setUser(null)
         setProfile(null)
         setIsCreator(false)

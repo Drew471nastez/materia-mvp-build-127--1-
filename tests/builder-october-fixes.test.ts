@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs"
 import { explainSaveProblem } from "../lib/website-builder/save-problem"
 import { sectionDisplayName } from "../lib/website-builder/section-name"
+import { signedOutForSure } from "../lib/auth/session-read"
 
 let passed = 0
 let failed = 0
@@ -53,6 +54,15 @@ check("All products (smart, every product) and Home page (by hand)", /title: "Al
 check("made once, and deleting them is final", /default_collections_given/.test(dc) && /ignoreDuplicates: true/.test(dc))
 check("Collections and the builder's pickers both give them", /ensureDefaultCollections\(creatorId\)/.test(read("lib/physical/collections-server.ts")) && /ensureDefaultCollections\(creatorId\)/.test(read("lib/website-builder/storefront-collections-server.ts")))
 check("a visitor's read of a site never writes", /if \(opts\.published !== false \|\| opts\.ids \|\| opts\.fresh\) return empty/.test(read("lib/website-builder/storefront-collections-server.ts")))
+
+console.log("\nA failed read of the user never shows a signed-in person as signed out\n")
+{
+  check("a 504 from Auth's gateway is not a sign-out", signedOutForSure({ name: "AuthRetryableFetchError", status: 504 }, null) === false)
+  check("a dropped connection is not either", signedOutForSure({ message: "fetch failed" }, null) === false)
+  check("no session, or a refused token, is", signedOutForSure({ name: "AuthSessionMissingError" }, null) && signedOutForSure({ status: 401 }, null) && signedOutForSure(null, null))
+  const header = read("components/platform/platform-header-client.tsx")
+  check("the site header keeps what it drew and asks again", /if \(!user && !signedOutForSure\(error, user\)\) \{/.test(header) && /if \(readAuthSnapshot\(\)\?\.signedIn\) return/.test(header))
+}
 
 console.log(`\n${passed} passed, ${failed} failed\n`)
 if (failed > 0) process.exit(1)
