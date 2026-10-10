@@ -27,6 +27,7 @@ import { cache } from "react"
 import { createClient } from "@/lib/supabase/server"
 import { readPublicRow } from "@/lib/security/public-rows"
 import { publicProfileByName } from "@/lib/profile/profile-by-name"
+import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { cachedCreator, cachedCreatorProfile, cachedStoreConfig } from "./product-page-cache"
 
@@ -59,8 +60,10 @@ export const loadCreatorForUser = cache(async (userId: string) => {
  * and an empty page is worse than a slow one.
  */
 export const loadShopConfig = cache(async (creatorId: string) => {
-  const cached = await cachedStoreConfig(creatorId, "shop")
+  const cached = await cachedStoreConfig(creatorId, "shop").catch(() => undefined)
   if (cached) return cached
+  /* Nothing published, read with the anon role: a visitor with no session would read the same nothing again (lib/supabase/session-cookie.ts). */
+  if (cached === null && !(await requestMayHaveSession())) return null
   const supabase = await createClient()
   const { data } = await supabase
     .from("store_builder_configs")

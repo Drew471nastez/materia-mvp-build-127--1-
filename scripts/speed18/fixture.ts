@@ -195,6 +195,10 @@ export function buildFixture(): Fixture {
       store_channels: [],
       settings: [],
       store_menus: [],
+      /* Maya published her creator page's shop; Leo never did. */
+      store_builder_configs: [{ id: uuid("61", 1), creator_id: SITE.creatorId, page_type: "shop", published_config: { globalSettings: { themePreset: "maya-preset" } }, draft_config: { globalSettings: { themePreset: DRAFT_MARKER } }, published_at: iso(100) }],
+      product_page_configs: [],
+      seo_overrides: [],
       product_channel_listings: [],
       sales_channels: [],
       digital_assets: [],

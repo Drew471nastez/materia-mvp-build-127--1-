@@ -61,12 +61,13 @@ export const useLinkStatus = () => ({ pending: false })
    * A suite that reached for a real cookie would get an empty jar and fail
    * loudly, which is correct: there is no request here to read one from.
    */
-  "next/headers": `export const cookies = async () => ({
+  "next/headers": `const held = () => globalThis.__PUSH_TEST_NEXT_HEADERS__
+export const cookies = async () => (held() ? held().cookies() : {
   getAll: () => [],
   get: () => undefined,
   set() {},
 })
-export const headers = async () => new Map()
+export const headers = async () => (held() ? held().headers() : new Map())
 export const draftMode = async () => ({ isEnabled: false })
 `,
   /**
@@ -78,7 +79,9 @@ export const draftMode = async () => ({ isEnabled: false })
    * cached page never holds another's, a publish purges its own) sets
    * globalThis.__PUSH_TEST_NEXT_CACHE__ to a cache kept the way Next keeps
    * it (scripts/speed18/shims/next-cache.ts), and every call goes there.
-   * Unset, nothing changes for anybody else.
+   * Unset, nothing changes for anybody else. next/headers above has the
+   * same hook (__PUSH_TEST_NEXT_HEADERS__), for a suite whose visits carry
+   * their own cookies.
    */
   "next/cache": `const held = () => globalThis.__PUSH_TEST_NEXT_CACHE__
 export const unstable_cache = (fn, keys, options) => (held() ? held().unstable_cache(fn, keys, options) : fn)

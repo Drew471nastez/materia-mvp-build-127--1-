@@ -1,6 +1,8 @@
 import { cache } from "react"
 
 import { createClient } from "@/lib/supabase/server"
+import { requestMayHaveSession } from "@/lib/supabase/session-cookie"
+import { cachedStoreConfig } from "@/lib/commerce/product-page-cache"
 import { defaultShopPageConfig, defaultProductPageConfig } from "./defaults"
 import type { PageConfig, PageType } from "./types"
 
@@ -14,6 +16,22 @@ export const getPublishedConfig = cache(async function getPublishedConfig(
   creatorId: string,
   pageType: PageType,
 ): Promise<PageConfig | null> {
+  /*
+    A VISITOR WITH NO SESSION reads the copy every visitor shares
+    (lib/commerce/product-page-cache.ts cachedStoreConfig): the same row,
+    read with the same anon role and the same policies, held for a minute
+    and cleared by the store builder's publish (creatorTag). Anyone signed
+    in, the creator first of all, still reads it fresh, so a publish shows
+    to them on the next load. A failed shared read is read fresh too.
+  */
+  if (!(await requestMayHaveSession())) {
+    const shared = await cachedStoreConfig(creatorId, pageType).catch(() => undefined)
+    if (shared !== undefined) {
+      const published = (shared as { published_config?: Record<string, unknown> | null } | null)?.published_config
+      return published && Object.keys(published).length > 0 ? (published as unknown as PageConfig) : null
+    }
+  }
+
   const supabase = await createClient()
 
   const { data: config } = await supabase

@@ -21,10 +21,11 @@
  * Run with:  pnpm test:push
  */
 import { createClient } from "@supabase/supabase-js"
-import { fakeFetch, setRtt, useFixture, type Fixture } from "../scripts/speed18/fake-postgrest"
+import { fakeFetch, setRtt, useFixture, signedInCookies, type Fixture } from "../scripts/speed18/fake-postgrest"
 import { visit } from "../scripts/speed18/context"
 import { buildFixture, SITE, OTHER, ONEPAGE, DRAFT_MARKER, OTHER_MARKER, PRIVATE_MARKER } from "../scripts/speed18/fixture"
 import * as nextCache from "../scripts/speed18/shims/next-cache"
+import * as nextHeaders from "../scripts/speed18/shims/next-misc"
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { stripComments } from "./_source"
@@ -52,6 +53,8 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "service-fixture-key"
 process.env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
 ;(globalThis as { fetch: typeof fetch }).fetch = fakeFetch as typeof fetch
 ;(globalThis as { __PUSH_TEST_NEXT_CACHE__?: unknown }).__PUSH_TEST_NEXT_CACHE__ = nextCache
+/* Each visit's own cookies and headers (scripts/speed18/context.ts), through the loader's next/headers hook. */
+;(globalThis as { __PUSH_TEST_NEXT_HEADERS__?: unknown }).__PUSH_TEST_NEXT_HEADERS__ = nextHeaders
 setRtt(0)
 
 const db = () => createClient("https://fixture.supabase.co", "service-fixture-key", { auth: { persistSession: false, autoRefreshToken: false } })
@@ -337,6 +340,55 @@ async function profileByName() {
   check("the creator page and the member profile both read it this way", /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/commerce/creator-page-data.ts")) && /publicProfileByName\(await createClient\(\), username\)/.test(code("lib/profile/member-profile-data.ts")))
 }
 
+async function sharedConfigs() {
+  section("A visitor with no session reads the shared config copy, everyone signed in reads fresh (lib/supabase/session-cookie.ts)")
+  const { requestMayHaveSession } = await import("@/lib/supabase/session-cookie")
+  const { loadStoreConfig } = await import("@/lib/commerce/product-page-data")
+  const { getPublishedConfig } = await import("@/lib/store-builder/get-published-config")
+  const { creatorTag } = await import("@/lib/commerce/product-page-cache")
+  nextCache.resetCache()
+  const fixture = buildFixture()
+  useFixture(fixture)
+  const signedIn = signedInCookies(SITE.userId)
+  check("no cookie is no session", (await visit(() => requestMayHaveSession())).value === false)
+  check("the session cookie, whole or in chunks, is a session", (await visit(() => requestMayHaveSession(), { cookies: signedIn })).value === true && (await visit(() => requestMayHaveSession(), { cookies: { "sb-fixture-auth-token.0": "x" } })).value === true)
+  check("an unrelated cookie is not", (await visit(() => requestMayHaveSession(), { cookies: { theme: "dark" } })).value === false)
+
+  const configReads = (r: { trips: { table: string; background: boolean }[] }) => r.trips.filter((t) => t.table === "store_builder_configs" && !t.background).length
+  const none1 = await visit(() => loadStoreConfig(OTHER.creatorId, "product"))
+  const none2 = await visit(() => loadStoreConfig(OTHER.creatorId, "product"))
+  check("nothing published: a signed out visitor asks once, then never again within the minute", none1.value === null && configReads(none1) === 1 && configReads(none2) === 0, [configReads(none1), configReads(none2)])
+  const owner = await visit(() => loadStoreConfig(OTHER.creatorId, "product"), { cookies: signedInCookies(OTHER.userId) })
+  check("a signed in visitor still asks on their own session when the shared copy has nothing", configReads(owner) === 1 && owner.trips.some((t) => t.table === "store_builder_configs" && t.key === "user"))
+
+  const anon1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
+  const anon2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
+  check("a creator page's shop config, signed out: the shared copy, asked once", (anon1.value as { globalSettings?: { themePreset?: string } } | null)?.globalSettings?.themePreset === "maya-preset" && configReads(anon2) === 0)
+  check("and never the draft", !JSON.stringify(anon1.value).includes(DRAFT_MARKER))
+  const mine1 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
+  const mine2 = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
+  check("the creator, signed in, reads it fresh every time", configReads(mine1) === 1 && configReads(mine2) === 1 && mine1.trips.every((t) => t.table !== "store_builder_configs" || t.key === "user"))
+
+  /* She publishes in the store builder (app/api/store-builder revalidates creatorTag): she sees it at once, visitors after the refresh. */
+  fixture.tables.store_builder_configs[0].published_config = { globalSettings: { themePreset: "maya-new" } }
+  const mineNow = await visit(() => getPublishedConfig(SITE.creatorId, "shop"), { cookies: signedIn })
+  check("her publish shows to her on the next load", (mineNow.value as { globalSettings?: { themePreset?: string } } | null)?.globalSettings?.themePreset === "maya-new")
+  nextCache.revalidateTag(creatorTag(SITE.creatorId), "max")
+  await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
+  await settle()
+  const anonNow = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
+  check("and to visitors once the publish has cleared the shared copy", (anonNow.value as { globalSettings?: { themePreset?: string } } | null)?.globalSettings?.themePreset === "maya-new")
+  const leoHeld = nextCache.cacheEntries().find((e) => e.key.includes("store-config") && e.key.includes(OTHER.creatorId))
+  check("one creator's copy never holds another's", !!leoHeld && leoHeld.value === null && leoHeld.tags.includes(creatorTag(OTHER.creatorId)))
+
+  nextCache.resetCache()
+  useFixture(fixtureWith((f) => {
+    f.fail = ["store_builder_configs"]
+  }))
+  const failed = await visit(() => getPublishedConfig(SITE.creatorId, "shop"))
+  check("a failed shared read is not held, and the page reads fresh instead", !nextCache.cacheEntries().some((e) => e.key.includes("store-config")) && configReads(failed) === 2)
+}
+
 async function main() {
   await routeFacts()
   await productPageTheme()
@@ -344,6 +396,7 @@ async function main() {
   await onePage()
   await explore()
   await profileByName()
+  await sharedConfigs()
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed) {
     console.log(failures.map((f) => `  - ${f}`).join("\n"))
