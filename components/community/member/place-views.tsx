@@ -123,9 +123,9 @@ export function placeTitle(place: Place): string | null {
 }
 
 /** What stands in the frame while a place is on its way (never before WAIT_SCREEN_MS, place-host.tsx). */
-export function PlaceWaiting({ place }: { place: Place }) {
+export function PlaceWaiting({ place, delay = 0 }: { place: Place; /** The host has already waited 250ms before showing this, so by default it shows at once. */ delay?: number }) {
   const title = placeTitle(place)
-  return title ? <PlaceLoading title={title} detail={" "} /> : <PlaceSpinner label="Loading" />
+  return title ? <PlaceLoading title={title} detail={"\u00a0"} delay={delay} /> : <PlaceSpinner label="Loading" delay={delay} />
 }
 
 /** A place's screen from its data. `slug` and `communityId` are the community's. */
