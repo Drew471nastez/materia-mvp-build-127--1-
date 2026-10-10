@@ -208,3 +208,29 @@ export function trackingTags(stored: unknown): { key: string; src?: string; inli
 
 /** Every host a tag above loads from or reports to, for the content security policy. */
 export const TRACKER_HOSTS = [...new Set(TRACKER_ORDER.flatMap((id) => TRACKERS[id].hosts))]
+
+/**
+ * A PAID ORDER, TOLD TO THE STORE'S PIXELS. Run once, on the buyer's order
+ * page as it opens straight after paying (never on a later visit to it), so
+ * each order is one purchase in each service: GA4 and Google Ads a
+ * `purchase`, Tag Manager a `purchase` in its data layer, Meta a `Purchase`,
+ * TikTok a `CompletePayment`, Pinterest a `checkout`. Only the order's
+ * number, value and currency go: no name, no email, no address.
+ */
+export function purchaseTags(stored: unknown, order: { id: string; valueCents: number; currency: string; quantity: number }): { key: string; inline: string }[] {
+  const t = readTracking(stored)
+  if (!/^[A-Za-z0-9-]{1,64}$/.test(order.id) || !/^[A-Z]{3}$/.test(order.currency.toUpperCase())) return []
+  const value = Math.max(0, Math.round(order.valueCents)) / 100
+  const currency = JSON.stringify(order.currency.toUpperCase())
+  const id = JSON.stringify(order.id)
+  const qty = Math.max(1, Math.floor(order.quantity) || 1)
+  const out: string[] = []
+  if (t.ga4 || t.google_ads) out.push(`if(window.gtag)gtag('event','purchase',{transaction_id:${id},value:${value},currency:${currency}});`)
+  if (t.gtm) out.push(`window.dataLayer=window.dataLayer||[];dataLayer.push({event:'purchase',ecommerce:{transaction_id:${id},value:${value},currency:${currency}}});`)
+  if (t.meta_pixel) out.push(`if(window.fbq)fbq('track','Purchase',{value:${value},currency:${currency}},{eventID:${id}});`)
+  if (t.tiktok_pixel) out.push(`if(window.ttq)ttq.track('CompletePayment',{value:${value},currency:${currency},content_type:'product'});`)
+  if (t.pinterest_tag) out.push(`if(window.pintrk)pintrk('track','checkout',{value:${value},order_quantity:${qty},currency:${currency},order_id:${id}});`)
+  if (out.length === 0) return []
+  /* After the base tags (afterInteractive), so each service's queue is there to take it. */
+  return [{ key: "purchase", inline: `(function(){var go=function(){try{${out.join("")}}catch(e){}};if(document.readyState==='complete')setTimeout(go,0);else window.addEventListener('load',function(){setTimeout(go,0)});})();` }]
+}

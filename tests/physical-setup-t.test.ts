@@ -31,7 +31,8 @@ console.log("\nThe five steps\n")
 console.log("\nWhere it shows\n")
 {
   const card = read("components/app/home/physical-setup-card.tsx")
-  check("only while physical commerce is on, and gone when done", /if \(!physical \|\| !steps \|\| steps\.every\(\(s\) => s\.done\)\) return null/.test(card))
+  /* Changed on purpose (round U): payments not set up keeps the card up, first, even with the five steps done. */
+  check("only while physical commerce is on, and gone when done and nothing stops a sale", /if \(!physical \|\| !steps \|\| \(steps\.every\(\(s\) => s\.done\) && blockers\.length === 0\)\) return null/.test(card))
   check("Home places it under its cards", /<PhysicalSetupCard \/>/.test(read("components/app/dashboard-client.tsx")))
   check("the route is behind the physical switch, for the caller's own store", /physicalCaller\(\)/.test(read("app/api/home/physical-setup/route.ts")))
   const server = read("lib/home/physical-setup-server.ts")

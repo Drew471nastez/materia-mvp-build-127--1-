@@ -38,6 +38,8 @@ export const DOMAIN_EVENTS = [
   "payment_setup.failed",
   /* The weekly sweep (lib/notify/payout-weekly.ts): payments still not set up, said again once a week. */
   "payment_setup.weekly_check",
+  /* "How do you fulfil your physical orders?" answered (app/api/physical/onboarding): selling things that ship has begun. */
+  "physical_setup.started",
   "payout_method.added",
   "payout_method.problem",
   "payout_method.changed",
@@ -139,6 +141,9 @@ export const NOTIFICATION_TYPES = [
   /* Getting started with steps still open, the same steps Home's card shows (lib/home/progress.ts). */
   "STORE_SETUP_UNFINISHED",
   "STORE_SETUP_UNFINISHED_2",
+  /* Physical selling begun and not ready to take an order: the same steps Home's physical card shows (lib/home/physical-setup.ts). */
+  "PHYSICAL_SETUP_UNFINISHED",
+  "PHYSICAL_SETUP_UNFINISHED_2",
   "PAYMENT_SETUP_REMINDER",
   "PAYMENT_SETUP_REMINDER_2",
   /* Started and left unfinished, rather than never started (lib/notify/workflows/unfinished.ts). */
@@ -262,6 +267,7 @@ export type ConditionName =
   | "payment_setup_action_required"
   /** Getting started has a step left that has a page to finish it on (lib/home/progress.ts). */
   | "store_setup_unfinished"
+  | "physical_setup_unfinished"
   /** Stripe is still asking this account for details (creators.stripe_requirements, written by the webhook). */
   | "verification_still_needed"
   | "payout_still_failed"

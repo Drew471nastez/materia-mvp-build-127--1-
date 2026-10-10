@@ -40,6 +40,8 @@ const ENTRIES: Record<NotificationType, Entry> = {
   /* Getting started with steps left. Lifecycle: useful, and nobody has to get it. The condition reads the same steps Home's card shows, so a step finished in between ends the nudge. */
   STORE_SETUP_UNFINISHED: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "store_setup_unfinished" }),
   STORE_SETUP_UNFINISHED_2: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "store_setup_unfinished" }),
+  PHYSICAL_SETUP_UNFINISHED: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "physical_setup_unfinished" }),
+  PHYSICAL_SETUP_UNFINISHED_2: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email"], template: "lifecycle", defaultOn: true, cooldownSeconds: 5 * DAY, condition: "physical_setup_unfinished" }),
 
   /* ── Getting paid ─────────────────────────────────────────────────── */
   PAYMENT_SETUP_REMINDER: E({ category: "lifecycle", priority: "info", requirement: "optional_product", recipient: "creator", channels: ["email", "in_app"], template: "lifecycle", defaultOn: true, cooldownSeconds: 20 * HOUR, condition: "payment_setup_incomplete" }),

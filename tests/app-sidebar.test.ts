@@ -182,7 +182,7 @@ section("A row is the same size in every state")
       /rounded-\[12px\] px-\[14px\]/.test(navSource),
   )
   check(
-    "only colour and weight change between states",
+    "only colour, weight and a faint shadow change between states",
     /**
      * `rowStyle` is the entire difference between resting, hovered and
      * active. If it ever returns a fourth property, this stops being true.
@@ -190,7 +190,8 @@ section("A row is the same size in every state")
     (() => {
       const fn = navSource.slice(navSource.indexOf("function rowStyle"), navSource.indexOf("function useHover"))
       const keys = [...fn.matchAll(/^\s{4}(\w+):/gm)].map((m) => m[1])
-      return keys.length === 3 && keys.includes("backgroundColor") && keys.includes("color") && keys.includes("fontWeight")
+      /* Changed on purpose (round U): the active row has a faint depth too, a shadow that moves and resizes nothing. */
+      return keys.length === 4 && keys.includes("backgroundColor") && keys.includes("color") && keys.includes("fontWeight") && keys.includes("boxShadow")
     })(),
   )
   check(
@@ -212,8 +213,9 @@ section("A row is the same size in every state")
       !/Inter\(\{[^}]*weight:/.test(readFileSync(join(root, "app/layout.tsx"), "utf8")),
   )
   check(
-    "the transition names the two properties that change, and nothing else",
-    /transition-\[background-color,color\] duration-\[140ms\] ease-out/.test(navSource) &&
+    /* Changed on purpose (round U): the active row's faint shadow eases with its colours. */
+    "the transition names the three properties that change, and nothing else",
+    /transition-\[background-color,color,box-shadow\] duration-\[140ms\] ease-out/.test(navSource) &&
       !/hover:scale|active:scale|hover:translate|hover:shadow/.test(navSource),
   )
   check(

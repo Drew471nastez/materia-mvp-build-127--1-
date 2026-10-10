@@ -49,6 +49,7 @@
  * keeps one worker per campaign, and a temporary failure is retried inside
  * the run instead of later. Nothing crashes; it is just less patient.
  */
+import { segmentMemberIds } from "./segments-server"
 import "server-only"
 
 import { EMAIL_FROM, EMAIL_REPLY_TO } from "@/lib/mail"
@@ -284,6 +285,8 @@ async function segmentIds(db: Db, creatorId: string, segmentId: string | null | 
   if (!segmentId) return []
   const { data } = await db.from("email_segments").select("id, filters").eq("id", segmentId).eq("creator_id", creatorId).maybeSingle()
   if (!data) return []
+  /* A segment made of rules (New segment, ./segments.ts): its people today, read when the email goes. */
+  if (data.filters?.rules) return segmentMemberIds(db, creatorId, data.filters.rules)
   const ids = data.filters?.subscriber_ids
   return Array.isArray(ids) ? ids.filter((x: unknown): x is string => typeof x === "string") : []
 }

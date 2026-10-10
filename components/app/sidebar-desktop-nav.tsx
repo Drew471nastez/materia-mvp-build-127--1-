@@ -111,6 +111,8 @@ const HOVER_TEXT = "#333333"
 const ACTIVE_BG = "#e8e8e8"
 const ACTIVE_TEXT = "#202020"
 const MUTED_TEXT = "#b1b1b1"
+/* The row you are on sits a hair above the rail: a 1px contact shadow and a faint edge, no more (round U, the owner's "a bit of depth"). */
+const ACTIVE_DEPTH = "0 1px 2px rgba(16,18,27,0.07), inset 0 0 0 1px rgba(16,18,27,0.045)"
 const LABEL_TEXT = "#a5a5a5"
 
 /**
@@ -140,7 +142,7 @@ const LABEL_TEXT = "#a5a5a5"
 const ROW =
   "relative flex h-[38px] w-full items-center gap-2 rounded-[12px] px-[14px] " +
   "font-sans text-[15px] leading-[24px] tracking-[-0.01em] " +
-  "transition-[background-color,color] duration-[140ms] ease-out"
+  "transition-[background-color,color,box-shadow] duration-[140ms] ease-out"
 
 /**
  * 470 and 575 — five per cent back off 495/605, and real values rather than
@@ -516,6 +518,7 @@ function rowStyle(active: boolean, hovered: boolean) {
     backgroundColor: active ? ACTIVE_BG : hovered ? HOVER_BG : "transparent",
     color: active ? ACTIVE_TEXT : hovered ? HOVER_TEXT : REST_TEXT,
     fontWeight: active ? ACTIVE_WEIGHT : REST_WEIGHT,
+    boxShadow: active ? ACTIVE_DEPTH : "none",
   }
 }
 

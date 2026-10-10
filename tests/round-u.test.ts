@@ -15,6 +15,10 @@ import { applyCatalogOverrides, readOverride, safeLogoUrl } from "@/lib/integrat
 import { CONTENT_SECURITY_POLICY } from "@/lib/security/csp"
 import { ALL_HELP_ARTICLES } from "@/lib/help/articles"
 import { replaceMemory, sameMemory, type MemoryDb } from "@/lib/ai-memory/store"
+import { describeRules, matchesRules, readRules } from "@/lib/email-campaigns/segments"
+import { addressFormat, postalLooksRight } from "@/lib/address/format"
+import { purchaseTags } from "@/lib/store/tracking"
+import { physicalBlockers, physicalSetupDone, type PhysicalSetupFacts } from "@/lib/home/physical-setup"
 
 let passed = 0
 let failed = 0
@@ -152,6 +156,31 @@ async function main() {
     check("correcting a memory keeps the new words and forgets the old", out.ok && out.memory.content === "Prices in euros" && rows.length === 1 && rows[0].content === "Prices in euros", rows)
   }
 
+
+  console.log("\nBatch 2: segments, addresses, purchases, the physical setup\n")
+  {
+    const r = readRules({ joinedWithinDays: 30, source: "store_builder", purchased: "products", productIds: ["44444444-4444-4444-8444-444444444444", "nope"] })
+    check("segment rules are read safely: unknown ids and values dropped", r.joinedWithinDays === 30 && r.source === "store_builder" && r.purchased === "products" && r.productIds.length === 1 && readRules({ joinedWithinDays: 12, purchased: "products" }).purchased === "any" && readRules({ joinedWithinDays: 12 }).joinedWithinDays === null)
+    const now = Date.parse("2026-10-10T12:00:00Z")
+    const bought = { anyByEmail: new Set(["a@x.com"]), byProduct: new Map([["44444444-4444-4444-8444-444444444444", new Set(["a@x.com"])]]) }
+    check("  each rule narrows: joined lately, where they joined, what they bought", matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "website_builder_newsletter", email: "A@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-08-01T00:00:00Z", source: "store_builder", email: "a@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "onepage", email: "a@x.com" }, bought, now) && !matchesRules(r, { subscribedAt: "2026-10-01T00:00:00Z", source: "store_builder", email: "b@x.com" }, bought, now))
+    check("  never bought is the opposite of bought", matchesRules(readRules({ purchased: "not_bought" }), { subscribedAt: null, source: null, email: "b@x.com" }, bought, now) && !matchesRules(readRules({ purchased: "not_bought" }), { subscribedAt: null, source: null, email: "a@x.com" }, bought, now))
+    check("  said in a line", describeRules(readRules({})) === "Everyone on your list" && /Joined in the last 30 days/.test(describeRules(r)))
+    const queue = read("lib/email-campaigns/queue.ts")
+    check("  a rules segment is resolved when the email goes, and still only to people subscribed", /if \(data\.filters\?\.rules\) return segmentMemberIds\(db, creatorId, data\.filters\.rules\)/.test(queue) && /\.eq\("status", "subscribed"\)/.test(read("lib/email-campaigns/segments-server.ts")))
+    check("  New segment in Send to, with a live count", /data-new-segment=""/.test(read("components/email/compose/audience-picker.tsx")) && /\/api\/email\/segments\/preview/.test(read("components/email/compose/segment-editor.tsx")))
+    check("addresses: a ZIP code and a State in the US, a Postcode and no state in the UK, no code in Hong Kong", addressFormat("US").postal.label === "ZIP code" && addressFormat("US").region?.required === true && addressFormat("GB").region === null && addressFormat("GB").postal.label === "Postcode" && addressFormat("HK").postal.required === false)
+    check("  a code that doesn't fit its country is asked about, one that does passes", !postalLooksRight("US", "ABC") && postalLooksRight("US", "94107") && postalLooksRight("GB", "SW1A 1AA") && postalLooksRight("ZZ", "anything"))
+    const form = read("components/physical/shipping-settings.tsx")
+    check("  the location form: country first, its own words, one list of what happens there", /addressFormat\(f\.country\)/.test(form) && /data-location-uses=""/.test(form) && /Ships orders from here/.test(form))
+    const tags = purchaseTags({ ga4: "G-ABCD1234", meta_pixel: "1234567890123456" }, { id: "55555555-5555-4555-8555-555555555555", valueCents: 4250, currency: "eur", quantity: 2 })
+    check("a paid order goes to the pixels with its value only", tags.length === 1 && /gtag\('event','purchase',\{transaction_id:"55555555-5555-4555-8555-555555555555",value:42\.5,currency:"EUR"\}\)/.test(tags[0].inline) && /fbq\('track','Purchase'/.test(tags[0].inline) && !/@/.test(tags[0].inline))
+    check("  only on the order page as it opens from paying", /paid === "1" && order\.status === "paid"/.test(read("app/checkout/physical/order/[token]/page.tsx")))
+    const facts: PhysicalSetupFacts = { fulfilmentChosen: true, locations: 1, rates: 1, pickupLocations: 0, physicalProducts: 1, stockedProducts: 1, packages: 1 }
+    check("the physical setup is not done while buyers can't pay, and says payments first", !physicalSetupDone({ ...facts, paymentsReady: false }) && physicalBlockers({ ...facts, paymentsReady: false })[0]?.href === "/app/payouts" && physicalSetupDone({ ...facts, paymentsReady: true }) && physicalSetupDone({ ...facts, paymentsReady: null }))
+    const wf = read("lib/notify/workflows/unfinished.ts")
+    check("  and a store that started selling things that ship hears about it on day 2 and day 7, never after it is ready", /case "physical_setup\.started"/.test(wf) && /PHYSICAL_SETUP_UNFINISHED_2/.test(wf) && /case "physical_setup_unfinished"/.test(read("lib/notify/conditions.ts")) && /physical_setup\.started:\$\{c\.creatorId\}/.test(read("app/api/physical/onboarding/route.ts")))
+  }
   console.log(`\n${passed} passed, ${failed} failed\n`)
   if (failed) process.exit(1)
 }
