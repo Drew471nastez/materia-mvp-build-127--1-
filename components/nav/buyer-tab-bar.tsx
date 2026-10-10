@@ -188,17 +188,37 @@ const ICONS: Record<BuyerTabKey, NavIconPair> = {
  * THE THIRD SLOT CHANGES CALMLY (round 15). Going into a community, Library
  * becomes Create post; coming out, back again. The slot is one element the
  * whole time (its key does not change), and the two glyphs sit in it on top of
- * each other: the one leaving fades out and settles a little smaller while the
- * one arriving fades in from a little smaller, on opacity and scale alone.
- * Nothing else on the bar moves, so the change reads as the slot changing its
- * mind rather than as a new bar.
+ * each other. Nothing else on the bar moves, so the change reads as the slot
+ * changing its mind rather than as a new bar.
+ *
+ * ROUND 18, THE OWNER: "the tab bar's third icon changing between Create post
+ * and Library: a calmer, cleaner swap". Filmed at 4x CPU, Home and Profile
+ * never played round 15's change at all: the community and the account each
+ * mount a bar of their own, so the new bar drew its glyph on its first frame
+ * and the plus became the library in one frame. And within one bar the two
+ * glyphs crossed at half opacity each, both shrunk, two icons at once. Now a
+ * bar that mounts starts from the glyph the last bar showed (lastThird) and
+ * changes from there, and the change is one after the other: the glyph
+ * leaving fades out in SWAP_OUT_MS where it is, then the one arriving fades in
+ * over SWAP_IN_MS from a hair smaller. Never two glyphs at once.
  */
-const SWAP_MS = 220
+const SWAP_OUT_MS = 110
+const SWAP_IN_MS = 180
+const SWAP_IN_FROM = 0.94
+let lastThird: "library" | "compose" | null = null
 function ThirdSlotGlyph({ shownKey, on }: { shownKey: "library" | "compose"; on: boolean }) {
+  /* A bar that has just mounted shows what the last one showed, for one frame, so the change can be seen as one. */
+  const [shown, setShown] = useState<"library" | "compose">(() => lastThird ?? shownKey)
+  useEffect(() => {
+    lastThird = shownKey
+    if (shown === shownKey) return
+    const id = requestAnimationFrame(() => setShown(shownKey))
+    return () => cancelAnimationFrame(id)
+  }, [shownKey, shown])
   return (
     <span className="relative block" style={{ width: GLYPH, height: GLYPH }}>
       {(["library", "compose"] as const).map((key) => {
-        const here = key === shownKey
+        const here = key === shown
         return (
           <span
             key={key}
@@ -208,8 +228,11 @@ function ThirdSlotGlyph({ shownKey, on }: { shownKey: "library" | "compose"; on:
             className="absolute inset-0 motion-reduce:!transition-none"
             style={{
               opacity: here ? 1 : 0,
-              scale: here ? "1" : "0.86",
-              transition: `opacity ${SWAP_MS}ms ${EASE}, scale ${SWAP_MS}ms ${EASE}`,
+              scale: here ? "1" : String(SWAP_IN_FROM),
+              /* Arriving: after the other has gone, in from a hair smaller. Leaving: out where it is, and only then made smaller for next time. */
+              transition: here
+                ? `opacity ${SWAP_IN_MS}ms ${EASE} ${SWAP_OUT_MS}ms, scale ${SWAP_IN_MS}ms ${EASE} ${SWAP_OUT_MS}ms`
+                : `opacity ${SWAP_OUT_MS}ms ease-out, scale 0s linear ${SWAP_OUT_MS}ms`,
             }}
           >
             <NavIcon icon={ICONS[key]} active={here && on} color="currentColor" box={GLYPH} layer />

@@ -128,6 +128,15 @@ console.log("\nTOUCH: nothing changes before a real press; the row of places tak
   check("and the browser's own click after it is let go (trusted, inside CLICK_AFTER_MS)", /ev\.nativeEvent\.isTrusted && performance\.now\(\) - tookAt\.current < CLICK_AFTER_MS/.test(frame))
 }
 
+console.log("\nTHIRD SLOT: Create post and Library change one after the other, across the two layouts' bars too (item 6)")
+{
+  const bar = code("components/nav/buyer-tab-bar.tsx")
+  check("a bar that mounts starts from the glyph the last bar showed, and changes from there on the next frame", /useState<"library" \| "compose">\(\(\) => lastThird \?\? shownKey\)/.test(bar) && /lastThird = shownKey/.test(bar) && /requestAnimationFrame\(\(\) => setShown\(shownKey\)\)/.test(bar))
+  const outMs = Number(/const SWAP_OUT_MS = (\d+)/.exec(bar)?.[1])
+  const inMs = Number(/const SWAP_IN_MS = (\d+)/.exec(bar)?.[1])
+  check("the arriving glyph waits for the leaving one to be gone (never two at once)", /opacity \$\{SWAP_IN_MS\}ms \$\{EASE\} \$\{SWAP_OUT_MS\}ms/.test(bar) && /opacity \$\{SWAP_OUT_MS\}ms ease-out, scale 0s linear \$\{SWAP_OUT_MS\}ms/.test(bar) && outMs <= 120 && inMs <= 200, { outMs, inMs })
+}
+
 console.log("\nCOPY")
 {
   const files = [
