@@ -159,7 +159,7 @@ function PostPageBack({ href, label }: { href: string; label: string }) {
   })
   return (
     <div
-      className="max-sm:-mx-[calc(50%-50vw)] max-sm:mb-0 max-sm:flex max-sm:h-11 max-sm:w-screen max-sm:items-center max-sm:border-b max-sm:border-[#eceef1] max-sm:bg-white max-sm:px-3 sm:-mx-1 sm:mb-0.5 sm:flex sm:h-11 sm:items-center"
+      className="max-sm:-mx-[calc(50%-50vw)] max-sm:mb-0 max-sm:flex max-sm:h-12 max-sm:w-screen max-sm:items-center max-sm:border-b max-sm:border-[#eceef1] max-sm:bg-white max-sm:px-3 sm:-mx-1 sm:mb-0.5 sm:flex sm:h-11 sm:items-center"
       data-post-page-back=""
     >
       <ReturnLink
@@ -184,7 +184,8 @@ function PostPageBack({ href, label }: { href: string; label: string }) {
           tap.onPointerCancel()
         }}
         onPointerLeave={press.onPointerUp}
-        className="group/back inline-flex h-11 min-w-[44px] items-center rounded-full pl-1 pr-2 outline-none [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
+        /* The tap reaches the screen's edge and the bar's whole height on a phone (round 15, the owner: "a much bigger area around it"). */
+        className="group/back inline-flex h-11 min-w-[44px] items-center rounded-full pl-1 pr-2 outline-none max-sm:-ml-3 max-sm:h-12 max-sm:min-w-[64px] max-sm:rounded-none max-sm:pl-4 [-webkit-tap-highlight-color:transparent] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15"
       >
         <span
           className={`inline-flex h-9 max-w-[min(100vw-2rem,280px)] items-center gap-0.5 rounded-full border border-[#e4e7ec] bg-white pl-2 pr-3.5 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_2px_rgba(16,24,40,0.05)] transition-[background-color,border-color,scale] duration-150 ease-out group-hover/back:border-[#d7dadf] group-active/back:scale-[0.96] group-active/back:bg-[#eef0f3] motion-reduce:transition-none ${DEPTH_PRESS}`}

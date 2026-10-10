@@ -84,7 +84,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { EMBED_NAMES, MAX_COMMENT_GIFS, MAX_COMMENT_MEDIA } from "@/lib/communities/post-media"
 import type { CommentView, FeedPostView, PostMedia, ViewerView } from "@/lib/communities/types"
 import { api, apiBase } from "./api"
-import { landComment, scrollCommentIntoView } from "./arrive"
+import { holdAnchor, LAND_MS, landComment, scrollCommentIntoView } from "./arrive"
 import { BodyText } from "./body-text"
 import type { ConfirmState, ReportTargetRef } from "./dialogs"
 import { ConfirmSheet } from "./report-confirm"
@@ -101,6 +101,7 @@ import { press, useIntent } from "./post-intent"
 import { ReportSheet } from "./report-sheet"
 import { toast } from "./toast"
 import { COMMENT_COMPOSER_DOCK_BOTTOM, COMMENT_COMPOSER_DOCK_SCROLL_PAD } from "@/components/community/fixed-foot-chrome"
+import { useVisibleBox } from "./visible-box"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY } from "./ui"
 import { memberHref } from "./person-href"
 import { RoleBadge } from "./role-badge"
@@ -296,9 +297,12 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   THE FLOATING BOX (floatComposer, round 19). Sticky at the foot of the full screen post's scroll, with no ground of its own
   so the comments show through as they pass under it: the box's row (avatar and field) is one frosted pill, the field inside
   it plain. Its first line sits on the keyboard when the keyboard is up (the page is the height of what is on screen).
+  ROUND 15 (images/73.webp, "I can see that crack and empty space"): while a field in the post is typed in (the page carries
+  data-typing, post-fullscreen.tsx) the box stands on an opaque white ground down to the keyboard's bar, so the strip between
+  the pill and the keys is the box's own white, never what scrolls behind it.
 */
 const FLOAT_COMPOSER =
-  "sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none"
+  "sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:bg-white [[data-typing]_&]:pt-2 [[data-typing]_&]:shadow-[0_-1px_0_#eef0f2] [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none"
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, floatComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
@@ -512,13 +516,23 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post.communityId, post.id, visitor])
 
+  /*
+    MORE COMMENTS, WITH NOTHING MOVING UNDER THE READER (round 14's reference, lifted in round 15). The next page goes on the
+    end, under what is being read, so nothing above it changes height; each of its rows rises into place the way a comment
+    that arrives live does, rather than all appearing at once, and the browser's scroll anchoring is held off while they land
+    so it does not correct a change that is already drawn as a move.
+  */
   const more = async () => {
     if (!cursor || loading) return
     setLoading(true)
     const r = await api<CommentsPageData>(`${base}/posts/${post.id}/comments?cursor=${encodeURIComponent(cursor)}`)
     setLoading(false)
     if (!r.ok) return toast(r.error)
-    setComments((list) => [...(list ?? []), ...r.data.comments.filter((c) => !(list ?? []).some((x) => x.id === c.id))])
+    const here = new Set((listRef.current ?? []).map((c) => c.id))
+    const next = r.data.comments.filter((c) => !here.has(c.id))
+    for (const c of next) landing.current.set(c.id, "live")
+    holdAnchor(LAND_MS + 200)
+    setComments((list) => [...(list ?? []), ...next.filter((c) => !(list ?? []).some((x) => x.id === c.id))])
     setCursor(r.data.nextCursor)
   }
 
@@ -557,6 +571,23 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
     mq.addEventListener("change", sync)
     return () => mq.removeEventListener("change", sync)
   }, [dockComposer])
+  /*
+    THE DOCK ON THE KEYBOARD, FLUSH (round 15, images/73.webp). While its field is typed in, the dock's foot is the foot of
+    the part of the screen that can be seen (visible-box.ts): the visual viewport, or in the iOS app the iPhone's own keyboard
+    instead of the half screen floor that left a band of page between the box and the keys. With no keyboard it stands on
+    the tab bar as before. A white skirt under it while it is typed in covers whatever a platform's number leaves.
+  */
+  useVisibleBox(
+    dockPhone,
+    () => composerRef.current,
+    () => document.querySelector<HTMLElement>("[data-viewport-probe]"),
+    (box, typing, layoutH) => {
+      const dock = composerRef.current
+      if (!dock) return
+      dock.style.bottom = box.aboveTabs ? COMMENT_COMPOSER_DOCK_BOTTOM : `${Math.max(0, Math.round(layoutH - (box.top + box.height)))}px`
+      dock.toggleAttribute("data-typing", typing)
+    },
+  )
   /*
     A phone pans the page to reveal a field, even a fixed one, and that pan
     is what cuts the picture and leaves the white band. Hold the page where
@@ -637,6 +668,7 @@ export function CommentsSection({ post, slug, viewer, initial, me: givenMe = nul
         }
         data-comments-composer={dockComposer ? (dockPhone ? "dock" : "top") : pinComposer ? (floatComposer ? "float" : "pin") : "top"}
       >
+        {dockComposer && dockPhone ? <div aria-hidden className="pointer-events-none absolute inset-x-0 top-full hidden h-[100lvh] bg-white [[data-typing]>&]:block" data-comments-dock-skirt="" /> : null}
         <CommentBox communityId={post.communityId} postId={post.id} me={me} author={author} handleRef={boxRef} sending={sending} placeholder="Write a comment..." canUpload={!!viewer.can.upload} media={mediaReady} nearby={nearby} />
         <TypingLine names={typing.writers.map((w) => w.name)} />
       </div>
@@ -719,6 +751,8 @@ interface Picked {
   preview?: string
   progress: number
   media?: PostMedia
+  /** Why its upload failed (kept on the tile until it is taken off). */
+  error?: string
 }
 
 /** The box's own tools: the glyph alone in a 40px tall target, a tint on hover and on press (never a shrink). */
@@ -1185,7 +1219,8 @@ function CommentItem({
     <div ref={rowRef} id={`c-${c.id}`} data-comment={c.id} data-comment-sending={c.sending ? "" : undefined} className={`scroll-mt-28 transition-opacity duration-200 ${c.sending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-2.5">
         {c.author ? (
-          <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
+          /* The face's room is its full size from the first frame, photo or not, so a comment never resettles when one arrives (round 14's reference). */
+          <Link href={memberHref(slug, c.author)} className={`mt-0.5 flex shrink-0 rounded-full ${small ? "h-7 w-7" : "h-8 w-8"}`} data-person-link="" data-person-id={c.author.id} data-comment-face="">
             <MemberAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} lazy />
           </Link>
         ) : (

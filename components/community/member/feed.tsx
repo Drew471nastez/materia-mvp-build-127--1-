@@ -97,7 +97,7 @@ export interface ComposeBase {
 
 /** The spaces a post may go to from the composer (data.ts composerSpaces, browser side). */
 function composerSpacesOf(spaces: SpaceView[]) {
-  return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, kind: s.kind, icon: s.icon }))
+  return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, slug: s.slug, kind: s.kind, icon: s.icon }))
 }
 
 /** No posts, for a list that is not here yet. Not the previous space's posts. */
