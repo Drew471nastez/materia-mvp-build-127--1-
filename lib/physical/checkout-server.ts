@@ -316,7 +316,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
         unit_amount: part.unitCents,
         product_data: {
           name: (l.variantName ? `${l.title} (${l.variantName})` : l.title).slice(0, 250),
-          ...(l.discountCents > 0 && priced.coupon ? { description: `$${(l.discountCents / 100).toFixed(2)} off with ${priced.coupon.code}` } : {}),
+          ...(l.discountCents > 0 ? { description: `$${(l.discountCents / 100).toFixed(2)} off${priced.coupon ? ` with ${priced.coupon.code}` : priced.offers.length ? `, ${priced.offers.map((o) => o.title).join(", ")}`.slice(0, 200) : ""}` } : {}),
           ...(l.imageUrl && /^https:\/\//.test(l.imageUrl) ? { images: [l.imageUrl] } : {}),
         },
       },

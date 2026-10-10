@@ -45,7 +45,7 @@ const ORDER: Record<string, string> = {
 }
 
 export function groupOf(action: string): ActivityGroup {
-  if (action.startsWith("product.")) return "products"
+  if (action.startsWith("product.") || action.startsWith("offer.")) return "products"
   if (action.startsWith("order.")) return "orders"
   if (action.startsWith("file.")) return "files"
   return "settings"
@@ -86,6 +86,12 @@ export function describeActivity(e: Pick<ActivityEntry, "action" | "subjectLabel
       return named("Removed {s}")
     case "file.deleted":
       return named("Deleted the file {s}")
+    case "offer.added":
+      return named("Added the offer {s}")
+    case "offer.updated":
+      return named("Changed the offer {s}")
+    case "offer.removed":
+      return named("Removed the offer {s}")
   }
   if (SETTINGS[e.action]) return SETTINGS[e.action]
   if (ORDER[e.action]) return named(ORDER[e.action])

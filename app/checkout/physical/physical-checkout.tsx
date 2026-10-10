@@ -27,6 +27,7 @@ import { postalCodeRequired } from "@/lib/physical/address"
 import { regionsOf } from "@/lib/physical/regions"
 import { countryName } from "@/lib/checkout/countries"
 import { actionKey } from "@/components/physical/ui"
+import { CheckoutSuggestions, type Suggestion } from "@/components/offers/checkout-suggestions"
 
 interface QuoteLine {
   productId: string
@@ -51,6 +52,9 @@ interface Quote {
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
   pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
+  /* The store's upsells and bundles (lib/offers): what this cart got, and what it could add. */
+  offers?: { title: string; savedCents: number }[]
+  suggestions?: Suggestion[]
 }
 
 const INPUT =
@@ -192,6 +196,22 @@ export function PhysicalCheckout({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, shopId, appliedCode, address.country, address.region, optionId])
 
+  /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
+  const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {
+    const variantId = sg.product.type === "physical" ? (v?.id ?? null) : null
+    setItems((prev) => (prev ? [...prev.filter((x) => !(x.productId === sg.product.id && (x.variantId ?? null) === variantId)), { productId: sg.product.id, variantId, quantity: 1 }] : prev))
+    if (fromCart && shopId) {
+      try {
+        const key = cartStorageKey(shopId)
+        const lines = parseCart(window.localStorage.getItem(key))
+        const line: CartLine = { productId: sg.product.id, variantId, title: sg.product.title, variantName: v && sg.product.variants.length > 1 ? v.name : null, priceCents: v?.priceCents ?? sg.product.priceCents, thumbnailUrl: sg.product.imageUrl, slug: sg.product.slug, digital: sg.product.type !== "physical", physical: sg.product.type === "physical", quantity: 1 }
+        window.localStorage.setItem(key, serializeCart([...lines, line]))
+      } catch {
+        /* The page still has it. */
+      }
+    }
+  }
+
   /* A change here is the cart's too, when the cart is where it came from. */
   const changeQty = (i: number, q: number) => {
     setItems((prev) => {
@@ -328,6 +348,8 @@ export function PhysicalCheckout({
         })}
       </ul>
 
+      <CheckoutSuggestions suggestions={quote.suggestions ?? []} onAdd={addSuggestion} busy={quoting} />
+
       <div className="border-t border-[#e5e7eb] pt-4">
         {appliedCode && quote.coupon ? (
           <div className="flex items-center justify-between rounded-lg bg-[#f3f4f6] px-3 py-2 text-[13.5px]">
@@ -373,6 +395,12 @@ export function PhysicalCheckout({
               <dd className="tabular-nums text-[#166534]">-{money(t.discountCents)}</dd>
             </div>
           ) : null}
+          {(quote.offers ?? []).map((o) => (
+            <div key={o.title} className="flex justify-between pl-3 text-[13px]" data-offer-saving="">
+              <dt className="truncate text-[#6b7280]">{o.title}</dt>
+              <dd className="shrink-0 tabular-nums text-[#6b7280]">-{money(o.savedCents)}</dd>
+            </div>
+          ))}
           {quote.requiresShipping ? (
             <div className="flex justify-between">
               <dt className="text-[#4b5563]">{mode === "pickup" ? "Pickup" : "Shipping"}</dt>

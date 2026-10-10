@@ -132,6 +132,7 @@ part changed. Stop there and send the error; the parts after it expect it.
 | `112_integrations.sql` | Integrations for every store: `store_settings.tracking` (the analytics and ad pixel IDs the website loads: Google Analytics, Tag Manager, Google Ads, Meta, TikTok, Pinterest; IDs only, checked both ways) and `integration_requests` (Request integration, read in /admin). Owner read, server written. Safe to run again. | 9 | 2,170 |
 | `113_store_activity.sql` | A store's activity log: `store_activity_log` (who changed what and when: settings, orders, files from the server; products from a trigger on create, delete, rename, price and status; never blocks the change; owner reads, only the server writes) | 12 | 4125 |
 | `114_support_tickets.sql` | Support requests from stores to Storelib: `support_tickets` (topic, subject, the order or dispute, whose turn, priority) and `support_ticket_messages` (the thread, and Storelib's internal notes the store never sees); a store reads its own, only the server writes | 14 | 3507 |
+| `115_store_offers.sql` | Upsells and bundles: `store_offers` (a bundle of two to five products, or one product suggested in the checkout; percent, fixed or no discount, applied by the server when the cart qualifies); owner reads, only the server writes | 9 | 2503 |
 | `99_check_after.sql` | Read only. One row of true or false, one column per part. | 2 | 34,416 |
 
 Parts `01` to `61` all run as the editor's normal role. `90` is the one

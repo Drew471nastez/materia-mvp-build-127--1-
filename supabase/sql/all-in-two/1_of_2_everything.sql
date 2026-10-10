@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 114: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 115: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3062,6 +3062,17 @@ DROP POLICY IF EXISTS support_ticket_messages_owner_read ON public.support_ticke
 CREATE POLICY support_ticket_messages_owner_read ON public.support_ticket_messages FOR SELECT TO authenticated USING (NOT internal AND EXISTS (SELECT 1 FROM public.support_tickets t JOIN public.creators c ON c.id = t.creator_id WHERE t.id = support_ticket_messages.ticket_id AND c.user_id = auth.uid()));
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.support_tickets, public.support_ticket_messages FROM PUBLIC, anon, authenticated;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('114', '114_support_tickets.sql', 'dd723d67773fc6094ceb88aa9ea056471da61665414930060e74f4f5cfbb54c7') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 115_store_offers.sql
+/* Upsells and bundles. `store_offers` is one offer a store makes: a `bundle` (two to five products bought together, shown on each one's page with Add all to cart) or a `checkout` offer (one product suggested in the checkout, when the cart holds any of its trigger products, or for any order when it names none). Its discount is a percent off (1 to 90), a fixed amount off in cents (per complete bundle, or off the one suggested item), or none; the checkout applies it on the server whenever the cart qualifies, each unit discounted once, before any code. Off when `active` is false. The owner reads their own; only the server writes. Safe to run again. */
+CREATE TABLE IF NOT EXISTS public.store_offers (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, kind text NOT NULL CHECK (kind IN ('bundle', 'checkout')), title text NOT NULL CHECK (length(btrim(title)) BETWEEN 1 AND 80), product_ids uuid[] NOT NULL, trigger_product_ids uuid[] NOT NULL DEFAULT '{}'::uuid[], discount_type text NOT NULL DEFAULT 'percent' CHECK (discount_type IN ('percent', 'fixed', 'none')), discount_value integer NOT NULL DEFAULT 0 CHECK (discount_value >= 0), active boolean NOT NULL DEFAULT true, position integer NOT NULL DEFAULT 0, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT store_offers_shape CHECK ((kind = 'bundle' AND cardinality(product_ids) BETWEEN 2 AND 5) OR (kind = 'checkout' AND cardinality(product_ids) = 1)), CONSTRAINT store_offers_triggers CHECK (cardinality(trigger_product_ids) <= 20), CONSTRAINT store_offers_percent CHECK (discount_type <> 'percent' OR discount_value BETWEEN 1 AND 90), CONSTRAINT store_offers_fixed CHECK (discount_type <> 'fixed' OR discount_value BETWEEN 1 AND 10000000));
+CREATE INDEX IF NOT EXISTS store_offers_creator_idx ON public.store_offers (creator_id, active, kind, position);
+CREATE INDEX IF NOT EXISTS store_offers_products_idx ON public.store_offers USING gin (product_ids);
+ALTER TABLE public.store_offers ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS store_offers_owner_read ON public.store_offers;
+CREATE POLICY store_offers_owner_read ON public.store_offers FOR SELECT TO authenticated USING (EXISTS (SELECT 1 FROM public.creators c WHERE c.id = store_offers.creator_id AND c.user_id = auth.uid()));
+REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON public.store_offers FROM PUBLIC, anon, authenticated;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('115', '115_store_offers.sql', 'c0369e5053de39625af3fd0e48094e373bea4b1042002d7775d5da934b445209') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

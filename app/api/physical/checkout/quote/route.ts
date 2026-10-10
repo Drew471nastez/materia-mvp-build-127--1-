@@ -7,6 +7,8 @@ import { COUNTRY_CODES } from "@/lib/checkout/countries"
 import { priceCheckout, quoteCheckout, readItems } from "@/lib/physical/checkout-pricing-server"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
+import { discountLabel, offerUnitPrice } from "@/lib/offers/offers"
+import { offerProducts } from "@/lib/offers/offers-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -83,5 +85,18 @@ export async function POST(request: Request) {
       ready: o.pickup ? PICKUP_READY_LABEL[o.pickup.ready] : null,
     })),
     totals: q.totals,
+    /* The store's upsells and bundles: what this cart got, and what to suggest adding (lib/offers). */
+    offers: priced.offers.map((o) => ({ title: o.title, savedCents: o.savedCents })),
+    suggestions: await suggestionCards(db, priced.creatorId, priced.suggestions),
+  })
+}
+
+async function suggestionCards(db: ReturnType<typeof createAdminClient>, creatorId: string, offers: Extract<Awaited<ReturnType<typeof priceCheckout>>, { ok: true }>["suggestions"]) {
+  if (offers.length === 0) return []
+  const products = await offerProducts(db, creatorId, offers.map((o) => o.productIds[0]))
+  return offers.flatMap((o) => {
+    const p = products.get(o.productIds[0])
+    if (!p) return []
+    return [{ offerId: o.id, title: o.title, label: o.discountType === "none" ? null : discountLabel(o), product: p, offerPriceCents: offerUnitPrice(o, p.priceCents) }]
   })
 }

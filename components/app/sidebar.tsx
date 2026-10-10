@@ -278,6 +278,8 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
       icon: NAV_ICONS.products,
       children: [
         { href: "/app/coupons", label: "Coupons" },
+        /* Bundles and checkout offers apply in the cart checkout, so only while physical commerce is on in /admin (app/app/offers). */
+        ...(physicalCommerce ? [{ href: "/app/offers", label: "Upsells and bundles" }] : []),
         { href: "/app/reviews", label: "Reviews" },
         /* No Memberships row: memberships are communities now (Community, below, while the switch is on). A creator's existing ones still open at /app/memberships. */
       ],
