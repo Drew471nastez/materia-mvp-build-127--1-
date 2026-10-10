@@ -6,7 +6,7 @@ import { CheckoutReturnNotice } from "@/components/website-builder/checkout-retu
 import { SiteDocument } from "@/components/website-builder/site-document"
 import { NewTabLinks } from "@/components/website-builder/new-tab-links"
 import { SITE_PREFETCH_RULES } from "@/lib/website-builder/prefetch-rules"
-import { VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
+import { NAVIGATION_HEAD_SCRIPT, VIEW_TRANSITION_CSS } from "@/lib/website-builder/live-navigation"
 
 /**
  * A CREATOR'S WEBSITE DOES NOT SAY IT IS STORELIB'S. The root layout names
@@ -53,6 +53,8 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <script type="speculationrules" dangerouslySetInnerHTML={{ __html: SPECULATION }} />
       {/* The page being left stays until the next is drawn, then they cross-fade (lib/website-builder/live-navigation.ts). Before the page, so the next one has it when it is drawn. */}
       <style data-storelib-navigation dangerouslySetInnerHTML={{ __html: VIEW_TRANSITION_CSS }} />
+      {/* No transition in an app's web view or on a slow phone, where it froze the page between two; a press ends one (live-navigation.ts). */}
+      <script data-storelib-navigation dangerouslySetInnerHTML={{ __html: NAVIGATION_HEAD_SCRIPT }} />
       {children}
       {/* A link to checkout carries which website and where its visit came
           from, for the order's Source. Static: nothing here reads the request. */}

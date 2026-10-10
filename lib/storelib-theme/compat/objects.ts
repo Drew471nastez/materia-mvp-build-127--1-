@@ -475,7 +475,7 @@ export function collectionByHandle(r: Resources, handle: string): O | null {
 }
 
 /** One setting's stored value, as the object a theme reads for its type. */
-export function typedValue(type: string, value: unknown, r: Resources): unknown {
+export function typedValue(type: string, value: unknown, r: Resources, exact = false): unknown {
   switch (type) {
     case "color":
     case "color_background":
@@ -495,7 +495,12 @@ export function typedValue(type: string, value: unknown, r: Resources): unknown 
     */
     case "product": {
       if (typeof value !== "string" || !value) return null
-      return productById(r, value) ?? (r.products[0] ? productById(r, r.products[0].id) : null)
+      /*
+        `exact`: a theme setting (a gift wrap, a free gift, an upsell) is a
+        product the shop sells only when it is one: the shop's first product
+        stood in as the gift wrap, ticked and charged on every cart.
+      */
+      return productById(r, value) ?? (!exact && r.products[0] ? productById(r, r.products[0].id) : null)
     }
     case "product_list": {
       if (!Array.isArray(value)) return []
@@ -596,7 +601,8 @@ function shopDefault(s: ShopifySetting, value: unknown, r: Resources): unknown {
 }
 
 /** A settings object: every declared setting, its stored value or its default, typed. */
-export function typedSettings(schema: ShopifySetting[], stored: Record<string, unknown> | undefined, r: Resources, dyn?: DynamicResolver): O {
+export function typedSettings(schema: ShopifySetting[], stored: Record<string, unknown> | undefined, r: Resources, dyn?: DynamicResolver, opts: { exactProducts?: boolean } = {}): O {
+  const exact = opts.exactProducts === true
   const out: O = {}
   const put = (id: string, type: string, raw: unknown) => {
     if (dyn && typeof raw === "string" && raw.includes("{{")) {
@@ -611,13 +617,13 @@ export function typedSettings(schema: ShopifySetting[], stored: Record<string, u
           done = true
           const v = whole ? dyn.value(whole[1]) : dyn.text(raw)
           /* A colour named by a palette is a colour; the words of a heading stay words. */
-          cached = (type === "color" || type === "color_background") && v && typeof v === "object" ? v : typeof v === "string" ? typedValue(type, v, r) : v ?? typedValue(type, "", r)
+          cached = (type === "color" || type === "color_background") && v && typeof v === "object" ? v : typeof v === "string" ? typedValue(type, v, r, exact) : v ?? typedValue(type, "", r, exact)
           return cached
         },
       })
       return
     }
-    out[id] = typedValue(type, raw, r)
+    out[id] = typedValue(type, raw, r, exact)
   }
   const has = (k: string) => !!stored && Object.prototype.hasOwnProperty.call(stored, k)
   const used = new Set<string>()

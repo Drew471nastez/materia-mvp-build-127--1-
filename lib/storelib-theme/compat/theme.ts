@@ -375,7 +375,8 @@ export class CompatTheme {
     const allSettings = this.settingsSchema.flatMap((g) => (Array.isArray(g.settings) ? (g.settings as ShopifySetting[]) : []))
     /* The theme's own settings may name each other ("{{ settings.color_palette.color3 }}"): read once the page's context exists. */
     let pageCtx: Ctx | null = null
-    const settings = typedSettings(allSettings, this.settingsValues, res, resolverFor(() => pageCtx))
+    /* The theme's own settings name a product exactly or none (a gift wrap of the store it came from is not the shop's first product). */
+    const settings = typedSettings(allSettings, this.settingsValues, res, resolverFor(() => pageCtx), { exactProducts: true })
     if (schemeSetting?.id) settings[schemeSetting.id] = schemes
     const currency = page.shop.currency ?? "USD"
     const moneyFormat = page.shop.moneyFormat ?? "${{amount}}"
@@ -438,7 +439,7 @@ export class CompatTheme {
       request: requestObject(page.template, page.path, page.designMode, page.host),
       localization: localizationObject(currency),
       template,
-      page_title: page.title ?? page.shop.name,
+      page_title: page.title ?? defaultPageTitle(page),
       page_description: page.description ?? page.shop.description ?? "",
       canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
@@ -451,6 +452,8 @@ export class CompatTheme {
       search,
       customer: page.customer ?? null,
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
+      /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
+      blog: page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null,
       blogs: {},
       articles: {},
       pages: {},
@@ -863,6 +866,34 @@ export function groupSections(json: string | undefined): CompatSectionInstance[]
   if (!g?.sections) return []
   const order = Array.isArray(g.order) ? g.order : Object.keys(g.sections)
   return order.filter((id) => g.sections![id]).map((id) => instanceFromJson(id, g.sections![id]))
+}
+
+/** A blog of no posts, named by its address (/blogs/news is News). */
+function emptyBlog(path: string): Record<string, unknown> {
+  const handle = path.match(/^\/blogs\/([^/?#]+)/)?.[1] ?? "news"
+  const title = handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase())
+  return { [OUTPUT]: title, id: handle, handle, title, url: `/blogs/${handle}`, articles: [], articles_count: 0, tags: [], all_tags: [], comments_enabled: false, moderated: false, metafields: {} }
+}
+
+/**
+ * `page_title` where the caller named none, as Shopify names it per page:
+ * the builder's canvas draws a cart or a product without a title, and a
+ * theme's breadcrumb read the shop's name there ("Home > My store").
+ */
+export function defaultPageTitle(page: CompatPage): string {
+  switch (page.template) {
+    case "product": return String(page.product?.settings?.title ?? "") || page.shop.name
+    case "collection": return page.collection?.title ?? "Products"
+    case "page": return page.pageObject?.title ?? page.shop.name
+    case "cart": return "Your Shopping Cart"
+    case "list-collections": return "Collections"
+    case "search": return page.search?.performed ? `Search: ${page.search.results.length} results found for "${page.search.terms}"` : "Search"
+    case "404": return "404 Not Found"
+    case "blog": return "Blog"
+    case "article": return "Article"
+    case "customers/account": return "Account"
+    default: return page.shop.name
+  }
 }
 
 /** A section as a Shopify template JSON holds it, as the instance Storelib stores. */
