@@ -593,6 +593,55 @@ async function partKeyboard() {
   console.log(JSON.stringify({ label: LABEL, part: "keyboard", out }))
 }
 
+/* ── THE PULL ── a long pull closes into the card from where the finger left it; a short slow one goes back to rest. */
+async function partPull() {
+  console.log("\nPULL: the post follows the finger, closes into its card or springs back (390x844, 4x CPU)")
+  const s = await session()
+  await openPost(s)
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: THROTTLE })
+  const lift = () => s.p.evaluate(() => {
+    const l = document.querySelector("[data-post-lift]")
+    const layer = document.querySelector("[data-post-fullscreen]")
+    return { translate: l?.style.translate || "", scale: l?.style.scale || "", hidden: !layer || getComputedStyle(layer).visibility === "hidden", clone: !!document.querySelector("[data-post-clone]") }
+  })
+  /* Short and slow: back to rest. */
+  await s.touch("touchStart", 200, 300)
+  for (let i = 1; i <= 4; i++) {
+    await s.touch("touchMove", 200, 300 + i * 12)
+    await sleep(40)
+  }
+  const mid = await lift()
+  await sleep(150)
+  await s.touch("touchEnd", 200, 348)
+  await sleep(900)
+  const back = await lift()
+  expect(/px/.test(mid.translate) && Number(mid.scale) < 1, "the post follows the finger and shrinks a little", mid)
+  expect(back.translate === "" && back.scale === "" && !back.hidden, "a short slow pull springs back to rest, nothing of ours left on it", back)
+  /* Long: closes into the card. */
+  const seq = await record(
+    s,
+    "close-pull",
+    async () => {
+      await s.touch("touchStart", 200, 260)
+      for (let i = 1; i <= 14; i++) {
+        await s.touch("touchMove", 200, 260 + i * 22)
+        await sleep(16)
+      }
+      await s.touch("touchEnd", 200, 260 + 14 * 22)
+    },
+    1500,
+    0,
+  )
+  await s.cdp.send("Emulation.setCPUThrottlingRate", { rate: 1 })
+  const end = await lift()
+  const r = judgeFrames(seq)
+  console.log(`  close-pull: ${r.moving} frames while it moves, longest gap ${r.longestGapMs}ms`)
+  await contactSheet(seq, `${LABEL}-close-pull.png`)
+  expect(end.hidden && !end.clone, "past the line it closes into the card and is gone", end)
+  expect(!s.errors.length, "no page errors (pull)", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -602,6 +651,7 @@ try {
   if (PART === "all" || PART === "frames") await partFrames()
   if (PART === "all" || PART === "clip") await partClip()
   if (PART === "all" || PART === "keyboard") await partKeyboard()
+  if (PART === "all" || PART === "pull") await partPull()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()

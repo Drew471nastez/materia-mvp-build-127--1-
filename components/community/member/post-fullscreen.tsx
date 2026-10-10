@@ -182,10 +182,18 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   const closing = useRef(false)
   /* The feed's scroll when the post opened: where it is put back before the close moves. */
   const noted = useRef<number | null>(null)
+  /*
+    THE CLOSE STARTS IN THE PRESS ITSELF (round 17). Back, Escape, a pull or the edge swipe let go start the move here, in the
+    event, and ask the parent to close once its first frame is drawn: waiting for the parent's render first left the post
+    still under a finger that had let go for 150ms at 4x CPU (scripts/check-communities-post17.mjs PART=pull). A close from outside (the browser's
+    Back) comes through the `open` effect below.
+  */
   const request = (trigger: CloseTrigger) => {
     if (closing.current) return
     how.current ??= trigger
-    done.current.onRequestClose()
+    beginClose(trigger)
+    /* After the move's first frame is on the screen: the parent's render then runs beside the compositor's move, not before it. */
+    requestAnimationFrame(() => window.setTimeout(() => done.current.onRequestClose(), 0))
   }
   /* Settled: nothing moving, so the top's blur may come on. */
   const settle = (on: boolean) => layerRef.current?.toggleAttribute("data-settled", on)
@@ -266,16 +274,17 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
   )
 
   /* ── OUT ── post-morph.ts morphCloseSteps, in order. */
-  useLayoutEffect(() => {
-    if (open) return
+  const closeTimer = useRef(0)
+  function beginClose(trigger: CloseTrigger) {
+    if (closing.current) return
     closing.current = true
     const layer = layerRef.current
     const page = pageRef.current
-    const trigger: CloseTrigger = how.current ?? (closedByBrowserSwipe(performance.now() - lastEdgeTouch, edgeSwipeEnvironment()) ? "browser-swipe" : "history")
     let gone = false
     const end = () => {
       if (gone) return
       gone = true
+      window.clearTimeout(closeTimer.current)
       if (layer) layer.style.visibility = "hidden"
       done.current.onGone()
     }
@@ -295,10 +304,14 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     settle(false)
     void st.close({ style: POST_MOTION, origin: done.current.origin?.() ?? null, reduced: reduced(), ms: CLOSE_MS }).then(end)
     /* A tab in the background draws no frames: it still goes. */
-    const t = window.setTimeout(end, CLOSE_MS + 600)
-    return () => window.clearTimeout(t)
+    closeTimer.current = window.setTimeout(end, CLOSE_MS + 600)
+  }
+  useLayoutEffect(() => {
+    if (open || closing.current) return
+    beginClose(how.current ?? (closedByBrowserSwipe(performance.now() - lastEdgeTouch, edgeSwipeEnvironment()) ? "browser-swipe" : "history"))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+  useEffect(() => () => window.clearTimeout(closeTimer.current), [])
 
   /* ── THE TOP BLUR ── follows the scroll, once a frame (and is only a blur once settled: the class says so). */
   useEffect(() => {
