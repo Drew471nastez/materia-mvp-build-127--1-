@@ -209,7 +209,8 @@ export function sweepLayers(): void {
     } catch {
       node = null
     }
-    if (!node || !node.isConnected) entries.delete(id)
+    /* Only an element that is known and has left: a ref not attached (yet) says nothing, and its cleanup still releases it. */
+    if (node && !node.isConnected) entries.delete(id)
   }
   publish()
 }
