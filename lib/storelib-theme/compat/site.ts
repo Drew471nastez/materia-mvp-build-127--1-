@@ -52,6 +52,9 @@ export interface SiteData {
   extraBodyEnd?: string
 }
 
+/** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
+export const POLICY_HANDLES = ["refund-policy", "privacy-policy", "terms-of-service", "shipping-policy"] as const
+
 /** One line of the cart, as the cookie keeps it. */
 export interface CartEntry {
   k: string
@@ -157,7 +160,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraBodyEnd: site.extraBodyEnd })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -181,6 +184,39 @@ interface Route {
   page: CompatPage
   sections: StoredSection[]
   status?: number
+  /** Drawn in the theme's layout in place of the page's own sections. */
+  content?: string
+}
+
+const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+/**
+ * A page that is the theme's layout around content of Storelib's own: the
+ * home page's header, footer and overlay groups, and `content` where the
+ * page's sections would be. A policy with no page template, and the
+ * visitor's account pages.
+ */
+function shell(site: SiteData, req: SiteRequest, path: string, title: string, content: string, template = "page"): Route {
+  const chrome = (sectionsOf(site, "home") ?? []).filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay")
+  return { page: basePage(site, req, { template, path, title }), sections: chrome, content }
+}
+
+/**
+ * THE VISITOR'S ACCOUNT, IN THE THEME. Signing in, orders and the wishlist
+ * are Storelib's own pages (lib/site-accounts), which cannot draw a Shopify
+ * theme's header and footer. So the theme draws them, and the account page
+ * is shown between them in a frame of the same site, as tall as its
+ * content; a link pressed inside opens at the top, in this shell again.
+ */
+function accountShell(site: SiteData, req: SiteRequest, path: string): Route {
+  const q = new URLSearchParams(req.query)
+  q.set("sl_embed", "1")
+  const src = `${path}?${q.toString()}`
+  const title = path === "/wishlist" ? "Wishlist" : path.startsWith("/account/login") ? "Sign in" : "Account"
+  const content = `<div class="sl-account" style="width:100%"><iframe id="sl-account-frame" title="${escapeText(title)}" src="${escapeText(src)}" style="display:block;width:100%;min-height:560px;border:0;background:transparent"></iframe></div>
+<script>(function(){var f=document.getElementById("sl-account-frame");if(!f)return;var ro=null;function fit(){try{var d=f.contentDocument;if(!d||!d.body)return;var h=Math.max(d.body.scrollHeight,d.documentElement.scrollHeight);if(h>0)f.style.height=h+"px"}catch(e){}}
+f.addEventListener("load",function(){try{var d=f.contentDocument;if(d&&d.head&&!d.querySelector("base[target]")){var b=d.createElement("base");b.target="_top";d.head.appendChild(b)}if(ro)ro.disconnect();ro=new ResizeObserver(fit);ro.observe(d.body)}catch(e){}fit()});})();</script>`
+  return shell(site, req, path, title, content, path === "/wishlist" ? "page" : "customers/account")
 }
 
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
@@ -210,6 +246,8 @@ function sectionsOf(site: SiteData, key: string): StoredSection[] | null {
 }
 
 async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<Route | null> {
+  /* The account pages and the wishlist, drawn by Storelib inside the theme's header and footer (accountShell). */
+  if ((path === "/account" || path.startsWith("/account/") || path === "/wishlist") && path !== "/account/logout") return accountShell(site, req, path)
   const at = (key: string, extra: Partial<CompatPage> = {}, status?: number): Route | null => {
     const sections = sectionsOf(site, key)
     if (!sections) return null
@@ -248,6 +286,21 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
 
   if (path === "/cart") return at("cart", { title: "Your cart" })
   if (path === "/password") return at("password")
+
+  /*
+    A POLICY, at Shopify's /policies/<handle> or Storelib's /<handle>: the
+    creator's own words (Website settings), drawn in the theme's page
+    template like any page, or alone in its layout when it has none.
+  */
+  const policyMatch = path.match(/^\/policies\/([a-z-]+)$/) ?? path.match(/^\/(refund-policy|privacy-policy|terms-of-service|shipping-policy)$/)
+  if (policyMatch) {
+    const policy = (site.shop.policies ?? []).find((p) => p.handle === policyMatch[1])
+    if (!policy) return null
+    const pageObject = { title: policy.title, content: policy.body, handle: policy.handle, url: `/policies/${policy.handle}` }
+    const viaPage = at("page", { pageObject, title: policy.title })
+    if (viaPage) return viaPage
+    return shell(site, req, path, policy.title, `<div class="page-width" style="max-width:72ch;margin:0 auto;padding:48px 20px"><h1>${escapeText(policy.title)}</h1><div class="rte">${policy.body}</div></div>`)
+  }
 
   const pageMatch = path.match(/^\/pages\/([a-z0-9-]+)$/) ?? path.match(/^\/([a-z0-9][a-z0-9-]*)$/)
   if (pageMatch) {

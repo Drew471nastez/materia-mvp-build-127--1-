@@ -187,22 +187,37 @@ async function resolveOldUsername(oldUsername: string): Promise<string | null> {
  * page request to the right renderer. Any failure reads as "no", which sends
  * the request to /w, which in turn sends an unknown name to a 404.
  */
+/**
+ * A yes or no about a site, asked of the database on every visit, kept for
+ * half a minute, and kept past that whenever the database does not answer:
+ * a failed check read as "no" and sent an AI site to "Coming soon" or a
+ * connected domain to the creator's profile.
+ */
+const answersHeld = new Map<string, { at: number; value: boolean }>()
+async function remembered(key: string, ask: () => Promise<{ value: boolean; failed: boolean }>): Promise<boolean> {
+  const held = answersHeld.get(key)
+  if (held && Date.now() - held.at < 30_000) return held.value
+  const fresh = await ask().catch(() => ({ value: false, failed: true }))
+  if (fresh.failed) return held?.value ?? false
+  if (answersHeld.size > 10_000) answersHeld.clear()
+  answersHeld.set(key, { at: Date.now(), value: fresh.value })
+  return fresh.value
+}
+
 async function hasLiveAiSite(slug: string): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
-  try {
+  return remembered(`ai:${slug.toLowerCase()}`, async () => {
     const supabase = createClient(supabaseUrl, supabaseKey)
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("site_deployments")
       .select("storage_prefix")
       .eq("is_live", true)
       .eq("slug", slug.toLowerCase())
       .maybeSingle()
-    return !!(data as { storage_prefix: string | null } | null)?.storage_prefix
-  } catch {
-    return false
-  }
+    return { value: !!(data as { storage_prefix: string | null } | null)?.storage_prefix, failed: !!error }
+  })
 }
 
 /**
@@ -299,36 +314,35 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return false
-  try {
+  const lower = username.toLowerCase()
+  return remembered(`site:${lower}`, async () => {
     const supabase = createClient(supabaseUrl, supabaseKey)
-    const lower = username.toLowerCase()
+    let failed = false
+    const read = <T,>(r: { data: T | null; error: unknown }) => { if (r.error) failed = true; return r.data }
 
     // The name is a profile username or a creator slug, the same two places
     // lib/website-builder/published-site.ts looks.
-    const { data: profile } = await supabase.from("profiles").select("id").eq("username", lower).maybeSingle()
+    const profile = read(await supabase.from("profiles").select("id").eq("username", lower).maybeSingle())
     let creatorId: string | null = null
     if (profile) {
-      const { data: creator } = await supabase
-        .from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle()
+      const creator = read(await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle())
       creatorId = (creator as { id: string } | null)?.id ?? null
     }
-    if (!creatorId) {
-      const { data: creator } = await supabase.from("creators").select("id").eq("slug", lower).maybeSingle()
+    if (!creatorId && !failed) {
+      const creator = read(await supabase.from("creators").select("id").eq("slug", lower).maybeSingle())
       creatorId = (creator as { id: string } | null)?.id ?? null
     }
-    if (!creatorId) return false
+    if (!creatorId || failed) return { value: false, failed }
 
-    const { data: install } = await supabase
+    const install = read(await supabase
       .from("store_theme_installs")
       .select("id")
       .eq("creator_id", creatorId)
       .eq("status", "published")
       .limit(1)
-      .maybeSingle()
-    return Boolean(install)
-  } catch {
-    return false
-  }
+      .maybeSingle())
+    return { value: Boolean(install), failed }
+  })
 }
 
 /**
@@ -350,45 +364,68 @@ async function compatSiteFor(username: string): Promise<boolean> {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !supabaseKey) return false
   let value = false
+  /* A read that failed is not "not imported": the answer before it stands, and nothing is remembered. */
+  let failed = false
+  const read = <T,>(r: { data: T | null; error: { code?: string } | null }) => {
+    if (r.error && r.error.code !== "PGRST116") failed = true
+    return r.data
+  }
   try {
     const supabase = createClient(supabaseUrl, supabaseKey)
-    const { data: profile } = await supabase.from("profiles").select("id").eq("username", lower).maybeSingle()
+    const profile = read(await supabase.from("profiles").select("id").eq("username", lower).maybeSingle())
     let creatorId: string | null = null
     if (profile) {
-      const { data: creator } = await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle()
+      const creator = read(await supabase.from("creators").select("id").eq("user_id", (profile as { id: string }).id).maybeSingle())
       creatorId = (creator as { id: string } | null)?.id ?? null
     }
-    if (!creatorId) {
-      const { data: creator } = await supabase.from("creators").select("id").eq("slug", lower).maybeSingle()
+    if (!creatorId && !failed) {
+      const creator = read(await supabase.from("creators").select("id").eq("slug", lower).maybeSingle())
       creatorId = (creator as { id: string } | null)?.id ?? null
     }
-    if (creatorId) {
-      const { data: install } = await supabase
+    if (creatorId && !failed) {
+      const install = read(await supabase
         .from("store_theme_installs")
         .select("id")
         .eq("creator_id", creatorId)
         .eq("status", "published")
         .order("sort_order", { ascending: true })
         .limit(1)
-        .maybeSingle()
-      if (install) {
-        const { data: row } = await supabase.from("store_theme_settings").select("kind:settings->compat->>kind").eq("install_id", (install as { id: string }).id).maybeSingle()
+        .maybeSingle())
+      if (install && !failed) {
+        const row = read(await supabase.from("store_theme_settings").select("kind:settings->compat->>kind").eq("install_id", (install as { id: string }).id).maybeSingle())
         value = (row as { kind?: string | null } | null)?.kind === "shopify"
       }
     }
   } catch {
-    value = false
+    failed = true
   }
+  if (failed) return hit?.value ?? false
   if (compatHeld.size > 5000) compatHeld.clear()
   compatHeld.set(lower, { at: Date.now(), value })
   return value
 }
 
 /** The addresses of an imported theme's site that are still Storelib's own: a visitor's account, the API, the site's SEO files. */
-function compatAnswers(pathname: string): boolean {
+function compatAnswers(pathname: string, request: NextRequest): boolean {
   if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/_next/")) return false
-  if (pathname === "/account" || pathname.startsWith("/account/") || pathname === "/wishlist") return false
+  /*
+    The visitor's account and wishlist are Storelib's own pages. A visit to
+    one is drawn by the theme, its header and footer around the page in a
+    frame (lib/storelib-theme/compat/site.ts, accountShell); the frame's own
+    request, a form posted there and signing out go to the page itself.
+  */
+  if (pathname === "/account" || pathname.startsWith("/account/") || pathname === "/wishlist") {
+    const framed = request.headers.get("sec-fetch-dest") === "iframe" || request.nextUrl.searchParams.has("sl_embed")
+    const reading = request.method === "GET" || request.method === "HEAD"
+    return reading && !framed && pathname !== "/account/logout"
+  }
   return pathname !== "/robots.txt" && pathname !== "/sitemap.xml"
+}
+
+/** /policies/refund-policy, as Shopify writes it, to /refund-policy, where a site of Storelib's own keeps it; null for any other address. */
+function policyAddress(pathname: string): string | null {
+  const m = pathname.match(/^\/policies\/(refund-policy|privacy-policy|terms-of-service|shipping-policy)\/?$/)
+  return m ? `/${m[1]}` : null
 }
 
 /** The rewrite to the imported theme's handler, behind the site's password when it has one. */
@@ -436,7 +473,36 @@ function servedAt(domain: string): string {
   return isApexHost(domain) ? `www.${domain}` : domain
 }
 
-async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null> {
+/**
+ * WHICH SITE A CONNECTED DOMAIN IS, REMEMBERED THROUGH A DATABASE BLINK.
+ * Each host's last clean answer is kept for a minute, and kept past that
+ * whenever the database does not answer: a failed lookup used to read as
+ * "not connected" and bounced every visitor of the domain to storelib.com.
+ * With no answer ever seen and the database away, the caller says
+ * "unavailable" and the visitor is asked to try again in a moment.
+ */
+const domainHeld = new Map<string, { at: number; value: ConnectedDomain | null }>()
+const DOMAIN_HELD_MS = 60_000
+
+/** A page that loads again by itself, for the moment a site cannot be looked up. */
+const SITE_UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
+
+async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null | "unavailable"> {
+  const key = host.split(":")[0].toLowerCase()
+  const held = domainHeld.get(key)
+  if (held && Date.now() - held.at < DOMAIN_HELD_MS) return held.value
+  const fresh = await resolveCustomDomainFresh(host)
+  if (fresh.failed) return held ? held.value : "unavailable"
+  if (domainHeld.size > 5000) domainHeld.clear()
+  domainHeld.set(key, { at: Date.now(), value: fresh.value })
+  return fresh.value
+}
+
+/* "No row" from `.single()` is an answer; anything else that comes back as an error is the database not answering. */
+const failedRead = (error: { code?: string } | null | undefined) => !!error && error.code !== "PGRST116"
+
+async function resolveCustomDomainFresh(host: string): Promise<{ value: ConnectedDomain | null; failed: boolean }> {
+  const none = { value: null, failed: false }
   const hostWithoutPort = host.split(":")[0]
 
   // Skip known storelib domains and localhost
@@ -446,12 +512,12 @@ async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null
     hostWithoutPort === MAIN_DOMAIN ||
     hostWithoutPort.endsWith(`.${MAIN_DOMAIN}`)
   ) {
-    return null
+    return none
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) return null
+  if (!supabaseUrl || !supabaseKey) return none
 
   try {
     const supabase = createClient(supabaseUrl, supabaseKey)
@@ -474,27 +540,29 @@ async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null
         .eq("domain", lookupDomain)
         .in("status", served)
         .maybeSingle()) as never)
-    }
+    } else if (failedRead(error)) return { value: null, failed: true }
 
-    if (!domainRecord) return null
+    if (!domainRecord) return none
     const row = domainRecord as { creator_id: string; purpose?: string | null; is_primary?: boolean | null }
     const purpose = row.purpose === "creator_page" ? "creator_page" : "website"
 
-    const { data: creator } = await supabase
+    const { data: creator, error: creatorErr } = await supabase
       .from("creators")
       .select("user_id")
       .eq("id", row.creator_id)
       .single()
+    if (failedRead(creatorErr)) return { value: null, failed: true }
 
-    if (!creator) return null
+    if (!creator) return none
 
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("username")
       .eq("id", creator.user_id)
       .single()
+    if (failedRead(profileErr)) return { value: null, failed: true }
 
-    if (!profile?.username) return null
+    if (!profile?.username) return none
 
     /* Not the primary: send it to the one that is, once that one is live. */
     let redirectTo: string | null = null
@@ -511,9 +579,9 @@ async function resolveCustomDomain(host: string): Promise<ConnectedDomain | null
       if (primaryDomain && primaryDomain !== lookupDomain) redirectTo = servedAt(primaryDomain)
     }
 
-    return { username: profile.username, purpose, redirectTo }
+    return { value: { username: profile.username, purpose, redirectTo }, failed: false }
   } catch {
-    return null
+    return { value: null, failed: true }
   }
 }
 
@@ -1054,9 +1122,12 @@ export async function proxy(request: NextRequest) {
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
-      if (compatAnswers(pathname) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
+      if (compatAnswers(pathname, request) && (await compatSiteFor(subdomain)) && !(await hasLiveAiSite(subdomain))) {
         return compatRewrite(request, subdomain, host, pathname, search)
       }
+      /* Shopify's address for a policy, on a site of Storelib's own: the same policy at Storelib's. */
+      const policyAt = policyAddress(pathname)
+      if (policyAt) return NextResponse.redirect(new URL(`${policyAt}${search}`, request.url), { status: 308 })
       /*
         /links ON A SUBDOMAIN was the address the Share card once handed out,
         and the website answered it with a 404. It is sent to the OnePage,
@@ -1292,7 +1363,12 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(canonicalUrl, { status: 301 })
     }
 
-    const connected = await resolveCustomDomain(host)
+    const resolved = await resolveCustomDomain(host)
+    /* The database not answering is not "this domain is not connected": try again in a moment, never a redirect away. */
+    if (resolved === "unavailable" && !isApiCall) {
+      return new NextResponse(SITE_UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
+    }
+    const connected = resolved === "unavailable" ? null : resolved
     if (connected) {
       /**
        * NOT THE PRIMARY DOMAIN: ITS VISITORS GO TO THE ONE THAT IS.
@@ -1447,9 +1523,10 @@ export async function proxy(request: NextRequest) {
     // Pages only, like the subdomain branch: an asset request must not cost
     // two database lookups, and a site's assets are Next's own anyway.
     /* An imported Shopify theme answers its own addresses on a connected domain too. */
-    if (domainPurpose === "website" && compatAnswers(pathname) && (await compatSiteFor(username)) && !(await hasLiveAiSite(username))) {
+    if (domainPurpose === "website" && compatAnswers(pathname, request) && (await compatSiteFor(username)) && !(await hasLiveAiSite(username))) {
       return compatRewrite(request, username, host, pathname, search)
     }
+    if (domainPurpose === "website" && policyAddress(pathname)) return NextResponse.redirect(new URL(`${policyAddress(pathname)}${search}`, request.url), { status: 308 })
     const looksLikeFile = /\.[a-z0-9]{1,8}$/i.test(pathname)
     const builtSite = !looksLikeFile && domainPurpose === "website" && !(await hasLiveAiSite(username)) && (await hasPublishedWebsite(username))
 

@@ -12,12 +12,16 @@
  */
 import { NextResponse } from "next/server"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
+import { isSiteReadError } from "@/lib/website-builder/site-read"
 import { CART_COOKIE, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
+
+/** A page that tries again by itself, for the moment the database is away and nothing was kept. */
+const UNAVAILABLE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="5"><title>One moment</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 Inter,system-ui,sans-serif;color:#1a1a2e;background:#f8f9fa}p{margin:0;color:#6b7280}</style></head><body><main><h1 style="font-size:20px;margin:0 0 6px">One moment</h1><p>This page will load again by itself.</p></main></body></html>`
 
 interface Params {
   params: Promise<{ username: string; path?: string[] }>
@@ -81,7 +85,19 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     token = previewTokenFrom(new URLSearchParams([["preview", decodeURIComponent(segments[1])]]))
     segments = segments.slice(2)
   }
-  const found = await compatSiteByName(username, host, token)
+  /*
+    The database not answering is not "no such site": a 503 that asks to be
+    tried again in a moment, never cached, when there is no last good copy
+    to serve (lib/website-builder/compat-site.ts).
+  */
+  let found: Awaited<ReturnType<typeof compatSiteByName>>
+  try {
+    found = await compatSiteByName(username, host, token)
+  } catch (e) {
+    if (!isSiteReadError(e)) throw e
+    console.error("[site-theme] site unavailable:", e.message)
+    return new NextResponse(UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
+  }
   if (found.kind !== "site") return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]

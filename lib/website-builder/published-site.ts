@@ -41,6 +41,7 @@ import { sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/s
 import { pageWithLiveLinks } from "@/lib/website-builder/live-links"
 import { applyUniversalChrome } from "@/lib/website-builder/universal-chrome"
 import { kindLookup } from "@/lib/storelib-theme/section-groups"
+import { siteRead } from "@/lib/website-builder/site-read"
 import { unstable_cache, revalidateTag, revalidatePath } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
@@ -170,18 +171,21 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
   const admin = createAdminClient()
   const lower = name.toLowerCase()
 
-  const { data: profile } = await admin
+  /* A failed read throws (lib/website-builder/site-read.ts): never "no such site" because the database blinked. */
+  const profile = await siteRead("profile", (signal) => admin
     .from("profiles")
     .select("id, display_name, username")
     .eq("username", lower)
-    .maybeSingle()
+    .abortSignal(signal)
+    .maybeSingle())
 
   if (profile) {
-    const { data: creator } = await admin
+    const creator = await siteRead("creator", (signal) => admin
       .from("creators")
       .select("*")
       .eq("user_id", (profile as { id: string }).id)
-      .maybeSingle()
+      .abortSignal(signal)
+      .maybeSingle())
     if (creator) {
       if (isBanned(creator as { banned_at?: string | null })) return null
       const p = profile as { display_name?: string | null; username?: string | null }
@@ -193,11 +197,12 @@ async function lookUpName(name: string): Promise<NameMatch | null> {
     }
   }
 
-  const { data: bySlug } = await admin
+  const bySlug = await siteRead("creator by slug", (signal) => admin
     .from("creators")
     .select("*")
     .eq("slug", lower)
-    .maybeSingle()
+    .abortSignal(signal)
+    .maybeSingle())
   if (bySlug) {
     if (isBanned(bySlug as { banned_at?: string | null })) return null
     const c = bySlug as { id: string; slug?: string | null; display_name?: string | null }
@@ -267,14 +272,16 @@ type BuiltLookup = { kind: "site"; site: PublishedSite } | Exclude<SiteLookup, {
 async function buildSite(creatorId: string, displayName: string): Promise<BuiltLookup> {
   const admin = createAdminClient()
 
-  const { data: install } = await admin
+  /* Thrown, not "unpublished", when the database did not answer: that was cached for an hour as "Coming soon". */
+  const install = await siteRead("published install", (signal) => admin
     .from("store_theme_installs")
     .select("id, name, status, store_theme_settings ( settings, draft_settings )")
     .eq("creator_id", creatorId)
     .eq("status", "published")
     .order("sort_order", { ascending: true })
     .limit(1)
-    .maybeSingle()
+    .abortSignal(signal)
+    .maybeSingle())
 
   if (!install) return { kind: "unpublished", displayName }
 
@@ -304,10 +311,11 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
   ])
   const ownSchemas = schemaLookupFrom(sources)
 
-  const { data: pageRows } = await admin
+  const pageRows = await siteRead("pages", (signal) => admin
     .from("store_theme_pages")
     .select("page_key, sections, draft_sections")
     .eq("install_id", row.id)
+    .abortSignal(signal))
 
   /**
    * And again on the way out. The database already holds rich text saved
@@ -585,8 +593,34 @@ export async function publishedShopByName(name: string): Promise<ShopLookup> {
  * at the top of this file. Everything that serves a built site goes through
  * here, so a visitor pays for the lookup once however they arrived.
  */
+/**
+ * THE LAST GOOD COPY OF EACH SITE, kept by this server. When a read throws
+ * (site-read.ts) and the cache has nothing to fall back on (a cold start, a
+ * new server), the site is served as it last was rather than not at all.
+ */
+const lastGood = new Map<string, ShopLookup>()
+const LAST_GOOD_MAX = 500
+
 async function resolveSite(name: string): Promise<ShopLookup> {
   const lower = name.toLowerCase()
+  try {
+    const found = await resolveSiteFresh(lower)
+    if (found.kind === "site") {
+      if (lastGood.size >= LAST_GOOD_MAX && !lastGood.has(lower)) lastGood.delete(lastGood.keys().next().value as string)
+      lastGood.set(lower, found)
+    }
+    return found
+  } catch (e) {
+    const held = lastGood.get(lower)
+    if (held) {
+      console.error(`[published-site] served the last good copy of ${lower}:`, e instanceof Error ? e.message : e)
+      return held
+    }
+    throw e
+  }
+}
+
+async function resolveSiteFresh(lower: string): Promise<ShopLookup> {
 
   const match = await unstable_cache(
     () => lookUpName(lower),

@@ -89,7 +89,7 @@ async function serve(zipPath: string) {
   })
   const { products, collections, menus } = shop()
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
-  const site: SiteData = { creatorId: "c", theme, pages, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}" }, host: "127.0.0.1" }
+  const site: SiteData = { creatorId: "c", theme, pages, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}", policies: [{ handle: "refund-policy", title: "Refund Policy", body: "<p>Returns are accepted within 30 days of delivery.</p>" }] }, host: "127.0.0.1" }
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -104,6 +104,12 @@ async function serve(zipPath: string) {
     if (url.pathname.startsWith("/api/checkout/cart")) {
       res.writeHead(200, { "Content-Type": "application/json" })
       res.end(JSON.stringify({ url: "http://127.0.0.1/__checkout_opened" }))
+      return
+    }
+    /* The account page itself, as Storelib draws it inside the theme's shell (the proxy sends the framed request there). */
+    if (url.searchParams.has("sl_embed")) {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
+      res.end(`<!doctype html><html><head></head><body style="margin:0"><main style="padding:40px;height:420px">Sign in to your account</main></body></html>`)
       return
     }
     const chunks: Buffer[] = []
@@ -184,6 +190,19 @@ async function run(zipPath: string) {
           return { shirts: new Set([...main.querySelectorAll<HTMLAnchorElement>("a[href*='/products/linen-shirt-']")].map((a) => new URL(a.href).pathname)).size, drawn: /Availability/i.test(main.textContent ?? "") && /Price/i.test(main.textContent ?? "") }
         })
       }
+      /* Policies and the account pages, in the theme's own header and footer. */
+      for (const at of ["/policies/refund-policy", "/refund-policy"]) {
+        await visit(at)
+        const p = await page.evaluate(() => ({ header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), words: /Returns are accepted within 30 days/.test(document.body.textContent ?? "") }))
+        check(`${at} draws the policy in the theme's header and footer`, p.header && p.footer && p.words, JSON.stringify(p))
+      }
+      await visit("/account")
+      await new Promise((r) => setTimeout(r, 800))
+      const acc = await page.evaluate(() => {
+        const f = document.getElementById("sl-account-frame") as HTMLIFrameElement | null
+        return { header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), framed: !!f && (f.getAttribute("src") ?? "").includes("sl_embed=1"), fits: f ? Math.round(f.getBoundingClientRect().height) : 0, words: f?.contentDocument?.body.textContent?.includes("Sign in to your account") ?? false }
+      })
+      check("/account is Storelib's account page inside the theme's header and footer, as tall as it is", acc.header && acc.footer && acc.framed && acc.words && acc.fits >= 420 && acc.fits < 700, JSON.stringify(acc))
       const all = await shirtsOn("/collections/all")
       const dear = await shirtsOn("/collections/all?filter.v.price.gte=60")
       check("the collection draws its filters", all.drawn, `${all.shirts} shirts`)

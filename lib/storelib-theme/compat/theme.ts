@@ -121,6 +121,16 @@ export interface CompatBlockInstance {
   disabled?: boolean
 }
 
+/** A policy of the shop: its address is /policies/<handle>, as on Shopify. */
+export interface ShopPolicy {
+  handle: string
+  title: string
+  body: string
+}
+
+const policyObjects = (list: ShopPolicy[] | undefined): O[] =>
+  (list ?? []).map((p) => ({ id: p.handle, handle: p.handle, title: p.title, body: p.body, url: `/policies/${p.handle}` }))
+
 /** Everything one page of the site is drawn with. */
 export interface CompatPage {
   /** The header and footer groups' sections, as the page row stores them. Absent: the theme's group files. */
@@ -142,7 +152,7 @@ export interface CompatPage {
   selectedVariantId?: string | null
   collection?: CollectionLike | null
   cart?: CartLineLike[]
-  shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string }
+  shop: { name: string; description?: string; url?: string; email?: string; currency?: string; moneyFormat?: string; policies?: ShopPolicy[] }
   customer?: O | null
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
@@ -351,7 +361,9 @@ export class CompatTheme {
       enabled_payment_types: ["visa", "master", "american_express", "paypal"],
       locale: "en",
       published_locales: [{ iso_code: "en", name: "English", primary: true, root_url: "/" }],
-      policies: [],
+      /* The creator's own policies (Website settings), as Shopify's shop.policies and shop.<name>_policy: a footer's policy links read these. */
+      policies: policyObjects(page.shop.policies),
+      ...Object.fromEntries(policyObjects(page.shop.policies).map((p) => [String(p.handle).replace(/-/g, "_"), p])),
       brand: { logo: null, square_logo: null, colors: {}, slogan: "", short_description: page.shop.description ?? "" },
       metafields: {},
       customer_accounts_enabled: true,
