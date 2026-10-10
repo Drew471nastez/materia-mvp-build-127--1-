@@ -95,7 +95,10 @@
     "author_bio",
     "chapter_preview",
     "lookbook",
-    "size_guide"
+    "size_guide",
+    "mobile_bottom_bar",
+    "back_to_top",
+    "popup"
   ],
   "addable_sections": [
     "hero_centered",
@@ -137,7 +140,10 @@
     "faq_cta",
     "promo_newsletter",
     "promo_announcement",
-    "promo_countdown"
+    "promo_countdown",
+    "mobile_bottom_bar",
+    "back_to_top",
+    "popup"
   ],
   "structure_sections": [
     "header",
@@ -154,6 +160,7 @@
     "about": "About",
     "faq": "FAQ",
     "marketing": "Marketing",
+    "overlay": "Overlay",
     "structure": "Structure",
     "yours": "Created"
   },
@@ -197,6 +204,10 @@
     {
       "id": "marketing",
       "label": "Marketing"
+    },
+    {
+      "id": "overlay",
+      "label": "Overlay"
     }
   ],
   "retired_sections": [

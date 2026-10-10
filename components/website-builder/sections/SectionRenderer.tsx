@@ -138,9 +138,17 @@ export function renderSection(props: SectionProps) {
    * which a gap must never be added above or below.
    */
   const chrome = props.section.type === "header" || props.section.type === "footer"
+  /* An Overlay group section floats over the page (a popup, a phone tab bar,
+     back to top). A query container would hold its `position: fixed` inside
+     this box, and a section gap or an entrance reveal has nothing to space or
+     move, so it is boxed like the chrome and without the container. */
+  const overlay = props.section.group === "overlay"
+  const tokens = sectionTokenAttrs(props.section, props.theme)
+  /* Above the sticky header (z-40), which a popup's dimmed page has to cover, and never a band of the scheme's gradient. */
+  if (overlay) tokens.style = { ...tokens.style, position: "relative", zIndex: 70, background: undefined }
   return (
     <div
-      className={props.boxClassName ? `@container ${props.boxClassName}` : "@container"}
+      className={overlay ? props.boxClassName || undefined : props.boxClassName ? `@container ${props.boxClassName}` : "@container"}
       id={props.wrapperId}
       data-section-box=""
       /**
@@ -151,7 +159,8 @@ export function renderSection(props: SectionProps) {
        * the nav while it is trying to select the header.
        */
       data-section-type={props.section.type}
-      data-chrome={chrome ? "" : undefined}
+      data-chrome={chrome || overlay ? "" : undefined}
+      data-overlay={overlay ? "" : undefined}
       /**
        * WHERE A LINK TO THIS SECTION LANDS, the same in the canvas and on the
        * live page. The id differs between the two (`wb-section-…` in the
@@ -165,7 +174,7 @@ export function renderSection(props: SectionProps) {
       data-anchor-alias={ownAnchor(props.section) || undefined}
       /* The section's own entrance animation, when it chose one over the theme's. */
       data-animation={sectionAnimationAttr(props.section.settings?.animation)}
-      {...sectionTokenAttrs(props.section, props.theme)}
+      {...tokens}
     >
       {guard(<Component {...props} />)}
     </div>

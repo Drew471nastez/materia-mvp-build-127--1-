@@ -211,6 +211,27 @@ An announcement bar, or anything else that belongs above the header on every pag
 
 `"category": "announcement"` puts a section in the header group even without `enabled_on`. Nothing else goes there: header content in the page's own sections, or page content in the header group, is the wrong group. See [Schema](/developers/schema#where-a-section-may-go).
 
+## Over the page
+
+A popup, a bar fixed to the bottom of a phone, back to top: anything that floats over every page sits in the **Overlay group**, after the footer in the sidebar. Its schema says so:
+
+```json
+{ "type": "promo_popup", "name": "Promo popup", "category": "overlay", "enabled_on": { "groups": ["overlay"] } }
+```
+
+Its box has no query container, so `position: fixed` inside it is fixed to the screen, and it is drawn above the sticky header. A width-only `@media` query is read as a container query (see [Rules](/developers/rules)); for the screen's own width write it so it stays a media query, `@media not all and (min-width: 750px)`. The builder draws the section with `page.in_editor` true, in the page and visible, so it can be selected and edited; write that version too.
+
+Three things a floating section cannot do from its own script, the page does when asked by attribute:
+
+| Attribute | On | What the page does |
+| --- | --- | --- |
+| `data-storelib-back-to-top` | a button | Sets `data-shown` once the page is scrolled past `data-after` pixels (400 when unset). A press scrolls back to the top. |
+| `data-storelib-popup` | the popup's root | Sets `data-open` after `data-delay` seconds (5 when unset). Once a visitor closes it, it does not open for them again, unless `data-once="0"`. In the builder it is always open. |
+| `data-storelib-popup-close` | any element inside it | Closes it, as Escape does. |
+| `data-storelib-bottom-bar` | a bar fixed to the bottom | Publishes its height as `--sl-bottom-bar-h` on the page (0 while it is hidden), so anything else in a bottom corner can sit above it. |
+
+The default theme's `back_to_top`, `mobile_bottom_bar` and `popup` are written this way. `scripts/check-overlay-live.ts` measures them on a visitor's page, `scripts/check-overlay-sections.mjs` in the builder.
+
 ## How a file is recognised as a header or footer
 
 Recognition places a header, it does not refuse one. The rule is in `lib/storelib-theme/chrome.ts`. An imported theme that brings a header file keeps it and draws it as the site's header, with the built-in one hidden. A save of any file except the two reserved names goes through.

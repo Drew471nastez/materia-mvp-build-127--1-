@@ -12,6 +12,13 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 10 October 2026
+
+**Added**
+
+- [The Overlay group](/developers/header-and-footer#over-the-page): `"enabled_on": { "groups": ["overlay"] }` for a section that floats over every page, with `data-storelib-back-to-top`, `data-storelib-popup`, `data-storelib-popup-close` and `data-storelib-bottom-bar` for what such a section needs from the page.
+- Three sections in the default theme's Overlay category: Back to top, Phone tab bar and Popup.
+
 ## 7 October 2026
 
 **Changed**
