@@ -1,3 +1,5 @@
+import { anyLayerOpen } from "@/lib/ui/layers"
+
 /**
  * ===========================================================================
  *  THE EDGE SWIPE BACK, DECIDED
@@ -235,6 +237,8 @@ function shown(el: Element): boolean {
 export function overlayUp(doc: Document = document): boolean {
   const html = doc.documentElement
   if (html.hasAttribute("data-app-sheet-up")) return true
+  /* Any layer the registry counts (lib/ui/layers.ts): a page layer, the composer, the viewer, an opened post, a search screen. */
+  if (typeof document !== "undefined" && doc === document && anyLayerOpen()) return true
   if (html.classList.contains("has-page-layer") || html.classList.contains("has-phone-page-layer")) return true
   if (doc.querySelector("[data-lightbox]")) return true
   if (doc.querySelector('[data-composer="open"],[data-composer="sheet"]')) return true
