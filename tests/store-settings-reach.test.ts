@@ -18,7 +18,7 @@ const read = (p: string) => readFileSync(join(process.cwd(), p), "utf8")
 
 console.log("\nStore details' store name is the website's shop.name\n")
 {
-  const ctx = (theme: Record<string, unknown>, creator: Record<string, string>) => dynamicContext({ theme, creator }).shop.name
+  const ctx = (theme: Record<string, unknown>, creator: Record<string, string>) => dynamicContext({ theme, creator }).shop?.name
   check("the store's name when the website has no brand name of its own", ctx({}, { name: "Mara Lind", storeName: "Lind Prints" }) === "Lind Prints")
   check("the website's own brand name first", ctx({ brand_name: "Lind & Co" }, { name: "Mara Lind", storeName: "Lind Prints" }) === "Lind & Co")
   check("the person's name when neither is set, as before", ctx({}, { name: "Mara Lind" }) === "Mara Lind")
