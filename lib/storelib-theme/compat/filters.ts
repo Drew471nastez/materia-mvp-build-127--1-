@@ -581,8 +581,16 @@ const F: Record<string, FilterFn> = {
     cart as it was (the page's handler: shims.ts BUY_NOW; the site's:
     site.ts, a cart/add with `checkout`).
   */
+  /*
+    BUY IT NOW AS SHOPIFY DRAWS IT. Shopify puts its own few rules on the
+    page with this button: the button is a block as wide as the row, the
+    unbranded one with its padding. Themes are written on top of those, so
+    without them the button shrank to its words (a narrow box under the
+    quantity). They come with it here, in :where() so they weigh nothing and
+    every rule the theme writes for the button still wins.
+  */
   payment_button: () =>
-    `<div class="shopify-payment-button" data-shopify="payment-button"><button type="submit" name="checkout" value="1" formnovalidate class="shopify-payment-button__button shopify-payment-button__button--unbranded" data-storelib-buy-now>Buy it now</button></div>`,
+    `<style data-storelib-payment-button>:where(.shopify-payment-button){display:block;width:100%;flex:1 1 100%;grid-column:1/-1}:where(.shopify-payment-button__button){display:block;width:100%;box-sizing:border-box;cursor:pointer;line-height:1;text-align:center;border-radius:4px}:where(.shopify-payment-button__button--unbranded){padding:1em 2em;font-weight:500}</style><div class="shopify-payment-button" data-shopify="payment-button"><button type="submit" name="checkout" value="1" formnovalidate class="shopify-payment-button__button shopify-payment-button__button--unbranded" data-storelib-buy-now>Buy it now</button></div>`,
   login_button: () => "",
   avatar: () => "",
   format_address: (v) => { const o = (v ?? {}) as Record<string, unknown>; return ["name", "company", "address1", "address2", "city", "province", "zip", "country"].map((k) => str(o[k])).filter(Boolean).map(escapeHtml).join("<br>") },
