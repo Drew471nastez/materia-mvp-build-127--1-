@@ -27,6 +27,8 @@
  *             or moves for the next 40 frames.
  *   TAB BAR   the tab bar stays on screen through the open, the post and
  *             the close (ARCH round 15: the opened post does not hide it).
+ *   LONGEST   the longest gap between two animation frames (printed): the
+ *             tap's own work, or a frame dropped in the move.
  *
  * Writes contact sheets of each sequence to SHOTS_DIR (default a temp dir)
  * and prints a line per check. LABEL names the run ("before", "after").
@@ -106,8 +108,8 @@ const SAMPLER = () => {
       if (overOp < 0.02 || underOp < 0.02) continue
       /* The post's own copy is drawn over the feed's: the feed's is seen when the copy over it lets it through or the page does not cover it. */
       const underSeen = !coveredByPage(a) || overOp < 0.98
+      /* Two copies beside each other (a push: the feed's header on the left, the post's coming in on the right) are not doubled: where they overlap the upper one is opaque. */
       if (underSeen && overOp < 0.98) doubled.push(`${name} ${overOp.toFixed(2)} over ${underOp.toFixed(2)}`)
-      else if (underSeen && name === "header" && overOp >= 0.98 && !coveredByPage(a)) doubled.push(`${name} side by side`)
     }
     const tab = document.querySelector("[data-buyer-tab-bar]")
     const tb = box(tab)
@@ -319,7 +321,11 @@ export const isNativePlatform = () => false
       const anims = after.filter((f) => f.feedAnims > 0)
       expect(goneAt >= 0 && after.length >= 10 && anims.length === 0 && cardBoxes.size <= 1, `${seq.name}: LATE: once the post has gone nothing in the feed animates or moves`, { goneAtFrame: goneAt, framesAfter: after.length, animatingFrames: anims.length, cardBoxes: cardBoxes.size })
     }
-    return { painted: seq.frames.length, sampled: s.length, doubled: doubled.length, bands: bandFrames.length, feedMoved: moved.length, tabHidden: hidden.length }
+    /* The longest gap between two animation frames: the tap's own work, or a frame dropped in the move. */
+    let longest = 0
+    for (let i = 1; i < s.length; i++) longest = Math.max(longest, s[i].t - s[i - 1].t)
+    console.log(`  ${seq.name}: longest frame ${longest}ms`)
+    return { painted: seq.frames.length, sampled: s.length, doubled: doubled.length, bands: bandFrames.length, feedMoved: moved.length, tabHidden: hidden.length, longestFrameMs: longest }
   }
 
   const summary = {}

@@ -296,9 +296,12 @@ export function CommentsPlaceholder({ expected, pinComposer = false }: { expecte
   THE FLOATING BOX (floatComposer, round 19). Sticky at the foot of the full screen post's scroll, with no ground of its own
   so the comments show through as they pass under it: the box's row (avatar and field) is one frosted pill, the field inside
   it plain. Its first line sits on the keyboard when the keyboard is up (the page is the height of what is on screen).
+  ROUND 15 (images/73.webp, "I can see that crack and empty space"): while a field in the post is typed in (the page carries
+  data-typing, post-fullscreen.tsx) the box stands on an opaque white ground down to the keyboard's bar, so the strip between
+  the pill and the keys is the box's own white, never what scrolls behind it.
 */
 const FLOAT_COMPOSER =
-  "sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none"
+  "sticky bottom-0 z-[3] -mx-4 mt-auto px-3 pt-3 [[data-typing]_&]:bg-white [[data-typing]_&]:pt-2 [[data-typing]_&]:shadow-[0_-1px_0_#eef0f2] [&_[data-comment-box=comment]]:items-center [&_[data-comment-box=comment]]:rounded-[26px] [&_[data-comment-box=comment]]:border [&_[data-comment-box=comment]]:border-[#e6e8eb]/80 [&_[data-comment-box=comment]]:bg-white/80 [&_[data-comment-box=comment]]:py-1 [&_[data-comment-box=comment]]:pl-1.5 [&_[data-comment-box=comment]]:pr-1 [&_[data-comment-box=comment]]:shadow-[0_10px_30px_-14px_rgba(16,24,40,0.32),0_1px_2px_rgba(16,24,40,0.06)] [&_[data-comment-box=comment]]:backdrop-blur-xl [&_[data-comment-box=comment]>[data-app-avatar]]:mt-0 [&_[data-comment-box=comment]_[data-comment-field]]:border-transparent [&_[data-comment-box=comment]_[data-comment-field]]:bg-transparent [&_[data-comment-box=comment]_[data-comment-field]]:!shadow-none"
 
 export function CommentsSection({ post, slug, viewer, initial, me: givenMe = null, readOnly = false, commentsEnabled: givenEnabled = true, boxRef, onCount, expected = 0, fadeIn = false, visitor = false, pinComposer = false, floatComposer = false, dockComposer = false }: CommentsSectionProps) {
   /* Handed a first page, or one read ahead (COMMENTS READ AHEAD): drawn on the first frame, no waiting state. */
@@ -719,6 +722,8 @@ interface Picked {
   preview?: string
   progress: number
   media?: PostMedia
+  /** Why its upload failed (kept on the tile until it is taken off). */
+  error?: string
 }
 
 /** The box's own tools: the glyph alone in a 40px tall target, a tint on hover and on press (never a shrink). */
@@ -1185,7 +1190,8 @@ function CommentItem({
     <div ref={rowRef} id={`c-${c.id}`} data-comment={c.id} data-comment-sending={c.sending ? "" : undefined} className={`scroll-mt-28 transition-opacity duration-200 ${c.sending ? "opacity-60" : ""}`}>
       <div className="flex items-start gap-2.5">
         {c.author ? (
-          <Link href={memberHref(slug, c.author)} className="mt-0.5 shrink-0 rounded-full" data-person-link="" data-person-id={c.author.id}>
+          /* The face's room is its full size from the first frame, photo or not, so a comment never resettles when one arrives (round 14's reference). */
+          <Link href={memberHref(slug, c.author)} className={`mt-0.5 flex shrink-0 rounded-full ${small ? "h-7 w-7" : "h-8 w-8"}`} data-person-link="" data-person-id={c.author.id} data-comment-face="">
             <MemberAvatar src={c.author.avatarUrl} name={c.author.name} alt="" size={small ? 28 : 32} lazy />
           </Link>
         ) : (

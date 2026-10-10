@@ -123,11 +123,14 @@ export interface PostOverlayProps {
    * post page again.
    */
   history?: boolean
-  /** The card the post was opened from: on a phone the post grows out of it and goes back into it (post-fullscreen.tsx). */
+  /**
+   * The card the post was opened from. Round 15: no longer used; on a phone the post is pushed in from the right and never
+   * drawn over the card (post-fullscreen.tsx), so there is nothing to grow from or land on. Kept so callers need no change.
+   */
   origin?: () => HTMLElement | null
 }
 
-export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true, origin }: PostOverlayProps) {
+export function PostOverlay({ post: given, slug, viewer, readOnly = false, update, onClose, renderPost, history = true }: PostOverlayProps) {
   const phone = usePhone()
   const [post, setPost] = useState(given)
   /* "in" while it arrives, "shown" once it has, "out" from the moment it starts to leave. */
@@ -209,6 +212,25 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
       ;(window as Window & { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback?.(idle)
     }
   }, [phase])
+  /*
+    THE COMMENT BOX COMES WITH THE PAGE ON A PHONE (round 15). It used to wait for the move to finish and an idle moment, then
+    fade in: a bare white foot for a third of a second, then the box (scripts/check-communities-post15.mjs saw 12 frames of it).
+    The phone's page moves by `translate`, which the compositor runs whatever the main thread is doing, so the comments are
+    drawn on the push's second frame, inside the page while it slides, and arrive with it: no fade, nothing late. A computer's
+    panel still waits (its first frames are the panel's own, close to the eye).
+  */
+  const [drawComments, setDrawComments] = useState(false)
+  useEffect(() => {
+    if (!phone) return
+    let b = 0
+    const a = requestAnimationFrame(() => {
+      b = requestAnimationFrame(() => setDrawComments(true))
+    })
+    return () => {
+      cancelAnimationFrame(a)
+      cancelAnimationFrame(b)
+    }
+  }, [phone])
   /* THE COMMENTS ALWAYS COME: arrived at the latest after SETTLE_LATEST_MS, whatever happened to the move. */
   useEffect(() => {
     const t = window.setTimeout(() => setPhase((p) => (p === "in" ? "shown" : p)), SETTLE_LATEST_MS)
@@ -279,7 +301,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   const drawn = useMemo(() => renderPost(post, local, onComment), [post, local, onComment])
   if (typeof document === "undefined") return null
 
-  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} origin={origin} content={<OverlayContent drawn={drawn} settled={settled} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
+  return <OverlayFrame phone={phone} post={post} open={open} phase={phase} setPhase={setPhase} close={close} onGone={() => onCloseRef.current()} contentRef={contentRef} content={<OverlayContent drawn={drawn} settled={settled || drawComments} withPage={phone && drawComments} post={post} slug={slug} viewer={viewer} readOnly={readOnly} box={box} local={local} pinComposer={phone} />} />
 }
 
 /*
@@ -287,7 +309,7 @@ export function PostOverlay({ post: given, slug, viewer, readOnly = false, updat
   overlay starts to close: a close that drew every comment again (each with
   its menu) cost the first frames of its own slide.
 */
-const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug, viewer, readOnly, box, local, pinComposer }: { drawn: React.ReactNode; settled: boolean; post: FeedPostView; slug: string; viewer: ViewerView; readOnly: boolean; box: React.RefObject<MentionTextareaHandle | null>; local: PostUpdateFn; pinComposer: boolean }) {
+const OverlayContent = memo(function OverlayContent({ drawn, settled, withPage, post, slug, viewer, readOnly, box, local, pinComposer }: { drawn: React.ReactNode; settled: boolean; withPage: boolean; post: FeedPostView; slug: string; viewer: ViewerView; readOnly: boolean; box: React.RefObject<MentionTextareaHandle | null>; local: PostUpdateFn; pinComposer: boolean }) {
   return (
     <>
       {/* The post whole, without a card's edge: the panel is the card. */}
@@ -304,7 +326,8 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
             readOnly={readOnly}
             boxRef={box}
             expected={post.commentCount}
-            fadeIn
+            /* Drawn inside the moving page (a phone), they arrive with it; drawn into a room kept for them, they fade in. */
+            fadeIn={!withPage}
             pinComposer={pinComposer}
             floatComposer={pinComposer}
             onCount={(d) => local(post.id, (p) => ({ ...p, commentCount: Math.max(0, p.commentCount + d) }))}
@@ -317,15 +340,14 @@ const OverlayContent = memo(function OverlayContent({ drawn, settled, post, slug
   )
 })
 
-function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, contentRef, content, origin }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode; origin?: () => HTMLElement | null }) {
+function OverlayFrame({ phone, post, open, phase, setPhase, close, onGone, contentRef, content }: { phone: boolean; post: FeedPostView; open: boolean; phase: "in" | "shown" | "out"; setPhase: React.Dispatch<React.SetStateAction<"in" | "shown" | "out">>; close: () => void; onGone: () => void; contentRef: React.RefObject<HTMLDivElement | null>; content: React.ReactNode }) {
   if (phone) {
-    /* A phone: the card grows into a full screen page and goes back into it (post-fullscreen.tsx, round 19). */
+    /* A phone: a full screen page pushed in from the right, over the feed and under the tab bar (post-fullscreen.tsx, round 15). */
     return (
       <PostFullscreen
         open={open}
         label={post.title || "Post"}
         title={post.space?.name ?? "Post"}
-        origin={origin}
         onRequestClose={close}
         onShown={() => setPhase((p) => (p === "in" ? "shown" : p))}
         /* The post and its comments are taken down, and the history step given back, once the morph is over and the page is idle. */
