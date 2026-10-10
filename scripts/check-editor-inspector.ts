@@ -284,7 +284,8 @@ async function main() {
       const visible = (el: Element) => { const cs = getComputedStyle(el); return cs.display !== "none" && cs.visibility !== "hidden" && Number(cs.opacity) > 0.05 }
       const rings = [...document.querySelectorAll("#wb-preview-root .wb-ring")].filter((el) => !el.querySelector("[aria-label='Add a section here']") && visible(el) && !el.matches(".group-hover\\/section\\:opacity-100, [class*='group-hover']")).length
       const strips = [...document.querySelectorAll<HTMLElement>("[aria-label='Add a section here']")].filter((el) => getComputedStyle(el).pointerEvents !== "none").length
-      return { chip: !!document.querySelector(".wb-hover-chip"), outline: !!document.querySelector(".wb-hover-outline"), rings, strips }
+      const shown = (sel: string) => { const el = document.querySelector(sel); return !!el && getComputedStyle(el).display !== "none" }
+      return { chip: shown(".wb-hover-chip"), outline: shown(".wb-hover-outline"), rings, strips }
     })
     await np.mouse.move(target.x, target.y, { steps: 4 })
     await sleep(300)

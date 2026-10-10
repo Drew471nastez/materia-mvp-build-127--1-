@@ -9722,6 +9722,43 @@ function CanvasInsertStrip({ onClick }: { onClick: () => void }) {
  * scrolls out of reach, and hidden entirely when the section has scrolled
  * past.
  */
+/** A button on the section toolbar, with its tooltip. */
+function ToolbarItem({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          disabled={disabled}
+          onClick={(e) => {
+            e.stopPropagation()
+            onClick()
+          }}
+          className={cn(
+            "flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-150",
+            "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 active:scale-90",
+            "disabled:pointer-events-none disabled:opacity-30",
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 /** How long the section toolbar takes to arrive, and to leave. */
 const TOOLBAR_FADE_MS = 200
 
@@ -9845,39 +9882,8 @@ function SectionToolbar({
   const draw = box ?? lastBox.current
   if (!mounted || !draw) return null
 
-  const Item = ({
-    label,
-    onClick,
-    disabled,
-    children,
-  }: {
-    label: string
-    onClick: () => void
-    disabled?: boolean
-    children: React.ReactNode
-  }) => (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <button
-          type="button"
-          aria-label={label}
-          disabled={disabled}
-          onClick={(e) => {
-            e.stopPropagation()
-            onClick()
-          }}
-          className={cn(
-            "flex h-8 w-8 items-center justify-center rounded-lg transition-[background-color,color,scale] duration-150",
-            "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 active:scale-90",
-            "disabled:pointer-events-none disabled:opacity-30",
-          )}
-        >
-          {children}
-        </button>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">{label}</TooltipContent>
-    </Tooltip>
-  )
+  /* The one component for every button here, made once outside this one (ToolbarItem): a component written inside it was a new kind of element on each render, so every press of a key in the sidebar took the toolbar's buttons out of the page and put new ones in. */
+  const Item = ToolbarItem
 
   return (
     <div
