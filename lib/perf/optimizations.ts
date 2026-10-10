@@ -115,4 +115,13 @@ export const OPTIMIZATIONS: Optimization[] = [
     after: { metric: "database round trips per Explore category page visit", value: 0, unit: "queries" },
     note: "/explore/<category> built the same newest hundred products with their creators per visit, in four waves. It is held for a minute under Explore's tag like the main grid (its own copy), read as a signed out visitor, cleared by a product save and expired by a takedown. Server time to the answer at 20ms a round trip: 100ms to 2ms.",
   },
+  {
+    id: "community-landing-reads-together",
+    title: "A public community page is answered a wave of reads sooner",
+    area: "communities",
+    shippedAt: "2026-10-10",
+    before: { metric: "server time to the answer per public community page visit at 20ms a round trip", value: 134, unit: "ms" },
+    after: { metric: "server time to the answer per public community page visit at 20ms a round trip", value: 111, unit: "ms" },
+    note: "The sales page's gallery and live numbers need only the community, and waited for its tiers, its creator and their products first. They are asked beside the tiers now (lib/communities/server/public.ts). Same 12 reads, the same answers; the page stays per visitor.",
+  },
 ]

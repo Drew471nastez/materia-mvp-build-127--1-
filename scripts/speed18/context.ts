@@ -42,6 +42,8 @@ export function current(): VisitState | undefined {
 }
 
 export interface VisitResult<T> {
+  /** When the visit began (performance.now()), for a timeline of its trips. */
+  started: number
   value: T | undefined
   error: unknown
   ms: number
@@ -83,5 +85,5 @@ export async function visit<T>(fn: () => Promise<T>, opts: { cookies?: Record<st
     }
   })
   const foreground = state.trips.filter((t) => !t.background).length
-  return { value, error, ms, trips: state.trips, foreground, background: state.trips.length - foreground }
+  return { started: state.started, value, error, ms, trips: state.trips, foreground, background: state.trips.length - foreground }
 }

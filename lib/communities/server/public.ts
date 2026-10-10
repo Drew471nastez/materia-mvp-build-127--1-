@@ -540,6 +540,16 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
   if (suspended && !staff) return null
   if (community.status === "draft" && !staff) return null
 
+  /*
+    THE GALLERY AND THE LIVE NUMBERS NEED ONLY THE COMMUNITY, so they are
+    asked beside the tiers and the creator rather than after the products:
+    two round trips fewer before the sales page can be drawn, for every
+    visitor (lib/perf/optimizations.ts). The same reads, awaited below.
+  */
+  const galleryAndStats = opts?.light ? null : Promise.all([communityGallery(db, community), communityStats(db, community)])
+  /* Awaited below; a failure while the reads beside it are out is not left unhandled. */
+  galleryAndStats?.catch(() => undefined)
+
   const [tiers, links, creators] = await Promise.all([
     readTiers(db, [community.id]),
     community.access === "product" || community.access === "custom"
@@ -570,8 +580,8 @@ export async function loadSalesPage(slug: string, userId: string | null, given?:
     ? ([null, [] as GalleryItemView[], { members: Math.max(0, community.member_count ?? 0), online: null, admins: null }] as const)
     : await Promise.all([
         readReviews(db, community.id, tierProductIds.map((id) => products.get(id)).filter((p): p is ProductLite => !!p && p.status === "published")),
-        communityGallery(db, community),
-        communityStats(db, community),
+        galleryAndStats!.then(([gallery]) => gallery),
+        galleryAndStats!.then(([, stats]) => stats),
       ])
 
   const raw = community.description ?? ""

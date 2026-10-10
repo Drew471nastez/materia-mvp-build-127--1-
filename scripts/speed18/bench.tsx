@@ -244,7 +244,7 @@ function summary(label: string, r: VisitResult<unknown>, ms0: number) {
     ms: r.ms,
     ms0,
     error: err ? (err.kind ? `${err.kind}${(err as { to?: string }).to ? ` ${(err as { to?: string }).to}` : ""}` : String(err.message ?? err).slice(0, 120)) : null,
-    tables: r.trips.map((t) => `${t.background ? "~" : ""}${t.table}`),
+    tables: r.trips.map((t) => `${t.background ? "~" : ""}${t.table}${process.env.TIMELINE ? `@${Math.round(t.at - r.started)}` : ""}`),
     answer: typeof r.value === "string" ? r.value : null,
   }
 }
