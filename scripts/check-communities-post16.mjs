@@ -752,6 +752,29 @@ async function partKeyboard() {
   console.log(JSON.stringify({ label: LABEL, part: "keyboard", out }))
 }
 
+
+/* ── A COMPUTER: the panel over the feed as before, nothing of the phone's sheet ── */
+async function partDesktop() {
+  console.log("\nA COMPUTER (1440x900): the post's panel, as before")
+  const s = await session({ width: 1440, height: 900 })
+  const at = await centerOf(s, 'article[data-post="a0000000-0000-4000-8000-000000000002"] [data-post-excerpt]')
+  await sleep(300)
+  await s.p.evaluate(WATCH)
+  await s.p.mouse.click(at.x, at.y)
+  await sleep(800)
+  const open = await s.p.evaluate(() => ({ panel: !!document.querySelector('[data-post-overlay="panel"]'), phone: !!document.querySelector("[data-post-fullscreen]"), scale: getComputedStyle(document.querySelector("[data-community-shell]")).scale }))
+  await s.p.screenshot({ path: join(shots, `${LABEL}-desktop-open.png`) })
+  await s.p.evaluate(() => document.querySelector('[data-post-overlay="panel"] [data-post-overlay-close]').click())
+  await sleep(900)
+  const w = await s.p.evaluate(() => ((window.__watch.on = false), window.__watch))
+  const count = (k) => w.frames.filter((x) => (typeof x[k] === "number" ? x[k] > 0 : x[k])).length
+  expect(open.panel && !open.phone && (open.scale === "none" || open.scale === "1"), "the post opens as the panel, and the community is never scaled on a computer", open)
+  expect(count("hidden") + count("swapped") + count("decoded") === 0 && (w.frames.at(-1)?.remounted ?? 0) === 0, "the feed under the panel is never hidden, swapped, decoded again or remounted", { hidden: count("hidden"), swapped: count("swapped"), decoded: count("decoded") })
+  expect(await s.p.evaluate(() => !document.querySelector('[data-post-overlay="panel"]')), "and it closes", null)
+  expect(!s.errors.length, "no page errors (computer)", s.errors.slice(0, 3))
+  await s.p.close()
+}
+
 try {
   html = await (async () => {
     const [css, js] = await Promise.all([appCss(root), bundle()])
@@ -763,6 +786,7 @@ try {
   if (PART === "all" || PART === "sheet") await partSheet()
   if (PART === "all" || PART === "compose") await partCompose()
   if (PART === "all" || PART === "keyboard") await partKeyboard()
+  if (PART === "all" || PART === "desktop") await partDesktop()
 } finally {
   rmSync(stubs, { recursive: true, force: true })
   await browser.close()
