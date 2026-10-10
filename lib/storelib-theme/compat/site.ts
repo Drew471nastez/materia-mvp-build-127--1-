@@ -10,8 +10,9 @@
  *   section rendering ?section_id=<id or name>  ?sections=a,b   (any page)
  *   the cart          /cart.js  /cart/add(.js)  /cart/change(.js)
  *                     /cart/update(.js)  /cart/clear(.js)   a cookie holds it
- *   checkout          /cart with `checkout`, /checkout: Storelib's own
- *                     basket checkout (/api/checkout/cart), with the lines
+ *   checkout          /cart with `checkout`, /checkout: straight on to
+ *                     Storelib's branded basket checkout, with the lines
+ *                     (storelib.com/checkout/cart, lib/checkout/basket-link)
  *   products as data  /products/<handle>.js  .json
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
@@ -32,6 +33,8 @@ import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
 import { facet } from "./facets"
+import { CLEAR_CART_PARAM, basketCheckoutHref } from "@/lib/checkout/basket-link"
+import { getMainDomain } from "@/lib/url-helpers"
 
 type O = Record<string, unknown>
 
@@ -107,6 +110,14 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const path = decodePath(req.path)
   const method = req.method.toUpperCase()
 
+  /* Back from paying for the whole cart: it empties, and the address loses the flag (lib/checkout/basket-link). */
+  if (method === "GET" && req.query.get(CLEAR_CART_PARAM) === "clear") {
+    const rest = new URLSearchParams(req.query)
+    rest.delete(CLEAR_CART_PARAM)
+    const search = rest.toString()
+    return redirect(`${path}${search ? `?${search}` : ""}`, { cart: [], note: "" })
+  }
+
   /* ── the cart ── */
   /* A link that adds, as Shopify's do: /cart/add?id=<variant>&quantity=2 adds and opens the cart. */
   if (method === "GET" && path === "/cart/add" && req.query.get("id")) {
@@ -125,7 +136,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
-    return lines.length ? { ...checkoutHandoff(site, lines), cart: lines, note: req.note ?? "" } : redirect("/cart")
+    return lines.length ? { ...checkoutHandoff(site, lines, true), cart: lines, note: req.note ?? "" } : redirect("/cart")
   }
   const cartRoute = path.match(/^\/cart(?:\/(add|change|update|clear))?(\.js|\.json)?$/)
   if (cartRoute && (method === "POST" || cartRoute[2])) {
@@ -134,7 +145,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart)
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true)
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/account" || path === "/contact/")) return formHandoff(site, req)
@@ -652,7 +663,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked), cart: req.cart, note: req.note ?? "" }
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked, false), cart: req.cart, note: req.note ?? "" }
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
@@ -695,7 +706,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     }
     cart = cart.filter((e) => e.q > 0)
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart), cart, note }
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true), cart, note }
   } else if (action === "clear") {
     cart = []
   }
@@ -707,18 +718,32 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
 }
 
 /**
- * CHECKOUT IS STORELIB'S. The page posts the lines to the basket checkout
- * every Storelib website uses (/api/checkout/cart), which prices them from
- * the database and opens Stripe; the theme never sees a price it could set.
+ * CHECKOUT IS STORELIB'S, AND THE SHOP'S. The lines go straight on to
+ * Storelib's branded basket checkout on storelib.com (app/checkout/cart): the
+ * shop's logo and name across the top, Back to this site's cart, Stripe's
+ * form inside the page. One redirect, answered here without reading
+ * anything, so the press lands on the checkout with nothing in between. It
+ * used to be a page that said "Opening checkout…", posted the lines to
+ * /api/checkout/cart and went on to Stripe's own hosted page, unbranded.
+ * The checkout prices every line again from the database; the theme never
+ * sees a price it could set. `whole`: the whole cart (emptied after paying),
+ * not a Buy it now of one item.
  */
-function checkoutHandoff(site: SiteData, cart: CartEntry[]): SiteResponse {
+function checkoutHandoff(site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
-  const data = JSON.stringify({ items }).replace(/</g, "\\u003c")
-  return html(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Checkout · ${escapeHtml(site.shop.name)}</title>
-<style>body{margin:0;min-height:100vh;display:grid;place-items:center;font:15px/1.5 system-ui,-apple-system,sans-serif;color:#1a1a2e;background:#f8f9fa}main{max-width:360px;padding:24px;text-align:center}a{color:inherit}</style></head>
-<body><main><p id="m">Opening checkout…</p></main><script>(function(){var d=${data};var m=document.getElementById("m");if(!d.items.length){location.replace("/cart");return}
-fetch("/api/checkout/cart",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({items:d.items,returnPath:"/cart"})}).then(function(r){return r.json().then(function(b){return{ok:r.ok,b:b}})}).then(function(x){if(x.ok&&x.b&&x.b.url){location.replace(x.b.url);return}
-m.textContent=(x.b&&x.b.error)||"Checkout could not open. Try again.";var a=document.createElement("a");a.href="/cart";a.textContent="Back to the cart";m.after(a)}).catch(function(){m.textContent="Checkout could not open. Check your connection and try again."})})();</script></body></html>`)
+  if (!items.length) return redirect("/cart")
+  const host = site.host.replace(/[^a-z0-9.:-]/gi, "")
+  const back = host ? `https://${host}/cart` : null
+  return redirect(
+    basketCheckoutHref({
+      base: `https://${getMainDomain()}`,
+      shopId: site.creatorId,
+      items,
+      back,
+      wholeCart: whole,
+      origin: { site: host || null },
+    }),
+  )
 }
 
 /**

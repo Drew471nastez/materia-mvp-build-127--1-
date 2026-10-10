@@ -87,10 +87,18 @@ export interface StartInput {
   buyerEmailConfirmed?: boolean
   /** Ticked "Email me with news and offers". Only read when the store shows the box. */
   emailOptIn?: unknown
+  /**
+   * Stripe's form inside the checkout page (`ui_mode: "embedded"`) under the
+   * shop's own bar, rather than Stripe's hosted page. The page then mounts it
+   * with `clientSecret`; the session, its metadata and its completion are
+   * the same. The shop's name goes over the form (`shopName`).
+   */
+  embedded?: boolean
+  shopName?: string | null
 }
 
 export type StartResult =
-  | { ok: true; url: string; checkoutId: string; free: boolean }
+  | { ok: true; url: string; checkoutId: string; free: boolean; clientSecret?: string | null }
   | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[] }
 
 function clean(value: unknown, max: number): string {
@@ -196,7 +204,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     if (existing.status === "pending" && existing.stripe_session_id && existing.total_cents === totals.totalCents) {
       try {
         const s = await stripe.checkout.sessions.retrieve(existing.stripe_session_id)
-        if (s.status === "open" && s.url) return { ok: true, url: s.url, checkoutId: existing.id, free: false }
+        if (s.status === "open" && (s.url || s.client_secret)) return { ok: true, url: s.url ?? "", clientSecret: s.client_secret ?? null, checkoutId: existing.id, free: false }
       } catch {
         /* Made again below under a new key. */
       }
@@ -367,8 +375,17 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
           }
         : {}),
     },
-    success_url: `${input.platformOrigin}/api/physical/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: input.backUrl,
+    /* Inside the checkout page, Stripe sends the whole page on once paid and Back is the page's own; its hosted page keeps a back link. */
+    ...(input.embedded
+      ? {
+          ui_mode: "embedded" as const,
+          return_url: `${input.platformOrigin}/api/physical/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
+          branding_settings: { display_name: (input.shopName || creator.display_name || "Checkout").slice(0, 100), font_family: "inter" as const, border_style: "rounded" as const, button_color: "#1a1a2e" },
+        }
+      : {
+          success_url: `${input.platformOrigin}/api/physical/checkout/complete?session_id={CHECKOUT_SESSION_ID}`,
+          cancel_url: input.backUrl,
+        }),
     metadata: {
       physical_checkout_id: checkoutId,
       creator_id: priced.creatorId,
@@ -379,10 +396,18 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     },
   }
   try {
-    const session = await stripe.checkout.sessions.create(params, { idempotencyKey: `physical-checkout:${checkoutId}` })
+    let session: Stripe.Checkout.Session
+    try {
+      session = await stripe.checkout.sessions.create(params, { idempotencyKey: `physical-checkout:${checkoutId}` })
+    } catch (e) {
+      /* The shop's name over the form is a nicety: refused, the form opens with the platform's (a new key, as the parameters differ). */
+      if (!params.branding_settings || !/branding_settings/i.test(`${(e as Error)?.message ?? ""} ${(e as { param?: string })?.param ?? ""}`)) throw e
+      delete params.branding_settings
+      session = await stripe.checkout.sessions.create(params, { idempotencyKey: `physical-checkout:${checkoutId}:plain` })
+    }
     await db.from("commerce_checkouts").update({ stripe_session_id: session.id, updated_at: new Date().toISOString() }).eq("id", checkoutId)
     await addOrderEvent(db, { checkoutId, creatorId: priced.creatorId, kind: "checkout.started", message: "Checkout started", actor: "buyer", key: `started:${checkoutId}` })
-    return { ok: true, url: session.url!, checkoutId, free: false }
+    return { ok: true, url: session.url ?? "", clientSecret: session.client_secret ?? null, checkoutId, free: false }
   } catch (e) {
     console.error("[physical] Stripe page could not be made:", (e as { code?: string })?.code ?? "")
     await releaseCheckout(db, checkoutId, "failed", "Payment page could not be opened")
@@ -399,6 +424,34 @@ export async function releaseCheckout(db: Db, checkoutId: string, status: "expir
     .update({ status, cancel_reason: reason.slice(0, 300), updated_at: new Date().toISOString() })
     .eq("id", checkoutId)
     .eq("status", "pending")
+}
+
+/**
+ * The buyer went back from the payment form to change the address or the
+ * delivery: the checkout this tab made (its own random key, which only this
+ * tab holds) gives its stock and its code's place back at once, rather than
+ * when the form would have expired, so the next press can hold them again.
+ * Its Stripe session is expired first, so it can never be paid afterwards;
+ * a session Stripe will not expire (paid that very moment) is left alone.
+ */
+export async function abandonCheckout(db: Db, input: { shopId: string | null; clientKey: unknown }): Promise<boolean> {
+  const clientKey = clean(input.clientKey, 120)
+  if (!input.shopId || clientKey.length < 8) return false
+  const { data: c } = await db.from("commerce_checkouts").select("id, status, stripe_session_id").eq("creator_id", input.shopId).eq("client_key", clientKey).maybeSingle()
+  if (!c || c.status !== "pending" || !c.stripe_session_id) return false
+  let session: Stripe.Checkout.Session
+  try {
+    session = await stripe.checkout.sessions.expire(c.stripe_session_id)
+  } catch {
+    try {
+      session = await stripe.checkout.sessions.retrieve(c.stripe_session_id)
+    } catch {
+      return false
+    }
+  }
+  if (session.status !== "expired") return false
+  await expireCheckoutSession(db, session)
+  return true
 }
 
 /** A Stripe page that expired unpaid. */

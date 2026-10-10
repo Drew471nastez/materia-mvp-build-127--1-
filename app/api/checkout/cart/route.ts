@@ -22,6 +22,9 @@ import { attributionForCheckout, attributionToMetadata, type Attribution } from 
 import { cookies } from "next/headers"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { basketDecision } from "@/lib/checkout/basket-decision"
+import { afterPaidTarget, basketCheckoutHref } from "@/lib/checkout/basket-link"
+import { loadStoreName } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
 
@@ -54,11 +57,25 @@ export const runtime = "nodejs"
  * here, as the free checkout writes a single product, with the buyer's name
  * and address, which the cart page asks for only then.
  *
- * HOSTED RATHER THAN ELEMENTS. Stripe Checkout takes several line items
- * natively and shows the buyer what they are paying for, line by line. The
- * alternative was a second card form on the platform that would have had to
- * learn baskets. The buyer comes back to the platform to be fulfilled and is
- * sent on to their receipt.
+ * STRIPE CHECKOUT, INSIDE STORELIB'S OWN PAGE. Stripe Checkout takes several
+ * line items natively and shows the buyer what they are paying for, line by
+ * line. It used to be Stripe's hosted page, with none of the shop on it and
+ * no way back to the site but the browser's arrow. Now it is two steps:
+ *
+ *   the website asks   (no `ui`: the cart page, the cart drawer, an imported
+ *                      theme's checkout) everything is checked as before and
+ *                      the answer is the address of Storelib's branded
+ *                      basket checkout, storelib.com/checkout/cart
+ *                      (lib/checkout/basket-link). No Stripe session yet.
+ *   that page asks     (`ui: "embedded"`) for the session, which is made here
+ *                      as it always was, with `ui_mode: "embedded"`: Stripe's
+ *                      form inside the page, under the shop's logo and Back.
+ *                      `ui: "hosted"` is the app's shell, where Stripe.js
+ *                      cannot run (app/checkout/parts/stripe-loader).
+ *
+ * The session, its metadata and its fulfilment are the same in every case
+ * (checkout.session.completed, lib/checkout/fulfil-cart-session). The buyer
+ * comes back to the platform to be fulfilled and is sent on to the site.
  */
 
 interface IncomingItem {
@@ -105,20 +122,35 @@ export async function POST(request: Request) {
   const supabase = await createClient()
   const admin = createAdminClient()
 
-  let body: { items?: IncomingItem[]; returnPath?: unknown; origin?: unknown; couponCode?: unknown; buyer?: Record<string, unknown> | null }
+  let body: {
+    items?: IncomingItem[]
+    returnPath?: unknown
+    origin?: unknown
+    couponCode?: unknown
+    buyer?: Record<string, unknown> | null
+    /** Asked by the branded basket checkout: "embedded" makes the session for its page, "hosted" Stripe's own page (the app). */
+    ui?: unknown
+    /** The site page the branded checkout goes back to, checked below as this shop's own. */
+    returnUrl?: unknown
+    /** The whole cart is being paid for, so the site empties it after (lib/checkout/basket-link). */
+    wholeCart?: unknown
+  }
   try {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: "Bad request" }, { status: 400 })
   }
+  const ui = body.ui === "embedded" || body.ui === "hosted" ? body.ui : null
 
-  /* Each call makes a Stripe Checkout Session: counted with the other payment routes. */
-  const limited = await rateLimit({
-    bucket: "payment",
-    subjects: [addressSubject(request)],
-    windows: LIMITS.payment,
-    message: "Too many checkouts started just now. Wait a few minutes and try again.",
-  })
+  /* A call that makes a Stripe Checkout Session, or writes a free basket: counted with the other payment routes. */
+  const limited = ui || body.buyer
+    ? await rateLimit({
+        bucket: "payment",
+        subjects: [addressSubject(request)],
+        windows: LIMITS.payment,
+        message: "Too many checkouts started just now. Wait a few minutes and try again.",
+      })
+    : null
   if (limited) return limited
 
   const {
@@ -131,24 +163,41 @@ export async function POST(request: Request) {
   if (priced.ok === false) return NextResponse.json({ error: priced.error }, { status: priced.status })
   const { lines, dropped, coupon } = priced
 
-  if (priced.creatorIds.length !== 1) {
-    return NextResponse.json({ error: "A cart can only hold one shop's products" }, { status: 400 })
+  /* One shop, from the data; something that ships; nothing left to buy; under $0.50 (lib/checkout/basket-decision). */
+  const decision = basketDecision(priced)
+  if (decision.kind === "refuse") {
+    return NextResponse.json({ error: decision.error, ...(decision.dropped ? { dropped: decision.dropped } : {}) }, { status: decision.status })
   }
-  const creatorId = priced.creatorIds[0]
+  const creatorId = decision.creatorId
 
-  const { data: creator } = await admin
-    .from("creators")
-    .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
-    .eq("id", creatorId)
-    .single()
+  const [{ data: creator }, storeName] = await Promise.all([
+    admin
+      .from("creators")
+      .select("id, user_id, display_name, stripe_account_id, stripe_onboarding_status, charges_enabled, payouts_enabled, statement_descriptor")
+      .eq("id", creatorId)
+      .single(),
+    ui === "embedded" ? loadStoreName(admin, creatorId) : Promise.resolve(null),
+  ])
 
   if (!creator) {
     return NextResponse.json({ error: "Shop not found" }, { status: 404 })
   }
 
   const platformOrigin = `https://${getMainDomain()}`
-  const siteOrigin = (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
-  const returnPath = typeof body.returnPath === "string" && body.returnPath.startsWith("/") ? body.returnPath : "/cart"
+  /* The branded checkout is on storelib.com, so its request names the site
+     page in `returnUrl`; a site's own request comes from the site (Origin).
+     Either is taken only when it is one of THIS shop's own addresses. */
+  let named: URL | null = null
+  try {
+    named = typeof body.returnUrl === "string" && body.returnUrl ? new URL(body.returnUrl) : null
+  } catch {
+    named = null
+  }
+  const namedOrigin = named ? await safeReturnOrigin(named.origin, creatorId) : null
+  const siteOrigin = namedOrigin ?? (await safeReturnOrigin(request.headers.get("origin"), creatorId)) ?? platformOrigin
+  const returnPath = namedOrigin && named
+    ? `${named.pathname}${named.search}`
+    : typeof body.returnPath === "string" && body.returnPath.startsWith("/") && !body.returnPath.startsWith("//") ? body.returnPath : "/cart"
 
   /*
     SOMETHING IN IT SHIPS. Whichever button sent it here (a theme's own add
@@ -163,23 +212,8 @@ export async function POST(request: Request) {
     (priceCart, handOff) and the shipped lines are dropped, as before it
     existed.
   */
-  if (priced.ships.length > 0) {
-    return NextResponse.json({ url: physicalCheckoutHref(creatorId, priced.ships, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
-  }
-
-  if (lines.length === 0) {
-    const named = priced.dropped.filter((d) => !/^[0-9a-f-]{36}$/i.test(d))
-    return NextResponse.json(
-      {
-        error: priced.ownedAny
-          ? "You already own everything in this cart"
-          : named.length > 0
-            ? `${named.slice(0, 3).join(", ")} can't be bought right now. Remove ${named.length === 1 ? "it" : "them"} and try again.`
-            : "These products are no longer on sale. Remove them and try again.",
-        dropped: priced.dropped,
-      },
-      { status: 400 },
-    )
+  if (decision.kind === "ships") {
+    return NextResponse.json({ url: physicalCheckoutHref(creatorId, decision.items, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
   }
 
   /* A basket is a website's. Which website is the one the request came
@@ -190,17 +224,13 @@ export async function POST(request: Request) {
   const origin = encodeOrigin({ ...sent, surface: "website", site })
   /* A basket is a website's: its touches, checked for this creator, and the
      website as the property (lib/attribution). Never read for a price. */
-  const attribution = await attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
+  const attributionNow = () => attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
 
   const totalCents = priced.totalCents
-  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site }, attribution })
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
-  if (totalCents < MIN_CHARGE_CENTS) {
-    return NextResponse.json(
-      { error: coupon ? "The smallest card payment is $0.50. Remove the code or add to the cart." : "Minimum payment amount is $0.50" },
-      { status: 400 },
-    )
-  }
+  /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
+  if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
 
   /*
    * Storelib's one readiness rule (lib/payments/stripe/readiness). This used
@@ -210,6 +240,38 @@ export async function POST(request: Request) {
    */
   if (!creator.stripe_account_id || !String(creator.stripe_account_id).startsWith("acct_") || !(await checkoutReadyForCreator(creator.id as string))) {
     return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
+  }
+
+  /*
+    THE WEBSITE ASKED: the address of Storelib's branded basket checkout,
+    with what was checked above carried in it (and checked again there).
+    Only the lines that can be bought go on, so the page shows what the
+    buyer pays for; what was left out is named here for the cart to say.
+  */
+  if (!ui) {
+    const sentItems = Array.isArray(body.items) ? body.items : []
+    const kept = new Set(lines.map((l) => `${l.item.productId}::${l.item.variantId ?? ""}`))
+    const items = sentItems
+      .map((i) => ({
+        productId: typeof i?.productId === "string" ? i.productId : "",
+        variantId: typeof i?.variantId === "string" && i.variantId ? i.variantId : null,
+        quantity: Math.max(1, Math.floor(Number(i?.quantity)) || 1),
+        ...(typeof (i as { customPriceCents?: unknown })?.customPriceCents === "number" ? { customPriceCents: (i as { customPriceCents: number }).customPriceCents } : {}),
+      }))
+      .filter((i) => kept.has(`${i.productId}::${i.variantId ?? ""}`))
+    const touches = body.origin && typeof body.origin === "object" ? (body.origin as { touches?: unknown }).touches : undefined
+    return NextResponse.json({
+      url: basketCheckoutHref({
+        base: platformOrigin,
+        shopId: creatorId,
+        items,
+        back: siteOrigin !== platformOrigin ? `${siteOrigin}${returnPath}` : null,
+        couponCode: coupon?.code ?? null,
+        wholeCart: true,
+        origin: { site, from: sent?.from, utm_source: sent?.utm_source, utm_campaign: sent?.utm_campaign, touches: typeof touches === "string" ? touches : null },
+      }),
+      dropped,
+    })
   }
 
   /* A code with a use limit keeps a place under it while this Stripe page is
@@ -243,6 +305,13 @@ export async function POST(request: Request) {
   /* A line the code took to $0 is not a line Stripe will take; it is still
      in the basket, fulfilled from the metadata, and named on the page. */
   const freeLines = lines.filter((l) => chargeUnits(l.item).length === 0).map((l) => String(l.product.title ?? "Product"))
+  const attribution = await attributionNow()
+
+  /* After paying: back to the website's home page, told to empty its cart
+     when the whole cart was paid for (lib/checkout/basket-link). */
+  const successUrl = `${platformOrigin}/api/checkout/cart/complete?session_id={CHECKOUT_SESSION_ID}${
+    siteOrigin !== platformOrigin ? `&return=${encodeURIComponent(afterPaidTarget(siteOrigin, body.wholeCart === true))}` : ""
+  }`
 
   try {
     const params: Stripe.Checkout.SessionCreateParams = {
@@ -288,10 +357,22 @@ export async function POST(request: Request) {
          Then the buyer goes back to the website's home page, which the
          completion checks again against this creator's own sites; a basket
          from anywhere else ends on the receipt, as it always did. */
-      success_url: `${platformOrigin}/api/checkout/cart/complete?session_id={CHECKOUT_SESSION_ID}${
-        siteOrigin !== platformOrigin ? `&return=${encodeURIComponent(`${siteOrigin}/`)}` : ""
-      }`,
-      cancel_url: `${siteOrigin}${returnPath}`,
+      /* Inside Storelib's page, Stripe sends the whole page on to return_url
+         once paid, and Back is the page's own (app/checkout/cart). Stripe's
+         hosted page, in the app's shell, keeps its own back link. */
+      ...(ui === "embedded"
+        ? {
+            ui_mode: "embedded" as const,
+            return_url: successUrl,
+            /* The shop's name over Stripe's form, in Storelib's type and button colour, not the platform's name. */
+            branding_settings: {
+              display_name: (storeName || creator.display_name || "Checkout").slice(0, 100),
+              font_family: "inter" as const,
+              border_style: "rounded" as const,
+              button_color: "#1a1a2e",
+            },
+          }
+        : { success_url: successUrl, cancel_url: `${siteOrigin}${returnPath}` }),
       metadata: {
         cart: "1",
         creator_id: creatorId,
@@ -316,28 +397,34 @@ export async function POST(request: Request) {
     }
     /* Last, and only while Stripe's 50 keys allow. */
     Object.assign(params.metadata!, attributionToMetadata(attribution, Object.keys(params.metadata!).length))
-    let session: Stripe.Checkout.Session
-    try {
-      session = await stripe.checkout.sessions.create(params)
-    } catch (e) {
-      const message = String((e as Error)?.message || "")
-      /* The statement's part refused (lib/payments/platform-descriptor): the basket sells with Storelib's own line. */
-      if (/statement_descriptor|on_behalf_of/i.test(message) && params.payment_intent_data) {
-        delete params.payment_intent_data.statement_descriptor_suffix
-        delete params.payment_intent_data.on_behalf_of
+    let session: Stripe.Checkout.Session | null = null
+    /* Each refusal below takes away the one part Stripe named and asks again, at most once per part. */
+    for (let attempt = 0; attempt < 4 && !session; attempt++) {
+      try {
         session = await stripe.checkout.sessions.create(params)
-      } else {
-        /* A Stripe account that will not take tax number collection still
-           sells: the page is made again without the business box. */
-        if (!/tax_id_collection/i.test(message)) throw e
-        console.error("[checkout/cart] tax ID collection refused, the page opens without it:", (e as { code?: string })?.code ?? "")
-        delete params.tax_id_collection
-        session = await stripe.checkout.sessions.create(params)
+      } catch (e) {
+        const message = String((e as Error)?.message || "") + " " + String((e as { param?: string })?.param || "")
+        /* The statement's part refused (lib/payments/platform-descriptor): the basket sells with Storelib's own line. */
+        if (/statement_descriptor|on_behalf_of/i.test(message) && params.payment_intent_data && (params.payment_intent_data.statement_descriptor_suffix || params.payment_intent_data.on_behalf_of)) {
+          delete params.payment_intent_data.statement_descriptor_suffix
+          delete params.payment_intent_data.on_behalf_of
+        } else if (/branding_settings/i.test(message) && params.branding_settings) {
+          /* The shop's name over the form is a nicety: the form opens with the platform's. */
+          delete params.branding_settings
+        } else if (/tax_id_collection/i.test(message) && params.tax_id_collection) {
+          /* A Stripe account that will not take tax number collection still
+             sells: the page is made again without the business box. */
+          console.error("[checkout/cart] tax ID collection refused, the page opens without it:", (e as { code?: string })?.code ?? "")
+          delete params.tax_id_collection
+        } else {
+          throw e
+        }
       }
     }
+    if (!session) throw new Error("no session")
 
     return NextResponse.json({
-      url: session.url,
+      ...(ui === "embedded" ? { clientSecret: session.client_secret } : { url: session.url }),
       /* Named so the cart can tell the buyer what it left out rather than
          silently charging for less than they asked for. */
       dropped,
