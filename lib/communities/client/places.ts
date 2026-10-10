@@ -233,9 +233,20 @@ export function isPostAddress(pathname: string | null | undefined): boolean {
  * whatever the host was at before it (`held`): the place under the post never changes because of the address. An
  * address that is neither a place nor a post (another page entirely) is not a place.
  */
-export function atPlaceFor(pathname: string, search: string, held: boolean): boolean {
+export function atPlaceFor(pathname: string, search: string, held: boolean, overLayer = true): boolean {
   if (placeFromUrl(pathname, search) !== null) return true
-  return held && isPostAddress(pathname)
+  return held && overLayer && isPostAddress(pathname)
+}
+
+/**
+ * WHETHER THE ENTRY THE BROWSER IS ON IS AN OPENED POST'S OWN (round 17). A post opened over a place pushes its address with
+ * a mark of its own (lightbox.tsx useHistoryLayer, `storelibLayer`), and only that entry may keep the place. The ROUTER can
+ * reach a post's address too: a comment notification (`/post/<id>#c-<comment>`, which the shell's link catcher let go), a
+ * post's short address that no card on screen holds, a link inside a post. Round 16 held the place for those as well, so
+ * the post's own page (the post over the feed) was drawn under a hidden Activity: the address changed and nothing showed.
+ */
+export function onLayerEntry(state: unknown): boolean {
+  return !!state && typeof state === "object" && typeof (state as { storelibLayer?: unknown }).storelibLayer === "string"
 }
 
 /**
