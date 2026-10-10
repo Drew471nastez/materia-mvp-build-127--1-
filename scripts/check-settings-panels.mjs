@@ -143,6 +143,36 @@ for (const [name, vp] of [["a phone", { width: 390, height: 844, isMobile: true,
     say(m.over <= 0 && m.cut.length === 0, `and the form fits (${m.over}px over${m.cut.length ? `, cut: ${m.cut.join(" | ")}` : ""})`)
   }
 
+  console.log(`\nReasons on ${name}`)
+  const { DEFAULT_RETURN_REASONS: RET, DEFAULT_REFUND_REASONS: REF } = await import("../lib/store/reasons.ts").catch(() => ({}))
+  const RETURNS = RET ?? [{ value: "size", label: "Size or fit", description: "Too small, too big, or didn't fit as expected." }, { value: "other", label: "Other", description: null }]
+  const REFUNDS = REF ?? [{ value: "requested_by_customer", label: "The buyer asked for it", description: null }, { value: "other", label: "Something else", description: null }]
+  const withNew = [...RETURNS.slice(0, -1), { value: "too_big", label: "Too big", description: null }, RETURNS.at(-1)]
+  await open("reasons", vp, { ...API, "GET /api/store/reasons": { return: RETURNS, refund: REFUNDS, ready: true }, "POST /api/store/reasons": { kind: "return", reasons: withNew } })
+  const q = await fits()
+  say(q.over <= 0 && q.cut.length === 0, `nothing runs off the side or is cut (${q.over}px over${q.cut.length ? `, cut: ${q.cut.join(" | ")}` : ""})`)
+  const rows = await page.evaluate(() => ({ ret: document.querySelectorAll('[data-reasons="return"] [data-reason]').length, ref: document.querySelectorAll('[data-reasons="refund"] [data-reason]').length, tall: Math.min(...[...document.querySelectorAll("[data-reason] button")].map((b) => b.getBoundingClientRect().height)) }))
+  say(rows.ret === RETURNS.length && rows.ref === REFUNDS.length, `both lists shown: ${rows.ret} return, ${rows.ref} refund`)
+  say(rows.tall >= 36, `every control is a comfortable press: ${Math.round(rows.tall)}px or taller`)
+  if (name === "a phone") {
+    await page.click('[data-add-reason="return"]')
+    await wait(250)
+    await page.type("#reason-label", "Too big")
+    const m = await fits()
+    say(m.over <= 0 && m.cut.length === 0, `the form fits (${m.over}px over${m.cut.length ? `, cut: ${m.cut.join(" | ")}` : ""})`)
+    await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => b.textContent?.trim() === "Add reason" && b.closest("[role=dialog]"))?.click())
+    await wait(250)
+    const sent = await page.evaluate(() => window.__sent.filter((x) => x.path === "/api/store/reasons"))
+    const now = await page.evaluate(() => [...document.querySelectorAll('[data-reasons="return"] [data-reason]')].map((li) => li.getAttribute("data-reason")))
+    say(sent.length === 1 && sent[0].method === "POST" && sent[0].body.kind === "return" && sent[0].body.label === "Too big", `Add sends the kind and the name: ${JSON.stringify(sent[0]?.body)}`)
+    say(now.at(-2) === "too_big" && now.at(-1) === "other", `the new reason sits above Other: ${now.join(", ")}`)
+  } else {
+    await page.evaluate(() => document.querySelector('[data-reason="other"] button').click())
+    await wait(250)
+    const form = await page.evaluate(() => ({ remove: [...document.querySelectorAll("[role=dialog] button")].some((b) => b.textContent?.trim() === "Remove"), stays: /stays on the list/.test(document.querySelector("[data-reason-form]")?.textContent ?? "") }))
+    say(!form.remove && form.stays, "Other can be renamed, never removed, and says why")
+  }
+
   console.log(`\nThe checkout's tax line on ${name}`)
   await open("totals", vp)
   const k = await fits()

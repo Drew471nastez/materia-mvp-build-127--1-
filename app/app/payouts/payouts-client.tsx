@@ -100,6 +100,7 @@ import { useRouter } from "next/navigation";
 import { viewerTimeZone } from "@/lib/orders/time-zone";
 import { boundsOf, resolveValue, todayIn, type RangeValue } from "@/lib/date-range/range";
 import { useToast } from "@/hooks/use-toast";
+import { useReasons } from "@/lib/store/use-reasons";
 import type { StorelibStatusView } from "@/lib/payments/stripe/status";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1489,14 +1490,6 @@ function OrderTimeline({
 
 // ─── An order, opened from the list ────────────────────────────────────────────
 
-/** Why a sale is refunded. Asked for, as before; Stripe is told only the order. */
-const REFUND_REASONS = [
-  { value: "requested_by_customer", label: "The buyer asked for it" },
-  { value: "duplicate", label: "Charged twice" },
-  { value: "fraudulent", label: "Fraudulent" },
-  { value: "other", label: "Something else" },
-];
-
 /** A titled part of an order's panel, with a hairline above every part but the first. */
 function Part({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
   return (
@@ -1556,6 +1549,8 @@ function OrderDetailsModal({
   const [refundDone, setRefundDone] = useState(false);
   const [showRefundConfirm, setShowRefundConfirm] = useState(false);
   const [refundReason, setRefundReason] = useState("");
+  /* The store's own refund reasons (Settings › Returns and refunds), kept on the order. */
+  const REFUND_REASONS = useReasons("refund");
   const [refundError, setRefundError] = useState<string | null>(null);
   // Change email + Resend
   const [showEditEmail, setShowEditEmail] = useState(false);
@@ -1748,7 +1743,7 @@ function OrderDetailsModal({
       const r = await fetch("/api/stripe/refund", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: order.id }),
+        body: JSON.stringify({ orderId: order.id, reason: refundReason }),
       });
       const json = await r.json();
       if (!r.ok || json.error) throw new Error(json.error || "Refund failed");

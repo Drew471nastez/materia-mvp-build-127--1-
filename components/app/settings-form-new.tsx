@@ -55,6 +55,7 @@ import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
+import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
@@ -85,7 +86,7 @@ const TABS = [
   /* Shipping and delivery, locations and returns: only while physical commerce is on in /admin. */
   { id: "shipping", label: "Shipping and delivery", icon: Truck, group: "commerce", line: "Rates, zones and packages" },
   { id: "locations", label: "Locations", icon: MapPin, group: "commerce", line: "Where stock is kept and ships from" },
-  { id: "returns", label: "Returns and refunds", icon: Undo2, group: "commerce", line: "Whether and how long buyers can return" },
+  { id: "returns", label: "Returns and refunds", icon: Undo2, group: "commerce", line: "Return window and reasons" },
   /* Shippo, Printful, Gelato and the rest: the commerce integrations, while physical commerce is on. */
   { id: "integrations", label: "Integrations", icon: Plug, group: "integrations", line: "Services connected to your store" },
 ] as const
@@ -113,7 +114,7 @@ type TabId = typeof TABS[number]["id"]
 const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 /** Tabs that exist only while physical commerce is on in /admin. */
 /** Behind the physical commerce switch in /admin. */
-const COMMERCE_TABS = new Set<string>(["shipping", "locations", "returns", "integrations"])
+const COMMERCE_TABS = new Set<string>(["shipping", "locations", "integrations"])
 
 /**
  * Where an older address meant to go. Shipping held four parts behind
@@ -382,7 +383,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   */
   const [phoneList, setPhoneList] = useState(() => !allowed(addressTab) && !searchParams?.get("stripe"))
   /* The sections this account has: Shipping and Integrations only while physical commerce is on. */
-  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce)
+  /* Every store refunds; only a store with physical products takes returns, so without them the section is Refunds. */
+  const shownTabs = TABS.filter((tab) => !COMMERCE_TABS.has(tab.id) || physicalCommerce).map((tab) => (tab.id === "returns" && !physicalCommerce ? { ...tab, label: "Refunds", line: "Why you refund" } : tab))
   /* Each section's own name, from the one list (a name missing from a chain of cases used to fall through to "Domains"). */
   const labelOf = (id: TabId): string =>
     id === "general" ? t("settings.general") === "General" ? "Profile" : t("settings.general") :
@@ -390,7 +392,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     id === "privacy" ? t("settings.privacy") :
     id === "notifications" ? t("settings.notifications") :
     id === "payments" ? t("settings.payments") :
-    TABS.find((tab) => tab.id === id)?.label ?? id
+    shownTabs.find((tab) => tab.id === id)?.label ?? TABS.find((tab) => tab.id === id)?.label ?? id
   /**
    * Billing's own data, fetched the first time the tab is opened and kept.
    *
@@ -1835,7 +1837,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
           {panelTab === "taxes" && <TaxesPanel />}
-          {panelTab === "returns" && physicalCommerce && <ShippingSettings part="returns" />}
+          {panelTab === "returns" && (
+            <div className="space-y-4 sm:space-y-6">
+              {physicalCommerce && <ShippingSettings part="returns" />}
+              <ReasonsPanel kinds={physicalCommerce ? ["return", "refund"] : ["refund"]} />
+            </div>
+          )}
 
           {/* Integrations: shipping, print on demand, dropshipping and fulfillment services (components/physical/integrations-marketplace.tsx). */}
           {panelTab === "integrations" && physicalCommerce && <IntegrationsMarketplace />}

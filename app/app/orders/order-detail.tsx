@@ -71,6 +71,7 @@ import {
 } from "./order-parts"
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
 import { PhysicalOrderPanel } from "@/components/physical/order-panel"
+import { useReasons } from "@/lib/store/use-reasons"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
 export type OrderAction =
@@ -869,6 +870,8 @@ function RefundDialog({
   const [lineId, setLineId] = React.useState<string>("")
   const [amount, setAmount] = React.useState("")
   const [reason, setReason] = React.useState("requested_by_customer")
+  /* The store's own refund reasons (Settings › Returns and refunds). */
+  const reasons = useReasons("refund")
   const line = lines.find((l) => l.id === lineId) ?? lines[0]
   const max = line ? (line.amount_cents || 0) / 100 : 0
 
@@ -941,9 +944,11 @@ function RefundDialog({
         <label className="grid gap-1.5 text-[12px] font-medium text-[#4b5563]">
           Reason
           <select value={reason} onChange={(e) => setReason(e.target.value)} className={field}>
-            <option value="requested_by_customer">The buyer asked for it</option>
-            <option value="duplicate">Charged twice</option>
-            <option value="fraudulent">Fraudulent</option>
+            {reasons.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
           </select>
         </label>
       </div>

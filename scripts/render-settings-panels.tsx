@@ -9,6 +9,7 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
+import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { Totals } from "@/app/checkout/parts/order-summary"
 import * as React from "react"
 import { digitalTax } from "@/lib/tax/rules"
@@ -43,6 +44,11 @@ const panels: Record<string, () => JSX.Element> = {
   store: () => <StoreDetailsPanel />,
   checkout: () => <CheckoutPanel />,
   taxes: () => <TaxesPanel />,
+  reasons: () => (
+    <div style={{ display: "grid", gap: 16 }}>
+      <ReasonsPanel kinds={["return", "refund"]} />
+    </div>
+  ),
   totals: () => (
     <div style={{ display: "grid", gap: 16 }}>
       <TotalsProbe included={false} />

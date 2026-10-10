@@ -33,6 +33,8 @@ import { CARRIERS, ORDER_STEPS, RETURN_LABEL, fulfillmentLabel, orderNumber, ord
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "@/lib/physical/types"
+import { reasonLabel } from "@/lib/store/reasons"
+import { useReasons } from "@/lib/store/use-reasons"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money } from "./ui"
 
 interface Line {
@@ -99,16 +101,6 @@ interface Order {
 interface Loc {
   id: string
   name: string
-}
-
-const REASON_LABEL: Record<string, string> = {
-  size: "Size or fit",
-  damaged: "Damaged",
-  defective: "Defective",
-  not_as_described: "Not as described",
-  wrong_item: "Wrong item",
-  changed_mind: "Changed mind",
-  other: "Other",
 }
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
@@ -601,6 +593,8 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
   const lines = order.lines.filter((l) => (l.requiresShipping ? l.fulfilled : l.quantity) - l.returned > 0)
   const [qty, setQty] = React.useState<Record<string, string>>({})
   const [restock, setRestock] = React.useState<Record<string, boolean>>({})
+  /* The store's own return reasons (Settings › Returns and refunds). */
+  const reasons = useReasons("return")
   const [reason, setReason] = React.useState("other")
   const [method, setMethod] = React.useState("ship_back")
   const [note, setNote] = React.useState("")
@@ -659,7 +653,7 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Reason">
             <SelectInput value={reason} onChange={setReason}>
-              {Object.entries(REASON_LABEL).map(([v, l]) => (
+              {reasons.map(({ value: v, label: l }) => (
                 <option key={v} value={v}>
                   {l}
                 </option>
@@ -687,12 +681,13 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: Order; onClose: () 
 function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine: (id: string) => string; busy: boolean; onMove: (status: string, extra?: Record<string, unknown>) => void }) {
   const tone = r.status === "requested" ? "amber" : r.status === "rejected" || r.status === "cancelled" ? "gray" : r.status === "completed" ? "green" : "blue"
   const label: Record<string, string> = { requested: "Requested", approved: "Approved", rejected: "Declined", in_transit: "On its way back", received: "Received", completed: "Closed", cancelled: "Cancelled" }
+  const reasons = useReasons("return")
   return (
     <li className="rounded-xl border border-[#eceef1] px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex items-center gap-2 text-[13.5px] font-medium text-[#1a1a2e]">
           <Pill tone={tone}>{label[r.status] ?? r.status}</Pill>
-          {REASON_LABEL[r.reason] ?? r.reason}
+          {reasonLabel(r.reason, "return", reasons)}
           {r.requestedBy === "buyer" ? <span className="text-[12px] font-normal text-[#6b7280]">asked by the buyer</span> : null}
         </p>
         <span className="text-[12px] text-[#9ca3af]">{dateTime(r.createdAt)}</span>

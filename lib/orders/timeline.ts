@@ -15,6 +15,7 @@
  *                           (app/api/stripe/order-timeline)
  */
 import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
+import { reasonLabel } from "@/lib/store/reasons"
 
 export type TimelineTone = "success" | "attention" | "critical" | "neutral" | "upcoming"
 
@@ -137,7 +138,7 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
         id: `refund-${line.id}`,
         at: line.refunded_at || null,
         text: `${formatMoney(cents)} refunded${product ? ` for ${product}` : ""}`,
-        detail: line.refund_reason ? line.refund_reason.replace(/_/g, " ") : undefined,
+        detail: line.refund_reason ? reasonLabel(line.refund_reason, "refund") : undefined,
         tone: "critical",
         glyph: "refund",
       })
