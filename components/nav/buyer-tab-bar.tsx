@@ -105,6 +105,7 @@ import { prefetchHref, prefetchOnIdle } from "@/lib/nav/prefetch-policy"
 import { swapTabPage } from "@/lib/nav/tab-swap"
 import { noteTabScroll, prepareTabArrival, restoreTabScroll, scrollPageToTop } from "@/lib/navigation/tab-scroll"
 import { subscribeLayers, sweepLayers, useTabBarLayers } from "@/lib/ui/layers"
+import { watchNavigation } from "@/lib/nav/stuck-navigation"
 
 /* ── The look ────────────────────────────────────────────────────────────── */
 
@@ -526,6 +527,8 @@ function TabBar({
       /* In the app, a tab between the community and the account changes page in one piece (lib/nav/tab-swap.ts). */
       const crosses = !!communityOf(href) !== !!communityOf(pathname)
       if (!(crosses && swapTabPage(() => router.push(href, { scroll: false }), href))) router.push(href, { scroll: false })
+      /* A press that never arrives (a read the router waits on that never settles) is made again as a page load (lib/nav/stuck-navigation.ts). */
+      watchNavigation(href)
     },
     onPress: (index) => {
       /* Search is a screen already in the page: nothing to fetch. The page under the finger is read whole, whatever the network (lib/nav/prefetch-policy.ts). */

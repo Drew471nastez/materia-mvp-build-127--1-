@@ -34,7 +34,7 @@ import { useLayoutEffect, useSyncExternalStore } from "react"
  * WHAT A LAYER DOES TO THE TAB BAR (round 15, ARCH item 8):
  *
  *   covers           the composer, the picture viewer, the search screens, a
- *                    page layer: drawn over the bar, which stays exactly where
+ *                    page layer, Settings over the profile: drawn over the bar, which stays exactly where
  *                    it is underneath, never slid away, so it is simply there
  *                    the moment the layer has gone.
  *   bar over it      an opened post: Instagram's model. The bar stays on
@@ -63,6 +63,8 @@ export type LayerKind =
   | "search"
   /** A bottom sheet or a dialog. */
   | "sheet"
+  /** Any other screen over the whole window: Settings over the profile on a phone. */
+  | "screen"
 
 type KindRule = {
   /** Drawn over the tab bar: the bar holds still under it and ignores the keyboard while it is open. */
@@ -81,6 +83,7 @@ export const LAYER_KINDS: Record<LayerKind, KindRule> = {
   post: { covers: false, barOver: true },
   search: { covers: true, barOver: false },
   sheet: { covers: false, barOver: false },
+  screen: { covers: true, barOver: false },
 }
 
 /** The attribute a layer's element carries, so a sweep can tell a class printed for it from one left behind. */
