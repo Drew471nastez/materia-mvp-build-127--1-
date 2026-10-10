@@ -8,6 +8,7 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { productKey, typedValue, type Resources } from "@/lib/storelib-theme/compat/objects"
+import { blocksIntoDetails, contentForStatics, isProductSection, staysInDetails } from "@/lib/website-builder/product-details-rule"
 
 let passed = 0
 let failed = 0
@@ -52,6 +53,44 @@ check("product switches: the latest one wins", (editor.match(/if \(nav !== pageN
 check("a product link in the canvas opens that product", /selectProductRef\.current\(linked\.id, linked\.title\)/.test(editor))
 const section = read("components/website-builder/sections/renderers/ProductSection.tsx")
 check("the gallery starts again for another product", /key=\{product\.id\}/.test(section))
+
+console.log("\nA product's blocks stay in its Details column")
+const takesAll = (_d: string, t: string) => t !== "_private"
+const horizon = [
+  { id: "media-gallery", type: "_product-media-gallery", static: true },
+  { id: "product-details", type: "_product-details", static: true, blocks: [{ id: "price", type: "price" }, { id: "buy", type: "buy-buttons" }] },
+  { id: "text-1", type: "text" },
+  { id: "pic", type: "image-gallery" },
+  { id: "priv", type: "_private" },
+]
+const homed = blocksIntoDetails("product-information", horizon, takesAll)
+const det = homed?.find((b) => b.id === "product-details")
+check("a text added at the end goes into Details, after what's there", det?.blocks?.map((b) => b.id).join() === "price,buy,text-1", det)
+check("a picture stays where it is", !!homed?.some((b) => b.id === "pic"))
+check("a block Details can't hold stays where it is", !!homed?.some((b) => b.id === "priv"))
+check("nothing to move is nothing", blocksIntoDetails("product-information", homed ?? [], takesAll) === null)
+const virtual = blocksIntoDetails<{ id: string; type: string; static?: boolean; blocks?: { id: string; type: string }[] }>("product-information", [{ id: "t", type: "text" }], takesAll, [{ type: "_product-media-gallery", id: "media-gallery" }, { type: "_product-details", id: "product-details" }])
+check("Details nobody has edited yet is made, holding the block", virtual?.length === 1 && virtual[0].id === "product-details" && virtual[0].static === true && virtual[0].blocks?.[0]?.id === "t", virtual)
+check("a section that isn't a product's is left alone", blocksIntoDetails("contact-form", [{ id: "info", type: "contact-info", static: true }, { id: "t", type: "text" }], takesAll) === null)
+check("a featured product counts", isProductSection("featured-product", []))
+check("so does a section with a media block beside its details", isProductSection("hero", [{ id: "m", type: "_media", static: true }, { id: "d", type: "_details", static: true }]))
+check("out of Details to under the product is never offered", staysInDetails("product-information", horizon, "_product-details") === true)
+check("out of any other group is", staysInDetails("product-information", horizon, "group") === false)
+const statics = contentForStatics(`{% content_for 'block', type: '_product-media-gallery', id: 'media-gallery' %}{%- content_for 'block',\n type: "_product-details",\n id: "product-details", closest.product: closest.product -%}`)
+check("the statics a file places are read, multi-line calls too", statics.map((x) => x.id).join() === "media-gallery,product-details", statics)
+const theme2 = read("lib/storelib-theme/compat/theme.ts")
+check("the website draws by the rule (imported themes)", /blocksIntoDetails\(instance\.type, instance\.blocks, this\.blockTakes/.test(theme2))
+check("the editor keeps to it (what loads, drags, AI edits)", /const homed = blocksIntoDetails\(s\.type, s\.blocks, takes/.test(editor))
+check("the sidebar doesn't offer dragging out of Details", /staysInDetails\(section\.type, section\.blocks/.test(editor))
+
+console.log("\nBuying never lands in the wrong checkout")
+const digital = read("app/checkout/page.tsx")
+check("a product that ships, sent to the digital checkout, goes to the cart checkout", /\.type === "physical"\) \{[\s\S]{0,400}redirect\(physicalCheckoutHref\(product\.creator_id/.test(digital))
+const physPage = read("app/checkout/physical/page.tsx")
+const physClient = read("app/checkout/physical/physical-checkout.tsx")
+check("Back in the cart checkout is the store's own site, checked on the server", /checkoutReturns\(\{ creatorId: shop, cancel: asked \}\)/.test(physPage) && /backTo=\{backTo\}/.test(physPage))
+check("and any other address in ?return= is never a link", !/params\.get\("return"\)/.test(physClient))
+check("fields keep their names once filled (floating labels)", (physClient.match(/className=\{FLOAT_INPUT\}/g) ?? []).length >= 4 && (physClient.match(/className=\{FLOAT_SELECT\}/g) ?? []).length === 2)
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

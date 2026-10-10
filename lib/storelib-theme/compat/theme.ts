@@ -54,6 +54,7 @@ import {
 } from "./objects"
 import { formatMoney, type CompatRegisters } from "./filters"
 import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
+import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
 
 type O = Record<string, unknown>
 
@@ -193,6 +194,7 @@ export interface RenderedSection {
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
+  private staticCache = new Map<string, { type: string; id: string }[]>()
   private locale: O | null
   private schemaLocale: O | null
   readonly settingsSchema: O[]
@@ -233,6 +235,25 @@ export class CompatTheme {
       if (this.files[p] !== undefined) return p
     }
     return null
+  }
+
+/** The static blocks a section's file places, read once. */
+  private staticsOf(path: string): { type: string; id: string }[] {
+    const key = `statics:${path}`
+    const hit = this.staticCache.get(key)
+    if (hit) return hit
+    const list = contentForStatics(this.files[path] ?? "")
+    this.staticCache.set(key, list)
+    return list
+  }
+
+  /** Whether a block of `owner`'s type can hold a block of `type`: named in its schema, or a public theme block where it takes "@theme". */
+  private blockTakes = (owner: string, type: string): boolean => {
+    const schema = this.schemaOf("blocks", owner)
+    const named = (Array.isArray(schema.blocks) ? (schema.blocks as O[]) : []).map((b) => String(b.type ?? ""))
+    if (named.includes(type)) return true
+    if (/^shopify:\/\/apps\//.test(type)) return named.includes("@app")
+    return !type.startsWith("_") && named.includes("@theme") && this.fileFor("blocks", type) !== null
   }
 
   schemaOf(folder: "sections" | "blocks", type: string): O {
@@ -489,6 +510,9 @@ export class CompatTheme {
       this.diagnostics.add(`A page names the section "${instance.type}", which this theme does not have`)
       return { html: "", errors: [`There is no section called ${instance.type}`] }
     }
+    /* A product section's blocks are drawn in its Details column, never under the product (lib/website-builder/product-details-rule.ts). */
+    const homed = blocksIntoDetails(instance.type, instance.blocks, this.blockTakes, this.staticsOf(path!))
+    if (homed) instance = { ...instance, blocks: homed }
     const schema = this.schemaOf("sections", instance.type)
     const res = ctx.registers.res as Resources
     let holder: Ctx | null = null

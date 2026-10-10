@@ -108,6 +108,7 @@ import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementL
 import { watchKeyboard } from "@/lib/website-builder/keyboard-watch"
 import { clearStaleDocumentLocks, watchForStuckLayer } from "@/lib/website-builder/stuck-layer"
 import { addableBlocks, blockSchemaIn, customAddableSections, customSectionSchemas, schemaFor, themeBlockCatalog } from "@/lib/website-builder/storelib-schemas"
+import { blocksIntoDetails, staysInDetails, PRODUCT_DETAILS_BLOCK } from "@/lib/website-builder/product-details-rule"
 import { blockAt, cloneTree, countAll, depthOf, freshBlocks, insertAt as insertBlockAt, parsePath, pathKey, removeAt, resolvePath, updateAt, withChildren } from "@/lib/website-builder/block-tree"
 import { type BlockChoice } from "@/components/website-builder/editor/add-block-button"
 import { isStorelibSection, newSectionSettings } from "@/lib/website-builder/storelib-runtime"
@@ -1040,8 +1041,6 @@ export type DeviceMode = "desktop" | "mobile"
 const FULL_SCREEN_KEY = "wb:full-screen"
 /** How long the sidebar takes to fold away or come back. */
 const FULL_SCREEN_MS = 320
-/** A product section's Details block (Horizon's _product-details, product-details, a "details" group): where its buttons and text belong. */
-const PRODUCT_DETAILS_BLOCK = /(^|[-_])(product[-_]?)?(details|info|information)$/i
 
 const DEVICE_WIDTH: Record<Exclude<DeviceMode, "desktop">, number> = {
   mobile: 390,
@@ -2450,6 +2449,8 @@ function BlockTreeFor({
       const def = defOf(above.type)
       return levelTakes(def ? { accepts: def.accepts, max_blocks: def.max_blocks } : undefined, false, above.blocks ?? [], b, parent.length + 1)
     }
+    /* Out of a product's Details block to under the product: not offered (lib/website-builder/product-details-rule.ts). */
+    if (parent.length === 1 && staysInDetails(section.type, section.blocks, outer?.siblings.find((x) => x.id === parent[0])?.type, schema.statics ?? [])) return false
     return parent.length > 0 && levelTakes(outer?.owner, parent.length === 1, outer?.siblings ?? [], b, parent.length - 1)
   }
   const onNest = (i: number, dir: 1 | -1) => {
@@ -4779,6 +4780,35 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSelectedBlockId(pathKey([...parent, newBlock.id]))
     setIsDirty(true)
   }
+
+  /**
+   * A PRODUCT'S BLOCKS STAY IN ITS DETAILS COLUMN (lib/website-builder/
+   * product-details-rule.ts). A page saved with blocks at a product section's
+   * own level (they were drawn under the product), and anything a drag, an
+   * undo or Storelib AI puts there, is moved into the Details block, so the
+   * sidebar, the canvas and the website agree. Not an edit of its own: it is
+   * saved with the next one, and the website already draws it this way.
+   */
+  useEffect(() => {
+    let changed = false
+    const next = sections.map((s) => {
+      const schema = schemaFor(s.type, storelibSources, librarySchemas)
+      const takes = (detailsType: string, type: string) => {
+        const def = blockSchemaIn(schema, blockCatalog, detailsType)
+        return addableBlocks({ accepts: def?.accepts }, blockCatalog).some((k) => k.type === type)
+      }
+      const homed = blocksIntoDetails(s.type, s.blocks, takes, schema?.statics ?? [])
+      if (!homed) return s
+      changed = true
+      /* The block being edited keeps being edited, at its new address. */
+      const details = homed.find((b) => b.static && PRODUCT_DETAILS_BLOCK.test(b.type))
+      const kept = new Set(homed.map((b) => b.id))
+      const moved = (s.blocks ?? []).filter((b) => !kept.has(b.id)).map((b) => b.id)
+      if (details) setSelectedBlockId((key) => (key && moved.includes(key) ? pathKey([details.id, key]) : key))
+      return { ...s, blocks: homed }
+    })
+    if (changed) setSections(next)
+  }, [sections, storelibSources, librarySchemas, blockCatalog])
 
   /** The same block again, right below it, with its own ids all the way down. */
   const duplicateBlock = (sectionId: string, blockKey: string) => {
