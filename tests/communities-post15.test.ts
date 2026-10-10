@@ -227,7 +227,8 @@ console.log("\nSOURCE: Save, the viewer, a card answering openPost")
   check("only a press that saves settles the icon (not the first draw, not the server's answer)", /if \(!pressed\.current\) return/.test(sb) && /if \(!on \|\| !el/.test(sb))
   const pc = read("components/community/member/post-card.tsx")
   check("the opened post uses it", /import \{ SaveButton \} from "\.\/save-button"/.test(pc) && !/function SaveButton/.test(pc))
-  check("a card on screen answers openPost for its own post", /useOpenPostRequests\(\(r\) => \{\s*if \(full \|\| editing \|\| r\.postId !== post\.id\) return false/.test(pc))
+  /* Round 16: by its id or the short id a post's address carries (open-post.ts requestNames). */
+  check("a card on screen answers openPost for its own post", /useOpenPostRequests\(\(r\) => \{\s*if \(full \|\| editing \|\| !requestNames\(r, post\.id\)\) return false/.test(pc))
   check("the picture viewer is a counted 'viewer' layer", /useLayer\("viewer", true, rootRef\)/.test(read("components/community/member/lightbox.tsx")))
 }
 

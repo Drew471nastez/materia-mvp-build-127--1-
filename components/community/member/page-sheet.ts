@@ -69,7 +69,7 @@ export const FALLBACK_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
  */
 export function springPoints(ms: number, velocity = 0, n = 32): number[] {
   /* Settled to within 0.2% at the end: (1 + z) e^-z = 0.002 at z of about 8.6. */
-  const omega = 8.6 / Math.max(1, ms / 1000)
+  const omega = 8.6 / Math.max(0.001, ms / 1000)
   const v0 = Math.max(0, Math.min(omega, velocity))
   const out: number[] = []
   for (let i = 0; i <= n; i++) {
