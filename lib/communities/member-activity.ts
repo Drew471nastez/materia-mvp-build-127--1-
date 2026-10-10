@@ -237,9 +237,11 @@ export function boardTotals(grid: Pick<ActivityGrid, "days">): { posts: number; 
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`
 
-/** "Tue, Oct 7: 2 posts, 1 comment, 3 likes" or "Tue, Oct 7: nothing". */
-export function cellLabel(c: Pick<BoardCell, "day" | "posts" | "comments" | "likes">): string {
-  const date = new Date(dayMs(c.day)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" })
+/** "Tue, Oct 7: 2 posts, 1 comment, 3 likes" or "Tue, Oct 7: nothing" ("Tue, Oct 28, 2025" in another year than `today`). */
+export function cellLabel(c: Pick<BoardCell, "day" | "posts" | "comments" | "likes">, today?: string): string {
+  /* A day in another year than today's says its year: the grid reaches back across New Year. */
+  const year = today && today.slice(0, 4) !== c.day.slice(0, 4) ? "numeric" : undefined
+  const date = new Date(dayMs(c.day)).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year, timeZone: "UTC" })
   const parts: string[] = []
   if (c.posts) parts.push(plural(c.posts, "post", "posts"))
   if (c.comments) parts.push(plural(c.comments, "comment", "comments"))
@@ -247,7 +249,18 @@ export function cellLabel(c: Pick<BoardCell, "day" | "posts" | "comments" | "lik
   return `${date}: ${parts.length ? parts.join(", ") : "nothing"}`
 }
 
-/** The line under the grid when no day is picked. */
+/** The line under the grid when no day is picked, under the "Last 12 months" heading: "51 posts, 229 comments and 298 likes". */
+export function boardTally(grid: Pick<ActivityGrid, "days">): string {
+  const t = boardTotals(grid)
+  if (!t.total) return "Nothing here yet"
+  const parts: string[] = []
+  if (t.posts) parts.push(plural(t.posts, "post", "posts"))
+  if (t.comments) parts.push(plural(t.comments, "comment", "comments"))
+  if (t.likes) parts.push(plural(t.likes, "like", "likes"))
+  return parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]
+}
+
+/** The whole year in one sentence, for a screen reader. */
 export function boardSummary(grid: Pick<ActivityGrid, "days">): string {
   const t = boardTotals(grid)
   if (!t.total) return "Nothing here in the last year yet"
