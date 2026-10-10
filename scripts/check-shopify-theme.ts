@@ -289,7 +289,7 @@ async function run(zipPath: string) {
       const kept = await page.evaluate(async () => (await fetch("/cart.js")).json())
       const sentItems = (lastCheckout as { items?: { quantity?: number }[] } | null)?.items ?? []
       check("Buy it now goes straight to checkout with that item alone", buyNow && sentItems.length === 1 && sentItems[0]?.quantity === 1, `button ${buyNow}, sent ${JSON.stringify(sentItems).slice(0, 120)}`)
-      check("  and the cart is left as it was", kept.item_count === 2, `item_count ${kept.item_count}`)
+      check("  and the cart is left as it was", kept.item_count === after.item_count, `item_count ${after.item_count} then ${kept.item_count}`)
 
       /* The search box. */
       await visit("/")
