@@ -30,9 +30,9 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps, schemeButton } from "../_shared"
+  type SectionProps, schemeButton, firstPicture } from "../_shared"
 
-export function SlideshowSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function SlideshowSection({ section, theme, isEditing, isSelected, onClick, pageIndex }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const bg = c.bg === "#ffffff" ? "#000000" : c.bg
@@ -110,6 +110,7 @@ export function SlideshowSection({ section, theme, isEditing, isSelected, onClic
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
                     loading={i === 0 ? "eager" : "lazy"}
+                    fetchPriority={i === 0 ? firstPicture(pageIndex).fetchPriority : undefined}
                     decoding="async"
                   />
                 ) : (

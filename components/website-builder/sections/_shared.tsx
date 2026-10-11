@@ -58,6 +58,11 @@ export interface SectionProps {
   /** Editor-only: a class for the section's box, the element that has the
    *  page's other sections as siblings (the arrival animation). */
   boxClassName?: string
+  /** Published pages only: where this section sits among the page's own
+   *  sections, 0 for the first under the header. A banner near the top loads
+   *  its picture straight away instead of waiting to be scrolled to (see
+   *  `firstPicture`). Left out in the editor, where nothing changes. */
+  pageIndex?: number
   /** Editor-only: intercept nav link / CTA clicks inside sections so clicking
    *  a link in the header navigates WITHIN the editor canvas to the matching
    *  page instead of doing a full browser navigation. */
@@ -556,4 +561,18 @@ export function SectionWrapper({
       )}
     </div>
   )
+}
+
+/**
+ * HOW A SECTION'S MAIN PICTURE LOADS, by where the section sits. The first two
+ * sections of a published page are what the visitor sees first, so their
+ * picture is fetched as the page arrives, and the very first one ahead of
+ * everything else, the way Shopify's own themes do it with `section.index`.
+ * A lazy picture at the top waits for layout before it is even asked for,
+ * which is the slowest way to paint the biggest thing on the screen. Anywhere
+ * else, and in the editor, it stays lazy.
+ */
+export function firstPicture(pageIndex: number | undefined): { loading: "eager" | "lazy"; fetchPriority?: "high" } {
+  if (pageIndex === undefined || pageIndex > 1) return { loading: "lazy" }
+  return pageIndex === 0 ? { loading: "eager", fetchPriority: "high" } : { loading: "eager" }
 }

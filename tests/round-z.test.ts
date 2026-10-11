@@ -8,6 +8,7 @@ import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { compatFilter } from "@/lib/storelib-theme/compat/filters"
 import { WEB_ONLY_SEGMENTS } from "@/lib/platform/app-links"
+import { firstPicture } from "@/components/website-builder/sections/_shared"
 
 let passed = 0
 let failed = 0
@@ -64,6 +65,21 @@ console.log("\nThe app, on every install")
   check("Android 13's prompt can show: the app declares the permission", /android\.permission\.POST_NOTIFICATIONS/.test(read("android/app/src/main/AndroidManifest.xml")))
   check("the first launch after an install asks, signed in or not", /if \(permission === "prompt"\) \{\s*const answer = await askPushPermission\(\)/.test(read("components/platform/notifications-ask.tsx")))
   check("the platform's own pages are never read as a creator handle in app links", ["order-help", "pay", "payouts-sheet", "stripe-done"].every((s) => (WEB_ONLY_SEGMENTS as readonly string[]).includes(s)))
+}
+
+console.log("\nA live page's first picture")
+{
+  check("the first section's picture is fetched at once, ahead of the rest", JSON.stringify(firstPicture(0)) === '{"loading":"eager","fetchPriority":"high"}')
+  check("  the second's at once too, the rest when they are scrolled to", firstPicture(1).loading === "eager" && !firstPicture(1).fetchPriority && firstPicture(2).loading === "lazy")
+  check("  and in the editor, where nothing says where it sits, as before", firstPicture(undefined).loading === "lazy")
+  const page = read("components/website-builder/theme/ThemePage.tsx")
+  check("the published page tells each section where it sits", /render\(section, "body", false, i\)/.test(page) && /pageIndex=\{pageIndex\}/.test(page))
+  check("  and a section re-renders when that changes", /prev\.pageIndex === next\.pageIndex/.test(read("components/website-builder/sections/SectionRenderer.tsx")))
+  for (const f of ["ImageBanner", "SplitContent", "Slideshow", "VideoHero"])
+    check(`  ${f} reads it`, /firstPicture\(pageIndex\)/.test(read(`components/website-builder/sections/renderers/${f}Section.tsx`)))
+  const motion = read("lib/website-builder/section-motion.ts")
+  check("a section on screen as the page appears is never hidden for its entrance", /if \(b\.getBoundingClientRect\(\)\.top < bottom\) return\s*style\.set\(b, s\)/.test(motion))
+  check("  only one the script marked is hidden, so nothing is hidden before it runs", /\[data-reveal="pending"\]\{opacity:0;\}/.test(read("lib/website-builder/theme-css.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
