@@ -412,6 +412,13 @@ function renderNode(n: Node, ctx: Ctx, out: string[]): void {
       ctx.scope[n.name] = inner.join("")
       return
     }
+    case "ifchanged": {
+      const inner: string[] = []
+      renderNodes(n.body, ctx, inner)
+      const drawn = inner.join("")
+      if (ctx.registers.ifchanged !== drawn) { ctx.registers.ifchanged = drawn; push(out, ctx, drawn) }
+      return
+    }
     case "incdec": {
       const cur = ctx.counters[n.name] ?? 0
       if (n.by === 1) { push(out, ctx, String(cur)); ctx.counters[n.name] = cur + 1 }

@@ -201,7 +201,9 @@ function imageTag(input: unknown, kwargs: Record<string, unknown>, ctx?: Ctx): s
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null
-  if (typeof v === "number") return v
+  /* A sum the theme worked out with a float ("price | times: 0.8", "divided_by: 4.0") is a float, and still a price. */
+  if (v instanceof LFloat) return Math.round(v.v)
+  if (typeof v === "number") return Math.round(v)
   if (typeof v === "string") {
     const t = v.trim()
     if (/^-?\d+$/.test(t)) return Number(t)
@@ -219,6 +221,8 @@ function delimit(n: string, thousands: string): string {
 }
 
 export function formatMoney(amountCents: number, format: string): string {
+  /* Below zero, the sign goes in front of the whole price, as Shopify writes it: -$10.50, never $-10.50. */
+  if (amountCents < 0) return `-${formatMoney(-amountCents, format)}`
   const value = amountCents / 100
   const fixed = (d: number) => value.toFixed(d)
   return format.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
@@ -627,7 +631,12 @@ const F: Record<string, FilterFn> = {
   format_address: (v) => { const o = (v ?? {}) as Record<string, unknown>; return ["name", "company", "address1", "address2", "city", "province", "zip", "country"].map((k) => str(o[k])).filter(Boolean).map(escapeHtml).join("<br>") },
   metafield_tag: (v) => escapeHtml(str((v as Record<string, unknown>)?.value ?? v)),
   metafield_text: (v) => str((v as Record<string, unknown>)?.value ?? v),
-  weight_with_unit: (v, [unit]) => `${num(v)} ${str(unit) || "kg"}`,
+  /* A weight is kept in grams, as Shopify keeps it, and written in the unit asked for (the shop's, kg, when none is). */
+  weight_with_unit: (v, [unit]) => {
+    const u = (str(unit) || "kg").toLowerCase()
+    const per = ({ kg: 1000, g: 1, lb: 453.59237, lbs: 453.59237, oz: 28.349523125 } as Record<string, number>)[u] ?? 1000
+    return `${Math.round((num(v) / per) * 100) / 100} ${u === "lbs" ? "lb" : u in { kg: 1, g: 1, lb: 1, oz: 1 } ? u : "kg"}`
+  },
   item_count_for_variant: (v, [id]) => { const items = toList((v as Record<string, unknown>)?.items); return items.filter((i) => str((i as Record<string, unknown>).variant_id) === str(id)).reduce<number>((s, i) => s + num((i as Record<string, unknown>).quantity), 0) },
   line_items_for: (v, [obj]) => { const items = toList((v as Record<string, unknown>)?.items); const id = str((obj as Record<string, unknown>)?.id); return items.filter((i) => str((i as Record<string, unknown>).product_id) === id || str((i as Record<string, unknown>).variant_id) === id) },
   link_to_tag: (v, [tag]) => `<a href="?tag=${encodeURIComponent(str(tag))}" title="${attr(tag)}">${str(v)}</a>`,
