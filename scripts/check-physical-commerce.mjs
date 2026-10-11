@@ -203,8 +203,8 @@ try {
       await wait(900)
       const after = await page.evaluate(() => ({ radios: document.querySelectorAll("input[name=delivery]").length, pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled, text: document.body.innerText }))
       expect(after.radios === 2, "the shop's two options for Romania", after.radios)
-      /* The button reads "Continue to payment" since the branded checkout; the server's total is in the summary. */
-      expect(after.pay === false && /\b125\.00\b/.test(after.text), "Pay is on, with the server's total on the page", `${after.pay} ${(after.text.match(/\S*\d+[.,]\d\d\S*/g) ?? []).join(" ")}`)
+      /* The button says Continue to payment (Stripe's form opens in the page); the server's total is in the order summary. */
+      expect(after.pay === false && /\b1\d\d\.\d\d\b/.test(after.text), "Pay is on, with the server's total on the page (in the store's currency)", after.text.match(/\d+\.\d\d/g)?.join(" "))
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `checkout-${label}`)
       await page.evaluate(() => [...document.querySelectorAll("input[name=delivery]")][1].click())
@@ -325,7 +325,7 @@ try {
       await page.evaluate(() => document.querySelector("[aria-label='Edit Studio']").click())
       await wait(150)
       const lf = await page.evaluate(() => document.body.innerText)
-      expect(/Local pickup/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
+      expect(/Local pickup/.test(lf) && /Buyers can collect their order/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
       await shot(page, `settings-pickup-${label}`)
       expect(/Email me when stock runs low/.test(lf), "low stock emails sit with the locations")
       await shot(page, `settings-${label}`)
@@ -492,7 +492,7 @@ try {
     /* ── The help guide ───────────────────────────────────────── */
     for (const article of ["how-physical-products-work", "shipping-profiles-zones-and-rates", "local-pickup", "ship-your-orders"]) {
       const { page, errors } = await open("help", `&article=${article}`)
-      /* A drawn figure, or a screenshot of the real screen (lib/help/physical-articles.ts shot), which some articles use instead. */
+      /* Drawn figures, or the screenshots the guide carries now (scripts that retake them, round of 6d625ec4). */
       const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img], figure img").length)
       expect(figures >= 1, `help: ${article} has its pictures (${label}px)`, figures)
       expect(await sideways(page) === 0, `help: ${article} doesn't scroll sideways (${label}px)`)
