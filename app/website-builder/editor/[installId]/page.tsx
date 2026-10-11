@@ -9867,7 +9867,8 @@ function SectionToolbar({
     const measure = () => {
       frame = 0
       const el = document.getElementById(`wb-section-${sectionId}`)
-      if (!el) {
+      /* A site drawer open over the canvas (its menu, its cart) covers the section: the toolbar is not drawn over the drawer. */
+      if (!el || scroller.hasAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)) {
         setBox(null)
         return
       }
@@ -9891,11 +9892,15 @@ function SectionToolbar({
     window.addEventListener("resize", onScroll)
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null
     ro?.observe(scroller)
+    /* And measured again when one opens or closes. */
+    const mo = typeof MutationObserver !== "undefined" ? new MutationObserver(onScroll) : null
+    mo?.observe(scroller, { attributes: true, attributeFilter: [SITE_DRAWER_OPEN_ATTRIBUTE] })
     return () => {
       if (frame) cancelAnimationFrame(frame)
       scroller.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onScroll)
       ro?.disconnect()
+      mo?.disconnect()
     }
   }, [sectionId])
 
