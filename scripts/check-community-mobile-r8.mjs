@@ -374,7 +374,10 @@ async function partOpenClose() {
 /* ── THE COMPOSER ── New post over a feed scrolled part way: the page behind holds, the toolbar sits on the keys. */
 async function partComposer() {
   console.log("\nCOMPOSER: New post over a scrolled feed, the keyboard up and down")
-  for (const env of ["safari", "app-resize", "android"]) {
+  for (const run of ["safari", "safari-pan", "app-resize", "android"]) {
+    /* safari-pan: iOS also panned the page 120px to the field (the visible part starts 120px down the fixed box). */
+    const env = run === "safari-pan" ? "safari" : run
+    const pan = run === "safari-pan" ? 120 : 0
     const s = await session({ env })
     await s.p.evaluate(() => window.scrollTo(0, 640))
     await sleep(400)
@@ -391,7 +394,7 @@ async function partComposer() {
     const sheetTop0 = await s.p.evaluate(() => Math.round(document.querySelector("[data-mobile-bottom-sheet]").getBoundingClientRect().top))
     /* The keyboard comes up with the focus, as this environment brings it. */
     await s.p.evaluate(() => document.querySelector("[data-composer=sheet] [data-composer-title], [data-composer=sheet] textarea")?.focus())
-    if (env === "safari") await s.p.evaluate(fakeViewport, 0, 464)
+    if (env === "safari") await s.p.evaluate(fakeViewport, pan, 464)
     if (env === "app-resize") {
       await s.p.evaluate(() => window.__kbShow(380))
       await resizeTo(s, 464)
@@ -404,8 +407,9 @@ async function partComposer() {
       const shell = document.querySelector("[data-community-shell]")
       return { scrollY: Math.round(scrollY), bar: Math.round(bar.bottom), sheetTop: Math.round(sheet.top), shellMax: getComputedStyle(shell).maxHeight, kbOpen: document.documentElement.classList.contains("keyboard-open"), focused: !!document.activeElement?.closest?.("[data-composer=sheet]") }
     })
-    const keysTop = 464
-    await phoneShot(s, `composer-${env}`, env === "safari" ? { top: 0, visible: 464, keys: 380 } : { top: 0, visible: 464, keys: 380 })
+    /* Where the keys start, in the page's own coordinates (a pan moves the screen down the fixed box). */
+    const keysTop = 464 + pan
+    await phoneShot(s, `composer-${run}`, { top: pan, visible: 464, keys: 380 })
     /* And down again. */
     await s.p.evaluate(() => document.activeElement?.blur())
     if (env === "safari") await s.p.evaluate(realViewport)
@@ -416,11 +420,12 @@ async function partComposer() {
     await s.p.evaluate(() => document.querySelector("[data-composer-cancel]")?.click())
     await sleep(1200)
     const shut = await s.p.evaluate(() => ({ scrollY: Math.round(scrollY), sheet: !!document.querySelector("[data-composer=sheet]") }))
-    console.log(`  ${env}: ${JSON.stringify({ y0, field, sheetTop0, up, down, shut })}`)
-    expect(up.focused && Math.abs(up.bar - keysTop) <= 2, `${env}: the toolbar sits on the keys (${keysTop}), the field keeps the caret`, up)
-    expect(up.scrollY === y0 || env !== "safari", `${env}: the feed behind keeps its scroll while the keyboard is up`, { y0, up: up.scrollY })
-    expect(down.scrollY === y0 && shut.scrollY === y0 && !shut.sheet, `${env}: and after it goes down and the sheet closes, the feed is where it was`, { y0, down, shut })
-    expect(!s.errors.length, `no page errors (composer ${env})`, s.errors.slice(0, 3))
+    console.log(`  ${run}: ${JSON.stringify({ y0, field, sheetTop0, up, down, shut })}`)
+    expect(up.focused && Math.abs(up.bar - keysTop) <= 2, `${run}: the toolbar sits on the keys (${keysTop} in the page), the field keeps the caret`, up)
+    expect(up.sheetTop >= pan, `${run}: the sheet's top is on the screen (not under a pan)`, { pan, sheetTop: up.sheetTop })
+    expect(up.scrollY === y0, `${run}: the feed behind keeps its scroll while the keyboard is up`, { y0, up: up.scrollY })
+    expect(down.scrollY === y0 && shut.scrollY === y0 && !shut.sheet, `${run}: and after it goes down and the sheet closes, the feed is where it was`, { y0, down, shut })
+    expect(!s.errors.length, `no page errors (composer ${run})`, s.errors.slice(0, 3))
     await s.p.close()
   }
 }
@@ -451,6 +456,34 @@ async function partSearch() {
   await phoneShot(s, "search-over-post")
   expect(opened && facts.screen && facts.top === "search" && facts.middle === "search" && facts.foot === "search", "the search screen covers the post, top to foot (nothing of the post or the tab bar over it)", facts)
   expect(facts.caret, "its field has the caret", facts)
+  /* A post picked from it opens over the place, in place of the one that was open. */
+  await s.p.evaluate(() => document.querySelector("[data-community-search-input]")?.focus())
+  await s.p.keyboard.type("foot")
+  await sleep(900)
+  const result = await s.p.evaluate(() => {
+    const a = [...document.querySelectorAll("[data-community-search-screen] a, [data-community-search-screen] [role=option]")].find((x) => /foot too heavy/i.test(x.textContent || ""))
+    if (!a) return null
+    const r = a.getBoundingClientRect()
+    return { x: Math.round(r.left + 40), y: Math.round(r.top + r.height / 2) }
+  })
+  if (result) {
+    await s.tap(result.x, result.y)
+    await sleep(1800)
+  }
+  const picked = await s.p.evaluate(() => ({
+    screen: !!document.querySelector("[data-community-search-screen]"),
+    path: location.pathname,
+    /* The post on top: the last layer that is drawn (the one it was opened over may be kept under it, or on its way out). */
+    title: [...document.querySelectorAll("[data-post-fullscreen]")].filter((l) => getComputedStyle(l).visibility !== "hidden").at(-1)?.textContent?.includes("Is this foot too heavy?") ?? false,
+    layers: [...document.querySelectorAll("[data-post-fullscreen]")].map((l) => getComputedStyle(l).visibility),
+  }))
+  await phoneShot(s, "search-picked-post")
+  expect(!!result && !picked.screen && /\/post\//.test(picked.path) && picked.title, "a post picked there opens over the community, the search gone", { result, picked })
+  if (picked.title) {
+    expect(!s.errors.length, "no page errors (search)", s.errors.slice(0, 3))
+    await s.p.close()
+    return
+  }
   /* Cancel: back to the post as it was. */
   await s.p.evaluate(() => document.querySelector("[data-community-search-close]")?.click())
   await sleep(600)
