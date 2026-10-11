@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 131: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 133: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3184,6 +3184,39 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS max_per_order integer;
 ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_max_per_order_check;
 ALTER TABLE public.products ADD CONSTRAINT products_max_per_order_check CHECK (max_per_order IS NULL OR (max_per_order >= 1 AND max_per_order <= 999));
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('131', '131_products_max_per_order.sql', '6d2388941730e3490474a62561f5224313ced2db03639b34684edf4b2c055453') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 133_products_sales_limit.sql
+/* Limit sales for downloads: `products.sales_limit`, the most copies of a product that can ever be sold (a limited run of 100 sample packs), set under Settings in the product editor. 1 to 1,000,000, or null for no limit; no rows change. A checkout takes a place under the limit before anything is charged, in one statement that locks the product's row (`hold_product_sale`), so two buyers paying for the last copy cannot both pass; the place is given back when the payment will not happen (`release_product_sale`) and otherwise lapses after 35 minutes. Sold is counted from the orders themselves (`product_copies_sold`): paid ones, and partly refunded ones, whose buyer keeps the product; a fully refunded order gives its copy back. `product_sales_status` is what the editor and the shop read. Server only. Needs part 78 (orders.quantity). Until it runs, the editor saves everything else and says a typed limit needs this part, and nothing is limited. Safe to run again. */
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS sales_limit integer;
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_sales_limit_check;
+ALTER TABLE public.products ADD CONSTRAINT products_sales_limit_check CHECK (sales_limit IS NULL OR (sales_limit >= 1 AND sales_limit <= 1000000));
+CREATE TABLE IF NOT EXISTS public.product_sale_holds ( product_id uuid NOT NULL REFERENCES public.products(id) ON DELETE CASCADE, holder text NOT NULL CHECK (char_length(holder) BETWEEN 1 AND 200), quantity integer NOT NULL DEFAULT 1 CHECK (quantity BETWEEN 1 AND 1000), expires_at timestamptz NOT NULL, created_at timestamptz NOT NULL DEFAULT now(), PRIMARY KEY (product_id, holder) );
+ALTER TABLE public.product_sale_holds ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON TABLE public.product_sale_holds FROM PUBLIC;
+REVOKE ALL ON TABLE public.product_sale_holds FROM anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.product_sale_holds TO service_role;
+/* Copies sold: paid orders, and orders refunded in part (the buyer keeps the product). An order refunded in full gives its copy back. A basket line of several copies counts each one. */
+CREATE OR REPLACE FUNCTION public.product_copies_sold(p_product uuid) RETURNS integer LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT coalesce(sum(greatest(1, coalesce(o.quantity, 1))), 0)::integer FROM public.orders o WHERE o.product_id = p_product AND (o.status = 'completed' OR (o.status = 'refunded' AND coalesce(o.refund_amount_cents, 0) > 0 AND o.refund_amount_cents < coalesce(o.amount_cents, 0))) $$;
+/* Takes or refreshes a holder's place for p_quantity copies. The product's row is locked first (FOR NO KEY UPDATE, so orders can still be written beside it), so two calls for one product run one after the other and the second counts the first one's place. Expired places are cleared on the way. True when there is room (always, with no limit, and then nothing is held); false when there is none, or no such product. Called when a payment starts, and again when a paid payment becomes its order, so a place that lapsed in between is taken again only while there is room. */
+CREATE OR REPLACE FUNCTION public.hold_product_sale(p_product uuid, p_holder text, p_quantity integer, p_seconds integer) RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$ DECLARE lim integer; sold integer; others integer; q integer := greatest(1, least(coalesce(p_quantity, 1), 1000)); BEGIN IF p_holder IS NULL OR char_length(p_holder) NOT BETWEEN 1 AND 200 THEN RETURN false; END IF; SELECT p.sales_limit INTO lim FROM public.products p WHERE p.id = p_product FOR NO KEY UPDATE; IF NOT FOUND THEN RETURN false; END IF; DELETE FROM public.product_sale_holds h WHERE h.product_id = p_product AND h.expires_at < now(); IF lim IS NULL THEN RETURN true; END IF; sold := public.product_copies_sold(p_product); SELECT coalesce(sum(h.quantity), 0) INTO others FROM public.product_sale_holds h WHERE h.product_id = p_product AND h.holder <> p_holder; IF sold + others + q > lim THEN RETURN false; END IF; INSERT INTO public.product_sale_holds (product_id, holder, quantity, expires_at) VALUES (p_product, p_holder, q, now() + make_interval(secs => greatest(60, least(coalesce(p_seconds, 2100), 86400)))) ON CONFLICT (product_id, holder) DO UPDATE SET quantity = excluded.quantity, expires_at = excluded.expires_at; RETURN true; END $$;
+/* A place given back: the payment it was for will not happen, or its order now counts the copy. */
+CREATE OR REPLACE FUNCTION public.release_product_sale(p_product uuid, p_holder text) RETURNS void LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$ DELETE FROM public.product_sale_holds WHERE product_id = p_product AND holder = p_holder $$;
+/* What the editor and the shop show, for the products with a limit among those asked about: the limit, copies sold, and copies held by payments in progress. */
+CREATE OR REPLACE FUNCTION public.product_sales_status(p_products uuid[]) RETURNS TABLE (product_id uuid, sales_limit integer, sold integer, held integer) LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$ SELECT p.id, p.sales_limit, public.product_copies_sold(p.id), (SELECT coalesce(sum(h.quantity), 0)::integer FROM public.product_sale_holds h WHERE h.product_id = p.id AND h.expires_at >= now()) FROM public.products p WHERE p.id = ANY ((coalesce(p_products, '{}'::uuid[]))[1:500]) AND p.sales_limit IS NOT NULL $$;
+/* Only the server counts, holds and gives back places. */
+REVOKE ALL ON FUNCTION public.product_copies_sold(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.product_copies_sold(uuid) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.product_copies_sold(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.hold_product_sale(uuid, text, integer, integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.hold_product_sale(uuid, text, integer, integer) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.hold_product_sale(uuid, text, integer, integer) TO service_role;
+REVOKE ALL ON FUNCTION public.release_product_sale(uuid, text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.release_product_sale(uuid, text) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.release_product_sale(uuid, text) TO service_role;
+REVOKE ALL ON FUNCTION public.product_sales_status(uuid[]) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.product_sales_status(uuid[]) FROM anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.product_sales_status(uuid[]) TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('133', '133_products_sales_limit.sql', '0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;
