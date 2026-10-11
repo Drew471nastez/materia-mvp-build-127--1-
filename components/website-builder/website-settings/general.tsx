@@ -93,6 +93,7 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
               onChange={(url) => ctx.onSettingChange("favicon_url", url ?? "")}
               aspectRatio="favicon"
               folder="logos"
+              library={false}
             />
           </div>
         </Row>

@@ -85,8 +85,9 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
+import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
-import { CompatPreviewBox, CompatPreviewProvider, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
+import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -741,7 +742,9 @@ const LibraryCard = memo(function LibraryCard({
           "w-full overflow-hidden rounded-xl border border-[#e5e7eb] bg-white",
           /* A pointer gets a lift; a thumb gets the shell's own dim, and nothing of the card's. */
           "transition-[border-color,box-shadow,translate] duration-200 ease-out",
-          !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)] group-hover:-translate-y-px",
+          !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)]",
+          /* An imported theme's picture lies over the card from the list's own frame (CompatPreviewSheet), so its card does not rise from under it. */
+          !phone && !compat && "group-hover:-translate-y-px",
         )}
       >
         {compat ? (
@@ -886,8 +889,24 @@ export const SectionLibrary = memo(function SectionLibrary({
       for (const { i, name } of list) {
         /* A preset may file itself under another category, the way a Shopify preset does: "Image with text" under Media. Never out of the creator's own group. */
         const own_ = sectionCategory === CUSTOM_SECTION_CATEGORY
-        const category = !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
-        const label = SECTION_CATEGORIES[category] ?? category
+        /*
+          AN IMPORTED THEME'S SECTIONS ARE THE THEME'S, NOT THE CREATOR'S. They
+          are all files of the install, so every one of them used to be filed
+          under Created, 143 cards in one list. Each is filed by its kind
+          instead, from what the theme says about it (section-categories.ts).
+        */
+        const category = compatInstallId && schema.imported
+          ? classifyImportedSection({
+              type,
+              name: schema.name,
+              presetName: presets[i]?.name,
+              presetCategory: presets[i]?.category,
+              blockTypes: [...(schema.blocks ?? []).map((b) => b.type), ...(presets[i]?.blocks ?? []).map((b) => b.type)],
+              settingTypes: (schema.fields ?? []).map((f) => f.type),
+              groups: schema.enabled_on?.groups,
+            })
+          : !own_ && presets[i]?.category ? presets[i].category! : sectionCategory
+        const label = (compatInstallId && schema.imported ? IMPORTED_SECTION_CATEGORY_LABELS[category] : undefined) ?? SECTION_CATEGORIES[category] ?? category
         out.push({
           type,
           presetIndex: i,
@@ -900,7 +919,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       }
     }
     return out
-  }, [addable, schemas, own, sourcesTag, lookTag])
+  }, [addable, schemas, own, sourcesTag, lookTag, compatInstallId])
 
   /**
    * The creator's own sections FIRST, then everything, then the theme's own
@@ -909,17 +928,20 @@ export const SectionLibrary = memo(function SectionLibrary({
   const categories = useMemo(() => {
     const counts = new Map<string, number>()
     for (const e of entries) counts.set(e.category, (counts.get(e.category) ?? 0) + 1)
-    const themeOrder = SECTION_CATEGORY_ORDER.map((c) => c.id).filter((id) => counts.has(id))
+    /* An imported theme's kinds in their own order (section-categories.ts); Storelib's in the theme's. */
+    const order = compatInstallId ? IMPORTED_SECTION_CATEGORIES.map((c) => c.id as string) : SECTION_CATEGORY_ORDER.map((c) => c.id)
+    const themeOrder = order.filter((id) => counts.has(id) && id !== CUSTOM_SECTION_CATEGORY)
     const rest = [...counts.keys()].filter((id) => !themeOrder.includes(id) && id !== CUSTOM_SECTION_CATEGORY)
+    const label = (id: string) => (compatInstallId ? IMPORTED_SECTION_CATEGORY_LABELS[id] : undefined) ?? SECTION_CATEGORIES[id] ?? id
     const mine = counts.has(CUSTOM_SECTION_CATEGORY)
       ? [{ key: CUSTOM_SECTION_CATEGORY, label: SECTION_CATEGORIES[CUSTOM_SECTION_CATEGORY] ?? "Yours", count: counts.get(CUSTOM_SECTION_CATEGORY) ?? 0 }]
       : []
     return [
       ...mine,
       { key: "all", label: "All", count: entries.length },
-      ...[...themeOrder, ...rest].map((id) => ({ key: id, label: SECTION_CATEGORIES[id] ?? id, count: counts.get(id) ?? 0 })),
+      ...[...themeOrder, ...rest].map((id) => ({ key: id, label: label(id), count: counts.get(id) ?? 0 })),
     ]
-  }, [entries])
+  }, [entries, compatInstallId])
 
   /**
    * Typing searches the whole library rather than the category in front of
@@ -1169,7 +1191,9 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   const grid = built ? (
     <CompatGridWrap installId={compatInstallId} sources={sources} settings={theme as Record<string, unknown> | undefined}>
-      <div ref={gridRef} data-library-grid="" className="flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
+      <div ref={gridRef} data-library-grid="" className="relative flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
+        {/* An imported theme's sections, every one in one document over the cards (compat-section-preview.tsx). */}
+        {compatInstallId ? <CompatPreviewSheet renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} open={open} layoutKey={`${filterKey}:${cardWidth}`} /> : null}
         {entries.map((e) => {
           const k = cardKey(e)
           return (
@@ -1271,7 +1295,7 @@ export const SectionLibrary = memo(function SectionLibrary({
         </button>
       </div>
       <div className="flex min-h-0 flex-1">
-        <nav className="wb-slim-scroll w-[184px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label="Categories">
+        <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label="Categories">
           {categories.map((cat) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
             return (
@@ -1289,7 +1313,8 @@ export const SectionLibrary = memo(function SectionLibrary({
                 )}
               >
                 <span className="truncate">{cat.label}</span>
-                {cat.key === CUSTOM_SECTION_CATEGORY && <span className="ml-auto text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>}
+                {/* How many each holds, so a long theme's list says where the most is. */}
+                <span data-category-count="" className="ml-auto shrink-0 text-[12px] tabular-nums text-[#9ca3af]">{cat.count}</span>
               </button>
             )
           })}

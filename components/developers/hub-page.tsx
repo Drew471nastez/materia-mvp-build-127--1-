@@ -57,7 +57,7 @@ export function devMetadata(slug: string): Metadata {
     alternates: { canonical: path },
     openGraph: { title, description: page.description, type: "article", url: path, siteName: "Storelib" },
     twitter: { card: "summary", title, description: page.description },
-    keywords: ["Storelib", FRAMEWORK_NAME, "website builder", "sections", ".storelib", "theme development", "Liquid", "AI agents", "llms.txt"],
+    keywords: ["Storelib", FRAMEWORK_NAME, "website builder", "sections", ".storelib", "theme development", "theme templates", "AI agents", "llms.txt"],
   }
 }
 
