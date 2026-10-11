@@ -155,6 +155,7 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
+import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
 import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
@@ -7318,9 +7319,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }),
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
+  /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
+  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_")), previewedProduct?.id ?? null)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
-    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
+    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections, canvasReviews],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
