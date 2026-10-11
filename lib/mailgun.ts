@@ -513,11 +513,13 @@ export function mailgunDomain(): string {
  * Build a "from" header with display name
  */
 export function buildMailgunFromHeader(displayName?: string): string {
-  const name = (displayName || PLATFORM_BRAND).replace(/[<>]/g, "")
+  /* A store's name is typed by its owner: one line, no brackets or quotes to break out of the header with, and
+     quoted when it holds a comma or other special, so "Ana, Studio" is one sender rather than two addresses. */
+  const name = (displayName || PLATFORM_BRAND).replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/[<>"\\]/g, "").replace(/\s+/g, " ").trim().slice(0, 78) || PLATFORM_BRAND
   // Extract email from EMAIL_FROM if it contains angle brackets
   const emailMatch = EMAIL_FROM.match(/<(.+)>/)
   const email = emailMatch ? emailMatch[1] : EMAIL_FROM
-  return `${name} <${email}>`
+  return `${/[(),.:;@[\]]/.test(name) ? `"${name}"` : name} <${email}>`
 }
 
 /**

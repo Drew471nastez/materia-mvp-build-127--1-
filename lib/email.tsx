@@ -533,7 +533,7 @@ async function receiptEmailModel(
  * opening text and button label (lib/emails/customer-custom.ts), on the
  * model the receipt is drawn from. Nothing saved, nothing changes.
  */
-async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
+export async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
   if (!creatorId) return subject
   const [{ loadCustomerEmailCopy }, { resolveCopy, itemsText }] = await Promise.all([import("@/lib/emails/customer-copy-server"), import("@/lib/emails/customer-custom")])
   const saved = await loadCustomerEmailCopy(admin, creatorId)
@@ -831,7 +831,9 @@ export async function sendBuyerDownloadEmail(
   // 3) identity.replyTo (support email)
   // 4) platform support
   // This ensures buyers can reply directly to the seller!
-  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
+  /* The store's own contact email (Settings › Store details) first, as every customer email signs with it (lib/emails/customer-copy-server.ts). */
+  const contact = sellerReplyTo ? null : await import("@/lib/emails/customer-copy-server").then((m) => m.storeContactEmail(admin, creatorId)).catch(() => null)
+  const replyTo = normalizeEmail(sellerReplyTo || "") || contact || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
 
   const receiptLink = receiptUrl(`/receipt/${encodeURIComponent(receiptToken)}`)
   const customerEmail = normalizeEmail(buyerEmail)

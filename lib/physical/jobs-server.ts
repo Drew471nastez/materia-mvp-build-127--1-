@@ -24,7 +24,7 @@ import { resolveCreatorIdentity, resolveSellerEmail } from "@/lib/email"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
-import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
+import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
 import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
 import { orderCancelledEmail, orderConfirmationEmail, orderDateText, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { creatorTimeZone } from "@/lib/account/time-zone"
@@ -353,9 +353,34 @@ export function legalOf(store: object | null | undefined): EmailBrand["legal"] {
   return name || address.length || taxId ? { name: name || null, address, taxId: taxId || null } : null
 }
 
+/**
+ * HOW MANY EMAILS ONE ORDER MAY SEND ITS BUYER IN A DAY. An order's whole
+ * life (confirmed, shipped, out for delivery, delivered, a return and its
+ * refund) is under ten; past this, a store pressing a status back and forth
+ * or a loop somewhere would be filling a buyer's inbox, so further emails
+ * are held and the order says so. Each email is still sent once at most
+ * (the job's key); this is the ceiling on top.
+ */
+export const BUYER_EMAILS_PER_ORDER_PER_DAY = 15
+
+async function overBuyerLimit(db: Db, checkoutId: string): Promise<boolean> {
+  try {
+    const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+    const { data, error } = await db.from("commerce_order_events").select("id").eq("checkout_id", checkoutId).eq("kind", "email.sent").gte("created_at", since).limit(BUYER_EMAILS_PER_ORDER_PER_DAY)
+    if (error) return false
+    return (data ?? []).length >= BUYER_EMAILS_PER_ORDER_PER_DAY
+  } catch {
+    return false
+  }
+}
+
 async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   if (!co.buyer_email) return
+  if (await overBuyerLimit(db, co.id)) {
+    await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
+    return
+  }
   const [identity, store, zone] = await Promise.all([resolveCreatorIdentity(db, co.creator_id), storeIdentity(db, co.creator_id), creatorTimeZone(db, co.creator_id)])
   /* When it was placed, in the store's own time zone, on every email about it. */
   const orderDate = orderDateText(co.paid_at ?? co.created_at ?? null, zone) || null
@@ -466,7 +491,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
     to: co.buyer_email,
-    replyTo: identity.replyTo || store.email || identity.sellerEmail || undefined,
+    /* The store's contact email, the one the footer shows; never Storelib's own support inbox standing in for a store that has none. */
+    replyTo: replyAddress(store.email) ?? (identity.replyTo && identity.replyTo !== EMAIL_REPLY_TO ? identity.replyTo : undefined),
     subject: mail.subject,
     html: mail.html,
     text: mail.text,

@@ -81,7 +81,8 @@ export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribe
   const sent = await sendEmail({
     from: buildFromHeader(shopName),
     to: s.email,
-    replyTo: identity.replyTo || store?.email || identity.sellerEmail || undefined,
+    /* The store's contact email first, the one the footer shows (Settings › Store details). */
+    replyTo: store?.email || identity.replyTo || identity.sellerEmail || undefined,
     subject: mail.subject,
     html: mail.html,
     text: mail.text,

@@ -46,3 +46,29 @@ export async function saveCustomerEmailCopy(db: Db, creatorId: string, id: unkno
   if (saveError) return { ok: false, error: MISSING.has(saveError.code) ? EMAILS_NEED_PART : "That could not be saved. Try again in a moment.", status: MISSING.has(saveError.code) ? 409 : 500 }
   return { ok: true, copy: next }
 }
+
+/**
+ * WHERE A BUYER'S REPLY GOES: the contact email from Settings › Store details
+ * (store_settings.contact_email, SQL part 118), the address the emails show
+ * in their footer, so the header and the footer never disagree. Null when
+ * the store has none, or it is not a plain address, or it is one of
+ * Storelib's relay addresses: the caller keeps its own.
+ */
+export async function storeContactEmail(db: Db, creatorId: string | null | undefined): Promise<string | null> {
+  if (!creatorId) return null
+  try {
+    const { data, error } = await db.from("store_settings").select("contact_email").eq("creator_id", creatorId).maybeSingle()
+    if (error) return null
+    return replyAddress(data?.contact_email)
+  } catch {
+    return null
+  }
+}
+
+/** A plain address fit for a Reply-To header, or null: one line, one @, no relay (+slb-). */
+export function replyAddress(value: unknown): string | null {
+  if (typeof value !== "string") return null
+  const v = value.trim().toLowerCase()
+  if (!v || v.length > 254 || /\+slb-/i.test(v)) return null
+  return /^[a-z0-9._%+-]+@[a-z0-9-]+(\.[a-z0-9-]+)*\.[a-z]{2,}$/.test(v) ? v : null
+}
