@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic"
 
 /** One physical order, by its id or by any of its line's order ids (the Orders list opens lines). */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("orders")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)
@@ -39,7 +39,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 const ORDER_ACTIVITY: Record<string, string> = { comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", cancel: "order.cancelled", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("orders")
   if (c instanceof NextResponse) return c
   const { id } = await params
   if (!isUuid(id)) return physicalJson({ error: "Not found." }, 404)

@@ -109,6 +109,8 @@ export interface OrderDetailProps {
   onNotice: (message: string) => void
   /** A physical order moved on (fulfilled, delivered, returned): the list's row follows. */
   onShipping?: (checkoutId: string, fulfillment: string, returnStatus: string) => void
+  /** False for a team member: refunds are the owner's (lib/team/roles). */
+  canRefund?: boolean
 }
 
 /** A row the buyer has paid for and can download, so its access email can be sent. */
@@ -140,7 +142,7 @@ function usePhone(): boolean {
  */
 const MENU_SHEET_LEFT_MS = 200
 
-export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice, onShipping }: OrderDetailProps) {
+export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice, onShipping, canRefund = true }: OrderDetailProps) {
   const [dialog, setDialogNow] = React.useState<"refund" | "email" | null>(null)
   const phone = usePhone()
   const later = React.useRef<number | undefined>(undefined)
@@ -215,7 +217,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   }, [onStep, onBack, canStep.previous, canStep.next, dialog])
 
   const items: ActionMenuItem[] = [
-    ...(refundable.length > 0
+    ...(canRefund && refundable.length > 0
       ? [{ label: "Refund", icon: <RotateCcw className="h-4 w-4" />, onClick: () => fromMenu("refund") }]
       : []),
     ...(emailable
@@ -328,7 +330,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             order={order}
             shippingName={parcel ? (parcel.deliveryMethod === "pickup" ? "Local pickup" : (parcel.delivery?.name ?? null)) : order.shipping ? (order.shipping.pickup ? "Local pickup" : order.shipping.method) : null}
             busy={busy}
-            onRefund={refundable.length > 0 ? () => setDialog("refund") : null}
+            onRefund={canRefund && refundable.length > 0 ? () => setDialog("refund") : null}
             onInvoice={() => void run("invoice", { kind: "invoice" })}
           />
           <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">

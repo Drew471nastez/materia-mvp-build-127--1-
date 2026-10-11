@@ -105,7 +105,7 @@ console.log("\nTracking and notes\n")
 console.log("\nThe route: owner only, rate limited, nothing taken on trust\n")
 {
   const route = read("app/api/physical/orders/[id]/route.ts")
-  check("every call is the signed in owner's (physicalCaller) and ids are checked", /const c = await physicalCaller\(\)/.test(route) && /if \(!isUuid\(id\)\)/.test(route))
+  check("every call is the signed in owner's (physicalCaller) and ids are checked", /* Changed on purpose (round AA, Team): the store's, for its owner or a member whose role has orders. */ /const c = await physicalCaller\("orders"\)/.test(route) && /if \(!isUuid\(id\)\)/.test(route))
   check("every write is rate limited per shop, notes more tightly", /bucket: "physical-order-write", subjects: \[`creator:\$\{c\.creatorId\}`\]/.test(route) && /bucket: "physical-order-note"/.test(route) && route.indexOf("physical-order-write") < route.indexOf("switch (body.action)"))
   check("a note is an action of its own, with the composer's key", /case "comment":\s+result = await addNote\(c\.db, c\.creatorId, id, body\.text, body\.key\)/.test(route))
   const server = read("lib/physical/orders-server.ts")
