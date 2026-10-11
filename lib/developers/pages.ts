@@ -130,7 +130,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     slug: "imported-shopify-themes",
     title: "Imported themes",
     nav: "Imported themes",
-    summary: "An imported theme on Storelib: its templates, the cart, checkout, accounts, the canvas.",
+    summary: "An imported theme: its templates, cart, checkout, accounts and the canvas.",
     description:
       "What happens when a theme from another platform is imported into Storelib: the template tags, filters and objects it can use, section groups and the Section Rendering API, the AJAX cart, checkout, predictive search, forms, customer accounts with emailed codes, the wishlist, the theme's scripts, the builder's canvas, live navigation and what does not come across.",
     group: "Themes",
