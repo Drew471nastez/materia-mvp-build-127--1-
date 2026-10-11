@@ -120,6 +120,13 @@ const printifyHooks: Route = (c) => {
   return null
 }
 
+function freshDbWith(db: FakeSupabase): FakeSupabase {
+  db.tables.commerce_order_events = []
+  return db
+}
+
+/* Inside a function: the project's own tsconfig (npx tsc --noEmit -p .) has no top-level await. */
+async function main() {
 console.log("\nEvery integration on the list is real or says Coming soon\n")
 {
   const report: string[] = []
@@ -323,10 +330,6 @@ console.log("\nSend straight to production, errors and retries\n")
   check("a disconnected integration: nothing sent, marked to send by hand", calls.length === 0 && ev3.some((e) => /not connected/.test(e.message)))
   check("provider errors read in their own words", providerMessage({ error: { message: "Bad address" } }) === "Bad address" && providerMessage({ errors: { reason: "No SKU" } }) === "No SKU")
 }
-function freshDbWith(db: FakeSupabase): FakeSupabase {
-  db.tables.commerce_order_events = []
-  return db
-}
 
 console.log("\nTracking comes back: Printify's shipments ship the order\n")
 {
@@ -483,3 +486,9 @@ console.log("\nEntering and leaving an integration's page\n")
 globalThis.fetch = realFetch
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)
+}
+
+main().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
