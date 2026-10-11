@@ -45,7 +45,7 @@
  *   Store details                     opened after the prefetch, it draws at
  *                                     once, with no placeholder frame
  *
- *   node scripts/check-settings-r1.mjs        (SHOTS=/dir for screenshots)
+ *   node scripts/check-settings-r1.mjs        (SHOTS=/dir for screenshots, CPU_SLOWDOWN=4 for a phone's speed)
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
@@ -178,6 +178,9 @@ async function open(width, height, touch) {
   await page.goto(`${base}/app/settings`)
   await page.waitForSelector("[data-settings-panel]")
   await wait(900)
+  /* CPU_SLOWDOWN=4: a phone's speed, for the timings (the thresholds are set for an unthrottled run). */
+  const slow = Number(process.env.CPU_SLOWDOWN || 1)
+  if (slow > 1) await (await page.createCDPSession()).send("Emulation.setCPUThrottlingRate", { rate: slow })
   return { page, errors }
 }
 const click = (page, sel) => page.evaluate((s) => { const el = document.querySelector(s); if (!el) throw new Error(`no ${s}`); el.click() }, sel)
