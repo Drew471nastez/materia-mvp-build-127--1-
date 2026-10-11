@@ -189,7 +189,10 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await sleep(700)
     await tapOn("[data-new-segment]")
     await sleep(900)
-    /* The name takes the caret as the sheet arrives; the keyboard comes up with it. */
+    /* Nothing takes the caret while the sheet rises; a tap on the name brings the keyboard up. */
+    const rising = await p.evaluate(() => document.activeElement?.id || document.activeElement?.tagName)
+    expect(rising !== "segment-name", "the sheet arrives with no caret in it (no keyboard rising under a moving sheet)", rising)
+    await tapOn("#segment-name")
     await p.evaluate((k) => window.__keyboard(k), KB)
     await sleep(600)
     const up = await p.evaluate(() => {
@@ -209,6 +212,8 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
         done: done ? { ...r(done), shown: getComputedStyle(done).visibility !== "hidden" && getComputedStyle(done).display !== "none" } : null,
         scrolls: scroller ? scroller.scrollHeight > scroller.clientHeight || getComputedStyle(scroller).overflowY : null,
         enterKey: name?.getAttribute("enterkeyhint"),
+        fontSize: name ? getComputedStyle(name).fontSize : null,
+        selectSize: getComputedStyle(document.querySelector("#segment-joined")).fontSize,
       }
     })
     await phoneShot(p, "segment-keyboard", KB)
@@ -217,6 +222,7 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     expect(up.nameFocused && up.name && up.name.bottom <= keysTop && up.name.top >= 0, "its name field has the caret and is above the keys", up)
     expect(up.save && up.save.bottom <= keysTop && up.save.top > 0, "Save segment is above the keys, not behind them", up)
     expect(up.done && up.done.shown && up.done.bottom <= keysTop, "a Done puts the keyboard away", up)
+    expect(up.fontSize === "16px" && up.selectSize === "16px" && up.enterKey === "done", "its fields are 16px (iOS does not zoom into them) and the name's return key says done", up)
     /* Done: the keyboard goes, the sheet stays. */
     await tapOn("[data-segment-done]")
     await p.evaluate(() => window.__keyboard(0))
@@ -273,6 +279,15 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
       return { panel: !!panel, inSheet: !!sheet, label: document.activeElement?.hasAttribute?.("data-button-label") }
     })
     expect(btn.panel && btn.inSheet, "a button's settings open as a bottom sheet on a phone", btn)
+    await phoneShot(p, "button-sheet-rest")
+    /* Its words, typed in the sheet, are on the button behind it. */
+    await p.evaluate(() => document.querySelector("[data-button-label-field]")?.focus())
+    await p.keyboard.type("Shop the sale")
+    await sleep(200)
+    const words = await p.evaluate(() => ({ field: document.querySelector("[data-button-label-field]")?.value, onButton: document.querySelector("[data-button-label]")?.value, canvasReadOnly: document.querySelector("[data-button-label]")?.readOnly }))
+    expect(words.field === "Shop the sale" && words.onButton === "Shop the sale" && words.canvasReadOnly, "the words typed in the sheet are on the button; the button itself is not a field on a phone", words)
+    const sizes = await p.evaluate(() => ({ swatch: Math.round(document.querySelector('[data-button-sheet] [role=radiogroup][aria-label=Color] button[aria-label]').getBoundingClientRect().height), align: Math.round(document.querySelector('[data-button-sheet] [role=radiogroup][aria-label=Alignment]').getBoundingClientRect().height), actions: [...document.querySelectorAll("[data-button-sheet-actions] button")].map((b) => b.textContent.trim()) }))
+    expect(sizes.swatch >= 40 && sizes.align >= 44 && sizes.actions.includes("Delete"), "its colours and alignment are a thumb's size, and the block's moves are in the sheet", sizes)
     /* The link field with the keyboard up: above the keys. */
     await p.evaluate(() => document.querySelector('[data-block-panel="button"] input[inputmode=url]')?.focus())
     await p.evaluate((k) => window.__keyboard(k), KB)
@@ -285,7 +300,16 @@ export default React.forwardRef(function Link({ href, children, prefetch, scroll
     await phoneShot(p, "button-sheet", KB)
     expect(link && link.focused && link.bottom <= 844 - KB && link.top > 0, "the link field is above the keys", link)
     expect(link && link.bar !== "true", "and the formatting bar stays away (it is for text)", link)
+    /* Done closes it; a tap on the button opens it again. */
+    await tapOn("[data-button-sheet-done]")
     await p.evaluate(() => window.__keyboard(0))
+    await sleep(700)
+    const shut = await p.evaluate(() => ({ sheet: !!document.querySelector("[data-button-sheet]"), focused: document.activeElement?.tagName }))
+    expect(!shut.sheet && shut.focused !== "INPUT", "Done closes the sheet and the keyboard", shut)
+    await tapOn('[data-block-type="button"] [data-button-label]')
+    await sleep(800)
+    const again = await p.evaluate(() => !!document.querySelector('[data-sheet-panel] [data-block-panel="button"]'))
+    expect(again, "a tap on the button opens its sheet again", again)
     expect(!errors.length, "no page errors (blocks)", errors.slice(0, 3))
     await p.close()
   }
