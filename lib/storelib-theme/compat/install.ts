@@ -27,6 +27,8 @@
  * install through these functions.
  */
 
+import { shopifyAddress } from "./links"
+
 /** Where the theme's own files are kept, under their own paths. */
 export const COMPAT_PREFIX = "shopify/"
 
@@ -110,27 +112,44 @@ export function compatPageKey(template: string): string | null {
  * WHERE A LINK IN AN IMPORTED THEME GOES, in the builder: the page of the
  * install it opens, or null for a link that leaves the site (or names a page
  * the install has none of). Shopify's addresses: /products/<handle>,
- * /collections, /collections/<handle>, /cart, /search, /pages/<handle>,
- * /blogs/<blog>[/<article>].
+ * /collections, /collections/<handle>, /collections/<c>/products/<handle>,
+ * /cart, /search, /pages/<handle>, /blogs/<blog>[/<article>],
+ * /policies/<handle>; Storelib's own as its link picker writes them: /about,
+ * /contact, /<page>; and the theme's old store's whole address
+ * (https://x.myshopify.com/...), which is this site's (./links.ts).
+ *
+ * A Storelib page name the install has no page of (/about) opens the theme's
+ * page template, as the live site draws it (./links.ts siteLink).
  */
 export function compatPageForHref(href: string, keys: readonly string[]): { key: string; product?: string } | null {
-  const raw = href.trim()
-  if (!raw || raw.startsWith("#") || /^(mailto|tel|javascript):/i.test(raw) || /^(https?:)?\/\//i.test(raw)) return null
-  const path = raw.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
-  const parts = path.split("/").filter(Boolean).map((p) => decodeURIComponent(p))
+  let raw = href.trim()
+  if (!raw || raw.startsWith("#") || /^(mailto|tel|sms|javascript):/i.test(raw)) return null
+  if (raw.startsWith("shopify://")) raw = shopifyAddress(raw)
+  const abs = raw.match(/^(?:https?:)?\/\/([^/?#]+)(.*)$/i)
+  if (abs) {
+    if (!/\.myshopify\.com$/i.test(abs[1])) return null
+    raw = abs[2] || "/"
+  }
+  const path = raw.split(/[?#]/)[0].replace(/^\/[a-z]{2}(?:-[a-z]{2,4})?(?=\/(?:collections|products|pages|blogs|policies|cart|search)(?:\/|$))/i, "").replace(/\/+$/, "") || "/"
+  const parts = path.split("/").filter(Boolean).map((p) => { try { return decodeURIComponent(p) } catch { return p } })
   const has = (key: string) => (keys.includes(key) ? key : null)
+  const page = (key: string) => (key === "about" ? has("about") ?? has("about-us") : key === "contact" ? has("contact") ?? has("contact-us") : has(key))
   let key: string | null = null
   let product: string | undefined
   if (parts.length === 0) key = has("home")
-  else if (parts[0] === "products" && parts[1]) { key = has("product"); product = parts[1] }
-  else if (parts[0] === "products") key = has("collection")
-  else if (parts[0] === "collections") key = parts[1] ? has("collection") : has("collections")
+  else if ((parts[0] === "products" || parts[0] === "shop") && parts[1]) { key = has("product"); product = parts[1] }
+  else if (parts[0] === "products" || parts[0] === "shop") key = has("collection")
+  else if (parts[0] === "collections" && parts[2] === "products" && parts[3]) { key = has("product"); product = parts[3] }
+  else if (parts[0] === "collections") key = parts[1] ? has("collection") : has("collections") ?? has("collection")
   else if (parts[0] === "cart" && parts.length === 1) key = has("cart")
   else if (parts[0] === "search") key = has("search")
   /* A theme's wishlist page is the visitor's own wishlist, Storelib's, unless the site has a page of that name. */
   else if (parts[0] === "pages" && parts[1] === "wishlist") key = has("wishlist")
-  else if (parts[0] === "pages" && parts[1]) key = has(parts[1]) ?? has("page")
+  else if (parts[0] === "pages" && parts[1]) key = page(parts[1]) ?? has("page")
   else if (parts[0] === "blogs" && parts[1]) key = parts[2] ? has("article") : has("blog")
+  else if (parts[0] === "policies" && parts[1]) key = has(parts[1])
+  /* Storelib's link picker: a page by its own name. The visitor's own pages (account, wishlist) are the live site's. */
+  else if (parts.length === 1 && !/^(account|wishlist|checkout|password|api)$/.test(parts[0])) key = page(parts[0]) ?? (/^[a-z0-9][a-z0-9-]*$/i.test(parts[0]) ? has("page") : null)
   return key ? { key, ...(product ? { product } : {}) } : null
 }
 
