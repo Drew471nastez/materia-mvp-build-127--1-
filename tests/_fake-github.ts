@@ -201,13 +201,15 @@ export function fakeGitHub(opts: { installations?: number[] } = {}) {
       return json(201, { commit: { sha } })
     }
     if ((m = /^\/compare\/([0-9a-f]+)\.\.\.([0-9a-f]+)$/.exec(rest)) && method === "GET") {
+      if (!r.commits.has(m[1]) || !r.commits.has(m[2])) return json(404, { message: "Not Found" })
       const a = r.trees.get(r.commits.get(m[1])?.tree ?? "") ?? new Map()
       const b = r.trees.get(r.commits.get(m[2])?.tree ?? "") ?? new Map()
       const files: { filename: string; status: string }[] = []
       for (const [p, s] of b) if (!a.has(p)) files.push({ filename: p, status: "added" })
       else if (a.get(p) !== s) files.push({ filename: p, status: "modified" })
       for (const p of a.keys()) if (!b.has(p)) files.push({ filename: p, status: "removed" })
-      return json(200, { files })
+      const status = m[1] === m[2] ? "identical" : isAncestor(r, m[1], m[2]) ? "ahead" : isAncestor(r, m[2], m[1]) ? "behind" : "diverged"
+      return json(200, { status, files })
     }
     if ((m = /^\/statuses\/([0-9a-f]+)$/.exec(rest)) && method === "POST") {
       r.statuses.push({ sha: m[1], state: body.state, description: body.description, context: body.context })

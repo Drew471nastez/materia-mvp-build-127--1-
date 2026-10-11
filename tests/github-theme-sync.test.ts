@@ -31,7 +31,8 @@ import JSZip from "jszip"
 import { fakeDb } from "./_fake-db"
 import { fakeGitHub } from "./_fake-github"
 import { setGitHubTransport, timing, type GitHubConfig } from "@/lib/github-sync/github"
-import { SyncError, applyPush, exportSite, pullNow, commitComment, type GitHubLink } from "@/lib/github-sync/sync"
+import { SyncError, applyPush, exportSite, pullNow, commitComment, olderThanApplied, type GitHubLink } from "@/lib/github-sync/sync"
+import { seenDelivery, validDeliveryId, DELIVERY_TTL_MS } from "@/lib/github-sync/deliveries"
 import { COMMIT_MARKER, verifySignature, agentsGuide } from "@/lib/github-sync/core"
 import { mergePages, overridesOf, roleOf, readsBack, gitBlobSha, MAX_REPO_FILE_BYTES } from "@/lib/github-sync/layout"
 import { explainFailure } from "@/lib/github-sync/errors"
@@ -209,7 +210,7 @@ async function main() {
     const settings2 = { ...JSON.parse(gh.text(REPO, "main", "config/settings.json")!), brand_name: "Drew Co" }
     const heroEdited = DEFAULT["sections/hero.storelib"].replace("<style scoped>", "<style scoped>\n/* taller, from Codex */")
     const promo = DEFAULT["sections/cta_simple.storelib"].replace(/"type": "cta_simple"/, '"type": "promo_strip"').replace(/"name": "Simple CTA"/, '"name": "Promo strip"')
-    const { outcomes, after: head } = await pushAs(gh, db, {
+    const { outcomes, after: head, payload: firstPush } = await pushAs(gh, db, {
       "templates/home.json": JSON.stringify(home2, null, 2),
       "templates/about.json": JSON.stringify(about2, null, 2),
       "config/settings.json": JSON.stringify(settings2, null, 2),
@@ -288,6 +289,19 @@ async function main() {
     check("the export after the push carries the site's files back, the new section included", exported === promo)
     const echo = await pushAs(gh, db, { "sections/promo_strip.storelib": promo, "notes/x.md": "x" })
     check("a person's push that carries Storelib's own bytes changes nothing", echo.outcomes.every((x) => x.saved.length === 0 && x.failed.length === 0))
+
+    /* A validly signed old push, replayed (a new delivery id, so the dedupe does not catch it): its head is behind. */
+    const heroLater = heroEdited.replace("taller, from Codex", "later still")
+    const later = await pushAs(gh, db, { "sections/hero.storelib": heroLater })
+    check("a later push to the hero is taken", later.outcomes[0]?.saved.includes("sections/hero.storelib") && row("sections/hero.storelib")?.draft_content === heroLater)
+    const statuses = repo.statuses.length
+    const replay = await applyPush(db, cfg, firstPush)
+    check("the old push replayed is not applied: its head is behind the last applied commit", replay.length === 0 && row("sections/hero.storelib")?.draft_content === heroLater && homeRow.draft_sections.find((s: any) => s.id === "hero-1").settings.heading === "From Codex")
+    check("  and leaves no status, comment or activity behind", repo.statuses.length === statuses)
+    const token = "ghs_fake_installation_token"
+    const gone = { ...link(db), last_synced_sha: "f".repeat(40), sync_state: { last: { head_at: "2026-10-10T12:00:00Z" } } } as GitHubLink
+    check("when GitHub cannot place the last commit, an older head commit time is enough to refuse",
+      (await olderThanApplied(token, REPO, gone, head, "2026-10-09T12:00:00Z")) && !(await olderThanApplied(token, REPO, gone, head, "2026-10-11T12:00:00Z")))
   }
 
   /* ─────────────────────────────────────────────────────────────────── */
@@ -491,6 +505,27 @@ async function main() {
   check("guides, reference schemas, pictures and anything outside the theme are not", !readsBack(roleOf("AGENTS.md", { compat: false })) && !readsBack(roleOf("sections/slideshow.json", { compat: false })) && !readsBack(roleOf("shopify/assets/x.png", { compat: true })) && !readsBack(roleOf("src/index.ts", { compat: false })) && !readsBack(roleOf("../x", { compat: false })))
   check("a shopify/ folder in a Storelib theme's repository is the owner's own", roleOf("shopify/x.json", { compat: false }) === "outside")
   check("the git blob sha is git's own", gitBlobSha("hello\n") === "ce013625030ba8dba906f756967f9e9ca394464a")
+
+  /* ─────────────────────────────────────────────────────────────────── */
+  console.log("\nEach webhook delivery once")
+  {
+    const db = fakeDb({ github_webhook_deliveries: [] }, { unique: { github_webhook_deliveries: [["delivery_id"]] } })
+    const id = "72d3162e-cc78-11e3-81ab-4c9367dc0958"
+    const t0 = Date.parse("2026-10-11T00:00:00Z")
+    check("a delivery id is a GUID, nothing else reaches the database", validDeliveryId(id) && !validDeliveryId(null) && !validDeliveryId("x") && !validDeliveryId("a'; drop table x;--"))
+    check("the first delivery is new", (await seenDelivery(db, id, t0)) === false)
+    check("the same delivery again is ignored", (await seenDelivery(db, id, t0 + 60_000)) === true)
+    check("an id older than a day is forgotten, and kept again", (await seenDelivery(db, id, t0 + DELIVERY_TTL_MS + 1)) === false && db.tables.github_webhook_deliveries.length === 1)
+    await seenDelivery(db, "11111111-2222-3333-4444-555555555555", t0 + 3 * DELIVERY_TTL_MS)
+    check("ids older than a day are cleared", db.tables.github_webhook_deliveries.length === 1 && db.tables.github_webhook_deliveries[0].delivery_id === "11111111-2222-3333-4444-555555555555")
+    const missing = fakeDb({}, { failWith: { github_webhook_deliveries: { message: 'relation "github_webhook_deliveries" does not exist' } } })
+    check("before part 131 it lets the push through, to the older-head check", (await seenDelivery(missing, id, t0)) === false)
+    const hook = read("app/api/github/webhook/route.ts")
+    check("the webhook asks after the signature and before any work",
+      hook.indexOf("verifySignature(") < hook.indexOf("seenDelivery(db, delivery)") && hook.indexOf("seenDelivery(db, delivery)") < hook.indexOf('event === "push"') && /req\.headers\.get\("x-github-delivery"\)/.test(hook))
+    const sql = read("supabase/sql/run-now/131_github_whole_theme_and_agent_keys.sql")
+    check("the table is server only and safe to run again", /CREATE TABLE IF NOT EXISTS public\.github_webhook_deliveries/.test(sql) && /REVOKE ALL ON public\.github_webhook_deliveries FROM anon, authenticated/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql))
+  }
 
   /* ─────────────────────────────────────────────────────────────────── */
   console.log("\nThe webhook is GitHub's or it is refused")

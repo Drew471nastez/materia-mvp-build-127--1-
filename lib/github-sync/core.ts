@@ -142,6 +142,8 @@ export function validRepoName(name: unknown): name is string {
 
 export interface PushCommit {
   message?: string
+  /** When the commit was made, as GitHub reports it. */
+  timestamp?: string
   added?: string[]
   modified?: string[]
   removed?: string[]
