@@ -292,11 +292,34 @@ const loadCount = (page: Page) => {
   if (!c) { const counter = { n: 0 }; c = counter; loads.set(page, counter); page.on("framenavigated", (f) => { if (f === page.mainFrame()) counter.n++ }) }
   return c.n
 }
-const settledPath = async (page: Page, want: RegExp, withSearch = false, since = -1) => {
+/*
+  A link the theme opens in a new tab (target=_blank: Posturex's mega menu
+  items, its "Open link in new tab" on by default) opens there, not here:
+  the tab it opened is read, then closed.
+*/
+const newTabs = (page: Page) => {
+  const opened: Page[] = []
+  const on = (p: Page | null) => { if (p) opened.push(p) }
+  page.on("popup", on)
+  return {
+    any: () => opened.length > 0,
+    take: async () => {
+      page.off("popup", on)
+      const p = opened[0]
+      if (!p) return null
+      for (let t = 0; t < 30 && /^about:/.test(p.url()); t++) await new Promise((r) => setTimeout(r, 200))
+      let path = ""
+      try { const u = new URL(p.url()); path = `${u.pathname}${u.search}` } catch {}
+      for (const x of opened) await x.close().catch(() => {})
+      return path
+    },
+  }
+}
+const settledPath = async (page: Page, want: RegExp, withSearch = false, since = -1, stop: () => boolean = () => false) => {
   let got = ""
   for (let t = 0; t < 40; t++) {
     try { const u = new URL(page.url()); got = withSearch ? `${u.pathname}${u.search}` : u.pathname } catch { got = "" }
-    if (want.test(got) && (since < 0 || loadCount(page) > since)) break
+    if ((want.test(got) && (since < 0 || loadCount(page) > since)) || stop()) break
     await new Promise((r) => setTimeout(r, 200))
   }
   await page.waitForNetworkIdle({ idleTime: 300, timeout: 8000 }).catch(() => {})
@@ -416,12 +439,6 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
       const links = [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].filter((a) => { try { const u = new URL(a.getAttribute("href") ?? "", here); return `${u.pathname}${u.search}` === want } catch { return false } })
       const ready = links.find((a) => shown(a) && onTop(a))
       if (ready) return { kind: "press", id: mark(ready), what: name(ready) }
-      const covered = links.find((a) => shown(a))
-      if (covered) {
-        const r = covered.getBoundingClientRect()
-        const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
-        if (hit && !hit.closest(scope)) return { kind: "covered", id: "", what: `${name(covered)} under ${hit ? name(hit) : "nothing"}` }
-      }
       /* What would open one of the links. */
       const openers: { el: Element; how: "click" | "hover" }[] = []
       for (const a of links) {
@@ -444,6 +461,13 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
         const id = mark(o.el)
         if (tried.includes(`${o.how}:${id}`)) continue
         return { kind: o.how, id, what: name(o.el) }
+      }
+      /* Nothing left to open: one on screen under something else is a link a visitor cannot press. */
+      const covered = links.find((a) => shown(a))
+      if (covered) {
+        const r = covered.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
+        if (hit && !hit.closest(scope)) return { kind: "covered", id: "", what: `${name(covered)} under ${hit ? name(hit) : "nothing"}` }
       }
       return { kind: "none", id: "", what: links.length ? `${links.length} links, none shown` : "no such link" }
     }, href, phone, [...tried], linkSel, scope)
@@ -507,15 +531,19 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
         await new Promise((r) => setTimeout(r, 400))
         await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
         const before = loadCount(page)
+        const tabs = newTabs(page)
         const r = await pressHeaderLink(page, frameOf(), l.href, phone)
         const miss = required(l) ? failed : optional
         if (!r.pressed) { if (required(l)) await page.screenshot({ path: `${OUT}/${name}-${label}-header-${++shot}.png` }); miss.push(`${l.text || l.href} ${l.href} unreachable [${r.trail.join(" > ")}]`); continue }
         if (where === "the website") {
           const want = l.href.split("?")[0]
-          const got = await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?|$)|^/account|^/collections/all`), true, before)
+          const here = await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?|$)|^/account|^/collections/all`), true, before, tabs.any)
+          const tab = await tabs.take()
+          const got = tab ?? here
           if (got === l.href || (l.href === "/products" && got.startsWith("/collections/all")) || (/^\/account/.test(l.href) && /^\/account/.test(got))) ok++
-          else miss.push(`${l.text} ${l.href} opened ${got} [${r.trail.join(" > ")}]`)
+          else miss.push(`${l.text} ${l.href} opened ${got}${tab !== null ? " in a new tab" : ""} [${r.trail.join(" > ")}]`)
         } else {
+          await tabs.take()
           await new Promise((r) => setTimeout(r, 700))
           const navs = await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])
           if (navs.some((h) => { try { const u = new URL(h, "http://x"); return `${u.pathname}${u.search}` === l.href } catch { return false } })) ok++
@@ -532,9 +560,11 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
           await go(page, at(from))
           await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
           const before = loadCount(page)
+          const tabs = newTabs(page)
           const r = await pressHeaderLink(page, frameOf(), l.href, phone, OVERLAY_SCOPE)
           const want = l.href.split("?")[0]
-          const got = !r.pressed ? "" : where === "the website" ? await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$|^/account|^/collections/all|^/wishlist`), false, before) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          const here = !r.pressed ? "" : where === "the website" ? await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$|^/account|^/collections/all|^/wishlist`), false, before, tabs.any) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          const got = (await tabs.take()) ?? here
           const ok = r.pressed && (got.split(/\s/).some((g) => g.split("?")[0] === want) || (/^\/account/.test(want) && /\/account/.test(got)) || (/wishlist/.test(want) && /wishlist/.test(got)) || (want === "/products" && /\/collections\/all|\/products/.test(got)))
           if (!ok) barFailed.push(`${l.text || l.href} ${l.href}: ${got || "nothing"} [${r.trail.join(" > ")}]`)
         }
@@ -554,8 +584,9 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
         else {
           await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
           const before = loadCount(page)
+          const tabs = newTabs(page)
           const r = await pressHeaderLink(page, f, target, phone)
-          const got = where === "the website" ? await settledPath(page, new RegExp(`^${target}$`), false, before) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          const got = where === "the website" ? ((await settledPath(page, new RegExp(`^${target}$`), false, before, tabs.any)) && ((await tabs.take()) ?? new URL(page.url()).pathname)) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
           check(`${where}, ${label}: scrolled down the page, the sticky header's ${target} still opens`, r.pressed && got.split(/[?\s]/).includes(target), `${got || "nothing"} [${r.trail.join(" > ")}]`)
         }
       }
