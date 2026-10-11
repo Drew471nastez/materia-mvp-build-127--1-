@@ -196,6 +196,8 @@ export function SiteCheckout({
   React.useEffect(() => setAddress((a) => (a.country ? a : { ...a, country: guessCountry() })), [])
   const ships = !!quote?.requiresShipping
   const plan = fieldPlan(config, { ships, pickup: mode === "pickup" })
+  /* The shop ships by state here (lib/physical/rates needsRegion): the state field says so until one is chosen. */
+  const regionAsked = ships && !!quote?.delivery.needsRegion && !address.region.trim()
 
   /* ── The code ────────────────────────────────────────────────────── */
   const [code, setCode] = React.useState(couponCode ?? "")
@@ -413,6 +415,7 @@ export function SiteCheckout({
       if (!address.line1.trim()) return missing("line1", "Enter the street address.")
       if (!address.city.trim()) return missing("city", "Enter the city.")
       if (postalCodeRequired(address.country) && !address.postalCode.trim()) return missing("postal", `Enter the ${addressFormat(address.country).postal.label.toLowerCase()}.`)
+      if (quote.delivery.needsRegion && !address.region.trim()) return missing("region", "Choose your state or province.")
       if (!optionId) return quote.delivery.needsCountry ? "Choose your country to see delivery options." : "Shipping isn't available to this address."
     }
     if (ships && mode === "pickup" && !optionId) return "Choose a pickup point."
@@ -461,8 +464,8 @@ export function SiteCheckout({
     if (!res.ok || !res.data.clientSecret || !res.data.paymentIntentId) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field && field in EMPTY_BUSINESS) setBusinessErrors({ [field]: res.data.error || "Check this field." })
-      /* A failed start is a new checkout next time. */
-      intentKey.current = null
+      /* A failed start is a new checkout next time, which lets this one's stock go first (if it held any). */
+      intentKey.current = { key, sig: "" }
       throw new Error(res.data.error || "The payment could not be started. Nothing was charged.")
     }
     secretRef.current = res.data.clientSecret
@@ -557,11 +560,11 @@ export function SiteCheckout({
   )
 
   const addressField = (key: keyof Address, label: string, props: React.InputHTMLAttributes<HTMLInputElement> & { id: string }) => (
-    <Field id={props.id} label={label} error={errorOf(props.id.replace("checkout-", ""))}>
+    <Field id={props.id} label={label} error={errorOf(props.id.replace("checkout-", "")) ?? (key === "region" && regionAsked ? "Enter it to see delivery options." : null)}>
       <TextInput
         {...props}
         value={address[key]}
-        invalid={!!errorOf(props.id.replace("checkout-", ""))}
+        invalid={!!errorOf(props.id.replace("checkout-", "")) || (key === "region" && regionAsked)}
         onChange={(e) => {
           setAddress((a) => ({ ...a, [key]: e.target.value.slice(0, key === "postalCode" ? 20 : 200) }))
           clearError(props.id.replace("checkout-", ""))
@@ -571,9 +574,9 @@ export function SiteCheckout({
   )
 
   const select = (id: string, label: string, value: string, options: { code: string; name: string }[], onChange: (v: string) => void, autoComplete: string) => (
-    <Field id={id} label={label} error={errorOf(id.replace("checkout-", ""))}>
+    <Field id={id} label={label} error={errorOf(id.replace("checkout-", "")) ?? (id === "checkout-region" && regionAsked ? `Choose your ${label.toLowerCase()} to see delivery options.` : null)}>
       <div className="relative">
-        <select id={id} value={value} autoComplete={autoComplete} onChange={(e) => { onChange(e.target.value); clearError(id.replace("checkout-", "")) }} aria-invalid={!!errorOf(id.replace("checkout-", "")) || undefined} className={cn(inputClass, "appearance-none pr-9")}>
+        <select id={id} value={value} autoComplete={autoComplete} onChange={(e) => { onChange(e.target.value); clearError(id.replace("checkout-", "")) }} aria-invalid={!!errorOf(id.replace("checkout-", "")) || (id === "checkout-region" && regionAsked) || undefined} className={cn(inputClass, "appearance-none pr-9")}>
           <option value="">{label}</option>
           {options.map((o) => (
             <option key={o.code} value={o.code}>
@@ -670,8 +673,10 @@ export function SiteCheckout({
           <SectionTitle>
             <span id="checkout-method">Shipping method</span>
           </SectionTitle>
-          {quote.delivery.needsCountry ? (
-            <p className="rounded-[8px] bg-[#f7f7f8] px-3.5 py-3 text-[14px] text-[#6b7280]">Choose your country to see delivery options.</p>
+          {quote.delivery.needsCountry || (quote.delivery.needsRegion && !address.region.trim()) ? (
+            <p className="rounded-[8px] bg-[#f7f7f8] px-3.5 py-3 text-[14px] text-[#6b7280]" data-needs-region={quote.delivery.needsRegion ? "" : undefined}>
+              {quote.delivery.needsCountry ? "Choose your country to see delivery options." : `Choose your ${(fmt.region?.label ?? "state or province").toLowerCase()} to see delivery options.`}
+            </p>
           ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
             <div className="rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
               <p className="font-medium">Shipping isn&apos;t available to {address.country ? countryName(address.country) : "this address"}.</p>

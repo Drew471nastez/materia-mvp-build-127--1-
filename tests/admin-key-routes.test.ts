@@ -103,6 +103,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
   "payments/airwallex/return/route.ts": "keyed by the Airwallex payment intent and its client secret, which only the paying tab holds (lib/payments/checkout)",
   "checkout/invoice/route.ts": "the receipt token is the credential",
+  "checkout/site/route.ts": "a website's own checkout, a buyer paying (who may be a guest): only on a host that is a creator's published website, whose shop it is (siteOfRequest, from the database), every price the server's and another shop's products refused; an account first comes from the website's own signed session cookie when the store asks for one; the payment is confirmed with its client secret, which only the paying page holds; rate limited like the other payment routes",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",
   "receipt/contact/route.ts": "the receipt token and order id are the credential; it only writes to the seller, Reply-To the order's own address, rate limited",

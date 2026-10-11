@@ -35,7 +35,7 @@ import { RefreshCw, WifiOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
-import { FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
+import { CHECKOUT_CURRENCY, FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
 
 /** A phone's own keyboard zooms into any field set under 16px. */
 function touchScreen(): boolean {
@@ -168,7 +168,8 @@ export function StripePay(props: StripePayProps) {
     () => ({
       mode: props.mode ?? "payment",
       amount: props.amountCents,
-      currency: "usd",
+      /* The PaymentIntent's own currency (platformChargeCurrency): Stripe refuses a confirm whose form was drawn for another. */
+      currency: CHECKOUT_CURRENCY,
       paymentMethodTypes: methods,
       appearance,
       fonts: FONTS,

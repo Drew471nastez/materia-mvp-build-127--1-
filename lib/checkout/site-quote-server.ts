@@ -49,7 +49,8 @@ export interface SiteQuote {
   requiresShipping: boolean
   coupon: { code: string; label: string | null; freeShipping: boolean } | null
   couponError: string | null
-  delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
+  /** `needsRegion`: the shop ships by state or province here, and none is chosen yet (lib/physical/rates). */
+  delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
   totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
   offers?: { title: string; savedCents: number }[]
@@ -165,7 +166,7 @@ async function shippedQuote(db: Db, creatorId: string, body: Body): Promise<Site
             selectedId: q.option?.id ?? null,
             needsCountry: priced.requiresShipping && !country,
           }
-        : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false },
+        : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false, needsRegion: (q.quote as { needsRegion?: boolean }).needsRegion === true },
       pickups: q.pickups.map((o) => ({
         id: o.id,
         name: o.pickup?.name ?? o.name,
