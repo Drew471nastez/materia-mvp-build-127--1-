@@ -131,6 +131,22 @@ const MAX_QTY = 99
 // ── Answers ─────────────────────────────────────────────────────────────────
 
 const html = (body: string, status = 200): SiteResponse => ({ status, type: "text/html; charset=utf-8", body, headers: { "Cache-Control": "private, no-store" } })
+/*
+  A WHOLE PAGE A VISITOR NAVIGATES TO. "no-cache", not "no-store": still
+  never kept by any shared cache and checked with the server before it is
+  used again, but the browser may keep it in its back/forward cache, so Back
+  and Forward between a store's pages are instant, as on Shopify (Chrome
+  turns that cache off for a no-store page). The cart, checkout and account
+  pages, which show what is only this visitor's, stay no-store. A page that
+  comes back this way checks its cart count (./shims.ts BACK_FORWARD).
+*/
+const PRIVATE_PATH = /^\/(?:cart|checkout|account)(?:[/?#.]|$)/
+const pageHtml = (body: string, path: string, status = 200): SiteResponse => ({
+  status,
+  type: "text/html; charset=utf-8",
+  body,
+  headers: { "Cache-Control": PRIVATE_PATH.test(path) || status !== 200 ? "private, no-store" : "private, no-cache" },
+})
 const json = (value: unknown, status = 200, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status, type: "application/json; charset=utf-8", body: JSON.stringify(value), headers: { "Cache-Control": "private, no-store" }, ...extra })
 /*
   A path on this site stays on it. A browser reads "//host" and "/\\host" in
@@ -264,7 +280,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: route.bodyEnd ? `${site.extraBodyEnd ?? ""}${route.bodyEnd}` : site.extraBodyEnd, content: route.content })
-  return html(drawn.html, route.status ?? 200)
+  return pageHtml(drawn.html, path, route.status ?? 200)
 }
 
 /**
