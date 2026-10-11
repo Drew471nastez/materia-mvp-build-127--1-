@@ -121,7 +121,7 @@ export async function converted() {
 
 /* ── live ─────────────────────────────────────────────────────────────────── */
 
-async function serveLive(): Promise<{ server: Server; base: string }> {
+export async function serveLive(): Promise<{ server: Server; base: string }> {
   const t = await converted()
   const files = t.files
   const theme = themeOfInstall(files, t.settings, {

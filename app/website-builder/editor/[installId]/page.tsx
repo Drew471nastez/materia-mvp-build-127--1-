@@ -2621,6 +2621,10 @@ function newBlockId(): string {
 const INSPECT_FADE_MS = 200
 /** The longest the editor's loader waits for an imported theme's first page to paint. */
 const COMPAT_PAINT_CAP_MS = 8000
+/** The longest the sections panel keeps the page being left's list while an imported theme's canvas draws the next page. */
+const LIST_HOLD_MS = 3000
+/** How long a page's sections read ahead on a hover stay good, unless an edit comes first. */
+const SECTIONS_AHEAD_MS = 15000
 
 /*
   OUT OF THE FIRST PAINT. The AI conversation is drawn only once it has been
@@ -3305,6 +3309,31 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [editAllProductPages, setEditAllProductPages] = useState(false)
   const [editAllConfirmOpen, setEditAllConfirmOpen] = useState(false)
   const [sectionsLoading, setSectionsLoading] = useState(false)
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     THE SECTIONS PANEL CHANGES PAGE WHEN THE CANVAS DOES
+    ═══════════════════════════════════════════════════════════════════════
+    A page switch emptied the panel the moment it was asked for (grey bars
+    while the next page's sections were fetched), then showed the next
+    page's list while an imported theme's canvas was still drawing that page
+    behind the one on screen: About's page beside Home's list for a second.
+    The panel now keeps the list it has, untouchable, until the canvas has
+    the next page in front (CompatCanvas onPageShown), and both change in
+    the same frame. A Storelib theme's canvas draws the new sections in the
+    same render, so for it this is only the fetch. Never longer than
+    LIST_HOLD_MS, whatever the canvas says.
+  */
+  const [compatShownPage, setCompatShownPage] = useState<string | null>(null)
+  const panelPage = `${currentPage}|${currentPage === "product" ? selectedProductId ?? "" : ""}`
+  const panelHeldForCanvas = importedTheme.current && compatShownPage !== null && compatShownPage !== panelPage
+  const panelHeld = sectionsLoading || panelHeldForCanvas
+  const panelSections = useRef(sections)
+  if (!panelHeld) panelSections.current = sections
+  useEffect(() => {
+    if (!panelHeldForCanvas) return
+    const t = window.setTimeout(() => setCompatShownPage(panelPage), LIST_HOLD_MS)
+    return () => window.clearTimeout(t)
+  }, [panelHeldForCanvas, panelPage])
   /**
    * The address of a link that points at no page of this site, so the canvas
    * can say so instead of appearing to ignore the click. Cleared by any
@@ -3638,6 +3667,38 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
     return loaded
   }, [installId])
+
+  /*
+    A PAGE'S SECTIONS ASKED FOR BEFORE THE CLICK. In an imported theme's
+    canvas the pointer resting on a link (the bridge's "intent", canvas-
+    bridge.ts) asks for that page's sections, so a page switch does not start
+    with a round trip after the press: on the video the panel and the canvas
+    sat on About for a second waiting for exactly this. Only while nothing
+    is unsaved, and thrown away at the next edit, so what is read is what a
+    read after the press would have read.
+  */
+  const isDirtyRef = useRef(isDirty)
+  isDirtyRef.current = isDirty
+  const savingRef = useRef(saving)
+  savingRef.current = saving
+  const sectionsAhead = useRef(new Map<string, { at: number; edit: number; read: Promise<SectionInstance[]> }>())
+  const editCount = useRef(0)
+  useEffect(() => { editCount.current++; sectionsAhead.current.clear() }, [sections])
+  const prefetchPageSections = useCallback((page: PageKey) => {
+    if (isDirtyRef.current || savingRef.current || page === currentPageRef.current) return
+    const had = sectionsAhead.current.get(page)
+    if (had && had.edit === editCount.current && Date.now() - had.at < SECTIONS_AHEAD_MS) return
+    const read = fetchPageSections(page)
+    read.catch(() => sectionsAhead.current.delete(page))
+    sectionsAhead.current.set(page, { at: Date.now(), edit: editCount.current, read })
+  }, [fetchPageSections])
+  /** The sections a hover already asked for, if they are still good; otherwise asked for now. */
+  const pageSectionsNow = (page: PageKey): Promise<SectionInstance[]> => {
+    const had = sectionsAhead.current.get(page)
+    sectionsAhead.current.delete(page)
+    if (had && had.edit === editCount.current && Date.now() - had.at < SECTIONS_AHEAD_MS) return had.read.catch(() => fetchPageSections(page))
+    return fetchPageSections(page)
+  }
 
   const loadSections = useCallback(async (page: PageKey) => {
     const loaded = await fetchPageSections(page)
@@ -4066,7 +4127,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       // header/footer so every page renders identically to home.
       const nav = ++pageNav.current
       const [loaded, homeHF] = await Promise.all([
-        fetchPageSections(page),
+        pageSectionsNow(page),
         page !== "home"
           ? (leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter())
           : Promise.resolve<Chrome>({}),
@@ -4151,6 +4212,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const before = pageShown.current
     pageShown.current = key
     if (before === null || before === key) return
+    /*
+      NOT FOR AN IMPORTED THEME. Its canvas still shows the page being left
+      at this moment (the next one is drawing under it, compat-canvas.tsx)
+      and swaps them itself once the next is drawn, so this dimmed the old
+      page to a third and brought it back, a white flash over About before
+      Home had even appeared (scripts/check-canvas20.ts).
+    */
+    if (importedTheme.current) return
     const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
     const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
     if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
@@ -6631,17 +6700,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
             own `skeleton-deferred`), so a quick switch shows the list, not a
             flash of grey before it.
           */}
-          {sectionsLoading || loading ? (
+          {/* The first load only: a page switch keeps the list it has (panelHeld, above) and swaps it in place. */}
+          {loading ? (
             <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll skeleton-deferred px-2 py-2 space-y-1.5" aria-busy="true">
               {[1, 2, 3, 4, 5].map(i => (
                 <div key={i} className="h-8 rounded-md bg-[#f3f4f6]" />
               ))}
             </div>
           ) : (
-            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2">
+            <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll px-2 py-2" aria-busy={panelHeld || undefined} data-sections-held={panelHeld ? "" : undefined} style={panelHeld ? { pointerEvents: "none" } : undefined}>
               {/* Header, Page and Footer, each with its rows: components/website-builder/editor/sections-list.tsx. */}
               <SectionsList
-                sections={sections}
+                sections={panelHeld ? panelSections.current : sections}
                 nameOf={(s) => sectionDisplayName(s, librarySchemas)}
                 selectedId={selectedSectionId}
                 onSelect={(id) => { setSelectedBlockId(null); setSelectedPanel({ type: "section", sectionId: id }); revealSection(id) }}
@@ -7206,8 +7276,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (what === "account") toast("Sign in works on your live site", { id: "compat-live-only-account", description: "You can see and style these pages here." })
     else toast("Checkout only works on your live site", { id: "compat-live-only", description: "Adding to cart works here, so you can try your cart drawer." })
   }, [])
-  const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
-    if (inspectorRef.current && !chrome) return
+  /* True when another page is opening: the canvas keeps the page being left still until it is drawn (compat-canvas.tsx). */
+  const navigateCompatCanvas = useCallback((href: string, chrome: boolean): boolean => {
+    if (inspectorRef.current && !chrome) return false
     const to = compatPageForHref(href, rowPageKeysRef.current)
     if (!to) {
       /* A visitor's account and checkout are Storelib's own pages: said, rather than a click that does nothing. */
@@ -7215,7 +7286,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) {
         if (path.startsWith("/checkout")) liveOnlyInCompatCanvas("checkout")
         else toast(/wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
-        return
+        return false
       }
       /*
         NEVER A CLICK THAT DOES NOTHING. A link to another website, or to a
@@ -7225,31 +7296,37 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       const other = href.trim().match(/^(?:https?:)?\/\/([^/?#]+)/i)
       if (other) toast(`Opens ${other[1].replace(/^www\./, "")} on your live site`, { id: "compat-link-out" })
       else if (path.startsWith("/")) toast(`No page at ${path} yet`, { id: "compat-link-missing", description: "Add it in Pages, or point the link somewhere else in Menus." })
-      return
+      return false
     }
     /* A link to a product opens that product's page, as on the website, not the shop's first product. */
     const linked = to.product ? productsRef.current.find((p) => p.slug === to.product || p.id === to.product) : null
     if (linked) {
-      if (currentPageRef.current === "product" && selectedProductIdRef.current === linked.id) return
+      if (currentPageRef.current === "product" && selectedProductIdRef.current === linked.id) return false
       holdCanvasWhileOpening()
       void selectProductRef.current(linked.id, linked.title)
-      return
+      return true
     }
     /* A product the shop does not sell (one of the store the theme came from) is the shop, as the live site sends it (lib/storelib-theme/compat/links.ts). */
     if (to.product && productsRef.current.length > 0) {
       const shop = rowPageKeysRef.current.includes("collection") ? "collection" : "home"
-      if (shop === currentPageRef.current) return
+      if (shop === currentPageRef.current) return false
       holdCanvasWhileOpening()
       pageChangeRef.current(shop as PageKey)
-      return
+      return true
     }
     if (to.key === currentPageRef.current) {
       if (!to.product) document.querySelector<HTMLIFrameElement>("[data-compat-frame='front']")?.contentWindow?.postMessage({ storelib: 1, type: "scroll", top: 0 }, "*")
-      return
+      return false
     }
     holdCanvasWhileOpening()
     pageChangeRef.current(to.key as PageKey)
+    return true
   }, [holdCanvasWhileOpening, liveOnlyInCompatCanvas])
+  /* The pointer on a link in the canvas: that page's sections read ahead, so its switch does not wait for them after the press. */
+  const intentInCompatCanvas = useCallback((href: string) => {
+    const to = compatPageForHref(href, rowPageKeysRef.current)
+    if (to && !to.product) prefetchPageSections(to.key as PageKey)
+  }, [prefetchPageSections])
   const selectFromCompatCanvas = useCallback(
     (sectionId: string, blockPath: string[]) => selectSectionFromCanvas(sectionId, blockPath.length ? pathKey(blockPath) : null, null),
     [selectSectionFromCanvas],
@@ -9491,6 +9568,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   inspectorEnabled={inspectorEnabled && !fullView}
                   onSelect={selectFromCompatCanvas}
                   onNavigate={navigateCompatCanvas}
+                  onPageShown={setCompatShownPage}
+                  onIntent={intentInCompatCanvas}
                   onLiveOnly={liveOnlyInCompatCanvas}
                   onPainted={onCompatPainted}
                   siteUrl={websiteUrl}

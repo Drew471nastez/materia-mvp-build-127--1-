@@ -35,7 +35,7 @@ import { createServer } from "node:http"
 import { mkdirSync, writeFileSync } from "node:fs"
 import puppeteer, { type Browser, type CDPSession, type Frame, type Page } from "puppeteer-core"
 import sharp from "sharp"
-import { editorFor } from "./check-builder-nav19"
+import { editorFor, serveLive } from "./check-builder-nav19"
 
 const OUT = process.env.OUT ?? "/tmp/canvas20"
 const CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium"
@@ -133,6 +133,8 @@ const runs = (marks: { k: string }[]) => {
 
 const RECORD = `(() => {
   window.__rec = [];
+  window.__said = [];
+  addEventListener("message", (e) => { const d = e.data; if (d && d.storelib === 1 && ["ready", "loaded", "settled"].includes(d.type)) window.__said.push(d.type + "@" + Math.round(performance.timeOrigin + performance.now())); });
   const tick = () => {
     const list = document.querySelector("[data-sections-list]");
     const sk = document.querySelector("[aria-busy='true'].skeleton-deferred");
@@ -185,12 +187,22 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
     let frame = await ed.frame()
     await sleep(1200)
     if (touch) await ed.page.emulateCPUThrottling(4)
-    const press = async (sel: string) => {
+    /* Pressed: the moment the press was sent, which the frames are timed against. */
+    const press = async (sel: string): Promise<number> => {
       const f = await ed.frame()
       const p = await within(f.evaluate((s) => { const r = document.querySelector(s)!.getBoundingClientRect(); return { x: r.left + Math.min(r.width / 2, 20), y: r.top + r.height / 2 } }, sel))
       const fb = await frontBox(ed.page)
-      if (touch) await ed.page.touchscreen.tap(fb.x + p.x, fb.y + p.y)
-      else await ed.page.mouse.click(fb.x + p.x, fb.y + p.y)
+      if (touch) {
+        const t = Date.now()
+        await ed.page.touchscreen.tap(fb.x + p.x, fb.y + p.y)
+        return t
+      }
+      /* A mouse comes to a link before it presses it: a quarter of a second on it, then the click. */
+      await ed.page.mouse.move(fb.x + p.x, fb.y + p.y, { steps: 4 })
+      await sleep(250)
+      const t = Date.now()
+      await ed.page.mouse.click(fb.x + p.x, fb.y + p.y)
+      return t
     }
     /* To About: the header's link (a phone: the menu, then its link). */
     if (touch) {
@@ -212,8 +224,7 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
     await ed.page.evaluate((ms) => { (window as unknown as { PROBE_API_DELAY_MS: number }).PROBE_API_DELAY_MS = ms }, API_MS)
     const cam = await film(ed.page)
     await sleep(300)
-    const at = Date.now()
-    await press(".site-header__logo")
+    const at = await press(".site-header__logo")
     await sleep(touch ? 6000 : 4000)
     const shots = await cam.stop()
     frame = await waitFor(ed, "home")
@@ -244,20 +255,45 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
     for (const r of rec) { const k = r.sk ? "(grey bars)" : r.empty ? "(nothing)" : r.rows; if (lists[lists.length - 1] !== k) lists.push(k) }
     const named = lists.map((l) => (l.startsWith("(") ? l : l.includes("main") || l.includes("template--") && !l.includes("hero") ? (l.includes("hero") ? "Home" : "About") : l.includes("hero") ? "Home" : "About"))
     console.log(`        sections panel: ${named.join(" -> ")}`)
+    const behindAt = rec.find((r) => r.frames.includes("behind"))
+    const listAt = rec.find((r, i) => i > 0 && r.rows !== rec[0].rows)
+    console.log(`        the next page's frame put in at ${behindAt ? Math.round(behindAt.t - at) : "-"}ms, the panel's list changed at ${listAt ? Math.round(listAt.t - at) : "-"}ms`)
+    if (process.env.DEBUG) console.log(`        the frames said: ${(await ed.page.evaluate(() => (window as unknown as { __said: string[] }).__said)).map((x) => { const [k, t] = x.split("@"); return `${k} ${Number(t) - at}ms` }).join(", ")}`)
     const frameStates: string[] = []
     for (const r of rec) if (frameStates[frameStates.length - 1] !== r.frames) frameStates.push(r.frames)
     if (process.env.DEBUG) console.log(`        frames: ${frameStates.join("  |  ")}`)
     check(`${label}: the sections panel goes from About's list to Home's, never empty or grey in between`, lists.length === 2 && !lists.some((l) => l.startsWith("(")), named.join(" -> "))
 
-    /* Scrolled, the header of the page arrived at is where the live site's is. */
+    /*
+      Scrolled, the header of the page arrived at is where the live site's
+      is, at the same size: the same theme served by the live site's own
+      handler, in a window as large as the canvas's frame.
+    */
     frame = await ed.frame()
-    const header: string[] = []
-    for (const y of [0, 240, 900, 400, 0]) {
-      await within(frame.evaluate((y) => scrollTo(0, y), y))
-      await sleep(250)
-      header.push(await within(frame.evaluate(() => { const h = document.querySelector(".site-header")!.getBoundingClientRect(); return `${scrollY}:${Math.round(h.top)}` })))
+    const fb = await frontBox(ed.page)
+    const ys = [0, 120, 480, 900, 300, 0]
+    const readHeader = async (f: Frame | Page) => {
+      const out: string[] = []
+      for (const y of ys) {
+        await within(f.evaluate((y) => scrollTo({ top: y, behavior: "instant" }), y))
+        await sleep(300)
+        out.push(await within(f.evaluate(() => { const h = document.querySelector(".site-header")!; const r = h.getBoundingClientRect(); return `${Math.round(scrollY)}:${Math.round(r.top)}:${getComputedStyle(h).position}:${h.closest(".shopify-section")?.className.replace(/\s+/g, ".")}` })))
+      }
+      return out
     }
-    check(`${label}: the sticky header stays at the top of the canvas as it scrolls`, header.every((h) => h.endsWith(":0")), header.join(" "))
+    const inCanvas = await readHeader(frame)
+    const { server, base } = await serveLive()
+    const lp = await browser.newPage()
+    try {
+      await lp.setViewport({ width: fb.width, height: fb.height, isMobile: touch, hasTouch: touch })
+      await lp.goto(`${base}/`, { waitUntil: "networkidle0" })
+      await sleep(800)
+      const onLive = await readHeader(lp)
+      check(`${label}: scrolled, the theme's header is where the live site's is, with the same classes`, inCanvas.join(" ") === onLive.join(" "), inCanvas.join(" ") === onLive.join(" ") ? inCanvas.map((x) => x.split(":").slice(0, 2).join(":")).join(" ") : { canvas: inCanvas, live: onLive })
+    } finally {
+      await lp.close()
+      server.close()
+    }
   } finally {
     ed.close()
     pic.close()
