@@ -78,16 +78,17 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
   }, [])
 
   const list = (
-    <div className={cn("space-y-5", bare && "p-4 sm:p-5")}>
+    <div className={cn(bare ? "pb-1" : "space-y-5")}>
       {GROUP_ORDER.map((g) => {
         const rows = emails.filter((e) => e.group === g)
         if (rows.length === 0) return null
         return (
           <section key={g} aria-labelledby={`emails-${g}`}>
-            <h3 id={`emails-${g}`} className="mb-2 text-[13px] font-semibold text-[#6b7280]">
+            <h3 id={`emails-${g}`} className={cn("text-[13px] font-semibold text-[#6b7280]", bare ? "px-4 pb-2 pt-4 sm:px-5" : "mb-2")}>
               {GROUP_NAMES[g]}
             </h3>
-            <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]">
+            {/* In Settings the rows are a list of their own in the card; on the Emails page the card is the table's, so the rows are its rows, not a box in a box. */}
+            <ul className={cn("divide-y divide-[#f1f2f4]", bare ? "border-y border-[#f1f2f4]" : "overflow-hidden rounded-xl border border-[#eceef1]")}>
               {rows.map((e) => {
                 const edited = !!data?.copy[e.id]
                 return (
@@ -95,7 +96,7 @@ export function CustomerEmailsPanel({ bare = false }: { bare?: boolean }) {
                     <button
                       type="button"
                       onClick={() => setOpen(e)}
-                      className="flex w-full items-center gap-3 px-3.5 py-3 text-left transition-colors duration-100 hover:bg-[#fafafa] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]"
+                      className={cn("flex w-full items-center gap-3 py-3 text-left transition-colors duration-100 hover:bg-[#fafafa] active:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]", bare ? "px-4 sm:px-5" : "px-3.5")}
                       data-customer-email={e.id}
                     >
                       <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[#4b5563]">
