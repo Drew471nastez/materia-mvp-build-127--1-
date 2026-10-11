@@ -173,6 +173,8 @@ export interface EditorCreator {
   stripe_onboarding_status?: string | null
   /** Checkout can take money for this creator, on Stripe or on Airwallex (lib/home/progress paymentsReadyFrom, lib/payments/readiness). */
   payments_ready?: boolean
+  /** The store's currency for every price field, "USD" or "RON" (lib/store/currency.ts); missing reads as US dollars. */
+  currency?: string
 }
 
 /* ── Rows to fields ───────────────────────────────────────────────────── */

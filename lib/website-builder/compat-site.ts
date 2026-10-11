@@ -38,6 +38,7 @@ import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
 import { returnFactsHtml, siteCommerce } from "./site-commerce"
+import { productFaqs } from "@/lib/products/product-section-data"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -306,16 +307,19 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     product: async (handle) => {
       const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null
+      /* The description, and the product's own questions for `product.metafields.storelib.faqs` (lib/storelib-theme/compat/objects.ts); the description alone on a database without them. */
       const readDescription = async () => {
-        const { data, error } = await admin.from("products").select("description").eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
-        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "" }
+        const read = (cols: string) => admin.from("products").select(cols).eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
+        let { data, error } = await read("description, faqs")
+        if (error) ({ data, error } = await read("description"))
+        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs) }
       }
       const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
       /* A shipped product's stock, as the native product page reads it: "Only 3 left" in a theme's inventory block (Website settings › Commerce can hide it). */
       const withStock = physical && card.settings.kind === "physical" && siteCommerce(settings as Record<string, unknown>).showStockLeft ? await compatStock(admin, creator.creatorId, card) : card
-      return { ...withStock, descriptionHtml }
+      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     extraHead: draft ? undefined : liveNavigationMarkup(),

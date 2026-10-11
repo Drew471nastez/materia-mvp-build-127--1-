@@ -106,7 +106,8 @@ check("a field of the product, in the main column above the description, and no 
     && !/<h2 className=\{CARD_TITLE\}>Category<\/h2>/.test(editor))
 check("on a phone the shared sheet, with no X of its own, sitting on the keyboard", /<BottomSheet\s+isOpen=\{open\}[\s\S]{0,200}aboveKeyboard/.test(picker) && !/aria-label="Close"/.test(picker) && !/showCloseButton/.test(picker))
 check("48px rows on a phone, 36px on a computer", /min-h-\[48px\]/.test(picker) && /min-h-\[36px\]/.test(picker))
-check("a search field on top, across every group", /data-category-search=""/.test(picker) && /placeholder="Search categories"/.test(picker) && /searchCategories\(query, kind\)/.test(picker) && /export function searchCategories\(query: string, kind: CategoryKind = "digital"\)/.test(groups))
+/* The search also finds a category by the words people use for it ("tee" is T-Shirts): lib/products/category-suggest.ts searchCategoriesByWords, over searchCategories. */
+check("a search field on top, across every group", /data-category-search=""/.test(picker) && /placeholder="Search categories"/.test(picker) && /searchCategoriesByWords\(query, kind\)/.test(picker) && /export function searchCategories\(query: string, kind: CategoryKind = "digital"\)/.test(groups))
 check("groups open into their categories in the same list: Back to All, the group as a header", /data-category-group=\{r\.name\}/.test(picker) && /data-category-back=""/.test(picker) && />Back to All</.test(picker) && /data-category-header=""/.test(picker))
 check("a check on the chosen one, and choosing closes", /aria-current=\{chosen \? "true" : undefined\}/.test(picker) && /onChange\(category\)\s+setOpen\(false\)/.test(picker))
 /* Changed on purpose: the owner asked for the list to open from the field, like Shopify's, not the window in the middle it was. */

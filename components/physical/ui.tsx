@@ -19,6 +19,7 @@ import { TONE_CLASS, type Tone } from "@/lib/physical/status"
 import { HowItWorks } from "@/components/app/settings/how-it-works"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import type { ExplainerId } from "@/lib/settings/explainers"
+import { useMoneyMark } from "@/lib/store/currency-context"
 
 export const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 export const CARD_PAD = "px-4 py-4 sm:px-6 sm:py-5"
@@ -71,22 +72,26 @@ export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttri
   return <input ref={ref} {...props} className={cn(FIELD, className)} />
 })
 
-/** Dollars as typed, kept as text; cents read out with centsOf. */
-export function MoneyInput({ value, onChange, placeholder = "0.00", className, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void }) {
+/**
+ * An amount as typed, kept as text; hundredths read out with centsOf. The
+ * mark is the store's currency (lib/store/currency-context.tsx): $ before
+ * the number, lei or kr after it, with room left so the two never overlap.
+ */
+export function MoneyInput({ value, onChange, placeholder, className, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void }) {
+  const { mark, node, pad } = useMoneyMark()
   return (
     <div className={cn("relative", className)}>
-      <span aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[14px] text-[#9ca3af]">
-        $
-      </span>
+      {node}
       <input
         {...props}
         type="text"
         inputMode="decimal"
         autoComplete="off"
-        placeholder={placeholder}
+        placeholder={placeholder ?? (mark.decimals === 0 ? "0" : "0.00")}
         value={value}
         onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
-        className={cn(FIELD, "pl-6 tabular-nums")}
+        className={cn(FIELD, "tabular-nums")}
+        style={pad}
       />
     </div>
   )

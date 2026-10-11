@@ -523,6 +523,59 @@ function CollapsibleTab({ s, ctx }: { s: S; ctx: ProductCtx }) {
   )
 }
 
+/* The product's own questions, from the editor's FAQ card: each answer folded under its question, as plain text. */
+function ProductFaq({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const faqs = ctx.product.faqs ?? []
+  if (!faqs.length) return <EditorNote ctx={ctx}>This product&apos;s questions show here, from the FAQ in the product editor</EditorNote>
+  const border = colorOf(s.border, ctx.palette, "border")
+  const heading = str(s.heading, "Questions").trim()
+  return (
+    <div data-product-faq="">
+      {heading ? <p className="m-0 pb-1 text-[15px] font-semibold" style={{ color: ctx.palette.heading }}>{heading}</p> : null}
+      {faqs.map((f, i) => (
+        <details key={i} className="group/faq border-b" style={{ borderColor: border }} open={(on(s.open_first, false) && i === 0) || undefined}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-[14.5px] font-medium [&::-webkit-details-marker]:hidden" style={{ color: ctx.palette.heading }} onClick={(e) => e.stopPropagation()}>
+            {f.question}
+            <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open/faq:rotate-180" aria-hidden />
+          </summary>
+          <p className="m-0 whitespace-pre-line pb-4 text-[14px] leading-relaxed" style={{ color: ctx.palette.text }}>
+            {f.answer}
+          </p>
+        </details>
+      ))}
+    </div>
+  )
+}
+
+/* The custom fields the creator shows to buyers (Material, Care): a label and its value on each line, links as links. */
+function ProductDetails({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const rows = ctx.product.details ?? []
+  if (!rows.length) return <EditorNote ctx={ctx}>Custom fields set to show on the product page go here</EditorNote>
+  const border = colorOf(s.border, ctx.palette, "border")
+  const heading = str(s.heading, "Details").trim()
+  return (
+    <div data-product-details="">
+      {heading ? <p className="m-0 pb-1 text-[15px] font-semibold" style={{ color: ctx.palette.heading }}>{heading}</p> : null}
+      <dl className="m-0">
+        {rows.map((r) => (
+          <div key={r.key} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 border-b py-2.5 text-[14px] leading-relaxed" style={{ borderColor: border }} data-detail={r.key}>
+            <dt className="font-medium" style={{ color: ctx.palette.heading }}>{r.label}</dt>
+            <dd className="m-0 whitespace-pre-line" style={{ color: ctx.palette.text }}>
+              {r.type === "url" ? (
+                <a href={ctx.inert ? undefined : r.value} target="_blank" rel="nofollow noopener noreferrer" className="break-all underline underline-offset-2">
+                  {r.value.replace(/^https?:\/\//, "")}
+                </a>
+              ) : (
+                r.value
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
 function Text({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const text = str(s.text)
   if (!text.trim()) return <EditorNote ctx={ctx}>Empty text</EditorNote>
@@ -695,6 +748,8 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   low_stock: LowStock,
   description: Description,
   collapsible_tab: CollapsibleTab,
+  product_faq: ProductFaq,
+  product_details: ProductDetails,
   text: Text,
   icon_with_text: IconWithText,
   share: Share,

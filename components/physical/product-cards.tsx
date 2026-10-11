@@ -14,30 +14,39 @@
  *
  *   Inventory    track it or not; one quantity for a simple product, one per
  *                variant otherwise; keep selling when out; low stock alert
- *   Variants     up to three options (Size, Color, Material) and every
- *                combination as a row: image, price, quantity, optional SKU,
- *                and under "more" weight, compare at, cost, barcode, who
- *                fulfils it, on sale
- *   Shipping     shipped or not, weight in the shop's units, shipping profile
- *   Fulfillment  "How will this product be fulfilled?" four plain answers,
- *                and for a partner, which one (made here in two fields)
- *   Advanced     SKU and barcode, cost, size, customs, tax, vendor and tags
+ *   Variants     up to three options (./variant-options.tsx), named as the
+ *                seller likes, values typed, renamed and held to reorder,
+ *                and every combination as a row (./variant-table.tsx): photo,
+ *                price, quantity, and behind it compare at, SKU, barcode,
+ *                weight, cost and whether it is sold; Edit all for many
+ *   Shipping     shipped or not, weight in the shop's units, the rates it
+ *                uses, and who ships it: the store's answer from Settings
+ *   Advanced     codes and cost, package size (customs behind one more tap),
+ *                tax, brand and tags, and fulfilling this one product some
+ *                other way than the store does (lib/physical/fulfilment-default.ts)
  *
+ * Every price is in the store's currency (lib/store/currency-context.tsx).
  * Stock typed here is a count: the server records the difference as a
  * movement in the history (lib/physical/inventory-server.ts).
  */
 
 import * as React from "react"
-import { ChevronDown, ImagePlus, Plus, Trash2, Upload, X } from "lucide-react"
+import { ChevronDown, Plus, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES } from "@/lib/checkout/countries"
 import { combinationKey, combinations, normaliseOptions, variantName, type Combination } from "@/lib/physical/variants"
 import { dimensionUnitFor, fromGrams, fromMm, toGrams, toMm, weightUnitFor, type DimensionUnit, type UnitSystem, type WeightUnit } from "@/lib/physical/units"
 import { marginPercent } from "@/lib/physical/totals"
 import { METHODS, METHOD_ORDER } from "@/lib/physical/fulfillment"
-import type { FulfillmentMethod, Location, PhysicalVariant, ProductOption } from "@/lib/physical/types"
+import { followsStore, fulfilmentSummary, storeFulfilment } from "@/lib/physical/fulfilment-default"
+import type { FulfillmentMethod, FulfillmentModel, Location, PhysicalVariant, ProductOption } from "@/lib/physical/types"
+import { formatStoreMoney } from "@/lib/store/currency"
+import { useStoreCurrency } from "@/lib/store/currency-context"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field, Modal, MoneyInput, Notice, NumberInput, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf } from "./ui"
+import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
+import { VariantTable } from "./variant-table"
+import { emptyRow, remapRows, renameValueInRows, rowsForCombinations, type VariantRow } from "./variant-rows"
 
 export interface PhysicalEditorHandle {
   /** A sentence for what must be fixed before saving, or null. */
@@ -46,37 +55,16 @@ export interface PhysicalEditorHandle {
   save: (productId: string) => Promise<string | null>
 }
 
-interface Row {
-  id: string | null
-  options: Combination
-  price: string
-  compareAt: string
-  cost: string
-  sku: string
-  barcode: string
-  weight: string
-  imageUrl: string | null
-  /** "" is "as the product". */
-  method: FulfillmentMethod | ""
-  active: boolean
-  /** location id → on hand typed */
-  stock: Record<string, string>
-  /** location id → on hand / committed when loaded */
-  loadedOnHand: Record<string, number>
-  committed: Record<string, number>
-}
-
-interface OptionDraft {
-  name: string
-  values: string[]
-  draft: string
-}
+type Row = VariantRow
 
 interface ShopSettings {
   unitSystem: UnitSystem
   taxMode: "none" | "manual" | "provider"
   lowStockDefault: number
   lowStockAlerts: boolean
+  /** The store's answer to "How you fulfil orders" (Settings › Shipping › Locations). */
+  fulfillmentModel: FulfillmentModel | null
+  defaultLocationId: string | null
 }
 
 interface Context {
@@ -110,11 +98,7 @@ interface ProductData {
   levels: { variantId: string; locationId: string; onHand: number; committed: number }[]
 }
 
-const DEFAULT_SETTINGS: ShopSettings = { unitSystem: "metric", taxMode: "none", lowStockDefault: 5, lowStockAlerts: true }
-
-function emptyRow(options: Combination): Row {
-  return { id: null, options, price: "", compareAt: "", cost: "", sku: "", barcode: "", weight: "", imageUrl: null, method: "", active: true, stock: {}, loadedOnHand: {}, committed: {} }
-}
+const DEFAULT_SETTINGS: ShopSettings = { unitSystem: "metric", taxMode: "none", lowStockDefault: 5, lowStockAlerts: true, fulfillmentModel: null, defaultLocationId: null }
 
 function rowsFrom(p: ProductData, unit: WeightUnit): Row[] {
   return p.variants
@@ -140,6 +124,9 @@ function rowsFrom(p: ProductData, unit: WeightUnit): Row[] {
       }
     })
 }
+
+/** Option text cleaned the way lib/physical/variants.ts cleans it, to match an option to its place in the rows. */
+const clean = (v: string) => v.replace(/\s+/g, " ").trim().toLowerCase()
 
 export interface PhysicalCardsProps {
   productId: string | null
@@ -196,7 +183,10 @@ function Cards(props: PhysicalCardsProps) {
   )
 }
 
+const LOCATIONS_HREF = "/app/settings?tab=shipping&section=locations"
+
 function CardsInner({ productId, basePrice, handle, onDirty, images = [], uploadImage }: PhysicalCardsProps) {
+  const currency = useStoreCurrency()
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
   const [ctx, setCtx] = React.useState<Context>({ locations: [], profiles: [], settings: DEFAULT_SETTINGS })
@@ -208,7 +198,10 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const [dimUnit, setDimUnit] = React.useState<DimensionUnit>("cm")
   const [origin, setOrigin] = React.useState("")
   const [hsCode, setHsCode] = React.useState("")
+  const [customsOpen, setCustomsOpen] = React.useState(false)
   const [profileId, setProfileId] = React.useState("")
+  /* Who ships it: the store's answer, unless this product has its own (`ownFulfilment`). */
+  const [ownFulfilment, setOwnFulfilment] = React.useState(false)
   const [shipsFrom, setShipsFrom] = React.useState("")
   const [method, setMethod] = React.useState<FulfillmentMethod>("self")
   const [trackInventory, setTrackInventory] = React.useState(true)
@@ -217,16 +210,19 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   const [taxable, setTaxable] = React.useState(true)
   const [taxCategory, setTaxCategory] = React.useState("")
   const [vendor, setVendor] = React.useState("")
-  const [tags, setTags] = React.useState("")
+  const [tags, setTags] = React.useState<string[]>([])
   const [advancedOpen, setAdvancedOpen] = React.useState(false)
 
   const [options, setOptions] = React.useState<OptionDraft[]>([])
   const [rows, setRows] = React.useState<Row[]>([emptyRow([null, null, null])])
+  /* Rows whose value was removed, kept for the visit so typing it back restores them (./variant-rows.ts). */
+  const stash = React.useRef(new Map<string, Row>())
   const [stockAt, setStockAt] = React.useState("")
-  const [openRow, setOpenRow] = React.useState<string | null>(null)
-  const [imageFor, setImageFor] = React.useState<string | null>(null)
+  const [imageFor, setImageFor] = React.useState<{ keys: string[]; name: string } | null>(null)
 
-  const apply = React.useCallback((p: ProductData) => {
+  const store = React.useMemo(() => storeFulfilment(ctx.settings.fulfillmentModel, ctx.settings.defaultLocationId, ctx.locations), [ctx])
+
+  const apply = React.useCallback((p: ProductData, storeNow: ReturnType<typeof storeFulfilment>) => {
     setRequiresShipping(p.requiresShipping)
     setWeightUnit(p.weightUnit)
     setWeight(p.weightGrams === null ? "" : String(fromGrams(p.weightGrams, p.weightUnit) ?? ""))
@@ -234,17 +230,19 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     setDims({ l: p.lengthMm ? String(fromMm(p.lengthMm, p.dimensionUnit)) : "", w: p.widthMm ? String(fromMm(p.widthMm, p.dimensionUnit)) : "", h: p.heightMm ? String(fromMm(p.heightMm, p.dimensionUnit)) : "" })
     setOrigin(p.originCountry ?? "")
     setHsCode(p.hsCode ?? "")
+    setCustomsOpen(!!(p.originCountry || p.hsCode))
     setProfileId(p.shippingProfileId ?? "")
     setShipsFrom(p.fulfillmentLocationId ?? "")
     setMethod(p.fulfillmentMethod ?? "self")
+    setOwnFulfilment(!followsStore({ method: p.fulfillmentMethod, locationId: p.fulfillmentLocationId }, storeNow))
     setTrackInventory(p.trackInventory)
     setContinueSelling(p.continueSelling)
     setLowStock(p.lowStockThreshold === null ? "" : String(p.lowStockThreshold))
     setTaxable(p.taxable)
     setTaxCategory(p.taxCategory ?? "")
     setVendor(p.vendor ?? "")
-    setTags((p.tags ?? []).join(", "))
-    setOptions(p.options.map((o) => ({ name: o.name, values: o.values, draft: "" })))
+    setTags(p.tags ?? [])
+    setOptions(p.options.map((o) => ({ id: optionId(), name: o.name, values: o.values, open: false })))
     const loaded = rowsFrom(p, p.weightUnit)
     setRows(loaded.length ? loaded : [emptyRow([null, null, null])])
   }, [])
@@ -260,17 +258,21 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         return
       }
       const settings = { ...DEFAULT_SETTINGS, ...(context.data.settings ?? {}) }
-      setCtx({ ...context.data, settings })
+      const next = { ...context.data, settings }
+      setCtx(next)
       setStockAt(context.data.locations.find((l) => l.active)?.id ?? "")
+      const storeNow = storeFulfilment(settings.fulfillmentModel, settings.defaultLocationId, context.data.locations)
       if (productId) {
         const got = await api<{ product: ProductData }>(`/api/physical/products/${productId}`)
         if (gone) return
-        if (got.ok) apply(got.data.product)
+        if (got.ok) apply(got.data.product, storeNow)
         else setLoadError(got.error)
       } else {
-        /* A new product is typed in the shop's own units. */
+        /* A new product is typed in the shop's own units, and follows the store's answer for who ships it. */
         setWeightUnit(weightUnitFor(settings.unitSystem))
         setDimUnit(dimensionUnitFor(settings.unitSystem))
+        setMethod(storeNow.method)
+        setShipsFrom(storeNow.locationId ?? "")
       }
       setLoading(false)
     })()
@@ -289,7 +291,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     [onDirty],
   )
 
-  /* The rows follow the options: every combination, keeping what was typed for each. */
+  /* The rows follow the options: every combination, keeping what was typed for each (./variant-rows.ts). */
   const normalised = React.useMemo(() => normaliseOptions(options.map((o) => ({ name: o.name, values: o.values }))), [options])
   React.useEffect(() => {
     let combos: Combination[]
@@ -298,11 +300,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     } catch {
       return
     }
-    setRows((prev) => {
-      const byKey = new Map(prev.map((r) => [combinationKey(r.options), r]))
-      const single = prev.length === 1 && !prev[0].options.some(Boolean) ? prev[0] : null
-      return combos.map((c) => byKey.get(combinationKey(c)) ?? (combos.length === 1 && single ? { ...single, options: c } : { ...emptyRow(c), price: single?.price ?? "", cost: single?.cost ?? "" }))
-    })
+    setRows((prev) => rowsForCombinations(combos, prev, stash.current))
   }, [normalised])
 
   const activeLocations = ctx.locations.filter((l) => l.active)
@@ -311,35 +309,106 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     setRows((prev) => prev.map((r) => (combinationKey(r.options) === key ? { ...r, ...patch } : r)))
     onDirty()
   }
+  const patchRows = (keys: string[], patch: (r: Row) => Partial<Row>) => {
+    const want = new Set(keys)
+    setRows((prev) => prev.map((r) => (want.has(combinationKey(r.options)) ? { ...r, ...patch(r) } : r)))
+    onDirty()
+  }
 
-  /* Where it ships from: any of the seller's own places for "myself", a partner of the right kind otherwise. */
+  /* Options, with the rows kept in step when a value is renamed or an option moves or goes. */
+  const setOptionsDirty = (update: (prev: OptionDraft[]) => OptionDraft[]) => {
+    setOptions(update)
+    onDirty()
+  }
+  const renameValue = (i: number, from: string, to: string) => {
+    const position = normalised.findIndex((n) => clean(n.name) === clean(options[i]?.name ?? ""))
+    setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, values: o.values.map((v) => (v === from ? to : v)) } : o)))
+    if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
+    onDirty()
+  }
+  const reshape = (next: OptionDraft[]) => {
+    const before = normalised.map((o) => o.name)
+    const after = normaliseOptions(next.map((o) => ({ name: o.name, values: o.values }))).map((o) => o.name)
+    setOptions(next)
+    setRows((prev) => remapRows(prev, before, after))
+    onDirty()
+  }
+  const moveOption = (from: number, to: number) => {
+    const next = [...options]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    reshape(next)
+  }
+  const removeOption = (i: number) => reshape(options.filter((_, j) => j !== i))
+
+  /*
+    A unit changed: what is typed is converted, so 1.5 kg becomes 1500 g and
+    not 1.5 g. Grams and millimetres are what is stored, as before; this only
+    keeps the shown number the same weight or size.
+  */
+  const convertWeight = (typed: string, from: WeightUnit, to: WeightUnit) => {
+    if (!typed.trim()) return typed
+    const g = toGrams(typed, from)
+    return g === null ? typed : String(fromGrams(g, to) ?? "")
+  }
+  const changeWeightUnit = (to: WeightUnit) => {
+    const from = weightUnit
+    if (to === from) return
+    setWeight((w) => convertWeight(w, from, to))
+    setRows((prev) => prev.map((r) => (r.weight.trim() ? { ...r, weight: convertWeight(r.weight, from, to) } : r)))
+    changed(setWeightUnit)(to)
+  }
+  const changeDimUnit = (to: DimensionUnit) => {
+    const from = dimUnit
+    if (to === from) return
+    const conv = (typed: string) => {
+      if (!typed.trim()) return typed
+      const mm = toMm(typed, from)
+      return mm === null ? typed : String(fromMm(mm, to) ?? "")
+    }
+    setDims((d) => ({ l: conv(d.l), w: conv(d.w), h: conv(d.h) }))
+    changed(setDimUnit)(to)
+  }
+
+  /* Its own fulfilment: where it ships from is one of the seller's places for "myself", a partner of the right kind otherwise. */
   const partners = activeLocations.filter((l) => METHODS[method].locationKinds.includes(l.kind))
   const pickMethod = (m: FulfillmentMethod) => {
     changed(setMethod)(m)
     const here = ctx.locations.find((l) => l.id === shipsFrom)
     if (here && !METHODS[m].locationKinds.includes(here.kind)) setShipsFrom("")
   }
+  const chooseOwnFulfilment = (on: boolean) => {
+    changed(setOwnFulfilment)(on)
+    if (on) {
+      /* Starts from the store's answer, so turning it on changes nothing until something is picked. */
+      setMethod(store.method)
+      setShipsFrom(store.locationId ?? "")
+    }
+  }
 
   handle.current = {
     check: () => {
       if (loading) return "Wait for the stock and shipping details to load."
       for (const o of options) {
-        if (o.name.trim() && o.values.length === 0 && !o.draft.trim()) return `Add a value to ${o.name.trim()}`
-        if (!o.name.trim() && (o.values.length || o.draft.trim())) return "Name every option, like Size or Color"
+        if (o.name.trim() && o.values.length === 0) return `Add a value to ${o.name.trim()}`
+        if (!o.name.trim() && o.values.length) return "Name every option, like Size or Color"
       }
+      const names = options.map((o) => clean(o.name)).filter(Boolean)
+      if (new Set(names).size !== names.length) return "Two options have the same name"
       if (rows.length > 250) return "Up to 250 variants. Remove some option values."
       const base = centsOf(basePrice)
       for (const r of rows) {
         if (!r.active) continue
         const p = centsOf(r.price) ?? base
-        if (p === null || p < 50) return multi ? `Set a price for ${variantName(r.options)}` : "Set a price of at least $0.50"
+        if (p === null || p < 50) return multi ? `Set a price for ${variantName(r.options)}` : `Set a price of at least ${formatStoreMoney(50, currency)}`
       }
+      if (rows.every((r) => !r.active)) return "Sell at least one variant"
       if (requiresShipping && weight.trim() && toGrams(weight, weightUnit) === null) return "Check the weight"
+      if (ownFulfilment && method !== "self" && !shipsFrom) return `Choose who fulfils it, under Advanced`
       return null
     },
     save: async (id: string) => {
-      /* A value still in the box counts as added. */
-      const opts = options.map((o) => ({ name: o.name, values: o.draft.trim() ? [...o.values, o.draft.trim()] : o.values }))
+      const opts = normalised.map((o) => ({ name: o.name, values: o.values }))
       const variants = rows.map((r) => {
         const stock: Record<string, number> = {}
         if (trackInventory) {
@@ -363,11 +432,13 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           stock,
         }
       })
+      /* Following the store: today's answer is written, so checkout and the order jobs read it as before. */
+      const fulfilment = ownFulfilment ? { method, locationId: shipsFrom || null } : store
       const res = await api<{ product: ProductData }>(`/api/physical/products/${id}`, {
         method: "PUT",
         body: {
           vendor: vendor.trim() || null,
-          tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+          tags,
           requiresShipping,
           weightGrams: weight.trim() ? toGrams(weight, weightUnit) : null,
           weightUnit,
@@ -382,15 +453,16 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           trackInventory,
           continueSelling,
           lowStockThreshold: lowStock.trim() ? Number(lowStock) : null,
-          fulfillmentMethod: method,
-          fulfillmentLocationId: shipsFrom || null,
+          fulfillmentMethod: fulfilment.method,
+          fulfillmentLocationId: fulfilment.locationId,
           shippingProfileId: profileId || null,
           options: opts,
           variants,
         },
       })
       if (!res.ok) return res.error
-      apply(res.data.product)
+      stash.current.clear()
+      apply(res.data.product, store)
       return null
     },
   }
@@ -414,7 +486,26 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   }
   const onlyLocation = activeLocations.length === 1 ? activeLocations[0] : null
   const lowDefault = ctx.settings.lowStockDefault
-  const imageRow = imageFor ? rows.find((r) => combinationKey(r.options) === imageFor) ?? null : null
+  const imageRows = imageFor ? rows.filter((r) => imageFor.keys.includes(combinationKey(r.options))) : []
+  const imageNow = imageRows.length && imageRows.every((r) => r.imageUrl === imageRows[0].imageUrl) ? imageRows[0].imageUrl : null
+  const storeLine = fulfilmentSummary(store, ctx.locations)
+  const ownLine = fulfilmentSummary({ method, locationId: method === "self" ? null : shipsFrom || null }, ctx.locations) + (method === "self" && shipsFrom ? `, from ${ctx.locations.find((l) => l.id === shipsFrom)?.name ?? "one place"}` : "")
+  const nonDefaultProfiles = ctx.profiles.filter((p) => !p.isDefault)
+  const generalName = ctx.profiles.find((p) => p.isDefault)?.name ?? "General"
+  const advancedSet = [
+    !multi && single?.sku.trim() ? `SKU ${single.sku.trim()}` : "",
+    !multi && single?.cost.trim() ? "cost" : "",
+    requiresShipping && (dims.l || dims.w || dims.h) ? "package size" : "",
+    requiresShipping && (origin || hsCode) ? "customs" : "",
+    !taxable ? "no tax" : "",
+    vendor.trim() ? vendor.trim() : "",
+    tags.length ? `${tags.length} ${tags.length === 1 ? "tag" : "tags"}` : "",
+    ownFulfilment ? "its own fulfilment" : "",
+  ].filter(Boolean)
+  const openFulfilment = () => {
+    setAdvancedOpen(true)
+    requestAnimationFrame(() => document.getElementById("physical-advanced-fulfilment")?.scrollIntoView({ behavior: "smooth", block: "center" }))
+  }
 
   return (
     <div className="space-y-4 sm:space-y-5" data-physical-cards="">
@@ -426,7 +517,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
             activeLocations.length === 0 ? (
               <Notice tone="amber">
                 Add the place you keep stock first.{" "}
-                <SettingsLink href="/app/settings?tab=shipping&section=locations" className="font-medium underline underline-offset-2">
+                <SettingsLink href={LOCATIONS_HREF} className="font-medium underline underline-offset-2">
                   Add a location
                 </SettingsLink>
               </Notice>
@@ -453,7 +544,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
               </div>
             )
           ) : null}
-          {trackInventory && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in the Variants table below.</p> : null}
+          {trackInventory && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in Variants below.</p> : null}
           {trackInventory && (multi || !onlyLocation) ? (
             <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when a variant drops to this" : "Marked Low on Inventory at this"} className="sm:max-w-[260px]">
               <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={changed(setLowStock)} />
@@ -464,186 +555,22 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       </Card>
 
       {/* ── Variants ─────────────────────────────────────────────────── */}
-      <Card
-        id="physical-variants"
-        title="Variants"
-        description={multi ? `${rows.length} ${rows.length === 1 ? "variant" : "variants"}, made from your options` : "Sizes, colors or materials. Each one gets its own price, quantity and photo."}
-      >
-        <div className="space-y-3">
-          {options.map((o, i) => (
-            <div key={i} className="rounded-xl border border-[#eceef1] p-3">
-              <div className="flex items-center gap-2">
-                <TextInput
-                  aria-label="Option name"
-                  placeholder={i === 0 ? "Size" : i === 1 ? "Color" : "Material"}
-                  value={o.name}
-                  onChange={(e) => changed(setOptions)((prev) => prev.map((x, j) => (j === i ? { ...x, name: e.target.value.slice(0, 40) } : x)))}
-                  className="flex-1"
-                />
-                <button type="button" aria-label="Remove option" onClick={() => changed(setOptions)((prev) => prev.filter((_, j) => j !== i))} className={cn(BTN_GHOST, "h-10 w-10 shrink-0 px-0")}>
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                {o.values.map((v, k) => (
-                  <span key={`${v}-${k}`} className="inline-flex h-8 items-center gap-1 rounded-lg bg-[#f1f2f4] pl-2.5 pr-1 text-[13px] font-medium text-[#374151]">
-                    {v}
-                    <button type="button" aria-label={`Remove ${v}`} onClick={() => changed(setOptions)((prev) => prev.map((x, j) => (j === i ? { ...x, values: x.values.filter((_, n) => n !== k) } : x)))} className="grid h-6 w-6 place-items-center rounded-md hover:bg-[#e2e3e7]">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  aria-label={`Add a value to ${o.name || "this option"}`}
-                  placeholder={o.values.length ? "Add another" : "Type a value, press Enter"}
-                  value={o.draft}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v.endsWith(",")) {
-                      const add = v.slice(0, -1).trim()
-                      changed(setOptions)((prev) => prev.map((x, j) => (j === i ? { ...x, draft: "", values: add && !x.values.some((y) => y.toLowerCase() === add.toLowerCase()) ? [...x.values, add.slice(0, 100)] : x.values } : x)))
-                    } else setOptions((prev) => prev.map((x, j) => (j === i ? { ...x, draft: v } : x)))
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key !== "Enter") return
-                    e.preventDefault()
-                    const add = o.draft.trim()
-                    if (!add) return
-                    changed(setOptions)((prev) => prev.map((x, j) => (j === i ? { ...x, draft: "", values: x.values.some((y) => y.toLowerCase() === add.toLowerCase()) ? x.values : [...x.values, add.slice(0, 100)] } : x)))
-                  }}
-                  onBlur={() => {
-                    const add = o.draft.trim()
-                    if (!add) return
-                    changed(setOptions)((prev) => prev.map((x, j) => (j === i ? { ...x, draft: "", values: x.values.some((y) => y.toLowerCase() === add.toLowerCase()) ? x.values : [...x.values, add.slice(0, 100)] } : x)))
-                  }}
-                  className="h-8 min-w-[150px] flex-1 rounded-lg border-0 bg-transparent px-1 text-[14px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af]"
-                />
-              </div>
-            </div>
-          ))}
-          {options.length < 3 ? (
-            <div className="flex flex-wrap items-center gap-2" data-option-presets="">
-              {/* One tap for the usual ones, with their common values filled in to keep or remove. */}
-              {OPTION_PRESETS.filter((p) => !options.some((o) => o.name.trim().toLowerCase() === p.name.toLowerCase())).map((p) => (
-                <button key={p.name} type="button" onClick={() => changed(setOptions)((prev) => [...prev, { name: p.name, values: [...p.values], draft: "" }])} className={cn(BTN_SECONDARY, "h-9 px-3 text-[13.5px]")}>
-                  <Plus className="h-3.5 w-3.5" />
-                  {p.name}
-                </button>
-              ))}
-              <button type="button" onClick={() => changed(setOptions)((prev) => [...prev, { name: "", values: [], draft: "" }])} className={cn(BTN_GHOST, "h-9 px-3 text-[13.5px]")}>
-                {options.length === 0 ? "Your own option" : "Another option"}
-              </button>
-            </div>
-          ) : null}
-        </div>
-
+      <Card id="physical-variants" title="Variants" description={multi ? "Every combination of your options is a variant with its own price, stock and photo." : "Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo."}>
+        <OptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
         {multi ? (
-          <div className="mt-5">
-            {trackInventory && activeLocations.length > 1 ? (
-              <div className="mb-3 flex items-center justify-end gap-2">
-                <span className="text-[13px] text-[#6b7280]">Quantity at</span>
-                <SelectInput value={stockAt} onChange={setStockAt} className="w-[200px]" aria-label="Location for the quantity column">
-                  {activeLocations.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </SelectInput>
-              </div>
-            ) : null}
-            <div className="overflow-hidden rounded-xl border border-[#eceef1]">
-              <div className="hidden grid-cols-[44px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_36px] gap-3 border-b border-[#eceef1] bg-[#f8f9fa] px-3 py-2 text-[12px] font-medium uppercase tracking-[0.02em] text-[#6b7280] md:grid">
-                <span />
-                <span>Variant</span>
-                <span>Price</span>
-                <span>Quantity</span>
-                <span>SKU (optional)</span>
-                <span />
-              </div>
-              {rows.map((r) => {
-                const key = combinationKey(r.options)
-                const open = openRow === key
-                const committed = stockAt ? r.committed[stockAt] ?? 0 : 0
-                const name = variantName(r.options)
-                return (
-                  <div key={key} className={cn("border-b border-[#eceef1] last:border-b-0", !r.active && "bg-[#fafafa]")} data-variant-row="">
-                    <div className="grid grid-cols-[44px_minmax(0,1fr)] gap-x-3 gap-y-2 px-3 py-3 md:grid-cols-[44px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,1fr)_36px] md:items-center">
-                      <button
-                        type="button"
-                        onClick={() => setImageFor(key)}
-                        aria-label={r.imageUrl ? `Change the photo for ${name}` : `Add a photo for ${name}`}
-                        className="row-span-2 grid h-11 w-11 place-items-center overflow-hidden rounded-lg border border-dashed border-[#d1d5db] bg-[#fafafa] text-[#9ca3af] transition-colors hover:border-[#9ca3af] hover:text-[#4b5563] md:row-span-1"
-                      >
-                        {r.imageUrl ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img src={r.imageUrl} alt="" className="h-full w-full object-cover" />
-                        ) : (
-                          <ImagePlus className="h-4 w-4" />
-                        )}
-                      </button>
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className={cn("truncate text-[14px] font-medium", r.active ? "text-[#1a1a2e]" : "text-[#9ca3af] line-through")}>{name}</span>
-                      </div>
-                      <div className="col-start-2 grid grid-cols-3 gap-2 md:contents">
-                        <label className="md:contents">
-                          <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Price</span>
-                          <MoneyInput aria-label={`Price for ${name}`} value={r.price} placeholder={basePrice || "0.00"} onChange={(v) => setRow(key, { price: v })} />
-                        </label>
-                        <label className="md:contents">
-                          <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Quantity</span>
-                          {trackInventory && stockAt ? (
-                            <div>
-                              <NumberInput allowNegative aria-label={`Quantity for ${name}`} value={r.stock[stockAt] ?? ""} placeholder="0" onChange={(v) => setRow(key, { stock: { ...r.stock, [stockAt]: v } })} />
-                              {committed > 0 ? <span className="mt-0.5 block text-[11.5px] text-[#6b7280]">{committed} held</span> : null}
-                            </div>
-                          ) : (
-                            <span className="flex h-10 items-center text-[13px] text-[#6b7280]">Not tracked</span>
-                          )}
-                        </label>
-                        <label className="md:contents">
-                          <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">SKU</span>
-                          <TextInput aria-label={`SKU for ${name}`} value={r.sku} maxLength={64} placeholder="Optional" onChange={(e) => setRow(key, { sku: e.target.value })} />
-                        </label>
-                      </div>
-                      <button type="button" aria-expanded={open} aria-label={`More for ${name}`} onClick={() => setOpenRow(open ? null : key)} className={cn(BTN_GHOST, "col-start-2 h-8 justify-start px-0 md:col-start-auto md:w-9 md:justify-center")}>
-                        <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
-                        <span className="md:sr-only">Weight, cost and more</span>
-                      </button>
-                    </div>
-                    {open ? (
-                      <div className="grid gap-3 border-t border-dashed border-[#eceef1] bg-[#fcfcfd] px-3 py-3 sm:grid-cols-2 lg:grid-cols-3">
-                        <Field label="Weight" hint="Empty uses the product's">
-                          <DecimalInput value={r.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} />
-                        </Field>
-                        <Field label="Compare-at price" hint="Shown crossed out">
-                          <MoneyInput value={r.compareAt} placeholder="0.00" onChange={(v) => setRow(key, { compareAt: v })} />
-                        </Field>
-                        <Field label="Cost per item" hint={marginOf(r) ? `Margin ${marginOf(r)}. Buyers never see this.` : "Buyers never see this."}>
-                          <MoneyInput value={r.cost} placeholder="0.00" onChange={(v) => setRow(key, { cost: v })} />
-                        </Field>
-                        <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
-                          <TextInput value={r.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(key, { barcode: e.target.value })} />
-                        </Field>
-                        <Field label="Fulfilled by">
-                          <SelectInput value={r.method} onChange={(v) => setRow(key, { method: v as FulfillmentMethod | "" })}>
-                            <option value="">Same as the product</option>
-                            {METHOD_ORDER.map((m) => (
-                              <option key={m} value={m}>
-                                {METHODS[m].title}
-                              </option>
-                            ))}
-                          </SelectInput>
-                        </Field>
-                        <div className="flex flex-col justify-end pb-1">
-                          <Toggle label="On sale" description="Off hides it from buyers" checked={r.active} onChange={(v) => setRow(key, { active: v })} />
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
+          <VariantTable
+            rows={rows}
+            options={normalised}
+            basePrice={basePrice}
+            trackInventory={trackInventory}
+            locations={activeLocations}
+            stockAt={stockAt}
+            setStockAt={setStockAt}
+            weightUnit={weightUnit}
+            setRow={setRow}
+            patchRows={patchRows}
+            pickImage={(keys, name) => setImageFor({ keys, name })}
+          />
         ) : null}
       </Card>
 
@@ -652,37 +579,38 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         <div className="space-y-4">
           <Toggle label="This product is shipped" description="Off for things you hand over yourself." checked={requiresShipping} onChange={changed(setRequiresShipping)} />
           {requiresShipping ? (
-            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]">
+            <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>
               <Field label="Weight" hint="With its packaging">
                 <DecimalInput value={weight} onChange={changed(setWeight)} placeholder="0.0" aria-label="Weight" />
               </Field>
               <Field label="Unit">
-                <SelectInput value={weightUnit} onChange={(v) => changed(setWeightUnit)(v as WeightUnit)} aria-label="Weight unit">
+                <SelectInput value={weightUnit} onChange={(v) => changeWeightUnit(v as WeightUnit)} aria-label="Weight unit">
                   <option value="kg">kg</option>
                   <option value="g">g</option>
                   <option value="lb">lb</option>
                   <option value="oz">oz</option>
                 </SelectInput>
               </Field>
-              <Field
-                label="Shipping profile"
-                hint={
-                  <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="underline underline-offset-2">
-                    Edit shipping rates
-                  </SettingsLink>
-                }
-              >
-                <SelectInput value={profileId} onChange={changed(setProfileId)} aria-label="Shipping profile">
-                  <option value="">{ctx.profiles.find((p) => p.isDefault)?.name ?? "General"} (all products)</option>
-                  {ctx.profiles
-                    .filter((p) => !p.isDefault)
-                    .map((p) => (
+              {/* Rates: one choice only when the store has more than its general rates. */}
+              {nonDefaultProfiles.length ? (
+                <Field
+                  label="Shipping rates"
+                  hint={
+                    <SettingsLink href="/app/settings?tab=shipping&section=delivery" className="underline underline-offset-2">
+                      Edit shipping rates
+                    </SettingsLink>
+                  }
+                >
+                  <SelectInput value={profileId} onChange={changed(setProfileId)} aria-label="Shipping rates">
+                    <option value="">{generalName} (all products)</option>
+                    {nonDefaultProfiles.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
                     ))}
-                </SelectInput>
-              </Field>
+                  </SelectInput>
+                </Field>
+              ) : null}
             </div>
           ) : null}
           {requiresShipping && ctx.profiles.every((p) => (p.zoneCount ?? 0) === 0) ? (
@@ -693,101 +621,53 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
               </SettingsLink>
             </Notice>
           ) : null}
-        </div>
-      </Card>
-
-      {/* ── Fulfillment ──────────────────────────────────────────────── */}
-      <Card
-        id="physical-fulfillment"
-        title="Fulfillment"
-        description="Who packs and ships this product. Your places and partners are in Settings › Locations; here you pick which one handles this product, so its orders go to the right place."
-        action={
-          <SettingsLink href="/help/physical-products/fulfillment-methods" className="text-[13px] font-medium text-[#6b7280] underline underline-offset-2 hover:text-[#1a1a2e]">
-            How this works
-          </SettingsLink>
-        }
-      >
-        <div className="space-y-4">
-          <div role="radiogroup" aria-label="How will this product be fulfilled?" className="grid gap-2 sm:grid-cols-2">
-            {METHOD_ORDER.map((m) => {
-              const on = method === m
-              return (
-                <button
-                  key={m}
-                  type="button"
-                  role="radio"
-                  aria-checked={on}
-                  onClick={() => pickMethod(m)}
-                  className={cn("flex items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors", on ? "border-[#1a1a2e] bg-[#fafafa] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] hover:bg-[#f8f9fa]")}
-                >
-                  <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{on ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
-                  <span className="min-w-0">
-                    <span className="block text-[14px] font-medium text-[#1a1a2e]">{METHODS[m].title}</span>
-                    <span className="block text-[13px] leading-[18px] text-[#6b7280]">{METHODS[m].line}</span>
-                  </span>
-                </button>
-              )
-            })}
+          {/* Who ships it: one line, the store's answer from Settings; a product with its own says so. */}
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-xl bg-[#f7f7f8] px-3.5 py-2.5" data-shipped-by="">
+            <p className="min-w-0 text-[13.5px] leading-5 text-[#4b5563]">
+              <span className="font-medium text-[#1a1a2e]">{ownFulfilment ? ownLine : storeLine}</span>
+              <span className="text-[#6b7280]">{ownFulfilment ? " · this product only" : " · your store setting"}</span>
+            </p>
+            {ownFulfilment ? (
+              <button type="button" onClick={openFulfilment} className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
+                Change
+              </button>
+            ) : (
+              <SettingsLink href={LOCATIONS_HREF} className="text-[13px] font-medium text-[#1a1a2e] underline underline-offset-2">
+                Change in Settings
+              </SettingsLink>
+            )}
           </div>
-          {method === "self" ? (
-            activeLocations.length > 1 ? (
-              <Field label="Ships from" hint="Any picks the place with stock" className="sm:max-w-[360px]">
-                <SelectInput value={shipsFrom} onChange={changed(setShipsFrom)}>
-                  <option value="">Any of my locations</option>
-                  {partners.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </SelectInput>
-              </Field>
-            ) : null
-          ) : (
-            <PartnerPicker
-              method={method}
-              partners={partners}
-              value={shipsFrom}
-              onChange={changed(setShipsFrom)}
-              onCreated={(loc) => {
-                setCtx((c) => ({ ...c, locations: [...c.locations, loc] }))
-                changed(setShipsFrom)(loc.id)
-              }}
-            />
-          )}
-          <p className="rounded-xl bg-[#f7f7f8] px-3.5 py-2.5 text-[13px] leading-5 text-[#4b5563]">
-            <span className="font-medium text-[#1a1a2e]">After a sale: </span>
-            {METHODS[method].afterSale}
-          </p>
         </div>
       </Card>
 
       {/* ── Advanced ─────────────────────────────────────────────────── */}
       <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]" id="physical-advanced">
         <button type="button" aria-expanded={advancedOpen} onClick={() => setAdvancedOpen((v) => !v)} className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left sm:px-6">
-          <span>
+          <span className="min-w-0">
             <span className="block text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Advanced</span>
-            <span className="block text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">SKU, barcode, cost, size, customs, tax and tags</span>
+            <span className="block truncate text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{advancedSet.length ? advancedSet.join(", ") : multi ? "Package size, tax, brand, tags and who fulfils it" : "SKU, barcode, cost, package size, tax, brand and tags"}</span>
           </span>
           <ChevronDown className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-transform", advancedOpen && "rotate-180")} />
         </button>
         {advancedOpen ? (
-          <div className="space-y-5 border-t border-[#eceef1] px-4 py-4 sm:px-6 sm:py-5">
+          <div className="divide-y divide-[#f1f2f4] border-t border-[#eceef1]" data-physical-advanced="">
             {!multi && single ? (
-              <div className="grid gap-3 sm:grid-cols-3">
-                <Field label="SKU" hint="Your own code for it. Shown on orders and packing lists.">
-                  <TextInput value={single.sku} maxLength={64} placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: e.target.value })} />
-                </Field>
-                <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
-                  <TextInput value={single.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: e.target.value })} />
-                </Field>
-                <Field label="Cost per item" hint={marginOf(single) ? `Margin ${marginOf(single)}. Buyers never see this.` : "What one costs you. Buyers never see this."}>
-                  <MoneyInput value={single.cost} placeholder="0.00" onChange={(v) => setRow(singleKey, { cost: v })} />
-                </Field>
-              </div>
+              <Group title="Codes and cost">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Field label="SKU" hint="Your code. On orders and packing slips.">
+                    <TextInput value={single.sku} maxLength={64} placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: e.target.value })} />
+                  </Field>
+                  <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
+                    <TextInput value={single.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: e.target.value })} />
+                  </Field>
+                  <Field label="Cost per item" hint={marginOf(single) ? `${marginOf(single)} margin. Buyers never see this.` : "What one costs you. Buyers never see this."}>
+                    <MoneyInput value={single.cost} onChange={(v) => setRow(singleKey, { cost: v })} />
+                  </Field>
+                </div>
+              </Group>
             ) : null}
             {requiresShipping ? (
-              <div>
-                <p className="mb-2 text-[13.5px] font-medium text-[#374151]">Package size</p>
+              <Group title="Package size" hint="Boxed, for carriers that price by size. Empty uses your default package.">
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-[1fr_1fr_1fr_100px] sm:gap-3">
                   <Field label="Length">
                     <DecimalInput value={dims.l} placeholder="20" onChange={(v) => changed(setDims)((d) => ({ ...d, l: v }))} />
@@ -799,76 +679,111 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                     <DecimalInput value={dims.h} placeholder="10" onChange={(v) => changed(setDims)((d) => ({ ...d, h: v }))} />
                   </Field>
                   <Field label="Unit" className="col-span-3 sm:col-span-1">
-                    <SelectInput value={dimUnit} onChange={(v) => changed(setDimUnit)(v as DimensionUnit)}>
+                    <SelectInput value={dimUnit} onChange={(v) => changeDimUnit(v as DimensionUnit)} aria-label="Size unit">
                       <option value="cm">cm</option>
                       <option value="in">in</option>
                     </SelectInput>
                   </Field>
                 </div>
-              </div>
+                {customsOpen ? (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2" data-customs="">
+                    <Field label="Country of origin" hint="Where it was made, for customs forms">
+                      <SelectInput value={origin} onChange={changed(setOrigin)}>
+                        <option value="">Not set</option>
+                        {COUNTRIES.map((c) => (
+                          <option key={c.code} value={c.code}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </SelectInput>
+                    </Field>
+                    <Field label="HS code" hint="For international customs">
+                      <TextInput value={hsCode} inputMode="numeric" maxLength={14} onChange={(e) => changed(setHsCode)(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="6109.10" />
+                    </Field>
+                  </div>
+                ) : (
+                  <button type="button" onClick={() => setCustomsOpen(true)} className={cn(BTN_GHOST, "-ml-2 mt-2 h-8 px-2 text-[13px]")}>
+                    <Plus className="h-3.5 w-3.5" />
+                    Customs info, for shipping abroad
+                  </button>
+                )}
+              </Group>
             ) : null}
-            {requiresShipping ? (
+            <Group title="Tax">
+              <div className="space-y-3">
+                <Toggle
+                  label="Charge tax on this product"
+                  description={
+                    ctx.settings.taxMode === "manual" ? (
+                      "Your tax rates apply at checkout."
+                    ) : (
+                      <>
+                        Your shop doesn't charge tax yet.{" "}
+                        <SettingsLink href="/app/settings?tab=taxes" className="underline underline-offset-2">
+                          Set up tax
+                        </SettingsLink>
+                      </>
+                    )
+                  }
+                  checked={taxable}
+                  onChange={changed(setTaxable)}
+                />
+                {taxable && (ctx.settings.taxMode === "manual" || taxCategory) ? (
+                  <Field label="Tax category" hint="Optional, for your records and your accountant" className="sm:max-w-[360px]">
+                    <TextInput value={taxCategory} maxLength={60} onChange={(e) => changed(setTaxCategory)(e.target.value)} placeholder="Clothing" />
+                  </Field>
+                ) : null}
+              </div>
+            </Group>
+            <Group title="Brand and tags" hint="Collections and search can use them.">
               <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Country of origin" hint="For customs forms">
-                  <SelectInput value={origin} onChange={changed(setOrigin)}>
-                    <option value="">Not set</option>
-                    {COUNTRIES.map((c) => (
-                      <option key={c.code} value={c.code}>
-                        {c.name}
-                      </option>
-                    ))}
-                  </SelectInput>
+                <Field label="Brand or maker">
+                  <TextInput value={vendor} maxLength={120} placeholder="Brand name" onChange={(e) => changed(setVendor)(e.target.value)} />
                 </Field>
-                <Field label="HS code" hint="For international customs">
-                  <TextInput value={hsCode} inputMode="numeric" maxLength={14} onChange={(e) => changed(setHsCode)(e.target.value.replace(/[^0-9.]/g, ""))} placeholder="6109.10" />
+                <Field label="Tags" hint="Press Enter after each one">
+                  <TagInput value={tags} onChange={changed(setTags)} />
                 </Field>
               </div>
-            ) : null}
-            <div className="space-y-3">
-              <Toggle
-                label="Charge tax on this product"
-                description={
-                  ctx.settings.taxMode === "manual" ? (
-                    "Your tax rates apply at checkout."
-                  ) : (
-                    <>
-                      Your shop doesn't charge tax yet.{" "}
-                      <SettingsLink href="/app/settings?tab=taxes" className="underline underline-offset-2">
-                        Set up tax
-                      </SettingsLink>
-                    </>
-                  )
-                }
-                checked={taxable}
-                onChange={changed(setTaxable)}
-              />
-              {taxable ? (
-                <Field label="Tax category" hint="Optional, for your records and your accountant" className="sm:max-w-[360px]">
-                  <TextInput value={taxCategory} maxLength={60} onChange={(e) => changed(setTaxCategory)(e.target.value)} placeholder="Clothing" />
-                </Field>
-              ) : null}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="Brand or maker" hint="Used by collections and search">
-                <TextInput value={vendor} maxLength={120} placeholder="Angus Farm" onChange={(e) => changed(setVendor)(e.target.value)} />
-              </Field>
-              <Field label="Tags" hint="Separated by commas">
-                <input value={tags} onChange={(e) => changed(setTags)(e.target.value)} className={FIELD} placeholder="summer, linen" />
-              </Field>
+            </Group>
+            <div id="physical-advanced-fulfilment" className="scroll-mt-4">
+              <Group title="Fulfilment">
+                <div className="space-y-4">
+                  <Toggle
+                    label="Fulfil this product differently"
+                    description={ownFulfilment ? "This product has its own answer. Your other products keep the store setting." : `Off, it follows your store setting: ${storeLine.charAt(0).toLowerCase()}${storeLine.slice(1)}.`}
+                    checked={ownFulfilment}
+                    onChange={chooseOwnFulfilment}
+                  />
+                  {ownFulfilment ? (
+                    <OwnFulfilment
+                      method={method}
+                      pickMethod={pickMethod}
+                      partners={partners}
+                      shipsFrom={shipsFrom}
+                      setShipsFrom={changed(setShipsFrom)}
+                      manyPlaces={activeLocations.length > 1}
+                      onCreated={(loc) => {
+                        setCtx((c) => ({ ...c, locations: [...c.locations, loc] }))
+                        changed(setShipsFrom)(loc.id)
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </Group>
             </div>
           </div>
         ) : null}
       </section>
 
       <VariantImagePicker
-        open={!!imageRow}
-        name={imageRow ? variantName(imageRow.options) : ""}
-        value={imageRow?.imageUrl ?? null}
+        open={!!imageFor}
+        name={imageFor?.name ?? ""}
+        value={imageNow}
         images={images}
         uploadImage={uploadImage}
         onClose={() => setImageFor(null)}
         onPick={(url) => {
-          if (imageFor) setRow(imageFor, { imageUrl: url })
+          if (imageFor) patchRows(imageFor.keys, () => ({ imageUrl: url }))
           setImageFor(null)
         }}
       />
@@ -876,12 +791,120 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   )
 }
 
-/** The options most products have, with their usual values to keep or remove. */
-const OPTION_PRESETS: { name: string; values: string[] }[] = [
-  { name: "Size", values: ["S", "M", "L", "XL"] },
-  { name: "Color", values: [] },
-  { name: "Material", values: [] },
-]
+/** One part of Advanced: a short heading, an optional line, its fields. */
+function Group({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-4 sm:px-6 sm:py-5" data-advanced-group={title}>
+      <p className="text-[14px] font-semibold text-[#1a1a2e]">{title}</p>
+      {hint ? <p className="mt-0.5 text-[13px] leading-5 text-[#6b7280]">{hint}</p> : null}
+      <div className="mt-3">{children}</div>
+    </div>
+  )
+}
+
+/** Tags as chips: Enter, a comma or leaving the field adds one; the x removes it. Up to 50, 40 letters each, as the server keeps them. */
+function TagInput({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const [draft, setDraft] = React.useState("")
+  const add = (text: string) => {
+    const parts = text.split(",").map((t) => t.trim().slice(0, 40)).filter(Boolean)
+    const next = [...value]
+    for (const p of parts) if (!next.some((t) => t.toLowerCase() === p.toLowerCase()) && next.length < 50) next.push(p)
+    if (next.length !== value.length) onChange(next)
+    setDraft("")
+  }
+  return (
+    <div className={cn(FIELD, "flex h-auto min-h-11 flex-wrap items-center gap-1.5 py-1.5 sm:min-h-10")} data-tag-input="">
+      {value.map((t) => (
+        <span key={t} className="inline-flex h-7 items-center gap-1 rounded-md bg-[#f1f2f4] pl-2 pr-0.5 text-[13px] text-[#374151]">
+          {t}
+          <button type="button" aria-label={`Remove tag ${t}`} onClick={() => onChange(value.filter((x) => x !== t))} className="grid h-6 w-6 place-items-center rounded hover:bg-[#e2e3e7]">
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <input
+        aria-label="Add a tag"
+        value={draft}
+        placeholder={value.length ? "" : "summer, linen"}
+        onChange={(e) => (e.target.value.includes(",") ? add(e.target.value) : setDraft(e.target.value))}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault()
+            add(draft)
+          } else if (e.key === "Backspace" && !draft && value.length) onChange(value.slice(0, -1))
+        }}
+        onBlur={() => add(draft)}
+        className="h-7 min-w-[90px] flex-1 border-0 bg-transparent p-0 text-[15px] outline-none placeholder:text-[#9ca3af] sm:text-[14px]"
+      />
+    </div>
+  )
+}
+
+/** This product's own answer: four plain choices, and who does it. */
+function OwnFulfilment({
+  method,
+  pickMethod,
+  partners,
+  shipsFrom,
+  setShipsFrom,
+  manyPlaces,
+  onCreated,
+}: {
+  method: FulfillmentMethod
+  pickMethod: (m: FulfillmentMethod) => void
+  partners: Location[]
+  shipsFrom: string
+  setShipsFrom: (id: string) => void
+  manyPlaces: boolean
+  onCreated: (l: Location) => void
+}) {
+  return (
+    <div className="space-y-3">
+      <div role="radiogroup" aria-label="How is this product fulfilled?" className="overflow-hidden rounded-xl border border-[#e5e7eb]">
+        {METHOD_ORDER.map((m) => {
+          const on = method === m
+          return (
+            <button
+              key={m}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => pickMethod(m)}
+              data-fulfil-method={m}
+              className={cn("flex w-full items-start gap-3 border-b border-[#eceef1] px-3.5 py-3 text-left transition-colors last:border-b-0", on ? "bg-[#fafafa]" : "hover:bg-[#f8f9fa]")}
+            >
+              <span className={cn("mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db]")}>{on ? <span className="h-1.5 w-1.5 rounded-full bg-white" /> : null}</span>
+              <span className="min-w-0">
+                <span className="block text-[14px] font-medium text-[#1a1a2e]">{METHODS[m].title}</span>
+                <span className="block text-[13px] leading-[18px] text-[#6b7280]">{METHODS[m].line}</span>
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {method === "self" ? (
+        manyPlaces ? (
+          <Field label="Ships from" hint="Any picks the place with stock" className="sm:max-w-[360px]">
+            <SelectInput value={shipsFrom} onChange={setShipsFrom}>
+              <option value="">Any of my locations</option>
+              {partners.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </SelectInput>
+          </Field>
+        ) : null
+      ) : (
+        <PartnerPicker method={method} partners={partners} value={shipsFrom} onChange={setShipsFrom} onCreated={onCreated} />
+      )}
+      <p className="text-[13px] leading-5 text-[#6b7280]">
+        <span className="font-medium text-[#4b5563]">After a sale: </span>
+        {METHODS[method].afterSale}
+      </p>
+    </div>
+  )
+}
 
 /** A partner for warehouse, dropshipping or print on demand: chosen, or made here in two fields. */
 function PartnerPicker({ method, partners, value, onChange, onCreated }: { method: Exclude<FulfillmentMethod, "self">; partners: Location[]; value: string; onChange: (id: string) => void; onCreated: (l: Location) => void }) {
@@ -955,7 +978,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
       {chosen ? (
         <p className="text-[12.5px] text-[#6b7280]">
           {chosen.forwarding === "email" && chosen.email ? `Orders are emailed to ${chosen.email}.` : chosen.forwarding === "webhook" ? "Orders are sent to your webhook." : "Orders aren't sent automatically. You pass them on."}{" "}
-          <SettingsLink href="/app/settings?tab=shipping&section=locations" className="underline underline-offset-2">
+          <SettingsLink href={LOCATIONS_HREF} className="underline underline-offset-2">
             Change
           </SettingsLink>
         </p>
