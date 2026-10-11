@@ -455,7 +455,7 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
       return <PaymentBadge status={order.payment} />
     case "fulfillment":
       /* A parcel: where it is (Unfulfilled to Delivered, or Returned). A download keeps its two words. */
-      return order.shipping ? <ShipBadge stage={order.shipping.stage} /> : <FulfillmentBadge status={order.fulfillment} />
+      return order.shipping ? <ShipBadge stage={order.shipping.stage} problem={order.shipping.problem} /> : <FulfillmentBadge status={order.fulfillment} />
     case "items":
       return <span>{itemsLabel(order.itemCount)}</span>
     case "delivery":

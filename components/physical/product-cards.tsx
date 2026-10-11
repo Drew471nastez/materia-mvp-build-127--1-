@@ -38,6 +38,7 @@ import { combinationKey, combinations, normaliseOptions, variantName, type Combi
 import { dimensionUnitFor, fromGrams, fromMm, toGrams, toMm, weightUnitFor, type DimensionUnit, type UnitSystem, type WeightUnit } from "@/lib/physical/units"
 import { marginPercent } from "@/lib/physical/totals"
 import { METHODS, METHOD_ORDER } from "@/lib/physical/fulfillment"
+import { madeToOrder, partnerSentence } from "@/lib/physical/partner"
 import { followsStore, fulfilmentSummary, storeFulfilment } from "@/lib/physical/fulfilment-default"
 import type { FulfillmentMethod, FulfillmentModel, Location, PhysicalVariant, ProductOption } from "@/lib/physical/types"
 import { formatStoreMoney } from "@/lib/store/currency"
@@ -340,6 +341,14 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
   const activeLocations = ctx.locations.filter((l) => l.active)
   const multi = normalised.length > 0
+  /*
+    PRINTED WHEN IT SELLS (lib/physical/partner.ts madeToOrder): print on demand at a location that holds no stock,
+    like the one Printful or Printify made, is never counted there, so it never sells out for want of stock it was
+    never meant to have. The switch reads off and is not offered; the server saves it off too (catalog-server).
+  */
+  const fulfilmentNow = ownFulfilment ? { method, locationId: shipsFrom || null } : store
+  const printedAt = madeToOrder(fulfilmentNow.method, ctx.locations.find((l) => l.id === fulfilmentNow.locationId)) ? (ctx.locations.find((l) => l.id === fulfilmentNow.locationId) ?? null) : null
+  const counted = trackInventory && !printedAt
   const setRow = (key: string, patch: Partial<Row>) => {
     setRows((prev) => prev.map((r) => (combinationKey(r.options) === key ? { ...r, ...patch } : r)))
     onDirty()
@@ -447,7 +456,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       const opts = normalised.map((o) => ({ name: o.name, values: o.values }))
       const variants = rows.map((r) => {
         const stock: Record<string, number> = {}
-        if (trackInventory) {
+        if (counted) {
           for (const [loc, typed] of Object.entries(r.stock)) {
             const n = Number.parseInt(typed, 10)
             if (Number.isFinite(n) && (r.loadedOnHand[loc] === undefined || r.loadedOnHand[loc] !== n)) stock[loc] = n
@@ -486,7 +495,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           hsCode: hsCode.trim() || null,
           taxable,
           taxCategory: taxCategory.trim() || null,
-          trackInventory,
+          trackInventory: counted,
           continueSelling,
           lowStockThreshold: lowStock.trim() ? Number(lowStock) : null,
           fulfillmentMethod: fulfilment.method,
@@ -548,10 +557,16 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   return (
     <div className="space-y-4 sm:space-y-5" data-physical-cards="">
       {/* ── Inventory ────────────────────────────────────────────────── */}
-      <Card id="physical-inventory" title="Inventory" description={trackInventory ? "Stock goes down with every sale. Nobody can buy more than you have." : "Not counted: it can always be bought."}>
+      <Card id="physical-inventory" title="Inventory" description={printedAt ? `Not counted: ${printedAt.partner?.name ?? printedAt.name} makes each one when it sells, so it never shows as sold out.` : trackInventory ? "Stock goes down with every sale. Nobody can buy more than you have." : "Not counted: it can always be bought."}>
         <div className="space-y-4">
-          <Toggle label="Track inventory" description="Count how many you have and stop selling at zero." checked={trackInventory} onChange={changed(setTrackInventory)} />
-          {trackInventory && !multi && single ? (
+          {printedAt ? (
+            <p className="text-[13.5px] leading-5 text-[#4b5563]" data-made-to-order="">
+              To count stock, have it fulfilled from one of your own locations.
+            </p>
+          ) : (
+            <Toggle label="Track inventory" description="Count how many you have and stop selling at zero." checked={trackInventory} onChange={changed(setTrackInventory)} />
+          )}
+          {counted && !multi && single ? (
             activeLocations.length === 0 ? (
               <Notice tone="amber">
                 Add the place you keep stock first.{" "}
@@ -582,13 +597,13 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
               </div>
             )
           ) : null}
-          {trackInventory && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in Variants below.</p> : null}
-          {trackInventory && (multi || !onlyLocation) ? (
+          {counted && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in Variants below.</p> : null}
+          {counted && (multi || !onlyLocation) ? (
             <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when a variant drops to this" : "Marked Low on Inventory at this"} className="sm:max-w-[260px]">
               <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={(v) => changed(setLowStock)(v.slice(0, 5))} />
             </Field>
           ) : null}
-          {trackInventory ? <Toggle label="Keep selling when out of stock" description="Buyers can still order, and you ship when it's back." checked={continueSelling} onChange={changed(setContinueSelling)} /> : null}
+          {counted ? <Toggle label="Keep selling when out of stock" description="Buyers can still order, and you ship when it's back." checked={continueSelling} onChange={changed(setContinueSelling)} /> : null}
         </div>
       </Card>
 
@@ -600,7 +615,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
             rows={rows}
             options={normalised}
             basePrice={basePrice}
-            trackInventory={trackInventory}
+            trackInventory={counted}
             locations={activeLocations}
             stockAt={stockAt}
             setStockAt={setStockAt}
@@ -939,7 +954,10 @@ function OwnFulfilment({
       )}
       <p className="text-[13px] leading-5 text-[#6b7280]">
         <span className="font-medium text-[#4b5563]">After a sale: </span>
-        {METHODS[method].afterSale}
+        {(() => {
+          const here = method === "self" ? null : partners.find((p) => p.id === shipsFrom)
+          return here?.forwarding === "provider" && here.partner?.connected ? `The order goes to ${here.partner.name} by each variant's SKU, and its tracking comes back to your buyer by itself.` : METHODS[method].afterSale
+        })()}
       </p>
     </div>
   )
@@ -1016,7 +1034,7 @@ function PartnerPicker({ method, partners, value, onChange, onCreated }: { metho
       </div>
       {chosen ? (
         <p className="text-[12.5px] text-[#6b7280]">
-          {chosen.forwarding === "email" && chosen.email ? `Orders are emailed to ${chosen.email}.` : chosen.forwarding === "webhook" ? "Orders are sent to your webhook." : "Orders aren't sent automatically. You pass them on."}{" "}
+          {partnerSentence(chosen)}{" "}
           <SettingsLink href={LOCATIONS_HREF} className="underline underline-offset-2">
             Change
           </SettingsLink>

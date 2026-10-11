@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadLocations } from "@/lib/physical/config-server"
-import { addNote, cancelOrder, checkoutOfOrderRow, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
+import { addNote, cancelOrder, checkoutOfOrderRow, declineBuyerCancel, fulfilItems, loadOrder, markProcessing, moveReturn, noteRefund, openReturn, saveNote, updateAddress, updateShipment } from "@/lib/physical/orders-server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { recordActivity } from "@/lib/activity/log-server"
 import { orderNumberOf } from "@/lib/receipts/rules"
@@ -31,13 +31,14 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
  *   shipment    move a shipment on (in transit, delivered, cancelled) or fix its tracking
  *   address     change the shipping address before anything shipped (same country); the buyer is emailed
  *   cancel      cancel before anything shipped, stock back
+ *   cancel_decline  keep an order the buyer asked to cancel (lib/physical/buyer-cancel.ts)
  *   note        the private note (the older single note on the order)
  *   comment     a note on the order's timeline, for the shop alone
  *   return      open a return for some items
  *   return_move approve, decline, receive (restock), close a return
  *   refunded    after the existing refund route refunded lines: catch up
  */
-const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", cancel: "order.cancelled", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
+const ORDER_ACTIVITY: Record<string, string> = { address: "order.address_changed", comment: "order.note", processing: "order.processing", fulfil: "order.fulfilled", shipment: "order.shipment", cancel: "order.cancelled", cancel_decline: "order.cancel_declined", return: "order.return_opened", return_move: "order.return_updated", refunded: "order.refunded" }
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await physicalCaller("orders")
@@ -81,6 +82,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       break
     case "address":
       result = await updateAddress(c.db, c.creatorId, id, { address: body.address, notifyBuyer: body.notifyBuyer !== false })
+      break
+    case "cancel_decline":
+      result = await declineBuyerCancel(c.db, c.creatorId, id, body.note)
       break
     case "note": {
       const saved = await saveNote(c.db, c.creatorId, id, body.note)

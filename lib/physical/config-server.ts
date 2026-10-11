@@ -15,6 +15,7 @@ import type { Db } from "./auth"
 import { readTiers } from "./rates"
 import { localDeliveryFromRow, readLocalDelivery } from "./local-delivery"
 import { regionLabel, regionList } from "./regions"
+import { providerInfo } from "./providers"
 import { FULFILLMENT_MODELS, LOCATION_KINDS, PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type ShippingProfile, type ShippingRate, type ShippingZone, type UnitSystem } from "./types"
 import type { TaxRate, TaxSettings } from "./totals"
 
@@ -118,7 +119,32 @@ export function locationFromRow(r: Record<string, any>): Location {
 
 export async function loadLocations(db: Db, creatorId: string): Promise<Location[]> {
   const { data } = await db.from("inventory_locations").select("*").eq("creator_id", creatorId).order("priority", { ascending: true }).order("created_at", { ascending: true }).limit(100)
-  return ((data ?? []) as Record<string, any>[]).map(locationFromRow)
+  return locationsWithPartners(db, creatorId, (data ?? []) as Record<string, any>[])
+}
+
+/**
+ * Rows to locations, each that forwards to Printful or Printify saying whether that integration is connected, so
+ * Locations and the product editor can say "Connected to Printful" instead of guessing. One read, only when such a
+ * location is there; a read that fails leaves them unlinked (Not connected), never an error. Also what a location's
+ * save hands back, so the row does not lose its partner after a save.
+ */
+export async function locationsWithPartners(db: Db, creatorId: string, rows: Record<string, any>[]): Promise<Location[]> {
+  const locations = rows.map(locationFromRow)
+  const linked = rows.filter((r) => r.forwarding === "provider" && typeof r.integration_id === "string")
+  if (linked.length === 0) return locations
+  try {
+    const { data: ints } = await db.from("commerce_integrations").select("id, provider, status").eq("creator_id", creatorId).in("id", [...new Set(linked.map((r) => r.integration_id as string))])
+    const byId = new Map(((ints ?? []) as { id: string; provider: string; status: string }[]).map((i) => [i.id, i]))
+    return locations.map((l, i) => (rows[i].forwarding === "provider" ? { ...l, partner: partnerOf(byId.get(rows[i].integration_id)) } : l))
+  } catch {
+    return locations
+  }
+}
+
+/** A location's print partner as Settings and the editor name it. Pure. */
+export function partnerOf(row: { provider: string; status: string } | null | undefined): Location["partner"] {
+  if (!row) return null
+  return { provider: row.provider, name: providerInfo(row.provider)?.name ?? row.provider, connected: row.status === "connected" }
 }
 
 export function rateFromRow(r: Record<string, any>): ShippingRate {

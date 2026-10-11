@@ -35,6 +35,7 @@ import { CARRIERS, RETURN_LABEL, guessCarrier, orderNumber, trackingUrl as track
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { NOTE_MAX } from "@/lib/physical/notes"
+import { CANCELLED_AT_BUYERS_REQUEST, openCancelRequest } from "@/lib/physical/buyer-cancel"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "@/lib/physical/types"
 import type { PhysicalHistory } from "@/lib/orders/timeline"
 import { reasonLabel } from "@/lib/store/reasons"
@@ -200,6 +201,7 @@ export function PhysicalFulfillment({
   className,
   onNotice,
   onRefund,
+  onRefundAll,
 }: {
   state: PhysicalOrderState
   /** The order's number on the Orders page (#1004), for each shipment's own (#1004-F1). */
@@ -208,6 +210,8 @@ export function PhysicalFulfillment({
   onNotice?: (message: string) => void
   /** Opens the order's Refund dialog: a received return offers it, and the refund is counted on that return (noteRefund). */
   onRefund?: (() => void) | null
+  /** Refunds every paid line in full, through the Orders page's own refund: a buyer's cancel request said yes to. Absent for a team member. */
+  onRefundAll?: (() => Promise<string>) | null
 }) {
   const { order, locations, error, setError, busy, act } = state
   const [dialog, setDialog] = React.useState<Dialog>(null)
@@ -227,6 +231,7 @@ export function PhysicalFulfillment({
   }
 
   const pickup = order.deliveryMethod === "pickup"
+  const request = openCancelRequest(order)
   const locName = (id: string | null) => locations.find((l) => l.id === id)?.name ?? null
   const unfulfilled = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0)
   /* Who sends what, and from where: one card per method and place, each fulfilled on its own. */
@@ -251,6 +256,38 @@ export function PhysicalFulfillment({
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
       {order.cancelledAt ? <Notice tone="gray">This order was cancelled and its stock released. Refund the payment with Refund if you haven&apos;t.</Notice> : null}
+
+      {/* The buyer pressed Cancel order on their order page (lib/physical/buyer-cancel.ts): the shop's answer, here. */}
+      {request ? (
+        <section className={cn(card, "min-w-0 px-4 py-3.5")} data-cancel-request="">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusBadge tone="attention">Cancel requested</StatusBadge>
+            <span className="text-[12px] text-[#6b7280]">{dateTime(request.at)}</span>
+          </div>
+          <p className="mt-2 text-[13.5px] leading-5 text-[#1a1a2e]">{order.buyerName?.trim() || "The buyer"} asked to cancel this order before it ships. Don&apos;t send it yet.</p>
+          {request.reason ? <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">Reason: {request.reason}</p> : null}
+          {order.events.some((e) => e.kind === "fulfillment.forwarded") ? <p className="mt-1 text-[13px] leading-5 text-[#b45309]">It was already sent to your print partner. Cancel it there too.</p> : null}
+          <div className="mt-3 flex flex-wrap justify-end gap-2">
+            <button type="button" className={cn(buttonSecondary, "h-9 sm:h-8")} disabled={busy} data-cancel-keep="" onClick={() => void run({ action: "cancel_decline" }, "Order kept. Let the buyer know you're sending it.")}>
+              Keep order
+            </button>
+            <button
+              type="button"
+              className={cn(buttonPrimary, "h-9 sm:h-8")}
+              disabled={busy}
+              data-cancel-approve=""
+              onClick={async () => {
+                if (!window.confirm(onRefundAll ? "Cancel this order and refund the buyer in full? Its stock goes back on sale." : "Cancel this order? Its stock goes back on sale. The owner refunds it.")) return
+                const e = await act({ action: "cancel", reason: CANCELLED_AT_BUYERS_REQUEST })
+                if (e) return setError(e)
+                onNotice?.(onRefundAll ? await onRefundAll() : "Order cancelled. The buyer was emailed.")
+              }}
+            >
+              {onRefundAll ? "Cancel and refund" : "Cancel order"}
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       {[...groups.values()].map((g, gi) => {
         const left = g.lines.reduce((n, l) => n + l.quantity - l.fulfilled, 0)
@@ -297,8 +334,11 @@ export function PhysicalFulfillment({
         const items = s.items.reduce((n, i) => n + i.quantity, 0)
         const cancelled = s.status === "cancelled"
         const delivered = s.status === "delivered"
+        const problem = s.status === "failed"
         const badge = cancelled ? (
           <StatusBadge tone="neutral">Cancelled</StatusBadge>
+        ) : problem ? (
+          <StatusBadge tone="critical">Delivery problem</StatusBadge>
         ) : delivered ? (
           <StatusBadge tone="success">{pickup ? "Picked up" : "Delivered"}</StatusBadge>
         ) : (
@@ -331,7 +371,13 @@ export function PhysicalFulfillment({
         return (
           <section key={s.id} className={cn(card, "min-w-0", cancelled && "opacity-60")} data-shipment={s.status}>
             <CardTop badge={badge} count={items} sub={[number(s), s.shippedAt ? dateTime(s.shippedAt) : null, locName(s.locationId)].filter(Boolean).join(" · ")} menu={menu.length ? <CardMenu title={number(s)} items={menu} /> : null} />
-            {!pickup && !cancelled ? <TrackingRow shipment={s} transit={transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {!pickup && !cancelled ? <TrackingRow shipment={s} transit={problem ? null : transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
+            {problem ? (
+              <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
+                The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.
+              </p>
+            ) : null}
             {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
               {s.items.map((i) => {

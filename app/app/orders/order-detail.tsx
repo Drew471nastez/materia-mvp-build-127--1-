@@ -197,6 +197,30 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
     }
   }
 
+  /*
+    A BUYER'S CANCEL REQUEST, SAID YES TO (components/physical/order-panel.tsx): once the order is cancelled there,
+    every paid line is refunded in full through the same refund the Refund dialog makes (app/api/stripe/refund), so
+    the money, the seller's balance and the buyer's Refund email go exactly as they do by hand. Owner only, as Refund is.
+  */
+  const refundAll = async (): Promise<string> => {
+    let total = 0
+    setBusy("refund")
+    try {
+      for (const line of refundable) {
+        const cents = line.amount_cents || 0
+        if (cents <= 0) continue
+        await onAction(order, { kind: "refund", line, amountCents: cents, reason: "cancelled" })
+        total += cents
+      }
+      return total > 0 ? `Order cancelled and ${formatMoney(total)} refunded` : "Order cancelled"
+    } catch (error) {
+      return `Order cancelled. ${(error as Error)?.message || "The refund did not go through."} Refund it with Refund.`
+    } finally {
+      setBusy(null)
+      setRevision((r) => r + 1)
+    }
+  }
+
   const copy = async (text: string, what: string) => onNotice((await copyText(text)) ? `${what} copied` : `Could not copy the ${what.toLowerCase()}`)
 
   /* Arrow keys step through the list on a keyboard, as the chevrons do. */
@@ -252,7 +276,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             <h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">#{order.number}</h1>
             <span className="flex flex-wrap items-center gap-1.5">
               <PaymentBadge status={order.payment} />
-              {stage ? <ShipBadge stage={stage} /> : <FulfillmentBadge status={order.fulfillment} />}
+              {stage ? <ShipBadge stage={stage} problem={parcel ? parcel.shipments.some((s) => s.status === "failed") : order.shipping?.problem} /> : <FulfillmentBadge status={order.fulfillment} />}
             </span>
           </>
         }
@@ -311,7 +335,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           {/* Something shipped: what is to send, each shipment and its tracking, returns (components/physical/order-panel.tsx), while physical commerce is on. */}
           {physicalOrder && physicalCommerce ? (
             <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
-              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} onRefund={refundable.length > 0 ? () => setDialog("refund") : null} />
+              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} onRefund={refundable.length > 0 ? () => setDialog("refund") : null} onRefundAll={canRefund && refundable.length > 0 ? refundAll : null} />
               {digitalLines.length > 0 ? (
                 <FulfillmentCard order={order} lines={digitalLines} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
               ) : null}

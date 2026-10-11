@@ -803,6 +803,14 @@ export async function completeCheckout(
   const shipShares = apportionFee(shippingPaid, lines.map((l, i) => (l.requires_shipping ? Math.max(1, itemNet[i]) : 0)))
   const taxShares = apportionFee(addedTax, lines.map((l, i) => (l.taxable ? Math.max(1, itemNet[i]) : 0)))
   const amounts = lines.map((_, i) => itemNet[i] + (shipShares[i] ?? 0) + (taxShares[i] ?? 0))
+  /*
+    Tax inside the prices (Settings › Taxes, prices include tax) is not added to any amount, but it is still tax the
+    order holds: each line keeps its share in its snapshot with tax_included, so Orders shows "Includes VAT 19%" as
+    the receipt and the buyer's page do (lib/orders/load-rows.ts reads it). Before this it was not kept anywhere on the
+    line and the order's tax row was missing for every store whose prices include tax.
+  */
+  const includedShares = taxIncluded ? apportionFee(Math.max(0, co.tax_cents), lines.map((l, i) => (l.taxable ? Math.max(1, itemNet[i]) : 0))) : []
+  const taxLabel = typeof co.shipping_rate?.tax_label === "string" && co.shipping_rate.tax_label.trim() ? co.shipping_rate.tax_label.trim().slice(0, 80) : null
   const fees = apportionFee(fee, amounts)
   const origin = (co.origin ?? null) as OrderOrigin | null
   const name = (co.buyer_name || c.buyerName || "").trim()
@@ -858,7 +866,9 @@ export async function completeCheckout(
           type: l.type,
           unit_cents: l.unit_cents,
           discount_cents: l.discount_cents,
-          tax_cents: taxShares[i] ?? 0,
+          tax_cents: taxIncluded ? (includedShares[i] ?? 0) : (taxShares[i] ?? 0),
+          ...(taxIncluded && (includedShares[i] ?? 0) > 0 ? { tax_included: true } : {}),
+          ...(taxLabel && ((taxIncluded ? includedShares[i] : taxShares[i]) ?? 0) > 0 ? { tax_label: taxLabel } : {}),
           weight_grams: l.weight_grams,
         },
       })

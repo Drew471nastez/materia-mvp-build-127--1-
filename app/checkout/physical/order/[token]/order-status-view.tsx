@@ -9,6 +9,7 @@ import { addressLines } from "@/lib/physical/address"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { orderNumber, shipmentLabel } from "@/lib/physical/status"
 import type { ShipmentStatus } from "@/lib/physical/types"
+import type { BuyerCancelState } from "@/lib/physical/buyer-cancel"
 
 interface Props {
   token: string
@@ -42,6 +43,8 @@ interface Props {
     returnPolicy?: { days: number; endsAt: string | null; open: boolean } | null
   }
   canReturn: boolean
+  /** Cancel order (lib/physical/buyer-cancel.ts): offered, asked and waiting, or answered with a no. */
+  cancel?: BuyerCancelState
 }
 
 /* In the currency the order was charged in (commerce_checkouts.currency, the platform's: RON or USD), never a bare dollar sign. */
@@ -99,7 +102,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
   )
 }
 
-export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help }: Props) {
+export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help, cancel }: Props) {
   const local = order.delivery?.kind === "local"
   const money = (c: number) => moneyIn(c, order.totals.currency)
   const shipped = order.shipments.some((s) => s.shippedAt)
@@ -303,6 +306,18 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
           </section>
         ) : null}
 
+        {cancel === "can_request" ? <CancelRequest token={token} shopName={shop.name} /> : null}
+        {cancel === "requested" ? (
+          <p className="rounded-2xl border border-[#e5e7eb]/60 bg-white px-4 py-3 text-[14px] leading-5 text-[#4b5563] shadow-[0_1px_3px_rgba(0,0,0,0.04)]" data-cancel-state="requested">
+            You asked to cancel this order. {shop.name} will cancel and refund it, or email you if it has already gone out.
+          </p>
+        ) : null}
+        {cancel === "declined" ? (
+          <p className="text-center text-[13px] leading-5 text-[#6b7280]" data-cancel-state="declined">
+            {shop.name} is going ahead with this order. Reply to your order email with any questions.
+          </p>
+        ) : null}
+
         {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} reasons={reasons && reasons.length ? reasons : REASONS.map(([value, label]) => ({ value, label }))} until={order.returnPolicy?.endsAt ?? null} /> : null}
         {!canReturn && order.returnPolicy && !order.returnPolicy.open && order.returnPolicy.endsAt ? (
           <p className="text-center text-[13px] text-[#6b7280]" data-return-closed="">The return window for this order closed on {day(order.returnPolicy.endsAt)}.</p>
@@ -421,6 +436,69 @@ function ReturnRequest({ token, lines, reasons, until }: { token: string; lines:
       >
         {state === "sending" ? "Sending" : "Request return"}
       </button>
+    </section>
+  )
+}
+
+/**
+ * Cancel order, while nothing has shipped or been started (lib/physical/buyer-cancel.ts). It asks the shop: nothing
+ * is cancelled or refunded until the shop says yes, and the buyer then gets the Order cancelled email.
+ */
+function CancelRequest({ token, shopName }: { token: string; shopName: string }) {
+  const [open, setOpen] = React.useState(false)
+  const [reason, setReason] = React.useState("")
+  const [state, setState] = React.useState<"idle" | "sending" | "sent">("idle")
+  const [error, setError] = React.useState<string | null>(null)
+  if (state === "sent") {
+    return (
+      <p className="rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 text-[14px] text-[#166534]" data-cancel-state="sent">
+        Request sent. {shopName} will cancel and refund your order, or email you if it has already gone out.
+      </p>
+    )
+  }
+  if (!open) {
+    return (
+      <div className="text-center">
+        <button type="button" onClick={() => setOpen(true)} className="text-[14px] font-medium text-[#1a1a2e] underline underline-offset-4" data-cancel-button="">
+          Cancel order
+        </button>
+        <p className="mt-1 text-[12.5px] text-[#6b7280]">Until {shopName} starts on it</p>
+      </div>
+    )
+  }
+  return (
+    <section className="space-y-3 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6" data-cancel-form="">
+      <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Cancel this order?</h2>
+      <p className="text-[14px] leading-5 text-[#4b5563]">This asks {shopName} to cancel it before it ships. Once they do, you get an email and your money back.</p>
+      <label htmlFor="cancel-reason" className="block text-[13.5px] font-medium text-[#1a1a2e]">
+        Why are you cancelling? (optional)
+      </label>
+      <textarea id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value.slice(0, 300))} rows={2} className="w-full rounded-[10px] border border-[#d9dce1] px-3 py-2.5 text-[15px]" />
+      {error ? <p className="text-[13.5px] text-[#b42318]">{error}</p> : null}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <button type="button" onClick={() => setOpen(false)} className="h-12 rounded-[12px] border border-[#d9dce1] bg-white px-5 text-[15px] font-medium text-[#1a1a2e] sm:h-11">
+          Keep my order
+        </button>
+        <button
+          type="button"
+          disabled={state === "sending"}
+          onClick={async () => {
+            setState("sending")
+            setError(null)
+            const res = await fetch(`/api/physical/order-status/${encodeURIComponent(token)}/cancel`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ reason }) }).catch(() => null)
+            const data = res ? await res.json().catch(() => ({})) : {}
+            if (!res || !res.ok) {
+              setError(typeof data.error === "string" ? data.error : "Couldn't send the request. Try again.")
+              setState("idle")
+              return
+            }
+            setState("sent")
+          }}
+          className="h-12 rounded-[12px] bg-[#1a1a2e] px-5 text-[15px] font-semibold text-white disabled:opacity-50 sm:h-11"
+        >
+          {state === "sending" ? "Sending" : "Ask to cancel"}
+        </button>
+      </div>
     </section>
   )
 }

@@ -27,7 +27,8 @@ import { SiteCheckout } from "@/app/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
-import { lowStockEmail, shipmentEmail } from "@/lib/physical/email-templates"
+import { shipmentEmail } from "@/lib/physical/email-templates"
+import { lowStockEmail } from "@/lib/notify/seller-commerce"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -55,12 +56,14 @@ const BOWL = pic("bowl", "#ece7e1", "#a7988a")
 const APRON = pic("apron", "#e9e6e1", "#4b5563")
 
 const location1 = { id: LOC, name: "Studio", kind: "home", country: "US", city: "Portland", addressLine1: "120 Alder Street", addressLine2: null, region: "OR", postalCode: "97204", phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: true, priority: 0, forwarding: "none", pickupEnabled: true, pickupInstructions: "Ring the bell at the side door. Open Tuesday to Saturday, 10am to 5pm.", pickupReady: "24h" }
+/* The location Printful made when it was connected (lib/integrations/fulfilment/forward-server.ts ensureProviderLocation). */
+const location3 = { id: "loc-printful", name: "Printful", kind: "print_on_demand", country: null, city: null, addressLine1: null, addressLine2: null, region: null, postalCode: null, phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: false, priority: 2, forwarding: "provider", pickupEnabled: false, pickupInstructions: null, pickupReady: "24h", partner: { provider: "printful", name: "Printful", connected: true } }
 const location2 = { id: LOC2, name: "Print partner", kind: "print_on_demand", country: "US", city: null, addressLine1: null, addressLine2: null, region: null, postalCode: null, phone: null, email: "orders@printpartner.example", active: true, fulfillsOrders: true, holdsInventory: false, priority: 1, forwarding: "email", pickupEnabled: false, pickupInstructions: null, pickupReady: "24h" }
 
 const onboarded = !params.has("first")
 const physicalSettings = () => ({
   settings: { fulfillmentModel: onboarded ? "self" : null, defaultLocationId: LOC, defaultPackageId: "pk1", unitSystem: "metric", returnsEnabled: true, returnWindowDays: 30, taxMode: "manual", pricesIncludeTax: false, taxOnShipping: false, lowStockDefault: 5, lowStockAlerts: true, onboardedAt: onboarded ? "2026-10-01T00:00:00Z" : null },
-  locations: [location1, location2],
+  locations: [location1, location2, location3],
   profiles: [
     {
       id: "p1",
@@ -94,7 +97,7 @@ const options = [
 const combos: [string, string][] = [["12 oz", "Sand"], ["12 oz", "Moss"], ["12 oz", "Ink"], ["16 oz", "Sand"], ["16 oz", "Moss"], ["16 oz", "Ink"]]
 const stock = [14, 9, 0, 11, 6, 3]
 const physicalProduct = {
-  vendor: "Fern & Clay", tags: ["mugs", "stoneware"], requiresShipping: true, weightGrams: 450, lengthMm: null, widthMm: null, heightMm: null, weightUnit: "kg", dimensionUnit: "cm", originCountry: "US", hsCode: null, taxable: true, taxCategory: null, trackInventory: true, continueSelling: false, lowStockThreshold: 3, fulfillmentLocationId: null, fulfillmentMethod: "self", shippingProfileId: null,
+  vendor: "Fern & Clay", tags: ["mugs", "stoneware"], requiresShipping: true, weightGrams: 450, lengthMm: null, widthMm: null, heightMm: null, weightUnit: "kg", dimensionUnit: "cm", originCountry: "US", hsCode: null, taxable: true, taxCategory: null, trackInventory: true, continueSelling: false, lowStockThreshold: 3, fulfillmentLocationId: params.has("pod") ? "loc-printful" : null, fulfillmentMethod: params.has("pod") ? "print_on_demand" : "self", shippingProfileId: null,
   options: params.has("simple") ? [] : options,
   variants: params.has("simple")
     ? [{ id: V(0), productId: PRODUCT, name: "Speckled mug", options: [null, null, null], priceCents: 3200, compareAtCents: null, costCents: null, sku: null, barcode: null, weightGrams: 450, imageUrl: null, trackInventory: true, inventoryPolicy: "deny", requiresShipping: true, taxable: true, active: true, fulfillmentLocationId: null, fulfillmentMethod: null, position: 0 }]
@@ -117,9 +120,11 @@ function order(kind: "new" | "shipped" | "pickup") {
       { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", sku: "MUG-12-S", imageUrl: MUG_SAND, type: "physical", quantity: 2, unitCents: 3200, discountCents: 0, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 6400, refundedCents: 0 },
       { orderId: "22222222-2222-4222-8222-222222222222", title: "Serving bowl", variantName: null, sku: "BOWL-L", imageUrl: BOWL, type: "physical", quantity: 1, unitCents: 4400, discountCents: 0, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 1 : 0, returned: 0, amountCents: 4400, refundedCents: 0 },
     ],
-    shipments: shipped ? [{ id: "f1", status: "shipped", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, createdAt: "2026-10-08T15:00:00Z", locationId: LOC, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }, { orderId: "22222222-2222-4222-8222-222222222222", quantity: 1 }] }] : [],
+    shipments: shipped ? [{ id: "f1", status: params.has("problem") ? "failed" : "shipped", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, createdAt: "2026-10-08T15:00:00Z", locationId: LOC, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }, { orderId: "22222222-2222-4222-8222-222222222222", quantity: 1 }] }] : [],
     returns: [],
     events: [
+      /* ?cancel: the buyer pressed Cancel order on their page (lib/physical/buyer-cancel.ts). */
+      ...(params.has("cancel") && !shipped ? [{ id: 3, kind: "order.cancel_requested", message: "The buyer asked to cancel this order: Ordered the wrong size", actor: "buyer", createdAt: "2026-10-07T12:00:00Z", detail: { reason: "Ordered the wrong size" } }] : []),
       { id: 2, kind: "email.sent", message: "Order confirmation emailed to the buyer", actor: "system", createdAt: "2026-10-07T10:00:05Z" },
       { id: 1, kind: "payment.paid", message: "Payment of $114.00 received", actor: "webhook", createdAt: "2026-10-07T10:00:00Z" },
     ],
@@ -209,7 +214,7 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/physical/storefront/product")) return buyBoxProduct
   if (path.startsWith("/api/physical/settings")) return physicalSettings()
   if (path.startsWith("/api/physical/shipping/profiles")) return { profiles: physicalSettings().profiles }
-  if (path.startsWith("/api/physical/catalog-context")) return { locations: [location1, location2], profiles: [{ id: "p1", name: "General", isDefault: true, zoneCount: 2 }], settings: physicalSettings().settings }
+  if (path.startsWith("/api/physical/catalog-context")) return { locations: params.has("pod") ? [location1, location2, location3] : [location1, location2], profiles: [{ id: "p1", name: "General", isDefault: true, zoneCount: 2 }], settings: physicalSettings().settings }
   if (path.startsWith("/api/physical/products/")) return { product: physicalProduct }
   if (path.startsWith("/api/physical/inventory/movements")) return { movements: [] }
   if (path.startsWith("/api/physical/inventory")) return inventory
@@ -217,7 +222,8 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/physical/orders/")) return { order: order(params.get("order") === "shipped" ? "shipped" : params.get("order") === "pickup" ? "pickup" : "new"), locations: [{ id: LOC, name: "Studio" }] }
   if (path === "/api/store/integrations/catalog") return { overrides: [] }
   if (path.startsWith("/api/store/integrations")) return { tracking: { ga4: "G-1A2B3C4D5E" }, ready: true }
-  if (path.startsWith("/api/physical/integrations")) return { integrations: [] }
+  /* Printful connected to the demo store (?printful): the location it made, drafts to approve, tracking by webhook. */
+  if (path.startsWith("/api/physical/integrations")) return { integrations: params.has("printful") ? [{ provider: "printful", status: "connected", url: null, keyHint: "7Qx2", secretHint: null, lastSyncAt: "2026-10-10T09:12:00Z", lastError: null, account: "Fern & Clay", verifiedAt: "2026-10-10T09:12:00Z", mode: null, autoConfirm: false, webhooks: "on", webhookNote: null, location: { id: "loc-printful", name: "Printful" } }] : [] }
   if (path.startsWith("/api/store/reviews-app")) return { settings: { enabled: false } }
   if (path.startsWith("/api/store/taxes")) return taxes
   if (path.startsWith("/api/store/channels")) return channels
@@ -407,17 +413,18 @@ function App() {
             token="tok_demo_demo_demo_demo_demo"
             justPaid={false}
             shop={{ name: "Fern & Clay", avatar: null, email: "hello@fernandclay.example" }}
-            canReturn
+            canReturn={!params.get("cancel")}
+            cancel={(params.get("cancel") as never) ?? undefined}
             order={{
-              id: PRODUCT, status: "paid", fulfillmentStatus: "fulfilled", cancelled: false, createdAt: "2026-10-07T10:00:00Z", email: "sam@example.com", name: "Sam Rivera",
+              id: PRODUCT, status: "paid", fulfillmentStatus: params.get("cancel") ? "unfulfilled" : "fulfilled", cancelled: false, createdAt: "2026-10-07T10:00:00Z", email: "sam@example.com", name: "Sam Rivera",
               address: { name: "Sam Rivera", line1: "48 Maple Avenue", city: "Denver", region: "CO", postalCode: "80203", country: "US" },
-              delivery: { name: "Standard", priceCents: 600, minDays: 3, maxDays: 5 }, pickup: null, processing: true,
+              delivery: { name: "Standard", priceCents: 600, minDays: 3, maxDays: 5 }, pickup: null, processing: !params.get("cancel"),
               totals: { subtotal: 10800, discount: 0, shipping: 600, tax: 0, taxIncluded: false, total: 11400, refunded: 0 },
               lines: [
                 { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", imageUrl: MUG_SAND, quantity: 2, cents: 6400, type: "physical", receiptToken: null, returnable: 2 },
                 { orderId: "22222222-2222-4222-8222-222222222222", title: "Serving bowl", variantName: null, imageUrl: BOWL, quantity: 1, cents: 4400, type: "physical", receiptToken: null, returnable: 1 },
               ],
-              shipments: [{ id: "s1", status: "in_transit", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }] }],
+              shipments: params.get("cancel") ? [] : [{ id: "s1", status: params.has("problem") ? "failed" : "in_transit", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }] }],
               returns: [],
             } as never}
           />

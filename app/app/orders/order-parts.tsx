@@ -11,7 +11,7 @@ import { Check, Minus, MoreHorizontal } from "lucide-react"
 import { PopoverContent } from "@/components/ui/popover"
 import { cn } from "@/lib/utils"
 import type { DeliveryStatus, FulfillmentStatus, PaymentStatus, ShipStage } from "@/lib/orders/order-view"
-import { FULFILLMENT_LABEL, PAYMENT_LABEL, SHIP_STAGE_LABEL } from "@/lib/orders/order-view"
+import { FULFILLMENT_LABEL, PAYMENT_LABEL, SHIP_STAGE_LABEL, showsProblem } from "@/lib/orders/order-view"
 
 export const INK = "#1a1a2e"
 
@@ -145,7 +145,15 @@ export function FulfillmentBadge({ status }: { status: FulfillmentStatus }) {
  * sent) in the attention tone, as Shopify marks what needs the shop;
  * delivered in green; the rest quiet.
  */
-export function ShipBadge({ stage }: { stage: ShipStage }) {
+export function ShipBadge({ stage, problem }: { stage: ShipStage; problem?: boolean | null }) {
+  /* A parcel out with a delivery problem reads as one here too, in red, as on the buyer's order page and in both emails. */
+  if (showsProblem(stage, problem)) {
+    return (
+      <StatusBadge tone="critical">
+        <span data-ship-stage="problem">Delivery problem</span>
+      </StatusBadge>
+    )
+  }
   const tone: Tone = stage === "unfulfilled" || stage === "partially_fulfilled" ? "attention" : stage === "delivered" ? "success" : "neutral"
   return (
     <StatusBadge tone={tone}>

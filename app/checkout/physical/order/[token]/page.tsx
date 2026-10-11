@@ -5,7 +5,7 @@ import { loadOrder } from "@/lib/physical/orders-server"
 import { loadSettings } from "@/lib/physical/config-server"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { returnWindow, returnableQuantities } from "@/lib/physical/status"
-import { progressOf } from "@/lib/physical/orders-server"
+import { cancelEvents, progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
 import { reasonsFor } from "@/lib/store/reasons-server"
 import { reasonLabel } from "@/lib/store/reasons"
@@ -13,6 +13,8 @@ import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { buyerCaseLink, casesReady, openCaseFor } from "@/lib/support/cases-server"
 import { appUrl } from "@/lib/notify/urls"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { buyerCancelState } from "@/lib/physical/buyer-cancel"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Your order", robots: { index: false, follow: false } }
@@ -34,13 +36,15 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     if (order?.status === "pending") return <PendingOrder reason="unpaid" />
     notFound()
   }
-  const [store, settings, reasons, ready, open] = await Promise.all([
+  const [store, settings, reasons, ready, open, checkout] = await Promise.all([
     storeIdentity(db, order.creatorId),
     loadSettings(db, order.creatorId),
     reasonsFor(db, order.creatorId, "return"),
     casesReady(db),
     openCaseFor(db, { checkoutId: order.id }),
+    loadCheckoutConfig(db, order.creatorId),
   ])
+  const cancelAsked = await cancelEvents(db, order.id)
   const returnable = returnableQuantities(progressOf(order))
   /* Counted from delivery, or from shipping without tracking (lib/physical/status returnWindow), as the return route checks it. */
   const window = returnWindow({ ...order, pickup: order.deliveryMethod === "pickup" }, settings.returnWindowDays)
@@ -79,6 +83,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
       }}
       reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
+      cancel={buyerCancelState({ ...order, events: cancelAsked }, checkout.buyerCancel)}
     />
     </>
   )
