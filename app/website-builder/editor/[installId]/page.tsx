@@ -6711,7 +6711,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const canHide = isStorelibSection(section.type, storelibSources)
         return (
           <div className="flex flex-col h-full" data-wb-section-panel={section.id} data-wb-block-panel={key}>
-            <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            {/* Back goes up one level, as a second tap on the canvas does: the block around this one, then its section. */}
+            <PanelBack onBack={() => { const up = parsePath(key).slice(0, -1); setSelectedBlockId(up.length ? pathKey(up) : null) }}>
               <p className="truncate text-[15px] font-semibold md:text-sm">{name}</p>
             </PanelBack>
             <div className="border-b border-border px-3.5 py-2">

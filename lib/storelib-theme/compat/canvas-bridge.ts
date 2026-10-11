@@ -45,35 +45,108 @@ export const CANVAS_BRIDGE = `
     return b;
   };
   var boxes = null;
+  /*
+    A FIXED BAR AT THE FOOT OR THE TOP OF THE SCREEN (a phone tab bar, a
+    sticky header) is drawn over the page, and an outline of something
+    scrolling under it was drawn over the bar: a blue line straight through
+    Home and Account. The part of the screen such a bar covers is cut from
+    the outline, unless what is outlined is in that bar.
+  */
+  var barAt = function (x, y) {
+    var hit = document.elementFromPoint(x, y);
+    for (var el = hit; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      if (el.hasAttribute && el.hasAttribute("data-sl-box")) return null;
+      var pos = getComputedStyle(el).position;
+      if (pos !== "fixed" && pos !== "sticky") continue;
+      var r = el.getBoundingClientRect();
+      if (r.width < innerWidth * 0.6 || r.height > innerHeight * 0.35 || r.height < 1) return null;
+      return { el: el, top: r.top, bottom: r.bottom };
+    }
+    return null;
+  };
   var place = function (box, el, inset) {
-    if (!el || !el.isConnected) { box.style.display = "none"; return; }
+    if (!el || !el.isConnected) { box.style.display = "none"; return null; }
     var r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) { box.style.display = "none"; return; }
-    var top = Math.max(r.top + inset, 0), bottom = Math.min(r.bottom - inset, innerHeight);
-    if (bottom <= top) { box.style.display = "none"; return; }
+    if (r.width === 0 && r.height === 0) { box.style.display = "none"; return null; }
+    var lo = 0, hi = innerHeight;
+    var foot = barAt(innerWidth / 2, innerHeight - 2);
+    if (foot && !foot.el.contains(el) && !el.contains(foot.el) && foot.top > innerHeight / 2) hi = Math.min(hi, foot.top);
+    var head = barAt(innerWidth / 2, 1);
+    if (head && !head.el.contains(el) && !el.contains(head.el) && head.bottom < innerHeight / 2) lo = Math.max(lo, head.bottom);
+    var top = Math.max(r.top + inset, lo), bottom = Math.min(r.bottom - inset, hi);
+    if (bottom <= top) { box.style.display = "none"; return null; }
+    /* A block as wide as the screen is outlined just inside it: two pixels out, its sides were off the page and only a line under it showed. */
+    var left = Math.max(r.left + inset, 0), right = Math.min(r.right - inset, document.documentElement.clientWidth || innerWidth);
+    if (right <= left) { box.style.display = "none"; return null; }
+    var want = { left: left, top: top, width: right - left, height: bottom - top };
     box.style.display = "block";
-    box.style.left = (r.left + inset) + "px";
-    box.style.width = Math.max(0, r.width - inset * 2) + "px";
-    box.style.top = top + "px";
-    box.style.height = (bottom - top) + "px";
-    /* A section running past the top or the foot of the screen has no line there. */
-    box.style.borderTopWidth = r.top + inset < 0 ? "0" : "";
-    box.style.borderBottomWidth = r.bottom - inset > innerHeight ? "0" : "";
+    box.style.width = want.width + "px";
+    box.style.height = want.height + "px";
+    /* Something cut off by the screen or a bar has no line on that side. */
+    box.style.borderTopWidth = r.top + inset < lo ? "0" : "";
+    box.style.borderBottomWidth = r.bottom - inset > hi ? "0" : "";
+    /*
+      FIXED IS NOT ALWAYS THE SCREEN. A theme that puts a transform, a filter
+      or \`contain\` on <html> or <body> (a page fade, a drawer that slides the
+      page) makes that element the box's frame, and every outline sat off by
+      its offset. Where the box lands is read back and the difference taken
+      out, so it is always on the element.
+    */
+    var dx = box.__dx || 0, dy = box.__dy || 0;
+    box.style.left = (want.left - dx) + "px";
+    box.style.top = (want.top - dy) + "px";
+    var got = box.getBoundingClientRect();
+    var ex = got.left - want.left, ey = got.top - want.top;
+    if (Math.abs(ex) > 0.5 || Math.abs(ey) > 0.5) {
+      box.__dx = dx + ex; box.__dy = dy + ey;
+      box.style.left = (want.left - box.__dx) + "px";
+      box.style.top = (want.top - box.__dy) + "px";
+    }
+    return want.left + "," + want.top + "," + want.width + "," + want.height;
   };
   var drawFrame = 0;
+  var lastDrawn = "";
   var drawBoxes = function () {
     drawFrame = 0;
     if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
     var hov = document.querySelector("[data-sl-hover]");
     var sec = document.querySelector("[data-sl-selected]");
     var blk = document.querySelector("[data-sl-selected-block]");
-    place(boxes.hover, hov && hov !== sec ? hov : null, 0);
-    place(boxes.section, sec, 0);
-    place(boxes.block, blk, -2);
+    /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring would be a second box round the same thing. */
+    var a = place(boxes.hover, hov && hov !== sec ? hov : null, 0);
+    var b = place(boxes.block, blk, -2);
+    var c = place(boxes.section, b ? null : sec, 0);
+    var now = a + "|" + b + "|" + c;
+    var moved = now !== lastDrawn;
+    lastDrawn = now;
+    return moved;
   };
-  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
+  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); follow(); };
+  /*
+    THE OUTLINE FOLLOWS THE ELEMENT, NOT ONLY THE SCROLL. A slideshow that
+    moves to the picked slide by transform, a section that rises into place
+    as it is scrolled to, a header that shrinks: none of these is a scroll
+    or a resize, and the outline stayed where the element was when it was
+    picked, a box at the left edge and another wider than the hero. While
+    anything is outlined it is measured every frame until it has stood still
+    for half a second, and again whenever an animation or a transition starts.
+  */
+  var following = 0, still = 0;
+  var follow = function () {
+    still = 0;
+    if (following) return;
+    var tick = function () {
+      following = 0;
+      if (!document.querySelector("[data-sl-hover],[data-sl-selected],[data-sl-selected-block]")) return;
+      if (drawFrame) { cancelAnimationFrame(drawFrame); drawFrame = 0; }
+      if (drawBoxes()) { still = 0; if (!boxFrame) boxFrame = requestAnimationFrame(report); } else still++;
+      if (still < 30) following = requestAnimationFrame(tick);
+    };
+    following = requestAnimationFrame(tick);
+  };
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
+  ["transitionrun", "animationstart"].forEach(function (n) { document.addEventListener(n, function (e) { if (e.target && e.target.hasAttribute && !e.target.hasAttribute("data-sl-box")) follow(); }, true); });
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
   /*
     THE INSPECTOR, ON OR OFF. Off, this page is the website: nothing under
@@ -100,7 +173,20 @@ export const CANVAS_BRIDGE = `
     if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
     redraw();
   };
-  document.addEventListener("mouseover", function (e) {
+  /*
+    A MOUSE ONLY. A finger has no hover, but a tap sends the mouse events a
+    page expects after it, so a tapped section was outlined twice, hovered
+    and selected, and the hover stayed after the finger had gone. What the
+    last pointer was is known from its own events.
+  */
+  var touching = false;
+  document.addEventListener("pointerdown", function (e) {
+    touching = e.pointerType !== "mouse";
+    if (touching && hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); }
+  }, true);
+  document.addEventListener("pointerover", function (e) {
+    if (e.pointerType !== "mouse") return;
+    touching = false;
     pointerAt = e.target;
     if (inspect) hover(sectionOf(e.target));
   }, true);
@@ -122,7 +208,8 @@ export const CANVAS_BRIDGE = `
     lent.removeAttribute("data-sl-href");
     lent = null;
   };
-  document.addEventListener("mouseover", function (e) {
+  document.addEventListener("pointerover", function (e) {
+    if (e.pointerType !== "mouse") return;
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     if (a === lent) return;
     giveBack();
@@ -153,7 +240,18 @@ export const CANVAS_BRIDGE = `
     var path = [];
     var at = blockOf(e.target, s);
     while (at) { path.unshift(at.getAttribute("data-block-id")); at = blockOf(at.parentElement, s); }
-    post({ type: "pick", sectionId: idOf(s), blockPath: path });
+    var id = idOf(s);
+    /*
+      A TAP ON WHAT IS SELECTED GOES UP A LEVEL. A finger is wider than a
+      heading inside a slide inside a slideshow, and the first tap takes the
+      innermost block under it. Tapped again in the same place, the block
+      around it is selected, then the section, and then the innermost again
+      (with the section selected, a tap is a first tap).
+      A mouse, which can point at the section's own edge, picks exactly.
+    */
+    var where = touching && !link && selected.section === id && selected.block ? path.indexOf(selected.block) : -1;
+    if (where >= 0) path = path.slice(0, where);
+    post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   var selected = { section: null, block: null };
