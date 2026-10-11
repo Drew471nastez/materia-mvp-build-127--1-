@@ -26,6 +26,27 @@ type Db = { from: (table: string) => any; rpc: (fn: string, args?: Record<string
 type PgError = { code?: string; message?: string } | null | undefined
 
 /** A table or function the SQL adds, not there yet. */
+/**
+ * A cart's checkout address from a run or a start, only when it is
+ * Storelib's own or one of this store's own website hosts (lib/checkout/
+ * site-hosts): a link in a buyer's email never points anywhere else.
+ */
+export async function ownCheckoutUrl(creatorId: string, value: unknown): Promise<string | null> {
+  if (typeof value !== "string" || value.length > 2000) return null
+  let url: URL
+  try {
+    url = new URL(value)
+  } catch {
+    return null
+  }
+  if (url.username || url.password) return null
+  if (url.origin === new URL(APP_URL).origin) return /^\/checkout\/(physical|cart)$/.test(url.pathname) ? url.toString() : null
+  if (url.protocol !== "https:" || url.pathname !== "/checkout") return null
+  const { siteHostsFor } = await import("@/lib/checkout/site-hosts")
+  const hosts = await siteHostsFor(creatorId).catch(() => [] as string[])
+  return hosts.includes(url.hostname.toLowerCase()) ? url.toString() : null
+}
+
 export function isMissing(error: PgError): boolean {
   if (!error) return false
   const code = error.code ?? ""
@@ -362,10 +383,10 @@ export function supabaseStore(db: Db): Store {
       if (!product || product.creator_id !== run.creator_id) return out
       const { handle } = await identityOf(run.creator_id)
       if (product.slug) out.productUrl = handle ? `${APP_URL}/${encodeURIComponent(handle)}/${encodeURIComponent(product.slug)}` : `${APP_URL}/p/${encodeURIComponent(product.slug)}`
-      /* A cart left behind goes back to its own checkout, items and all; a product that ships is never bought from the single product checkout, so without that it goes to the product. */
-      const cartPath = typeof run.context.checkout_path === "string" && /^\/checkout\/(physical|cart)\?[A-Za-z0-9_\-=&%.~+]+$/.test(run.context.checkout_path) ? run.context.checkout_path : null
-      out.checkoutUrl = cartPath
-        ? `${APP_URL}${cartPath}`
+      /* A cart left behind goes back to its own checkout, items and all (on Storelib, or on one of this store's own websites); a product that ships is never bought from the single product checkout, so without that it goes to the product. */
+      const cartUrl = await ownCheckoutUrl(run.creator_id, run.context.checkout_url)
+      out.checkoutUrl = cartUrl
+        ? cartUrl
         : product.type === "physical"
           ? out.productUrl
           : `${APP_URL}/checkout?productId=${encodeURIComponent(product.id)}${run.context.variant_id ? `&variantId=${encodeURIComponent(run.context.variant_id)}` : ""}`
@@ -392,26 +413,13 @@ export function supabaseStarts(db: Db): StartsStore {
     async due(olderThanIso, newerThanIso, limit) {
       const { data, error } = await db
         .from("checkout_starts")
-        .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at, return_path")
+        /* Every column: the cart's way back (return_path, part 129; basket, part 127) when the database has them, without failing when it does not. */
+        .select("*")
         .is("handled_at", null)
         .lt("created_at", olderThanIso)
         .gt("created_at", newerThanIso)
         .order("created_at", { ascending: true })
         .limit(limit)
-      /* A database without part 129's return_path: read the starts without it, as before. */
-      if (error && (error.code === "42703" || error.code === "PGRST204")) {
-        const again = await db
-          .from("checkout_starts")
-          .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at")
-          .is("handled_at", null)
-          .lt("created_at", olderThanIso)
-          .gt("created_at", newerThanIso)
-          .order("created_at", { ascending: true })
-          .limit(limit)
-        if (!again.error) return (again.data ?? []) as CheckoutStart[]
-        if (isMissing(again.error)) return null
-        fail("read the started checkouts", again.error)
-      }
       if (error) {
         if (isMissing(error)) return null
         fail("read the started checkouts", error)

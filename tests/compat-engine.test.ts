@@ -234,10 +234,10 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   check("a view the theme does not have is the page as it is", noView.status === 200 && String(noView.body).includes("<main>"))
   const link = await call("GET", "/cart/add?id=v2s&quantity=2", null, [])
   check("a link to /cart/add?id=&quantity= adds and opens the cart", link.status === 303 && link.headers?.Location === "/cart" && link.cart?.[0]?.v === "v2s" && link.cart?.[0]?.q === 2, { status: link.status, cart: link.cart })
-  /* Checkout is one redirect to Storelib's branded basket checkout, the lines in its address (lib/checkout/basket-link). */
+  /* Checkout is one redirect to the website's own checkout on this same host (/checkout), the lines in its address (lib/checkout/site-checkout). */
   const lines = (r: { headers?: Record<string, string> }) => {
     try {
-      const url = new URL(r.headers?.Location ?? "")
+      const url = new URL(r.headers?.Location ?? "", "https://shop.test")
       const raw = url.searchParams.get("items") ?? ""
       return { url, rows: JSON.parse(Buffer.from(raw.replace(/-/g, "+").replace(/_/g, "/"), "base64").toString("utf8")) as [string, string, number][] }
     } catch {
@@ -249,8 +249,8 @@ console.log("\nThe site's cart, as a theme's scripts call it\n")
   check("a cart permalink (/cart/<variant>:<quantity>,…) goes to checkout with those lines", perma.status === 303 && permaTo.rows.some((r) => r[1] === "v1l" && r[2] === 2) && permaTo.rows.some((r) => r[1] === "v2s" && r[2] === 1), permaTo.rows)
   const checkout = await call("POST", "/cart", { checkout: "1" }, cart)
   const to = lines(checkout)
-  check("checkout goes straight to Storelib's branded basket checkout with the lines, no page in between", checkout.status === 303 && to.url?.pathname === "/checkout/cart" && to.url?.searchParams.get("shop") === "c" && to.rows[0]?.[0] === "p1" && !String(checkout.body).includes("<script"), checkout.headers?.Location)
-  check("  Back from there is this site's cart, and the whole cart empties once paid", to.url?.searchParams.get("return") === "https://shop.test/cart" && to.url?.searchParams.get("cart") === "1" && to.url?.searchParams.get("site") === "shop.test")
+  check("checkout goes straight to the website's own checkout on this host with the lines, no page in between", checkout.status === 303 && String(checkout.headers?.Location ?? "").startsWith("/checkout?") && to.url?.pathname === "/checkout" && to.url?.searchParams.get("shop") === null && to.rows[0]?.[0] === "p1" && !String(checkout.body).includes("<script"), checkout.headers?.Location)
+  check("  Back from there is this site's cart, and the whole cart empties once paid", to.url?.searchParams.get("return") === "/cart" && to.url?.searchParams.get("cart") === "1")
   const buyNow = await call("POST", "/cart/add", { id: "v2s", quantity: 1, checkout: "" }, cart)
   const buyTo = lines(buyNow)
   check("  Buy it now sends that item alone, and the cart stays (not emptied after paying)", buyNow.status === 303 && buyTo.rows.length === 1 && buyTo.rows[0][1] === "v2s" && buyTo.url?.searchParams.get("cart") === null && buyNow.cart === cart)

@@ -42,6 +42,7 @@ import { EmbeddedCheckout, EmbeddedCheckoutProvider } from "@stripe/react-stripe
 import { getStripePromise, isCapacitorShell } from "../parts/stripe-loader"
 import { backThen } from "@/lib/navigation/go-back"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
+import { CHECKOUT_CURRENCY, money as sharedMoney } from "../parts/ui"
 
 interface QuoteLine {
   productId: string
@@ -88,9 +89,8 @@ const FLOAT_SELECT = `${INPUT} h-[52px] appearance-none pr-10 pt-[17px] data-[em
 const FLOAT_SELECT_LABEL =
   "pointer-events-none absolute left-3.5 right-10 top-[8px] truncate text-[11.5px] text-[#6b7280] transition-[top,font-size,transform] duration-150 ease-out data-[empty=true]:top-1/2 data-[empty=true]:-translate-y-1/2 data-[empty=true]:text-[15px] data-[empty=true]:text-[#9ca3af]"
 
-function money(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`
-}
+/* The charged currency, as every checkout shows it (../parts/ui money, PLATFORM_CURRENCY). */
+const money = sharedMoney
 
 function guessCountry(): string {
   try {
@@ -486,7 +486,7 @@ export function PhysicalCheckout({
           <div className="flex items-baseline justify-between border-t border-[#e5e7eb] pt-3">
             <dt className="text-[16px] font-semibold text-[#1a1a2e]">Total</dt>
             <dd className="text-[20px] font-bold tabular-nums text-[#1a1a2e]">
-              <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">USD</span>
+              <span className="mr-1.5 text-[12px] font-medium text-[#6b7280]">{CHECKOUT_CURRENCY.toUpperCase()}</span>
               {money(t.totalCents)}
             </dd>
           </div>
@@ -647,7 +647,7 @@ export function PhysicalCheckout({
               {config.marketingOptIn ? (
                 <label className="flex cursor-pointer items-center gap-2.5 pt-0.5 text-[14px] text-[#374151]" data-checkout-news="">
                   <input type="checkbox" checked={emailOptIn} onChange={(e) => setEmailOptIn(e.target.checked)} className="h-4 w-4 rounded accent-[#1a1a2e]" />
-                  Email me with news and offers from {shopName}
+                  Email me with news and offers
                 </label>
               ) : null}
             </div>

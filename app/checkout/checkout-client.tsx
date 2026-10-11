@@ -180,20 +180,26 @@ export default function CheckoutPageClient({
 
   /* ── Who ─────────────────────────────────────────────────────────── */
   const [email, setEmail] = React.useState(() => searchParams.get("email") || userEmail || "")
-  /* One "Full name" box, as Stripe asks for it; the order still keeps a first and a last name, split at the first space. */
+  /* One "Full name" box, as Stripe asks for it, or First and Last apart when the store asks for both (Settings › Checkout); the order keeps a first and a last name either way. */
+  const splitName = checkoutConfig.nameFields === "first_and_last"
   const [fullName, setFullName] = React.useState(() => [searchParams.get("firstName"), searchParams.get("lastName")].filter(Boolean).join(" "))
-  const firstName = fullName.trim().split(/\s+/)[0] || ""
-  const lastName = fullName.trim().split(/\s+/).slice(1).join(" ")
+  const [firstOnly, setFirstOnly] = React.useState(() => searchParams.get("firstName") || "")
+  const [lastOnly, setLastOnly] = React.useState(() => searchParams.get("lastName") || "")
+  const firstName = splitName ? firstOnly.trim() : fullName.trim().split(/\s+/)[0] || ""
+  const lastName = splitName ? lastOnly.trim() : fullName.trim().split(/\s+/).slice(1).join(" ")
   const [emailOptIn, setEmailOptIn] = React.useState(false)
   const [agreed, setAgreed] = React.useState(false)
   /* This page's own address, for coming back after signing in: read once mounted, so the server's HTML matches. */
   const [here, setHere] = React.useState("/checkout")
   React.useEffect(() => setHere(window.location.pathname + window.location.search), [])
   React.useEffect(() => {
-    setFullName((v) => v || remembered("fullName") || [remembered("firstName"), remembered("lastName")].filter(Boolean).join(" "))
+    const kept = remembered("fullName") || [remembered("firstName"), remembered("lastName")].filter(Boolean).join(" ")
+    setFullName((v) => v || kept)
+    setFirstOnly((v) => v || kept.trim().split(/\s+/)[0] || "")
+    setLastOnly((v) => v || kept.trim().split(/\s+/).slice(1).join(" "))
     setEmail((v) => v || remembered("email"))
   }, [])
-  React.useEffect(() => remember("fullName", fullName), [fullName])
+  React.useEffect(() => remember("fullName", `${firstName} ${lastName}`.trim()), [firstName, lastName])
   React.useEffect(() => remember("email", email), [email])
 
   /* ── What, and for how much ──────────────────────────────────────── */
@@ -238,10 +244,10 @@ export default function CheckoutPageClient({
     Pay used to say what was missing in the line under the form only, wherever the field was. Now the field itself says
     it, in red, and the page glides to it with the field ready to type in.
   */
-  const [fieldError, setFieldError] = React.useState<{ field: "email" | "name"; message: string } | null>(null)
-  const missing = (field: "email" | "name", message: string) => {
+  const [fieldError, setFieldError] = React.useState<{ field: "email" | "name" | "last"; message: string } | null>(null)
+  const missing = (field: "email" | "name" | "last", message: string) => {
     setFieldError({ field, message })
-    const el = document.getElementById(field === "email" ? "checkout-email" : "checkout-name")
+    const el = document.getElementById(field === "email" ? "checkout-email" : field === "last" ? "checkout-last" : splitName ? "checkout-first" : "checkout-name")
     if (el) bringIntoView(el, true)
     return message
   }
@@ -811,7 +817,7 @@ export default function CheckoutPageClient({
       if (!EMAIL.test(email.trim())) return missing("email", "Enter a valid email address.")
       /* A last name is not required unless the store asks for one: some people have one name. */
       if (!firstName.trim()) return missing("name", "Enter your name.")
-      if (checkoutConfig.nameFields === "first_and_last" && !lastName.trim()) return missing("name", "Enter your first and last name.")
+      if (splitName && !lastName.trim()) return missing("last", "Enter your last name.")
     }
     if (accountGate) return accountGate === "sign-in" ? "Sign in or create an account to check out." : "Confirm your email address to check out."
     if (mode !== "free") {
@@ -1002,27 +1008,59 @@ export default function CheckoutPageClient({
   }
 
   /* ── Pieces ──────────────────────────────────────────────────────── */
+  /* Under the email, as Shopify puts it: the news box (never ticked for them), then the name as the store asks for it. */
   const namesAndNews = (
     <div className="space-y-3">
-      <Field id="checkout-name" label="Full name" error={fieldError?.field === "name" ? fieldError.message : null}>
-        <TextInput
-          id="checkout-name"
-          autoComplete="name"
-          placeholder="Jane Smith"
-          value={fullName}
-          invalid={fieldError?.field === "name"}
-          aria-describedby={fieldError?.field === "name" ? "checkout-name-error" : undefined}
-          onChange={(e) => {
-            setFullName(e.target.value.slice(0, 121))
-            if (fieldError?.field === "name") setFieldError(null)
-          }}
-        />
-      </Field>
       {checkoutConfig.marketingOptIn ? (
         <CheckRow id="checkout-news" checked={emailOptIn} onChange={setEmailOptIn}>
-          Email me news and offers from {creator.name}
+          Email me with news and offers
         </CheckRow>
       ) : null}
+      {splitName ? (
+        <div className="grid grid-cols-2 gap-3">
+          <Field id="checkout-first" label="First name" error={fieldError?.field === "name" ? fieldError.message : null}>
+            <TextInput
+              id="checkout-first"
+              autoComplete="given-name"
+              placeholder="Jane"
+              value={firstOnly}
+              invalid={fieldError?.field === "name"}
+              onChange={(e) => {
+                setFirstOnly(e.target.value.slice(0, 60))
+                if (fieldError?.field === "name") setFieldError(null)
+              }}
+            />
+          </Field>
+          <Field id="checkout-last" label="Last name" error={fieldError?.field === "last" ? fieldError.message : null}>
+            <TextInput
+              id="checkout-last"
+              autoComplete="family-name"
+              placeholder="Smith"
+              value={lastOnly}
+              invalid={fieldError?.field === "last"}
+              onChange={(e) => {
+                setLastOnly(e.target.value.slice(0, 60))
+                if (fieldError?.field === "last") setFieldError(null)
+              }}
+            />
+          </Field>
+        </div>
+      ) : (
+        <Field id="checkout-name" label="Full name" error={fieldError?.field === "name" ? fieldError.message : null}>
+          <TextInput
+            id="checkout-name"
+            autoComplete="name"
+            placeholder="Jane Smith"
+            value={fullName}
+            invalid={fieldError?.field === "name"}
+            aria-describedby={fieldError?.field === "name" ? "checkout-name-error" : undefined}
+            onChange={(e) => {
+              setFullName(e.target.value.slice(0, 121))
+              if (fieldError?.field === "name") setFieldError(null)
+            }}
+          />
+        </Field>
+      )}
       {accountGate === "sign-in" ? (
         <div className="rounded-xl border border-[#d9dce1] bg-[#f8f9fa] px-4 py-3.5" data-checkout-account="sign-in">
           <p className="text-[14.5px] font-semibold text-[#1a1a2e]">Sign in to check out</p>

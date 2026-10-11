@@ -88,7 +88,7 @@ console.log("\nSingle product (digital) checkout\n")
   check("the page is only sent whole-country rows", checkoutTaxFor(setup, "p", "US")!.regions.every((r) => r.id !== "r-ca"))
 }
 
-console.log("\nWebsite basket at /checkout/cart\n")
+console.log("\nWebsite basket (the website's own checkout, and Storelib's basket session)\n")
 {
   const setup = { enabled: true, digital: true, included: false, regions: [RO, US, US_CA], overrides: [{ taxRateId: "r-ro", productId: "book", rateBps: 500 }] }
   const lines = [{ productId: "course", taxableCents: 4900 }, { productId: "book", taxableCents: 1000 }]
@@ -114,8 +114,12 @@ console.log("\nWebsite basket at /checkout/cart\n")
   check("  added on top it is its own line on Stripe's form", /addedTaxCents > 0\s*\? \[\{ quantity: 1, price_data: \{ currency: chargeCurrency, unit_amount: addedTaxCents/.test(route))
   check("  the tax and each line's share go on the session", /tax_cents: String\(tax\.taxCents\)/.test(route) && /lines\[i\]\.item\.taxCents = t/.test(route))
   check("  Storelib's fee stays on the price, never on the tax", /calculatePlatformFeeForCheckout\(totalCents, creatorId/.test(route))
-  const page = read("app/checkout/cart/page.tsx")
-  check("the branded page shows the same tax while Stripe's form loads", /basketTax\(/.test(page) && /totalCents=\{priced\.totalCents \+ \(tax\.included \? 0 : tax\.taxCents\)\}/.test(page) && /data-basket-tax/.test(read("app/checkout/cart/basket-checkout.tsx")))
+  const quote = read("lib/checkout/site-quote-server.ts")
+  check("the website's own checkout (/checkout on the site) shows the same tax for a cart of downloads", /basketTax\(await loadTaxForCheckout\(db, creatorId\)/.test(quote) && /taxCents: tax\.taxCents, taxIncluded: tax\.included, totalCents: priced\.totalCents \+ \(tax\.included \? 0 : tax\.taxCents\)/.test(quote))
+  const site = read("app/api/checkout/site/route.ts")
+  check("  and its Pay charges it: the amount, each line's share and the tax on the payment", /const tax = await digitalCartTax\(admin, site\.creatorId, priced, body, detectedCountry\(request\.headers\)\)/.test(site) && /amount: chargeCents,/.test(site) && /tax_cents: String\(tax\.taxCents\)/.test(site) && /priced\.lines\[i\]\.item\.taxCents = t/.test(site))
+  check("  the fee stays on the price there too", /calculatePlatformFeeForCheckout\(priced\.totalCents, site\.creatorId/.test(site))
+  check("  and its paid order keeps the tax", (read("lib/checkout/fulfil-cart-session.ts").match(/tax: metadata\.tax_cents \? \{ included: metadata\.tax_included === "true"/g) ?? []).length === 2)
   const line = read("lib/checkout/fulfil-cart-item.ts")
   check("each basket order is charged its share of added tax and keeps its tax", /lineTotalCents\(line\) \+ \(ctx\.tax\?\.included \? 0 : taxCents\)/.test(line) && /update\(\{ tax_cents: Math\.min\(taxCents, amountCents\), tax_country: country \}\)/.test(line) && /update\(\{ tax_included: true \}\)/.test(line))
   check("  the session's tax settings reach the lines", /tax: metadata\.tax_cents \? \{ included: metadata\.tax_included === "true"/.test(read("lib/checkout/fulfil-cart-session.ts")))

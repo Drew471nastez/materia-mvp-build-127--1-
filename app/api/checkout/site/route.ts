@@ -1,0 +1,534 @@
+import { NextResponse, after } from "next/server"
+import type Stripe from "stripe"
+import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { stripe } from "@/lib/stripe"
+import { getMainDomain } from "@/lib/url-helpers"
+import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
+import { digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
+import { packItems } from "@/lib/checkout/cart-items"
+import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
+import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { fulfilCartPayment, fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
+import { basketTitle, fieldPlan, missingField, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
+import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
+import { isPickupOptionId } from "@/lib/physical/pickup"
+import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
+import { percentText } from "@/lib/tax/rules"
+import type { CheckoutConfig } from "@/lib/store/checkout-config"
+import { checkoutReadyForCreator } from "@/lib/payments/service"
+import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { accountIsGone, releaseConnectedAccount } from "@/lib/payments/stripe/connect"
+import { statementParams } from "@/lib/payments/platform-descriptor"
+import { UnsupportedFeeCurrencyError } from "@/lib/billing/fee-calculator"
+import { calculatePlatformFeeForCheckout } from "@/lib/billing/platform-fee-server"
+import { platformChargeCurrency } from "@/lib/payments/fees/currency-rules"
+import { ORIGIN_METADATA_KEY, SOURCE_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin, type OrderOrigin } from "@/lib/orders/order-source"
+import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
+import { recordCheckoutStart } from "@/lib/automations/abandoned"
+import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { collectOrderDeviceInfo } from "@/lib/device-info"
+import { timed } from "@/lib/perf/server-timing"
+
+export const runtime = "nodejs"
+export const dynamic = "force-dynamic"
+
+/**
+ * ===========================================================================
+ *  THE WEBSITE'S CHECKOUT, SERVED ON THE WEBSITE'S OWN ADDRESS
+ * ===========================================================================
+ * Every call the checkout page at https://<site host>/checkout makes
+ * (app/checkout/site), on that same host. The shop is the host's
+ * (lib/checkout/site-checkout-server siteOfRequest): a call that arrives on
+ * any host that is not a creator's published website is refused, and a cart
+ * of another shop's products is refused under this one (basketDecision's
+ * seller guard). The browser sends ids and quantities; every price is the
+ * database's.
+ *
+ *   quote     the lines, the code, the delivery options and the totals, as
+ *             the server prices them, asked again whenever one changes
+ *   intent    Pay: a PaymentIntent for exactly that total, for Storelib's own
+ *             card form (Stripe's Payment Element, never Stripe's page)
+ *   confirm   paid: the order, written once (or found written by the
+ *             webhook), and the thank you page on the site
+ *   free      a code took it to $0: the order, no card
+ *   abandon   the buyer changed the order after Pay: the held stock and the
+ *             code's place go back at once
+ *
+ * TWO WAYS A CART IS PAID, ONE PAGE. A cart of downloads is a basket
+ * PaymentIntent (metadata `cart` and `site_basket`, lib/checkout/
+ * fulfil-cart-session fulfilCartPayment). A cart with something that ships
+ * is a held checkout (lib/physical/checkout-server, `intent: true`), with
+ * the address, the delivery and the stock. Either way the charge is a
+ * destination charge to the seller's connected account with Storelib's fee,
+ * exactly as the Explore checkout's (app/api/checkout/stripe-session), and
+ * Settings › Checkout applies (lib/checkout/site-checkout siteGate,
+ * fieldPlan): an account on the website first when the store asks, the
+ * order then going to that account's address, which its sign in code
+ * confirmed.
+ */
+
+type Body = Record<string, unknown>
+
+const json = (data: unknown, status = 200, headers?: HeadersInit) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store", ...(headers ?? {}) } })
+
+function clean(value: unknown, max: number): string {
+  return typeof value === "string" ? value.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, max) : ""
+}
+
+/** An imported theme's cart cookie (lib/storelib-theme/compat/site CART_COOKIE), emptied once the whole cart is an order. */
+const THEME_CART_COOKIE = "sl_theme_cart"
+
+async function handlePOST(request: Request) {
+  let body: Body
+  try {
+    body = (await request.json()) as Body
+  } catch {
+    return json({ error: "Something was missing. Refresh the page and try again." }, 400)
+  }
+  const admin = createAdminClient()
+  const site = await siteOfRequest(admin, request)
+  if (!site) return json({ error: "Open the checkout from the shop's website." }, 403)
+
+  switch (body.action) {
+    case "quote":
+      return quote(request, admin, site, body)
+    case "intent":
+      return intent(request, admin, site, body)
+    case "confirm":
+      return confirm(request, admin, site, body)
+    case "free":
+      return free(request, admin, site, body)
+    case "abandon": {
+      const { abandonCheckout } = await import("@/lib/physical/checkout-server")
+      return json({ ok: await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.clientKey }) })
+    }
+    default:
+      return json({ error: "Bad request." }, 400)
+  }
+}
+
+/* ── Pricing ──────────────────────────────────────────────────────────── */
+
+type Admin = ReturnType<typeof createAdminClient>
+
+async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
+  if (limited) return limited
+  const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers))
+  return answer.ok ? json(answer.quote) : json({ error: answer.error }, answer.status)
+}
+
+/* ── Who, and what they typed ─────────────────────────────────────────── */
+
+interface Contact {
+  email: string
+  first: string
+  last: string
+  optedIn: boolean
+  config: CheckoutConfig
+  signedIn: boolean
+}
+
+/**
+ * Settings › Checkout, the rule (the page draws the same, lib/checkout/site-checkout):
+ * an account on the website first when the store asks, and then that
+ * account's address; the name as the store asks for it; the news box only
+ * when the store shows it.
+ */
+async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, body: Body, order: { ships: boolean; pickup: boolean }): Promise<Contact | NextResponse> {
+  const config = await loadCheckoutConfig(admin, site.creatorId)
+  const buyer = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const gate = siteGate(config, buyer)
+  if (gate.kind === "sign-in") return json({ error: "Sign in to check out.", code: "account_required" }, 401)
+  const email = (gate.lockedEmail ?? clean(body.email, 254)).toLowerCase()
+  const first = clean(body.firstName, 60)
+  const last = clean(body.lastName, 60)
+  const plan = fieldPlan(config, order)
+  const address = (body.address && typeof body.address === "object" ? body.address : {}) as Record<string, unknown>
+  const missing = missingField(plan, { email, first, last, company: clean(address.company, 120), phone: clean(order.pickup ? body.phone : address.phone, 40), line2: clean(address.line2, 200) })
+  /* A wallet brings its own name and email; the card form's are checked here. */
+  if (missing === "email") return json({ error: "Enter a valid email address.", field: "email" }, 400)
+  if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)
+  if (body.agreedToTerms !== true) return json({ error: "Agree to the Terms and Conditions to continue." }, 400)
+  return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer }
+}
+
+function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
+  const sent = cleanOrigin(body.origin)
+  return { ...(sent ?? {}), surface: "website", site: cleanHost(site.host.split(":")[0]) }
+}
+
+/* ── Pay ──────────────────────────────────────────────────────────────── */
+
+async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body)
+  /* A code the page showed as taken and the server no longer takes is said, never charged without. */
+  if (couponError) return json({ error: couponError, field: "code" }, 400)
+  const ships = decision.kind === "ships"
+  const pickup = ships && isPickupOptionId(body.deliveryOptionId)
+  const contact = await contactOf(request, admin, site, body, { ships, pickup })
+  if (contact instanceof NextResponse) return contact
+
+  /* A declined card is retried two or three times; a list of stolen cards hundreds. */
+  const limited = await rateLimit({
+    bucket: "payment",
+    subjects: [addressSubject(request), emailSubject(contact.email)],
+    windows: LIMITS.payment,
+    message: "Too many payment attempts just now. Wait a few minutes and try again.",
+  })
+  if (limited) return limited
+
+  let business: ReturnType<typeof checkBusiness> | null = null
+  if (body.business !== undefined && body.business !== null) {
+    business = checkBusiness(body.business)
+    if (business.ok === false) return json({ error: business.error, field: business.field }, 400)
+  }
+
+  const origin = originFor(site, body)
+  const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
+
+  if (ships) return shippedIntent(request, admin, site, body, contact, origin, attribution)
+
+  if (decision.kind === "refuse" || priced.ok === false) return json({ error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }, decision.kind === "refuse" ? decision.status : 400)
+  if (decision.kind === "free") return json({ error: "This order is free. Press Get it free.", free: true }, 409)
+  if (decision.kind !== "pay") return json({ error: "Refresh the page and try again." }, 409)
+  if (priced.totalCents < MIN_CHARGE_CENTS) return json({ error: "Minimum payment amount is $0.50" }, 400)
+
+  const { data: creator } = await admin
+    .from("creators")
+    .select("id, display_name, stripe_account_id, charges_enabled, statement_descriptor")
+    .eq("id", site.creatorId)
+    .maybeSingle()
+  const account = String((creator as { stripe_account_id?: string | null } | null)?.stripe_account_id ?? "")
+  /* Storelib's one readiness rule; the buyer is told nothing about the seller's verification. */
+  if (!creator || !account.startsWith("acct_") || !(await checkoutReadyForCreator(site.creatorId))) {
+    return json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, 409)
+  }
+
+  /* A code with a use limit takes its place before a PaymentIntent exists (lib/checkout/coupon-holds). */
+  const coupon = priced.coupon
+  const holder = needsHold(coupon) ? holderForEmail(contact.email) : null
+  if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+
+  /*
+    SETTINGS › TAXES: the tax the quote showed (lib/checkout/site-quote-server
+    digitalCartTax), worked out again here and charged on top unless prices
+    include it. Each line's share rides in the metadata (`cart_tax`) for its
+    order and the receipt. Storelib's fee stays on the price, never on the tax.
+  */
+  const tax = await digitalCartTax(admin, site.creatorId, priced, body, detectedCountry(request.headers))
+  if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (priced.lines[i].item.taxCents = t))
+  const chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
+
+  const chargeCurrency = platformChargeCurrency()
+  let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
+  try {
+    fee = await calculatePlatformFeeForCheckout(priced.totalCents, site.creatorId, admin, chargeCurrency)
+  } catch (e) {
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    if (e instanceof UnsupportedFeeCurrencyError) return json({ error: "This currency is not available for checkout yet." }, 400)
+    throw e
+  }
+  const { deviceInfo, geoInfo } = collectOrderDeviceInfo(request)
+  const metadata: Record<string, string> = {
+    cart: "1",
+    site_basket: "1",
+    [SOURCE_METADATA_KEY]: "website",
+    [ORIGIN_METADATA_KEY]: encodeOrigin(origin),
+    creator_id: site.creatorId,
+    buyer_id: "",
+    buyer_email: contact.email,
+    buyer_first_name: contact.first,
+    buyer_last_name: contact.last,
+    buyer_country: geoInfo.country || "",
+    buyer_country_code: geoInfo.countryCode || "",
+    buyer_device_type: deviceInfo.deviceType || "",
+    buyer_os: deviceInfo.os || "",
+    buyer_browser: deviceInfo.browser || "",
+    /* The site's own address, for the buyer's receipt link (lib/checkout/fulfil-cart-session). Checked: it is this request's host, a website of this shop. */
+    site_origin: site.origin,
+    platform_fee_cents: String(fee.platformFeeCents),
+    fee_percent: String(fee.feePercent),
+    fee_fixed_cents: String(fee.feeFixedCents),
+    plan_used: fee.planId,
+    pricing_tier: fee.pricingTier ?? "standard",
+    fee_rule_version: fee.feeRuleVersion ?? "",
+    email_opt_in: contact.optedIn ? "true" : "false",
+    agreed_to_terms: "true",
+    ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(priced.discountCents), ...(holder ? { coupon_holder: holder } : {}) } : {}),
+    ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 80) } : {}),
+    ...packItems(priced.lines.map((l) => l.item)),
+    ...(business?.ok ? businessToMetadata(business.value) : {}),
+  }
+  Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
+
+  const params: Stripe.PaymentIntentCreateParams = {
+    amount: chargeCents,
+    currency: chargeCurrency,
+    payment_method_types: methodsFrom(body.paymentMethods),
+    metadata,
+    application_fee_amount: fee.platformFeeCents,
+    transfer_data: { destination: account },
+    ...statementParams({
+      account,
+      descriptor: (creator as { statement_descriptor?: string | null }).statement_descriptor || (creator as { display_name?: string | null }).display_name || "",
+      chargesEnabled: (creator as { charges_enabled?: boolean | null }).charges_enabled ?? null,
+    }),
+  }
+  try {
+    let pi: Stripe.PaymentIntent
+    try {
+      pi = await stripe.paymentIntents.create(params)
+    } catch (e) {
+      const said = String((e as Error)?.message || "").toLowerCase()
+      if (!((params.statement_descriptor_suffix && said.includes("statement_descriptor")) || (params.on_behalf_of && said.includes("on_behalf_of")))) throw e
+      delete params.statement_descriptor_suffix
+      delete params.on_behalf_of
+      pi = await stripe.paymentIntents.create(params)
+    }
+    const started = pi.id
+    const first = priced.lines[0]
+    after(() =>
+      recordStart(admin, contact, site, {
+        paymentIntentId: started,
+        productId: first.item.productId,
+        variantId: first.item.variantId,
+        title: basketTitle(priced.lines.map((l) => String(l.product.title ?? ""))),
+        items: priced.lines.map((l) => ({ productId: l.item.productId, variantId: l.item.variantId, quantity: l.item.quantity })),
+        origin,
+        attribution,
+      }),
+    )
+    return json({ clientSecret: pi.client_secret, paymentIntentId: pi.id, amountCents: pi.amount })
+  } catch (error) {
+    console.error("[checkout/site] PaymentIntent failed:", error instanceof Error ? error.message : error)
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    const e = error as { param?: string; message?: string } | null
+    if (/destination/i.test(e?.param ?? "") || /destination|connected account/i.test(e?.message ?? "")) {
+      const gone = await stripe.accounts.retrieve(account).then(() => false, (x: unknown) => accountIsGone(x))
+      if (gone) {
+        await releaseConnectedAccount(site.creatorId, account, "legacy_platform").catch(() => undefined)
+        return json({ error: "This shop cannot take payments right now. Nothing was charged." }, 409)
+      }
+    }
+    return json({ error: "The payment could not be started. Nothing was charged. Try again." }, 500)
+  }
+}
+
+/** A cart that ships: the held checkout, paid in Storelib's form (lib/physical/checkout-server, intent). */
+async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body, contact: Contact, origin: OrderOrigin, attribution: Awaited<ReturnType<typeof attributionForCheckout>>) {
+  const { abandonCheckout, startCheckout } = await import("@/lib/physical/checkout-server")
+  /* The order changed since the last Pay (the address, the delivery, the code): that checkout lets go of its stock first. */
+  if (typeof body.replaces === "string" && body.replaces && body.replaces !== body.clientKey) {
+    await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.replaces }).catch(() => false)
+  }
+  const name = `${contact.first} ${contact.last}`.trim()
+  const address = body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address
+  const started = await startCheckout(admin, {
+    shopId: site.creatorId,
+    items: body.items,
+    couponCode: body.couponCode,
+    email: contact.email,
+    name,
+    phone: body.phone,
+    address,
+    deliveryOptionId: body.deliveryOptionId,
+    buyerNote: body.buyerNote,
+    clientKey: body.clientKey,
+    origin,
+    attribution,
+    buyerId: null,
+    buyerSignedIn: contact.signedIn,
+    /* A website account is only ever made by typing back a code sent to its address. */
+    buyerEmailConfirmed: contact.signedIn,
+    platformOrigin: `https://${getMainDomain()}`,
+    backUrl: site.origin,
+    config: contact.config,
+    emailOptIn: contact.optedIn,
+    intent: true,
+    paymentMethods: body.paymentMethods,
+  })
+  if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+  if (started.free) return json({ error: "This order is free. Press Place order.", free: true }, 409)
+  if (!started.clientSecret || !started.paymentIntentId) return json({ error: "Could not start the payment. Try again in a moment." }, 500)
+  const pi = started.paymentIntentId
+  after(async () => {
+    const { data: co } = await admin.from("commerce_checkouts").select("lines").eq("id", started.checkoutId).maybeSingle()
+    const lines = (Array.isArray(co?.lines) ? (co?.lines as unknown[]) : []) as { product_id: string; variant_id: string | null; title: string; quantity: number }[]
+    if (lines.length === 0) return
+    await recordStart(admin, contact, site, {
+      paymentIntentId: pi,
+      productId: lines[0].product_id,
+      variantId: lines[0].variant_id,
+      title: basketTitle(lines.map((l) => l.title)),
+      items: lines.map((l) => ({ productId: l.product_id, variantId: l.variant_id, quantity: l.quantity })),
+      origin,
+      attribution,
+    })
+  })
+  return json({ clientSecret: started.clientSecret, paymentIntentId: pi, amountCents: null, checkoutKey: body.clientKey })
+}
+
+/**
+ * The checkout reached Pay: written down after the answer goes back. The
+ * start is what a checkout reminder is made from (lib/automations/abandoned,
+ * Settings › Checkout › Abandoned checkouts), with the cart's lines and the
+ * site's address in `basket` (SQL part 127) so the reminder can bring the
+ * buyer back to this same checkout. A ticked news box is a yes whether or
+ * not the payment then goes through (lib/contacts/checkout-welcome).
+ */
+async function recordStart(
+  admin: Admin,
+  contact: Contact,
+  site: SiteOfCheckout,
+  s: { paymentIntentId: string; productId: string; variantId: string | null; title: string; items: { productId: string; variantId: string | null; quantity: number }[]; origin: OrderOrigin; attribution: Awaited<ReturnType<typeof attributionForCheckout>> },
+) {
+  const source = contactSourceOfOrder(s.origin, s.productId)
+  if (contact.config.abandonedRecovery) {
+    const written = await recordCheckoutStart(admin, {
+      creatorId: site.creatorId,
+      productId: s.productId,
+      variantId: s.variantId,
+      productTitle: s.title,
+      email: contact.email,
+      firstName: contact.first,
+      paymentIntentId: s.paymentIntentId,
+      optedIn: contact.optedIn,
+      source,
+    })
+    if (written) {
+      const { error } = await admin
+        .from("checkout_starts")
+        .update({ basket: { items: s.items.slice(0, 50), site: site.origin, checkout: "/checkout" } })
+        .eq("payment_intent_id", s.paymentIntentId)
+      if (error && !/42703|PGRST204/.test(String(error.code ?? ""))) console.warn("[checkout/site] basket not kept on the start:", error.code)
+    }
+  }
+  await recordCheckoutStartAttribution(admin, s.paymentIntentId, s.attribution)
+  if (contact.optedIn) {
+    await recordCheckoutContactAndWelcome(admin, { creatorId: site.creatorId, email: contact.email, name: `${contact.first} ${contact.last}`.trim(), basis: "ticked", bought: false, source })
+    await recordContactAttribution(admin, site.creatorId, contact.email, s.attribution)
+  }
+}
+
+/* ── Paid ─────────────────────────────────────────────────────────────── */
+
+/** The receipt's guest key on this host (the receipt and its downloads are on the site too), and the theme's cart emptied once it is an order. */
+function afterPaidHeaders(site: SiteOfCheckout, fingerprint: string | null, wholeCart: boolean): Headers {
+  const h = new Headers({ "Cache-Control": "no-store" })
+  const secure = site.origin.startsWith("https:") ? "; Secure" : ""
+  if (fingerprint) h.append("Set-Cookie", `materia_session=${encodeURIComponent(fingerprint)}; Path=/; Max-Age=31536000; SameSite=Lax; HttpOnly${secure}`)
+  if (wholeCart) h.append("Set-Cookie", `${THEME_CART_COOKIE}=; Path=/; Max-Age=0; SameSite=Lax; HttpOnly${secure}`)
+  return h
+}
+
+async function confirm(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const paymentIntentId = typeof body.paymentIntentId === "string" ? body.paymentIntentId : ""
+  const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : ""
+  if (!/^pi_[A-Za-z0-9]+$/.test(paymentIntentId) || !clientSecret) return json({ error: "Missing payment." }, 400)
+  const platform = `https://${getMainDomain()}`
+  const wholeCart = body.wholeCart === true
+
+  const basket = await fulfilCartPayment(admin, paymentIntentId, { baseUrl: platform, request, clientSecret })
+  if (basket.ok) {
+    if (basket.creatorId !== site.creatorId) return json({ error: "That payment could not be found." }, 404)
+    return NextResponse.json({ receiptToken: basket.receiptToken, thanks: siteThanksHref(basket.receiptToken, { whole: wholeCart }), complete: basket.complete }, { headers: afterPaidHeaders(site, basket.sessionFingerprint, wholeCart) })
+  }
+  if (basket.reason !== "unreadable") return json({ error: basketError(basket.reason) }, basket.status)
+
+  const { completePhysicalIntent } = await import("@/lib/physical/checkout-server")
+  const shipped = await completePhysicalIntent(admin, paymentIntentId, platform, clientSecret)
+  if (shipped.ok === false) return json({ error: basketError(shipped.reason) }, shipped.status)
+  const { data: co } = await admin.from("commerce_checkouts").select("creator_id").eq("id", shipped.checkoutId).maybeSingle()
+  if ((co as { creator_id?: string } | null)?.creator_id !== site.creatorId) return json({ error: "That payment could not be found." }, 404)
+  return NextResponse.json({ receiptToken: shipped.receiptToken, thanks: siteThanksHref(shipped.receiptToken, { whole: wholeCart }), complete: shipped.complete }, { headers: afterPaidHeaders(site, shipped.sessionFingerprint, wholeCart) })
+}
+
+function basketError(reason: string): string {
+  if (reason === "unpaid") return "The payment has not completed."
+  if (reason === "not_found" || reason === "unreadable") return "That payment could not be found."
+  return "Your payment went through. The order is still being saved: refresh this page in a moment. You will not be charged again."
+}
+
+/* ── Free ─────────────────────────────────────────────────────────────── */
+
+async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body)
+  if (couponError) return json({ error: couponError, field: "code" }, 400)
+  const ships = decision.kind === "ships"
+  const pickup = ships && isPickupOptionId(body.deliveryOptionId)
+  const contact = await contactOf(request, admin, site, body, { ships, pickup })
+  if (contact instanceof NextResponse) return contact
+  const limited = await rateLimit({
+    bucket: "claim",
+    subjects: [addressSubject(request), emailSubject(contact.email)],
+    windows: LIMITS.claim,
+    message: "That is a lot of orders from one place. Try again in a few minutes.",
+  })
+  if (limited) return limited
+  const origin = originFor(site, body)
+  const attribution = await attributionForCheckout(admin, { creatorId: site.creatorId, source: "website", origin, sent: body.origin })
+  const wholeCart = body.wholeCart === true
+
+  if (ships) {
+    const { startCheckout } = await import("@/lib/physical/checkout-server")
+    const name = `${contact.first} ${contact.last}`.trim()
+    const started = await startCheckout(admin, {
+      shopId: site.creatorId,
+      items: body.items,
+      couponCode: body.couponCode,
+      email: contact.email,
+      name,
+      phone: body.phone,
+      address: body.address && typeof body.address === "object" ? { ...(body.address as Record<string, unknown>), name } : body.address,
+      deliveryOptionId: body.deliveryOptionId,
+      buyerNote: body.buyerNote,
+      clientKey: body.clientKey,
+      origin,
+      attribution,
+      buyerId: null,
+      buyerSignedIn: contact.signedIn,
+      buyerEmailConfirmed: contact.signedIn,
+      platformOrigin: `https://${getMainDomain()}`,
+      backUrl: site.origin,
+      config: contact.config,
+      emailOptIn: contact.optedIn,
+      intent: true,
+    })
+    if (started.ok === false) return json({ error: started.error, field: started.field ?? null, stock: started.stock ?? null }, started.status)
+    if (!started.free || !started.receiptToken) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
+    const { data: co } = await admin.from("commerce_checkouts").select("session_fingerprint").eq("id", started.checkoutId).maybeSingle()
+    return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
+  }
+
+  if (decision.kind !== "free" || priced.ok === false || !priced.coupon) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
+  const coupon = priced.coupon
+  const holder = needsHold(coupon) ? holderForEmail(contact.email) : null
+  if (holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+  const written = await fulfilFreeCart(admin, {
+    creatorId: site.creatorId,
+    items: priced.lines.map((l) => l.item),
+    buyerId: null,
+    buyerEmail: contact.email,
+    buyerFirstName: contact.first,
+    buyerLastName: contact.last || null,
+    origin,
+    attribution,
+    couponId: coupon.id,
+    couponHolder: holder,
+    baseUrl: `https://${getMainDomain()}`,
+    request,
+    consent: contact.optedIn ? "ticked" : "none",
+  })
+  if (written.ok === false) {
+    if (holder) await releaseCouponHold(admin, coupon.id, holder)
+    return json({ error: "The order could not be saved. Try again in a moment." }, 500)
+  }
+  return NextResponse.json({ receiptToken: written.receiptToken, thanks: siteThanksHref(written.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, written.sessionFingerprint, wholeCart) })
+}
+
+/* Timed for /admin/performance, one request in five (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/site", handlePOST)

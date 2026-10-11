@@ -31,21 +31,22 @@ import { decodeItems } from "@/lib/physical/cart-link"
 import { checkoutReminderEmail, type EmailLine } from "@/lib/physical/email-templates"
 import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
 import { itemsText, resolveCopy } from "@/lib/emails/customer-custom"
-import { cleanReturnPath, type CheckoutStart } from "./abandoned"
+import { startCheckoutUrl, type CheckoutStart } from "./abandoned"
+import { ownCheckoutUrl } from "./supabase-store"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-/** The lines and the way back, from the start alone: a cart's items from its path, else the one product. */
+/** The lines and the way back, from the start alone: a cart's items from its checkout's address, else the one product. */
 async function whatWasLeft(db: Db, s: CheckoutStart): Promise<{ lines: EmailLine[]; checkoutUrl: string } | null> {
-  const back = cleanReturnPath(s.return_path)
-  if (back) {
-    const items = decodeItems(new URLSearchParams(back.split("?")[1] ?? "").get("items"))
+  const cartUrl = await ownCheckoutUrl(s.creator_id, startCheckoutUrl(s, APP_URL))
+  if (cartUrl) {
+    const items = decodeItems(new URL(cartUrl).searchParams.get("items"))
     if (items.length === 0) return null
-    const { data } = await db.from("products").select("id, title, thumbnail_url").eq("creator_id", s.creator_id).in("id", [...new Set(items.map((i) => i.productId))])
+    const { data } = await db.from("products").select("id, title, thumbnail_url").eq("creator_id", s.creator_id).eq("status", "published").in("id", [...new Set(items.map((i) => i.productId))])
     const byId = new Map(((data ?? []) as { id: string; title: string; thumbnail_url: string | null }[]).map((p) => [p.id, p]))
     const lines = items.filter((i) => byId.has(i.productId)).map((i) => ({ title: byId.get(i.productId)!.title, variantName: null, quantity: i.quantity, cents: 0, imageUrl: byId.get(i.productId)!.thumbnail_url }))
-    return lines.length ? { lines, checkoutUrl: `${APP_URL}${back}` } : null
+    return lines.length ? { lines, checkoutUrl: cartUrl } : null
   }
   if (!s.product_id) return null
   const { data: product } = await db.from("products").select("id, title, thumbnail_url, type, status").eq("id", s.product_id).eq("creator_id", s.creator_id).maybeSingle()

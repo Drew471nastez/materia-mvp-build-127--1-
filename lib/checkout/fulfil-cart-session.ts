@@ -41,9 +41,9 @@ import { fulfilCartLine, recordCartCustomer, type FulfilContext, type FulfilledL
 import { recordCouponUse } from "./coupons"
 import { orderOriginFrom } from "@/lib/orders/order-source"
 import { attributionFromMetadata } from "@/lib/attribution/server"
-import { paymentFacts, recordSale } from "./fulfil-payment"
+import { paymentFacts, recordSale, sameSecret } from "./fulfil-payment"
 import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
-import { businessFromStripe, type BusinessDetails } from "./business"
+import { businessFromMetadata, businessFromStripe, type BusinessDetails } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
 
@@ -157,6 +157,113 @@ export async function fulfilCartSession(
 }
 
 /**
+ * ===========================================================================
+ *  A BASKET PAID ON THE WEBSITE'S OWN CHECKOUT
+ * ===========================================================================
+ * The checkout a website serves at its own address (app/checkout/site) takes
+ * the card in Storelib's own form (Stripe's Payment Element), so a basket is
+ * a PaymentIntent there, not a Checkout Session. Its metadata carries the
+ * same packed lines, code and fee as a session's (app/api/checkout/site), and
+ * it is written by the same writeBasket, with the PaymentIntent's id as what
+ * groups its lines: the buyer's browser (with the client secret only that
+ * page holds) and the payment_intent.succeeded webhook, whichever comes
+ * first, each line once.
+ */
+export function isCartIntent(pi: Pick<Stripe.PaymentIntent, "metadata">): boolean {
+  return pi.metadata?.cart === "1" && pi.metadata?.site_basket === "1"
+}
+
+export async function fulfilCartPayment(
+  admin: Db,
+  paymentIntentId: string,
+  opts: { baseUrl: string; request?: Request; clientSecret?: string | null },
+): Promise<CartFulfilment> {
+  if (typeof paymentIntentId !== "string" || !/^pi_[A-Za-z0-9]+$/.test(paymentIntentId)) return { ok: false, status: 400, reason: "not_found" }
+  let pi: Stripe.PaymentIntent
+  try {
+    pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge", "latest_charge.transfer"] })
+  } catch (e) {
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") return { ok: false, status: 404, reason: "not_found" }
+    return { ok: false, status: 503, reason: "failed" }
+  }
+  /* From a browser: the secret only the page that paid holds (an id alone travels in addresses). */
+  if (opts.clientSecret !== undefined && !sameSecret(pi.client_secret, opts.clientSecret)) return { ok: false, status: 404, reason: "not_found" }
+  if (!isCartIntent(pi)) return { ok: false, status: 400, reason: "unreadable" }
+  if (pi.status !== "succeeded") return { ok: false, status: 409, reason: "unpaid" }
+
+  const metadata = (pi.metadata ?? {}) as Record<string, string>
+  const items = unpackItems(metadata)
+  const creatorId = metadata.creator_id || ""
+  if (items.length === 0 || !creatorId) {
+    console.error("[cart] paid basket with no readable lines:", paymentIntentId)
+    return { ok: false, status: 422, reason: "unreadable" }
+  }
+  const facts = paymentFacts(pi)
+  const recordedFee = Number.parseInt(metadata.platform_fee_cents || "0", 10) || 0
+  const feeTotal = pi.application_fee_amount ?? facts?.applicationFeeCents ?? recordedFee
+  const paidTotal = pi.amount_received || pi.amount || packedTotalCents(items)
+
+  const buyerEmail = (metadata.buyer_email || "").toLowerCase().trim() || null
+  let buyerId = metadata.buyer_id || null
+  if (!buyerId && buyerEmail) {
+    const { data: profile } = await admin.from("profiles").select("id").eq("email", buyerEmail).maybeSingle()
+    if (profile) buyerId = profile.id
+  }
+  const sessionId = pi.id
+  const sessionFingerprint = cartFingerprint(sessionId)
+  let device: FulfilContext["device"] = {
+    country: metadata.buyer_country || null,
+    countryCode: metadata.buyer_country_code || null,
+    deviceType: metadata.buyer_device_type || null,
+    os: metadata.buyer_os || null,
+    browser: metadata.buyer_browser || null,
+  }
+  if (opts.request && !device.country) {
+    const { collectOrderDeviceInfo } = await import("@/lib/device-info")
+    const { deviceInfo, geoInfo } = collectOrderDeviceInfo(opts.request)
+    device = { country: geoInfo.country || null, countryCode: geoInfo.countryCode || null, deviceType: deviceInfo.deviceType || null, os: deviceInfo.os || null, browser: deviceInfo.browser || null }
+  }
+  const ctx: FulfilContext = {
+    admin,
+    sessionId,
+    paymentIntentId: pi.id,
+    creatorId,
+    buyerId,
+    buyerEmail,
+    buyerFirstName: metadata.buyer_first_name || null,
+    buyerLastName: metadata.buyer_last_name || null,
+    receiptTokenFor: (index) => cartReceiptToken(sessionId, index),
+    sessionFingerprint,
+    paymentMethod: facts?.paymentMethod ?? "card",
+    cardBrand: facts?.cardBrand ?? null,
+    cardLast4: facts?.cardLast4 ?? null,
+    device,
+    origin: orderOriginFrom(metadata),
+    attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
+    feeAudit: { planUsed: metadata.plan_used || null, pricingTier: metadata.pricing_tier || null, feeRuleVersion: metadata.fee_rule_version || null },
+    /* Settings › Taxes, as the website's checkout charged it (each line's share is on the line, `cart_tax`). */
+    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
+  }
+  const written = await writeBasket(admin, ctx, items, {
+    paidTotal,
+    feeTotal,
+    destinationPaymentId: facts?.destinationPaymentId ?? null,
+    baseUrl: opts.baseUrl,
+    couponId: metadata.coupon_id || null,
+    couponHolder: metadata.coupon_holder || null,
+    couponCode: metadata.coupon_code || null,
+    business: businessFromMetadata(metadata),
+    /* Only when the store showed the box and the buyer ticked it: the route writes "true" for nothing else. */
+    consent: metadata.email_opt_in === "true" ? "ticked" : "none",
+    /* The website's own address (app/api/checkout/site wrote the request's host, a website of this shop), so the emailed receipt opens there. */
+    buyerBaseUrl: /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(metadata.site_origin || "") ? metadata.site_origin : null,
+  })
+  if (!written.receiptToken) return { ok: false, status: 500, reason: "failed" }
+  return { ok: true, created: written.created, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete, creatorId }
+}
+
+/**
  * The lines of a paid (or code-free) basket, each written once, and what
  * happens once per basket done by whoever wrote its first line.
  */
@@ -173,6 +280,10 @@ async function writeBasket(
     couponHolder: string | null
     couponCode?: string | null
     business?: BusinessDetails | null
+    /** "ticked": the buyer ticked the news box on a checkout that has one (app/checkout/site). Stripe's own page has none. */
+    consent?: "ticked" | "none"
+    /** Where the buyer's receipt link points: the website the checkout was on, when it was one. The seller's links stay on Storelib. */
+    buyerBaseUrl?: string | null
   },
 ): Promise<{ created: boolean; receiptToken: string | null; complete: boolean }> {
   /* The fee, apportioned once for the whole basket over what each line was
@@ -210,6 +321,8 @@ async function writeBasket(
       couponHolder: s.couponHolder,
       couponCode: s.couponCode ?? null,
       business: s.business ?? null,
+      consent: s.consent ?? "none",
+      buyerBaseUrl: s.buyerBaseUrl ?? null,
       items,
     })
   }
@@ -242,6 +355,8 @@ export async function fulfilFreeCart(
     couponHolder: string | null
     baseUrl: string
     request?: Request
+    /** The news box, ticked, on a checkout that shows it (app/checkout/site). */
+    consent?: "ticked" | "none"
   },
 ): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
   const sessionId = `free_${randomBytes(18).toString("base64url")}`
@@ -284,6 +399,7 @@ export async function fulfilFreeCart(
     baseUrl: b.baseUrl,
     couponId: b.couponId,
     couponHolder: b.couponHolder,
+    consent: b.consent ?? "none",
   })
   if (!written.receiptToken) return { ok: false }
   return { ok: true, receiptToken: written.receiptToken, sessionFingerprint, complete: written.complete }
@@ -305,6 +421,8 @@ async function sideEffects(
     couponHolder: string | null
     couponCode: string | null
     business: BusinessDetails | null
+    consent?: "ticked" | "none"
+    buyerBaseUrl?: string | null
     items: PackedItem[]
   },
 ) {
@@ -332,7 +450,7 @@ async function sideEffects(
   }
 
   if (s.ownsBasket) {
-    await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null))
+    await step("customer", () => recordCartCustomer(ctx, s.paidTotal, s.firstOrderId, s.created[0]?.productId ?? null, s.consent ?? "none"))
     if (ctx.buyerEmail) {
       const buyerEmail = ctx.buyerEmail
       const source = contactSourceOfOrder(ctx.origin)
@@ -375,7 +493,7 @@ async function sideEffects(
           productTitle: titles.get(first.productId) ?? "Your purchase",
           receiptToken: s.receiptToken,
           sellerReplyTo: sellerEmail,
-          baseUrl: s.baseUrl,
+          baseUrl: s.buyerBaseUrl || s.baseUrl,
           amountCents: s.paidTotal,
         }),
       )

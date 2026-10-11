@@ -14,6 +14,7 @@ import { sweepAbandoned, type SweepResult } from "./abandoned"
 import { supabaseStarts, supabaseStore } from "./supabase-store"
 import { sendCheckoutReminder } from "./abandoned-reminder"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { APP_URL } from "@/lib/email-automation"
 
 export async function runAbandonedSweep(batch = 50, batches = 5): Promise<SweepResult> {
   const db = createAdminClient()
@@ -28,7 +29,7 @@ export async function runAbandonedSweep(batch = 50, batches = 5): Promise<SweepR
   }
   const remind = (start: Parameters<typeof sendCheckoutReminder>[1], token: string) => sendCheckoutReminder(db, start, token).catch(() => false)
   for (let i = 0; i < batches; i++) {
-    const r = await sweepAbandoned({ store, starts, now: Date.now(), limit: batch, recoveryOn, remind })
+    const r = await sweepAbandoned({ store, starts, now: Date.now(), limit: batch, recoveryOn, remind, appUrl: APP_URL })
     if (!total) total = r
     else {
       total.looked += r.looked

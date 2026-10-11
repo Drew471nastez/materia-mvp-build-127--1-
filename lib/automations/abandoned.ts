@@ -34,6 +34,7 @@
  */
 
 import { enroll, type Store } from "./engine"
+import { encodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import type { ContactOutcome } from "@/lib/contacts/checkout-contact"
 import { joinedTheList } from "@/lib/contacts/checkout-welcome"
 
@@ -54,6 +55,12 @@ export interface CheckoutStart {
    * single product, whose checkout is found from the product.
    */
   return_path?: string | null
+  /**
+   * A website's own checkout (app/api/checkout/site, SQL part 127): the
+   * cart's lines and the website it was started on, so "Finish checkout"
+   * goes back to that checkout on that website with the same cart.
+   */
+  basket?: { items?: unknown; site?: unknown; checkout?: unknown } | null
 }
 
 export type StartOutcome = "bought" | "unsubscribed" | "no_consent" | "entered"
@@ -103,6 +110,8 @@ export interface SweepResult {
  *                Only ever with the person's own unsubscribe link.
  */
 export interface SweepHelpers {
+  /** Storelib's own address, for a cart's way back on it (APP_URL in production). */
+  appUrl?: string
   recoveryOn?: (creatorId: string) => Promise<boolean>
   remind?: (start: CheckoutStart, unsubscribeToken: string) => Promise<boolean>
 }
@@ -114,6 +123,8 @@ export async function decideStart(store: Store, s: CheckoutStart): Promise<Start
   if (!s.email_opt_in && standing.subscribed !== true) return "no_consent"
   return "entered"
 }
+
+const appUrlOf = (h: SweepHelpers) => h.appUrl ?? "https://storelib.com"
 
 export async function sweepAbandoned(input: { store: Store; starts: StartsStore; now: number; limit?: number } & SweepHelpers): Promise<SweepResult> {
   const { store, starts, now } = input
@@ -167,7 +178,7 @@ export async function sweepAbandoned(input: { store: Store; starts: StartsStore;
           variantId: s.variant_id,
           eventId: `checkout:${s.id}`,
           startedAt: s.created_at,
-          checkoutPath: s.return_path ?? null,
+          checkoutUrl: startCheckoutUrl(s, appUrlOf(input)),
           optedIn: s.email_opt_in === true,
           source: s.source_detail ?? null,
         },
@@ -202,6 +213,33 @@ export interface StartInput {
   source?: unknown
   /** A cart's way back (`/checkout/physical?...` or the basket's `/checkout/cart?...`), kept for "Finish checkout" (SQL part 129). */
   returnPath?: string | null
+}
+
+/**
+ * Where "Finish checkout" goes for a start, as an address: a website's own
+ * checkout with the same cart (`basket`, SQL part 127), else the cart's
+ * checkout on Storelib (`return_path`, part 129), else null and the single
+ * product's checkout is found from the product. A website's host must
+ * still be checked against the store's own (lib/checkout/site-hosts) by
+ * whoever sends the link.
+ */
+export function startCheckoutUrl(s: Pick<CheckoutStart, "basket" | "return_path">, appUrl: string): string | null {
+  const b = s.basket
+  if (b && typeof b === "object" && b.checkout === "/checkout" && typeof b.site === "string" && Array.isArray(b.items)) {
+    let site: URL | null = null
+    try {
+      site = new URL(b.site)
+    } catch {
+      site = null
+    }
+    const items = (b.items as Record<string, unknown>[])
+      .filter((i) => i && typeof i.productId === "string" && /^[0-9a-f-]{36}$/i.test(i.productId))
+      .slice(0, 50)
+      .map((i): LinkItem => ({ productId: i.productId as string, variantId: typeof i.variantId === "string" && /^[0-9a-f-]{36}$/i.test(i.variantId) ? i.variantId : null, quantity: Math.max(1, Math.min(999, Math.floor(Number(i.quantity)) || 1)) }))
+    if (site && (site.protocol === "https:" || site.hostname === "localhost") && !site.username && items.length) return `${site.origin}/checkout?items=${encodeItems(items)}`
+  }
+  const back = cleanReturnPath(s.return_path)
+  return back ? `${appUrl.replace(/\/$/, "")}${back}` : null
 }
 
 /** A cart's way back, only ever a path on Storelib's own two cart checkouts. */

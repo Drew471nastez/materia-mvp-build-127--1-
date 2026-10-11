@@ -23,7 +23,9 @@ process.env.AUTOMATION_LINK_SECRET = "a-test-secret-that-is-long-enough"
 
 import { automationDb, type FakeSupabase } from "./fake-supabase"
 import { supabaseStarts, supabaseStore } from "@/lib/automations/supabase-store"
-import { cleanReturnPath, recordCheckoutStart, sweepAbandoned, type CheckoutStart } from "@/lib/automations/abandoned"
+import { cleanReturnPath, recordCheckoutStart, startCheckoutUrl, sweepAbandoned, type CheckoutStart } from "@/lib/automations/abandoned"
+import { ownCheckoutUrl } from "@/lib/automations/supabase-store"
+import { decodeItems } from "@/lib/physical/cart-link"
 import { serializeSteps } from "@/lib/automations/flow-model"
 import type { RunRow } from "@/lib/automations/engine"
 import { templateById } from "@/lib/automations/templates"
@@ -95,6 +97,12 @@ async function main() {
     check("  the cart's way back is kept", w.db.rows("checkout_starts")[1].return_path === cartPath(w))
     check("  the same page twice is one start", (await recordCheckoutStart(w.db, { creatorId: w.creatorId, productId: w.mugId, email: "bo@example.com", paymentIntentId: "cs_test_a1B2c3", optedIn: false })) === false && w.db.rows("checkout_starts").length === 2)
     check("anything else is not a payment and makes nothing", (await recordCheckoutStart(w.db, { creatorId: w.creatorId, productId: w.productId, email: "c@example.com", paymentIntentId: "co_123", optedIn: true })) === false)
+    const siteStart = { basket: { items: [{ productId: w.mugId, variantId: null, quantity: 2 }], site: "https://astrid.example", checkout: "/checkout" }, return_path: null }
+    const siteUrl = startCheckoutUrl(siteStart, "https://storelib.com")
+    check("a website's own checkout (R4's basket, part 127) goes back to that checkout with the same cart", !!siteUrl && siteUrl.startsWith("https://astrid.example/checkout?items=") && decodeItems(new URL(siteUrl).searchParams.get("items"))[0]?.quantity === 2, siteUrl)
+    check("  a basket on Storelib's checkout path goes back there", startCheckoutUrl({ basket: null, return_path: cartPath(w) }, "https://storelib.com") === `https://storelib.com${cartPath(w)}`)
+    check("  a basket that is not a website checkout, or a site that is not https, is no way back", startCheckoutUrl({ basket: { items: siteStart.basket.items, site: "javascript:alert(1)", checkout: "/checkout" } }, "https://storelib.com") === null && startCheckoutUrl({ basket: { items: siteStart.basket.items, site: "https://astrid.example", checkout: "/admin" } }, "https://storelib.com") === null)
+    check("  and a link is only sent to Storelib or to one of the store's own hosts", (await ownCheckoutUrl(w.creatorId, "https://evil.example/checkout?items=x")) === null && (await ownCheckoutUrl(w.creatorId, `https://storelib.com${cartPath(w)}`)) === `https://storelib.com${cartPath(w)}` && (await ownCheckoutUrl(w.creatorId, "https://storelib.com/account")) === null)
     check("only a path on Storelib's own cart checkouts is ever a way back", cleanReturnPath(cartPath(w)) === cartPath(w) && cleanReturnPath("/checkout/cart?shop=x&items=y") !== null && cleanReturnPath("https://evil.example/checkout/physical?x") === null && cleanReturnPath("/checkout/physical?x=<script>") === null && cleanReturnPath("//evil.example") === null)
   }
 
@@ -150,7 +158,7 @@ async function main() {
     const { res, reminded } = await sweep(w)
     const run = w.db.rows("email_flow_runs")[0] as RunRow
     check("its automation is entered, and Storelib's reminder is not sent as well", res.entered === 1 && reminded.length === 0 && !!run, res)
-    check("  the run knows the cart's checkout", run?.context?.checkout_path === cartPath(w), run?.context)
+    check("  the run knows the cart's checkout", run?.context?.checkout_url === `https://storelib.com${cartPath(w)}`, run?.context)
     const links = await supabaseStore(w.db).links(run)
     check("  {{checkout_url}} goes back to the cart's checkout with its items", links.checkoutUrl === `https://storelib.com${cartPath(w)}` || (links.checkoutUrl ?? "").endsWith(cartPath(w)), links)
     const noPath = await supabaseStore(w.db).links({ ...run, context: { product_id: w.mugId } } as RunRow)
@@ -175,7 +183,8 @@ async function main() {
     check("the reminder carries the List-Unsubscribe header and is never sent without a token", /"List-Unsubscribe": `<\$\{unsubscribeUrl\}>`/.test(reminder) && /if \(!unsubscribeToken\) return false/.test(reminder))
     check("  a product no longer on sale is not reminded of", /product\.status !== "published"/.test(reminder))
     check("the database part keeps the way back, only ever a Storelib checkout path", /ADD COLUMN IF NOT EXISTS return_path text/.test(read("supabase/sql/run-now/129_customer_email_words_and_tax_on_receipts.sql")) && /return_path ~ '\^\/checkout\/\(physical\|cart\)\[\?\]'/.test(read("supabase/sql/run-now/129_customer_email_words_and_tax_on_receipts.sql")))
-    check("  a database without it still sweeps (read again without the column)", /error\.code === "42703" \|\| error\.code === "PGRST204"/.test(read("lib/automations/supabase-store.ts")))
+    check("  a database without it still sweeps (every column is read, none named)", /\.from\("checkout_starts"\)\s*\/\*[^*]*\*\/\s*\.select\("\*"\)/.test(read("lib/automations/supabase-store.ts")))
+    check("  links are checked against the store's own hosts wherever they are made", /ownCheckoutUrl\(run\.creator_id, run\.context\.checkout_url\)/.test(read("lib/automations/supabase-store.ts")) && /ownCheckoutUrl\(s\.creator_id, startCheckoutUrl\(s, APP_URL\)\)/.test(read("lib/automations/abandoned-reminder.ts")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)
