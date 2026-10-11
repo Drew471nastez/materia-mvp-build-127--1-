@@ -46,7 +46,7 @@ import { LIMITS } from "../types"
 import { CompatSyntaxError, lex } from "../compat/lexer"
 import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
-import { splitCompatFile, wrapCompatTemplate } from "../compat/theme"
+import { SECTION_CSS_KEY, splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 import { floatsOverPage } from "../section-groups"
 import { isReviewsAppBlock } from "../compat/storelib-reviews"
 
@@ -997,6 +997,9 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     const ownName = typeof s.name === "string" && s.name.trim() ? (SECTION_WORDS.get(types)?.(s.name, "") ?? (s.name.startsWith("t:") ? "" : s.name)) : ""
     section.name = (ownName || SECTION_NAMES.get(types)?.get(type) || humanise(String(s.type))).slice(0, 80)
     if (s.disabled === true) section.hidden = true
+    /* The section's Custom CSS from Shopify's editor, kept with its settings and drawn for that section alone (compat/theme.ts sectionCss). */
+    const customCss = (Array.isArray(s.custom_css) ? (s.custom_css as unknown[]) : []).filter((x): x is string => typeof x === "string").join("\n").trim()
+    if (customCss) section.settings[SECTION_CSS_KEY] = customCss.slice(0, 20000)
     const blocks = blockList(s.blocks as Record<string, Tree> | undefined, s.block_order, 1)
     if (blocks.length) section.blocks = blocks
     noteShopifyValues(section.settings, report, path)

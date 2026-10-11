@@ -31,6 +31,11 @@
  *                      shop's header and footer
  *   THE IMPORT REPORT  a Shopify app's blocks on a page and its app embeds
  *                      were left out without a word
+ *   CUSTOM CSS         a section's Custom CSS from Shopify's editor
+ *                      (`custom_css` in templates/*.json) was dropped
+ *   PICTURES           `image_url | image_tag` lost the picture's alt
+ *   STRUCTURED DATA    `product | structured_data` printed nothing inside
+ *                      Dawn's <script type="application/ld+json">
  */
 import JSZip from "jszip"
 import { Ctx, renderString } from "../lib/storelib-theme/compat/runtime"
@@ -191,7 +196,7 @@ async function main() {
       b: { type: "item" },
       u: { type: "shopify://apps/some-upsell/blocks/upsell/abc" },
       r: { type: "shopify://apps/judge-me-reviews/blocks/preview_badge/61cc" },
-    }, block_order: ["b", "u", "r"] } }, order: ["a"] }))
+    }, block_order: ["b", "u", "r"], custom_css: ["h2 { color: red; }", "@media (max-width: 749px) { h2 { font-size: 20px; } }", "</style><script>x()</script>"] } }, order: ["a"] }))
     zip.file("templates/password.json", JSON.stringify({ layout: "password", sections: { m: { type: "hero" } }, order: ["m"] }))
     const { report, get } = await site(zip)
     const notes = report.notes.map((n) => `${n.file}: ${n.message}`)
@@ -200,6 +205,8 @@ async function main() {
     check("an app embed switched on is named; one switched off is not", notes.some((n) => n.startsWith("config/settings_data.json:") && n.includes("klaviyo (klaviyo_onsite_embed)")) && !notes.some((n) => n.includes("old (off)")), notes)
     const home = await get("/")
     check("the home page draws in theme.liquid, with the header", home.includes(`class="theme"`) && home.includes("The shop's header"))
+    check("a section's Custom CSS from Shopify's editor is drawn for that section alone", home.includes(`<style data-shopify>#shopify-section-a{h2 { color: red; }\n@media (max-width: 749px) { h2 { font-size: 20px; } }`), home.slice(home.indexOf("<main>"), home.indexOf("<main>") + 400))
+    check("and can never close its <style>", !/<script>x\(\)/.test(home) && !home.includes("</style><script>"))
     const password = await get("/password")
     check("the password page draws in layout/password.liquid", password.includes(`<body class="password">`), password.slice(0, 300))
     check("with no header of the shop, as on Shopify", !password.includes("The shop's header") && password.includes(`class="hero"`))

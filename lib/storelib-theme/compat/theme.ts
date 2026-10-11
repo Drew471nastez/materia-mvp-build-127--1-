@@ -289,6 +289,25 @@ export interface RenderedSection {
   errors: string[]
 }
 
+// ── A section's Custom CSS ───────────────────────────────────────────────────
+
+/** Where a section keeps the Custom CSS Shopify's editor gave it (templates/*.json `custom_css`). */
+export const SECTION_CSS_KEY = "storelib_custom_css"
+
+/*
+  A SECTION'S CUSTOM CSS, as Shopify's editor applies it: to that section
+  and nothing else. Every rule is nested under the section's own element,
+  so `h2 { color: red }` is that section's headings. Only CSS: a < cannot
+  close the <style>, a backslash cannot spell a word past this, and
+  @import, expression() and javascript: are taken out.
+*/
+export function sectionCss(id: string, raw: unknown): string {
+  if (typeof raw !== "string" || !raw.trim()) return ""
+  const css = raw.slice(0, 20000).replace(/[<\\]/g, "").replace(/@import[^;]*;?/gi, "").replace(/expression\s*\(|javascript:|-moz-binding|behaviou?r\s*:/gi, "")
+  const target = /^[A-Za-z0-9_-]+$/.test(id) ? `#shopify-section-${id}` : `[id="shopify-section-${id.replace(/["\]\[]/g, "")}"]`
+  return `<style data-shopify>${target}{${css}}</style>`
+}
+
 // ── The theme ────────────────────────────────────────────────────────────────
 
 /*
@@ -713,6 +732,7 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
+    html = `${sectionCss(instance.id, instance.settings[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
