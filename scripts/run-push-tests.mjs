@@ -25,6 +25,7 @@ const SUITES = [
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
+  "tests/select22.test.ts",
   "tests/files-picker19.test.ts",
   "tests/polish21.test.ts",
   "tests/files-w6.test.ts",
