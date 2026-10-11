@@ -28,7 +28,7 @@ import { GitHubError, commitChanges, githubConfig, installationToken, type FileC
 import { explainFailure, failureLine } from "./errors"
 import { fontBytes, gitBlobSha, readsBack, roleOf } from "./layout"
 import { recordEvent } from "./events"
-import { exportSite, type GitHubLink } from "./sync"
+import { exportSite, type GitHubLink, type LastSync, type SyncState } from "./sync"
 
 /* Written in ./events.ts, so the sync and this file both write it without importing each other for it. */
 export { recordEvent }
@@ -79,11 +79,13 @@ export async function mirrorToGitHub(installId: string, change: BuilderChange): 
         .eq("install_id", installId)
       await remember(db, installId, root, changes)
     }
+    await keepLast(db, installId, { ok: true })
     await recordEvent(db, installId, { direction: "to_github", ok: true, summary: r.sha ? summary : `${summary}; GitHub already had it`, commit_sha: r.sha })
   } catch (e) {
     /* Said in words, with what to do; GitHub's own message is not shown as it is. */
     const why = e instanceof GitHubError ? failureLine(explainFailure(e, { repo: link.repo_full_name, branch: link.branch })) : "GitHub did not answer. Press Push in a minute."
     await db.from("theme_github_links").update({ last_error: `Sending to GitHub: ${why}`, updated_at: new Date().toISOString() }).eq("install_id", installId)
+    await keepLast(db, installId, { ok: false, problem: e instanceof GitHubError ? explainFailure(e, {}).problem : "unreachable" })
     await recordEvent(db, installId, { direction: "to_github", ok: false, summary: `${summary}, not sent: ${why}` })
   }
 }
@@ -103,6 +105,36 @@ async function remember(db: Db, installId: string, root: string, changes: FileCh
     await db.from("theme_github_links").update({ sync_state: { ...state, files } }).eq("install_id", installId)
   } catch {
     /* without part 131 there is no sync_state; the marker and the bot still stop the loop */
+  }
+}
+
+/**
+ * A save that did not reach GitHub is the last sync, so the builder shows it
+ * with its fix after a reload; the next one that does reach it clears it.
+ * Only a send's own failure is cleared that way: what a push from GitHub
+ * could not bring in stays until the next push or Pull.
+ */
+async function keepLast(db: Db, installId: string, outcome: { ok: true } | { ok: false; problem: string }) {
+  try {
+    const { data, error } = await db.from("theme_github_links").select("sync_state").eq("install_id", installId).maybeSingle()
+    if (error) return
+    const state = ((data?.sync_state as SyncState | null) ?? {}) as SyncState & Record<string, unknown>
+    const prev = state.last
+    if (outcome.ok && (!prev || prev.direction !== "to_github" || prev.ok !== false)) return
+    const last: LastSync = {
+      at: new Date().toISOString(),
+      direction: "to_github",
+      commit: null,
+      ok: outcome.ok,
+      saved: [],
+      failed: [],
+      notes: [],
+      head_at: prev?.head_at ?? null,
+      ...(outcome.ok ? {} : { problem: outcome.problem }),
+    }
+    await db.from("theme_github_links").update({ sync_state: { ...state, last } }).eq("install_id", installId)
+  } catch {
+    /* without part 131 there is no sync_state; last_error still says it */
   }
 }
 

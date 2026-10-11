@@ -69,6 +69,8 @@ export interface CompatCanvasProps {
   onPageShown?: (page: string) => void
   /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
   siteUrl?: string
+  /** Goes up when the theme's own files changed underneath (a push from GitHub, an agent): they are read again, and the page drawn from them. */
+  filesRevision?: number
   /** Something pressed in the page that only the live site does (checkout, Buy it now, signing in): the builder says so. */
   onLiveOnly?: (what: "checkout" | "account") => void
   /** The theme's first page has painted: the editor's loader over the canvas can go (editor page.tsx, compatFirstPaint). */
@@ -148,7 +150,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       () => { if (live) setFailure("files") },
     )
     return () => { live = false }
-  }, [installId, attempt])
+  }, [installId, attempt, props.filesRevision])
 
   /* The frame is as tall as the canvas it sits in: the page scrolls inside it, as the website does. */
   useEffect(() => {

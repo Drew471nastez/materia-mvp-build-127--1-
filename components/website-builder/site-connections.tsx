@@ -49,12 +49,15 @@ export function useSiteActivity({
   installId,
   recheck,
   onEvents,
+  onSyncChanged,
 }: {
   installId: string
   /** Any value; the brief is read again when it changes. */
   recheck?: unknown
   /** New lines from the log, oldest first. Awaited before the next read. */
   onEvents: (events: ActivityEvent[]) => void | Promise<void>
+  /** The GitHub link changed since the last read (a push taken or refused, a send that failed): read the sync report again. */
+  onSyncChanged?: () => void
 }): { brief: ConnectionsBrief | null; following: boolean; settled: boolean } {
   const [brief, setBrief] = useState<ConnectionsBrief | null>(null)
   const [ready, setReady] = useState(false)
@@ -63,16 +66,25 @@ export function useSiteActivity({
   const cursor = useRef<number | null>(null)
   const onEventsRef = useRef(onEvents)
   onEventsRef.current = onEvents
+  const onSyncRef = useRef(onSyncChanged)
+  onSyncRef.current = onSyncChanged
+  /** When the link last changed, as last read; undefined until the first answer. */
+  const syncAt = useRef<string | null | undefined>(undefined)
 
   useEffect(() => {
     if (!installId) return
     let live = true
     fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { ready?: boolean; cursor?: number; connections?: ConnectionsBrief } | null) => {
+      .then((d: { ready?: boolean; cursor?: number; connections?: ConnectionsBrief; sync_at?: string | null } | null) => {
         if (live) setSettled(true)
         if (!live || !d) return
         if (d.connections) setBrief(d.connections)
+        if (d.sync_at !== undefined) {
+          /* A re-read that finds the link changed (settings closed after a Pull) says so too. */
+          if (syncAt.current !== undefined && syncAt.current !== d.sync_at) onSyncRef.current?.()
+          syncAt.current = d.sync_at
+        }
         /* Kept across a re-read, so a change made while settings were open
            is not skipped; only the first answer sets where to start. */
         if (cursor.current === null && typeof d.cursor === "number") cursor.current = d.cursor
@@ -112,7 +124,7 @@ export function useSiteActivity({
           `/api/website-builder/themes/${encodeURIComponent(installId)}/agent-activity?after=${cursor.current}`,
           { cache: "no-store" },
         )
-        const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: ActivityEvent[] }
+        const d = (await res.json().catch(() => ({}))) as { ready?: boolean; cursor?: number; events?: ActivityEvent[]; sync_at?: string | null }
         /* Not set up on this database: stop asking until the next load. */
         if (!res.ok || d.ready === false) {
           stopped = true
@@ -125,6 +137,14 @@ export function useSiteActivity({
           const last = events[events.length - 1]
           setBrief((b) => (b ? { ...b, latest: { name: last.agent_name, at: last.created_at ?? new Date().toISOString() } } : b))
           await onEventsRef.current(events)
+        }
+        if (d.sync_at !== undefined && d.sync_at !== syncAt.current) {
+          const first = syncAt.current === undefined
+          syncAt.current = d.sync_at
+          if (!first) {
+            arrived = true
+            onSyncRef.current?.()
+          }
         }
       } catch {
         /* offline for a moment; the next read asks again */
