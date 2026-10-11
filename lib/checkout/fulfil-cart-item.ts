@@ -36,6 +36,8 @@ export interface FulfilLineInput {
   priceCents: number
   /** What a code took off the whole line, in cents. */
   discountCents?: number
+  /** The line's tax (Settings › Taxes): inside its price when prices include tax, else charged on top. */
+  taxCents?: number
 }
 
 export interface FulfilContext {
@@ -68,6 +70,8 @@ export interface FulfilContext {
   /** First and last touch and the property, the same on every line (lib/attribution). */
   attribution?: Attribution | null
   feeAudit?: { planUsed: string | null; pricingTier: string | null; feeRuleVersion: string | null }
+  /** The basket's tax, as the cart route charged it: whether it was inside the prices, and where. */
+  tax?: { included: boolean; country: string | null } | null
 }
 
 export interface FulfilledLine {
@@ -80,8 +84,11 @@ export interface FulfilledLine {
 export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists" } | { status: "failed" }
 
 export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, index: number, feeCents: number): Promise<LineOutcome> {
-  /* What this line was charged: its price, less what a code took off it. */
-  const amountCents = lineTotalCents(line)
+  /* What this line was charged: its price, less what a code took off it,
+     and its tax when that was added on top (the basket's Tax line), so the
+     rows add up to what Stripe took, as a physical checkout's rows do. */
+  const taxCents = Math.max(0, Math.round(line.taxCents ?? 0))
+  const amountCents = lineTotalCents(line) + (ctx.tax?.included ? 0 : taxCents)
   const receiptToken = ctx.receiptTokenFor(index)
 
   const { data: order, error } = await ctx.admin
@@ -124,6 +131,18 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
   if (error || !order) {
     console.error("[checkout/cart] order insert failed for product", line.productId, error?.code, error?.message)
     return { status: "failed" }
+  }
+  /* Settings › Taxes: the line's tax on its order, for the receipt and reports. Its
+     own writes after the order exists, so a database without SQL part 110
+     (tax_cents) or 129 (tax_included) only loses the record, never the order. */
+  if (taxCents > 0) {
+    const country = ctx.tax?.country && /^[A-Z]{2}$/.test(ctx.tax.country) ? ctx.tax.country : null
+    const { error: taxError } = await ctx.admin.from("orders").update({ tax_cents: Math.min(taxCents, amountCents), tax_country: country }).eq("id", order.id)
+    if (taxError) console.warn("[checkout/cart] tax not kept on the order:", taxError.code)
+    else if (ctx.tax?.included) {
+      const { error: inError } = await ctx.admin.from("orders").update({ tax_included: true }).eq("id", order.id)
+      if (inError) console.warn("[checkout/cart] tax_included not kept:", inError.code)
+    }
   }
   /* A basket is only ever filled on a creator's website. */
   await tagOrderSource(ctx.admin, order.id, "website", ctx.origin)

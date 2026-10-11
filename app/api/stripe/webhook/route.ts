@@ -11,7 +11,7 @@ import { attributionFromMetadata, recordContactAttribution, recordOrderAttributi
 import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-payment"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
-import { fulfilCartSession, isCartSession } from "@/lib/checkout/fulfil-cart-session"
+import { fulfilCartPayment, fulfilCartSession, isCartIntent, isCartSession } from "@/lib/checkout/fulfil-cart-session"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
 import { disputeFeeMinor, isClosed, isInquiry, outcomeOf } from "@/lib/stripe/dispute-facts"
@@ -829,6 +829,35 @@ async function handleStripeEvent(request: Request) {
   */
   if (event.type === "payment_intent.succeeded") {
     const pi = event.data.object as Stripe.PaymentIntent
+    /*
+      A WEBSITE'S CHECKOUT, paid in Storelib's own form on the site's address
+      (app/checkout/site): a basket of downloads (metadata cart + site_basket)
+      or a cart that ships (metadata physical_intent). The buyer's browser
+      writes it too; whichever comes first does, each line once. A Checkout
+      Session's own PaymentIntent carries neither mark, so it is never
+      written here as well as by its session.
+    */
+    if (isCartIntent(pi)) {
+      const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
+      const result = await fulfilCartPayment(supabaseAdmin, pi.id, { baseUrl })
+      if (result.ok === false ? result.status >= 500 : !result.complete) {
+        console.error("[Webhook] website basket incomplete:", pi.id)
+        return NextResponse.json({ error: "Basket not fully written" }, { status: 500 })
+      }
+      return NextResponse.json({ received: true })
+    }
+    if (pi.metadata?.physical_intent === "1") {
+      const physical = await import("@/lib/physical/checkout-server")
+      if (physical.isPhysicalIntent(pi)) {
+        const baseUrl = `https://${process.env.NEXT_PUBLIC_MAIN_DOMAIN || "storelib.com"}`
+        const done = await physical.completePhysicalIntent(supabaseAdmin, pi.id, baseUrl)
+        if (done.ok === false ? done.status >= 500 : !done.complete) {
+          console.error("[Webhook] website order incomplete:", pi.id)
+          return NextResponse.json({ error: "Order not fully written" }, { status: 500 })
+        }
+        return NextResponse.json({ received: true })
+      }
+    }
     if (isCheckoutIntent(pi)) {
       const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || ""
       const result = await fulfilPaymentIntent(supabaseAdmin, pi.id, { baseUrl })

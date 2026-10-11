@@ -16,7 +16,12 @@ export interface Explainer {
   art: ExplainerArt
   /** Two to four short lines, read top to bottom. */
   lines: string[]
-  /** Where the full guide is, when there is one. */
+  /**
+   * Where the full guide is, when there is one. A guide in the physical
+   * products part of the Help Center is only offered while physical commerce
+   * is on, since those articles are not found while it is off
+   * (components/app/settings/how-it-works.tsx).
+   */
   guide?: string
 }
 
@@ -40,7 +45,7 @@ export const EXPLAINERS = {
       "Who ships the orders says what happens to an order with items from there: you ship it yourself, or it's emailed to a partner who ships it, and you add their tracking number.",
       "Turn on local pickup for a location and buyers nearby can collect their order there for free. Your default location's address is where return emails tell buyers to send items.",
     ],
-    guide: "/help/physical-products/local-pickup",
+    guide: "/help/physical-products/locations",
   },
   taxes: {
     title: "How taxes work",
@@ -72,6 +77,7 @@ export const EXPLAINERS = {
       "The value is what is saved and counted in Analytics, so keep it short and never change its meaning. The label is the words people see.",
       "A reason you delete stays on the returns and refunds that already used it.",
     ],
+    guide: "/help/physical-products/returns-physical",
   },
   checkout: {
     title: "How checkout works",
@@ -81,6 +87,7 @@ export const EXPLAINERS = {
       "Every field you mark Don't include disappears from checkout. Optional ones show without a star.",
       "Changes reach your live checkout within a few seconds. Nothing here touches orders already placed.",
     ],
+    guide: "/help/physical-products/checkout-settings",
   },
   channels: {
     title: "How sales channels work",
@@ -90,6 +97,7 @@ export const EXPLAINERS = {
       "Every product is on every channel until you take it off one, from the product's Sales channels card. It disappears from that place's lists and search; its own link keeps working.",
       "Channels you create are for keeping track, like a market stall or a wholesale list. Storelib doesn't show anything there.",
     ],
+    guide: "/help/physical-products/sales-channels",
   },
   integrations: {
     title: "How integrations work",
@@ -108,6 +116,7 @@ export const EXPLAINERS = {
       "Storelib adds the package's empty weight to the products inside when it works out a weight based shipping rate, so the buyer pays for what the parcel really weighs.",
       "Mark the one you use most as the default.",
     ],
+    guide: "/help/physical-products/tax-and-units",
   },
   fulfilment: {
     title: "Who ships your orders",
@@ -117,7 +126,7 @@ export const EXPLAINERS = {
       "Shipping yourself or from a warehouse: you pack each order and add its tracking. Print on demand, dropshipping, a supplier or a fulfillment center: the order goes to them and they ship it.",
       "A mix is fine. Each location says who ships from it, and each product says which location it ships from.",
     ],
-    guide: "/help/physical-products/how-physical-products-work",
+    guide: "/help/physical-products/fulfillment-methods",
   },
   team: {
     title: "How the team works",

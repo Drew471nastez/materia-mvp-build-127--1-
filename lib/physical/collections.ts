@@ -4,7 +4,8 @@
  * the editor's preview and the discount check agree on who is in.
  */
 
-export const RULE_FIELDS = ["title", "type", "tag", "vendor", "price", "compare_at_price", "inventory", "weight"] as const
+/* `category` is the product's category from the editor (lib/products/category-groups.ts), the same value the website's Product type filter and an imported theme's product.type read. */
+export const RULE_FIELDS = ["title", "type", "tag", "vendor", "price", "compare_at_price", "inventory", "weight", "category"] as const
 export type RuleField = (typeof RULE_FIELDS)[number]
 export const RULE_OPS = ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with", "greater_than", "less_than"] as const
 export type RuleOp = (typeof RULE_OPS)[number]
@@ -26,6 +27,8 @@ export interface RuleProduct {
   inventory: number | null
   weightGrams: number | null
   createdAt?: string
+  /** The product's category, "T-Shirts" or "Candles"; missing where a reader did not ask for it. */
+  category?: string | null
 }
 
 const NUMERIC: RuleField[] = ["price", "compare_at_price", "inventory", "weight"]
@@ -39,6 +42,7 @@ export const RULE_FIELD_LABEL: Record<RuleField, string> = {
   compare_at_price: "Compare-at price",
   inventory: "Inventory",
   weight: "Weight (g)",
+  category: "Category",
 }
 
 export const RULE_OP_LABEL: Record<RuleOp, string> = {
@@ -114,7 +118,7 @@ export function ruleMatches(rule: CollectionRule, p: RuleProduct): boolean {
     if (rule.op === "not_contains") return !tags.some((t) => t.includes(want))
     return tags.some((t) => textCompare(t, rule.op, want))
   }
-  const value = rule.field === "title" ? p.title : rule.field === "type" ? p.type : (p.vendor ?? "")
+  const value = rule.field === "title" ? p.title : rule.field === "type" ? p.type : rule.field === "category" ? (p.category ?? "") : (p.vendor ?? "")
   return textCompare(value, rule.op, rule.value)
 }
 

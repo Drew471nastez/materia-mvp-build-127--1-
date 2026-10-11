@@ -295,7 +295,8 @@ console.log("\nSocial links")
 console.log("\nThe free shipping bar counts the real cart")
 {
   const page = read("components/website-builder/theme/ThemePage.tsx")
-  check("it reads the site cart's subtotal", /const subtotal = useSiteCart\(\)\.subtotalCents \/ 100/.test(page))
+  /* Round R3: in cents, counted against the typed amount or the one the shop's rates make free (lib/website-builder/site-commerce freeShippingLine). */
+  check("it reads the site cart's subtotal", /const subtotalCents = useSiteCart\(\)\.subtotalCents/.test(page) && /freeShippingLine\(subtotalCents, fromCents\)/.test(page))
   check("not an event nothing sends", !/addEventListener\("storelib:cart-count"/.test(page))
 }
 

@@ -124,6 +124,18 @@ async function main() {
   )
   check("each carries its size and type", files[0].bytes === 8192 && files[0].type === "image/png")
 
+  const withVideo = fakeAdmin({
+    "store-builder-images": {
+      "user-1": [{ name: "videos", id: null }, { name: "files", id: null }],
+      "user-1/videos": [{ name: "clip.mp4", id: "9", created_at: "2026-10-09T10:00:00Z", metadata: { size: 9000, mimetype: "video/mp4" } }],
+      "user-1/files": [{ name: "a.png", id: "1", created_at: "2026-10-09T10:00:00Z", metadata: meta(2048) }, { name: "b.webm", id: "2", created_at: "2026-10-10T10:00:00Z", metadata: { size: 100, mimetype: "video/webm" } }],
+    },
+    "product-images": { "creator-1": [{ name: "prod-9", id: null }], "creator-1/prod-9": [{ name: "c.png", id: "4", created_at: "2026-10-10T09:00:00Z", metadata: meta(8192) }] },
+  })
+  const videos = await listLibrary(withVideo, owner, "video")
+  check("asked for videos, the store's videos and nothing else, product photos left out", videos.map((f) => f.name).join(",") === "b.webm,clip.mp4", videos.map((f) => f.name))
+  check("asked for pictures, no video comes back", !(await listLibrary(withVideo, owner)).some((f) => /\.(mp4|webm)$/.test(f.name)))
+
   console.log("\nDeleting")
   const removed: string[] = []
   const del = fakeAdmin({}, removed)
@@ -138,9 +150,35 @@ async function main() {
   const lib = read("components/files/files-library.tsx")
   check("uploads go to the owner's library folder, without the photo's location details", /\$\{user\.id\}\/files\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
   check("an uploaded picture's address is Storelib's", /mediaUrl\(supabase\.storage/.test(lib))
-  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /label="Choose from your files"/.test(lib))
+  /*
+    Round R6's chooser, as it is after the merge with round 19's rebuild of
+    the same file (tests/files-picker19.test.ts pins the rest): SheetDialog
+    (a Radix dialog in the body on a computer, the shared draggable sheet on
+    a phone), built on the first open and kept so it closes as it opened.
+  */
+  const thumb = read("lib/files/thumb.ts")
+  check("the chooser is a window on a computer and the shared draggable sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const PHONE = "\(max-width: 639px\)"/.test(lib) && /window\.matchMedia\(PHONE\)/.test(lib))
+  check("  and it stays mounted through its exit, rather than returning null when closed", /const \[used, setUsed\] = React\.useState\(open\)/.test(lib) && /keepMounted: true/.test(lib) && !/if \(!mounted \|\| !open\) return null/.test(lib))
+  check("the list is asked for ahead and kept, and the first screen of pictures warmed on a hover", /export function prefetchLibrary/.test(lib) && /warmFirst/.test(lib) && /const FRESH_MS = 60_000/.test(lib))
+  check("  kept per kind, and a video setting's list is the API's videos", /const kept: Record<LibraryKind, LibraryFile\[\] \| null>/.test(lib) && /kind === "video" \? "\/api\/files\?kind=video" : "\/api\/files"/.test(lib))
+  check("tiles load a resized copy, the first screen eagerly, fade in once decoded, at a fixed square", /\/_next\/image\?url=\$\{encodeURIComponent\(url\)\}&w=\$\{w\}&q=\$\{THUMB_QUALITY\}/.test(thumb) && /fileThumb\(file\.url\)/.test(lib) && /loading=\{index < EAGER \? "eager" : "lazy"\}/.test(lib) && /data-\[loaded\]:opacity-100/.test(lib) && /aspect-square/.test(lib))
+  check("  and a resized copy that is refused falls back to the original", /onError=\{\(e\) => fallBack\(e\.currentTarget, file\.url\)\}/.test(lib) && /img\.src = original/.test(lib))
+  check("  a video tile is its first frame, or a clean tile with a film mark", /<VideoFrame url=\{file\.url\} \/>/.test(lib) && /src=\{`\$\{url\}#t=0\.1`\}/.test(lib) && /preload="metadata"/.test(lib))
+  check("  and a pick hands over the copy the tile decoded, for the field to show at once", /return \{ thumb: img\.currentSrc \}/.test(lib) && /onPickRef\.current\?\.\(f\.url, hintFor\(f\)\)/.test(lib))
+  check("dropping files anywhere on the library uploads them, with how far each one is", /onDrop=\{\(e\) => \{/.test(lib) && /x\.upload\.onprogress/.test(lib) && /data-file-pending/.test(lib))
+  check("  and one file dropped while picking is the one picked", /if \(mode === "pick" && added\.length === 1 && good\.length === 1\) onPickRef\.current\?\.\(added\[0\]\.url, \{ file: good\[0\] \}\)/.test(lib))
+  check("each tile has a menu: Use, Download, Copy link, Open in Files, Delete (asked first)", ["\"Use this picture\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Delete\""].every((l) => lib.includes(`label: ${l}`)) && /href: `\/app\/files\?file=\$\{encodeURIComponent\(f\.id\)\}`/.test(lib) && /data-file-confirm/.test(lib))
+  check("  shown on hover with a mouse and always on a phone", /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:opacity-0 group-hover\/tile:opacity-100/.test(lib))
+  check("Delete goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
+  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? "Choose a video" : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
+  check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" openId=\{openId\} \/>/.test(read("app/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("every image field offers Choose from your files", /Choose from your files/.test(picker) && /<FilesLibraryChooser/.test(picker))
+  check("  inside the field: Upload and Your files in an empty one, a Change menu on a filled one, no text link under it", /data-wb-image-library=""/.test(picker) && /Your files/.test(picker) && /data-wb-image-change=""/.test(picker) && !/underline-offset-2[^"]*"\s*\n\s*data-wb-image-library/.test(picker))
+  check("  and a picked picture is on screen at once, from the copy the grid decoded or the file just dropped", /if \(hint\?\.file\) showFile\(hint\.file\)/.test(picker) && /else if \(hint\?\.thumb\) showFile\(hint\.thumb\)/.test(picker))
+  const video = read("components/website-builder/editor/controls/video-picker-control.tsx")
+  check("the video field chooses from the store's videos inside the field too", /<FilesLibraryChooser kind="video"/.test(video) && /data-video-library=""/.test(video))
+  check("the files API lists videos for a video field", /searchParams\.get\("kind"\) === "video"/.test(route))
   check("Files sits under Products in the sidebar", /href: "\/app\/files", label: "Files"/.test(read("components/app/sidebar.tsx")))
 
   console.log(`\n${passed} passed, ${failed} failed`)

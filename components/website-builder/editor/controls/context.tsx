@@ -72,6 +72,12 @@ export interface EditorFieldEnv {
   communities?: PickerCommunity[] | null
   /** The creator's own collections; null while physical commerce, where collections live, is off. */
   collections?: PickerCollection[] | null
+  /**
+   * An imported theme's own colour schemes, for a `color_scheme` setting
+   * (lib/storelib-theme/compat/scheme-list.ts). Absent on Storelib's own
+   * themes, whose schemes are Storelib's.
+   */
+  colorSchemes?: { id: string; name: string; background: string; text: string; accent: string }[] | null
 }
 
 const EditorFieldContext = createContext<EditorFieldEnv | null>(null)

@@ -218,6 +218,8 @@ Either way, the builder never leaves itself:
 - Links to other websites, email links and phone links do nothing.
 - Forms do not submit, and nothing can be bought. A sign-up box in the canvas does not subscribe anyone.
 
+**A theme imported from Shopify** runs its own scripts in the canvas, in a sandboxed frame. Add to cart, the cart drawer and quantity changes work there, against a cart the builder keeps while it is open, so the drawer can be designed with something in it. Check out, Buy it now and links to `/checkout` stop with a note that checkout only works on the live site. See [Imported Shopify themes](/developers/imported-shopify-themes#in-the-builder).
+
 The phone preview is 390px wide, the width of the most common phones. A section's layout answers to its own width, so the phone preview draws the phone layout exactly as a phone would.
 
 A section that fails to draw says so in its place, in red, naming the file and the line, with the rest of the page unaffected. On the live site the same section is left out. See [Publishing and checks](/developers/publishing#when-a-visitor-opens-a-page).
@@ -242,6 +244,10 @@ A section that fails to draw says so in its place, in red, naming the file and t
 On the live website, **Publish** opens the Publish panel: the website's address, who can see it, when it was last published, **Preview**, and **Publish changes**. Publishing puts every page's draft, the theme settings and the saved section files live at once, and keeps a backup. Every step is in [Publishing and checks](/developers/publishing#what-publish-does).
 
 **Preview** makes a private link that shows the drafts to anyone you send it to, and the panel then shows the link with a copy button and **Turn off**. See [Preview links](/developers/sharing-themes#preview-links).
+
+### Between pages on the live site
+
+A published website moves from page to page without a white flash: a link the visitor rests on is fetched ahead, and the two pages cross-fade once the next one has started. It is off for a visitor who asks for less motion and wherever the browser cannot do it smoothly. The builder's canvas draws one page and does not move. Details in [Imported Shopify themes](/developers/imported-shopify-themes#between-pages-on-the-live-site), which applies to native themes too.
 
 ### Backups
 

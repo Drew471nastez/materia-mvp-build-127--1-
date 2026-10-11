@@ -113,6 +113,7 @@ export async function siteCollections(
         inventory: p.inventory_count ?? null,
         weightGrams: p.weight_grams ?? null,
         createdAt: p.created_at,
+        category: typeof p.category === "string" ? p.category : null,
         sales: p.sales_count ?? 0,
       } satisfies RuleProduct & { sales: number },
     }))

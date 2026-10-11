@@ -104,6 +104,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "checkout/confirm-payment/route.ts": "keyed by the Stripe payment intent and its client secret, which only the paying page holds",
   "payments/airwallex/return/route.ts": "keyed by the Airwallex payment intent and its client secret, which only the paying tab holds (lib/payments/checkout)",
   "checkout/invoice/route.ts": "the receipt token is the credential",
+  "checkout/site/route.ts": "a website's own checkout, a buyer paying (who may be a guest): only on a host that is a creator's published website, whose shop it is (siteOfRequest, from the database), every price the server's and another shop's products refused; an account first comes from the website's own signed session cookie when the store asks for one; the payment is confirmed with its client secret, which only the paying page holds; rate limited like the other payment routes",
   "receipt/[token]/assets/route.ts": "the receipt token in the path is the credential",
   "receipt/view/route.ts": "the receipt token is the credential",
   "receipt/contact/route.ts": "the receipt token and order id are the credential; it only writes to the seller, Reply-To the order's own address, rate limited",
@@ -112,6 +113,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "coupons/validate/route.ts": "a buyer checking a code at checkout, and it answers yes or no",
   "physical/checkout/complete/route.ts": "Stripe's return after paying for a physical order: keyed by the Checkout Session id, which Stripe re-reads and must be paid; it only writes that session's own order once (lib/physical/checkout-server)",
   "physical/order-status/[token]/return/route.ts": "a buyer asking to return items: the order's random receipt token is the credential, rate limited; it only opens a return request the shop then approves",
+  "physical/storefront/shop/route.ts": "what a shop's own website already shows every visitor about delivery and returns (whether returns are taken, their window, the order value that ships free); no rates, locations or addresses; ?mine=1 checks the owner",
   "physical/storefront/product/route.ts": "a published physical product's options, prices and whether each can be bought, for its public page; never costs, SKUs, locations or exact stock",
   "order-help/route.ts": "a buyer opens a case about their order with the order's own receipt token, the key they already hold; the buyer's email comes from the order, never the request, and it is rate limited by address and by email",
   "order-help/[id]/route.ts": "a buyer reads and writes their own case with its private link's secret, checked against the stored hash; nothing is read or written without it",
@@ -146,6 +148,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "site-account/verify/route.ts": "the code emailed to the address is the credential: kept as an HMAC, ten minutes, five tries counted by a conditional update, used once, bound to the host, the creator and this browser's signed note; it makes a customer row for that website and nothing else",
   "site-account/profile/route.ts": "the website's own signed session cookie is the credential, for this host's creator, and the customer row must still be there; it changes that customer's name and nothing else",
   "site-account/wishlist/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; without it the answer is signedIn false and nothing is read",
+  "site-account/download/route.ts": "the website's own signed session cookie is the credential, for this host's creator; the order must have been placed with the email that session proved, on this website, and the file must be one its receipt lists, decided again by resolveDownloadAccess with the order's own token read on the server, under the download limits and the scan gate",
   "site-account/delete/route.ts": "the website's own signed session cookie is the credential, for this host's creator, from a same-origin form with confirm=delete; it deletes that customer's own account row (and what it saved) and nothing else, limited per customer",
   "site-password/route.ts": "a visitor typing a website's password on its password page (same-origin forms only, the host must be a creator's published website, limited per visitor and per website before any compare against the stored hash), or the owner's two minute signed note, spent once; it only ever sets a pass cookie for that host",
 

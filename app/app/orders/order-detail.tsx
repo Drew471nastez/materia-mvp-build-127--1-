@@ -387,8 +387,8 @@ function FulfillmentCard({
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
         {order.lines.map((line) => {
-          /* The line's price: what was charged, less the tip inside it. */
-          const cents = Math.max(0, (line.amount_cents || 0) - (line.tip_cents || 0))
+          /* The line's price: what was charged, less the tip and any tax added on top inside it. */
+          const cents = Math.max(0, (line.amount_cents || 0) - (line.tip_cents || 0) - (line.tax_included ? 0 : line.tax_cents || 0))
           const kind = line.product?.type ? line.product.type.replace(/^./, (c) => c.toUpperCase()) : null
           return (
             <li key={line.id} className="flex items-center gap-3 py-3">
@@ -457,7 +457,9 @@ function PaymentCard({
       <div className="mx-4 mt-2 rounded-xl border border-[#eceef1] px-3 py-2">
         <Row label="Subtotal" middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
         {order.tipCents > 0 ? <Row label="Tip" value={formatMoney(order.tipCents)} /> : null}
+        {order.taxCents > 0 && !order.taxIncluded ? <Row label="Tax" value={formatMoney(order.taxCents)} /> : null}
         <Row label="Total" value={formatMoney(order.totalCents)} strong />
+        {order.taxCents > 0 && order.taxIncluded ? <Row label="Including tax" value={formatMoney(order.taxCents)} muted /> : null}
         <div className="my-1.5 border-t border-[#f0f1f3]" />
         <Row label={order.payment === "pending" ? "Due" : "Paid"} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
         {order.refundedCents > 0 ? <Row label="Refunded" value={`−${formatMoney(order.refundedCents)}`} /> : null}

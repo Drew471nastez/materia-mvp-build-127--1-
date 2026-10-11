@@ -47,9 +47,13 @@ export function regionsOf(country: string | null | undefined): Region[] {
 /** "California", "ca" or "CA" for the United States: "CA". Null when the country has no list or nothing matches. */
 export function regionCode(country: string | null | undefined, value: string | null | undefined): string | null {
   const list = regionsOf(country)
-  const v = (value ?? "").trim().toLowerCase()
+  let v = (value ?? "").trim().toLowerCase()
   if (!list.length || !v) return null
-  return (list.find((r) => r.code.toLowerCase() === v) ?? list.find((r) => r.name.toLowerCase() === v))?.code ?? null
+  /* "US-CA", as Shopify themes and ISO 3166-2 write it. */
+  const cc = (country ?? "").trim().toLowerCase()
+  if (v.startsWith(`${cc}-`)) v = v.slice(cc.length + 1)
+  const plain = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "")
+  return (list.find((r) => r.code.toLowerCase() === v) ?? list.find((r) => r.name.toLowerCase() === v) ?? list.find((r) => plain(r.name.toLowerCase()) === plain(v)))?.code ?? null
 }
 
 /** "US-CA" from a country and a state typed or chosen; null when it is not one of the listed states. */

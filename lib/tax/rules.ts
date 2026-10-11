@@ -133,3 +133,54 @@ export function digitalTax(
   const tax = taxOf(Math.max(0, sale.taxableCents), bps, setup.included)
   return { totalCents: setup.included ? base : base + tax, taxCents: tax, rateBps: bps, included: setup.included, country: sale.country.toUpperCase() }
 }
+
+export interface BasketTax {
+  /** Each line's tax, in the order the lines were given. */
+  lineTaxCents: number[]
+  taxCents: number
+  /** The region's rate (a line with its own rate may differ). */
+  rateBps: number
+  included: boolean
+  country: string | null
+  /** What the receipt calls it: the region's own name ("VAT", "GST"). */
+  name: string | null
+}
+
+/**
+ * Tax on a website basket of digital products (app/api/checkout/cart and the
+ * page at /checkout/cart), worked out the way the single product checkout
+ * works it out (digitalTax): only when the store taxes digital products, by
+ * the buyer's country (a basket has no address, so only whole-country
+ * regions count), each line at its product's own rate there or the
+ * region's, on what the line costs after its code. Nothing when the country
+ * is in no region.
+ */
+export function basketTax(
+  setup: { enabled: boolean; digital: boolean; included: boolean; regions: readonly TaxRegionRow[]; overrides: readonly TaxOverrideRow[] } | null,
+  lines: readonly { productId: string; taxableCents: number }[],
+  country: string | null,
+): BasketTax {
+  const none: BasketTax = { lineTaxCents: lines.map(() => 0), taxCents: 0, rateBps: 0, included: setup?.included === true, country: country ? country.toUpperCase() : null, name: null }
+  if (!setup || !setup.enabled || !setup.digital || !country) return none
+  const region = regionFor(
+    setup.regions.filter((r) => !r.region),
+    country,
+    null,
+  )
+  if (!region) return none
+  const lineTaxCents = lines.map((l) => taxOf(Math.max(0, Math.round(l.taxableCents)), rateForProduct(region, setup.overrides, l.productId), setup.included))
+  const taxCents = lineTaxCents.reduce((n, t) => n + t, 0)
+  return { lineTaxCents, taxCents, rateBps: clampBps(region.rateBps), included: setup.included, country: country.toUpperCase(), name: region.name ?? null }
+}
+
+/**
+ * HOW TAX REGIONS WORK, as Settings › Taxes says it under the regions
+ * (components/app/settings/taxes-panel.tsx). Each line is what the code
+ * above does; tests/tax-settings-wiring.test.ts checks the two agree.
+ */
+export const TAX_REGION_RULES = {
+  what: "A region is a country, or a state or province inside one, with the rate you charge there.",
+  physical: "Orders you ship are taxed by the delivery address, and pickup orders by the pickup location. A state's own rate comes before its country's.",
+  digital: "Downloads, courses and memberships are taxed only while Charge tax on digital products is on. Bought without anything shipped they have no address, so the buyer's country decides and only whole-country regions count.",
+  elsewhere: "A buyer outside every region pays no tax. A product rate replaces the region's rate for that one product.",
+}

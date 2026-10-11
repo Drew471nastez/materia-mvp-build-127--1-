@@ -272,6 +272,14 @@ export interface CartRequest {
    * left out, like anything else that cannot be bought here. On by default.
    */
   handOff?: boolean
+  /**
+   * Keep a line whose price is $0 (a free product, or pay what you want
+   * with a $0 minimum and no amount named) instead of leaving it out. The
+   * website's own checkout (lib/checkout/site-quote-server) takes such a
+   * cart as a free order, with no card (basketDecision "free"). Off for
+   * the Stripe pages, which take no zero line.
+   */
+  keepFree?: boolean
 }
 
 export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
@@ -360,7 +368,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     /* A free product is a download, not a payment. It has no place in a
        basket that is going to a card form, and Stripe will not take a zero
        line anyway. */
-    if (priceCents <= 0) { dropped.push(product.title); continue }
+    if (priceCents <= 0 && !req.keepFree) { dropped.push(product.title); continue }
 
     const quantity = product.type === "digital" ? 1 : want.quantity
     lines.push({ item: { productId, variantId: want.variantId, quantity, priceCents, discountCents: 0 }, product })

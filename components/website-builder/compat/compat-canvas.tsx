@@ -25,8 +25,8 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
-import { CANVAS_SHOWN } from "@/lib/storelib-theme/compat/canvas-network"
-import { cartLines, type SiteData } from "@/lib/storelib-theme/compat/site"
+import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
+import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
@@ -61,8 +61,8 @@ export interface CompatCanvasProps {
   onNavigate?: (href: string, chrome: boolean) => void
   /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
   siteUrl?: string
-  /** Something pressed in the page that only the live site does (checkout, Buy it now): the builder says so. */
-  onLiveOnly?: (what: "checkout") => void
+  /** Something pressed in the page that only the live site does (checkout, Buy it now, signing in): the builder says so. */
+  onLiveOnly?: (what: "checkout" | "account") => void
   /** The theme's first page has painted: the editor's loader over the canvas can go (editor page.tsx, compatFirstPaint). */
   onPainted?: () => void
 }
@@ -169,6 +169,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
   pageRef.current = page
 
   /*
+    THE ACCOUNT PAGES, IN THE CANVAS. The header's account link opens
+    /account/login (or /account, /account/register) here, drawn by the theme
+    as the website draws it (site.ts canvasAccountPage), so it can be seen
+    and styled. They are not pages of the builder's own: this page stays the
+    one being edited, and any other link, or another page picked, leaves.
+    Sending a form on them says sign in works on the live site.
+  */
+  const [accountPath, setAccountPath] = useState<string | null>(null)
+  const accountRef = useRef(accountPath)
+  accountRef.current = accountPath
+  useEffect(() => setAccountPath(null), [pageKey, productId])
+
+  /*
     ═══════════════════════════════════════════════════════════════════════
      DRAWN ONCE, THEN CHANGED IN PLACE, AND NEVER BLANK
     ═══════════════════════════════════════════════════════════════════════
@@ -189,7 +202,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}`
+  const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${accountPath ?? ""}`
+  const canvasSite = (): SiteData => {
+    const { products, catalog, collections, menus } = dataRef.current
+    return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true }
+  }
   const draw = (list: StoredSection[]) => {
     const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     let site = ""
@@ -198,10 +215,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
     } catch {
       site = ""
     }
-    const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` })
+    const extra = { extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` }
+    const account = accountPath ? canvasAccountPage(canvasSite(), accountPath, extra) : null
+    const drawn = account ?? drawPage(compatTheme!, page, list, { scripts: true, ...extra })
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
-    const seed = `<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
+    const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
+    /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
+    return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -228,7 +248,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   useEffect(() => {
     if (!compatTheme) return
-    const list = sectionsRef.current
+    /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
+    const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
     /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
     if (front() && front()!.key !== docKey) scrollY.current = 0
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
@@ -249,7 +270,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     if (plan.empty) { now.shape = next; return }
-    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html }, "*")
+    /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
+    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, JSON.stringify(s))
@@ -257,7 +279,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* A page that changed behind this one is out of date too: drawn again from now. */
     if (slotsRef.current[1]) loadBehind(html, docKey, list)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape, docKey])
+  }, [compatTheme, page, shape, docKey, accountPath])
 
   /*
     A section's settings or blocks changed: that section, drawn again and
@@ -282,20 +304,34 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       let html: string
       try {
-        html = drawSection(compatTheme, ctx, s, at, group).html
+        html = canvasInsets(drawSection(compatTheme, ctx, s, at, group).html)
       } catch (e) {
         /* This section stays as it was drawn; the others still change. */
         console.error("[compat-canvas] a section could not be drawn", e)
         continue
       }
-      win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
+      win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev: slot.shape.sections.get(s.id) }, "*")
       slot.drawnFrom.set(s.id, JSON.stringify(s))
       slot.shape.sections.set(s.id, html)
     }
   }
   const sync = useRef<() => void>(() => {})
   sync.current = () => { for (const slot of slotsRef.current) syncSlot(slot) }
-  useEffect(() => sync.current(), [sections, compatTheme, page])
+  /*
+    AT MOST ONCE A FRAME. A slider under a finger renders this with every
+    value it passes, several between two frames, and each one drew the
+    section through the theme's Liquid again on the editor's main thread.
+    The values in between are never seen; the last one in the frame is.
+  */
+  const syncFrame = useRef(0)
+  useEffect(() => {
+    if (syncFrame.current) return
+    syncFrame.current = requestAnimationFrame(() => {
+      syncFrame.current = 0
+      sync.current()
+    })
+  }, [sections, compatTheme, page])
+  useEffect(() => () => { if (syncFrame.current) cancelAnimationFrame(syncFrame.current) }, [])
 
   /* The selection, outlined in the page and announced to the theme. */
   const selectedBlock = props.selectedBlockId ? props.selectedBlockId.split(/[/>]/).pop() ?? null : null
@@ -360,7 +396,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const id = m.id
     const state = canvasCarts.get(installId) ?? { cart: [], note: "" }
     const body = m.body && typeof m.body === "object" ? (m.body as Record<string, unknown>) : null
-    answerInCanvas(site, state, { method: typeof m.method === "string" ? m.method : "GET", url: m.url, body, ajax: m.ajax === true }, current.path)
+    answerInCanvas(site, state, { method: typeof m.method === "string" ? m.method : "GET", url: m.url, body, ajax: m.ajax === true }, accountRef.current ?? current.path)
       .then(({ answer, state: next }) => {
         canvasCarts.set(installId, next)
         const { type: contentType, ...rest } = answer
@@ -444,7 +480,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "request") {
         answerRequestRef.current(win, m as never)
       } else if (m.type === "live-only" && isFront) {
-        onLiveOnly.current?.("checkout")
+        onLiveOnly.current?.((m as { what?: unknown }).what === "account" ? "account" : "checkout")
       } else if (m.type === "leaving" && isFront && slot.ready) {
         /* A script opened another address in the frame (location.href = "/checkout"): the page is drawn again in its place. */
         if ((m as { checkout?: boolean }).checkout === true) onLiveOnly.current?.("checkout")
@@ -462,7 +498,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
       } else if (m.type === "navigate" && isFront) {
         const n = m as { href?: string; chrome?: boolean }
-        if (typeof n.href === "string") onNavigate.current?.(n.href, n.chrome === true)
+        if (typeof n.href !== "string") return
+        const to = n.href.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+        if ((CANVAS_ACCOUNT_PATHS as readonly string[]).includes(to)) {
+          /* As any link in the page: from the header and footer always, from the page itself while the inspector is off. */
+          if (n.chrome === true || !inspecting.current) setAccountPath(to)
+          return
+        }
+        /* Leaving an account page: the page being edited again, then wherever the link goes. */
+        if (accountRef.current) setAccountPath(null)
+        onNavigate.current?.(n.href, n.chrome === true)
       } else if (m.type === "box" && isFront) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
         setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)

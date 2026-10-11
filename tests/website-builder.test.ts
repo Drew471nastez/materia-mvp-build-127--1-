@@ -1212,7 +1212,7 @@ section("A form that says it worked, did")
     // app/(site)/w/[username]. storelib.com/<name> is the creator's
     // profile page and renders no theme sections.
     /storefront\?: Storefront/.test(themePage) &&
-      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))? \}\}/.test(read(RENDER_SITE)) &&
+      /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)? \}\}/.test(read(RENDER_SITE)) &&
       /storefront=\{\{ creatorId, installId \}\}/.test(read(RENDER_SITE)),
   )
 

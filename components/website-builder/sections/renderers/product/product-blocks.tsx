@@ -33,9 +33,11 @@ import { schemeTokenName } from "@/lib/storelib-theme/color-schemes"
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import {
+  DEFAULT_LOW_STOCK_TEXT,
   isColorOption,
   isNew,
   lowStock,
+  lowStockThreshold,
   pickerOptions,
   stockLeft,
   suggestedAmounts,
@@ -47,6 +49,7 @@ import {
   type ProductVariantData,
 } from "@/lib/products/product-page-model"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
+import { useStorefront } from "../../../theme/storefront-context"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -463,15 +466,22 @@ function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const left = stockLeft(ctx.product, ctx.variant)
   const color = colorOf(s.color, ctx.palette, "accent")
   const dot = on(s.show_dot, true)
+  /* Website settings › Commerce: whether stock is shown at all, and the site's own wording. */
+  const commerce = useStorefront().commerce
   const line = (text: string) => (
     <p className="m-0 flex items-center gap-2 text-[14px] font-medium" style={{ color }} data-low-stock="">
       {dot ? <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: color }} /> : null}
       {text}
     </p>
   )
-  if (lowStock(left, num(s.threshold, 5))) return line(str(s.text, "Only {count} left").replace(/\{count\}/g, String(left)))
+  if (commerce?.showStockLeft === false) return <EditorNote ctx={ctx}>Stock is hidden in Website settings › Commerce</EditorNote>
+  // 0 (the new default): the product's own low stock line, else the shop's (Settings › Locations).
+  const threshold = lowStockThreshold(s.threshold, ctx.product.low_stock_at)
+  const own = str(s.text)
+  const text = own && own !== DEFAULT_LOW_STOCK_TEXT ? own : commerce?.lowStockText || DEFAULT_LOW_STOCK_TEXT
+  if (lowStock(left, threshold)) return line(text.replace(/\{count\}/g, String(left)))
   if (str(s.in_stock_text) && ctx.canBuy && !ctx.sample) return line(str(s.in_stock_text))
-  return <EditorNote ctx={ctx}>Shows when {num(s.threshold, 5)} or fewer are left</EditorNote>
+  return <EditorNote ctx={ctx}>Shows when {threshold} or fewer are left</EditorNote>
 }
 
 /** The description as safe markup: the server's cleaned copy, or cleaned here from the raw text. */
@@ -510,6 +520,59 @@ function CollapsibleTab({ s, ctx }: { s: S; ctx: ProductCtx }) {
       </summary>
       <div className={cn("pb-4 text-[14px] leading-relaxed", PROSE)} style={{ color: ctx.palette.text }} dangerouslySetInnerHTML={{ __html: html }} />
     </details>
+  )
+}
+
+/* The product's own questions, from the editor's FAQ card: each answer folded under its question, as plain text. */
+function ProductFaq({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const faqs = ctx.product.faqs ?? []
+  if (!faqs.length) return <EditorNote ctx={ctx}>This product&apos;s questions show here, from the FAQ in the product editor</EditorNote>
+  const border = colorOf(s.border, ctx.palette, "border")
+  const heading = str(s.heading, "Questions").trim()
+  return (
+    <div data-product-faq="">
+      {heading ? <p className="m-0 pb-1 text-[15px] font-semibold" style={{ color: ctx.palette.heading }}>{heading}</p> : null}
+      {faqs.map((f, i) => (
+        <details key={i} className="group/faq border-b" style={{ borderColor: border }} open={(on(s.open_first, false) && i === 0) || undefined}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-3.5 text-[14.5px] font-medium [&::-webkit-details-marker]:hidden" style={{ color: ctx.palette.heading }} onClick={(e) => e.stopPropagation()}>
+            {f.question}
+            <ChevronDown className="h-4 w-4 shrink-0 transition-transform group-open/faq:rotate-180" aria-hidden />
+          </summary>
+          <p className="m-0 whitespace-pre-line pb-4 text-[14px] leading-relaxed" style={{ color: ctx.palette.text }}>
+            {f.answer}
+          </p>
+        </details>
+      ))}
+    </div>
+  )
+}
+
+/* The custom fields the creator shows to buyers (Material, Care): a label and its value on each line, links as links. */
+function ProductDetails({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  const rows = ctx.product.details ?? []
+  if (!rows.length) return <EditorNote ctx={ctx}>Custom fields set to show on the product page go here</EditorNote>
+  const border = colorOf(s.border, ctx.palette, "border")
+  const heading = str(s.heading, "Details").trim()
+  return (
+    <div data-product-details="">
+      {heading ? <p className="m-0 pb-1 text-[15px] font-semibold" style={{ color: ctx.palette.heading }}>{heading}</p> : null}
+      <dl className="m-0">
+        {rows.map((r) => (
+          <div key={r.key} className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-3 border-b py-2.5 text-[14px] leading-relaxed" style={{ borderColor: border }} data-detail={r.key}>
+            <dt className="font-medium" style={{ color: ctx.palette.heading }}>{r.label}</dt>
+            <dd className="m-0 whitespace-pre-line" style={{ color: ctx.palette.text }}>
+              {r.type === "url" ? (
+                <a href={ctx.inert ? undefined : r.value} target="_blank" rel="nofollow noopener noreferrer" className="break-all underline underline-offset-2">
+                  {r.value.replace(/^https?:\/\//, "")}
+                </a>
+              ) : (
+                r.value
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
   )
 }
 
@@ -685,6 +748,8 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   low_stock: LowStock,
   description: Description,
   collapsible_tab: CollapsibleTab,
+  product_faq: ProductFaq,
+  product_details: ProductDetails,
   text: Text,
   icon_with_text: IconWithText,
   share: Share,

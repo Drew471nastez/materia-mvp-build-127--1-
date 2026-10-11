@@ -52,7 +52,8 @@ export const revalidatePath = () => {}
 export function createClient() {
   return {
     auth: { getUser: async () => ({ data: { user: { id: "probe-user", email: "probe@example.invalid" } }, error: null }), getSession: async () => ({ data: { session: null } }), onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }) },
-    storage: { from: () => ({ upload: async () => ({ data: null, error: null }), getPublicUrl: () => ({ data: { publicUrl: "" } }), remove: async () => ({ data: null, error: null }) }) },
+    /* PROBE_UPLOAD_URL / PROBE_UPLOAD_MS: an upload that takes a while and lands at an address the probe serves (the files chooser's drop). */
+    storage: { from: () => ({ upload: async () => { await new Promise((r) => setTimeout(r, window.PROBE_UPLOAD_MS || 0)); return { data: null, error: null } }, getPublicUrl: (p) => ({ data: { publicUrl: window.PROBE_UPLOAD_URL ? window.PROBE_UPLOAD_URL + p : "" } }), remove: async () => ({ data: null, error: null }) }) },
     from: () => chain(), channel: () => ({ on() { return this }, subscribe() { return this }, unsubscribe() {} }), removeChannel() {},
   }
 }

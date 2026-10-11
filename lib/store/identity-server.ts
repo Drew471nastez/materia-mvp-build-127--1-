@@ -52,7 +52,14 @@ function absolute(v: string): string | null {
   return path.startsWith("http") ? path : `https://${getMainDomain()}${path.startsWith("/") ? "" : "/"}${path}`
 }
 
-export async function storeIdentity(db: Db, creatorId: string, opts: { skipStoreLogo?: boolean } = {}): Promise<StoreIdentity> {
+/**
+ * `logoOnly`: Settings › Store details only wants the logo receipts fall back
+ * to. The email lookup (a round trip to Supabase Auth) and the website's
+ * address (more reads) each came AFTER the first reads, one after the other,
+ * and the store settings route waited on all three in a row: the slowest
+ * part of opening Store details. Skipped when only the logo is asked for.
+ */
+export async function storeIdentity(db: Db, creatorId: string, opts: { skipStoreLogo?: boolean; logoOnly?: boolean } = {}): Promise<StoreIdentity> {
   const [settingsRes, creatorRes, installRes] = await Promise.all([
     db.from("store_settings").select("store_name, phone, logo_url, contact_email").eq("creator_id", creatorId).maybeSingle().then(
       (r: { data: unknown; error: unknown }) => (r.error ? db.from("store_settings").select("store_name, phone").eq("creator_id", creatorId).maybeSingle() : r),
@@ -86,6 +93,7 @@ export async function storeIdentity(db: Db, creatorId: string, opts: { skipStore
   }
 
   let email: string | null = null
+  if (opts.logoOnly) return { creatorId, name, logoUrl, logoFrom, email: null, phone: str(s.phone) || null, websiteUrl: null }
   for (const e of [str(s.contact_email), str(c.support_email)]) {
     if (usable(e)) {
       email = e

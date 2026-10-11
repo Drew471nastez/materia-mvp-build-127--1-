@@ -57,7 +57,8 @@ const code = (p: string) => readCode(p)
 console.log("\nSEARCH: the phone's community search")
 {
   const s = code("components/community/member/search.tsx")
-  check("the screen's white never fades in (no fade-in on the surface), it sits 10px lower under the clock", /fixed inset-0 z-\[80\] flex flex-col bg-white pt-\[calc\(env\(safe-area-inset-top\)\+10px\)\]/.test(s) && !/animate-in fade-in-0 slide-in-from-bottom-2/.test(s))
+  /* Round R8: its stacking moved from z-[80] to SEARCH_SCREEN_Z (136), over an opened post (tests/community-mobile-r8.test.ts). */
+  check("the screen's white never fades in (no fade-in on the surface), it sits 10px lower under the clock", /fixed inset-0 flex flex-col bg-white pt-\[calc\(env\(safe-area-inset-top\)\+10px\)\]/.test(s) && /style=\{\{ zIndex: SEARCH_SCREEN_Z \}\}/.test(s) && !/animate-in fade-in-0 slide-in-from-bottom-2/.test(s))
   check("what is on it rises in, a beat apart; Cancel sinks and fades over 180ms", /community-search-rise\{from\{opacity:0;translate:0 8px\}/.test(s) && /animate-\[community-search-out_180ms/.test(s) && /SCREEN_OUT_MS = 180/.test(s))
   check("the field is white on a hairline with a soft shadow", /data-community-search-field=""/.test(s) && /border border-\[#e3e5e9\] bg-white shadow-\[0_1px_2px_rgba\(16,24,40,0\.06\)/.test(s))
   check("a post result has no unread dot", !/data-unread-dot|isUnread|rounded-full bg-\[#1a1a2e\]/.test(s))

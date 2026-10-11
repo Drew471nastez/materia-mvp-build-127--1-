@@ -98,10 +98,11 @@ export function Segmented<T extends string | number>({
  * so a new brand colour reaches every button that did not choose one), one
  * of a few, or any.
  */
-export function ColorChoice({ value, onChange, brand }: { value: string; onChange: (c: string) => void; brand?: string }) {
+export function ColorChoice({ value, onChange, brand, large = false }: { value: string; onChange: (c: string) => void; brand?: string; large?: boolean }) {
   const current = value ? safeColor(value) : ""
+  /* `large`: a thumb's size, for the button's sheet on a phone (./panels.tsx). */
   return (
-    <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label="Color">
+    <div className={cn("flex flex-wrap items-center gap-1.5", large && "gap-2.5 [&_button]:h-10 [&_button[aria-label]]:w-10 [&_label]:h-10 [&_button]:text-[14px] [&_label]:text-[14px]")} role="radiogroup" aria-label="Color">
       <button
         type="button"
         role="radio"

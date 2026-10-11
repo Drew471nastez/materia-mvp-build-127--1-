@@ -46,12 +46,35 @@
  * computer a dropdown held against the dots that were pressed, on a phone
  * the shared action sheet. Preview, Copy link, Download and Delete, each the
  * real thing (app/api/files for the delete, the file's own public address for
- * the rest). There is no Rename: a file's name is its address, so renaming
- * it would empty every page that shows it.
+ * the rest), and while picking, Open in Files (/app/files?file=<id>, where
+ * that file's details open). There is no Rename: a file's name is its
+ * address, so renaming it would empty every page that shows it.
+ *
+ * WHAT THE BUILDER'S FIELDS GET FROM IT
+ *
+ *   PICTURES OR VIDEOS. `kind` ("image" by default, "video" for a video
+ *   setting) is which list the API is asked for (/api/files?kind=video), what
+ *   an upload takes, and what a tile draws: a video's first frame, or a
+ *   clean tile with a film mark when there is none to show.
+ *
+ *   ASKED FOR AHEAD. `prefetchLibrary` fills the same kept list before the
+ *   chooser opens: once when a picture field shows, and with the first
+ *   screen of pictures fetched and decoded on a hover of the field's button,
+ *   so the chooser opens on the grid. A list younger than a minute is not
+ *   asked for again.
+ *
+ *   SOMETHING TO SHOW AT ONCE. A pick hands the field a `PickHint` beside the
+ *   address: the copy the tile already decoded, or the file just dropped, so
+ *   the field draws it on the next frame while the stored copy loads.
+ *
+ *   UPLOADS SAY HOW FAR THEY ARE. Each file dropped or chosen is a tile at the
+ *   top of the grid with its own preview and progress bar (XMLHttpRequest's
+ *   upload progress) until it is stored. One file dropped while picking is
+ *   the one picked.
  */
 import * as React from "react"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, Copy, Download, Eye, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
+import { Check, Copy, Download, ExternalLink, Eye, Film, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
@@ -77,10 +100,27 @@ export interface LibraryFile {
   source: string
 }
 
+/** Pictures, or the videos a video setting can play (lib/files/library.ts). */
+export type LibraryKind = "image" | "video"
+
+/** What a pick hands over beside the address: something already on screen to show while the stored copy loads. */
+export interface PickHint {
+  /** The resized copy the tile already decoded. */
+  thumb?: string
+  /** The file just uploaded, for a local preview. */
+  file?: File
+}
+
 const TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"])
+const IMAGE_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/avif"
+/* What the store-builder-images bucket takes as video (the builder's video field, controls/video-picker-control.tsx). */
+const VIDEO_TYPES: Record<string, string> = { "video/mp4": "mp4", "video/webm": "webm", "video/quicktime": "mov", "video/x-m4v": "m4v" }
 const MAX_BYTES = 5 * 1024 * 1024
+const MAX_VIDEO_BYTES = 200 * 1024 * 1024
 const SOURCES = ["All", "Library", "Website", "Product photos"] as const
 type Source = (typeof SOURCES)[number]
+/* Product photos are pictures only, so a video list has no such pill. */
+const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website"]
 /* The rows drawn at once: three on a phone at three across, three in the window at four across. */
 const EAGER = 12
 const SWAP_MS = 180
@@ -105,49 +145,109 @@ function dateText(iso: string | null): string {
   }
 }
 
-/* ── The list, kept for the session ─────────────────────────────────────── */
+/* ── The list, kept for the session, one per kind ───────────────────────── */
 
-let kept: LibraryFile[] | null = null
-let inFlight: Promise<{ files?: LibraryFile[]; error?: string }> | null = null
+/** How long a kept list is used as it is before a prefetch asks again. */
+const FRESH_MS = 60_000
+type ListResult = { files?: LibraryFile[]; error?: string }
+const kept: Record<LibraryKind, LibraryFile[] | null> = { image: null, video: null }
+const keptAt: Record<LibraryKind, number> = { image: 0, video: 0 }
+const inFlight: Record<LibraryKind, Promise<ListResult> | null> = { image: null, video: null }
+/* Every library on screen hears a list arrive, whoever asked for it (a prefetch, an upload). */
+const listeners = new Set<(kind: LibraryKind, r: ListResult) => void>()
 
-function fetchList(): Promise<{ files?: LibraryFile[]; error?: string }> {
-  if (inFlight) return inFlight
-  inFlight = (async () => {
-    const r = await api<{ files: LibraryFile[] }>("/api/files")
+function fetchList(kind: LibraryKind): Promise<ListResult> {
+  const asking = inFlight[kind]
+  if (asking) return asking
+  const next = (async (): Promise<ListResult> => {
+    const r = await api<{ files: LibraryFile[] }>(kind === "video" ? "/api/files?kind=video" : "/api/files")
     if ("error" in r) return { error: r.error }
-    kept = r.data.files
+    kept[kind] = r.data.files
+    keptAt[kind] = Date.now()
     return { files: r.data.files }
-  })().finally(() => {
-    inFlight = null
-  })
-  return inFlight
+  })()
+    .then((r) => {
+      listeners.forEach((l) => l(kind, r))
+      return r
+    })
+    .finally(() => {
+      inFlight[kind] = null
+    })
+  inFlight[kind] = next
+  return next
 }
 
-function useLibraryList() {
-  const [files, setFilesState] = React.useState<LibraryFile[] | null>(() => kept)
-  const [error, setError] = React.useState<string | null>(null)
-  const setFiles = React.useCallback((next: (prev: LibraryFile[] | null) => LibraryFile[] | null) => {
-    setFilesState((prev) => {
-      const out = next(prev)
-      kept = out
-      return out
-    })
-  }, [])
-  const load = React.useCallback(async () => {
-    const r = await fetchList()
-    if (r.error) setError(r.error)
-    else if (r.files) {
-      const list = r.files
-      /* A list that arrives while the chooser is still rising is drawn in pieces the browser can stop between, so no frame of the rise and no tap waits on sixty tiles. */
-      React.startTransition(() => {
-        setFilesState(list)
-        setError(null)
-      })
+/** The first screen of pictures, fetched at the size a tile asks for and decoded, so the tiles are there on their first frame. */
+function warm(files: LibraryFile[]) {
+  if (typeof Image === "undefined") return
+  for (const f of files.slice(0, EAGER)) {
+    if (f.type?.startsWith("video/")) continue
+    const t = fileThumb(f.url)
+    const img = new Image()
+    img.decoding = "async"
+    if (t.srcSet && t.sizes) {
+      img.sizes = t.sizes
+      img.srcset = t.srcSet
     }
-  }, [])
+    img.src = t.src
+    img.decode().catch(() => {})
+  }
+}
+
+/**
+ * The store's files of one kind, asked for before the chooser opens and
+ * kept: once when a picture field shows, and with `warmFirst` on a hover of
+ * its button, a moment before the press. A list younger than FRESH_MS is
+ * used as it is unless `force`.
+ */
+export function prefetchLibrary(kind: LibraryKind = "image", opts: { warmFirst?: boolean; force?: boolean } = {}): Promise<void> {
+  const list = kept[kind]
+  if (!opts.force && list && Date.now() - keptAt[kind] < FRESH_MS) {
+    if (opts.warmFirst) warm(list)
+    return Promise.resolve()
+  }
+  return fetchList(kind).then((r) => {
+    if (opts.warmFirst && r.files) warm(r.files)
+  })
+}
+
+function useLibraryList(kind: LibraryKind) {
+  const [files, setFilesState] = React.useState<LibraryFile[] | null>(() => kept[kind])
+  const [error, setError] = React.useState<string | null>(null)
+  const setFiles = React.useCallback(
+    (next: (prev: LibraryFile[] | null) => LibraryFile[] | null) => {
+      setFilesState((prev) => {
+        const out = next(prev)
+        kept[kind] = out
+        return out
+      })
+    },
+    [kind],
+  )
+  const load = React.useCallback(async () => {
+    await fetchList(kind)
+  }, [kind])
   React.useEffect(() => {
-    void load()
-  }, [load])
+    const hear = (k: LibraryKind, r: ListResult) => {
+      if (k !== kind) return
+      if (r.error) setError(r.error)
+      else if (r.files) {
+        const list = r.files
+        /* A list that arrives while the chooser is still rising is drawn in pieces the browser can stop between, so no frame of the rise and no tap waits on sixty tiles. */
+        React.startTransition(() => {
+          setFilesState(list)
+          setError(null)
+        })
+      }
+    }
+    listeners.add(hear)
+    /* The kept list is always the newest: one that landed since the first render (a prefetch in between) is shown before asking. */
+    setFilesState(kept[kind])
+    void prefetchLibrary(kind)
+    return () => {
+      listeners.delete(hear)
+    }
+  }, [kind])
   return { files, setFiles, error, load }
 }
 
@@ -164,6 +264,10 @@ function copyLink(f: LibraryFile) {
   )
 }
 
+const isVideo = (f: LibraryFile) => !!f.type?.startsWith("video/") || /\.(mp4|webm|mov|m4v)$/i.test(f.name)
+/** "Picture" or "Video", for what a toast or a question calls it. */
+const noun = (f: LibraryFile) => (isVideo(f) ? "Video" : "Picture")
+
 async function downloadFile(f: LibraryFile) {
   try {
     const outcome = await saveFile({
@@ -176,11 +280,82 @@ async function downloadFile(f: LibraryFile) {
       /* A public file: the system browser in the app can open it as it is. */
       link: async () => f.url,
     })
-    toast.success(savedMessage(outcome, "Picture"))
+    toast.success(savedMessage(outcome, noun(f)))
   } catch {
-    toast.error("The picture could not be downloaded.")
+    toast.error(`The ${noun(f).toLowerCase()} could not be downloaded.`)
   }
 }
+
+/* ── Uploads, each with how far it is ──────────────────────────────────── */
+
+function putWithProgress(endpoint: string, token: string, key: string, body: Blob, type: string, onProgress: (p: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest()
+    x.open("POST", endpoint)
+    x.setRequestHeader("Authorization", `Bearer ${token}`)
+    x.setRequestHeader("apikey", key)
+    x.setRequestHeader("x-upsert", "false")
+    x.setRequestHeader("cache-control", "max-age=31536000")
+    x.setRequestHeader("Content-Type", type)
+    x.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(e.loaded / e.total)
+    }
+    x.onload = () => (x.status >= 200 && x.status < 300 ? resolve() : reject(new Error(`upload ${x.status}`)))
+    x.onerror = () => reject(new Error("upload failed"))
+    x.send(body)
+  })
+}
+
+/**
+ * One file into the owner's library folder. Straight to storage with the
+ * signed-in session, by XMLHttpRequest so its tile can say how far it is;
+ * through the storage client when there is no session to hand. A picture
+ * goes without its location and camera details; a video as it is.
+ */
+async function uploadOne(f: File, onProgress: (p: number) => void): Promise<LibraryFile> {
+  const supabase = createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error("signed out")
+  const video = VIDEO_TYPES[f.type]
+  const ext = video ?? (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
+  const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const body: Blob = video ? f : await withoutMetadata(f)
+  const base = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").replace(/\/+$/, "")
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+  const session = base && key ? (await supabase.auth.getSession()).data.session : null
+  if (session?.access_token && base && key && typeof XMLHttpRequest !== "undefined") {
+    await putWithProgress(`${base}/storage/v1/object/store-builder-images/${path.split("/").map(encodeURIComponent).join("/")}`, session.access_token, key, body, f.type, onProgress)
+  } else {
+    const { error: upErr } = await supabase.storage.from("store-builder-images").upload(path, body, { cacheControl: "31536000", contentType: f.type, upsert: false })
+    if (upErr) throw upErr
+  }
+  onProgress(1)
+  confirmUpload("store-builder-images", path)
+  const url = mediaUrl(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
+  return { id: `store-builder-images:${path}`, bucket: "store-builder-images", path, name: path.split("/").pop() ?? f.name, url, bytes: f.size, type: f.type, createdAt: new Date().toISOString(), source: "Library" }
+}
+
+/** What is refused before it is sent: the bucket would refuse it after. */
+function refusal(f: File, kind: LibraryKind): string | null {
+  if (kind === "video") {
+    if (!VIDEO_TYPES[f.type]) return `${f.name}: only MP4, WebM and MOV videos.`
+    if (f.size > MAX_VIDEO_BYTES) return `${f.name} is over 200 MB.`
+    return null
+  }
+  if (!TYPES.has(f.type)) return `${f.name}: only JPG, PNG, GIF, WebP and AVIF pictures.`
+  if (f.size > MAX_BYTES) return `${f.name} is over 5 MB.`
+  return null
+}
+
+/** A file on its way up: a tile of its own until it is stored. */
+type Pending = { key: string; name: string; preview: string | null; progress: number }
+
+/**
+ * The picture just uploaded, from memory, under its tile while the resized
+ * copy loads, so the tile that replaces the pending one is never grey.
+ * Let go of after a minute.
+ */
+const localPreview = new Map<string, string>()
 
 /* ── A picture, shown once it is ready ─────────────────────────────────── */
 
@@ -216,6 +391,49 @@ function fallBack(img: HTMLImageElement, original: string) {
 }
 
 const IMG_FADE = "absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:opacity-0"
+/* A video's first frame, the same fade; one that cannot be drawn leaves the clean tile under it (a film mark on the grey). */
+const VIDEO_FADE = "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:opacity-0"
+
+/** A video that already has its first frame (seen before in this tab) is there at once. */
+function frameIfReady(v: HTMLVideoElement | null) {
+  if (v && v.readyState >= 2 && v.dataset.loaded === undefined) {
+    v.dataset.instant = ""
+    v.dataset.loaded = ""
+  }
+}
+
+/**
+ * A video tile: its first frame (`#t=0.1`, which also makes Safari draw one
+ * with only the metadata asked for), over a clean tile with a film mark that
+ * stays if there is no frame to draw.
+ */
+function VideoFrame({ url }: { url: string }) {
+  return (
+    <>
+      <Film className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
+      <video
+        ref={frameIfReady}
+        src={`${url}#t=0.1`}
+        muted
+        playsInline
+        preload="metadata"
+        tabIndex={-1}
+        aria-hidden
+        onLoadedData={(e) => {
+          e.currentTarget.dataset.loaded = ""
+        }}
+        onError={(e) => {
+          e.currentTarget.dataset.failed = ""
+        }}
+        className={cn("peer", VIDEO_FADE)}
+      />
+      {/* The film badge marks a frame as a video; the clean tile already says so. */}
+      <span className="pointer-events-none absolute bottom-1.5 left-1.5 peer-data-[failed]:hidden grid h-6 w-6 place-items-center rounded-md bg-black/55 text-white">
+        <Film className="h-3.5 w-3.5" aria-hidden />
+      </span>
+    </>
+  )
+}
 
 /* ── A tile ─────────────────────────────────────────────────────────────── */
 
@@ -239,6 +457,8 @@ const Tile = React.memo(function Tile({
   onMenu: (f: LibraryFile, button: HTMLButtonElement) => void
 }) {
   const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
+  const video = isVideo(file)
+  const local = localPreview.get(file.url)
   return (
     <li className="group/tile relative" data-file-tile={file.id} hidden={hidden}>
       <button
@@ -252,20 +472,30 @@ const Tile = React.memo(function Tile({
         aria-label={mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`}
       >
         <span className="relative block aspect-square w-full bg-[#f3f4f6]" data-file-box="">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            ref={revealIfReady}
-            src={thumb.src}
-            srcSet={thumb.srcSet}
-            sizes={thumb.sizes}
-            alt=""
-            draggable={false}
-            loading={index < EAGER ? "eager" : "lazy"}
-            decoding="async"
-            onLoad={(e) => reveal(e.currentTarget)}
-            onError={(e) => fallBack(e.currentTarget, file.url)}
-            className={IMG_FADE}
-          />
+          {video ? (
+            <VideoFrame url={file.url} />
+          ) : (
+            <>
+              {/* Just uploaded: the file from memory, under the resized copy until that has faded in. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {local ? <img src={local} alt="" aria-hidden draggable={false} className="absolute inset-0 h-full w-full object-contain" /> : null}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                ref={revealIfReady}
+                src={thumb.src}
+                srcSet={thumb.srcSet}
+                sizes={thumb.sizes}
+                alt=""
+                draggable={false}
+                loading={index < EAGER ? "eager" : "lazy"}
+                decoding="async"
+                onLoad={(e) => reveal(e.currentTarget)}
+                onError={(e) => fallBack(e.currentTarget, file.url)}
+                className={IMG_FADE}
+                data-file-img=""
+              />
+            </>
+          )}
         </span>
         {chosen ? (
           <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">
@@ -293,6 +523,25 @@ const Tile = React.memo(function Tile({
   )
 })
 
+/** A file on its way up: its own preview (or a film mark), dimmed, with how far it is. */
+function PendingTile({ row }: { row: Pending }) {
+  return (
+    <li className="relative" data-file-pending="" aria-label={`Uploading ${row.name}`}>
+      <span className="relative block aspect-square w-full overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
+        {row.preview ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={row.preview} alt="" draggable={false} className="absolute inset-0 h-full w-full object-contain opacity-60" />
+        ) : (
+          <Film className="absolute left-1/2 top-1/2 h-5 w-5 -translate-x-1/2 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
+        )}
+        <span className="absolute inset-x-2 bottom-2 h-1 overflow-hidden rounded-full bg-black/10">
+          <span className="block h-full rounded-full bg-[#1a1a2e] transition-[width] duration-200 ease-out" style={{ width: `${Math.round(Math.max(0.06, row.progress) * 100)}%` }} />
+        </span>
+      </span>
+    </li>
+  )
+}
+
 /* ── The library ────────────────────────────────────────────────────────── */
 
 type Menu = { file: LibraryFile; anchor: HTMLButtonElement; box: DOMRect; phone: boolean }
@@ -301,21 +550,27 @@ export function FilesLibrary({
   mode = "manage",
   onPick,
   selectedUrl,
+  kind = "image",
   fill = false,
+  openId,
 }: {
   mode?: "manage" | "pick"
-  onPick?: (url: string) => void
+  onPick?: (url: string, hint?: PickHint) => void
   selectedUrl?: string | null
+  /** Pictures (the default) or videos. */
+  kind?: LibraryKind
   /** Lay out as a column whose grid scrolls by itself (inside the chooser), rather than with the page. */
   fill?: boolean
+  /** A file whose details open once the list is in (/app/files?file=<id>, from Open in Files). */
+  openId?: string | null
 }) {
-  const { files, setFiles, error, load } = useLibraryList()
+  const { files, setFiles, error, load } = useLibraryList(kind)
   const [query, setQuery] = React.useState("")
   const [source, setSource] = React.useState<Source>("All")
   const [open, setOpen] = React.useState<LibraryFile | null>(null)
   const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
   const [deleting, setDeleting] = React.useState(false)
-  const [uploading, setUploading] = React.useState(0)
+  const [pending, setPending] = React.useState<Pending[]>([])
   const [dragOver, setDragOver] = React.useState(false)
   /* The three dots: which file, and the dots it opened from. */
   const [menu, setMenu] = React.useState<Menu | null>(null)
@@ -335,35 +590,66 @@ export function FilesLibrary({
     onPickRef.current = onPick
   })
 
+  /* What the tile on screen already decoded, for the field to show while the stored copy loads. */
+  const hintFor = React.useCallback((f: LibraryFile): PickHint | undefined => {
+    const img = gridWrapRef.current?.querySelector<HTMLImageElement>(`[data-file-tile="${CSS.escape(f.id)}"] img[data-file-img]`)
+    if (img && img.dataset.loaded !== undefined && img.dataset.failed === undefined && img.currentSrc) return { thumb: img.currentSrc }
+    return undefined
+  }, [])
+  const pickFile = React.useCallback((f: LibraryFile) => onPickRef.current?.(f.url, hintFor(f)), [hintFor])
+
   const upload = async (list: FileList | File[]) => {
     const picked = Array.from(list).slice(0, 20)
-    const bad = picked.find((f) => !TYPES.has(f.type) || f.size > MAX_BYTES)
-    if (bad) toast.error(!TYPES.has(bad.type) ? `${bad.name}: only JPG, PNG, GIF, WebP and AVIF pictures.` : `${bad.name} is over 5 MB.`)
-    const good = picked.filter((f) => TYPES.has(f.type) && f.size <= MAX_BYTES)
+    const bad = picked.map((f) => refusal(f, kind)).find(Boolean)
+    if (bad) toast.error(bad)
+    const good = picked.filter((f) => !refusal(f, kind))
     if (good.length === 0) return
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return toast.error("Sign in again to upload.")
-    setUploading((n) => n + good.length)
-    let lastUrl: string | null = null
-    for (const f of good) {
-      try {
-        const ext = (f.type.split("/")[1] || "jpg").replace("jpeg", "jpg")
-        const path = `${user.id}/files/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-        const body = await withoutMetadata(f)
-        const { error: upErr } = await supabase.storage.from("store-builder-images").upload(path, body, { cacheControl: "31536000", contentType: f.type, upsert: false })
-        if (upErr) throw upErr
-        confirmUpload("store-builder-images", path)
-        lastUrl = mediaUrl(supabase.storage.from("store-builder-images").getPublicUrl(path).data.publicUrl)
-      } catch {
-        toast.error(`${f.name} could not be uploaded.`)
-      } finally {
-        setUploading((n) => n - 1)
+    const rows: Pending[] = good.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, preview: kind === "image" ? URL.createObjectURL(f) : null, progress: 0 }))
+    setPending((p) => [...rows, ...p])
+    const results = await Promise.all(
+      good.map(async (f, i) => {
+        const row = rows[i]
+        try {
+          return await uploadOne(f, (p) => setPending((all) => all.map((x) => (x.key === row.key ? { ...x, progress: Math.max(x.progress, p) } : x))))
+        } catch {
+          toast.error(`${f.name} could not be uploaded.`)
+          return null
+        }
+      }),
+    )
+    const added: LibraryFile[] = []
+    results.forEach((a, i) => {
+      if (!a) return
+      added.push(a)
+      const preview = rows[i].preview
+      if (preview) localPreview.set(a.url, preview)
+    })
+    /* The stored files take the pending tiles' places at once; the list is asked for again underneath. */
+    if (added.length) setFiles((all) => [...added, ...(all ?? []).filter((x) => !added.some((a) => a.id === x.id))])
+    setPending((p) => p.filter((x) => !rows.some((r) => r.key === x.key)))
+    window.setTimeout(() => {
+      for (const [i, r] of rows.entries()) {
+        if (!r.preview) continue
+        const a = results[i]
+        if (a) localPreview.delete(a.url)
+        URL.revokeObjectURL(r.preview)
       }
-    }
-    await load()
-    if (mode === "pick" && lastUrl && good.length === 1) onPick?.(lastUrl)
+    }, 60_000)
+    void load()
+    /* One file dropped or chosen while picking: it is the one picked, with the file itself to show at once. */
+    if (mode === "pick" && added.length === 1 && good.length === 1) onPickRef.current?.(added[0].url, { file: good[0] })
+    else if (added.length > 1) toast.success(`${added.length} files uploaded`)
   }
+
+  /* Open in Files lands on /app/files?file=<id>: that file's details, once the list is in. */
+  React.useEffect(() => {
+    if (!openId || !files) return
+    const f = files.find((x) => x.id === openId)
+    if (f) setOpen(f)
+  }, [openId, files])
 
   const remove = async (f: LibraryFile) => {
     setDeleting(true)
@@ -454,10 +740,10 @@ export function FilesLibrary({
 
   const onPress = React.useCallback(
     (f: LibraryFile) => {
-      if (mode === "pick") onPickRef.current?.(f.url)
+      if (mode === "pick") pickFile(f)
       else setOpen(f)
     },
-    [mode],
+    [mode, pickFile],
   )
   const onMenu = React.useCallback((f: LibraryFile, anchor: HTMLButtonElement) => {
     const closed = closedRef.current
@@ -474,15 +760,19 @@ export function FilesLibrary({
   const items = React.useMemo<ActionMenuItem[]>(() => {
     if (!menu) return []
     const f = menu.file
-    const use: ActionMenuItem[] = mode === "pick" ? [{ label: "Use this picture", icon: <Check />, onClick: () => onPickRef.current?.(f.url) }] : []
+    const use: ActionMenuItem[] =
+      mode !== "pick" ? [] : isVideo(f) ? [{ label: "Use this video", icon: <Check />, onClick: () => pickFile(f) }] : [{ label: "Use this picture", icon: <Check />, onClick: () => pickFile(f) }]
+    /* While picking, the file in the Files page itself, in a new tab so the builder stays as it is. */
+    const inFiles: ActionMenuItem[] = mode === "pick" ? [{ label: "Open in Files", icon: <ExternalLink />, href: `/app/files?file=${encodeURIComponent(f.id)}`, target: "_blank" }] : []
     return [
       ...use,
       { label: "Preview", icon: <Eye />, onClick: () => setOpen(f) },
       { label: "Copy link", icon: <Copy />, onClick: () => copyLink(f) },
       { label: "Download", icon: <Download />, onClick: () => void downloadFile(f) },
+      ...inFiles,
       { label: "Delete", icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
     ]
-  }, [menu, mode])
+  }, [menu, mode, pickFile])
   const groups = React.useMemo(() => groupsOf(items), [items])
 
   /* A dropdown held against the dots is closed by a scroll, since the dots move and it would not. */
@@ -497,6 +787,7 @@ export function FilesLibrary({
   const desktopMenu = menu && !menu.phone ? menu : null
 
   const gridCols = mode === "pick" ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5"
+  const sources = kind === "video" ? VIDEO_SOURCES : SOURCES
 
   return (
     <div
@@ -508,7 +799,10 @@ export function FilesLibrary({
           setDragOver(true)
         }
       }}
-      onDragLeave={() => setDragOver(false)}
+      onDragLeave={(e) => {
+        /* Only when the pointer has left the library, not when it moves from one tile onto the next. */
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false)
+      }}
       onDrop={(e) => {
         e.preventDefault()
         setDragOver(false)
@@ -524,12 +818,23 @@ export function FilesLibrary({
           </label>
           <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5 rounded-xl px-3 sm:px-4")} onClick={() => input.current?.click()} data-files-upload="">
             <ImagePlus className="h-4 w-4" aria-hidden />
-            {uploading > 0 ? `Uploading ${uploading}` : "Upload"}
+            {pending.length > 0 ? `Uploading ${pending.length}` : "Upload"}
           </button>
-          <input ref={input} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" multiple className="hidden" onChange={(e) => e.target.files && void upload(e.target.files)} />
+          <input
+            ref={input}
+            type="file"
+            accept={kind === "video" ? Object.keys(VIDEO_TYPES).join(",") : IMAGE_ACCEPT}
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) void upload(Array.from(e.target.files))
+              /* The same file chosen again is a new upload. */
+              e.target.value = ""
+            }}
+          />
         </div>
         <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Where it came from">
-          {SOURCES.map((s) => (
+          {sources.map((s) => (
             <button
               key={s}
               type="button"
@@ -564,14 +869,19 @@ export function FilesLibrary({
               </ul>
             ) : (
               <>
-                {shown.length === 0 ? (
+                {shown.length === 0 && pending.length === 0 ? (
                   <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
                     <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
-                    <p className="mt-1 text-[13px] text-[#6b7280]">{files.length === 0 ? "Upload pictures here, or drop them in, and use them anywhere on your website." : "Try another word or filter."}</p>
+                    <p className="mt-1 text-[13px] text-[#6b7280]">
+                      {files.length === 0 ? (kind === "video" ? "Upload a video here, or drop one in." : "Upload pictures here, or drop them in, and use them anywhere on your website.") : "Try another word or filter."}
+                    </p>
                   </div>
                 ) : null}
                 {/* Every tile stays built; a pill or a search only hides the ones that do not match, so going back shows them as they were, pictures and all. */}
-                <ul className={cn("grid gap-2.5", gridCols)} data-files-grid="" hidden={shown.length === 0}>
+                <ul className={cn("grid gap-2.5", gridCols)} data-files-grid="" hidden={shown.length === 0 && pending.length === 0}>
+                  {pending.map((row) => (
+                    <PendingTile key={row.key} row={row} />
+                  ))}
                   {files.map((f) => {
                     const at = shownAt.get(f.id)
                     return (
@@ -650,7 +960,7 @@ export function FilesLibrary({
         onClose={() => setOpen(null)}
         onUse={(f) => {
           setOpen(null)
-          onPickRef.current?.(f.url)
+          pickFile(f)
         }}
         onDelete={(f) => setConfirming(f)}
       />
@@ -712,23 +1022,27 @@ function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFi
           </div>
           <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:px-5 sm:py-5">
             <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={f.id}
-                ref={revealIfReady}
-                src={filePreview(f.url)}
-                alt=""
-                decoding="async"
-                onLoad={(e) => reveal(e.currentTarget)}
-                onError={(e) => fallBack(e.currentTarget, f.url)}
-                className={IMG_FADE}
-              />
+              {isVideo(f) ? (
+                <video key={f.id} src={f.url} controls muted playsInline preload="metadata" className="absolute inset-0 h-full w-full bg-black object-contain" />
+              ) : (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  key={f.id}
+                  ref={revealIfReady}
+                  src={filePreview(f.url)}
+                  alt=""
+                  decoding="async"
+                  onLoad={(e) => reveal(e.currentTarget)}
+                  onError={(e) => fallBack(e.currentTarget, f.url)}
+                  className={IMG_FADE}
+                />
+              )}
             </div>
             <div className="space-y-3">
               <dl className="grid grid-cols-2 gap-2.5 text-[13.5px] sm:grid-cols-1">
                 {[
                   ["Size", sizeText(f.bytes)],
-                  ["Type", (f.type ?? "").replace("image/", "").toUpperCase() || "Picture"],
+                  ["Type", (f.type ?? "").replace(/^(image|video)\//, "").toUpperCase() || noun(f)],
                   ["Uploaded", dateText(f.createdAt)],
                   ["From", f.source],
                 ].map(([k, v]) => (
@@ -741,7 +1055,7 @@ function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFi
               <div className="flex flex-wrap gap-2">
                 {mode === "pick" ? (
                   <button type="button" className={cn(BTN_PRIMARY, "w-full")} onClick={() => onUse(f)}>
-                    Use this picture
+                    {isVideo(f) ? "Use this video" : "Use this picture"}
                   </button>
                 ) : null}
                 <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => copyLink(f)}>
@@ -775,14 +1089,14 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
       open={!!file}
       onClose={onClose}
       phone={phone}
-      label="Delete this picture?"
+      label={f && isVideo(f) ? "Delete this video?" : "Delete this picture?"}
       showCloseButton={false}
       className="max-w-[420px] gap-0 rounded-2xl p-6"
       sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
     >
       {f ? (
         <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm="">
-          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Delete this picture?</SheetDialogTitle>
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{isVideo(f) ? "Delete this video?" : "Delete this picture?"}</SheetDialogTitle>
           <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
             {f.source === "Library" ? `${f.name} is removed from your files.` : `${f.name} is removed from your files, and anything that still shows it will show nothing.`}
           </p>
@@ -814,36 +1128,50 @@ const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.88)"
  * can't trap or clip them. Built on the first open and kept, so it can leave
  * with its own motion and a second open is already there.
  */
-export function FilesLibraryChooser({ open, onClose, onPick, selectedUrl }: { open: boolean; onClose: () => void; onPick: (url: string) => void; selectedUrl?: string | null }) {
+export function FilesLibraryChooser({
+  open,
+  onClose,
+  onPick,
+  selectedUrl,
+  kind = "image",
+}: {
+  open: boolean
+  onClose: () => void
+  onPick: (url: string, hint?: PickHint) => void
+  selectedUrl?: string | null
+  /** A video setting's chooser lists the store's videos. */
+  kind?: LibraryKind
+}) {
   const [used, setUsed] = React.useState(open)
   if (open && !used) setUsed(true)
   const phone = usePhoneNow()
   const pick = React.useCallback(
-    (url: string) => {
-      onPick(url)
+    (url: string, hint?: PickHint) => {
+      onPick(url, hint)
       onClose()
     },
     [onPick, onClose],
   )
   if (!used) return null
+  const title = kind === "video" ? "Choose a video" : "Choose from your files"
   return (
     <SheetDialog
       open={open}
       onClose={onClose}
       phone={phone}
-      label="Choose from your files"
+      label={title}
       showCloseButton={false}
       className="flex h-[min(760px,calc(100dvh-48px))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px] sm:rounded-2xl"
       sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, keepMounted: true }}
     >
-      <div className="flex min-h-0 flex-1 flex-col" data-files-chooser="">
+      <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind}>
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-4">
-          <SheetDialogTitle className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">Choose from your files</SheetDialogTitle>
+          <SheetDialogTitle className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">{title}</SheetDialogTitle>
           <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
             <X className="h-4 w-4" />
           </button>
         </div>
-        <FilesLibrary mode="pick" fill selectedUrl={selectedUrl} onPick={pick} />
+        <FilesLibrary mode="pick" kind={kind} fill selectedUrl={selectedUrl} onPick={pick} />
       </div>
     </SheetDialog>
   )

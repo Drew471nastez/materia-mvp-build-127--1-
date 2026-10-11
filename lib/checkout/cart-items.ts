@@ -35,6 +35,12 @@ export interface PackedItem {
    * before codes, or read by code from before them, is still read the same.
    */
   discountCents?: number
+  /**
+   * The tax on the line (Settings › Taxes), in cents, in its own key
+   * `cart_tax` the same way. With prices including tax it is inside the
+   * line's price; otherwise it was charged on top, as the basket's Tax line.
+   */
+  taxCents?: number
 }
 
 /** Stripe's cap on one metadata value. */
@@ -42,6 +48,8 @@ export const METADATA_VALUE_LIMIT = 500
 export const CART_METADATA_PREFIX = "cart_"
 /** Each written line's discount, in the order the lines were written: "0,120,0". */
 export const CART_DISCOUNTS_KEY = "cart_discounts"
+/** Each written line's tax, in the same order: "190,0,95". Only on a taxed basket. */
+export const CART_TAX_KEY = "cart_tax"
 
 const SEP = "|"
 const LINE = ";"
@@ -71,6 +79,7 @@ export function packItems(items: PackedItem[]): Record<string, string> {
   let index = 0
   let current = ""
   const discounts: number[] = []
+  const taxes: number[] = []
 
   const flush = () => {
     if (current === "") return
@@ -87,6 +96,7 @@ export function packItems(items: PackedItem[]): Record<string, string> {
     // than a corrupted one.
     if (encoded.length > METADATA_VALUE_LIMIT) continue
     discounts.push(Math.max(0, Math.round(item.discountCents ?? 0)))
+    taxes.push(Math.max(0, Math.round(item.taxCents ?? 0)))
     const next = current === "" ? encoded : `${current}${LINE}${encoded}`
     if (next.length > METADATA_VALUE_LIMIT) {
       flush()
@@ -99,6 +109,7 @@ export function packItems(items: PackedItem[]): Record<string, string> {
   /* Only a basket a code touched has the key. 50 lines of up to seven
      digits and a comma stay well inside one value. */
   if (discounts.some((d) => d > 0)) out[CART_DISCOUNTS_KEY] = discounts.join(",")
+  if (taxes.some((t) => t > 0)) out[CART_TAX_KEY] = taxes.join(",")
   return out
 }
 
@@ -110,6 +121,7 @@ export function packItems(items: PackedItem[]): Record<string, string> {
 export function unpackItems(metadata: Record<string, string> | null | undefined): PackedItem[] {
   if (!metadata) return []
   const discounts = (metadata[CART_DISCOUNTS_KEY] ?? "").split(",").map((d) => Number.parseInt(d, 10))
+  const taxes = (metadata[CART_TAX_KEY] ?? "").split(",").map((t) => Number.parseInt(t, 10))
   const out: PackedItem[] = []
   /* A line's discount is found by the place it was written in, counted over
      every line written, so a line that does not decode cannot shift the
@@ -125,6 +137,8 @@ export function unpackItems(metadata: Record<string, string> | null | undefined)
       const d = discounts[at]
       /* Never more than the line: a discount cannot make a line negative. */
       if (Number.isFinite(d) && d > 0) item.discountCents = Math.min(d, item.priceCents * item.quantity)
+      const t = taxes[at]
+      if (Number.isFinite(t) && t > 0) item.taxCents = t
       out.push(item)
     }
   }

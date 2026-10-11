@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { SiteAccount } from "@/lib/storelib-theme/compat/account"
 import { siteCustomer } from "./account-data"
+import { customerOrderAccess } from "./order-files"
 import { customerById } from "./customers"
 import { cookieFrom, hostOf, pendingCookieName, pendingFrom, sessionCookieName, visitorFrom } from "./session"
 
@@ -20,7 +21,7 @@ import { cookieFrom, hostOf, pendingCookieName, pendingFrom, sessionCookieName, 
  * No cookie, or one that does not verify, costs nothing: the database is
  * asked only for a session that is already proven to be this website's.
  */
-export async function siteAccountOf(request: Request, creatorId: string, opts: { orders: boolean; pending: boolean }): Promise<SiteAccount> {
+export async function siteAccountOf(request: Request, creatorId: string, opts: { orders: boolean; pending: boolean; order?: string | null }): Promise<SiteAccount> {
   const host = hostOf(request)
   const visitor = visitorFrom(cookieFrom(request, sessionCookieName(host)), host, { creatorId })
   if (visitor) {
@@ -28,7 +29,12 @@ export async function siteAccountOf(request: Request, creatorId: string, opts: {
       const db = createAdminClient()
       const row = await customerById(db, visitor)
       if (row) {
-        if (opts.orders) return { customer: await siteCustomer(db, row, `https://${getMainDomain()}`) }
+        /* On an order's own page, that order, read only if it is this customer's (./order-files.ts). */
+        if (opts.order) {
+          const [customer, access] = await Promise.all([siteCustomer(db, row, `https://${getMainDomain()}`, { orderPages: true }), customerOrderAccess(db, { creatorId, email: row.email }, opts.order)])
+          return { customer, order: access?.detail ?? null }
+        }
+        if (opts.orders) return { customer: await siteCustomer(db, row, `https://${getMainDomain()}`, { orderPages: true }) }
         const name = (row.name ?? "").trim()
         return { customer: { name, first_name: name.split(/\s+/)[0] ?? "", email: row.email, orders: [], orders_count: 0 } }
       }

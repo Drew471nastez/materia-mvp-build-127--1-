@@ -19,7 +19,7 @@ import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
-import { canMoveShipment, fulfillmentStatusOf, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
+import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
@@ -477,6 +477,22 @@ export async function saveNote(db: Db, creatorId: string, checkoutId: string, no
   return { ok: !error }
 }
 
+/**
+ * REFUNDED IN FULL BEFORE ANYTHING SHIPPED: the stock goes back. Without
+ * this, a refunded order kept its units committed for ever, and the shop
+ * showed them as not available. Only when the whole amount is refunded and
+ * no shipment is out: a partial refund, or one after shipping, leaves stock
+ * to the return flow, which restocks what comes back. Safe to call twice.
+ * The rule is ./status refundReleasesStock, pure, so the tests run it.
+ */
+async function releaseRefundedStock(db: Db, creatorId: string, order: PhysicalOrder, actor: "creator" | "webhook"): Promise<void> {
+  if (!refundReleasesStock(order)) return
+  await db.rpc("physical_cancel_unfulfilled", { p_checkout: order.id })
+  const now = new Date().toISOString()
+  await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: "Refunded in full before it shipped", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", order.id).eq("creator_id", creatorId).is("cancelled_at", null)
+  await addOrderEvent(db, { checkoutId: order.id, creatorId, kind: "order.cancelled", message: "Refunded in full before it shipped. Stock released.", actor, key: `refund_release:${order.id}` })
+}
+
 /** After the existing refund route refunded lines: the order and its timeline catch up. */
 export async function noteRefund(db: Db, creatorId: string, checkoutId: string, returnId: string | null): Promise<Outcome> {
   const before = await loadOrder(db, { creatorId, checkoutId })
@@ -497,6 +513,7 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
     const r = before.returns.find((x) => x.id === returnId)
     if (r && refundedForReturn > 0) await db.from("commerce_returns").update({ refunded_cents: r.refundedCents + refundedForReturn, updated_at: new Date().toISOString() }).eq("id", returnId).eq("creator_id", creatorId)
   }
+  await releaseRefundedStock(db, creatorId, updated, "creator")
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }
@@ -531,6 +548,7 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
       actor: "webhook",
       key: `refund_total:${checkoutId}:${updated.refundedCents}`,
     })
+    await releaseRefundedStock(db, creatorId, updated, "webhook")
     done++
   }
   return done

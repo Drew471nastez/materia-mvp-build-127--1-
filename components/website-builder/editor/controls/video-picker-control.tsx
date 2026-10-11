@@ -20,14 +20,16 @@
 
 import * as React from "react"
 import { isOwnMedia } from "@/lib/storage/media-url"
-import { Film, Loader2, Upload, X } from "lucide-react"
+import { ChevronDown, Film, FolderOpen, Loader2, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { createClient } from "@/lib/supabase/client"
 import { parseVideoUrl } from "@/lib/storelib-theme/values"
 import { useEchoedValue } from "@/components/website-builder/echo-field"
-import { INPUT, NOTE, PROBLEM, TEXT_BUTTON } from "./styles"
+import { FilesLibraryChooser, prefetchLibrary } from "@/components/files/files-library"
+import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
+import { INPUT, NOTE, PROBLEM } from "./styles"
 
 /** What the store-builder-images bucket takes as video. */
 export const VIDEO_TYPES: Record<string, string> = {
@@ -50,6 +52,9 @@ export function isVideoFileUrl(value: string): boolean {
 export function VideoPickerControl({ value, onChange, label }: { value: string; onChange: (v: unknown) => void; label?: string }) {
   const [shown, set] = useEchoedValue(value ?? "", onChange)
   const [uploading, setUploading] = React.useState(false)
+  /* The store's own videos (components/files/files-library.tsx, kind "video"): part of this control, as Your files is part of the image picker. */
+  const [choosing, setChoosing] = React.useState(false)
+  const warm = () => void prefetchLibrary("video")
   const input = React.useRef<HTMLInputElement>(null)
   const text = typeof shown === "string" ? shown.trim() : ""
   const playable = !!text && isVideoFileUrl(text)
@@ -88,31 +93,62 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
     }
   }
 
+  const actionClass = "inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white px-2.5 h-8 text-[12.5px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-10 max-sm:px-3.5"
   return (
     <div className="space-y-1.5" data-video-picker="">
       {playable ? (
-        <div className="relative aspect-video w-full overflow-hidden rounded-md border border-border bg-black">
-          <video src={text} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-          <button
-            type="button"
-            aria-label="Remove video"
-            onClick={() => set("")}
-            className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80"
-          >
-            <X className="h-3 w-3" />
-          </button>
+        <div className="space-y-1.5">
+          <div className="relative aspect-video w-full overflow-hidden rounded-md border border-border bg-black">
+            <video src={text} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+            {uploading && (
+              <span className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+                <Loader2 className="h-4 w-4 animate-spin" />
+              </span>
+            )}
+          </div>
+          {/* A video already there: Change (upload another or choose one of yours) and Remove, under it. */}
+          <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
+            <ResponsiveActionMenu
+              title="Change video"
+              menuWidth="w-56"
+              align="start"
+              items={[
+                { label: "Upload a new one", icon: <Upload className="h-4 w-4" />, onClick: () => input.current?.click() },
+                { label: "Choose from your files", icon: <FolderOpen className="h-4 w-4" />, onClick: () => setChoosing(true) },
+              ]}
+              trigger={
+                <button type="button" disabled={uploading} onPointerEnter={warm} onFocus={warm} className="flex h-10 w-full items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs data-[state=open]:bg-muted/60" data-video-change="">
+                  <RefreshCw className="h-3 w-3" />
+                  Change
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              }
+            />
+            <button type="button" aria-label="Remove video" disabled={uploading} onClick={() => set("")} className="flex h-10 items-center justify-center gap-1.5 border-l border-border text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs">
+              <Trash2 className="h-3 w-3" />
+              Remove
+            </button>
+          </div>
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => input.current?.click()}
-          disabled={uploading}
-          className="flex aspect-video w-full flex-col items-center justify-center gap-1.5 rounded-md border border-dashed border-border text-[12px] text-muted-foreground transition-colors hover:border-neutral-400 hover:text-foreground disabled:opacity-60"
-        >
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 rounded-md border border-dashed border-border text-[12px] text-muted-foreground" data-video-empty="">
           {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Film className="h-4 w-4" strokeWidth={1.75} />}
-          {uploading ? "Uploading" : "Upload a video"}
-        </button>
+          <span className="font-medium text-foreground/80">{uploading ? "Uploading" : "Add a video"}</span>
+          {!uploading && (
+            <span className="flex items-center gap-1.5">
+              <button type="button" onClick={() => input.current?.click()} className={actionClass} data-video-upload="">
+                <Upload className="h-3 w-3" />
+                Upload
+              </button>
+              <button type="button" onClick={() => setChoosing(true)} onPointerEnter={warm} onFocus={warm} className={actionClass} data-video-library="">
+                <FolderOpen className="h-3 w-3" />
+                Your files
+              </button>
+            </span>
+          )}
+        </div>
       )}
+      <FilesLibraryChooser kind="video" open={choosing} onClose={() => setChoosing(false)} selectedUrl={text || null} onPick={(url) => set(url)} />
       <input
         ref={input}
         type="file"
@@ -137,12 +173,6 @@ export function VideoPickerControl({ value, onChange, label }: { value: string; 
         value={typeof shown === "string" && !isOwnMedia(shown) ? shown : ""}
         onChange={(e) => set(e.target.value)}
       />
-      {playable && (
-        <button type="button" className={TEXT_BUTTON} onClick={() => input.current?.click()} disabled={uploading}>
-          <Upload className="mr-1 h-3 w-3" />
-          Replace
-        </button>
-      )}
       {text && player && (
         <p className={PROBLEM} role="alert">
           That is a {player.host === "youtube" ? "YouTube" : "Vimeo"} page, which a video file setting cannot play. Use the section&apos;s video link setting for it.

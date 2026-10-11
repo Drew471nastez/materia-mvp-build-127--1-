@@ -32,6 +32,7 @@ import { MenusEditor } from "./menus-editor"
 import { ProductListControl, ProductPickerControl } from "./product-list-control"
 import { VideoPickerControl } from "./video-picker-control"
 import { VideoUrlControl } from "./video-url-control"
+import { ColorSchemeControl } from "./color-scheme-control"
 
 export { DynamicSourceField } from "./dynamic-source-field"
 export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type PickerCollection, type PickerCommunity, type PickerProduct } from "./context"
@@ -39,7 +40,7 @@ export { EditorFieldProvider, SiblingSettingsProvider, type EditorFieldEnv, type
 /** The types this folder draws, for FieldEditor's label rule and the docs. */
 export const REGISTERED_CONTROLS = [
   "inline_richtext", "html", "color_background", "datetime", "focal_point", "image_picker", "file_picker", "video_url", "video_picker", "product_list", "product_picker", "link_list", "menus", "community_picker",
-  "collection_picker", "collection_list", "number", "font_picker", "css",
+  "collection_picker", "collection_list", "number", "font_picker", "css", "color_scheme",
 ] as const
 
 /** Controls that print their own name, so the panel does not label them twice. */
@@ -97,6 +98,9 @@ export function renderRegisteredControl(
     /* Theme settings › Custom CSS. Not a section setting. */
     case "css":
       return <CssControl value={str} onChange={onChange} placeholder={field.placeholder} label={field.label} />
+    /* The theme's own schemes on an imported theme, Storelib's on its own (color-scheme-control.tsx). */
+    case "color_scheme":
+      return <ColorSchemeControl value={str} onChange={onChange} fallback={fallback} label={field.label} />
     /* A paragraph from a .storelib schema says what it says in `content`. */
     case "paragraph":
       return field.content ? <p className="text-xs text-muted-foreground leading-relaxed">{field.content}</p> : null

@@ -62,6 +62,9 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     variant_name: order.variant_name ?? null,
     source: order.source ?? null,
     source_detail: order.source_detail ?? null,
+    /* Settings › Taxes: the tax in the amount (parts 110 and 129), absent on an older database. */
+    tax_cents: Number(order.tax_cents) || 0,
+    tax_included: order.tax_included === true,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
     ...(order.checkout_id ? { checkout_id: order.checkout_id as string, quantity: (order.quantity as number) ?? 1 } : {}),
   }
