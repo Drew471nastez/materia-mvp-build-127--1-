@@ -12,6 +12,12 @@
  *                    asks for itself that way once the page has loaded and
  *                    fills its mega menu and drawer only when the index is
  *                    blank; with one, the menu stayed empty on the website.
+ *   PICTURES         image_url asks the optimizer for the width the theme
+ *                    asked for (Shopify's size), not twice it: a srcset's
+ *                    "720w" file was 1920 wide. Storelib's own uploads
+ *                    (storelib.com/media) are resized; they went out whole.
+ *                    image_tag is not lazy in the page's first three
+ *                    sections, as on Shopify: the hero is asked for first.
  *   A CARD PRESSED   in the builder's canvas, a product card that opens its
  *                    product with location.href (pressed on its picture,
  *                    not on its link) tells the builder which product, as a
@@ -70,6 +76,27 @@ async function main() {
     check("  and the page's section's too", /<p>alone<\/p>/.test(await get("section_id=b")))
     const many = JSON.parse(await get("sections=h,b")) as Record<string, string>
     check("  and every one of ?sections=", /eager/.test(many.h) && /alone/.test(many.b), many)
+  }
+
+  console.log("\nPictures\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{{ content_for_layout }}</body></html>`),
+      "sections/pic.storelib": section("pic", `<i data-a="{{ section.settings.src | image_url: width: 720 }}" data-b="{{ section.settings.src | image_url: width: 165 }}" data-c="{{ 'https://img.test/x.png' | image_url: width: 400 }}"></i>{{ section.settings.src | image_url: width: 1200 | image_tag: widths: '360, 720' }}{{ section.settings.src | image_tag: loading: 'eager' }}`, [{ type: "text", id: "src" }]),
+    }
+    const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` })
+    const ctx = theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "S" } })
+    const own = "https://storelib.com/media/product-images/u/shirt.jpg"
+    const first = theme.renderSection(ctx, { id: "a", type: "pic", settings: { src: own }, hidden: false, blocks: [] }, 0).html
+    const fifth = theme.renderSection(ctx, { id: "b", type: "pic", settings: { src: "https://abc.supabase.co/storage/v1/object/public/x/y.jpg" }, hidden: false, blocks: [] }, 4).html
+    const enc = encodeURIComponent(own).replace(/%/g, "%")
+    check("Storelib's own upload is resized, at the width asked for (720: the 750 file, not 1920)", first.includes(`data-a="/_next/image?url=${enc}&amp;w=750&amp;q=75"`) || first.includes(`data-a="/_next/image?url=${enc}&w=750&q=75"`), first.slice(0, 400))
+    check("  a small one small (165: the 256 file)", /data-b="\/_next\/image\?url=[^"]*?(&amp;|&)w=256(&amp;|&)q=75"/.test(first), first.slice(0, 400))
+    check("  a picture from a host the optimizer does not fetch goes as it is", first.includes('data-c="https://img.test/x.png"'))
+    check("  a srcset's widths are those widths", /srcset="[^"]*w=384[^"]* 360w, [^"]*w=750[^"]* 720w"/.test(first), first)
+    check("image_tag in the page's first section is not lazy", !/<img [^>]*loading="lazy"/.test(first), first)
+    check("  in the fifth it is", /<img [^>]*w=1200[^>]*loading="lazy"/.test(fifth), fifth)
+    check("  and what the theme says wins", /<img [^>]*loading="eager"/.test(fifth) && !/loading="eager"[^>]*loading="lazy"/.test(fifth), fifth)
   }
 
   console.log("\nA product card pressed on its picture, in the canvas\n")

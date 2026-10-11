@@ -60,7 +60,7 @@ export function isOptimizableImage(src?: string | null): boolean {
 }
 
 /** deviceSizes ∪ imageSizes, sorted. Next rejects anything else. */
-const NEXT_IMAGE_WIDTHS = [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840]
+export const NEXT_IMAGE_WIDTHS = [32, 48, 64, 96, 128, 256, 384, 640, 750, 828, 1080, 1200, 1920, 2048, 3840]
 
 /**
  * Higher than Next's default 75, and deliberately so.

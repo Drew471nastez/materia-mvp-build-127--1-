@@ -10,7 +10,8 @@
  * wrong kind: a theme that pipes a nil into `money` prints nothing, as on
  * Shopify, rather than taking the page down.
  */
-import { optimizedImageUrl } from "@/lib/images/optimized-url"
+import { NEXT_IMAGE_WIDTHS, isOptimizableImage } from "@/lib/images/optimized-url"
+import { isOwnMedia } from "@/lib/storage/media-url"
 import { LFloat, OUTPUT, isBlank, prop, toList, toOutput, truthy, type Ctx, type FilterFn } from "./runtime"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -129,13 +130,25 @@ function sized(src: string, width: unknown, height?: unknown): string {
   if (!want) return src
   /* An SVG or a GIF goes as it is: the optimizer refuses the one and stills the other. */
   if (/\.(svg|gif)(?:[?#]|$)/i.test(src)) return src
-  /* Storelib's optimizer sizes by width; a height alone asks for that many pixels across, at most.
-     75 is a quality next.config.mjs serves: any other is a 400, not a picture. */
-  try {
-    return optimizedImageUrl(src, Math.min(3840, Math.max(16, w || h)), 75)
-  } catch {
-    return src
+  /*
+    Storelib's optimizer sizes by width; a height alone asks for that many
+    pixels across, at most. THE WIDTH ASKED FOR, as Shopify serves it (the
+    next size the optimizer makes): a theme's srcset says "720w" of the file
+    it names, and a file twice that wide was a phone downloading four times
+    the pixels it drew. Storelib's own uploads (storelib.com/media/…) are
+    resized too; they went out at their full size.
+    75 is a quality next.config.mjs serves: any other is a 400, not a picture.
+  */
+  /* Already sized (`image_url: width: 1200 | image_tag: widths: …`): each width asked of the original, as Shopify's CDN does. */
+  if (src.startsWith("/_next/image")) {
+    const original = new URLSearchParams(src.split("?")[1] ?? "").get("url")
+    if (!original || original.startsWith("/_next/image")) return src
+    src = original
   }
+  if (src.startsWith("data:") || src.startsWith("blob:") || !(isOptimizableImage(src) || isOwnMedia(src))) return src
+  const pixels = Math.min(3840, Math.max(16, w || h))
+  const file = NEXT_IMAGE_WIDTHS.find((x) => x >= pixels) ?? NEXT_IMAGE_WIDTHS[NEXT_IMAGE_WIDTHS.length - 1]
+  return `/_next/image?url=${encodeURIComponent(src)}&w=${file}&q=75`
 }
 
 function imageAttrs(v: unknown): { width?: number; height?: number; alt?: string } {
@@ -147,7 +160,7 @@ function imageAttrs(v: unknown): { width?: number; height?: number; alt?: string
 
 const IMAGE_TAG_KEYS = new Set(["widths", "sizes", "preload", "alt", "class", "loading", "fetchpriority", "decoding", "width", "height", "style", "id", "role", "srcset", "data"])
 
-function imageTag(input: unknown, kwargs: Record<string, unknown>): string {
+function imageTag(input: unknown, kwargs: Record<string, unknown>, ctx?: Ctx): string {
   const src = typeof input === "string" ? input : imageSrc(input)
   if (!src) return ""
   const meta = imageAttrs(input)
@@ -172,7 +185,14 @@ function imageTag(input: unknown, kwargs: Record<string, unknown>): string {
     parts.push(v === true ? name : `${name}="${attr(v)}"`)
     void IMAGE_TAG_KEYS
   }
-  if (kwargs.loading === undefined && kwargs.preload !== true) parts.push(`loading="lazy"`)
+  /*
+    Lazy unless the theme said otherwise, and not in the page's first three
+    sections, as Shopify's image_tag does: a hero or a header's logo drawn
+    lazily waited for the layout before it was even asked for, and came in
+    after the page around it.
+  */
+  const index = Number((ctx?.registers.section as { index?: unknown } | undefined)?.index)
+  if (kwargs.loading === undefined && kwargs.preload !== true && !(index >= 1 && index <= 3)) parts.push(`loading="lazy"`)
   return `<img ${parts.join(" ")}>`
 }
 
@@ -556,7 +576,7 @@ const F: Record<string, FilterFn> = {
   customer_register_link: (v) => `<a href="/account/register" id="customer_register_link">${str(v)}</a>`,
 
   /* HTML */
-  image_tag: (v, _a, kw) => imageTag(v, kw),
+  image_tag: (v, _a, kw, ctx) => imageTag(v, kw, ctx),
   img_tag: (v, [alt, cls]) => { const s = imageSrc(v); return s ? `<img src="${attr(s)}" alt="${attr(alt ?? "")}"${cls ? ` class="${attr(cls)}"` : ""}>` : "" },
   stylesheet_tag: (v, _a, kw) => `<link href="${attr(v)}" rel="stylesheet" type="text/css" media="${attr(kw.media ?? "all")}"${kw.preload ? ` fetchpriority="high"` : ""}>`,
   script_tag: (v) => `<script src="${attr(v)}" type="text/javascript"></script>`,

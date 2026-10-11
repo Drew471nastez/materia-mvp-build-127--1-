@@ -220,8 +220,19 @@ async function serve(zipPath: string) {
 */
 const ONLY = (process.env.CHECKS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
 /* A page opened and settled. On a busy machine "settled" can take long; a page still busy after 90s is looked at as it is, and says so. */
+const inFlight = new WeakMap<Page, Map<unknown, string>>()
 const go = async (page: Page, url: string) => {
-  await page.goto(url, { waitUntil: "networkidle0", timeout: 90_000 }).catch((e) => console.log(`        (${url.replace(/^https?:\/\/[^/]+/, "").slice(0, 60)}: ${String(e).slice(0, 60)})`))
+  if (!inFlight.has(page)) {
+    const open = new Map<unknown, string>()
+    inFlight.set(page, open)
+    page.on("request", (r) => open.set(r, `${r.resourceType()} ${r.url().slice(0, 90)}`))
+    for (const ev of ["requestfinished", "requestfailed"] as const) page.on(ev, (r) => open.delete(r))
+  }
+  await page.goto(url, { waitUntil: "networkidle0", timeout: 90_000 }).catch(async (e) => {
+    /* What it was still waiting for, and whether the page itself still answers. */
+    const answers = await Promise.race([page.evaluate(() => document.readyState).catch((x) => `no: ${String(x).slice(0, 40)}`), new Promise((r) => setTimeout(() => r("no answer in 5s"), 5000))])
+    console.log(`        (${url.replace(/^https?:\/\/[^/]+/, "").slice(0, 60)}: ${String(e).slice(0, 60)}; page: ${answers}; waiting for: ${[...(inFlight.get(page)?.values() ?? [])].slice(0, 4).join(" | ") || "nothing"})`)
+  })
 }
 const wants = (what: string) => !ONLY.length || ONLY.includes(what)
 /* A group of checks that stopped part way (the browser stopped answering on a busy machine) is one failure, and the rest still run. */
