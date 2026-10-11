@@ -2,7 +2,7 @@
  * ===========================================================================
  *  PHYSICAL COMMERCE ON THE STOREFRONT, IN A REAL BROWSER (round 23, W23)
  * ===========================================================================
- *   npx tsx scripts/check-storefront23.ts [compat] [storelib] [domains]
+ *   npx tsx scripts/check-storefront23.ts [compat] [canvas] [storelib] [domains]
  *
  *   compat    tests/fixtures/shopify-posture through the import's own
  *             converter, its product and cart sections written as Dawn
@@ -13,6 +13,10 @@
  *             product, adds two, opens the cart, types a quantity over what
  *             is left and a note, and presses Check out: the checkout it
  *             lands on is read for its lines and its note.
+ *   canvas    the real editor (scripts/render-editor-probe.tsx) on the same
+ *             theme: the header's link to the product opens its page in the
+ *             canvas with the stock, the stop and pickup; two sold elsewhere,
+ *             the builder comes back into view and the page says so.
  *   storelib  Storelib's own product section and cart page
  *             (scripts/render-storefront23.tsx): Delivery and pickup for the
  *             chosen option, Only 3 left, Sold out, the quantity's stop, Add
@@ -77,6 +81,10 @@ const sideways = (page: Page) => page.evaluate(() => document.documentElement.sc
 const PRODUCT_SECTION = readFileSync(join(root, "tests/storefront23.test.ts"), "utf8").match(/const PRODUCT_SECTION = `([\s\S]*?)`\n/)![1]
 const CART_SECTION = readFileSync(join(root, "tests/storefront23.test.ts"), "utf8").match(/const CART_SECTION = `([\s\S]*?)`\n/)![1]
 
+let converted: Awaited<ReturnType<typeof convertShopifyTheme>> extends infer R ? (R extends { ok: true; theme: infer T } ? T | null : null) : null = null
+const SHIRT = "00000000-0000-4000-8000-000000000001"
+const SMALL_ID = "10000000-0000-4000-8000-000000000001"
+
 async function compatSite(): Promise<{ site: SiteData; theme: SiteData["theme"] }> {
   const dir = join(root, "tests", "fixtures", "shopify-posture")
   const zip = new JSZip()
@@ -93,6 +101,7 @@ async function compatSite(): Promise<{ site: SiteData; theme: SiteData["theme"] 
   const r = await convertShopifyTheme(zip)
   if (!r.ok) throw new Error("the fixture theme did not convert")
   const t = r.theme
+  converted = t
   const theme = themeOfInstall(t.files, t.settings, { assetUrl: (n) => `/assets/${encodeURIComponent(n)}`, assetText: (n) => t.files[`shopify/assets/${n}`] ?? null })
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections])) as SiteData["pages"]
   const PID = "00000000-0000-4000-8000-000000000001"
@@ -228,6 +237,115 @@ async function compat(browser: Browser) {
 }
 const location_port = (base: string) => new URL(base).port
 
+/* ── The builder's canvas on the imported theme ─────────────────────────── */
+
+async function canvas(browser: Browser) {
+  console.log("\nthe builder's canvas, imported theme")
+  const { site } = await compatSite()
+  const t = converted!
+  const { bundle, css } = (await import("./editor-probe-harness.mjs" as string)) as { bundle: string; css: string }
+  const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
+  const files = Object.fromEntries(Object.entries(t.files).filter(([p, v]) => p.startsWith("shopify/") && !v.startsWith("base64:")))
+  const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections]))
+  const compat = { settings: t.settings, pages, sources, files }
+  const card = site.products[0]
+  const stockAnswer = (left: number) => ({
+    product: { id: SHIRT },
+    variants: [
+      { id: SMALL_ID, name: "Small", left, maxQuantity: left, soldOut: false, pickup: [{ name: "Main Street", city: "Lisbon", ready: "Usually ready in 24 hours" }] },
+      { id: "10000000-0000-4000-8000-000000000003", name: "Medium", left: null, maxQuantity: 4, soldOut: false, pickup: [] },
+      { id: "10000000-0000-4000-8000-000000000002", name: "Large", left: null, maxQuantity: 0, soldOut: true, pickup: [] },
+    ],
+  })
+  const globals = {
+    PROBE_SHORT: false,
+    PROBE_COMPAT: compat,
+    PROBE_PRODUCTS: [{ id: SHIRT, title: "Posture shirt", slug: "posture-shirt", status: "published", price: 49, type: "physical" }],
+    PROBE_CARDS: { shop: [card], catalog: [card] },
+    PROBE_STOREFRONT: { [SHIRT]: stockAnswer(3) },
+    PROBE_STORE_MENUS: { available: true, stored: true, menus: { "main-menu": { title: "Main", links: [{ title: "Shirt", url: "/products/posture-shirt" }] } } },
+  }
+  const server = createServer((req, res) => {
+    const url = new URL(req.url ?? "/", "http://127.0.0.1")
+    if (url.pathname === "/") {
+      res.writeHead(200, { "Content-Type": "text/html" })
+      res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><style>${css}</style></head><body><div id="app"></div><script>${Object.entries(globals).map(([k, v]) => `window.${k}=${JSON.stringify(v).replace(/</g, "\\u003c")};`).join("")}</script><script src="/editor-probe.js"></script></body></html>`)
+      return
+    }
+    if (url.pathname === "/editor-probe.js") { res.writeHead(200, { "Content-Type": "text/javascript" }); res.end(readFileSync(bundle)); return }
+    const asset = url.pathname.match(/^\/api\/site-theme\/assets\/[^/]+\/[^/]+\/(.+)$/)
+    if (asset) {
+      const text = t.files[`shopify/assets/${decodeURIComponent(asset[1])}`]
+      if (text === undefined) { res.writeHead(404, { "Access-Control-Allow-Origin": "*" }); res.end(); return }
+      res.writeHead(200, { "Content-Type": asset[1].endsWith(".css") ? "text/css" : "text/javascript", "Access-Control-Allow-Origin": "*" })
+      res.end(text)
+      return
+    }
+    res.writeHead(404)
+    res.end()
+  })
+  await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok))
+  const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`
+  try {
+    for (const vp of VIEWPORTS) {
+      const page = await pageFor(browser, vp)
+      const errors: string[] = []
+      page.on("pageerror", (e) => errors.push(String(e).slice(0, 160)))
+      await page.goto(base, { waitUntil: "domcontentloaded" })
+      const frame = async (want?: (doc: Document) => boolean) => {
+        for (let i = 0; i < 200; i++) {
+          const h = await page.$("[data-compat-frame='front']").catch(() => null)
+          const f = h ? await h.contentFrame().catch(() => null) : null
+          if (f && (await f.evaluate((w) => document.readyState !== "loading" && !!document.querySelector(".shopify-section") && (!w || new Function("d", `return (${w})(d)`)(document)), want ? want.toString() : "").catch(() => false))) return f
+          await sleep(100)
+        }
+        await page.screenshot({ path: `${OUT}/canvas-stuck-${vp.label}.png` })
+        throw new Error("the canvas never drew the page")
+      }
+      let f = await frame()
+      await sleep(600)
+      /* The header's link to the product, pressed in the canvas: the builder opens the product page. */
+      const fb = (await (await page.$("[data-compat-frame='front']"))!.boundingBox())!
+      const at = await f.evaluate(() => {
+        /* One on screen: on a phone the header's menu is in its drawer, and the footer's link is below the fold until scrolled to. */
+        const a = [...document.querySelectorAll<HTMLAnchorElement>("a")].find((x) => x.getAttribute("href") === "/products/posture-shirt" && x.getBoundingClientRect().width > 0 && getComputedStyle(x).visibility !== "hidden")
+        if (!a) return null
+        a.scrollIntoView({ block: "center" })
+        const r = a.getClientRects()[0] ?? a.getBoundingClientRect()
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })
+      if (!at) {
+        check(`${vp.label}: the header has a link to the product`, false)
+        await page.close()
+        continue
+      }
+      /* A tap on a phone selects what it lands on, as the builder's phone canvas does; the click opens the page on both. */
+      await sleep(400)
+      if (process.env.DEBUG) console.log("    link at", at, "frame", fb)
+      await page.mouse.click(fb.x + at.x, fb.y + at.y)
+      f = await frame((d) => /Low stock: \d+ left/.test(d.body.textContent ?? ""))
+      const shown = await f.evaluate(() => ({
+        stock: document.querySelector(".product__inventory")?.textContent,
+        max: (document.querySelector(".quantity__input") as HTMLInputElement | null)?.max,
+        pickup: document.querySelector(".pickup-availability p")?.textContent,
+        large: [...document.querySelectorAll(".variant-select option")].map((o) => `${o.textContent}${(o as HTMLOptionElement).disabled ? " (off)" : ""}`),
+      }))
+      await page.screenshot({ path: `${OUT}/canvas-product-${vp.label}.png` })
+      check(`${vp.label}: the canvas's product page shows Only 3 left, the stop at 3, pickup and Large sold out`, shown.stock === "Low stock: 3 left" && shown.max === "3" && shown.pickup === "Pickup available at Main Street" && shown.large.includes("Large - Sold out (off)"), shown)
+      /* Two sold elsewhere while the builder was in another tab: it comes back, and the page says so. */
+      await page.evaluate((next) => { (window as unknown as { PROBE_STOREFRONT: unknown }).PROBE_STOREFRONT = next }, { [SHIRT]: stockAnswer(1) })
+      const t0 = Date.now()
+      await page.evaluate(() => window.dispatchEvent(new Event("focus")))
+      f = await frame((d) => /Low stock: 1 left/.test(d.body.textContent ?? ""))
+      check(`${vp.label}: back in the builder, the canvas says 1 left (${Date.now() - t0}ms)`, Date.now() - t0 < 4000)
+      check(`${vp.label}: no script errors in the editor`, errors.length === 0, errors[0] ?? "")
+      await page.close()
+    }
+  } finally {
+    server.close()
+  }
+}
+
 /* ── Storelib's own product section and cart, and Website settings › Domains ── */
 
 async function bundleHarness(): Promise<string> {
@@ -362,6 +480,7 @@ async function main() {
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox", "--host-resolver-rules=MAP shop.test 127.0.0.1, MAP posturex.test 127.0.0.1"] })
   try {
     if (all || parts.has("compat")) await compat(browser)
+    if (all || parts.has("canvas")) await canvas(browser)
     if (all || parts.has("storelib") || parts.has("domains")) {
       const bundle = await bundleHarness()
       const { server, port } = await serveHarness(bundle)
