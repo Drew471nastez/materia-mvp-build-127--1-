@@ -251,7 +251,10 @@ payload, which add the same bytes before and after.
   checks that fail the same way on `main` without these changes: "Add
   section's cards are the theme's sections, drawn" is a race in the probe
   (it reads the cards the moment the sixth frame appears; `main` failed it
-  2 of 3 runs), and the save problem banner checks on Dawn.
+  2 of 3 runs), and the save problem banner checks on Dawn. After merging
+  `main` (round 19's "one selection at a time"), "the selection is one
+  unbroken ring over the section" fails on Horizon on `main` itself as well
+  (the probe selects a block, whose section ring is now hidden).
 - Suites that fail on `main` before and after this work:
   `storelib-hardening` (2), `products-area` (the app stage landing regex),
   `site-resilience` (uses `__dirname` under ESM).
