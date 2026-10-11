@@ -28,7 +28,7 @@ import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-the
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
-import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
+import { drawPage, drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
@@ -313,7 +313,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     for (const s of changed) {
-      const at = list.indexOf(s)
+      /* Its place among its own part's sections, as the page was drawn (section.index). */
+      const at = sectionIndexIn(list, s)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       let html: string
       try {

@@ -472,7 +472,7 @@ async function cardChecks(page: Page, base: string, label: string) {
     await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
     const spot = await frame.evaluate(() => {
       const main = document.querySelector("main, #MainContent") ?? document.body
-      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && !!i.closest("li, [class*='card' i], product-card") && !!i.closest("li, [class*='card' i], product-card")!.querySelector("a[href*='/products/linen-shirt-']") })
+      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && (() => { for (let e: Element | null = i.parentElement, n = 0; e && n < 8; e = e.parentElement, n++) if (e.querySelector("a[href*='/products/linen-shirt-']")) return true; return false })() })
       if (!img) return null
       img.scrollIntoView({ block: "center" })
       const b = img.getBoundingClientRect()
@@ -562,6 +562,16 @@ async function overlayChecks(page: Page, base: string, label: string, overlay: {
   largest one is asked for first, as Shopify's own themes do).
 */
 async function loadingChecks(page: Page, base: string, label: string) {
+  /* Every section a page's scripts ask for after it loads (Horizon's header fills its menus so), answered. */
+  const refused: string[] = []
+  const heard = (r: import("puppeteer-core").HTTPResponse) => { const u = r.url(); if (u.startsWith(base) && /[?&](section_id|sections)=/.test(u) && r.status() >= 400) refused.push(`${r.status()} ${u.slice(base.length, base.length + 90)}`) }
+  page.on("response", heard)
+  for (const path of ["/", "/collections/all", "/products/linen-shirt-2"]) {
+    await go(page, `${base}${path}`)
+    await new Promise((r) => setTimeout(r, 1200))
+  }
+  page.off("response", heard)
+  check(`${label}: every section a page's scripts ask for is answered`, refused.length === 0, refused.slice(0, 3).join(" | ") || "none refused")
   for (const path of ["/", "/collections/all"]) {
     await go(page, `${base}${path}`)
     await new Promise((r) => setTimeout(r, 1500))

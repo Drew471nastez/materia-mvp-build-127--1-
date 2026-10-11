@@ -18,6 +18,12 @@
  *                    (storelib.com/media) are resized; they went out whole.
  *                    image_tag is not lazy in the page's first three
  *                    sections, as on Shopify: the hero is asked for first.
+ *   DRAWN AGAIN      a section changed in the builder is drawn at its own
+ *                    place (its section.index among its part's sections),
+ *                    as the page drew it, not at its place in the whole
+ *                    page: the first section of a page was redrawn as the
+ *                    fourth, and a theme that draws its first section
+ *                    differently changed shape on every edit.
  *   A CARD PRESSED   in the builder's canvas, a product card that opens its
  *                    product with location.href (pressed on its picture,
  *                    not on its link) tells the builder which product, as a
@@ -29,6 +35,7 @@
  */
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
 import { answer, type SiteData } from "../lib/storelib-theme/compat/site"
+import { drawPage, drawSection, pageContextFor, sectionIndexIn, type StoredSection } from "../lib/storelib-theme/compat/page"
 import { CANVAS_BRIDGE } from "../lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
@@ -76,6 +83,33 @@ async function main() {
     check("  and the page's section's too", /<p>alone<\/p>/.test(await get("section_id=b")))
     const many = JSON.parse(await get("sections=h,b")) as Record<string, string>
     check("  and every one of ?sections=", /eager/.test(many.h) && /alone/.test(many.b), many)
+  }
+
+  console.log("\nA section drawn again in the builder is the section the page drew\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{% sections 'header-group' %}<main>{{ content_for_layout }}</main>{% sections 'footer-group' %}{% sections 'overlay-group' %}</body></html>`),
+      "sections/s.storelib": section("s", `<b>{{ section.index }}/{{ section.location }}</b>{% if section.index == 1 %}<h1>first</h1>{% endif %}`),
+    }
+    const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}`, slots: ["overlay-group"] })
+    const list: StoredSection[] = [
+      { id: "ann", type: "s", group: "header" }, { id: "hdr", type: "s", group: "header" },
+      { id: "off", type: "s", hidden: true }, { id: "hero", type: "s" }, { id: "grid", type: "s" },
+      { id: "foot", type: "s", group: "footer" },
+      { id: "bar", type: "s", group: "overlay", slot: "overlay-group" }, { id: "pop", type: "s", group: "overlay", slot: "overlay-group" },
+    ]
+    const page = { template: "index", path: "/", designMode: true, products: [], collections: [], menus: {}, shop: { name: "S" } }
+    const html = drawPage(theme, page, list, { scripts: false }).html
+    const ctx = pageContextFor(theme, page, list)
+    const differ: string[] = []
+    for (const s of list.filter((x) => !x.hidden)) {
+      const onPage = html.match(new RegExp(`<div id="shopify-section-${s.id}"[\\s\\S]*?</div>`))?.[0] ?? ""
+      const group = s.group === "header" || s.group === "footer" ? s.group : undefined
+      const again = drawSection(theme, ctx, s, sectionIndexIn(list, s), group).html
+      if (onPage !== again) differ.push(`${s.id}: ${onPage} | ${again}`)
+    }
+    check("every section, drawn again for a change, is the markup the page drew", differ.length === 0 && /<h1>first<\/h1>/.test(html), differ)
+    check("  the page's first section is section 1 (after two in the header), the header's second is 2, the overlay's second is 2", sectionIndexIn(list, list[3]) === 0 && sectionIndexIn(list, list[1]) === 1 && sectionIndexIn(list, list[7]) === 1)
   }
 
   console.log("\nPictures\n")
