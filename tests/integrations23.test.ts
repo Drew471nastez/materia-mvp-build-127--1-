@@ -209,6 +209,17 @@ console.log("\nConnecting Printify: the key is put to Printify, then kept\n")
   check("  and the row with its key", db.rows("commerce_integrations").length === 0)
 }
 
+console.log("\nA Printify key saved before it took orders connects again in one press\n")
+{
+  const db = freshDb()
+  db.tables.commerce_integrations.push({ id: "aaaaaaaa-0000-4000-8000-0000000000ff", creator_id: CREATOR, provider: "printify", category: "print_on_demand", status: "needs_setup", config: {}, secret_ciphertext: sealSecret("good-printify-token") })
+  reset([printifyShops, printifyHooks])
+  const r = await saveIntegration(db, CREATOR, "printify", { apiKey: "" })
+  const row = db.rows("commerce_integrations")[0]
+  check("with its saved key: connected to its shop, location made, nothing typed", r.ok === true && row.status === "connected" && row.config.shop_id === "222" && db.rows("inventory_locations").length === 1)
+  check("its card says Connect again until then", /label: "Connect again"/.test(read("components/physical/integrations-marketplace.tsx")) && /s\?\.status === "needs_setup" && takesOrders\(i\)\) return "needs_attention"/.test(read("components/app/settings/integrations-directory.tsx")))
+}
+
 console.log("\nComing soon providers take no key\n")
 {
   const db = freshDb()

@@ -125,8 +125,10 @@ export async function saveIntegration(db: Db, creatorId: string, provider: strin
  * choice of drafts or straight to production changes.
  */
 async function saveConnector(db: Db, creatorId: string, provider: string, category: string, body: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
-  const key = typeof body.apiKey === "string" ? body.apiKey.trim() : ""
-  const { data: had } = await db.from("commerce_integrations").select("id, config").eq("creator_id", creatorId).eq("provider", provider).maybeSingle()
+  const { data: had } = await db.from("commerce_integrations").select("id, status, config, secret_ciphertext").eq("creator_id", creatorId).eq("provider", provider).maybeSingle()
+  /* A key saved before Printful and Printify took orders (needs_setup) connects again with no typing. */
+  const typed = typeof body.apiKey === "string" ? body.apiKey.trim() : ""
+  const key = typed || (had?.status === "needs_setup" ? (openSecret(had.secret_ciphertext) ?? "") : "")
   if (!key) {
     if (!had) return { ok: false, error: "Add your API key." }
     if (typeof body.autoConfirm !== "boolean") return { ok: true }

@@ -72,6 +72,11 @@ function writeIntegrationParam(id: string | null, how: "push" | "replace") {
 /* Each integration's mark, in its own file so the provider cards and /admin draw the same one (./integration-mark). */
 export { Mark } from "@/components/app/settings/integration-mark"
 
+/** Printful and Printify: a key and a shop, and orders go there (lib/physical/providers availability "connect"). */
+function takesOrders(i: Integration): boolean {
+  return !!i.providerId && providerInfo(i.providerId)?.availability === "connect"
+}
+
 export function IntegrationsDirectory() {
   const physical = usePhysicalCommerceEnabled()
   const all = React.useMemo(() => visibleIntegrations(physical), [physical])
@@ -132,6 +137,8 @@ export function IntegrationsDirectory() {
       if (i.kind === "commerce" && !i.comingSoon) {
         const s = states?.find((x) => x.provider === i.providerId)
         if (s?.status === "error") return "error"
+        /* Printful or Printify saved before they took orders: there, but it needs connecting again. */
+        if (s?.status === "needs_setup" && takesOrders(i)) return "needs_attention"
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
       } else if (installed(i)) return "installed"
       return i.comingSoon ? "coming_soon" : "available"

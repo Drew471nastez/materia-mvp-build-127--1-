@@ -80,6 +80,8 @@ export function statusOf(provider: ProviderInfo, state: IntegrationState | null)
   /* Not built yet: Coming soon, whatever was saved before (a key kept from then is not used). */
   if (provider.availability === "needs_setup") return state && state.status !== "disconnected" ? { tone: "amber", label: "Coming soon · key saved" } : { tone: "gray", label: "Coming soon" }
   if (!state || state.status === "disconnected") return { tone: "gray", label: "Not connected" }
+  /* A Printful or Printify key saved before they took orders (kept as needs_setup): it has no shop or location yet. */
+  if (provider.availability === "connect" && state.status === "needs_setup") return { tone: "amber", label: "Connect again" }
   if (state.status === "connected") return { tone: "green", label: "Connected" }
   if (state.status === "error") return { tone: "red", label: "Problem" }
   if (state.verifiedAt) return { tone: "blue", label: state.mode === "test" ? "Key verified · Test" : "Key verified" }
@@ -187,8 +189,11 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
         </div>
       </div>
 
-      {sendsOrders && saved && state ? <ConnectedFacts provider={provider} state={state} /> : null}
-      {sendsOrders && saved ? (
+      {sendsOrders && state?.status === "needs_setup" ? (
+        <p className="mt-2 text-[13px] text-[#b54708] sm:pl-[58px]" data-integration-reconnect="">Your key was saved before {provider.name} took orders. Connect again with it to choose your {provider.id === "printful" ? "store" : "shop"} and start sending orders.</p>
+      ) : null}
+      {sendsOrders && state?.status === "connected" ? <ConnectedFacts provider={provider} state={state} /> : null}
+      {sendsOrders && state?.status === "connected" ? (
         <div className="mt-3 sm:pl-[58px]">
           <Toggle
             id={`auto-confirm-${provider.id}`}
@@ -276,11 +281,11 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
             <button
               type="button"
               className={BTN_PRIMARY}
-              disabled={busy || (sendsOrders && !key.trim())}
+              disabled={busy || (sendsOrders && !key.trim() && state?.status !== "needs_setup")}
               onClick={() => void save({ url, webhookSecret: secret, apiKey: key }, sendsOrders ? `Connected to ${provider.name}.` : "Saved.")}
               data-integration-save=""
             >
-              {busy ? (provider.verifies && key ? `Checking with ${provider.name}` : "Saving") : sendsOrders ? (saved ? "Replace key" : "Connect") : "Save"}
+              {busy ? (provider.verifies && (key || state?.status === "needs_setup") ? `Checking with ${provider.name}` : "Saving") : sendsOrders ? (state?.status === "connected" ? "Replace key" : "Connect") : "Save"}
             </button>
           </div>
         </div>
