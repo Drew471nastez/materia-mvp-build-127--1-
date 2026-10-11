@@ -396,9 +396,18 @@ export function MobileMenuPage({
       aria-modal="true"
       aria-label="Menu"
       data-mobile-menu={open ? "open" : "closed"}
-      className="fixed inset-x-0 z-[45] flex flex-col md:hidden"
+      /*
+        Z 50, THE PHONE HEADER'S OWN, AND RENDERED BEFORE IT (sidebar.tsx), so
+        the header and its rounded corners stay drawn over the menu's top.
+        At 45 it was under Settings as a page (49): the button became an X
+        and the screen still showed Settings. Over a page layer that keeps
+        the pill (the product editor, 52) the header is hidden and the layer
+        is above 50, so app/globals.css lifts the menu to 54 and up to the
+        top of the screen there (MENU OVER A PAGE LAYER). The top is a class
+        rather than a style for that rule to win.
+      */
+      className="fixed inset-x-0 top-[calc(68px+env(safe-area-inset-top,0px))] z-[50] flex flex-col md:hidden"
       style={{
-        top: "calc(68px + env(safe-area-inset-top, 0px))",
         bottom: 0,
         backgroundColor: PAGE,
         /*

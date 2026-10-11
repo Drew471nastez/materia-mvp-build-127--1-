@@ -6749,7 +6749,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         const canHide = isStorelibSection(section.type, storelibSources)
         return (
           <div className="flex flex-col h-full" data-wb-section-panel={section.id} data-wb-block-panel={key}>
-            <PanelBack onBack={() => setSelectedPanel({ type: "pages" })}>
+            {/* Back goes up one level, as a second tap on the canvas does: the block around this one, then its section. */}
+            <PanelBack onBack={() => { const up = parsePath(key).slice(0, -1); setSelectedBlockId(up.length ? pathKey(up) : null) }}>
               <p className="truncate text-[15px] font-semibold md:text-sm">{name}</p>
             </PanelBack>
             <div className="border-b border-border px-3.5 py-2">
@@ -7214,7 +7215,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) {
         if (path.startsWith("/checkout")) liveOnlyInCompatCanvas("checkout")
         else toast(/wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
+        return
       }
+      /*
+        NEVER A CLICK THAT DOES NOTHING. A link to another website, or to a
+        page this one has none of, said nothing at all, which from the
+        creator's side is a broken header (scripts/check-builder-nav19.ts).
+      */
+      const other = href.trim().match(/^(?:https?:)?\/\/([^/?#]+)/i)
+      if (other) toast(`Opens ${other[1].replace(/^www\./, "")} on your live site`, { id: "compat-link-out" })
+      else if (path.startsWith("/")) toast(`No page at ${path} yet`, { id: "compat-link-missing", description: "Add it in Pages, or point the link somewhere else in Menus." })
       return
     }
     /* A link to a product opens that product's page, as on the website, not the shop's first product. */
@@ -7223,6 +7233,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (currentPageRef.current === "product" && selectedProductIdRef.current === linked.id) return
       holdCanvasWhileOpening()
       void selectProductRef.current(linked.id, linked.title)
+      return
+    }
+    /* A product the shop does not sell (one of the store the theme came from) is the shop, as the live site sends it (lib/storelib-theme/compat/links.ts). */
+    if (to.product && productsRef.current.length > 0) {
+      const shop = rowPageKeysRef.current.includes("collection") ? "collection" : "home"
+      if (shop === currentPageRef.current) return
+      holdCanvasWhileOpening()
+      pageChangeRef.current(shop as PageKey)
       return
     }
     if (to.key === currentPageRef.current) {
@@ -9465,6 +9483,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   productId={currentPage === "product" ? selectedProductId : null}
                   collections={compatCollections}
                   menus={compatCanvasMenus}
+                  pageKeys={rowPageKeys}
                   shopName={typeof canvasThemeSettings.brand_name === "string" && canvasThemeSettings.brand_name ? canvasThemeSettings.brand_name : creatorFacts?.storeName || creatorFacts?.name || "My store"}
                   selectedSectionId={selectedSectionId}
                   selectedBlockId={selectedBlockId}
