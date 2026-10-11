@@ -186,6 +186,11 @@ async function session(phone, path = "/") {
   await page.evaluate(() => {
     window.__frames = []
     window.__shifts = []
+    /* Round 21: the main thread's longest task, and each press's time to its next paint (Event Timing, as INP counts it). */
+    window.__long = []
+    window.__events = []
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__long.push({ t: e.startTime, d: e.duration }) }).observe({ type: "longtask" }) } catch {}
+    try { new PerformanceObserver((l) => { for (const e of l.getEntries()) if (/pointerup|click|pointerdown|keydown/.test(e.name)) window.__events.push({ t: e.startTime, d: e.duration, name: e.name, work: e.processingEnd - e.processingStart }) }).observe({ type: "event", durationThreshold: 16, buffered: false }) } catch {}
     new PerformanceObserver((l) => { for (const e of l.getEntries()) if (!e.hadRecentInput) window.__shifts.push({ t: e.startTime, v: e.value }) }).observe({ type: "layout-shift", buffered: false })
     const tick = (t) => {
       const panel = document.querySelector("[data-files-chooser]")?.closest("[data-sheet-panel]")
@@ -208,12 +213,39 @@ async function film(s, name, action, settle = 700) {
   await s.cdp.send("Page.startScreencast", { format: "jpeg", quality: 70, everyNthFrame: 1, maxWidth: Math.round(vp.width * (s.phone ? 1 : 0.5)), maxHeight: Math.round(vp.height * (s.phone ? 1 : 0.5)) })
   await wait(80)
   const t0 = await s.page.evaluate(() => performance.now())
+  const prof = process.env.PROF === name
+  if (prof) { await s.cdp.send("Profiler.enable"); await s.cdp.send("Profiler.setSamplingInterval", { interval: 200 }); await s.cdp.send("Profiler.start") }
+  if (process.env.TRACE === name) await s.page.tracing.start({ categories: ["devtools.timeline", "disabled-by-default-devtools.timeline"] })
   await action()
   await wait(settle)
+  if (process.env.TRACE === name) {
+    const all = JSON.parse(Buffer.from(await s.page.tracing.stop()).toString("utf8")).traceEvents
+    const ev = all.filter((e) => e.ph === "X" && e.dur > 3000)
+    const sum = {}
+    for (const e of ev) sum[e.name] = (sum[e.name] || 0) + e.dur / 1000
+    console.log("    trace (ms, events over 3ms): " + Object.entries(sum).sort((x, y) => y[1] - x[1]).slice(0, 12).map(([k, v]) => `${k}=${Math.round(v)}`).join(" "))
+    /* What the longest task did. */
+    const top = ev.filter((e) => e.name === "RunTask").sort((x, y) => y.dur - x.dur)[0]
+    if (top) {
+      const inside = ev.filter((e) => e !== top && e.tid === top.tid && e.ts >= top.ts && e.ts + e.dur <= top.ts + top.dur)
+      const by = {}
+      for (const e of inside) by[e.name] = (by[e.name] || 0) + e.dur / 1000
+      for (const e of inside.filter((e) => e.name === "UpdateLayoutTree" || e.name === "Layout")) console.log(`      ${e.name} ${Math.round(e.dur / 1000)}ms elements=${e.args?.elementCount ?? e.args?.beginData?.dirtyObjects ?? "?"}`)
+      console.log(`    longest task ${Math.round(top.dur / 1000)}ms: ` + Object.entries(by).sort((x, y) => y[1] - x[1]).slice(0, 10).map(([k, v]) => `${k}=${Math.round(v)}`).join(" ") + " | " + inside.filter((e) => e.name === "FunctionCall" || e.name === "TimerFire" || e.name === "EventDispatch" || e.name === "FireAnimationFrame").map((e) => `${e.name}:${e.args?.data?.functionName || e.args?.data?.type || ""}@${(e.args?.data?.url || "").split("/").pop()}:${e.args?.data?.lineNumber ?? ""}=${Math.round(e.dur / 1000)}`).slice(0, 8).join(" "))
+    }
+  }
+  if (prof) {
+    const { profile } = await s.cdp.send("Profiler.stop")
+    const byId = new Map(profile.nodes.map((n) => [n.id, n]))
+    for (const n of profile.nodes) for (const c of n.children || []) { const ch = byId.get(c); if (ch) ch.__parent = n.id }
+    const incl = new Map(); let j = 0
+    for (const id of profile.samples) { const d = (profile.timeDeltas[j++] || 0) / 1000; let n = byId.get(id); if (n.callFrame.functionName === "(idle)") continue; const seen = new Set(); while (n) { const k = (n.callFrame.functionName || "(anon)") + ":" + n.callFrame.lineNumber; if (!seen.has(k)) { seen.add(k); incl.set(k, (incl.get(k) || 0) + d) } n = n.__parent ? byId.get(n.__parent) : null } }
+    console.log("    profile: " + [...incl.entries()].sort((x, y) => y[1] - x[1]).slice(0, 40).map(([k, v]) => `${k}=${v.toFixed(0)}`).join(" "))
+  }
   const t1 = await s.page.evaluate(() => performance.now())
   await s.cdp.send("Page.stopScreencast")
   s.cdp.off("Page.screencastFrame", onFrame)
-  const got = await s.page.evaluate((a, b) => ({ frames: window.__frames.filter((f) => f.t >= a && f.t < b), shifts: window.__shifts.filter((x) => x.t >= a && x.t < b) }), t0, t1)
+  const got = await s.page.evaluate((a, b) => ({ frames: window.__frames.filter((f) => f.t >= a && f.t < b), shifts: window.__shifts.filter((x) => x.t >= a && x.t < b), long: window.__long.filter((x) => x.t >= a && x.t < b), events: window.__events.filter((x) => x.t >= a && x.t < b) }), t0, t1)
   const gaps = got.frames.slice(1).map((f, k) => f.t - got.frames[k].t)
   const result = {
     name,
@@ -223,6 +255,8 @@ async function film(s, name, action, settle = 700) {
     over34: gaps.filter((g) => g > 34).length,
     shift: Number(got.shifts.reduce((a, x) => a + x.v, 0).toFixed(4)),
     shots: shots.length,
+    longestTaskMs: Math.round(Math.max(0, ...got.long.map((x) => x.d))),
+    pressToPaintMs: Math.round(Math.max(0, ...got.events.map((x) => x.d))),
   }
   /* The contact sheet: every screencast frame in order, to be looked at. */
   const pick = shots.length > 24 ? shots.filter((_, i) => i % Math.ceil(shots.length / 24) === 0) : shots
@@ -258,7 +292,7 @@ async function quality(s, where) {
     const iconBox = icon?.parentElement.getBoundingClientRect()
     const broken = document.querySelector('[data-file-tile$="/broken.jpg"]')
     const ph = broken?.querySelector("[data-file-placeholder]")
-    const shownBroken = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]) img[data-file-img]")).filter((i) => getComputedStyle(i).opacity !== "0" && getComputedStyle(i).visibility !== "hidden" && i.complete && i.naturalWidth === 0).length
+    const shownBroken = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off]) img[data-file-img]")).filter((i) => getComputedStyle(i).opacity !== "0" && getComputedStyle(i).visibility !== "hidden" && i.complete && i.naturalWidth === 0).length
     return {
       w: Math.round(r.width), h: Math.round(r.height), ratio: r.height / innerHeight,
       pills, markOff: Math.abs(mark.left - active.left) + Math.abs(mark.width - active.width),
@@ -300,14 +334,14 @@ async function greyAfterSwitch(page, pill) {
     document.querySelector(`[data-files-pill="${pill}"]`).click()
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     const view = document.querySelector("[data-files-scroll]").getBoundingClientRect()
-    const tiles = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden])")).filter((li) => { const r = li.getBoundingClientRect(); return r.top < view.bottom && r.bottom > view.top })
+    const tiles = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])")).filter((li) => { const r = li.getBoundingClientRect(); return r.top < view.bottom && r.bottom > view.top })
     const grey = tiles.filter((li) => { const i = li.querySelector("img[data-file-img]"); return i && i.dataset.loaded === undefined })
     return { tiles: tiles.length, grey: grey.length }
   }, pill)
 }
 
 const results = []
-const report = (r) => { results.push(r); console.log(`  ${r.name.padEnd(22)} frames ${String(r.frames).padStart(3)}  worst gap ${String(r.worstGapMs).padStart(3)}ms  >20ms ${r.over20}  >34ms ${r.over34}  shift ${r.shift}${r.extra ? "  " + r.extra : ""}`) }
+const report = (r) => { results.push(r); console.log(`  ${r.name.padEnd(22)} frames ${String(r.frames).padStart(3)}  worst gap ${String(r.worstGapMs).padStart(3)}ms  >20ms ${r.over20}  >34ms ${r.over34}  shift ${r.shift}  longest task ${r.longestTaskMs ?? "-"}ms  press to paint ${r.pressToPaintMs ?? "-"}ms${r.extra ? "  " + r.extra : ""}`) }
 
 /* ONLY=phone or ONLY=computer runs that part alone. */
 const ONLY = process.env.ONLY ?? ""
@@ -323,7 +357,7 @@ if (!ONLY || ONLY === "phone") {
   report(open.result)
   await page.waitForSelector("[data-files-grid] img[data-loaded]", { timeout: 30000 })
   await wait(1200)
-  const loaded = await page.evaluate(() => ({ tiles: document.querySelectorAll("[data-files-grid] > li:not([hidden])").length, loaded: document.querySelectorAll("[data-files-grid] img[data-loaded]").length, eager: document.querySelectorAll('[data-files-grid] img[loading="eager"]').length, decoding: document.querySelector("[data-files-grid] img")?.getAttribute("decoding"), current: document.querySelector("[data-files-grid] img")?.currentSrc.replace(/^.*\/_next/, "/_next").slice(0, 80) }))
+  const loaded = await page.evaluate(() => ({ tiles: document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])").length, loaded: document.querySelectorAll("[data-files-grid] img[data-loaded]").length, eager: document.querySelectorAll('[data-files-grid] img[loading="eager"]').length, decoding: document.querySelector("[data-files-grid] img")?.getAttribute("decoding"), current: document.querySelector("[data-files-grid] img")?.currentSrc.replace(/^.*\/_next/, "/_next").slice(0, 80) }))
   console.log(`  grid: ${loaded.tiles} tiles, ${loaded.loaded} shown so far, ${loaded.eager} eager, decoding=${loaded.decoding}, first tile from ${loaded.current}`)
   await quality(s, "phone")
   await page.screenshot({ path: join(OUT, "phone-open.png") })
@@ -346,7 +380,7 @@ if (!ONLY || ONLY === "phone") {
   report(drag.result)
 
   const pill = await film(s, "pill-website", async () => { await page.tap('[data-files-pill="Website"]') }, 500)
-  pill.result.extra = `${await page.evaluate(() => document.querySelectorAll("[data-files-grid] > li:not([hidden])").length)} shown`
+  pill.result.extra = `${await page.evaluate(() => document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])").length)} shown`
   report(pill.result)
   const pill2 = await film(s, "pill-all", async () => { await page.tap('[data-files-pill="All"]') }, 500)
   report(pill2.result)
@@ -410,7 +444,7 @@ if (!ONLY || ONLY === "phone") {
   report(close.result)
 
   const reopen = await film(s, "reopen (kept list)", async () => { await page.tap("[data-open-chooser]") }, 700)
-  reopen.result.extra = `tiles on the first frames: ${await page.evaluate(() => document.querySelectorAll("[data-files-grid] > li:not([hidden])").length)}, placeholders: ${await page.evaluate(() => document.querySelectorAll("[data-files-waiting]").length)}`
+  reopen.result.extra = `tiles on the first frames: ${await page.evaluate(() => document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])").length)}, placeholders: ${await page.evaluate(() => document.querySelectorAll("[data-files-waiting]").length)}`
   report(reopen.result)
   await wait(400)
   const scrim = await film(s, "tap-outside-close", async () => { await page.touchscreen.tap(195, 40) }, 700)
@@ -462,7 +496,7 @@ if (!ONLY || ONLY === "computer") {
   /* A tile on the window's bottom edge: the menu flips above its dots rather than leaving the window. */
   const low = await page.evaluate(() => {
     const sc = document.querySelector("[data-files-scroll]")
-    const lis = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden])"))
+    const lis = Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])"))
     const li = lis[9]
     const dots = li.querySelector("[data-file-menu]")
     sc.scrollTop += dots.getBoundingClientRect().top - (sc.getBoundingClientRect().bottom - 60)
@@ -519,7 +553,7 @@ for (const phone of ONLY ? [] : [false, true]) {
   await press("[data-open-chooser]")
   await page.waitForSelector("[data-files-grid] img[data-loaded]", { timeout: 30000 })
   await wait(700)
-  const ids = await page.evaluate(() => Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden])")).slice(0, 5).map((l) => l.getAttribute("data-file-tile")))
+  const ids = await page.evaluate(() => Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])")).slice(0, 5).map((l) => l.getAttribute("data-file-tile")))
   const order = [ids[2], ids[0], ids[3]]
   for (const id of order) { await press(`[data-file-tile="${id}"] [data-file]`); await wait(120) }
   await wait(300)
@@ -561,7 +595,7 @@ if (!ONLY) {
   await page.waitForSelector("[data-files-grid] img[data-loaded]", { timeout: 30000 })
   await wait(500)
   await page.click("[data-files-select]")
-  const ids = await page.evaluate(() => Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden])")).slice(0, 3).map((l) => l.getAttribute("data-file-tile")))
+  const ids = await page.evaluate(() => Array.from(document.querySelectorAll("[data-files-grid] > li:not([hidden]):not([data-off])")).slice(0, 3).map((l) => l.getAttribute("data-file-tile")))
   await page.click(`[data-file-tile="${ids[0]}"] [data-file]`)
   await page.click(`[data-file-tile="${ids[2]}"] [data-file]`)
   await wait(250)
