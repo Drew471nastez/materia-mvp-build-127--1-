@@ -180,6 +180,8 @@ check("the three watched jobs are scheduled jobs", WATCHED_JOBS.every((w) => CRO
 check("each watched job writes its runs down", WATCHED_JOBS.every((w) => read(`app/api/cron/${w.path.split("/").pop()}/route.ts`).includes(`recordCronRun("${w.path}"`)))
 check("every commerce part in the repository is watched", ["78", "109", "110", "129"].every((p) => COMMERCE_PARTS.includes(p) && SQL_PARTS.some((x) => x.part === p)))
 
+/* The rest reads the status, which is asynchronous; the project compiles to ES6, so no top-level await. */
+async function rest() {
 console.log("\nThe status with nothing readable")
 /* A database that answers every question with "no such table". */
 const missing = { data: null, error: { code: "42P01", message: 'relation "x" does not exist' }, count: null }
@@ -245,3 +247,9 @@ if (failed) {
   console.log(failures.map((f) => `  - ${f}`).join("\n"))
   process.exit(1)
 }
+}
+
+rest().catch((e) => {
+  console.error(e)
+  process.exit(1)
+})
