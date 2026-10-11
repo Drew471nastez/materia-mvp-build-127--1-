@@ -72,6 +72,9 @@ export function CompatThemeSettings({
       } catch {
         setGroups([OVERRIDE_GROUP as unknown as Group])
       }
+    }, () => {
+      /* The theme's files could not be had (compat-canvas.tsx loadCompatFiles): Storelib's own group, never "Loading…" for good. */
+      if (live) setGroups([OVERRIDE_GROUP as unknown as Group])
     })
     return () => { live = false }
   }, [installId])

@@ -34,6 +34,8 @@ import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/o
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { useLiveSections } from "@/lib/website-builder/live-settings"
+import { deadline, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { CanvasProblem } from "@/components/website-builder/canvas-problem"
 
 export interface CompatCanvasProps {
   installId: string
@@ -80,17 +82,50 @@ const loading = new Map<string, Promise<Record<string, string>>>()
 /** From the page saying it is ready to the placeholder going, unless its pictures are all in first. */
 const FIRST_PAINT_MS = 250
 
-/** The theme's own files (`shopify/…`), read once per install for the canvas and the settings panel together. */
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   THE CANVAS NEVER WAITS FOREVER (lib/website-builder/load-guard.ts)
+  ═══════════════════════════════════════════════════════════════════════
+  The outline of a page stayed up for good when any one of these happened:
+  the theme's files never answered (or answered an error, which was kept as
+  "this theme has no files" for the rest of the visit), the page could not
+  be drawn, the frame's page never said it was ready (a script of the
+  theme's that stalls the page, a message missed), or a first page was
+  replaced by a newer one before it said so, which nothing then told the
+  placeholder. Each now ends: in the page, or in words and Try again.
+*/
+/** One try at the theme's files, headers and body together. */
+const FILES_WAIT_MS = 25_000
+/** A frame that has said nothing by now is shown as it is: what it has drawn is better than the outline. */
+const FRAME_CAP_MS = 6_000
+/** A page loading behind the one on screen comes forward by now, whatever it has said. */
+const BEHIND_CAP_MS = 7_000
+/** Nothing to show by now: the outline says it is taking a while, and offers to try again. */
+const SLOW_MS = 15_000
+
+/** The theme's own files (`shopify/…`), read once per install for the canvas and the settings panel together. Retried; rejects when they cannot be had, and a failure is not kept. */
 export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
   const hit = loading.get(installId)
   if (hit) return hit
-  const p = fetch(`/api/website-builder/themes/${installId}/files?compat=1`)
-    .then((r) => (r.ok ? r.json() : { files: {} }))
-    .then((d: { files?: Record<string, string> }) => d.files ?? {})
-    .catch(() => {
-      loading.delete(installId)
-      return {} as Record<string, string>
-    })
+  const p = retrying(
+    () =>
+      deadline(
+        (async () => {
+          const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, {}, FILES_WAIT_MS)
+          if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
+          const d = (await r.json()) as { files?: Record<string, string> }
+          return d.files ?? {}
+        })(),
+        FILES_WAIT_MS,
+        "the theme's files",
+      ),
+    [800, 2000],
+  )
+  /* A failure is forgotten, so the next ask (Try again, another panel) asks the server again. */
+  p.catch((e) => {
+    if (loading.get(installId) === p) loading.delete(installId)
+    reportLoadProblem("compat-canvas", e)
+  })
   loading.set(installId, p)
   return p
 }
@@ -111,12 +146,20 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const inspecting = useRef(props.inspectorEnabled)
   inspecting.current = props.inspectorEnabled
 
+  /* Try again: everything asked for again, from the theme's files on. */
+  const [attempt, setAttempt] = useState(0)
+  /* What stopped the page being shown, in a word: said over the outline with Try again. */
+  const [failure, setFailure] = useState<"files" | "draw" | "slow" | null>(null)
+
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
   useEffect(() => {
     let live = true
-    void loadCompatFiles(installId).then((files) => { if (live) setCompatFiles(files) })
+    loadCompatFiles(installId).then(
+      (files) => { if (live) setCompatFiles(files) },
+      () => { if (live) setFailure("files") },
+    )
     return () => { live = false }
-  }, [installId])
+  }, [installId, attempt])
 
   /* The frame is as tall as the canvas it sits in: the page scrolls inside it, as the website does. */
   useEffect(() => {
@@ -133,12 +176,20 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const compatTheme = useMemo(() => {
     if (!rows) return null
     const media = assetAddresses(rows)
-    return themeOfInstall(rows, settings, {
-      assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
-      assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-      imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
-    })
+    /* A theme that cannot be read is said (failure "draw", below), never a canvas that throws the editor away. */
+    try {
+      return themeOfInstall(rows, settings, {
+        assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
+        assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
+        imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+      })
+    } catch (e) {
+      console.error("[compat-canvas] the theme could not be read", e)
+      reportLoadProblem("compat-canvas", e)
+      return null
+    }
   }, [rows, settings, installId])
+  const themeUnreadable = !!rows && !compatTheme
 
   /*
     BY WHAT THEY HOLD, NOT BY WHICH OBJECT. The editor makes its menus again
@@ -245,7 +296,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const onPainted = useRef(props.onPainted)
   onPainted.current = props.onPainted
   const shown = painted && slots.length > 0
-  useEffect(() => { if (shown) onPainted.current?.() }, [shown])
+  /* A failure is said over the canvas, so the editor's own loader steps aside for it as it does for a page. */
+  const stuck = failure !== null || themeUnreadable
+  useEffect(() => { if (shown || stuck) onPainted.current?.() }, [shown, stuck])
   const slotsRef = useRef<Slot[]>([])
   slotsRef.current = slots
   const frames = useRef(new Map<number, HTMLIFrameElement>())
@@ -257,6 +310,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const loadBehind = (html: string, key: string, list: StoredSection[]) => {
     const slot: Slot = { n: ++counter.current, key, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false }
     setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
+    /* One that never says it has loaded (a stalled script of the theme's, a message missed) still comes forward. */
+    window.setTimeout(() => promote(slot.n), BEHIND_CAP_MS)
   }
 
   useEffect(() => {
@@ -271,6 +326,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
       html = draw(list)
     } catch (e) {
       console.error("[compat-canvas] the page could not be drawn", e)
+      /* With nothing on screen yet, that is said, with Try again; otherwise the page on screen stays. */
+      if (!front()) {
+        reportLoadProblem("compat-canvas", e)
+        setFailure("draw")
+      }
       return
     }
     const now = front()
@@ -292,7 +352,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* A page that changed behind this one is out of date too: drawn again from now. */
     if (slotsRef.current[1]) loadBehind(html, docKey, list)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape, docKey, accountPath])
+  }, [compatTheme, page, shape, docKey, accountPath, attempt])
 
   /*
     A section's settings or blocks changed: that section, drawn again and
@@ -432,6 +492,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const FADE_MS = 200
   const promote = (n: number) => {
+    /*
+      The page that comes forward is drawn: the outline goes with it. A first
+      page replaced by a newer one before it had said it was ready left the
+      outline up over a page that was there all along.
+    */
+    if (slotsRef.current.some((x, i) => i > 0 && x.n === n)) setPainted(true)
     setSlots((prev) => {
       const at = prev.findIndex((x) => x.n === n)
       if (at <= 0) return prev
@@ -535,11 +601,70 @@ export function CompatCanvas(props: CompatCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [compatTheme])
 
+  /*
+    THE FRAME'S OWN LOAD EVENT, WHATEVER THE PAGE SAID. The page's messages
+    are how the canvas knows it has drawn, and a message can be missed (sent
+    before anything listened, or a theme script that stops the bridge). The
+    frame element's load event is the browser's, so it is heard whatever
+    order things happened in: a page that has loaded is asked again whether
+    it is ready ("hello", canvas-bridge.ts), and is shown.
+  */
+  const onFrameLoad = (n: number) => {
+    const at = slotsRef.current.findIndex((x) => x.n === n)
+    if (at < 0) return
+    const slot = slotsRef.current[at]
+    if (!slot.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
+    if (at === 0) setPainted(true)
+    /* Behind: its own "loaded" brings it forward in a frame; this is for a page whose message never comes. */
+    else window.setTimeout(() => { if (!slot.loaded) promote(n) }, 400)
+  }
+
+  /*
+    A FRAME THAT SAYS NOTHING IS SHOWN AS IT IS after FRAME_CAP_MS, and a
+    canvas with nothing to show after SLOW_MS says so and offers Try again.
+    Both are said to the error log once.
+  */
+  const hasSlot = slots.length > 0
+  const blocked = failure === "files" || failure === "draw" || themeUnreadable
+  useEffect(() => {
+    if (shown || blocked) return
+    const t = window.setTimeout(() => {
+      if (slotsRef.current.length > 0) {
+        setPainted(true)
+        reportLoadProblem("compat-canvas", "the page never said it had drawn; shown as it is")
+      }
+    }, FRAME_CAP_MS)
+    return () => window.clearTimeout(t)
+  }, [shown, blocked, hasSlot, attempt])
+  useEffect(() => {
+    if (shown || stuck) return
+    const t = window.setTimeout(() => {
+      setFailure((f) => f ?? "slow")
+      reportLoadProblem("compat-canvas", `nothing to show after ${SLOW_MS / 1000}s`)
+    }, SLOW_MS)
+    return () => window.clearTimeout(t)
+  }, [shown, stuck, attempt])
+  /* The page arrived after all: whatever was said about it goes. */
+  useEffect(() => { if (shown && failure === "slow") setFailure(null) }, [shown, failure])
+
+  const retry = () => {
+    /* Anything but a slow wait asks for the theme's files afresh: an answer that could not be read is not read again. */
+    if (failure !== "slow") {
+      loading.delete(installId)
+      setCompatFiles(null)
+    }
+    setFailure(null)
+    setPainted(false)
+    setSlots([])
+    setAttempt((n) => n + 1)
+  }
+
   const compat = compatOf(settings)
   return (
     <div ref={box} className="relative w-full" style={{ height }} data-compat-canvas={compat?.theme ?? ""}>
       {/* Until the theme's first page has painted: the shape of a page, still, never a blank sheet or a line of text. */}
       <CanvasPlaceholder hidden={shown} label={`Loading ${compat?.theme ?? "the theme"}`} />
+      {!shown && (failure || themeUnreadable) ? <CanvasProblem kind={themeUnreadable ? "draw" : failure!} {...PROBLEM_WORDS[themeUnreadable ? "draw" : failure!]} onRetry={retry} /> : null}
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
           {slots.map((slot, i) => (
@@ -548,6 +673,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
               ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
               title={`${compat?.theme ?? "Theme"} preview`}
               srcDoc={slot.html}
+              onLoad={() => onFrameLoad(slot.n)}
               sandbox="allow-scripts allow-forms allow-popups"
               data-compat-frame={i === 0 ? "front" : slot.leaving ? "leaving" : "behind"}
               aria-hidden={i === 0 ? undefined : true}
@@ -612,6 +738,13 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
     </div>
   )
 }
+
+/* "slow" is not a failure yet: the page is still being asked for, and comes in under this if it arrives. */
+const PROBLEM_WORDS = {
+  slow: { title: "This is taking longer than usual", body: "Your theme is still loading." },
+  files: { title: "Your theme didn't load", body: "Check your connection and try again." },
+  draw: { title: "This page couldn't be shown", body: "Try again. If it keeps happening, reload the editor." },
+} as const
 
 /* ── What a drawn page is, to compare one with the next ───────────────────── */
 

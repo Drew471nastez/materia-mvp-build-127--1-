@@ -782,7 +782,7 @@ section("The cover")
         client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
     check("  a pending one is looked for (GET, every 2s, backing off, about 30s) rather than taken twice, then asked for if it never came",
       /export const WATCH_STEPS_MS = \[2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000\]/.test(refresh) &&
-        /await fetch\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}\)/.test(refresh) &&
+        /await fetchWithin\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}, LOOK_WAIT_MS\)/.test(refresh) &&
         /\(data\.cover_pending \? await watchCover\(id\) : null\) \?\? \(await requestCover\(id\)\)/.test(client) && /asked\.current\.add\(id\)/.test(client))
     check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(cover\.url\)\s*setFresh/.test(client))
   }
@@ -851,8 +851,22 @@ section("The cover")
   const shot = read("lib/website-builder/cover-shot.ts")
   check("the screenshots are a laptop's screen and a phone's",
     /DESKTOP = \{ width: 1440, height: 900 \}/.test(shot) && /PHONE = \{ width: 390, height: 844 \}/.test(shot))
-  check("and are taken once the network has gone quiet, the fonts are in and the pictures decoded",
-    /waitUntil: "networkidle0"/.test(shot) && /document\.fonts\?\.ready/.test(shot) && /img\.decode\(\)/.test(shot))
+  /*
+    EVERY WAIT ENDS. It waited for networkidle0, which a page that keeps
+    something open never reaches, and for every picture to decode with no
+    limit: "Preparing preview" for good. Now each wait is bounded, the whole
+    is inside SHOT_BUDGET_MS, and what is there when they run out is taken.
+  */
+  check("and are taken once the page has loaded, the network has gone quiet, the fonts are in and the pictures decoded, each for a bounded time",
+    /waitUntil: "domcontentloaded"/.test(shot) && !/networkidle0/.test(shot) &&
+      /waitForNetworkIdle\(\{ idleTime: 500, timeout: left\(deadline, QUIET_MS\)/.test(shot) &&
+      /document\.fonts\?\.ready/.test(shot) && /img\.decode\(\)/.test(shot) &&
+      /Promise\.race\(\[settle\(\), new Promise\(\(r\) => setTimeout\(r, most\)\)\]\)/.test(shot) &&
+      /export const SHOT_BUDGET_MS = 42_000/.test(shot))
+  check("  each picture on a page of its own: a phone viewport on an open page reloads it outside every wait",
+    /const shoot = async[^\n]*\n\s*const page = await browser\.newPage\(\)/.test(shot))
+  check("  and a phone picture that does not fit leaves the desktop one kept",
+    /mobile: Buffer \| null/.test(shot) && /if \(deadline - Date\.now\(\) > 4_000\)/.test(shot))
   check("on Vercel with the serverless Chromium, anywhere else with the one CHROMIUM_PATH names",
     /@sparticuz\/chromium/.test(shot) && /process\.env\.CHROMIUM_PATH/.test(shot))
   const config = read("next.config.mjs")

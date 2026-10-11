@@ -133,6 +133,18 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     return json({ sections: compat.pages[key] ?? [], has_draft: false })
   }
   if (/\/themes\/probe-install\/files/.test(url) && compat) {
+    /*
+      PROBE_FILES_FAIL: the theme's own files answer 500 this many more times;
+      PROBE_FILES_HANG: they never answer at all (scripts/check-canvas-loading.ts).
+    */
+    const files = window as unknown as { PROBE_FILES_FAIL?: number; PROBE_FILES_HANG?: boolean }
+    if (new URL(url, location.href).searchParams.get("compat") === "1") {
+      if (files.PROBE_FILES_HANG) return new Promise<Response>(() => {})
+      if ((files.PROBE_FILES_FAIL ?? 0) > 0) {
+        files.PROBE_FILES_FAIL = (files.PROBE_FILES_FAIL ?? 0) - 1
+        return new Response(JSON.stringify({ error: "Something went wrong" }), { status: 500, headers: { "content-type": "application/json" } })
+      }
+    }
     return json({ files: new URL(url, location.href).searchParams.get("compat") === "1" ? compat.files : compat.sources })
   }
   if (/\/themes\/probe-install\/sections/.test(url)) {
