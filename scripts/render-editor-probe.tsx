@@ -88,8 +88,6 @@ const probeGlobals = globalThis as unknown as {
    * shopify/, as the routes answer them for such an install.
    */
   PROBE_COMPAT?: { settings: Record<string, unknown>; pages: Record<string, unknown[]>; sources: Record<string, string>; files: Record<string, string> }
-  /** The cards the live site draws, as /api/website-builder/products?cards=1 answers (scripts/check-storefront23.ts). */
-  PROBE_CARDS?: { shop: unknown[]; catalog: unknown[] }
   /** Each product's stock, as /api/physical/storefront/product answers, by product id; read on every request, so a probe can change it. */
   PROBE_STOREFRONT?: Record<string, unknown>
 }
@@ -180,7 +178,6 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     ;(window as unknown as { probeMenusSaved: unknown[] }).probeMenusSaved = [...((window as unknown as { probeMenusSaved?: unknown[] }).probeMenusSaved ?? []), JSON.parse(String(init.body)).menus]
     return json({ menus: JSON.parse(String(init.body)).menus })
   }
-  if (/\/website-builder\/products\?cards=1/.test(url) && probeGlobals.PROBE_CARDS) return json(probeGlobals.PROBE_CARDS)
   const storefront = url.match(/\/api\/physical\/storefront\/product\?productId=([^&]+)/)
   if (storefront && probeGlobals.PROBE_STOREFRONT) {
     const found = probeGlobals.PROBE_STOREFRONT[decodeURIComponent(storefront[1])]

@@ -261,7 +261,7 @@ async function canvas(browser: Browser) {
     PROBE_SHORT: false,
     PROBE_COMPAT: compat,
     PROBE_PRODUCTS: [{ id: SHIRT, title: "Posture shirt", slug: "posture-shirt", status: "published", price: 49, type: "physical" }],
-    PROBE_CARDS: { shop: [card], catalog: [card] },
+    PROBE_CARDS: [card],
     PROBE_STOREFRONT: { [SHIRT]: stockAnswer(3) },
     PROBE_STORE_MENUS: { available: true, stored: true, menus: { "main-menu": { title: "Main", links: [{ title: "Shirt", url: "/products/posture-shirt" }] } } },
   }
@@ -300,6 +300,7 @@ async function canvas(browser: Browser) {
           await sleep(100)
         }
         await page.screenshot({ path: `${OUT}/canvas-stuck-${vp.label}.png` })
+        if (process.env.DEBUG) console.log("    calls:", (await page.evaluate(() => (window as unknown as { probeCalls: string[] }).probeCalls.filter((c) => /product|cards/.test(c)).slice(-12))).join("\n      "))
         throw new Error("the canvas never drew the page")
       }
       let f = await frame()
