@@ -507,7 +507,8 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
       /* The spot read in the page, moved by where the frame sits (the canvas's frame fills the page). */
       const at = (step as { at?: { x: number; y: number } | null }).at
       if (at) { const fb = await (await frame.frameElement())?.boundingBox().catch(() => null); x = at.x + (fb?.x ?? 0); y = at.y + (fb?.y ?? 0) }
-      await page.mouse.move(x, y, { steps: 2 })
+      /* A finger has no pointer to move: on a phone the press is a tap alone. */
+      if (!phone) await page.mouse.move(x, y, { steps: 2 })
       if (phone) await page.touchscreen.tap(x, y)
       else await page.mouse.click(x, y)
       return { pressed: true, trail }
