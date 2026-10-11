@@ -121,7 +121,7 @@ export async function converted() {
 
 /* ── live ─────────────────────────────────────────────────────────────────── */
 
-async function serveLive(): Promise<{ server: Server; base: string }> {
+export async function serveLive(tweak?: (compat: { pages: Record<string, unknown[]> }) => void): Promise<{ server: Server; base: string }> {
   const t = await converted()
   const files = t.files
   const theme = themeOfInstall(files, t.settings, {
@@ -130,6 +130,7 @@ async function serveLive(): Promise<{ server: Server; base: string }> {
   })
   const { products, collections, menus } = shop()
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections])) as SiteData["pages"]
+  tweak?.({ pages: pages as unknown as Record<string, unknown[]> })
   const site: SiteData = {
     creatorId: "c",
     theme,
@@ -219,13 +220,15 @@ async function live(browser: Browser) {
 
 /* ── the editor ───────────────────────────────────────────────────────────── */
 
-export async function editorFor(browser: Browser, width: number, height: number, touch: boolean): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
+export async function editorFor(browser: Browser, width: number, height: number, touch: boolean, tweak?: (compat: { pages: Record<string, unknown[]> }) => void): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
   const t = await converted()
   const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
   const files = Object.fromEntries(Object.entries(t.files).filter(([p, v]) => p.startsWith("shopify/") && !v.startsWith("base64:")))
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections]))
   const compat = { settings: t.settings, pages, sources, files }
+  /* A probe's own change to the pages (scripts/check-canvas20.ts: a hero picture that arrives late). */
+  tweak?.(compat)
   const { products, menus } = shop()
   const probeProducts = products.map((p) => ({ id: p.id, title: p.settings.title, slug: p.settings.slug, status: "published", price: 39, type: "physical" }))
   const server = createServer((req, res) => {
