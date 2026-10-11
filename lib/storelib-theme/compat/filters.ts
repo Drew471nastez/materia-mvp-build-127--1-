@@ -130,6 +130,13 @@ function sized(src: string, width: unknown, height?: unknown): string {
   if (!want) return src
   /* An SVG or a GIF goes as it is: the optimizer refuses the one and stills the other. */
   if (/\.(svg|gif)(?:[?#]|$)/i.test(src)) return src
+  /* Already sized (`image_url: width: 1200 | image_tag: widths: …`): each width asked of the original, as Shopify's CDN does. */
+  if (src.startsWith("/_next/image")) {
+    const original = new URLSearchParams(src.split("?")[1] ?? "").get("url")
+    if (!original || original.startsWith("/_next/image")) return src
+    src = original
+  }
+  if (src.startsWith("data:") || src.startsWith("blob:") || !(isOptimizableImage(src) || isOwnMedia(src))) return src
   /*
     Storelib's optimizer sizes by width; a height alone asks for that many
     pixels across, at most. THE WIDTH ASKED FOR, as Shopify serves it (the
@@ -139,13 +146,6 @@ function sized(src: string, width: unknown, height?: unknown): string {
     resized too; they went out at their full size.
     75 is a quality next.config.mjs serves: any other is a 400, not a picture.
   */
-  /* Already sized (`image_url: width: 1200 | image_tag: widths: …`): each width asked of the original, as Shopify's CDN does. */
-  if (src.startsWith("/_next/image")) {
-    const original = new URLSearchParams(src.split("?")[1] ?? "").get("url")
-    if (!original || original.startsWith("/_next/image")) return src
-    src = original
-  }
-  if (src.startsWith("data:") || src.startsWith("blob:") || !(isOptimizableImage(src) || isOwnMedia(src))) return src
   const pixels = Math.min(3840, Math.max(16, w || h))
   const file = NEXT_IMAGE_WIDTHS.find((x) => x >= pixels) ?? NEXT_IMAGE_WIDTHS[NEXT_IMAGE_WIDTHS.length - 1]
   return `/_next/image?url=${encodeURIComponent(src)}&w=${file}&q=75`

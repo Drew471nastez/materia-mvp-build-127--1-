@@ -460,6 +460,25 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
         }
       }
       check(`${where}, ${label}, from ${from}: every header link opens its page`, links.length > 0 && failed.length === 0, `${ok} of ${links.length}${failed.length ? `; ${failed.slice(0, 4).join(" | ")}` : ""}${optional.length ? `; not reached, kept hidden at this width: ${optional.slice(0, 3).join(" | ")}` : ""}`)
+      /* Scrolled down the page and a little back up, as a visitor reaches for the menu: a header that stays (sticky, or shown again on the way up) still opens its links. */
+      if (from === "/") {
+        await go(page, at("/products/linen-shirt-2"))
+        const f = frameOf()
+        await f.evaluate(async () => { scrollTo(0, Math.min(1600, document.documentElement.scrollHeight - innerHeight)); await new Promise((r) => setTimeout(r, 400)); scrollBy(0, -120); await new Promise((r) => setTimeout(r, 700)) })
+        const target = await f.evaluate((menu: string[]) => {
+          const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
+          const a = [...document.querySelectorAll<HTMLAnchorElement>("header a[href], .shopify-section-group-header-group a[href]")].find((x) => { try { const u = new URL(x.getAttribute("href") ?? "", here); const r = x.getBoundingClientRect(); return menu.includes(u.pathname) && u.pathname !== "/" && r.top >= 0 && r.bottom <= innerHeight && r.width > 1 && x.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && (() => { const h = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2); return !!h && (h === x || x.contains(h)) })() } catch { return false } })
+          return a ? new URL(a.getAttribute("href") ?? "", here).pathname : null
+        }, MENU)
+        if (!target) console.log(`  --    ${where}, ${label}: the header is not on screen once the page is scrolled (not sticky)`)
+        else {
+          await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+          const before = loadCount(page)
+          const r = await pressHeaderLink(page, f, target, phone)
+          const got = where === "the website" ? await settledPath(page, new RegExp(`^${target}$`), false, before) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          check(`${where}, ${label}: scrolled down the page, the sticky header's ${target} still opens`, r.pressed && got.split(/[?\s]/).includes(target), `${got || "nothing"} [${r.trail.join(" > ")}]`)
+        }
+      }
     }
   }
 }
