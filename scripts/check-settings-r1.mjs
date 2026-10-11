@@ -231,8 +231,14 @@ async function framesAfter(page, press, read, ms = 700) {
     console.log(`    ${tab}: from ${from}px, new section on frame ${first} (${first >= 0 ? Math.round(f[first].t) : "never"}ms), scroll then ${after[0]?.scroll}, still after: ${still}, layout shift ${shift.toFixed(4)}`)
     /* The glide it replaced swapped the section in 400 to 470ms after the press (check-settings-sheet-desktop.mjs before round R1). */
     say(first >= 0 && f[first].t <= 160, `${tab}: the new section shows within 160ms of the press`)
-    say(after[0]?.scroll === 0, `${tab}: painted at the top in its first frame`)
-    say(still, `${tab}: nothing moves after it appears (section, column, handle strip)`)
+    /*
+      Changed on purpose (round 20, the owner: "when I click in the sidebar, it should auto scroll up smoothly, clean"):
+      the section is painted just above its top in its first frame and glides up to it, only up; the handle strip never
+      moves (scripts/check-settings20.mjs measures the glide, the column and the title frame by frame).
+    */
+    const glide = after.every((x, i) => i === 0 || (x.scroll <= after[i - 1].scroll && x.strip === after[0].strip)) && after[after.length - 1]?.scroll === 0
+    say(after[0]?.scroll !== undefined && after[0].scroll <= 400, `${tab}: painted just above its top in its first frame (${after[0]?.scroll}px)`)
+    say(glide, `${tab}: then up to the top and only up; the handle strip holds still`)
     say(!beforeMoves, `${tab}: the old section never rides the scroll before the swap`)
     say(shift < 0.001, `${tab}: no layout shift`)
   }

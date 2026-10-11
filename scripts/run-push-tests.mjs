@@ -33,6 +33,7 @@ const SUITES = [
   "tests/integrations-settings-sheet.test.ts",
   "tests/settings-sheet-desktop.test.ts",
   "tests/settings-r1.test.ts",
+  "tests/settings20.test.ts",
   "tests/store-settings-reach.test.ts",
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
