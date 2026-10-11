@@ -416,8 +416,8 @@ function ReviewRow({
                   {shortDate(review.created_at)}
                   {review.edited_at ? " · Edited" : ""}
                 </span>
-                <span aria-hidden>·</span>
-                <span data-review-verified={review.verified ? "yes" : "no"}>{review.verified ? "Verified buyer" : SOURCE_WORD[review.source] ?? "Not verified"}</span>
+                <span aria-hidden className="max-sm:hidden">·</span>
+                <span className="max-sm:basis-full" data-review-verified={review.verified ? "yes" : "no"}>{review.verified ? "Verified buyer" : SOURCE_WORD[review.source] ?? "Not verified"}</span>
               </p>
             </div>
             {items.length ? (
