@@ -31,6 +31,8 @@
  *                      shop's header and footer
  *   THE IMPORT REPORT  a Shopify app's blocks on a page and its app embeds
  *                      were left out without a word
+ *   THE CART           /cart/add.js put an option that is sold out in the
+ *                      cart when the product's other options were in stock
  *   CUSTOM CSS         a section's Custom CSS from Shopify's editor
  *                      (`custom_css` in templates/*.json) was dropped
  *   PICTURES           `image_url | image_tag` lost the picture's alt
@@ -113,6 +115,20 @@ async function main() {
     check("an Offer per variant: price, currency, stock, address", offers.length === 2 && offers[0].price === "40.00" && offers[1].price === "55.00" && offers[0].priceCurrency === "USD" && offers[0].availability === "http://schema.org/InStock" && offers[1].url === "https://shop.test/products/shirt?variant=v2", offers)
     check("the description as plain words", parsed?.description === "Washed linen, cut loose.", parsed?.description)
     check("anything else is still JSON", r("{{ shop | structured_data }}") === "{}")
+  }
+
+  console.log("\nThe cart refuses an option that is sold out\n")
+  {
+    const theme = new CompatTheme({}, {}, { assetUrl: () => null })
+    const card = { id: "p1", settings: { title: "Tee", price: "$10.00", slug: "tee", url: "/products/tee", available: true, kind: "physical", variants: [{ id: "va", name: "Small", price: "", available: true }, { id: "vb", name: "Large", price: "", available: false }], options: [{ name: "Size", values: ["Small", "Large"] }] } }
+    const data = { creatorId: "c", theme, pages: {}, products: [card], collections: [], menus: {}, shop: { name: "S", currency: "USD" }, host: "x" } as unknown as SiteData
+    const add = (id: string) => answer(data, { method: "POST", path: "/cart/add.js", query: new URLSearchParams(), body: { id, quantity: 1 }, cart: [], ajax: true })
+    const bad = await add("vb")
+    check("/cart/add.js of a sold out option: 422, as Shopify answers, and nothing added", bad.status === 422 && !bad.cart && JSON.parse(String(bad.body)).description === "Tee - Large is sold out.", { status: bad.status, body: String(bad.body) })
+    const good = await add("va")
+    check("the option in stock is added", good.status === 200 && good.cart?.length === 1 && good.cart[0].v === "va")
+    const link = await answer(data, { method: "GET", path: "/cart/vb:1", query: new URLSearchParams(), body: null, cart: [] })
+    check("a cart permalink leaves the sold out option out", link.status === 303 && link.headers?.Location === "/cart" && !link.cart, { status: link.status, loc: link.headers?.Location })
   }
 
   console.log("\n{% ifchanged %}\n")

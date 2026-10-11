@@ -166,7 +166,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     for (const part of permalink[1].split(",").slice(0, MAX_LINES)) {
       const [id, n] = part.split(":")
       const hit = index.get(decodeURIComponent(id))
-      if (!hit || hit.card.settings.available === false) continue
+      if (!hit || hit.card.settings.available === false || (hit.variantId !== hit.card.id && variantSoldOut(hit.card, hit.variantId))) continue
       const v = hit.variantId === hit.card.id ? null : hit.variantId
       lines.push({ k: lineKey(hit.card.id, v), p: hit.card.id, v, q: Math.max(1, Math.min(MAX_QTY, Math.floor(Number(n)) || 1)) })
     }
@@ -865,6 +865,13 @@ function variantIndex(site: SiteData): Map<string, Indexed> {
   return out
 }
 
+/** The name of a product's option that is sold out, or null when it is in stock. */
+function variantSoldOut(card: CardLike, variantId: string): string | null {
+  const variants = Array.isArray(card.settings.variants) ? (card.settings.variants as O[]) : []
+  const v = variants.find((x) => x.id === variantId)
+  return v && v.available === false ? String(v.name ?? "This option") : null
+}
+
 export function cartLines(site: Pick<SiteData, "products">, entries: CartEntry[]): CartLineLike[] {
   const byId = new Map(site.products.map((p) => [p.id, p]))
   return entries.flatMap((e) => {
@@ -989,6 +996,9 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       if (!hit) return error("This product is not available.", 404)
       if (hit.card.settings.available === false) return error(`${String(hit.card.settings.title)} is sold out.`)
       const v = hit.variantId === hit.card.id ? null : hit.variantId
+      /* An option that is sold out is refused as Shopify refuses it (422), even when the product's other options are in stock: the picker's Sold out is never in the cart. */
+      const soldOut = v ? variantSoldOut(hit.card, v) : null
+      if (soldOut) return error(`${String(hit.card.settings.title)} - ${soldOut} is sold out.`)
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
