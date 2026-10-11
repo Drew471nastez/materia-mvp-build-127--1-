@@ -87,7 +87,7 @@ import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builde
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { classifyImportedSection, IMPORTED_SECTION_CATEGORIES, IMPORTED_SECTION_CATEGORY_LABELS } from "@/lib/website-builder/section-categories"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
-import { CompatPreviewBox, CompatPreviewProvider, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
+import { CompatPreviewBox, CompatPreviewProvider, CompatPreviewSheet, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -742,7 +742,9 @@ const LibraryCard = memo(function LibraryCard({
           "w-full overflow-hidden rounded-xl border border-[#e5e7eb] bg-white",
           /* A pointer gets a lift; a thumb gets the shell's own dim, and nothing of the card's. */
           "transition-[border-color,box-shadow,translate] duration-200 ease-out",
-          !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)] group-hover:-translate-y-px",
+          !phone && "group-hover:border-[#d1d5db] group-hover:shadow-[0_6px_18px_-10px_rgba(15,23,42,0.35)]",
+          /* An imported theme's picture lies over the card from the list's own frame (CompatPreviewSheet), so its card does not rise from under it. */
+          !phone && !compat && "group-hover:-translate-y-px",
         )}
       >
         {compat ? (
@@ -1189,7 +1191,9 @@ export const SectionLibrary = memo(function SectionLibrary({
 
   const grid = built ? (
     <CompatGridWrap installId={compatInstallId} sources={sources} settings={theme as Record<string, unknown> | undefined}>
-      <div ref={gridRef} data-library-grid="" className="flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
+      <div ref={gridRef} data-library-grid="" className="relative flex flex-col" style={{ rowGap: phone ? 20 : 24 }}>
+        {/* An imported theme's sections, every one in one document over the cards (compat-section-preview.tsx). */}
+        {compatInstallId ? <CompatPreviewSheet renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} open={open} layoutKey={`${filterKey}:${cardWidth}`} /> : null}
         {entries.map((e) => {
           const k = cardKey(e)
           return (
@@ -1291,7 +1295,7 @@ export const SectionLibrary = memo(function SectionLibrary({
         </button>
       </div>
       <div className="flex min-h-0 flex-1">
-        <nav className="wb-slim-scroll w-[184px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label="Categories">
+        <nav className="wb-slim-scroll w-[200px] shrink-0 overflow-y-auto border-r border-[#f0f1f3] px-2 py-3" aria-label="Categories">
           {categories.map((cat) => {
             const on = !searching && ((cat.key === "all" && !activeCategory) || activeCategory === cat.key)
             return (

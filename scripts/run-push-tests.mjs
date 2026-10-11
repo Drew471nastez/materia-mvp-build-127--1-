@@ -50,6 +50,7 @@ const SUITES = [
   "tests/compat-accounts.test.ts",
   "tests/compat-storefront-accuracy.test.ts",
   "tests/compat-section-preview.test.ts",
+  "tests/section-categories.test.ts",
   "tests/canvas-loading.test.ts",
   "tests/compat-recently-viewed.test.ts",
   "tests/compat-header-cards.test.ts",

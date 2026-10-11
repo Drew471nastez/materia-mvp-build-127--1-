@@ -47,8 +47,8 @@ export const IMPORTED_SECTION_CATEGORIES = [
   { id: "media", label: "Image and video" },
   { id: "products", label: "Products" },
   { id: "collections", label: "Collections" },
-  { id: "features", label: "Features and benefits" },
-  { id: "testimonials", label: "Testimonials and reviews" },
+  { id: "features", label: "Features" },
+  { id: "testimonials", label: "Testimonials" },
   { id: "logos", label: "Logos and trust" },
   { id: "social", label: "Social" },
   { id: "faq", label: "FAQ" },
@@ -56,9 +56,9 @@ export const IMPORTED_SECTION_CATEGORIES = [
   { id: "newsletter", label: "Newsletter" },
   { id: "blog", label: "Blog" },
   { id: "contact", label: "Contact" },
-  { id: "announcements", label: "Announcement bars" },
-  { id: "layout", label: "Dividers and layout" },
-  { id: "popups", label: "Popups and overlays" },
+  { id: "announcements", label: "Announcements" },
+  { id: "layout", label: "Dividers" },
+  { id: "popups", label: "Popups" },
   { id: "other", label: "Other" },
 ] as const
 
