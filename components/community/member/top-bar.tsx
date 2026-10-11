@@ -114,23 +114,62 @@ export { CommunityMark }
  * card, a chat), and on <html> for what is portalled to the body (the
  * messages panel). Never guessed twice.
  */
+/** Each kind of bar's height as last measured (THE HEIGHT THIS BAR HAD LAST TIME, below). */
+const lastTop = new Map<string, string>()
 function useCommunityTop(ref: React.RefObject<HTMLElement | null>) {
+  /*
+    ROUND 21: NO READ ON THE WAY IN, NO WRITE THAT CHANGES NOTHING. The height was read in the layout effect and written on
+    <html> every time the bar mounted (and taken off <html> when it went): coming back to the community from the account
+    (Home in the tab bar), that read laid the whole new page out in the effect, and the write on <html> restyled every node
+    under it again. Now the frame starts from the CSS it already has ([--community-top] in shell-frame.tsx), the
+    ResizeObserver reports the bar's own box after the browser's layout, and a value is written only where it differs.
+  */
   useLayoutEffect(() => {
     const header = ref.current
     const frame = header?.parentElement
     if (!header || !frame) return
     const html = document.documentElement
-    const set = () => {
-      const h = `${Math.round(header.getBoundingClientRect().height)}px`
-      frame.style.setProperty("--community-top", h)
-      html.style.setProperty("--community-top", h)
+    /* Written only where it differs: the inline value when there is one; the frame's CSS default otherwise (read once, on a first visit). */
+    const put = (el: HTMLElement, h: string) => {
+      const inline = el.style.getPropertyValue("--community-top")
+      const now = inline || (el === html ? "" : getComputedStyle(el).getPropertyValue("--community-top").trim())
+      if (now !== h) el.style.setProperty("--community-top", h)
     }
-    set()
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(set)
-    ro?.observe(header)
+    /*
+      THE HEIGHT THIS BAR HAD LAST TIME, written in the commit with no read: the frame is new and not yet styled, and <html>
+      changes in the same style pass as everything else the arrival writes, instead of in a pass of its own afterwards. Keyed by
+      the bar's own kind and the screen's class, so the account's bar and the community's never lend each other a height.
+    */
+    const kind = `${header.closest("[data-account-community-chrome]") ? "account" : "community"}|${header.className}|${window.matchMedia?.("(min-width: 1024px)").matches ? "lg" : "sm"}`
+    const known = lastTop.get(kind)
+    if (known) {
+      frame.style.setProperty("--community-top", known)
+      if (html.style.getPropertyValue("--community-top") !== known) html.style.setProperty("--community-top", known)
+    }
+    /* Reads first, writes after: the report is taken in the observer, the write on the next frame, so another observer reading a box in the same report never has to lay the page out again because of it. */
+    let frameId = 0
+    const set = (px: number) => {
+      if (!px) return
+      const h = `${Math.round(px)}px`
+      lastTop.set(kind, h)
+      cancelAnimationFrame(frameId)
+      frameId = requestAnimationFrame(() => {
+        put(frame, h)
+        put(html, h)
+      })
+    }
+    if (typeof ResizeObserver === "undefined") {
+      set(header.getBoundingClientRect().height)
+      return () => cancelAnimationFrame(frameId)
+    }
+    const ro = new ResizeObserver((entries) => {
+      const e = entries[entries.length - 1]
+      set(e?.borderBoxSize?.[0]?.blockSize ?? e?.contentRect.height ?? 0)
+    })
+    ro.observe(header)
     return () => {
-      ro?.disconnect()
-      html.style.removeProperty("--community-top")
+      ro.disconnect()
+      cancelAnimationFrame(frameId)
     }
   }, [ref])
 }

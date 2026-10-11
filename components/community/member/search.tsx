@@ -60,6 +60,8 @@ export const SEARCH_PLACEHOLDER = "Search discussions, members, or content..."
 /** The placeholder where the field is too narrow for the whole line (a tablet), so it is never cut mid word. */
 export const SEARCH_PLACEHOLDER_SHORT = "Search this community"
 const SHORT_BELOW_PX = 380
+/** The field's last answer, for the next one drawn (THE WIDTH, below). */
+let lastNarrow = false
 /** How long the phone's search screen takes to go when closed. */
 export const SCREEN_OUT_MS = 180
 /** Over an opened post (post-fullscreen.tsx, 130) and the tab bar lifted over it (131); under the composer's leave dialog and the picture viewer. */
@@ -515,13 +517,22 @@ export function CommunitySearchField({ communityId, slug, className = "" }: { co
   useEffect(() => setActive(-1), [s.results])
 
   /* The short placeholder while the field is narrow. */
-  const [narrow, setNarrow] = useState(false)
-  useLayoutEffect(() => {
+  /*
+    ROUND 21: the width comes from the ResizeObserver's own report, after the browser's layout, never read in the layout
+    effect: that read laid out the whole community the moment it came back (Home in the tab bar), a forced restyle of every
+    node on the page. The last answer is kept for the next mount, so a field drawn again starts with the right words.
+  */
+  const [narrow, setNarrow] = useState(lastNarrow)
+  useEffect(() => {
     const el = wrap.current
     if (!el || typeof ResizeObserver === "undefined") return
-    const measure = () => setNarrow(el.getBoundingClientRect().width < SHORT_BELOW_PX)
-    measure()
-    const ro = new ResizeObserver(measure)
+    const ro = new ResizeObserver((entries) => {
+      const e = entries[entries.length - 1]
+      const width = e?.borderBoxSize?.[0]?.inlineSize ?? e?.contentRect.width ?? 0
+      if (!width) return
+      lastNarrow = width < SHORT_BELOW_PX
+      setNarrow(lastNarrow)
+    })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
