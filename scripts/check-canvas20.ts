@@ -25,7 +25,15 @@
  *   puts it as the canvas is scrolled, with the same classes.
  *
  * `live` is the live site's navigation (lib/website-builder/live-navigation)
- * on the same theme: a header link pressed, filmed the same way.
+ * on the same theme: the logo pressed on About, filmed the same way, and the
+ * view transition read in the arriving page on every frame it runs: no frame
+ * with a page part transparent (a cross-fade is two pages at once).
+ *
+ * `real` (REAL_SITE=https://<name>.storelib.com) holds a real live imported
+ * theme against itself framed as the canvas frames it (a sandboxed srcdoc,
+ * the bridge, CANVAS_HEAD, CANVAS_SHOWN): its header read while scrolling
+ * down and back up, position, size, background and classes, both the same.
+ * Its requests are made by Node (NODE_USE_ENV_PROXY=1 behind a proxy).
  *
  * desktop is 1440x900; phone is 390x844 with touch and the CPU slowed 4x.
  * Measurements, not opinions. Exits 1 on any failure. Frames and stills go
@@ -36,6 +44,8 @@ import { mkdirSync, writeFileSync } from "node:fs"
 import puppeteer, { type Browser, type CDPSession, type Frame, type Page } from "puppeteer-core"
 import sharp from "sharp"
 import { editorFor, serveLive } from "./check-builder-nav19"
+import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
+import { CANVAS_SHOWN, canvasInsets } from "../lib/storelib-theme/compat/canvas-network"
 
 const OUT = process.env.OUT ?? "/tmp/canvas20"
 const CHROME = process.env.CHROME ?? "/opt/pw-browsers/chromium"
@@ -106,14 +116,30 @@ const distance = (a: Buffer, b: Buffer) => {
   return s / a.length
 }
 
-/** Each frame: like the page left (A), like the page arrived at (B), or like neither (x). */
+/**
+ * How much of a frame is the two pages laid over each other: the share of
+ * A in the best mix of A and B, and how far the frame is from that mix. A
+ * cross-fade is such a mix at every step; a page drawing itself, or a
+ * theme's entrance, is not.
+ */
+const mixOf = (v: Buffer, a: Buffer, b: Buffer) => {
+  let num = 0, den = 0
+  for (let i = 0; i < v.length; i++) { const d = a[i] - b[i]; num += (v[i] - b[i]) * d; den += d * d }
+  const alpha = den ? Math.max(0, Math.min(1, num / den)) : 0
+  let r = 0
+  for (let i = 0; i < v.length; i++) r += Math.abs(v[i] - (alpha * a[i] + (1 - alpha) * b[i]))
+  return { alpha, residual: r / v.length }
+}
+
+/** Each frame: like the page left (A), like the page arrived at (B), the two over each other (g, a ghost), or like neither (x). */
 async function classify(shots: Shot[], box: Box, scale: number, before: Buffer, after: Buffer, from: number) {
-  const marks: { t: number; k: "A" | "B" | "x"; dA: number; dB: number }[] = []
+  const marks: { t: number; k: "A" | "B" | "g" | "x"; dA: number; dB: number }[] = []
   for (const s of shots) {
     if (s.t < from - 50) continue
     const v = await sample(s.data, box, scale)
     const dA = distance(v, before), dB = distance(v, after)
-    const k = dA <= 3 ? "A" : dB <= 3 ? "B" : "x"
+    const mix = mixOf(v, before, after)
+    const k = dA <= 3 ? "A" : dB <= 3 ? "B" : mix.residual <= 4 && mix.alpha > 0.08 && mix.alpha < 0.92 ? "g" : "x"
     marks.push({ t: Math.round(s.t - from), k, dA: Math.round(dA * 10) / 10, dB: Math.round(dB * 10) / 10 })
   }
   return marks
@@ -240,7 +266,7 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
       if (m && m.k === "x" && kept < 12) writeFileSync(`${OUT}/${label}-between-${kept++}-${m.t}ms.png`, s.data)
     }
     const firstB = marks.findIndex((m) => m.k === "B")
-    const between = marks.filter((m) => m.k === "x")
+    const between = marks.filter((m) => m.k === "x" || m.k === "g")
     const backToA = firstB >= 0 ? marks.slice(firstB).filter((m) => m.k === "A").length : 0
     const settledAt = (() => { for (let i = marks.length - 1; i >= 0; i--) if (marks[i].k !== "B") return marks[i + 1]?.t ?? -1; return marks[0]?.t ?? -1 })()
     console.log(`        frames: ${runs(marks)}`)
@@ -300,11 +326,153 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
   }
 }
 
+/* ── the live site, the same switch ───────────────────────────────────────── */
+
+async function liveSwitch(browser: Browser, label: string, width: number, height: number, touch: boolean) {
+  console.log(`\nlive site, ${label} ${width}x${height}${touch ? " touch, CPU 4x" : ""}`)
+  const pic = await pictureServer()
+  const heroPicture = (compat: { pages: Record<string, unknown[]> }) => {
+    const home = compat.pages.home as { type: string; blocks?: { settings: Record<string, unknown> }[] }[]
+    for (const s of home) if (s.type === "slideshow" && s.blocks?.[0]) s.blocks[0].settings.image = pic.url
+  }
+  const { server, base } = await serveLive(heroPicture)
+  const page = await browser.newPage()
+  /*
+    THE TRANSITION ITSELF, every frame it runs: frames in which the page
+    being left is on screen part transparent, over or under the next one.
+    Read in the arriving page, from the browser's own snapshot of the old one.
+  */
+  await page.evaluateOnNewDocument(`addEventListener("pagereveal", (e) => { const t = e.viewTransition; window.__mixed = 0; window.__vt = !!t; if (!t) return; let on = true; t.finished.then(() => { on = false }, () => { on = false }); const tick = () => { if (!on) return; const o = Number(getComputedStyle(document.documentElement, "::view-transition-old(root)").opacity), n = Number(getComputedStyle(document.documentElement, "::view-transition-new(root)").opacity); if (o > 0.02 && o < 0.98 || n > 0.02 && n < 0.98) window.__mixed++; requestAnimationFrame(tick) }; requestAnimationFrame(tick) })`)
+  try {
+    await page.setViewport({ width, height, isMobile: touch, hasTouch: touch })
+    await page.goto(`${base}/`, { waitUntil: "networkidle0" })
+    const about = await page.evaluate(() => [...document.querySelectorAll<HTMLAnchorElement>(".site-header__nav a, .drawer a")].find((a) => /about/i.test(a.textContent ?? ""))?.getAttribute("href") ?? "/about")
+    await page.goto(`${base}${about}`, { waitUntil: "networkidle0" })
+    await sleep(1500)
+    if (touch) await page.emulateCPUThrottling(4)
+    const box = { x: 0, y: 0, width, height }
+    const before = await sample(Buffer.from(await page.screenshot({ type: "png" })), box, width)
+    const cam = await film(page)
+    await sleep(300)
+    const r = await page.evaluate(() => { const b = document.querySelector(".site-header__logo")!.getBoundingClientRect(); return { x: b.left + Math.min(b.width / 2, 20), y: b.top + b.height / 2 } })
+    let at: number
+    if (touch) { at = Date.now(); await page.touchscreen.tap(r.x, r.y) } else { await page.mouse.move(r.x, r.y, { steps: 4 }); await sleep(250); at = Date.now(); await page.mouse.click(r.x, r.y) }
+    await sleep(touch ? 5000 : 3500)
+    const shots = await cam.stop()
+    const vt = await page.evaluate(() => ({ ran: (window as unknown as { __vt?: boolean }).__vt === true, mixed: (window as unknown as { __mixed?: number }).__mixed ?? -1 }))
+    await page.evaluate(() => scrollTo(0, 0))
+    await sleep(1200)
+    const after = await sample(Buffer.from(await page.screenshot({ type: "png" })), box, width)
+    await page.screenshot({ path: `${OUT}/live-${label}-home.png` })
+    const marks = await classify(shots, box, width, before, after, at)
+    writeFileSync(`${OUT}/live-${label}-marks.json`, JSON.stringify(marks, null, 1))
+    let kept = 0
+    for (const s of shots) {
+      const m = marks.find((x) => x.t === Math.round(s.t - at))
+      if (m && m.k === "x" && kept < 12) writeFileSync(`${OUT}/live-${label}-between-${kept++}-${m.t}ms.png`, s.data)
+    }
+    const ghosts = marks.filter((m) => m.k === "g")
+    const firstB = marks.findIndex((m) => m.k === "B")
+    const firstNotA = marks.findIndex((m) => m.k !== "A")
+    console.log(`        frames: ${runs(marks)}  (g: About and Home over each other; x: Home still drawing itself, its picture and the theme's own entrance)`)
+    console.log(`        About left the screen ${firstNotA >= 0 ? marks[firstNotA].t : -1}ms after the press, Home settled at ${firstB >= 0 ? marks[firstB].t : -1}ms; ${ghosts.length} frames of the two pages at once`)
+    console.log(`        the page transition ${vt.ran ? `ran, ${vt.mixed} of its frames with a page part transparent` : "did not run"}`)
+    check(`${label}: live, no frame of About and Home over each other (filmed, and in the transition)`, ghosts.length === 0 && vt.ran && vt.mixed === 0, { filmed: ghosts.length, transition: vt })
+    check(`${label}: live, About never comes back once Home has shown`, firstB >= 0 && !marks.slice(firstB).some((m) => m.k === "A"))
+  } finally {
+    await page.close()
+    server.close()
+    pic.close()
+  }
+}
+
+/* ── a real live theme against itself in the canvas's frame ───────────────── */
+
+async function viaNode(page: Page) {
+  const kept = new Map<string, { status: number; headers: Record<string, string>; body: Buffer }>()
+  await page.setRequestInterception(true)
+  page.on("request", async (req) => {
+    const url = req.url()
+    if (!/^https?:/.test(url) || req.method() !== "GET") return void req.continue()
+    try {
+      let hit = kept.get(url)
+      if (!hit) {
+        const r = await fetch(url, { signal: AbortSignal.timeout(15000) })
+        const headers: Record<string, string> = {}
+        r.headers.forEach((v, k) => { if (!/content-encoding|content-length|transfer-encoding|content-security|set-cookie/i.test(k)) headers[k] = v })
+        headers["access-control-allow-origin"] = "*"
+        hit = { status: r.status, headers, body: Buffer.from(await r.arrayBuffer()) }
+        kept.set(url, hit)
+      }
+      await req.respond(hit)
+    } catch {
+      await req.abort().catch(() => {})
+    }
+  })
+}
+
+async function real(browser: Browser) {
+  const site = (process.env.REAL_SITE ?? "").replace(/\/+$/, "")
+  if (!site) { console.log("\nreal: set REAL_SITE to a live imported theme's address"); return }
+  for (const [w, h, touch] of [[1100, 800, false], [390, 700, true]] as const) {
+    console.log(`\nreal theme ${site}, ${w}x${h}`)
+    const html = await (await fetch(`${site}/`)).text()
+    const doc = canvasInsets(html)
+      .replace(/<head\b[^>]*>/i, (m) => `${m}<base href="${site}/"><script>window.__slPath="/";window.__slSeed={};</script>${CANVAS_HEAD}${CANVAS_SHOWN}<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>`)
+      .replace(/<\/body>/i, `<script>window.__slSite=${JSON.stringify(site)};window.__slInspect=true;${CANVAS_BRIDGE}</script></body>`)
+    const ys = [0, 60, 300, 900, 1500, 1200, 400, 0]
+    const read = async (f: Frame | Page) => {
+      const out: string[] = []
+      for (const y of ys) {
+        await f.evaluate((y) => scrollTo({ top: y, behavior: "instant" }), y)
+        await sleep(700)
+        out.push(await f.evaluate(() => {
+          const s = document.querySelector<HTMLElement>(".section-header, #shopify-section-header, header")!
+          const hd = s.querySelector("header") ?? s
+          const r = hd.getBoundingClientRect()
+          return `${Math.round(scrollY)}: top ${Math.round(r.top)} h ${Math.round(r.height)} ${getComputedStyle(s).position} ${getComputedStyle(hd).backgroundColor} [${[...s.classList].join(" ")}]`
+        }))
+      }
+      return out
+    }
+    const a = await browser.newPage()
+    const b = await browser.newPage()
+    try {
+      for (const p of [a, b]) { await viaNode(p); await p.setViewport({ width: w, height: h, isMobile: touch, hasTouch: touch }) }
+      /* One page in front at a time: a page behind another runs no animation frames, and a theme's start-up waits on them. */
+      await a.bringToFront()
+      await a.goto(`${site}/`, { waitUntil: "networkidle2", timeout: 60000 })
+      await a.waitForFunction(() => document.readyState === "complete", { timeout: 30000 })
+      await sleep(1500)
+      const live = await read(a)
+      await b.bringToFront()
+      await b.goto(`${site}/__canvas_probe__`, { waitUntil: "domcontentloaded" }).catch(() => {})
+      await b.setContent(`<!doctype html><html><body style="margin:0"><iframe id="f" sandbox="allow-scripts allow-forms allow-popups" style="border:0;display:block;width:${w}px;height:${h}px"></iframe></body></html>`)
+      await b.evaluate((d) => { (document.getElementById("f") as HTMLIFrameElement).srcdoc = d }, doc)
+      await sleep(6000)
+      const frame = await (await b.$("#f"))!.contentFrame()
+      const framed = await read(frame!)
+      for (let i = 0; i < ys.length; i++) if (live[i] !== framed[i]) console.log(`        live   ${live[i]}\n        canvas ${framed[i]}`)
+      check(`${w}x${h}: the real theme's header, scrolled down and back, is the same in the canvas's frame as live`, live.join("\n") === framed.join("\n"), live.map((x) => x.split(" [")[0]).join(" | "))
+      await a.screenshot({ path: `${OUT}/real-${w}-live.png` })
+      await b.screenshot({ path: `${OUT}/real-${w}-canvas.png` })
+    } finally {
+      await a.close()
+      await b.close()
+    }
+  }
+}
+
 async function main() {
   const browser = await puppeteer.launch({ executablePath: CHROME, headless: true, args: ["--no-sandbox", "--hide-scrollbars"] })
   try {
     if (all || parts.has("desktop")) await switchInEditor(browser, "desktop", 1440, 900, false)
     if (all || parts.has("phone")) await switchInEditor(browser, "phone", 390, 844, true)
+    if (parts.has("real")) await real(browser)
+    if (all || parts.has("live")) {
+      await liveSwitch(browser, "desktop", 1440, 900, false)
+      await liveSwitch(browser, "phone", 390, 844, true)
+    }
   } finally {
     await browser.close()
   }

@@ -121,7 +121,7 @@ export async function converted() {
 
 /* ── live ─────────────────────────────────────────────────────────────────── */
 
-export async function serveLive(): Promise<{ server: Server; base: string }> {
+export async function serveLive(tweak?: (compat: { pages: Record<string, unknown[]> }) => void): Promise<{ server: Server; base: string }> {
   const t = await converted()
   const files = t.files
   const theme = themeOfInstall(files, t.settings, {
@@ -130,6 +130,7 @@ export async function serveLive(): Promise<{ server: Server; base: string }> {
   })
   const { products, collections, menus } = shop()
   const pages = Object.fromEntries(t.pages.map((p) => [p.page_key, p.sections])) as SiteData["pages"]
+  tweak?.({ pages: pages as unknown as Record<string, unknown[]> })
   const site: SiteData = {
     creatorId: "c",
     theme,
