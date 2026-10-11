@@ -1,12 +1,12 @@
-# Imported Shopify themes
+# Imported themes
 
-A theme exported from Shopify can be imported into Storelib whole. The website then draws the theme's own Liquid, CSS and JavaScript on Storelib's engine, filled with the creator's Storelib products, collections, menus and settings. Nothing is rewritten into a native Storelib section and nothing is sent to Shopify: every address the theme's markup and scripts reach for is answered by Storelib.
+A theme exported from another store platform can be imported into Storelib whole. The website then draws the theme's own templates, CSS and JavaScript on Storelib's engine, filled with the creator's Storelib products, collections, menus and settings. Nothing is rewritten into a native Storelib section and nothing is sent to the old platform: every address the theme's markup and scripts reach for is answered by Storelib.
 
-This page is about that path: what is imported, which parts of Liquid and the storefront APIs a theme can use, what the builder does with it, and what does not come across. Writing a native Storelib theme instead is covered by [Coming from Shopify](/developers/shopify), and the builder's own settings compared with Shopify's are in [Shopify parity](/developers/shopify-parity).
+This page is about that path: what is imported, which parts of the template language and the storefront APIs a theme can use, what the builder does with it, and what does not come across. Writing a native Storelib theme instead is covered by [Coming from another platform](/developers/shopify), and the builder's own settings compared with other theme editors are in [Theme editor parity](/developers/shopify-parity).
 
 ## Importing a theme
 
-In **Website**, press **Import theme** and choose the `.zip` Shopify's admin hands out (a GitHub download of Dawn, Horizon or a commercial theme works too). The file is 50 MB or less. It becomes a new draft website in the library; nothing goes live until it is published.
+In **Website**, press **Import theme** and choose the `.zip` your old store's admin hands out (a GitHub download of Dawn, Horizon or a commercial theme works too). The file is 50 MB or less. It becomes a new draft website in the library; nothing goes live until it is published.
 
 | In the zip | On Storelib |
 | --- | --- |
@@ -20,17 +20,17 @@ In **Website**, press **Import theme** and choose the `.zip` Shopify's admin han
 | `locales/*.json` | Kept, for `t` and for `t:` schema labels |
 | `assets/*` | Stylesheets, scripts, icons and fonts kept as the theme's files; pictures and videos stored as media |
 
-**Nothing is left out silently.** A file that is not part of a theme, a name Storelib cannot store, a setting the builder's panel has no control for, a tag Storelib does not know, or a picture that lived in the Shopify store's own Files rather than in the theme: each is a line in the import's report, with what was done about it. When the import finishes, the library says how many sections, blocks and pages came across and how many files were left out.
+**Nothing is left out silently.** A file that is not part of a theme, a name Storelib cannot store, a setting the builder's panel has no control for, a tag Storelib does not know, or a picture that lived in the old store's own files rather than in the theme: each is a line in the import's report, with what was done about it. When the import finishes, the library says how many sections, blocks and pages came across and how many files were left out.
 
 Each section is stored in the compatible profile of the template language: `<template compat="shopify">` holds the markup as the theme wrote it, and the `<schema>` carries two schemas at once. The Storelib one is what the builder's panel draws; the theme's own, under `"shopify"`, is what the page is drawn with, so a setting the panel cannot show still keeps its value and its default.
 
-## Liquid
+## Template language
 
-The engine reads Liquid itself. It is lenient where Shopify is: a tag that does not parse becomes a comment in the page and the rest of the file still draws, and a filter given the wrong kind of value prints nothing rather than failing the page.
+The engine reads the theme's template language itself, and it is lenient: a tag that does not parse becomes a comment in the page and the rest of the file still draws, and a filter given the wrong kind of value prints nothing rather than failing the page.
 
 **Tags.** `if`, `elsif`, `else`, `unless`, `case` and `when`, `for` with `break`, `continue`, `limit`, `offset`, `reversed` and `forloop`, `tablerow`, `assign`, `capture`, `increment`, `decrement`, `cycle`, `render` and `include`, `section`, `sections`, `content_for` (`"blocks"` and `"block"`), `block`, `form`, `paginate`, `style`, `layout`, `raw`, `comment`, `doc`, and `liquid` with `echo`. `schema`, `javascript` and `stylesheet` are read whole.
 
-**Filters.** Liquid's own (strings, numbers, arrays, `date`, `default`, `json`), and the ones Shopify themes use, each answered from Storelib's data:
+**Filters.** The language's own (strings, numbers, arrays, `date`, `default`, `json`), and the ones store themes use, each answered from Storelib's data:
 
 | Family | Filters |
 | --- | --- |
@@ -43,7 +43,7 @@ The engine reads Liquid itself. It is lenient where Shopify is: a tag that does 
 | Tags and forms | `link_to_tag`, `link_to_add_tag`, `link_to_remove_tag`, `highlight_active_tag`, `default_errors`, `default_pagination`, `customer_login_link`, `customer_logout_link`, `customer_register_link` |
 | Commerce | `payment_type_svg_tag`, `payment_type_img_url`, `payment_button`, `weight_with_unit`, `format_address`, `structured_data`, `item_count_for_variant`, `line_items_for` |
 
-**Colours.** A `color` setting, a colour scheme's colours and each entry of a palette setting (`settings.color_palette`) are colour objects with `.rgb`, `.alpha` and the colour filters, as Shopify gives them.
+**Colours.** A `color` setting, a colour scheme's colours and each entry of a palette setting (`settings.color_palette`) are colour objects with `.rgb`, `.alpha` and the colour filters, as themes expect them.
 
 **Objects.** `shop`, `settings`, `section`, `block`, `product`, `collection`, `collections`, `all_products`, `cart`, `customer`, `linklists`, `routes`, `request` (with `design_mode`), `localization`, `template`, `page`, `page_title`, `page_description`, `canonical_url`, `search`, `predictive_search`, `recommendations`, `content_for_header` and `current_page`. Money is in cents, as themes expect.
 
@@ -57,11 +57,11 @@ A value Storelib does not have is present and empty, so a theme's `{% if %}` aro
 
 ## Sections, blocks and groups
 
-Every page is the header group, the template's sections and the footer group, as on Shopify. A section on a page has its settings and its blocks, nested theme blocks included, and the builder edits them with the same panel as any section.
+Every page is the header group, the template's sections and the footer group. A section on a page has its settings and its blocks, nested theme blocks included, and the builder edits them with the same panel as any section.
 
 A theme's group files become Storelib's section groups:
 
-| Shopify | Storelib |
+| Theme | Storelib |
 | --- | --- |
 | `sections/header-group.json` | The header group, on every page |
 | `sections/footer-group.json` | The footer group, on every page |
@@ -71,11 +71,11 @@ A theme's group files become Storelib's section groups:
 
 ## The cart
 
-The cart lives in a cookie on the website's own host, up to 50 lines and 99 of each. Every Shopify cart address answers, in HTML or JSON as the request asks:
+The cart lives in a cookie on the website's own host, up to 50 lines and 99 of each. Every cart address a theme uses answers, in HTML or JSON as the request asks:
 
 | Address | What it does |
 | --- | --- |
-| `GET /cart.js`, `/cart.json` | The cart, shaped as Shopify's |
+| `GET /cart.js`, `/cart.json` | The cart, in the shape themes expect |
 | `POST /cart/add`, `/cart/add.js` | Adds `id` and `quantity`, or an `items` list, with `properties` |
 | `POST /cart/change`, `/cart/change.js` | Changes one line, by `line` or by key |
 | `POST /cart/update`, `/cart/update.js` | Sets quantities with `updates`, and the `note` |
@@ -83,7 +83,7 @@ The cart lives in a cookie on the website's own host, up to 50 lines and 99 of e
 | `GET /cart/add?id=…&quantity=…` | A link that adds and opens the cart |
 | `GET /cart/<variant>:<qty>,…` | A cart permalink: those lines, straight to checkout |
 
-A request from a script (a JSON body, `X-Requested-With`, or `Accept: application/json`) is answered with JSON whatever the address ends in, as Shopify does. A product that cannot be added is a `422` with a message the theme can show.
+A request from a script (a JSON body, `X-Requested-With`, or `Accept: application/json`) is answered with JSON whatever the address ends in. A product that cannot be added is a `422` with a message the theme can show.
 
 ## Checkout
 
@@ -130,15 +130,15 @@ A theme that keeps its own wishlist in `localStorage` (a key with `wish` in it, 
 
 ## The theme's scripts
 
-The theme's JavaScript runs on the website as it was written. Storelib supplies what Shopify's servers would have put on the page:
+The theme's JavaScript runs on the website as it was written. Storelib supplies what the old platform's servers would have put on the page:
 
 - **`window.Shopify`**: the shop, its currency and locale, the routes, and `designMode` (true in the builder), written by `{{ content_for_header }}`.
 - **`@shopify/events`**: the storefront events module a theme imports by that name (Horizon's `ProductSelectEvent`, `CartLinesUpdateEvent` and the rest), inline, so an event the theme dispatches is the one its listeners wait for.
-- **Shopify's CDN**: any other script or stylesheet on `cdn.shopify.com` (payment buttons, 3D viewers) is taken out of the page and named in the theme's diagnostics.
+- **The old platform's CDN**: any other script or stylesheet on `cdn.shopify.com` (payment buttons, 3D viewers) is taken out of the page and named in the theme's diagnostics.
 
 ## In the builder
 
-The canvas draws an imported theme's page in a sandboxed frame with no origin of its own, so the theme's scripts run as they do on the website and reach nothing of the builder or the signed in person. The builder adds one script, which talks to it by `postMessage` and does what Shopify's theme editor does:
+The canvas draws an imported theme's page in a sandboxed frame with no origin of its own, so the theme's scripts run as they do on the website and reach nothing of the builder or the signed in person. The builder adds one script, which talks to it by `postMessage` and does what a theme editor is expected to do:
 
 - A click selects the section and the block under it. Links and forms do not leave the page. A link is only followed after every listener the theme has on the click has run, so a header cart icon that opens the drawer opens only the drawer.
 - A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it.
@@ -149,7 +149,7 @@ The canvas draws an imported theme's page in a sandboxed frame with no origin of
 
 ## Between pages on the live site
 
-A live website, imported or native, goes from page to page by loading the next page whole, as Shopify does, and it does it without a white flash:
+A live website, imported or native, goes from page to page by loading the next page whole, and it does it without a white flash:
 
 - A link the visitor rests on or presses is fetched ahead by the browser (Speculation Rules, prefetch only, never prerender, so no page script or pixel runs for a page nobody opened). The cart, checkout, account and API are left out, as is a link marked `nofollow`, one opening a new tab, or one with `data-no-prefetch`.
 - The two pages cross-fade with a cross-document view transition. The arriving page waits, under the one being left, until it has been read to its end, so a theme's own start-up (an entrance animation, a slider laying out) is not shown half done.
@@ -157,7 +157,7 @@ A live website, imported or native, goes from page to page by loading the next p
 
 ## What does not come across
 
-| Shopify | On Storelib |
+| From the old store | On Storelib |
 | --- | --- |
 | Apps and app blocks | Not run. Their markup has nothing to draw. |
 | Metafields other than a product's custom fields and questions, metaobjects | Empty |
@@ -165,5 +165,5 @@ A live website, imported or native, goes from page to page by loading the next p
 | Shop Pay, PayPal and other wallet buttons | Not shown; checkout takes cards, Apple Pay and Google Pay |
 | Gift cards, selling plans, B2B prices | Not available |
 | Several currencies or languages | One of each per website |
-| Pictures in the Shopify store's Files | Not in the zip, so not imported; named in the report |
-| Shopify products, customers and orders | Not imported; the theme is filled with the creator's Storelib products |
+| Pictures in the old store's files | Not in the zip, so not imported; named in the report |
+| Products, customers and orders | Not imported; the theme is filled with the creator's Storelib products |

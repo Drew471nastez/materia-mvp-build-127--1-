@@ -2,34 +2,35 @@
 
 /**
  * ===========================================================================
- *  ADD A SECTION, FOR A THEME IMPORTED FROM SHOPIFY
+ *  ADD A SECTION, FOR AN IMPORTED THEME
  * ===========================================================================
  * The library drew every card with Storelib's own section renderer. An
- * imported theme's sections are Shopify sections, drawn by the compat engine
+ * imported theme's sections are drawn by the compat engine
  * (lib/storelib-theme/compat), so Storelib's renderer had nothing to draw
  * and every card came out an empty white box with a name under it.
  *
- * Here a card is drawn the way the canvas and the website draw a page
- * (lib/storelib-theme/compat/page.ts, drawPage), with that one section as
- * the page's only content: the theme's own layout, so its colour schemes,
- * CSS variables and body classes are there; its stylesheets and the fonts
- * its settings name; and the section's preset settings and blocks.
+ * A card shows the section the way the canvas and the website draw a page
+ * (lib/storelib-theme/compat/page.ts): the theme's own layout, so its colour
+ * schemes, CSS variables, body classes, stylesheets and fonts are there, and
+ * the section's preset settings and blocks. WITH NONE OF ITS SCRIPTS: the
+ * page is drawn without them and the frame has no allow-scripts.
  *
- * WITH NONE OF ITS SCRIPTS. The page is drawn without them (withoutScripts)
- * and the frame has no allow-scripts, so a preview can run nothing: forty
- * copies of a theme's sliders and observers in a closed dialog is what the
- * editor would otherwise pay for. allow-same-origin is there so the library
- * can read the section's height and size the card to it; with no scripts in
- * the frame there is nothing in it that could use that origin.
- *
- * DRAWN WHEN SEEN. A card builds its frame the first time it comes near the
- * screen, once, and keeps it.
+ * ONE DOCUMENT FOR EVERY CARD, NOT ONE FRAME PER CARD. Each card used to be
+ * its own frame, a whole page of the theme around one section, built when
+ * the card neared the screen. Every one of them parsed the theme's 70 KB of
+ * inline styles and its stylesheets again, laid out a document and loaded
+ * its fonts, on the editor's own thread: 40ms of work a card, more than
+ * 300ms before it could be seen, while the list was scrolling. Scrolling
+ * the library was a run of long tasks and white boxes that popped into
+ * pictures (measured on Posturex: 45 long tasks in nine seconds, frames at
+ * 117ms). See PreviewSheet below.
  */
-import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react"
 import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"
+import { freezeViewportInMarkup, inlineStylesheets } from "@/lib/storelib-theme/compat/preview-styles"
 import type { SectionSchema } from "@/lib/website-builder/types"
 
 interface CompatPreviewValue {
@@ -39,6 +40,8 @@ interface CompatPreviewValue {
   installId: string
   /** The theme's files could not be had: each card names its section rather than shimmering for good. */
   failed: boolean
+  /** The install's files, for the stylesheets the preview document carries itself. */
+  rows: Record<string, string> | null
 }
 
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
@@ -78,13 +81,13 @@ export function CompatPreviewProvider({
     }
   }, [installId])
 
+  const rows = useMemo(() => (files ? { ...sources, ...files } : null), [files, sources])
   const theme = useMemo(() => {
-    if (!files) return null
+    if (!files || !rows) return null
     /* The same theme for every opening of the dialog while nothing it is made of changed: its parsed files and its drawn layout are kept with it. */
     const key = `${installId}|${JSON.stringify(settings ?? {})}`
     const kept = keptThemes.get(files)
     if (kept && kept.key === key && kept.sources === sources) return kept.theme
-    const rows = { ...sources, ...files }
     const media = assetAddresses(rows)
     try {
       const made = themeOfInstall(rows, settings ?? {}, {
@@ -97,7 +100,7 @@ export function CompatPreviewProvider({
     } catch {
       return null
     }
-  }, [files, sources, settings, installId])
+  }, [files, rows, sources, settings, installId])
 
   const page = useMemo<CompatPage>(() => {
     const { template } = templateOfPage("home")
@@ -119,7 +122,7 @@ export function CompatPreviewProvider({
     }
   }, [])
 
-  const value = useMemo(() => ({ theme, page, installId, failed: failed || (!!files && !theme) }), [theme, page, installId, failed, files])
+  const value = useMemo(() => ({ theme, page, installId, failed: failed || (!!files && !theme), rows }), [theme, page, installId, failed, files, rows])
   return <CompatPreviewContext.Provider value={value}>{children}</CompatPreviewContext.Provider>
 }
 
@@ -207,60 +210,67 @@ function cleanPreview(html: string): string {
     .replace(/(<[a-z][^>]*?)\s+on[a-z]+\s*=\s*(?:"[^"]*"|'[^']*')/gi, "$1")
 }
 
-const TALLEST = 1.1
+/* The window a section is pictured in: its viewport heights are this tall (lib/storelib-theme/compat/preview-styles.ts). */
+const WINDOW_HEIGHT_DESKTOP = 800
+const WINDOW_HEIGHT_PHONE = 844
 
-/*
-  LIGHT TO SCROLL, INSTANT TO COME BACK TO. A card's page was drawn the
-  moment it neared the screen, on the main thread, several in one scroll
-  frame: the list stuttered as it moved. Now each card asks a queue, which
-  draws one page per idle moment. And what was drawn and measured is kept
-  for the theme, so switching to another category and back shows the cards
-  at once, at their own heights, with nothing to rebuild or jump.
-*/
-type Cache = { docs: Map<string, string | null>; heights: Map<string, number>; blank: Set<string> }
-const caches = new WeakMap<CompatTheme, Cache>()
-function cacheFor(theme: CompatTheme): Cache {
-  let c = caches.get(theme)
-  if (!c) caches.set(theme, (c = { docs: new Map(), heights: new Map(), blank: new Set() }))
-  return c
+/**
+ * The cards' document's own rules. Its page is see-through (the cards' names
+ * and the gaps between them are the library's, under it), and each card's
+ * section sits in its own copy of the theme's <main>, put where its card is,
+ * cut at the card's foot, with its layout and paint kept to itself: a
+ * section's fixed layer or its overflow stays inside its card.
+ */
+function sheetRules(width: number): string {
+  return [
+    "html,body{background:transparent!important;background-image:none!important;overflow:hidden!important;margin:0!important;padding:0!important;min-height:0!important;height:auto!important;border:0!important}",
+    `body>[data-sl-pv]{position:absolute!important;top:0;left:0;right:auto!important;bottom:auto!important;width:${width}px!important;max-width:none!important;min-width:0!important;height:auto!important;margin:0!important;overflow:hidden!important;contain:layout paint style!important;box-sizing:border-box!important;float:none!important;transform:none!important;opacity:0;visibility:hidden}`,
+    "body>[data-sl-pv][data-placed]{visibility:visible}",
+    /* Measured: a section away from the screen is neither styled, laid out nor painted again until it nears it, so putting in the next one costs that one alone. */
+    "body>[data-sl-pv][data-measured]{content-visibility:auto}",
+    "body>[data-sl-pv][hidden]{display:none!important}",
+    "body>[data-sl-pv][data-on]{opacity:1;transition:opacity 220ms cubic-bezier(0.32,0.72,0,1)!important}",
+    "body>[data-sl-pv][data-on][data-instant]{transition:none!important}",
+    "@media (prefers-reduced-motion:reduce){body>[data-sl-pv][data-on]{transition:none!important}}",
+  ].join("\n")
 }
-const queue: (() => void)[] = []
-let draining = false
-function drain() {
-  const job = queue.shift()
-  if (!job) {
-    draining = false
-    return
-  }
-  job()
-  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(drain, { timeout: 120 })
-  else window.setTimeout(drain, 16)
+
+/** The cards' document: the theme's head, an empty body, and the <main> each section is put in. Exported for its test. */
+export function sheetDocument(theme: CompatTheme, page: CompatPage, rows: Record<string, string> | null, width: number, height: number): { html: string; main: string } {
+  const shell = previewShell(theme, page)
+  let main = ""
+  const at = shell.indexOf(PREVIEW_SLOT)
+  const bodyAt = shell.search(/<body\b/i)
+  const mainAt = at > 0 ? shell.lastIndexOf("<main", at) : -1
+  if (mainAt > bodyAt && bodyAt >= 0) main = shell.slice(mainAt, shell.indexOf(">", mainAt) + 1)
+  /* Nothing in the body but what is put there: the layout's drawers and bars are no card's. */
+  let html = shell.replace(/(<body\b[^>]*>)[\s\S]*(<\/body>)/i, "$1$2")
+  html = freezeViewportInMarkup(inlineStylesheets(html, rows, width, height), width, height)
+  html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, () => `<style data-storelib-sheet>${sheetRules(width)}</style></head>`) : `<style data-storelib-sheet>${sheetRules(width)}</style>${html}`
+  return { html, main }
 }
-/** Runs `job` when the page is idle, one at a time; the returned function takes it back out if it has not run. */
-function whenIdle(job: () => void): () => void {
-  queue.push(job)
-  if (!draining) {
-    draining = true
-    window.setTimeout(drain, 0)
-  }
-  return () => {
-    const at = queue.indexOf(job)
-    if (at >= 0) queue.splice(at, 1)
-  }
+
+/**
+ * One section's markup for its card: its own stylesheets carried in it as
+ * the theme's are (a section that links countdown.css would otherwise be
+ * shown unstyled until a round trip came back), its viewport heights
+ * frozen. Exported for its test.
+ */
+export function sectionMarkup(theme: CompatTheme, page: CompatPage, section: StoredSection, rows: Record<string, string> | null, width: number, height: number): string {
+  const ctx = pageContextFor(theme, page, [section])
+  const { html } = drawSection(theme, ctx, section, 0)
+  return freezeViewportInMarkup(inlineStylesheets(cleanPreview(html), rows, width, height), width, height)
 }
 
 /*
   ═══════════════════════════════════════════════════════════════════════
    A CARD IS ITS OWN HEIGHT FROM ITS FIRST FRAME, THE SECOND TIME
   ═══════════════════════════════════════════════════════════════════════
-  A card's height is only known once its frame has loaded and been measured,
-  and it was drawn at half its width until then: every card jumped as its
-  preview came in, and the cards under it with it. The heights measured are
-  remembered for the theme in this browser (a convenience: a wrong or
-  missing one only means a card is measured again), so a library opened
-  again, in this visit or the next, has every card at its own height before
-  anything in it has loaded.
+  A card's height is only known once its section has been laid out and
+  measured. The heights measured are remembered for the theme in this
+  browser (a convenience: a wrong or missing one only means a card is
+  measured again), so a library opened again, in this visit or the next,
+  has every card at its own height before anything in it is drawn.
 */
 type Heights = Record<string, number>
 const heightMemory = new Map<string, Heights>()
@@ -298,40 +308,527 @@ function rememberHeight(installId: string, renderWidth: number, key: string, h: 
 }
 
 /*
-  DRAWN AHEAD, IN THE EDITOR'S QUIET MOMENTS. A card's page (a string: the
-  theme's layout around its one section) is drawn before the card is ever
-  near the screen, after everything that is near it, so scrolling down the
-  library finds pages already drawn and only their frames to load.
+  ═══════════════════════════════════════════════════════════════════════
+   WHILE SOMEBODY IS USING THE EDITOR, NOTHING IS DRAWN AHEAD
+  ═══════════════════════════════════════════════════════════════════════
+  Cards are drawn ahead into the closed library in idle moments, and only
+  once the pointer, the keys, the wheel and every scroll have been still
+  for a moment: somebody typing or scrolling the canvas is never held up by
+  a card nobody has asked for. An open library is what somebody is waiting
+  for, and is drawn a frame at a time, nearest the screen first.
 */
-const later: (() => void)[] = []
-let laterRunning = false
-function drainLater() {
-  if (queue.length) {
-    /* What is on screen first. */
-    window.setTimeout(drainLater, 120)
-    return
+const INPUT_QUIET_MS = 1000
+let lastInput = 0
+let watchingInput = false
+function watchInput() {
+  if (watchingInput || typeof window === "undefined") return
+  watchingInput = true
+  const seen = () => {
+    lastInput = performance.now()
   }
-  const job = later.shift()
-  if (!job) {
-    laterRunning = false
-    return
-  }
-  job()
-  /* Only when the editor is truly idle, never on a deadline: somebody typing is never held up by a card nobody has asked for. */
-  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(drainLater)
-  else window.setTimeout(drainLater, 400)
+  const o = { capture: true, passive: true } as const
+  for (const t of ["pointermove", "pointerdown", "keydown", "wheel", "touchstart"]) window.addEventListener(t, seen, o)
+  document.addEventListener("scroll", seen, o)
 }
-function whenQuiet(job: () => void): () => void {
-  later.push(job)
-  if (!laterRunning) {
-    laterRunning = true
-    window.setTimeout(drainLater, 300)
+
+type IdleDeadline = { timeRemaining: () => number }
+function onIdle(cb: (d: IdleDeadline) => void): void {
+  const w = window as Window & { requestIdleCallback?: (cb: (d: IdleDeadline) => void, o?: { timeout: number }) => number }
+  if (w.requestIdleCallback) w.requestIdleCallback(cb)
+  else window.setTimeout(() => cb({ timeRemaining: () => 8 }), 50)
+}
+
+/** How much of a frame an open library spends putting sections in, at most. */
+const FRAME_BUDGET_MS = 8
+/** How long a section's pictures may hold its fade-in back. */
+const DECODE_WAIT_MS = 500
+/** The card's own corner, inside its 1px border (rounded-xl). */
+const CARD_RADIUS = 11
+/** The shortest a card is (see CompatPreviewBox). */
+const FLOOR = 64
+
+type CardState = { height: number | undefined; state: "waiting" | "shown" | "named" }
+const WAITING: CardState = { height: undefined, state: "waiting" }
+
+interface CardEntry {
+  type: string
+  presetIndex: number
+  schema: SectionSchema
+  box: HTMLElement
+  eager: boolean
+}
+
+/**
+ * ===========================================================================
+ *  EVERY CARD'S SECTION, IN ONE DOCUMENT
+ * ===========================================================================
+ * One frame lies over the whole list of cards, see-through and taking no
+ * presses, scaled as the cards are. Its document is the theme's head (its
+ * styles parsed once, its fonts loaded once) and, for each card, the
+ * card's section in a copy of the theme's <main>, put exactly over the
+ * card's picture box and cut at its foot. The library's own cards, their
+ * names, their borders, their hover and their focus, are all underneath and
+ * all the library's; only the picture is the frame's.
+ *
+ *   A SECTION IS PUT IN ONCE. Drawing it is the compat engine (about 3ms),
+ *   putting it in is the browser styling and laying out one section in a
+ *   document whose styles are already parsed. Both are done ahead, in the
+ *   editor's quiet moments, so by the time anybody opens the library every
+ *   card is drawn and scrolling it asks for nothing. One opened before then
+ *   is filled a frame at a time, never more than FRAME_BUDGET_MS of one,
+ *   nearest what is on screen first.
+ *
+ *   A PICTURE ARRIVES ONCE AND WHOLE. A card shows its grey and its shimmer
+ *   until its section is placed over it with its pictures decoded; then it
+ *   fades in over the grey, once (or is simply there, if nobody was looking).
+ *
+ *   A CATEGORY MOVES NOTHING BUT POSITIONS. A card a category hides hides
+ *   its section; the ones it shows are put over their cards again, read
+ *   from the cards in the same frame the library lays them out in.
+ */
+class PreviewSheet {
+  readonly html = new Map<string, string | null>()
+  readonly cards = new Map<string, CardEntry>()
+  private readonly states = new Map<string, CardState>()
+  private readonly listeners = new Map<string, Set<() => void>>()
+  private readonly wrappers = new Map<string, HTMLElement>()
+  private readonly heights = new Map<string, number>()
+  private readonly blank = new Set<string>()
+  private readonly failed = new Set<string>()
+  private doc: Document | null = null
+  private proto: Element | null = null
+  frame: HTMLIFrameElement | null = null
+  grid: HTMLElement | null = null
+  open = false
+  private scheduled = false
+  private syncQueued = false
+  private remeasure = new Set<string>()
+  private remeasureQueued = false
+  private document_: { html: string; main: string } | null = null
+
+  constructor(
+    readonly theme: CompatTheme,
+    readonly page: CompatPage,
+    readonly rows: Record<string, string> | null,
+    readonly installId: string,
+    readonly renderWidth: number,
+  ) {}
+
+  get windowHeight(): number {
+    return this.renderWidth < 640 ? WINDOW_HEIGHT_PHONE : WINDOW_HEIGHT_DESKTOP
   }
-  return () => {
-    const at = later.indexOf(job)
-    if (at >= 0) later.splice(at, 1)
+
+  /** The frame's whole document, built once. */
+  get srcDoc(): string {
+    if (!this.document_) {
+      try {
+        this.document_ = sheetDocument(this.theme, this.page, this.rows, this.renderWidth, this.windowHeight)
+      } catch {
+        this.document_ = { html: "<!doctype html><html><head></head><body></body></html>", main: "" }
+      }
+    }
+    return this.document_.html
   }
+
+  /* ── what a card reads ── */
+
+  stateOf(key: string): CardState {
+    return this.states.get(key) ?? WAITING
+  }
+
+  subscribe(key: string, l: () => void): () => void {
+    let set = this.listeners.get(key)
+    if (!set) this.listeners.set(key, (set = new Set()))
+    set.add(l)
+    return () => {
+      set!.delete(l)
+    }
+  }
+
+  private setState(key: string, next: Partial<CardState>) {
+    const prev = this.stateOf(key)
+    const merged = { ...prev, ...next }
+    if (merged.height === prev.height && merged.state === prev.state) return
+    this.states.set(key, merged)
+    for (const l of this.listeners.get(key) ?? []) l()
+  }
+
+  register(key: string, entry: CardEntry): () => void {
+    this.cards.set(key, entry)
+    this.schedule()
+    return () => {
+      if (this.cards.get(key) === entry) this.cards.delete(key)
+    }
+  }
+
+  /* ── the frame ── */
+
+  /** The frame has (re)loaded its document: everything drawn before is put in again, nearest first. */
+  attach(frame: HTMLIFrameElement) {
+    this.frame = frame
+    this.grid = frame.parentElement
+    const doc = frame.contentDocument
+    /* Not the blank page a new frame holds before its own document has loaded. */
+    if (!doc?.body || doc === this.doc || doc.URL !== "about:srcdoc" || doc.readyState !== "complete") return
+    this.doc = doc
+    this.wrappers.clear()
+    for (const [k, st] of this.states) if (st.state === "shown") this.states.set(k, { ...st, state: "waiting" })
+    for (const key of this.states.keys()) for (const l of this.listeners.get(key) ?? []) l()
+    /* The theme's <main>, copied for each card, so the theme's rules for what is in it still hold. */
+    if (this.document_?.main) {
+      const t = doc.createElement("template")
+      t.innerHTML = `${this.document_.main}</main>`
+      this.proto = t.content.firstElementChild
+    }
+    /* The page's own background under each section, as on the page: read with the frame's see-through rule off. */
+    const own = doc.querySelector<HTMLStyleElement>("style[data-storelib-sheet]")
+    if (own?.sheet) {
+      own.sheet.disabled = true
+      const v = doc.defaultView
+      const b = v?.getComputedStyle(doc.body)
+      const h = v?.getComputedStyle(doc.documentElement)
+      const clear = (c: string | undefined) => !c || c === "transparent" || /rgba\(.*,\s*0\)$/.test(c)
+      const color = !clear(b?.backgroundColor) ? b!.backgroundColor : !clear(h?.backgroundColor) ? h!.backgroundColor : "#fff"
+      const image = b?.backgroundImage && b.backgroundImage !== "none" ? b.backgroundImage : "none"
+      own.sheet.disabled = false
+      own.appendChild(doc.createTextNode(`\nbody>[data-sl-pv]{background-color:${color};background-image:${image}}`))
+    }
+    /* A font that lands later changes heights: each drawn card is measured again then. */
+    doc.fonts?.addEventListener?.("loadingdone", () => {
+      for (const k of this.wrappers.keys()) this.remeasure.add(k)
+      this.queueRemeasure()
+    })
+    this.sync()
+    this.schedule()
+  }
+
+  /**
+   * Open: what somebody may scroll to is wanted now. A picture a theme
+   * loads lazily would only start loading as its card came on screen, and
+   * pop in after it; it is asked for at once, quietly, in the list's order.
+   */
+  setOpen(open: boolean) {
+    this.open = open
+    if (!open || !this.doc) return
+    for (const img of Array.from(this.doc.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
+      img.setAttribute("fetchpriority", "low")
+      img.loading = "eager"
+    }
+  }
+
+  /* ── putting sections in ── */
+
+  /** The cards still to put in, in the order to put them in: on screen and nearest it first while open; the list's own order while closed. */
+  private pending(): string[] {
+    const out: { key: string; score: number }[] = []
+    const view = this.open ? this.grid?.closest("[data-library-scroll]")?.getBoundingClientRect() ?? null : null
+    let i = 0
+    for (const [key, card] of this.cards) {
+      i++
+      if (this.wrappers.has(key) || this.failed.has(key) || !card.box.isConnected) continue
+      let score: number
+      if (view) {
+        const r = card.box.getBoundingClientRect()
+        /* Hidden by the category: after everything that can be seen. Above the screen counts three times its distance: a list is mostly scrolled down. */
+        score = r.height === 0 && r.width === 0 ? 1e9 + i : r.bottom < view.top ? (view.top - r.bottom) * 3 : r.top > view.bottom ? r.top - view.bottom : -1e6 + r.top
+      } else {
+        score = card.eager ? i - 1e6 : i
+      }
+      out.push({ key, score })
+    }
+    return out.sort((a, b) => a.score - b.score).map((x) => x.key)
+  }
+
+  private hasPending(): boolean {
+    for (const [key, card] of this.cards) if (!this.wrappers.has(key) && !this.failed.has(key) && card.box.isConnected) return true
+    return false
+  }
+
+  schedule() {
+    if (this.scheduled || !this.doc || typeof window === "undefined") return
+    if (!this.hasPending()) return
+    this.scheduled = true
+    watchInput()
+    if (this.open) {
+      /* Just after a frame is drawn, so the work has the rest of the frame to itself. */
+      requestAnimationFrame(() => window.setTimeout(() => this.run(FRAME_BUDGET_MS), 0))
+      return
+    }
+    const wait = INPUT_QUIET_MS - (performance.now() - lastInput)
+    if (wait > 0) {
+      window.setTimeout(() => {
+        this.scheduled = false
+        this.schedule()
+      }, wait)
+      return
+    }
+    /* One section per idle moment at least (a section is 10 to 30ms), more while the moment has room. */
+    onIdle((d) => this.run(this.open ? FRAME_BUDGET_MS : Math.min(Math.max(d.timeRemaining() - 4, 0), 30)))
+  }
+
+  private run(budget: number) {
+    this.scheduled = false
+    if (!this.doc) return
+    const t0 = performance.now()
+    let put = 0
+    for (const key of this.pending()) {
+      this.insert(key)
+      put++
+      if (performance.now() - t0 >= budget) break
+    }
+    if (put) this.sync()
+    this.schedule()
+  }
+
+  private insert(key: string) {
+    const doc = this.doc!
+    const card = this.cards.get(key)!
+    let html = this.html.get(key)
+    if (html === undefined) {
+      try {
+        html = sectionMarkup(this.theme, this.page, previewSectionFor(card.type, card.presetIndex, card.schema), this.rows, this.renderWidth, this.windowHeight)
+      } catch {
+        html = null
+      }
+      this.html.set(key, html)
+    }
+    if (html === null) {
+      this.failed.add(key)
+      this.setState(key, { state: "named" })
+      return
+    }
+    const w = (this.proto ? this.proto.cloneNode(false) : doc.createElement("div")) as HTMLElement
+    w.setAttribute("data-sl-pv", key)
+    w.style.minHeight = "0px"
+    w.innerHTML = html
+    if (this.open) {
+      for (const img of Array.from(w.querySelectorAll<HTMLImageElement>("img[loading='lazy']"))) {
+        img.setAttribute("fetchpriority", "low")
+        img.loading = "eager"
+      }
+    }
+    doc.body.appendChild(w)
+    this.wrappers.set(key, w)
+    this.measure(key, w)
+    /* A picture that lands later may change the height: measured again then. */
+    for (const img of Array.from(w.querySelectorAll("img"))) {
+      if (!img.complete) img.addEventListener("load", () => {
+        this.remeasure.add(key)
+        this.queueRemeasure()
+      }, { once: true })
+    }
+  }
+
+  /** Its natural height, at the width it is pictured at, and whether it has anything to see. */
+  private measure(key: string, w: HTMLElement) {
+    /* Laid out for real while it is measured, whatever its distance from the screen, and without what fills its card. */
+    w.removeAttribute("data-measured")
+    /* Inline, so a theme's own floor for its <main> (often a whole window tall) is not measured as the section. */
+    w.style.minHeight = "0px"
+    w.style.paddingTop = ""
+    placedAt.delete(w)
+    const h = Math.ceil(w.scrollHeight)
+    const root = w.querySelector<HTMLElement>(".shopify-section") ?? w
+    const shows = h > 8 && Array.from(root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")).some((el) => {
+      const r = el.getBoundingClientRect()
+      if (r.width < 2 || r.height < 2) return false
+      return /^(IMG|SVG|VIDEO|PICTURE|CANVAS|INPUT)$/i.test(el.tagName) || (el.textContent ?? "").trim().length > 0
+    })
+    if (shows) this.blank.delete(key)
+    else this.blank.add(key)
+    /* Skipped while away from the screen from now on, at the size it is: its own height, cut at its card's foot. */
+    w.style.containIntrinsicSize = `auto ${this.renderWidth}px auto ${Math.max(1, h)}px`
+    w.setAttribute("data-measured", "")
+    if (h > 0 && h !== this.heights.get(key)) {
+      this.heights.set(key, h)
+      rememberHeight(this.installId, this.renderWidth, key, h)
+    }
+    const prev = this.stateOf(key)
+    this.setState(key, { height: h > 0 ? h : prev.height, state: shows ? (prev.state === "named" ? "waiting" : prev.state) : "named" })
+  }
+
+  private queueRemeasure() {
+    if (this.remeasureQueued) return
+    this.remeasureQueued = true
+    requestAnimationFrame(() => {
+      this.remeasureQueued = false
+      for (const key of this.remeasure) {
+        const w = this.wrappers.get(key)
+        if (w?.isConnected) this.measure(key, w)
+      }
+      this.remeasure.clear()
+      this.sync()
+    })
+  }
+
+  /* ── putting each section over its card ── */
+
+  /** After the cards have committed, before the frame is drawn: a microtask runs in the same task as the commit. */
+  requestSync() {
+    if (this.syncQueued) return
+    this.syncQueued = true
+    queueMicrotask(() => {
+      this.syncQueued = false
+      this.sync()
+    })
+  }
+
+  sync() {
+    const frame = this.frame
+    const grid = this.grid
+    if (!frame || !grid || !this.doc || !frame.isConnected) return
+    const g = grid.getBoundingClientRect()
+    /* A transform over the library (the dialog's entrance) scales what is read; the cards' own offsets do not have it. */
+    const zoom = grid.offsetWidth > 0 ? g.width / grid.offsetWidth : 1
+    if (!(zoom > 0)) return
+    let scale = 0
+    for (const [key, w] of this.wrappers) {
+      const card = this.cards.get(key)
+      const box = card?.box
+      const st = this.stateOf(key)
+      if (!box || !box.isConnected || st.state === "named") {
+        w.hidden = true
+        continue
+      }
+      const r = box.getBoundingClientRect()
+      if (r.width === 0 && r.height === 0) {
+        w.hidden = true
+        continue
+      }
+      const s = box.clientWidth / this.renderWidth
+      if (!(s > 0)) continue
+      scale = s
+      w.hidden = false
+      /* Written only when it moved: the same values again would still ask the frame to look. */
+      /*
+        The section fills its card with its page's background: a card is
+        never shorter than the floor, and one held at a height it is about
+        to lose (see CompatPreviewBox) is taller than its section. Under the
+        floor, the section sits in the middle of it, as the library's own
+        cards do; otherwise at the top.
+      */
+      const cardH = box.clientHeight / s
+      const natural = st.height ?? cardH
+      const pad = natural * s < FLOOR && natural < cardH ? (cardH - natural) / 2 : 0
+      const pos = `${(r.top - g.top) / zoom / s}|${(r.left - g.left) / zoom / s}|${cardH}|${CARD_RADIUS / s}|${pad}`
+      if (placedAt.get(w) !== pos) {
+        placedAt.set(w, pos)
+        const [top, left, max, radius] = pos.split("|")
+        w.style.top = `${top}px`
+        w.style.left = `${left}px`
+        w.style.maxHeight = `${max}px`
+        w.style.minHeight = `${max}px`
+        w.style.paddingTop = pad ? `${pad}px` : ""
+        w.style.borderRadius = `${radius}px`
+      }
+      if (!w.hasAttribute("data-placed")) {
+        w.setAttribute("data-placed", "")
+        this.reveal(key, w, box)
+      } else if (w.hasAttribute("data-on") && st.state !== "shown") {
+        /* Named for a moment (its pictures had not come yet) and back: shown again. */
+        this.setState(key, { state: "shown" })
+      }
+    }
+    if (!scale) {
+      const first = [...this.cards.values()].find((c) => c.box.isConnected && c.box.clientWidth > 0)
+      scale = first ? first.box.clientWidth / this.renderWidth : 0
+    }
+    if (scale > 0) {
+      frame.style.transform = `scale(${scale})`
+      frame.style.height = `${Math.ceil(grid.offsetHeight / scale)}px`
+    }
+  }
+
+  /** Shown once its pictures are decoded and any stylesheet it still links has come: faded in if somebody is looking, simply there otherwise. */
+  private reveal(key: string, w: HTMLElement, box: HTMLElement) {
+    const imgs = Array.from(w.querySelectorAll("img")).filter((i) => !i.complete || i.naturalWidth > 0).slice(0, 12)
+    const links = Array.from(w.querySelectorAll<HTMLLinkElement>("link[rel=stylesheet]")).filter((l) => !l.sheet)
+    const show = () => {
+      if (!w.isConnected) return
+      const view = box.closest("[data-library-scroll]")?.getBoundingClientRect()
+      const r = box.getBoundingClientRect()
+      const seen = this.open && !!view && r.bottom > view.top && r.top < view.bottom
+      if (seen) w.removeAttribute("data-instant")
+      else w.setAttribute("data-instant", "")
+      w.setAttribute("data-on", "")
+      this.setState(key, { state: "shown" })
+    }
+    if (!imgs.length && !links.length) return show()
+    let done = false
+    const once = () => {
+      if (done) return
+      done = true
+      show()
+    }
+    const loaded = (l: HTMLLinkElement) => new Promise<void>((ok) => {
+      l.addEventListener("load", () => ok(), { once: true })
+      l.addEventListener("error", () => ok(), { once: true })
+    })
+    Promise.all([...imgs.map((i) => (typeof i.decode === "function" ? i.decode().catch(() => undefined) : undefined)), ...links.map(loaded)]).then(once, once)
+    window.setTimeout(once, DECODE_WAIT_MS)
+  }
+}
+
+/** Where each section was last put, so an unchanged place is not written again. */
+const placedAt = new WeakMap<HTMLElement, string>()
+
+const sheets = new WeakMap<CompatTheme, Map<number, PreviewSheet>>()
+function sheetFor(ctx: CompatPreviewValue, renderWidth: number): PreviewSheet | null {
+  if (!ctx.theme) return null
+  let byWidth = sheets.get(ctx.theme)
+  if (!byWidth) sheets.set(ctx.theme, (byWidth = new Map()))
+  let sheet = byWidth.get(renderWidth)
+  if (!sheet) byWidth.set(renderWidth, (sheet = new PreviewSheet(ctx.theme, ctx.page, ctx.rows, ctx.installId, renderWidth)))
+  return sheet
+}
+
+const noSubscribe = () => () => {}
+
+/**
+ * THE FRAME OVER THE CARDS. Put once in the list of cards (which must be
+ * `position: relative`), at its top left; PreviewSheet sizes, scales and
+ * fills it. `open` says the library is on screen; `layoutKey` changes with
+ * whatever moves the cards (a category, a search).
+ */
+export function CompatPreviewSheet({ renderWidth, open, layoutKey }: { renderWidth: number; open: boolean; layoutKey: string }) {
+  const ctx = useCompatPreview()
+  const sheet = ctx && !ctx.failed ? sheetFor(ctx, renderWidth) : null
+  const frame = useRef<HTMLIFrameElement | null>(null)
+  useLayoutEffect(() => {
+    if (!sheet) return
+    sheet.setOpen(open)
+    sheet.sync()
+    sheet.schedule()
+  }, [sheet, open, layoutKey])
+  /* The list's width changes every card's size: put each section over its card again. */
+  useEffect(() => {
+    const grid = frame.current?.parentElement
+    if (!sheet || !grid || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => sheet.sync())
+    ro.observe(grid)
+    return () => ro.disconnect()
+  }, [sheet])
+  if (!sheet) return null
+  return (
+    <iframe
+      ref={(el) => {
+        frame.current = el
+        /* Already loaded (kept from an earlier render): attach now; otherwise onLoad does. */
+        if (el) sheet.attach(el)
+      }}
+      title="Section previews"
+      srcDoc={sheet.srcDoc}
+      sandbox="allow-same-origin"
+      tabIndex={-1}
+      aria-hidden
+      data-compat-sheet=""
+      /* Its scale is the whole picture: the touch rule that flattens transforms inside a .group must leave it alone. */
+      data-keep-transform=""
+      onLoad={(e) => sheet.attach(e.currentTarget)}
+      className="pointer-events-none absolute left-0 top-0 z-[1] border-0 bg-transparent"
+      style={{ width: renderWidth, height: 0, transformOrigin: "0 0", overflowAnchor: "none", colorScheme: "normal" }}
+    />
+  )
 }
 
 export const CompatPreviewBox = memo(function CompatPreviewBox({
@@ -349,82 +846,27 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
   width: number
   /** The width the section is laid out at, scaled down to the card. */
   renderWidth: number
-  /** Among the first few of what the library shows: its frame is loaded ahead, not when it nears the screen. */
+  /** Among the first few of what the library shows: drawn first. */
   eager?: boolean
 }) {
   const ctx = useCompatPreview()
   const box = useRef<HTMLDivElement | null>(null)
-  const frame = useRef<HTMLIFrameElement | null>(null)
   const key = `${type}:${presetIndex}`
-  const cache = ctx?.theme ? cacheFor(ctx.theme) : null
-  const [seen, setSeen] = useState(eager)
+  const sheet = ctx && !ctx.failed ? sheetFor(ctx, renderWidth) : null
+  useLayoutEffect(() => {
+    if (!sheet || !box.current) return
+    return sheet.register(key, { type, presetIndex, schema, box: box.current, eager })
+  }, [sheet, key, type, presetIndex, schema, eager])
+  const snap = useSyncExternalStore(sheet ? (l: () => void) => sheet.subscribe(key, l) : noSubscribe, () => sheet?.stateOf(key) ?? WAITING, () => WAITING)
   /* Measured this visit, or remembered from the last one (rememberedHeights). */
-  const [drawnHeight, setDrawnHeight] = useState<number | null>(() => cache?.heights.get(key) ?? (ctx && typeof window !== "undefined" ? rememberedHeights(ctx.installId, renderWidth)[key] ?? null : null))
-  /* A section with nothing to show until it is filled in (apps, custom code): its name instead of a blank card. */
-  const [blank, setBlank] = useState(() => cache?.blank.has(key) ?? false)
-  /* Shown once it has been measured, faded in: never a white box that jumps to its height. */
-  const [shown, setShown] = useState(false)
-  const [srcDoc, setSrcDoc] = useState<string | null>(() => cache?.docs.get(key) ?? null)
-  useEffect(() => {
-    if (eager) setSeen(true)
-  }, [eager])
-
-  /* Built the first time it comes near the screen, then kept. */
-  useEffect(() => {
-    const el = box.current
-    if (!el || seen) return
-    if (typeof IntersectionObserver === "undefined") {
-      setSeen(true)
-      return
-    }
-    /*
-      NEAR THE SCREEN MEANS NEAR THE LIST'S OWN VIEW. Watched against the
-      window, the margin never reached past the library's scrolling list, which
-      cuts off whatever it does not show: a card was only drawn once it was
-      already on screen, and came in grey, then empty, then drawn. Against the
-      list, the cards a little further down are drawn before they are reached.
-    */
-    const io = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) {
-        setSeen(true)
-        io.disconnect()
-      }
-    }, { root: el.closest<HTMLElement>("[data-library-scroll]"), rootMargin: "800px 0px" })
-    io.observe(el)
-    return () => io.disconnect()
-  }, [seen])
-
-  /* Drawn once per theme: near the screen, in the idle queue; otherwise ahead, in a quieter one. A card already drawn this visit comes straight from the cache. */
-  useEffect(() => {
-    if (!ctx?.theme || !cache) return
-    if (cache.docs.has(key)) {
-      if (seen) setSrcDoc(cache.docs.get(key) ?? null)
-      return
-    }
-    const job = () => {
-      if (cache.docs.has(key)) {
-        if (seen) setSrcDoc(cache.docs.get(key) ?? null)
-        return
-      }
-      let doc: string | null = null
-      try {
-        doc = previewDocument(ctx.theme!, ctx.page, previewSectionFor(type, presetIndex, schema))
-      } catch {
-        doc = null
-      }
-      cache.docs.set(key, doc)
-      if (seen) setSrcDoc(doc)
-    }
-    return seen ? whenIdle(job) : whenQuiet(job)
-  }, [seen, ctx, cache, key, type, presetIndex, schema])
-
-  /* Nothing to draw it from (its files did not come, or the section could not be drawn): its name, never a box that shimmers for good. */
-  const unavailable = !!ctx?.failed || (srcDoc === null && !!cache?.docs.has(key) && cache.docs.get(key) === null)
-  /* A frame that measured blank stays: its pictures and fonts may yet give it something to show, and it is measured again then. */
-  const named = blank || unavailable
+  const drawnHeight = snap.height ?? (ctx && typeof window !== "undefined" ? rememberedHeights(ctx.installId, renderWidth)[key] ?? null : null)
+  /* Nothing to draw it from (its files did not come, or the section could not be drawn), or nothing to see until it is filled in: its name instead of a blank card. */
+  const unavailable = !!ctx?.failed
+  const named = snap.state === "named" || unavailable
+  const shown = snap.state === "shown"
   const scale = width > 0 ? width / renderWidth : 0.3
   const tallest = Math.round(width * TALLEST)
-  const wanted = named ? 96 : drawnHeight ? Math.max(64, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * PLACEHOLDER_RATIO)
+  const wanted = named ? 96 : drawnHeight ? Math.max(FLOOR, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * PLACEHOLDER_RATIO)
   /*
     NEVER SHORTER WHERE IT CAN BE SEEN. A card measured shorter than its
     placeholder while somebody is looking keeps its height, the section on
@@ -451,29 +893,10 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       held.delete(take)
     }
   }, [wanted, width, kept])
-
-  /* Its height, once its pictures and fonts have had their say. */
-  const measure = () => {
-    const doc = frame.current?.contentDocument
-    if (!doc?.body) return
-    /* The body, not the document: the document is never shorter than the frame, so it could only grow. */
-    const h = Math.ceil(doc.body.getBoundingClientRect().height)
-    if (h > 0) {
-      setDrawnHeight(h)
-      cache?.heights.set(key, h)
-      if (ctx) rememberHeight(ctx.installId, renderWidth, key, h)
-    }
-    setShown(true)
-    const root = doc.querySelector<HTMLElement>(".shopify-section") ?? doc.body
-    const shows = [...root.querySelectorAll<HTMLElement>("img, svg, video, picture, canvas, input, button, h1, h2, h3, h4, p, a, span, li")].some((el) => {
-      const r = el.getBoundingClientRect()
-      if (r.width < 2 || r.height < 2) return false
-      return /^(IMG|SVG|VIDEO|PICTURE|CANVAS|INPUT)$/i.test(el.tagName) || (el.textContent ?? "").trim().length > 0
-    })
-    setBlank(!shows)
-    if (!shows) cache?.blank.add(key)
-    else cache?.blank.delete(key)
-  }
+  /* Its section goes where the card now is, in the same frame. */
+  useLayoutEffect(() => {
+    sheet?.requestSync()
+  })
 
   return (
     <div
@@ -484,35 +907,8 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       className="relative w-full overflow-hidden bg-[#f3f4f6]"
       style={{ height }}
     >
-      {/* Until the frame has drawn: a quiet light passing over the grey, so a card that is coming reads as coming. */}
+      {/* Until its section is over it: a quiet light passing over the grey, so a card that is coming reads as coming. */}
       {!shown && !named ? <span aria-hidden data-compat-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
-      {srcDoc && !unavailable ? (
-        <iframe
-          title={`${schema.name} preview`}
-          srcDoc={srcDoc}
-          sandbox="allow-same-origin"
-          tabIndex={-1}
-          aria-hidden
-          /* Its scale is the whole picture: the touch rule that flattens transforms inside a .group must leave it alone. */
-          data-keep-transform=""
-          onLoad={() => {
-            measure()
-            /* Fonts and the first pictures land a moment later and change the height. */
-            window.setTimeout(measure, 400)
-          }}
-          /* Its markup is in before its pictures and fonts are: measured then too, so a slow font never holds the card back. */
-          ref={(el) => {
-            frame.current = el
-            if (el && !el.dataset.watched) {
-              el.dataset.watched = "1"
-              const early = () => { if (el.contentDocument?.readyState !== "loading" && el.contentDocument?.body) measure(); else window.setTimeout(early, 60) }
-              window.setTimeout(early, 60)
-            }
-          }}
-          className="absolute left-0 top-0 origin-top-left border-0 bg-white"
-          style={{ width: renderWidth, height: Math.ceil(height / scale), transform: `scale(${scale})`, pointerEvents: "none", opacity: shown ? 1 : 0, transition: "opacity 220ms ease-out" }}
-        />
-      ) : null}
       {named ? (
         <div className="absolute inset-0 flex items-center justify-center bg-[#f9fafb] px-4 text-center text-[13px] font-medium text-[#9ca3af]">
           {schema.name}
@@ -521,6 +917,8 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     </div>
   )
 })
+
+const TALLEST = 1.1
 
 /* Cards keeping a height they are about to lose, until nobody can see them change. */
 const held = new Set<() => void>()

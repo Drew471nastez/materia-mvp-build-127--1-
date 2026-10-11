@@ -242,7 +242,7 @@ export function checkZipDirectory(
     const ext = extensionOf(entry.name)
     if (blockedInside.has(ext)) {
       if (exempt?.(entry.name, ext)) {
-        if (!report.notes.some((n) => n.code === "zip_shopify_scripts_ignored")) report.notes.push({ code: "zip_shopify_scripts_ignored", detail: `a Shopify theme's scripts, e.g. "${shown}", let in as the theme's own files` })
+        if (!report.notes.some((n) => n.code === "zip_shopify_scripts_ignored")) report.notes.push({ code: "zip_shopify_scripts_ignored", detail: `an imported theme's scripts, e.g. "${shown}", let in as the theme's own files` })
       } else refuse("zip_blocked_entry", `entry "${shown}" is a .${ext}`)
     }
     if (NESTED.has(ext)) report.nestedArchives++

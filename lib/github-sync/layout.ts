@@ -464,7 +464,7 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
         ["config/settings.json", "The theme's settings: colours, fonts, the values the theme editor shows. Under `shopify` are the imported theme's own settings.", "Yes"],
         ["templates/<page>.json", "Each page's own sections, their settings and blocks, in order. `home.json` is the home page.", "Yes"],
         ["sections/header-group.json, footer-group.json", "The header and footer, once, for every page.", "Yes"],
-        ["sections/*.storelib", "Each section's markup and schema, converted from the theme's Liquid. Edit the Liquid between the `<template compat=\"shopify\">` lines.", "Yes"],
+        ["sections/*.storelib", "Each section's markup and schema, converted from the theme's own code. Edit the code between the `<template compat=\"shopify\">` lines.", "Yes"],
         ["blocks/, snippets/, layout/", "The theme's blocks, snippets and page shell, the same way.", "Yes"],
         ["shopify/", "The theme's own files as they were imported: templates for account pages, config, locales, CSS, JavaScript and fonts.", "Yes, pictures excepted"],
         ["shopify/assets/<pictures>", "The theme's pictures and videos, to look at. Upload a new one in Storelib's Files.", "No"],
@@ -486,7 +486,7 @@ export function repoReadme(opts: { siteName: string; branch: string; root: strin
     : ""
   return `# ${opts.siteName}
 
-This repository is a Storelib website${opts.compat ? ", imported from a Shopify theme" : ""}. Storelib writes the whole theme here, and a push to \`${opts.branch}\` comes back into the site as a draft within seconds. Nothing is live until the creator presses Publish.
+This repository is a Storelib website${opts.compat ? ", imported from another store's theme" : ""}. Storelib writes the whole theme here, and a push to \`${opts.branch}\` comes back into the site as a draft within seconds. Nothing is live until the creator presses Publish.
 
 Start with AGENTS.md if you are an AI agent (Claude Code and Codex read it on their own).
 

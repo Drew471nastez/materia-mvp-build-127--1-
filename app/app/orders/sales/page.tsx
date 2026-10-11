@@ -2,6 +2,8 @@ import { after } from "next/server"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { creatorFor } from "@/lib/team/server"
+import { TeamAreaClosed } from "@/components/app/team-area-closed"
 import { stripe } from "@/lib/stripe"
 import { COLUMNS_COOKIE, hiddenColumnsFrom, type OrderRow } from "@/lib/orders/order-view"
 import { readCreatorOrders } from "@/lib/orders/load-rows"
@@ -93,12 +95,11 @@ export default async function OrdersPage() {
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
 
-  const { data: creator } = await admin
-    .from("creators")
-    .select("id, stripe_onboarding_status")
-    .eq("user_id", user.id)
-    .single()
-  if (!creator) redirect("/onboarding")
+  /* The store's: the owner's own, or the one a team member works in when their role has orders (lib/team). */
+  const found = await creatorFor<{ id: string; stripe_onboarding_status: string | null }>(admin, user.id, "orders", "id, stripe_onboarding_status")
+  if (found.kind === "denied") return <TeamAreaClosed area="orders" store={found.acting.name} />
+  if (found.kind === "none") redirect("/onboarding")
+  const creator = found.creator
 
   /* Scoped by the creator's own products, read with the service role: the
      creator id came from the session above, never from the request. Every
@@ -118,6 +119,8 @@ export default async function OrdersPage() {
       rows={rows}
       products={products.map((p) => ({ id: p.id, title: p.title }))}
       stripeConnected={creator.stripe_onboarding_status === "connected"}
+      /* Money leaving the store is the owner's: a team member sees no refund button (the refund route refuses them too). */
+      canRefund={found.role === "owner"}
       hiddenColumns={hiddenColumnsFrom(jar.get(COLUMNS_COOKIE)?.value)}
       initialRange={jar.get(RANGE_COOKIE)?.value ?? null}
       timeZone={accountTimeZone(null, user.user_metadata) ?? readTimeZone(jar.get(TIME_ZONE_COOKIE)?.value)}
