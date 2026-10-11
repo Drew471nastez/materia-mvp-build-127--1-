@@ -161,7 +161,9 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   /* Who is visiting: the website's own session, read only when there is one, with the orders on the account pages. */
   const accountPath = sitePath === "/account" || sitePath.startsWith("/account/")
   const page = (req.method === "GET" || req.method === "HEAD") && !ajax && !/\.(js|json)$/.test(sitePath)
-  const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath })
+  /* An order's own page (/account/orders/<id>): that order too, with its files, when it is this customer's. */
+  const orderId = sitePath.match(/^\/account\/orders\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i)?.[1] ?? null
+  const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
   const out = await answer(found.site, {
     method: req.method,

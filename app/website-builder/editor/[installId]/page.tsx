@@ -7159,8 +7159,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     it now and a link to /checkout say where checkout is instead of doing
     nothing. One toast at a time, however often it is pressed.
   */
-  const liveOnlyInCompatCanvas = useCallback(() => {
-    toast("Checkout only works on your live site", { id: "compat-live-only", description: "Adding to cart works here, so you can try your cart drawer." })
+  const liveOnlyInCompatCanvas = useCallback((what: "checkout" | "account" = "checkout") => {
+    /* The account pages draw in the canvas so they can be styled; signing in there is the live site's. */
+    if (what === "account") toast("Sign in works on your live site", { id: "compat-live-only-account", description: "You can see and style these pages here." })
+    else toast("Checkout only works on your live site", { id: "compat-live-only", description: "Adding to cart works here, so you can try your cart drawer." })
   }, [])
   const navigateCompatCanvas = useCallback((href: string, chrome: boolean) => {
     if (inspectorRef.current && !chrome) return
@@ -7169,7 +7171,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* A visitor's account and checkout are Storelib's own pages: said, rather than a click that does nothing. */
       const path = href.split(/[?#]/)[0]
       if (/^\/(account|wishlist|checkout)(\/|$)|^\/pages\/wishlist$/.test(path)) {
-        if (path.startsWith("/checkout")) liveOnlyInCompatCanvas()
+        if (path.startsWith("/checkout")) liveOnlyInCompatCanvas("checkout")
         else toast(/wishlist/.test(path) ? "The wishlist opens on your live site" : "Sign in and accounts open on your live site", { id: "compat-own-page" })
       }
       return

@@ -41,7 +41,8 @@ import { renderString } from "./runtime"
 import { facet } from "./facets"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
-import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
+import { fixThemeCss } from "./css-fixes"
+import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
 type O = Record<string, unknown>
@@ -327,19 +328,59 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     const notice = req.query.get("profile") === "saved" ? "Saved." : req.query.get("profile") === "error" ? "That name could not be saved. Try again." : req.query.get("deleted") === "no" ? "Your account could not be deleted. Try again." : null
     const edit = req.query.get("edit")
     if (!edit && !notice) {
-      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras())
+      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras(customer))
       if (own) return own
     }
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
   }
   if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
+  if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
+    const o = req.account.order
+    return shell(site, req, path, `Order #${o.number}`, orderContent(o, { notice: downloadNotice(req.query.get("download")) }), "customers/order")
+  }
   /* An order's own page is its receipt, which each order on the account page links to. */
   return { ...shell(site, req, path, "Account", ""), redirect: "/account" }
 }
 
+/** The account pages the builder's canvas can open, as a visitor reaches them. */
+export const CANVAS_ACCOUNT_PATHS = ["/account", "/account/login", "/account/register", "/account/addresses"] as const
+
+/** A customer the builder shows the account page about: no orders, plainly a sample. */
+const SAMPLE_CUSTOMER = { name: "Sample customer", first_name: "Sample", email: "customer@example.com", orders: [], orders_count: 0, addresses: [] }
+
+/**
+ * AN ACCOUNT PAGE IN THE BUILDER'S CANVAS, drawn by the theme exactly as the
+ * website draws it (accountPage above): sign in and Create account as a
+ * guest sees them, the account page about a sample customer. Nothing here
+ * signs anybody in; the canvas says that works on the live site when a form
+ * on it is sent (canvas-bridge.ts). Null for any other address.
+ */
+export function canvasAccountPage(site: SiteData, path: string, opts: { extraHead?: string; extraBodyEnd?: string } = {}): { path: string; html: string } | null {
+  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (!(CANVAS_ACCOUNT_PATHS as readonly string[]).includes(clean)) return null
+  const signIn = /^\/account\/(login|register)$/.test(clean)
+  const req: SiteRequest = { method: "GET", path: clean, query: new URLSearchParams(), body: null, cart: [], account: { customer: signIn ? null : SAMPLE_CUSTOMER } }
+  const route = accountPage({ ...site, designMode: true }, req, clean)
+  if (route.redirect) return null
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: opts.extraHead, extraBodyEnd: opts.extraBodyEnd, content: route.content })
+  return { path: clean, html: drawn.html }
+}
+
 /** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */
-function accountExtras(): string {
-  return `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
+function accountExtras(customer: SiteAccount["customer"]): string {
+  /*
+    A theme's order table says Paid and a total; what was bought to download
+    is a step further in. Each order with files is listed here too, each
+    opening its page on this website, where the files are.
+  */
+  const downloads = (customer?.orders ?? []).filter((o) => o.action_label === "Download" && o.action_url.startsWith("/account/orders/"))
+  const list = downloads.length
+    ? `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:24px 20px 0"><h2 style="margin:0 0 8px;font-size:1.15em">Downloads</h2><ul style="list-style:none;margin:0;padding:0">${downloads
+        .map((o) => `<li style="display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)"><span style="min-width:0;overflow-wrap:anywhere">${escapeText(o.items.map((i) => i.title).join(", "))} <span style="opacity:.7;font-size:.9em">${escapeText(o.date)}</span></span><a href="${escapeText(o.action_url)}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;flex:none">Download</a></li>`)
+        .join("")}</ul></div>`
+    : ""
+  return `${list}<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
 }
 
 /**
@@ -1005,17 +1046,19 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
       return { type: "text/css; charset=utf-8", body: opts.scss(filled) }
     }
   }
+  /* A stylesheet, with a button's label never painting a box of its own (./css-fixes.ts). */
+  const css = (body: string) => (/^text\/css/.test(type) ? fixThemeCss(body) : body)
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)
-    return { type, body: bytes ?? text }
+    return { type, body: bytes ?? css(text) }
   }
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
+      return { type, body: css(renderString(liquid, settingsCtx(), { lax: true })) }
     } catch {
-      return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
+      return { type, body: css(liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "")) }
     }
   }
   return null

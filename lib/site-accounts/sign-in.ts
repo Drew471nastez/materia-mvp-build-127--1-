@@ -53,9 +53,9 @@ export interface VerifyDeps {
 export interface SignInDeps extends VerifyDeps {
   /** True when this request is over a limit (lib/api/rate-limit.ts). */
   limited: (input: { creatorId: string; email: string }) => Promise<boolean>
-  send: (mail: { to: string; subject: string; html: string; text: string; fromName: string }) => Promise<{ success: boolean }>
-  /** The store's name, for the email (./brand.ts). */
-  brand: (creatorId: string) => Promise<string>
+  send: (mail: { to: string; subject: string; html: string; text: string; fromName: string; replyTo?: string | null }) => Promise<{ success: boolean }>
+  /** The store, for the email: its name, or its name, logo and the address a reply reaches (./site-brand.ts). */
+  brand: (creatorId: string) => Promise<string | { name: string; logoUrl?: string | null; replyTo?: string | null }>
 }
 
 /** Why a step stopped, as the sign in page's `?error=` (lib/website-builder/account-pages signInNotice). */
@@ -80,9 +80,10 @@ export async function requestCode(input: { host: string; email: unknown; returnP
   const issued = await issueCode(deps.db, { creatorId: owner.creatorId, email, host: input.host }, now)
   if (issued.ok === false) return { ok: false, why: issued.why }
 
-  const store = await deps.brand(owner.creatorId).catch(() => "this store")
-  const mail = codeEmail({ store, code: issued.code, host: input.host, minutes: Math.round(CODE_TTL_MS / 60_000) })
-  const sent = await deps.send({ to: email, ...mail }).catch(() => ({ success: false }))
+  const brand = await deps.brand(owner.creatorId).catch(() => "this store")
+  const store = typeof brand === "string" ? { name: brand, logoUrl: null, replyTo: null } : brand
+  const mail = codeEmail({ store: store.name, logoUrl: store.logoUrl ?? null, code: issued.code, host: input.host, minutes: Math.round(CODE_TTL_MS / 60_000) })
+  const sent = await deps.send({ to: email, ...mail, replyTo: store.replyTo ?? null }).catch(() => ({ success: false }))
   if (!sent.success) return { ok: false, why: "send" }
 
   const name = cleanName(input.name) || null

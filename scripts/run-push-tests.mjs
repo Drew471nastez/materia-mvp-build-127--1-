@@ -38,6 +38,7 @@ const SUITES = [
   "tests/site-resilience.test.ts",
   "tests/compat-engine.test.ts",
   "tests/compat-accounts.test.ts",
+  "tests/compat-storefront-accuracy.test.ts",
   "tests/compat-section-preview.test.ts",
   "tests/editor-save-errors.test.ts",
   "tests/builder-october-fixes.test.ts",
