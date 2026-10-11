@@ -213,7 +213,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const card = await findProduct(site, productData[1])
     if (!card) return json({ status: 404, message: "Not found" }, 404)
     const obj = productObject(card, { descriptionHtml: card.descriptionHtml })
-    return json(productData[2] === "json" ? { product: productJson(obj) } : productJson(obj))
+    /* /products/<handle>.js is the storefront's shape (cents); .json is the feed's ("40.00", body_html, image), as on Shopify. */
+    return json(productData[2] === "json" ? { product: productFeedJson(obj) } : productJson(obj))
   }
 
   /* ── the search box ── */
@@ -225,7 +226,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const page = basePage(site, req, { template: "search", path: "/search", predictive: { terms, products: found, collections, queries: terms ? [terms] : [] } })
     const sectionId = req.query.get("section_id")
     if (sectionId) return sectionsAnswer(site, page, site.pages.search ?? [], [sectionId], false)
-    return json({ resources: { results: { products: found.map((c) => productJson(productObject(c))), collections: collections.map((c) => ({ id: c.id, title: c.title, handle: c.handle, url: c.url ?? `/collections/${c.handle}` })), queries: terms ? [{ text: terms, styled_text: escapeHtml(terms), url: `/search?q=${encodeURIComponent(terms)}` }] : [] } } })
+    return json({ resources: { results: { products: found.map((c) => suggestProductJson(productObject(c))), collections: collections.map((c) => ({ id: c.id, title: c.title, handle: c.handle, url: c.url ?? `/collections/${c.handle}` })), queries: terms ? [{ text: terms, styled_text: escapeHtml(terms), url: `/search?q=${encodeURIComponent(terms)}` }] : [] } } })
   }
 
   /* ── recommendations ── */
@@ -238,7 +239,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const page = basePage(site, req, { template: "product", path: "/recommendations/products", product: about, recommendations: { products, intent } })
     const sectionId = req.query.get("section_id")
     if (sectionId) return sectionsAnswer(site, page, site.pages.product ?? [], [sectionId], false)
-    return json({ products: products.map((c) => productJson(productObject(c))) })
+    return json({ intent, products: products.map((c) => productJson(productObject(c))) })
   }
 
   /* ── pages ── */
@@ -844,7 +845,28 @@ export function productFeedJson(p: O): O {
     id: p.id, title: p.title, handle: p.handle, body_html: p.description, vendor: p.vendor, product_type: p.type, tags: p.tags, published_at: p.published_at,
     variants: ((p.variants as O[]) ?? []).map((v, n) => ({ id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, sku: v.sku, requires_shipping: v.requires_shipping, taxable: true, featured_image: v.featured_image ? { src: (v.featured_image as O).src } : null, available: v.available, price: dollars(v.price), compare_at_price: dollars(v.compare_at_price), position: n + 1, product_id: p.id })),
     images,
+    image: images[0] ?? null,
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
+  }
+}
+
+/*
+  A product as Shopify's predictive search (/search/suggest.json) gives it:
+  prices as "40.00", `image` an address, `body` the description. A theme's
+  own search box script prints these as they come.
+*/
+export function suggestProductJson(p: O): O {
+  const dollars = (c: unknown) => (typeof c === "number" ? (c / 100).toFixed(2) : "0.00")
+  const variants = (p.variants as O[]) ?? []
+  const compares = variants.map((v) => (typeof v.compare_at_price === "number" ? v.compare_at_price : 0))
+  const first = ((p.images as O[]) ?? [])[0]
+  return {
+    id: p.id, title: p.title, handle: p.handle, url: p.url, body: p.description, vendor: p.vendor, type: p.type, tags: p.tags, available: p.available,
+    price: dollars(p.price), price_min: dollars(p.price_min), price_max: dollars(p.price_max),
+    compare_at_price_min: dollars(compares.length ? Math.min(...compares) : 0), compare_at_price_max: dollars(compares.length ? Math.max(...compares) : 0),
+    image: first?.src ?? null,
+    featured_image: first ? { url: first.src, alt: first.alt ?? p.title, aspect_ratio: first.aspect_ratio ?? 1, width: first.width ?? null, height: first.height ?? null } : null,
+    variants: variants.map((v) => ({ id: v.id, title: v.title, price: dollars(v.price), compare_at_price: typeof v.compare_at_price === "number" ? dollars(v.compare_at_price) : null, available: v.available, url: v.url, image: (v.featured_image as O | null)?.src ?? null })),
   }
 }
 

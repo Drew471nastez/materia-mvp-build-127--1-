@@ -33,6 +33,9 @@
  *                      were left out without a word
  *   THE CART           /cart/add.js put an option that is sold out in the
  *                      cart when the product's other options were in stock
+ *   PRODUCT DATA       /search/suggest.json gave prices in cents where Shopify
+ *                      gives "40.00"; /products/<handle>.json had the .js
+ *                      shape; /recommendations/products.json had no intent
  *   CUSTOM CSS         a section's Custom CSS from Shopify's editor
  *                      (`custom_css` in templates/*.json) was dropped
  *   PICTURES           `image_url | image_tag` lost the picture's alt
@@ -127,6 +130,16 @@ async function main() {
     check("/cart/add.js of a sold out option: 422, as Shopify answers, and nothing added", bad.status === 422 && !bad.cart && JSON.parse(String(bad.body)).description === "Tee - Large is sold out.", { status: bad.status, body: String(bad.body) })
     const good = await add("va")
     check("the option in stock is added", good.status === 200 && good.cart?.length === 1 && good.cart[0].v === "va")
+    const get = async (path: string, q = "") => JSON.parse(String((await answer(data, { method: "GET", path, query: new URLSearchParams(q), body: null, cart: [] })).body))
+    const suggest = await get("/search/suggest.json", "q=tee")
+    const hit = suggest.resources.results.products[0]
+    check("/search/suggest.json: a product's prices are \"10.00\", as Shopify's predictive search gives them", hit?.price === "10.00" && hit?.price_min === "10.00" && hit?.variants?.[0]?.price === "10.00" && hit?.url === "/products/tee", hit)
+    const pj = await get("/products/tee.json")
+    check("/products/<handle>.json is the feed's shape: body_html, \"10.00\"", typeof pj.product?.body_html !== "undefined" && pj.product?.variants?.[0]?.price === "10.00", pj.product)
+    const pjs = await get("/products/tee.js")
+    check("/products/<handle>.js stays in cents", pjs.price === 1000 && pjs.variants?.[0]?.price === 1000)
+    const recs = await get("/recommendations/products.json", "product_id=p1&intent=complementary")
+    check("/recommendations/products.json says its intent", recs.intent === "complementary" && Array.isArray(recs.products))
     const link = await answer(data, { method: "GET", path: "/cart/vb:1", query: new URLSearchParams(), body: null, cart: [] })
     check("a cart permalink leaves the sold out option out", link.status === 303 && link.headers?.Location === "/cart" && !link.cart, { status: link.status, loc: link.headers?.Location })
   }
