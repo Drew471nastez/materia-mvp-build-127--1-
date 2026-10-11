@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { DEFAULT_LOW_STOCK_TEXT, siteCommerce } from "@/lib/website-builder/site-commerce"
+import { trackersHint } from "@/lib/store/tracking"
 import { Card, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass } from "./parts"
 import type { SettingsContext } from "./types"
 
@@ -80,7 +81,7 @@ export function CommerceSettings({ ctx }: { ctx: SettingsContext }) {
       </Card>
 
       <Card title="Integrations">
-        <Row label="Analytics and pixels" hint="Google Analytics, Tag Manager, Meta, TikTok and Pinterest load on every page of this website, and each paid order is reported to them once.">
+        <Row label="Analytics and pixels" hint={trackersHint()}>
           {door("/app/settings?tab=integrations", "Integrations")}
         </Row>
         <Row label="Customer emails" hint="The order confirmation and every update a buyer gets from your store.">

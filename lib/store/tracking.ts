@@ -125,6 +125,19 @@ export const TRACKERS: Record<TrackerId, TrackerInfo> = {
 
 export const TRACKER_ORDER: TrackerId[] = ["ga4", "gtm", "google_ads", "meta_pixel", "tiktok_pixel", "pinterest_tag", "clarity", "klaviyo", "omnisend"]
 
+/** The services purchaseTags below tells about a paid order. The others (Clarity, Klaviyo, Omnisend) only load on the pages. */
+export const PURCHASE_TRACKERS: TrackerId[] = ["ga4", "gtm", "google_ads", "meta_pixel", "tiktok_pixel", "pinterest_tag"]
+
+/** "A, B and C", for a sentence. */
+function inWords(names: string[]): string {
+  return names.length <= 1 ? (names[0] ?? "") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
+}
+
+/** What Website settings › Commerce says about the integrations, from this list, so a service added here is named there. */
+export function trackersHint(): string {
+  return `${inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name))} load on every page of this website once you add them. Each paid order is reported once to ${inWords(PURCHASE_TRACKERS.map((id) => TRACKERS[id].name))}.`
+}
+
 export type Tracking = Partial<Record<TrackerId, string>>
 
 /** An ID as typed, tidied: spaces gone, letters in the case its service issues. Empty is "remove it". */
