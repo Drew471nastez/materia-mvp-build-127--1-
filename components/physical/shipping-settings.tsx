@@ -637,7 +637,18 @@ function ZoneForm({
   const [busy, setBusy] = React.useState(false)
   const otherRegions = takenRegions.filter((r) => !initial?.regions?.includes(r))
   const otherCountries = taken.filter((c) => !initial?.countries.includes(c))
-  const defaultName = () => (row ? "Rest of world" : countries.length === 1 && regions.length === 0 ? countryName(countries[0]) : regions.length === 1 && countries.length === 0 ? regionLabel(regions[0]) : "Zone")
+  const defaultName = () => {
+    if (row) return "Rest of world"
+    if (countries.length === 1 && regions.length === 0) return countryName(countries[0])
+    const of = [...new Set(regions.map((r) => r.split("-")[0]))]
+    if (countries.length === 0 && regions.length === 1) return regionLabel(regions[0])
+    /* States of one country: "Canada" when all, "Canada, 3 provinces" when some. */
+    if (countries.length === 0 && of.length === 1) {
+      const total = regionsOf(of[0]).length
+      return regions.length >= total ? countryName(of[0]) : `${countryName(of[0])}, ${regions.length} ${of[0] === "CA" ? "provinces" : "states"}`
+    }
+    return "Zone"
+  }
   const statesOf = (cc: string) => regionsOf(cc).map((r) => `${cc}-${r.code}`)
   const freeStates = statesFor ? statesOf(statesFor).filter((k) => !otherRegions.includes(k)) : []
   const allStatesOn = freeStates.length > 0 && freeStates.every((k) => regions.includes(k))
@@ -653,7 +664,7 @@ function ZoneForm({
         setRegions((prev) => prev.filter((r) => !next.includes(r.split("-")[0])))
       }} taken={otherCountries} /> : null}
       {!row ? (
-        <div className="rounded-xl border border-[#eceef1] bg-white p-3">
+        <div className="rounded-xl border border-[#eceef1] bg-white p-3" data-zone-states="">
           <p className="text-[13.5px] font-medium text-[#1a1a2e]">Only some states or provinces</p>
           <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pick a country here instead of above to ship to part of it, like the lower 48. States you leave out aren't shipped to, unless another zone has them.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
