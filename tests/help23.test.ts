@@ -247,6 +247,7 @@ const raw = JSON.stringify(P) + JSON.stringify(PHYSICAL_CATEGORY) + helpUi
 check("no em or en dashes in the guide or the pages", !/[—–]/.test(raw))
 const banned = ["unlock", "elevate", "seamless", "powerful", "effortless", "supercharge", "transform"]
 check("none of the banned words", !banned.some((w) => new RegExp(`\\b${w}`, "i").test(raw)), banned.filter((w) => new RegExp(`\\b${w}`, "i").test(raw)))
+check("no Shopify or Liquid in what readers see (titles, summaries, text); search keywords and addresses may keep the word", !/Shopify|Liquid/.test(P.map((a) => [a.title, a.summary, articleText(a)].join(" ")).join(" ")))
 check("short sentences: the guide averages under 20 words a sentence", (() => {
   const sentences = guideText.split(/(?<=[.!?])\s+/).filter((s) => s.split(/\s+/).length > 2)
   const avg = sentences.reduce((n, s) => n + s.split(/\s+/).length, 0) / sentences.length
