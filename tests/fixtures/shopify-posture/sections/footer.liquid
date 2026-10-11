@@ -1,0 +1,12 @@
+<footer class="site-footer">
+  <ul class="site-footer__menu">
+    {%- for link in linklists[section.settings.menu].links -%}<li><a href="{{ link.url }}">{{ link.title }}</a></li>{%- endfor -%}
+  </ul>
+  <ul class="site-footer__extra">
+    {%- for block in section.blocks -%}<li {{ block.shopify_attributes }}><a href="{{ block.settings.link }}">{{ block.settings.label }}</a></li>{%- endfor -%}
+  </ul>
+</footer>
+{% schema %}
+{ "name": "Footer", "settings": [ { "type": "link_list", "id": "menu", "label": "Menu", "default": "footer" } ],
+  "blocks": [ { "type": "link", "name": "Link", "settings": [ { "type": "text", "id": "label", "label": "Label" }, { "type": "url", "id": "link", "label": "Link" } ] } ] }
+{% endschema %}

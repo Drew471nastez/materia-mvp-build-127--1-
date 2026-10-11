@@ -57,13 +57,26 @@ export const PAGE_END_ID = "sl-page-end"
   #sl-page-end, as Horizon does for its #MainContent), and its fade in waits,
   paused, with the page being left on screen, until its DOMContentLoaded
   has run. Then the two cross-fade and the theme's own entrance plays once,
-  from the start, as it does on a first visit. Never longer than a second
-  from the click, so a slow page still shows what it has; only when a
-  transition runs (a link followed on this site, never a first visit or a
-  reload). A page drawn as text only (an imported theme's, which carries
-  the blocker): a Storelib theme's page is React's, streamed, and starts
-  itself.
+  from the start, as it does on a first visit. Only when a transition runs
+  (a link followed on this site, never a first visit or a reload). A page
+  drawn as text only (an imported theme's, which carries the blocker): a
+  Storelib theme's page is React's, streamed, and starts itself.
 
+  NEVER MORE THAN HOLD_MS AFTER ITS FIRST BYTE. The wait was a second from
+  the click for the fade and nearly two for the blocker, and an app's script
+  in the theme's body (a reviews widget, a chat bubble, loaded the way
+  Shopify's app embeds load theirs) holds both the page's end and its
+  DOMContentLoaded for as long as that script takes. Measured on a theme
+  built as Posturex is (scripts/check-builder-nav19.ts), with an app script
+  answering in 400ms the next page showed 580ms after the click, and at
+  1500ms 1.7s, the old page frozen on screen and a second tap landing on a
+  page nobody could see yet. The hold is now counted from the moment the
+  page's first byte arrived, which is the part this page can do anything
+  about, and is short: what the server took is not waited for twice.
+*/
+/** How long an arriving page may hold itself back to start, after its first byte. */
+export const HOLD_MS = 250
+/*
   A PRESS DURING THE FADE ENDS IT, so a tap is never answered late.
 */
 export const NAVIGATION_HEAD_SCRIPT = `(function(){try{
@@ -73,13 +86,14 @@ var off=(/\\bAndroid\\b/i.test(ua)&&/;\\s?wv\\)/i.test(ua))||/\\b(FBAN|FBAV|FB_I
 if(off){if(blocker)blocker.remove();var s=d.createElement("style");s.setAttribute("data-storelib-navigation-off","");s.textContent="@view-transition{navigation:none}";head.appendChild(s);return}
 var act=window.navigation&&navigation.activation;
 var can=!matchMedia("(prefers-reduced-motion: reduce)").matches&&!!act&&!!act.from&&act.navigationType!=="reload";
-if(blocker){if(!can)blocker.remove();else setTimeout(function(){blocker.remove()},Math.max(0,1800-performance.now()))}
+var nav=performance.getEntriesByType&&performance.getEntriesByType("navigation")[0],first=nav&&nav.responseStart>0?nav.responseStart:performance.now(),left=function(){return Math.max(0,first+${HOLD_MS}-performance.now())};
+if(blocker){if(!can)blocker.remove();else setTimeout(function(){blocker.remove()},left())}
 var started=false,waiting=null;
 d.addEventListener("DOMContentLoaded",function(){setTimeout(function(){started=true;if(waiting)requestAnimationFrame(waiting)},0)});
 addEventListener("pagereveal",function(e){var t=e.viewTransition;if(!t)return;
 var skip=function(){try{t.skipTransition()}catch(x){}};["pointerdown","keydown"].forEach(function(n){d.addEventListener(n,skip,{once:true,capture:true})});
 var go=function(){root.removeAttribute("data-sl-arriving")};
-if(drawnAsText&&!started){root.setAttribute("data-sl-arriving","");waiting=go;setTimeout(go,Math.max(0,1000-performance.now()))}
+if(drawnAsText&&!started){root.setAttribute("data-sl-arriving","");waiting=go;setTimeout(go,left())}
 t.finished.then(go,go)});
 }catch(e){}})();`
 

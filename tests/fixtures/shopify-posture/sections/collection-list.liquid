@@ -1,0 +1,9 @@
+<div class="collection-list reveal">
+  {%- for block in section.blocks -%}
+    {%- assign c = block.settings.collection -%}
+    <a class="collection-card" href="{{ c.url }}" {{ block.shopify_attributes }}>{{ c.title }}</a>
+  {%- endfor -%}
+</div>
+{% schema %}
+{ "name": "Collection list", "blocks": [ { "type": "collection", "name": "Collection", "settings": [ { "type": "collection", "id": "collection", "label": "Collection" } ] } ], "presets": [ { "name": "Collection list" } ] }
+{% endschema %}

@@ -15,6 +15,7 @@
  */
 import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
+import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 
 type O = Record<string, unknown>
@@ -331,10 +332,14 @@ export interface MenuLinkLike {
   links?: MenuLinkLike[]
 }
 
-export function linkObject(l: MenuLinkLike, currentPath: string, level = 1): O {
+/** Where a link goes on this website (./links.ts siteLink), or the address as written where nothing resolves it. */
+export type LinkResolver = (url: string) => string
+
+export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, resolve?: LinkResolver): O {
   const title = String(l.title ?? l.label ?? "")
-  const url = String(l.url ?? "#")
-  const links = (l.links ?? []).map((c) => linkObject(c, currentPath, level + 1))
+  const written = String(l.url ?? "#")
+  const url = resolve ? resolve(written) || written : written
+  const links = (l.links ?? []).map((c) => linkObject(c, currentPath, level + 1, resolve))
   const active = url === currentPath
   const child_active = links.some((c) => c.active || c.child_active)
   return {
@@ -353,8 +358,8 @@ export function linkObject(l: MenuLinkLike, currentPath: string, level = 1): O {
   }
 }
 
-export function linklistObject(handle: string, title: string, links: MenuLinkLike[], currentPath: string): O {
-  const items = links.map((l) => linkObject(l, currentPath))
+export function linklistObject(handle: string, title: string, links: MenuLinkLike[], currentPath: string, resolve?: LinkResolver): O {
+  const items = links.map((l) => linkObject(l, currentPath, 1, resolve))
   return { [OUTPUT]: handle, handle, title, links: items, levels: items.length ? 1 + Math.max(0, ...items.map((c) => Number(c.levels ?? 0))) : 0 }
 }
 
@@ -459,6 +464,8 @@ export interface Resources {
   /** A picture setting's value as an address: an asset of the theme, a library file, a URL. */
   imageUrl: (value: string) => string
   currentPath: string
+  /** Where a link of the theme goes on this website (./links.ts siteLink). Absent: as written, Shopify's own addresses made this site's. */
+  link?: LinkResolver
   /** Product objects by id, made once per draw. */
   productCache?: Map<string, O>
   /** The page's own product, for a picker set to "@current" (the product the page is showing). */
@@ -512,7 +519,8 @@ export function collectionByHandle(r: Resources, handle: string): O | null {
   const products = (col: CollectionLike) => (col.products ?? []).map((p) => productById(r, p.id) ?? productObject(p))
   if (c) return collectionObject(c, products)
   if (!handle || r.products.length === 0) return null
-  const all: CollectionLike = { id: handle === "all" ? "all" : `all-${handle}`, title: handle === "all" ? "Products" : handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase()), handle, url: handle === "all" ? "/collections/all" : `/collections/${handle}`, products: r.products, products_count: r.products.length }
+  /* Its card links to the whole shop, which is what it shows: the store it came from had that collection, this one does not (./links.ts). */
+  const all: CollectionLike = { id: handle === "all" ? "all" : `all-${handle}`, title: handle === "all" ? "Products" : handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase()), handle, url: "/collections/all", products: r.products, products_count: r.products.length }
   return collectionObject(all, products)
 }
 
@@ -558,7 +566,7 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       const handle = String(value ?? "")
       /* A menu of the store the theme came from ("main-menu-1", "mega-menu") is the shop's own: its footer menu for a footer's, its main menu for the rest. */
       const menu = r.menus[handle] ?? (handle ? r.menus[/footer/i.test(handle) ? "footer" : "main-menu"] ?? r.menus["main-menu"] : undefined)
-      return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
+      return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath, r.link) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
     }
     /*
       A PALETTE (Horizon's color_palette): each of its colours a colour, as
@@ -607,7 +615,8 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
     case "metaobject":
       return null
     case "url":
-      return typeof value === "string" ? shopifyAddress(value) : value ?? ""
+      /* An address of the store the theme came from, or a page this site has none of, is the place on this site it meant (./links.ts). */
+      return typeof value === "string" ? (r.link ? r.link(value) : shopifyAddress(value)) : value ?? ""
     default:
       return value ?? (["text", "textarea", "richtext", "inline_richtext", "html", "url", "liquid", "select", "radio", "text_alignment"].includes(type) ? "" : null)
   }
@@ -615,25 +624,7 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
 
 export type ShopifySetting = { type: string; id?: string; default?: unknown }
 
-/**
- * `shopify://collections/all` and the rest: an address in the theme's own
- * scheme, as the address it is on this website.
- */
-export function shopifyAddress(value: string): string {
-  const m = value.match(/^shopify:\/\/([a-z_]+)(?:\/(.*))?$/)
-  if (!m) return value
-  const [, kind, rest = ""] = m
-  switch (kind) {
-    case "collections": return rest ? `/collections/${rest}` : "/collections"
-    case "products": return rest ? `/products/${rest}` : "/collections/all"
-    case "pages": return rest ? `/pages/${rest}` : "/"
-    case "blogs": return rest ? `/blogs/${rest}` : "/blogs"
-    case "search": return "/search"
-    case "cart": return "/cart"
-    case "account": return "/account"
-    default: return ""
-  }
-}
+export { shopifyAddress }
 
 /**
  * A value that names another value: `"{{ settings.color_palette.color3 }}"`

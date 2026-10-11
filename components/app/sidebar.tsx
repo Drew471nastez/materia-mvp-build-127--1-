@@ -764,6 +764,71 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         <AppTopCorners className="text-[#131316]" />
       </header>
 
+      {/*
+        ── THE MENU, AND THE PILL THAT OPENS IT ─────────────────────────────
+        What was here was a 260px drawer with a dimmed strip of page beside
+        it, opened from the far corner of the screen. Both halves live in
+        components/app/sidebar-mobile-nav now, at module scope, which is what
+        lets a group animate open without being unmounted mid-transition.
+
+        BEFORE THE PHONE HEADER, ON PURPOSE. The menu and the header share
+        z 50 (MobileMenuPage), so this order is what draws the header and its
+        rounded corners over the menu's top, while the 50 itself puts the
+        menu over Settings as a page (49) under it. The pill is after both.
+      */}
+      <MobileMenuPage
+        open={mobileMenuOpen}
+        items={mainNavItems}
+        expandedGroups={expandedGroups}
+        onToggle={toggleGroup}
+        onNavigate={(href) => {
+          startNavigationLoading(href)
+        }}
+        onForceNavigate={(href) => {
+          startNavigationLoading(href)
+          /* Leaves the /app router tree. In Capacitor a full reload would
+             lose the session, which lives in Preferences, not in a cookie. */
+          if (isNativePlatform()) router.push(href)
+          else window.location.href = href
+        }}
+        onClose={() => setMobileMenuOpen(false)}
+        upgradeTitle={t("nav.upgradeToPro")}
+        upgradeSubtitle={t("nav.unlockBenefits")}
+        storeUnpublishedNote={
+          storeUrl && !storePublished ? "Store is unpublished. Go to Settings to publish." : undefined
+        }
+        setupSlot={
+          setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") ? (
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false)
+                if (pathname === "/app") {
+                  document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                } else {
+                  router.push("/app")
+                  setTimeout(() => {
+                    document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }, 100)
+                }
+              }}
+              className="mt-4 flex w-full items-center gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5 text-left"
+            >
+              <div className="relative h-10 w-10 shrink-0">
+                <SetupProgressCircle progress={setupProgressPercent} size={40} />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold text-violet-600">{setupProgressPercent}%</span>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[14px] font-semibold text-[#1a1a2e]">Store setup</p>
+                <p className="text-[12px] text-[#6b7280]">{setupProgress.completed} of {setupProgress.total} steps done</p>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
+            </button>
+          ) : null
+        }
+      />
+
       {/* Mobile Header - Dark background, with the page's rounded top corners hanging from it.
           Header total height = 68px + safe-area-inset-top (same as main's pt offset).
           Padding inside the flex row so content sits flush below the status bar. */}
@@ -857,65 +922,6 @@ export function AppSidebar({ creatorSlug, username, storePublished, avatarUrl, d
         onePagePublished={onePagePublished}
       />
 
-      {/*
-        ── THE MENU, AND THE PILL THAT OPENS IT ─────────────────────────────
-        What was here was a 260px drawer with a dimmed strip of page beside
-        it, opened from the far corner of the screen. Both halves live in
-        components/app/sidebar-mobile-nav now, at module scope, which is what
-        lets a group animate open without being unmounted mid-transition.
-      */}
-      <MobileMenuPage
-        open={mobileMenuOpen}
-        items={mainNavItems}
-        expandedGroups={expandedGroups}
-        onToggle={toggleGroup}
-        onNavigate={(href) => {
-          startNavigationLoading(href)
-        }}
-        onForceNavigate={(href) => {
-          startNavigationLoading(href)
-          /* Leaves the /app router tree. In Capacitor a full reload would
-             lose the session, which lives in Preferences, not in a cookie. */
-          if (isNativePlatform()) router.push(href)
-          else window.location.href = href
-        }}
-        onClose={() => setMobileMenuOpen(false)}
-        upgradeTitle={t("nav.upgradeToPro")}
-        upgradeSubtitle={t("nav.unlockBenefits")}
-        storeUnpublishedNote={
-          storeUrl && !storePublished ? "Store is unpublished. Go to Settings to publish." : undefined
-        }
-        setupSlot={
-          setupProgress && setupProgress.completed < setupProgress.total && !pathname.startsWith("/app/emails") ? (
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false)
-                if (pathname === "/app") {
-                  document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                } else {
-                  router.push("/app")
-                  setTimeout(() => {
-                    document.getElementById("store-setup-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                  }, 100)
-                }
-              }}
-              className="mt-4 flex w-full items-center gap-3 rounded-[16px] border border-violet-100/70 bg-white px-4 py-3.5 text-left"
-            >
-              <div className="relative h-10 w-10 shrink-0">
-                <SetupProgressCircle progress={setupProgressPercent} size={40} />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-[10px] font-bold text-violet-600">{setupProgressPercent}%</span>
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[14px] font-semibold text-[#1a1a2e]">Store setup</p>
-                <p className="text-[12px] text-[#6b7280]">{setupProgress.completed} of {setupProgress.total} steps done</p>
-              </div>
-              <ChevronRight className="h-4 w-4 shrink-0 text-neutral-300" />
-            </button>
-          ) : null
-        }
-      />
       {/* OnePage is an editor with its own controls along the foot of the
           screen; see NO_PILL in sidebar-mobile-nav. */}
       {pillBelongsOn(pathname) ? (
