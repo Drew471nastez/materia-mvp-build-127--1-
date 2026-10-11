@@ -228,6 +228,12 @@ function RegionsExplained({ physical }: { physical: boolean }) {
           </li>
         ))}
       </ul>
+      {/* The full guide, with worked examples. It lives in the physical products part of the Help Center, which is only there while physical commerce is on. */}
+      {physical ? (
+        <a href="/help/physical-products/taxes" target="_blank" rel="noreferrer" className="mt-2 inline-block text-[12.5px] font-medium text-[#1a1a2e] underline underline-offset-2" data-tax-guide="">
+          Read the tax guide
+        </a>
+      ) : null}
     </div>
   )
 }

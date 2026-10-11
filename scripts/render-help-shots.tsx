@@ -23,6 +23,8 @@ import { PayoutsDemo } from "@/components/app/payouts-demo/payouts-demo"
 import { OffersClient } from "@/app/app/offers/offers-client"
 import { ProjectSettings } from "@/components/website-builder/project-settings"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
+import { SiteCheckout } from "@/app/checkout/site/site-checkout"
+import { checkoutConfig } from "@/lib/store/checkout-config"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -187,9 +189,18 @@ const buyBoxProduct = {
   variants: combos.map(([a, b], n) => ({ id: V(n), name: `${a} / ${b}`, options: [a, b, null], priceCents: a === "16 oz" ? 3600 : 3200, compareAtCents: null, imageUrl: null, soldOut: stock[n] === 0, left: stock[n] > 0 && stock[n] <= 3 ? stock[n] : null, maxQuantity: stock[n] })),
 }
 
+/* The website's own checkout (app/checkout/site): its quote, in the shape app/api/checkout/site answers. */
+function siteQuote(body: { country?: string; deliveryOptionId?: string; deliveryMethod?: string } = {}) {
+  const q = quote({ items: [{ productId: PRODUCT, variantId: V(0), quantity: 2 }, { productId: "p-bowl", variantId: "", quantity: 1 }], country: body.country, deliveryOptionId: body.deliveryOptionId })
+  /* Pick up is asked for as the pickup point's id in deliveryOptionId: nothing to pay for delivery. */
+  if (body.deliveryOptionId?.startsWith("pickup:")) return { ...q, kind: "ships", totals: { ...q.totals, shippingCents: 0, totalCents: q.totals.itemsSubtotalCents } }
+  return { ...q, kind: "ships", delivery: body.country ? q.delivery : { ok: true, options: [], selectedId: null, needsCountry: true } }
+}
+
 /* ── The API ───────────────────────────────────────────────────────────── */
 
 function route(method: string, path: string, body: Record<string, unknown>): unknown {
+  if (path === "/api/checkout/site") return body.action === "quote" ? siteQuote(body as never) : {}
   if (path.startsWith("/api/physical/checkout/quote")) return quote(body as never)
   if (path === "/api/physical/checkout") return { url: "#", free: false }
   if (path.startsWith("/api/physical/storefront/product")) return buyBoxProduct
@@ -206,6 +217,7 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/store/settings")) return store
   if (path.startsWith("/api/store/reasons")) return reasons
   if (path.startsWith("/api/store/offers")) return offers
+  if (path === "/api/store/emails") return { shop: { name: "Fern & Clay", supportEmail: "hello@fernandclay.example", storeUrl: null, logoUrl: null, phone: null, currency: "USD" }, copy: {}, ready: true }
   if (path.startsWith("/api/store/emails/preview")) return { subject: "Order confirmed", html: "<p>Preview</p>" }
   if (path.startsWith("/api/domains")) return { domains: [{ id: "d1", domain: "fernandclay.example", status: "active", ssl_status: "active", verified_at: "2026-09-01T10:00:00Z" }] }
   if (path.includes("/backups")) return { backups: [] }
@@ -273,8 +285,52 @@ function WebsiteSettings({ section }: { section: SettingsSection }) {
   )
 }
 
+/** A Stripe.js stand in: a card form drawn as boxes, so the page shows where the card goes. Nothing is ever paid. */
+function fakeStripe() {
+  const box = (t: string) => `<div style="height:44px;border:1px solid #e1e3e7;border-radius:8px;padding:12px 14px;font:15px Inter,sans-serif;color:#a2a7b0;box-sizing:border-box">${t}</div>`
+  const element = (type: string) => ({
+    mount(el: HTMLElement | string) {
+      const node = typeof el === "string" ? (document.querySelector(el) as HTMLElement) : el
+      if (type === "payment") node.innerHTML = `<div style="display:grid;gap:12px">${box("1234 1234 1234 1234")}<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${box("MM / YY")}${box("CVC")}</div></div>`
+    },
+    on() { return this }, off() { return this }, update() {}, destroy() {}, unmount() {}, collapse() {}, focus() {}, blur() {}, clear() {},
+  })
+  ;(window as unknown as { Stripe: unknown }).Stripe = Object.assign(() => ({
+    _registerWrapper() {}, registerAppInfo() {}, createToken() {}, createPaymentMethod() {}, confirmCardPayment() {}, confirmSetup: async () => ({}),
+    elements: () => ({ create: (t: string) => element(t), getElement: () => null, update() {}, submit: async () => ({}), fetchUpdates: async () => ({}) }),
+    confirmPayment: async () => ({}),
+  }), { version: 3 })
+}
+
+const SITE_LOGO = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="300" height="80"><text x="0" y="56" font-size="48" font-family="Georgia" font-weight="700" fill="#2f2a24">Fern &amp; Clay</text></svg>')
+
+function SiteCheckoutView() {
+  fakeStripe()
+  return (
+    <div id="shot">
+      <SiteCheckout
+        shopId={PRODUCT}
+        brand={{ name: "Fern & Clay", imageUrl: SITE_LOGO, kind: "logo" } as never}
+        shopUrl={`${location.origin}/`}
+        backTo={`${location.origin}/cart`}
+        items={[{ productId: PRODUCT, variantId: V(0), quantity: 2 }, { productId: "p-bowl", variantId: null, quantity: 1 }] as never}
+        wholeCart
+        couponCode={null}
+        initialQuote={siteQuote() as never}
+        initialError={null}
+        config={checkoutConfig({ marketingOptIn: true })}
+        buyer={null}
+        lockedEmail={null}
+        needsSignIn={false}
+      />
+    </div>
+  )
+}
+
 function App() {
   switch (view) {
+    case "site-checkout":
+      return <SiteCheckoutView />
     case "kinds":
       return (
         <Page width={460} bg="#ffffff">

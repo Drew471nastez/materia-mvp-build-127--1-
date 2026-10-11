@@ -47,6 +47,9 @@ writeFileSync(join(out, "empty.js"), "export {}\n")
 execFileSync("pnpm", ["exec", "esbuild", join(root, "scripts/render-help-shots.tsx"),
   "--bundle", "--format=iife", "--platform=browser", "--jsx=automatic", "--log-level=error", `--outfile=${join(out, "probe.js")}`,
   '--define:process.env.NODE_ENV="production"',
+  /* Public settings a screen reads at build time: placeholders, never a real key. */
+  '--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN="storelib.com"', '--define:process.env.NEXT_PUBLIC_PLATFORM_CURRENCY="usd"', '--define:process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_test_placeholder"',
+  '--define:process.env.NEXT_PUBLIC_SUPABASE_URL="https://placeholder.supabase.co"', '--define:process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY="placeholder"',
   '--banner:js=var process=globalThis.process||{env:{NODE_ENV:"production"},browser:true};globalThis.process=process;',
   `--alias:next/navigation=${join(root, "scripts/probe-next-navigation.ts")}`, `--alias:next/link=${join(out, "link.jsx")}`, `--alias:next/image=${join(out, "image.jsx")}`,
   `--alias:server-only=${join(out, "empty.js")}`,
@@ -136,22 +139,22 @@ const SHOTS = [
   { name: "order-shipped", view: "order", q: "order=shipped", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
   { name: "order-pickup", view: "order", q: "order=pickup", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
   { name: "inventory-page", view: "inventory", width: 1200, height: 760, clip: viewport(760) },
+  /* The website's checkout, on the site's own address (app/checkout/site), with a stand in for Stripe's card form. */
   {
-    name: "checkout-ship", view: "checkout", q: `items=${ITEMS}`, width: 1200, height: 1000,
+    name: "checkout-ship", view: "site-checkout", width: 1200, height: 1500,
     act: [async (p) => {
-      await p.type("input[type=email]", "sam@example.com")
-      await p.select("select[autocomplete=country]", "US")
-      await wait(400)
-      await p.type("input[autocomplete=name]", "Sam Rivera")
-      await p.type("input[autocomplete=address-line1]", "48 Maple Avenue")
-      await p.type("input[autocomplete=address-level2]", "Denver")
-      await p.type("input[autocomplete=postal-code]", "80203")
-      await p.evaluate(() => { const s = document.querySelector("select[autocomplete=address-level1]"); if (s) { const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set; set.call(s, "CO"); s.dispatchEvent(new Event("change", { bubbles: true })) } })
-      await wait(900)
+      await p.type("#checkout-email, input[type=email]", "sam@example.com")
+      const setSel = (sel, v) => p.evaluate((sel, v) => { const s = document.querySelector(sel); if (!s) return; const set = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value").set; set.call(s, v); s.dispatchEvent(new Event("change", { bubbles: true })) }, sel, v)
+      await setSel("select[autocomplete=country]", "US")
+      await wait(500)
+      for (const [sel, v] of [["input[autocomplete=name]", "Sam Rivera"], ["input[autocomplete=address-line1]", "48 Maple Avenue"], ["input[autocomplete=address-level2]", "Denver"], ["input[autocomplete=postal-code]", "80203"]]) { if (await p.$(sel)) await p.type(sel, v) }
+      await setSel("select[autocomplete=address-level1]", "CO")
+      await p.evaluate(() => document.activeElement?.blur())
+      await wait(1000)
     }],
-    clip: viewport(1000),
+    clip: viewport(1500),
   },
-  { name: "checkout-pickup", view: "checkout", q: `items=${ITEMS}`, width: 1200, height: 900, act: [async (p) => { await p.type("input[type=email]", "sam@example.com"); await p.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => b.innerText.trim() === "Pick up")?.click()); await wait(800) }], clip: viewport(900) },
+  { name: "checkout-pickup", view: "site-checkout", width: 1200, height: 1000, act: [async (p) => { await p.type("input[type=email]", "sam@example.com"); await p.evaluate(() => { [...document.querySelectorAll("[role=radio]")].find((b) => b.innerText.trim() === "Pick up")?.click(); document.activeElement?.blur() }); await wait(900) }], clip: viewport(1000) },
   { name: "product-buy-box", view: "buybox", width: 520, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot")], 0)) },
   { name: "buyer-order-page", view: "status", width: 900, height: 1100, clip: viewport(1100) },
   { name: "taxes-settings", view: "taxes", width: 820, clip: cards("Tax", "Tax regions") },

@@ -19,10 +19,10 @@
  */
 export const PHYSICAL_SHOTS = {
   "buyer-order-page": [900, 1100],
-  "checkout-pickup": [1200, 900],
+  "checkout-pickup": [1200, 1000],
   "checkout-settings": [752, 1064],
-  "checkout-ship": [1200, 1000],
-  "customer-emails": [752, 1154],
+  "checkout-ship": [1200, 1500],
+  "customer-emails": [752, 1285],
   "fulfil-question": [812, 500],
   "inventory-page": [1200, 760],
   "location-form": [762, 1193],
@@ -46,7 +46,7 @@ export const PHYSICAL_SHOTS = {
   "shipping-general-profile": [812, 657],
   "shipping-packages": [812, 243],
   "taxes-create-region": [520, 428],
-  "taxes-settings": [752, 756],
+  "taxes-settings": [752, 986],
   "upsells-and-bundles": [1100, 760],
   "website-commerce": [1280, 860],
   "website-domains": [1280, 860],

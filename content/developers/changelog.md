@@ -19,13 +19,15 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - [Imported Shopify themes](/developers/imported-shopify-themes): a page on what a theme imported from Shopify can use on Storelib, from Liquid and the AJAX cart to accounts, the canvas and what does not come across.
 - In an imported theme: sign in, sign up and the account page on the website's own host with an emailed code, in the theme's own `customers/*` templates when it has them; the theme's hearts kept in step with the website's wishlist; contact and newsletter forms that reach the creator; a blog page drawn with its title and no posts.
 - In the builder's canvas, an imported theme's Add to cart, cart drawer and quantity changes work against a cart the builder keeps; checkout says it opens on the live site.
+- In an imported theme, `/account` lists the visitor's downloads, `/account/orders/<id>` is an order's own page in the theme, and its files download from the website itself; account pages draw in the builder's canvas.
+- Website checkout on the website's own address, `/checkout`, with its thank you page: an imported theme's Check out goes there.
 - In an imported theme, a product's custom fields as `product.metafields.custom.<key>` and its questions as `product.metafields.storelib.faqs`, and a counted variant's `inventory_quantity` once few are left.
 - Live websites cross-fade between pages, with the next page fetched while the pointer rests on its link ([between pages](/developers/imported-shopify-themes#between-pages-on-the-live-site)).
 
 **Changed**
 
 - `shop.name` falls back to the store's name from Settings › Store details before the creator's own name, on native and imported themes, live and in the canvas.
-- Check out in an imported theme hands the cart to Storelib's branded checkout, and a checkout button the theme keeps disabled until its terms box is ticked is freed when it is.
+- A checkout button an imported theme keeps disabled until its terms box is ticked is freed when it is, and the header's cart icon in the canvas opens only the theme's drawer.
 
 ## 10 October 2026
 

@@ -52,13 +52,21 @@ The cart's own hooks are `data-storelib-cart` (opens it), `data-storelib-cart-co
 
 ## Where the cart goes
 
-A cart with anything that ships goes to Storelib's cart checkout:
+On a website, the cart goes to the website's own checkout, on the same host:
+
+```
+/checkout?items=<cart>&return=<page on the site to come back to>
+```
+
+It is drawn like the Explore checkout, with the website's logo and Back across the top, the order on one side and paying on the other, and the card in Storelib's own form. Digital lines, things that ship and local pickup are paid in one order there, and the thank you page is on the website too. What it asks for follows Settings › Checkout: the name as one field or two, and for an order that ships, company, phone and the second address line as off, optional or required. A store that asks buyers to sign in sends them to the website's own sign in first.
+
+A preview on storelib.com, and a Buy link outside a website, use Storelib's cart checkout instead:
 
 ```
 /checkout/physical?shop=<store id>&items=<cart>&return=<page to come back to>
 ```
 
-A product that ships is never paid for in the digital checkout: a `/checkout?productId=` link for one (an older theme's Buy button, a shared link) is sent on to the cart checkout with the option it named. The cart checkout's Back link is the page the buyer came from only when that page is one of the store's own websites.
+A product that ships is never paid for in the digital checkout: a `/checkout?productId=` link for one (an older theme's Buy button, a shared link) is sent on to a checkout that can ship it. A checkout's Back link is the page the buyer came from only when that page is one of the store's own websites.
 
 `items` is the cart as ids and quantities only: a JSON list of `[productId, variantId, quantity]`, base64url encoded, up to 50 lines. Nothing else in it is read, and nothing in it is trusted beyond being well formed. The website's own checkout button builds this for you; a section only needs it to make a Buy now link of its own.
 

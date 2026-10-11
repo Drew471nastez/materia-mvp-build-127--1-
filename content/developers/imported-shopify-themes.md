@@ -43,6 +43,8 @@ The engine reads Liquid itself. It is lenient where Shopify is: a tag that does 
 | Tags and forms | `link_to_tag`, `link_to_add_tag`, `link_to_remove_tag`, `highlight_active_tag`, `default_errors`, `default_pagination`, `customer_login_link`, `customer_logout_link`, `customer_register_link` |
 | Commerce | `payment_type_svg_tag`, `payment_type_img_url`, `payment_button`, `weight_with_unit`, `format_address`, `structured_data`, `item_count_for_variant`, `line_items_for` |
 
+**Colours.** A `color` setting, a colour scheme's colours and each entry of a palette setting (`settings.color_palette`) are colour objects with `.rgb`, `.alpha` and the colour filters, as Shopify gives them.
+
 **Objects.** `shop`, `settings`, `section`, `block`, `product`, `collection`, `collections`, `all_products`, `cart`, `customer`, `linklists`, `routes`, `request` (with `design_mode`), `localization`, `template`, `page`, `page_title`, `page_description`, `canonical_url`, `search`, `predictive_search`, `recommendations`, `content_for_header` and `current_page`. Money is in cents, as themes expect.
 
 `shop.name` is the website's brand name from Theme settings, else the store's name from Settings › Store details. `shop.policies` and `shop.refund_policy` (and the other three) are the creator's own policy pages. `shop.enabled_payment_types` lists what Storelib's checkout takes: Visa, Mastercard, American Express, Apple Pay and Google Pay.
@@ -85,7 +87,7 @@ A request from a script (a JSON body, `X-Requested-With`, or `Accept: applicatio
 
 ## Checkout
 
-**Check out** (a form with `checkout`, `/checkout`, `/cart/checkout`, a permalink) hands the lines to Storelib's branded checkout, with the shop's logo and a Back link to the website's cart. Prices, stock, shipping and tax are worked out there, on the server, from the creator's products; nothing a theme sends about a price is read. A cart with something to post asks for the address and delivery first. After paying, the buyer comes back to the website and the cart is emptied.
+**Check out** (a form with `checkout`, `/cart/checkout`, a permalink) hands the lines to the website's own checkout at `/checkout`, on the same host: the website's logo with Back to the cart, the order on one side and paying on the other, the card in Storelib's own form rather than a payment provider's page. Prices, stock, shipping and tax are worked out there, on the server, from the creator's products and settings; nothing a theme sends about a price is read. A cart with something to post asks for the address and delivery on the same page. After paying, the thank you page is on the website too, and the cart is emptied. What checkout asks for follows Settings › Checkout, and a store that asks buyers to sign in sends them to the website's own sign in first.
 
 **Buy it now** (`payment_button`, or any `[data-storelib-buy-now]`) buys the item it belongs to alone and goes straight to checkout, leaving the cart as it was, even when the theme's own script has caught the form.
 
@@ -114,10 +116,11 @@ Contact and newsletter posts go through the same spam checks and rate limits as 
 
 ## Customer accounts
 
-A visitor signs in on the website's own host with a six digit code emailed to them. There are no passwords, so a theme's password fields and Forgot your password link are taken out of its forms, and every sign in, sign up and recover form becomes "email me a code".
+A visitor signs in on the website's own host with a six digit code emailed to them, in an email with the store's name and logo. There are no passwords, so a theme's password fields and Forgot your password link are taken out of its forms, and every sign in, sign up and recover form becomes "email me a code".
 
 - **`/account/login`, `/account/register`**: the theme's own `customers/login` and `customers/register` templates when it has them, Storelib's sign in drawn in the theme's fonts and colours when it does not (Dawn and Horizon have none). The code step is always Storelib's.
-- **`/account`**: the theme's `customers/account` template with the signed in `customer`, or Storelib's account page, in the theme's header and footer. It lists the visitor's orders from this store, with Edit name and Delete account.
+- **`/account`**: the theme's `customers/account` template with the signed in `customer`, or Storelib's account page, in the theme's header and footer. It lists the visitor's orders from this store, a Downloads list for what they bought to download, and Edit name and Delete account.
+- **`/account/orders/<id>`**: one order's page, in the theme. Its files download from the website itself (`/api/site-account/download`), checked against the website's own session: only an order placed with the email the visitor proved, and only the files its receipt lists.
 - **`/account/addresses`**: addresses are saved by checkout, so the list is shown and nothing is edited there.
 - **`customer`** has `first_name`, `last_name`, `name`, `email`, `orders` (each with `name`, `order_number`, `created_at`, `total_price` in cents, `fulfillment_status` and its label, `line_items_count`) and the addresses. A header that reads `customer` says Account rather than Log in.
 
@@ -137,11 +140,12 @@ The theme's JavaScript runs on the website as it was written. Storelib supplies 
 
 The canvas draws an imported theme's page in a sandboxed frame with no origin of its own, so the theme's scripts run as they do on the website and reach nothing of the builder or the signed in person. The builder adds one script, which talks to it by `postMessage` and does what Shopify's theme editor does:
 
-- A click selects the section and the block under it. Links and forms do not leave the page.
+- A click selects the section and the block under it. Links and forms do not leave the page. A link is only followed after every listener the theme has on the click has run, so a header cart icon that opens the drawer opens only the drawer.
 - A section the builder changed is swapped in place, with `shopify:section:unload` and `shopify:section:load` around it.
 - Selecting sends `shopify:section:select` and `shopify:block:select` (and the `deselect` pair), so a theme opens the slide or tab that was picked.
 - What the theme's scripts ask the shop for (the cart, `?sections=`, `/products/<handle>.js`, search suggestions, a quick view) is answered by the builder, with the same code as the live site, from the page being edited and a cart kept in the builder's memory while it is open. **Add to cart, the cart drawer, quantities and Remove work in the canvas.**
 - **Checkout is the live site's.** Check out, Buy it now, a link to `/checkout` and a cart permalink are stopped, and the builder says that checkout only works on the live site. Nothing is bought from the builder.
+- **Account pages draw in the canvas**, so `/account`, `/account/login` and `/account/register` can be designed. A sign in form sent there sends nothing and says that sign in works on the live site.
 
 ## Between pages on the live site
 

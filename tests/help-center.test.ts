@@ -159,6 +159,8 @@ console.log("\nThe physical products guide")
   check("  and a physical guide is offered only while physical commerce is on", /usePhysicalCommerceEnabled\(\)/.test(read("components/app/settings/how-it-works.tsx")) && /physical \|\| !e\.guide\.startsWith\("\/help\/physical-products\/"\)/.test(read("components/app/settings/how-it-works.tsx")))
   const appLinks = ["components/physical/shipping-settings.tsx", "components/physical/product-cards.tsx", "lib/help/questions.ts", "app/app/payouts/payouts-client.tsx"].flatMap((f) => [...read(f).matchAll(/["(](\/help\/[a-z-]+\/[a-z0-9-]+)[")]/g)].map((m) => m[1]))
   check("every Help link in the shipping settings, product cards, questions and Payouts lands", appLinks.length >= 4 && appLinks.every((l) => landsP(l)), appLinks.filter((l) => !landsP(l)))
+  check("Taxes' How tax regions work opens the tax guide, only while the guide is there",
+    /\{physical \? \(\s*<a href="\/help\/physical-products\/taxes"/.test(read("components/app/settings/taxes-panel.tsx")) && landsP("/help/physical-products/taxes"))
   check("Shipping and delivery points newcomers at Zero to 100", /href="\/help\/physical-products\/zero-to-100"/.test(read("components/physical/shipping-settings.tsx")))
   check("the topic page shows the groups, the article page its own group", /helpSectionsIn\(category\.slug\)/.test(category) && /data-help-section/.test(category) && /helpSectionsIn\(category\.slug\)\.find/.test(article))
   check("a screenshot is drawn at its own size, lazily, with its words", /case "image":/.test(read("components/help/help-parts.tsx")) && /loading="lazy"/.test(read("components/help/help-parts.tsx")) && /alt=\{b\.alt\}/.test(read("components/help/help-parts.tsx")))
