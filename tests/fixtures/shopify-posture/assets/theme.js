@@ -1,5 +1,5 @@
 (function () {
-  /* A slider that moves by transform, as most themes' do, and opens the slide the editor selects. */
+  /* A slider that slides by translateX, as most themes' do, and opens the slide the editor selects. */
   document.querySelectorAll("[data-slideshow]").forEach(function (el) {
     var track = el.querySelector(".slideshow__track");
     var slides = Array.prototype.slice.call(el.querySelectorAll(".slideshow__slide"));

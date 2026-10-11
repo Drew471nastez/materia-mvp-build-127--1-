@@ -168,8 +168,8 @@ export const CANVAS_BRIDGE = `
     box.style.borderTopWidth = v.cutTop ? "0" : "";
     box.style.borderBottomWidth = v.cutBottom ? "0" : "";
     /*
-      FIXED IS NOT ALWAYS THE SCREEN. A theme that puts a transform, a filter
-      or \`contain\` on <html> or <body> (a page fade, a drawer that slides the
+      FIXED IS NOT ALWAYS THE SCREEN. A theme that moves <html> or <body> (a translate), a filter
+      or \`contain\` on them (a page fade, a drawer that slides the
       page) makes that element the box's frame, and every outline sat off by
       its offset. Where the box lands is read back and the difference taken
       out, so it is always on the element.

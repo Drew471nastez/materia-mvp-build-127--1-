@@ -6,7 +6,7 @@
  *
  * The theme is tests/fixtures/shopify-posture: a small Shopify theme built
  * the way Posturex is (a sticky header with a menu and a phone drawer, a
- * slideshow that moves by transform, sections that rise into place as they
+ * slideshow that slides by translateX, sections that rise into place as they
  * are scrolled to, a footer of the theme's own links, a phone tab bar fixed
  * to the foot of the screen, an app's script loaded in the body). It goes
  * through the import's own converter, and then:
@@ -115,7 +115,7 @@ export function shop() {
 
 export async function converted() {
   const r = await convertShopifyTheme(await fixtureZip())
-  if (!r.ok) throw new Error(r.error)
+  if (!r.ok) throw new Error("the fixture theme did not convert")
   return r.theme
 }
 
