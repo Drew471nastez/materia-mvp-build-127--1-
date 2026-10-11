@@ -42,6 +42,7 @@ import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-conf
 import { fieldPlan, missingField, siteSignInHref } from "@/lib/checkout/site-checkout"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
+import { postalKey } from "@/lib/physical/local-delivery"
 import { regionsOf } from "@/lib/physical/regions"
 import { addressFormat } from "@/lib/address/format"
 import { cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
@@ -223,7 +224,9 @@ export function SiteCheckout({
 
   /* ── The server's prices, asked again when anything that changes them changes ── */
   /* Where it goes only changes the price of an order that ships. */
-  const shipsKey = ships ? `${address.country}|${address.region}` : ""
+  /* The postal code counts once it is long enough to name an area: it only decides local delivery (lib/physical/local-delivery.ts). */
+  const postalForQuote = postalKey(address.postalCode).length >= 3 ? postalKey(address.postalCode) : ""
+  const shipsKey = ships ? `${address.country}|${address.region}|${postalForQuote}` : ""
 
   const asked = React.useRef(0)
   const firstAsk = React.useRef(!!initialQuote)
@@ -239,7 +242,7 @@ export function SiteCheckout({
     setQuoting(true)
     const t = window.setTimeout(async () => {
       try {
-        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, deliveryOptionId: optionId, email })
+        const res = await call<SiteQuote>({ action: "quote", items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email })
         if (n !== asked.current) return
         if (!res.ok) {
           setQuoteError(res.data.error || "Could not load your order.")
@@ -729,7 +732,8 @@ export function SiteCheckout({
           ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
             <div className="rounded-[8px] border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
               <p className="font-medium">Shipping isn&apos;t available to {address.country ? countryName(address.country) : "this address"}.</p>
-              <p className="mt-0.5 text-[13.5px]">{(quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up instead." : "Try another address, or contact the shop."}</p>
+              {/* The server names what can't come and why (lib/physical/rates unshippableMessage). */}
+              <p className="mt-0.5 text-[13.5px]">{!quote.delivery.ok && quote.delivery.error ? quote.delivery.error : (quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up instead." : "Try another address, or contact the shop."}</p>
             </div>
           ) : (
             <div className="overflow-hidden rounded-[8px] border border-[#e1e3e7]" style={{ boxShadow: FIELD_SHADOW }}>

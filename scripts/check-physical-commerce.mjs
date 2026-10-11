@@ -102,7 +102,7 @@ function quote(body) {
   return {
     creatorId: SHOP, lines, dropped: [], stockIssues: items.some((i) => i.quantity > 5) ? [{ productId: items[0].productId, variantId: items[0].variantId, title: "Linen shirt", available: 5 }] : [],
     requiresShipping: true, coupon: null, couponError,
-    delivery: body.country === "RO" || !body.country ? { ok: true, options, selectedId: selected?.id ?? null, needsCountry: !body.country } : { ok: false, error: "Shipping isn't available to this address for some items in your cart.", options: [], selectedId: null, needsCountry: false },
+    delivery: body.country === "RO" || !body.country ? { ok: true, options, selectedId: selected?.id ?? null, needsCountry: !body.country } : { ok: false, error: "Linen shirt can't be shipped to United States yet. Choose pickup instead, or remove it from your order.", options: [], selectedId: null, needsCountry: false },
     pickups: [{ id: `pickup:${LOC}`, name: "Studio", address: ["Str 1", "Cluj, 400001", "Romania"], instructions: "Ring the bell at the side door.", ready: "Usually ready in 24 hours" }],
     totals: { itemsSubtotalCents: sub, discountCents: 0, shippingCents: ship, shippingDiscountCents: 0, taxCents: 0, taxIncluded: false, taxRateBps: 0, totalCents: sub + ship },
   }
@@ -229,7 +229,7 @@ try {
       await page.select("select[autocomplete=country]", "US")
       await wait(900)
       const none = await page.evaluate(() => ({ text: document.querySelector("[data-no-shipping]")?.innerText ?? "", pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled }))
-      expect(/Shipping isn't available to United States/.test(none.text) && /Pick up above/.test(none.text) && none.pay === true, "no rate for the address: said plainly, Pay off, pickup offered", none.text)
+      expect(/Shipping isn't available to United States/.test(none.text) && /Linen shirt can't be shipped to United States yet\. Choose pickup instead/.test(none.text) && none.pay === true, "no rate for the address: the item named, Pay off, pickup offered", none.text)
       /* Pick up: no address, the point's details, Pay sends the pickup and no address. */
       posted = []
       await page.evaluate(() => [...document.querySelectorAll("[role=radio]")].find((b) => b.innerText.trim() === "Pick up").click())

@@ -179,7 +179,7 @@ The banner a visitor sees until they answer: whether it shows, its message, its 
 
 ### Custom CSS
 
-Your own CSS for every page of the site, as Shopify's Custom CSS. A rule is kept inside the page: `.card__title { … }` styles the cards on your site and cannot reach the builder. `html`, `body` and `:root` mean the page itself. Left out, and listed under the box: `@import`, `@font-face`, the `<` character, backslash escapes, `expression()`, and any `url()` that is not https or one of your own paths. A media query that asks only about width becomes the same container query, so the phone preview shows your phone rules.
+Your own CSS for every page of the site. A rule is kept inside the page: `.card__title { … }` styles the cards on your site and cannot reach the builder. `html`, `body` and `:root` mean the page itself. Left out, and listed under the box: `@import`, `@font-face`, the `<` character, backslash escapes, `expression()`, and any `url()` that is not https or one of your own paths. A media query that asks only about width becomes the same container query, so the phone preview shows your phone rules.
 
 @[theme-settings:custom_css]
 
@@ -187,7 +187,7 @@ Your own CSS for every page of the site, as Shopify's Custom CSS. A rule is kept
 
 Named lists of links that a section can show: a footer column, a second navigation, a list of courses. A link can have links under it. The header's own links are always there as **Main menu**, so a section that shows the main menu shows the header's navigation without it being typed twice.
 
-Menus belong to the store, not to one theme, the way Shopify's Navigation does. Every theme shows the same menus, and a change goes live on all of them as soon as it is made. They are edited in **Navigation**, which opens from the Pages list and from **Edit menu** under any menu setting. A theme's settings keep a copy under `menus` for stores where store menus are not switched on yet; where they are, the store's menus are used instead.
+Menus belong to the store, not to one theme. Every theme shows the same menus, and a change goes live on all of them as soon as it is made. They are edited in **Navigation**, which opens from the Pages list and from **Edit menu** under any menu setting. A theme's settings keep a copy under `menus` for stores where store menus are not switched on yet; where they are, the store's menus are used instead.
 
 @[theme-settings:menus]
 
@@ -218,7 +218,7 @@ Either way, the builder never leaves itself:
 - Links to other websites, email links and phone links do nothing.
 - Forms do not submit, and nothing can be bought. A sign-up box in the canvas does not subscribe anyone.
 
-**A theme imported from Shopify** runs its own scripts in the canvas, in a sandboxed frame. Add to cart, the cart drawer and quantity changes work there, against a cart the builder keeps while it is open, so the drawer can be designed with something in it. Check out, Buy it now and links to `/checkout` stop with a note that checkout only works on the live site. See [Imported Shopify themes](/developers/imported-shopify-themes#in-the-builder).
+**An imported theme** runs its own scripts in the canvas, in a sandboxed frame. Add to cart, the cart drawer and quantity changes work there, against a cart the builder keeps while it is open, so the drawer can be designed with something in it. Check out, Buy it now and links to `/checkout` stop with a note that checkout only works on the live site. See [Imported Shopify themes](/developers/imported-shopify-themes#in-the-builder).
 
 The phone preview is 390px wide, the width of the most common phones. A section's layout answers to its own width, so the phone preview draws the phone layout exactly as a phone would.
 
@@ -247,7 +247,7 @@ On the live website, **Publish** opens the Publish panel: the website's address,
 
 ### Between pages on the live site
 
-A published website moves from page to page without a white flash: a link the visitor rests on is fetched ahead, and the two pages cross-fade once the next one has started. It is off for a visitor who asks for less motion and wherever the browser cannot do it smoothly. The builder's canvas draws one page and does not move. Details in [Imported Shopify themes](/developers/imported-shopify-themes#between-pages-on-the-live-site), which applies to native themes too.
+A published website moves from page to page without a white flash: a link the visitor rests on is fetched ahead, and the two pages cross-fade once the next one has started. It is off for a visitor who asks for less motion and wherever the browser cannot do it smoothly. The builder's canvas draws one page and does not move. Details in [Imported themes](/developers/imported-shopify-themes#between-pages-on-the-live-site), which applies to native themes too.
 
 ### Backups
 

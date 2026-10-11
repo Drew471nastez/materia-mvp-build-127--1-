@@ -1,10 +1,10 @@
-# Shopify parity
+# Theme editor parity
 
-How the Storelib website builder compares with Shopify's Online Store 2.0 theme editor, as Dawn and Horizon use it: the groups under Theme settings, the input types a section schema can declare, and the page templates a shop has. Each row is **Have**, **Partial** or **Missing**, with where it lives. For how Shopify's names map to Storelib's when you bring a section across, see [Coming from Shopify](/developers/shopify).
+How the Storelib website builder compares with the theme editors store themes such as Dawn and Horizon are built for: the groups under Theme settings, the input types a section schema can declare, and the page templates a shop has. Each row is **Have**, **Partial** or **Missing**, with where it lives. For how the usual names map to Storelib's when you bring a section across, see [Coming from another platform](/developers/shopify).
 
 ## Theme settings
 
-| Shopify group | Storelib | Status | Notes |
+| Usual group | Storelib | Status | Notes |
 | --- | --- | --- | --- |
 | Logo | Branding | Have | Logo, its width, a separate phone logo, the store's name. |
 | Colors, color schemes | Colors | Have | Five built-in schemes, more can be added, each with twenty-one colours and an optional gradient. |
@@ -27,13 +27,13 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 | Search behaviour | none | Missing | Predictive search and what a result shows belong to the search page work. |
 | Currency format | Currency format | Have | Show currency codes: `$48.00 USD` on every price a `.storelib` section is handed. Prices drawn by the older built-in React sections do not show the code. |
 | Cart | Cart | Have | Cart type (drawer, page or notification), done by the cart on Add to cart, and the free shipping bar. |
-| Custom CSS | Custom CSS | Partial | Theme-wide, scoped to the page and cleaned. Shopify also has Custom CSS per section, which Storelib does not. |
+| Custom CSS | Custom CSS | Partial | Theme-wide, scoped to the page and cleaned. Some editors also have Custom CSS per section, which Storelib does not. |
 | Favicon | Branding | Have | |
 | none | Announcement bar, Menus, SEO, Cookie and privacy | Storelib only | |
 
 ## Setting types
 
-| Shopify type | Storelib type | Status | Notes |
+| Usual type | Storelib type | Status | Notes |
 | --- | --- | --- | --- |
 | `checkbox` | `checkbox`, `toggle` | Have | Drawn as a switch. |
 | `number` | `number` | Have | The `unit` shows inside the field. |
@@ -55,7 +55,7 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 | `image_picker` | `image_picker` | Have | Also `image_gallery` for several. |
 | `inline_richtext` | `inline_richtext` | Have | Bold, italic, underline, links. |
 | `link_list` | `link_list` | Have | The site's menus; `main-menu` is the header's links. |
-| `liquid` | `html` | Partial | Accepted and drawn as an HTML box. The markup is kept and cleaned; Liquid in it is printed as text, never run. |
+| `liquid` | `html` | Partial | Accepted and drawn as an HTML box. The markup is kept and cleaned; template code in it is printed as text, never run. |
 | `metaobject` | none | Missing | No metaobjects. Repeated content is blocks. |
 | `page` | `page_picker` | Have | |
 | `product` | `product_picker` | Have | Carries the product's live title, price and picture. |
@@ -71,7 +71,7 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 
 ## Page templates
 
-| Shopify template | Storelib page | Status | Notes |
+| Usual template | Storelib page | Status | Notes |
 | --- | --- | --- | --- |
 | `index` | Home page | Have | |
 | `product` | Product page | Have | One layout for every product. |
@@ -90,14 +90,14 @@ How the Storelib website builder compares with Shopify's Online Store 2.0 theme 
 
 ## Commerce a theme can use
 
-Shopify's theme-facing commerce, as Storelib provides it to a `.storelib` section. **Tested** says what a browser or the test suite presses on every push; the other rows are where the code is.
+The commerce a store theme expects, as Storelib provides it to a `.storelib` section. **Tested** says what a browser or the test suite presses on every push; the other rows are where the code is.
 
-| Shopify | Storelib | Status | Notes |
+| Usual feature | Storelib | Status | Notes |
 | --- | --- | --- | --- |
 | Ajax Cart API, add to cart from any section | `data-storelib-add-to-cart` | Have | From any button a section draws, with the product's own values. Tested: `scripts/check-own-cart.mjs`. |
 | A cart drawer the theme draws | `data-storelib-cart-panel` and its parts | Have | The section's own drawer on the site's one cart: lines, quantities, subtotal, empty state, checkout. Tested: `scripts/check-own-cart.mjs`. See [A cart of your own](/developers/header-and-footer). |
 | The theme's cart drawer, cart page, notification | Theme settings › Cart | Have | Drawer, page or notification on Add to cart. |
-| Buy it now (`payment_button`) | Shopify's unbranded Buy it now | Have | In an imported theme it buys that item alone and goes straight to checkout, leaving the cart as it was, even when the theme's own script catches the form. Tested: `scripts/check-shopify-theme.ts`. |
+| Buy it now (`payment_button`) | The usual unbranded Buy it now | Have | In an imported theme it buys that item alone and goes straight to checkout, leaving the cart as it was, even when the theme's own script catches the form. Tested: `scripts/check-shopify-theme.ts`. |
 | Cart and checkout | Storelib checkout | Have | One payment for the basket, on the website's own address (`/checkout`) with its logo and a thank you page there. Shipping and pickup are chosen on the same page. Prices are read again from the database; nothing in the browser can change a charge. |
 | Product options and variants | `product_variants`, `product_options` | Have | A section reads `block.settings.variants` and, for shipped products, `options`. |
 | Collections | `product_collections` | Have | `collection_picker`, `collection_list`, the collections page. A collection's own page is still missing (above). |

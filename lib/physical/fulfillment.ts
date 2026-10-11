@@ -50,7 +50,7 @@ export const METHODS: Record<FulfillmentMethod, MethodInfo> = {
     title: "I'll ship it myself",
     line: "From home, a shop or your own warehouse. You pack it and add the tracking.",
     locationKinds: ["home", "warehouse", "retail", "custom"],
-    afterSale: "Open the order, pack it, press Mark as shipped and add the tracking number.",
+    afterSale: "Open the order, pack it, press Fulfill items and add the tracking number.",
   },
   warehouse: {
     id: "warehouse",
@@ -98,6 +98,37 @@ export function shippedByLabel(method: FulfillmentMethod | null | undefined, loc
     default:
       return "Shipped by you"
   }
+}
+
+export type Forwarding = "none" | "email" | "webhook" | "provider"
+
+/**
+ * WHAT THE SELLER DOES NEXT WITH A NEW ORDER, in a sentence or two, by who
+ * ships each part (the store's answer to "How you fulfil orders", carried
+ * to each product and line) and how that place gets its orders (the
+ * location's "Who ships the orders?"). For the seller's new order email and
+ * the order page; lib/physical/orders-server.ts sellerNextStepFor reads an
+ * order into it.
+ */
+export function sellerNextStep(o: { pickup?: boolean; local?: boolean; pickupAt?: string | null; groups: { method: FulfillmentMethod; locationName: string | null; forwarding: Forwarding | null }[] }): string {
+  if (o.pickup) return `The buyer collects it${o.pickupAt ? ` at ${o.pickupAt}` : ""}. Pack it, then press Mark ready for pickup in Orders and they're emailed.`
+  if (o.local) return "You deliver this order yourself. Press Fulfill items when it leaves, then Mark as delivered when it's handed over."
+  const out: string[] = []
+  const seen = new Set<string>()
+  for (const g of o.groups) {
+    const key = `${g.method}:${g.locationName ?? ""}:${g.forwarding ?? ""}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    const who = g.locationName ?? (g.method === "print_on_demand" ? "your print partner" : g.method === "warehouse" ? "your fulfillment center" : "your supplier")
+    if (g.method === "self" || g.forwarding === null) {
+      if (g.method === "self") out.push(`Pack it${g.locationName ? ` at ${g.locationName}` : ""} and ship it, then press Fulfill items in Orders and add the tracking number.`)
+      else out.push(`Send this order to ${who} yourself, then add their tracking in Orders.`)
+    } else if (g.forwarding === "email") out.push(`${who[0].toUpperCase()}${who.slice(1)} was emailed this order with the address. Add their tracking in Orders when they ship it, or they add it from the email.`)
+    else if (g.forwarding === "webhook") out.push(`This order was sent to your own system for ${who}. Tracking it reports comes back to the order.`)
+    else if (g.forwarding === "provider") out.push(`${who[0].toUpperCase()}${who.slice(1)} isn't connected to Storelib yet: send them this order yourself, then add their tracking in Orders.`)
+    else out.push(`Pack it${g.locationName ? ` at ${g.locationName}` : ""} and ship it, then press Fulfill items in Orders and add the tracking number.`)
+  }
+  return out.join(" ") || "Open the order in Orders to fulfil it."
 }
 
 /**

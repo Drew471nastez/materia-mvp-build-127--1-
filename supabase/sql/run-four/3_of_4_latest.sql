@@ -2978,5 +2978,18 @@ REVOKE ALL ON FUNCTION public.product_sales_status(uuid[]) FROM anon, authentica
 GRANT EXECUTE ON FUNCTION public.product_sales_status(uuid[]) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('150', '150_products_sales_limit.sql', '0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 154_local_delivery_and_pickup_hours.sql
+/* Local delivery and pickup hours on a location (Settings > Locations): the seller brings orders to buyers whose postal code starts with one of the location's codes, in its country, for its price (free from its free over value, when the order reaches its minimum); and the opening hours buyers can collect in. New columns on inventory_locations only, every one with a default, so no row changes. Server only, as the table already is. Needs part 78. Until it runs, a location saves as before and says local delivery and pickup hours turn on after this part. Safe to run again. */
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS pickup_hours text;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_codes text[] NOT NULL DEFAULT '{}'::text[];
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_price_cents integer NOT NULL DEFAULT 0;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_min_cents integer;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_free_over_cents integer;
+ALTER TABLE public.inventory_locations ADD COLUMN IF NOT EXISTS local_delivery_note text;
+ALTER TABLE public.inventory_locations DROP CONSTRAINT IF EXISTS inventory_locations_local_delivery_check;
+ALTER TABLE public.inventory_locations ADD CONSTRAINT inventory_locations_local_delivery_check CHECK ((pickup_hours IS NULL OR char_length(pickup_hours) <= 300) AND cardinality(local_delivery_codes) <= 500 AND local_delivery_price_cents BETWEEN 0 AND 10000000 AND (local_delivery_min_cents IS NULL OR local_delivery_min_cents BETWEEN 0 AND 10000000) AND (local_delivery_free_over_cents IS NULL OR local_delivery_free_over_cents BETWEEN 0 AND 10000000) AND (local_delivery_note IS NULL OR char_length(local_delivery_note) <= 500)) NOT VALID;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('154', '154_local_delivery_and_pickup_hours.sql', '3d3eceb865c91ddbab84277fe420c41a9ba8a2c87b2a1389dddd0ef6204f8fc2') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

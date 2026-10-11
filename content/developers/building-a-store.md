@@ -31,7 +31,7 @@ A setting can also pick: `product_picker`, `product_list`, `collection_picker`, 
 
 ## The pages, as templates
 
-A Storelib site has Shopify's templates. Each is a page in the builder's page switcher, built from the home page's header and footer and a default section until you arrange it, and what you save is what every visitor gets:
+A Storelib site has the usual store templates. Each is a page in the builder's page switcher, built from the home page's header and footer and a default section until you arrange it, and what you save is what every visitor gets:
 
 | Page | Template | Drawn for |
 | --- | --- | --- |

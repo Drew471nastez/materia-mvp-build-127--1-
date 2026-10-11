@@ -82,6 +82,7 @@ interface ReturnRec {
   merchantNote: string | null
   createdAt: string
   refundedCents: number
+  reasonLabel?: string | null
   items: { id: string; orderId: string; quantity: number; restock: boolean; restockedQuantity: number }[]
 }
 export interface PhysicalOrder {
@@ -97,9 +98,9 @@ export interface PhysicalOrder {
   shippingCents: number
   shippingDiscountCents: number
   address: Record<string, any> | null
-  delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+  delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null; kind?: "ship" | "local"; note?: string | null } | null
   deliveryMethod: DeliveryMethod
-  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady } | null
+  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady; hours?: string | null } | null
   processingAt: string | null
   buyerNote: string | null
   merchantNote: string | null
@@ -192,7 +193,21 @@ const countLabel = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
 
 type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | null
 
-export function PhysicalFulfillment({ state, number: shown, className, onNotice }: { state: PhysicalOrderState; /** The order's number on the Orders page (#1004), for each shipment's own (#1004-F1). */ number?: number; className?: string; onNotice?: (message: string) => void }) {
+export function PhysicalFulfillment({
+  state,
+  number: shown,
+  className,
+  onNotice,
+  onRefund,
+}: {
+  state: PhysicalOrderState
+  /** The order's number on the Orders page (#1004), for each shipment's own (#1004-F1). */
+  number?: number
+  className?: string
+  onNotice?: (message: string) => void
+  /** Opens the order's Refund dialog: a received return offers it, and the refund is counted on that return (noteRefund). */
+  onRefund?: (() => void) | null
+}) {
   const { order, locations, error, setError, busy, act } = state
   const [dialog, setDialog] = React.useState<Dialog>(null)
 
@@ -293,7 +308,10 @@ export function PhysicalFulfillment({ state, number: shown, className, onNotice 
           ? []
           : [
               ...(!pickup && !delivered ? [{ label: s.trackingNumber ? "Edit tracking" : "Add tracking", icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
-              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending") ? [{ label: "Mark as in transit", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, "Marked as in transit") }] : []),
+              /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
+              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: "Mark as in transit", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, "Marked as in transit") }] : []),
+              ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "in_transit" || s.status === "failed") ? [{ label: "Mark as out for delivery", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "out_for_delivery" }, "Marked as out for delivery. The buyer was emailed.") }] : []),
+              ...(!pickup && !delivered && s.status !== "failed" ? [{ label: "Report a delivery problem", icon: <X className="h-4 w-4" />, onClick: () => { if (window.confirm("Mark this package as having a delivery problem? The buyer sees it on their order page.")) void run({ action: "shipment", fulfillmentId: s.id, status: "failed" }, "Marked as a delivery problem") } }] : []),
               ...(returnable ? [{ label: "Start return", icon: <Undo2 className="h-4 w-4" />, onClick: () => setDialog("return") }] : []),
               { label: "Packing slip", icon: <Printer className="h-4 w-4" />, onClick: () => printSlip(order, s.items.map((i) => ({ ...order.lines.find((l) => l.orderId === i.orderId)!, quantity: i.quantity, fulfilled: 0 })).filter((l) => l.title)) },
               ...(!delivered
@@ -346,7 +364,7 @@ export function PhysicalFulfillment({ state, number: shown, className, onNotice 
 
       {error ? <Notice>{error}</Notice> : null}
 
-      {order.returns.length > 0 ? <ReturnsCard order={order} busy={busy} onMove={(returnId, status, extra) => void run({ action: "return_move", returnId, status, ...extra })} /> : null}
+      {order.returns.length > 0 ? <ReturnsCard order={order} busy={busy} onRefund={onRefund} onMove={(returnId, status, extra) => void run({ action: "return_move", returnId, status, ...extra })} /> : null}
 
       {dialog && typeof dialog === "object" && "fulfil" in dialog ? (
         <FulfilDialog
@@ -494,6 +512,7 @@ export function ShippingCard({ order, onNotice, className }: { order: PhysicalOr
             ))}
           </p>
           <p className="mt-1 text-[12px] text-[#6b7280]">{PICKUP_READY_LABEL[order.pickup.ready]}</p>
+          {order.pickup.hours ? <p className="text-[12px] text-[#6b7280]">Open {order.pickup.hours}</p> : null}
         </>
       ) : (
         <>
@@ -543,6 +562,7 @@ export function ShippingCard({ order, onNotice, className }: { order: PhysicalOr
           <span className="shrink-0 tabular-nums">{pickup || paid <= 0 ? "Free" : money(paid, order.currency)}</span>
         </p>
         {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
+        {order.delivery?.kind === "local" ? <p className="text-[12px] text-[#6b7280]" data-local-delivery="">You deliver this one yourself. Mark it delivered when it&apos;s handed over.</p> : null}
       </div>
     </section>
   )
@@ -954,7 +974,7 @@ function ReturnDialog({ order, onClose, onSubmit }: { order: PhysicalOrder; onCl
   )
 }
 
-function ReturnsCard({ order, busy, onMove }: { order: PhysicalOrder; busy: boolean; onMove: (returnId: string, status: string, extra?: Record<string, unknown>) => void }) {
+function ReturnsCard({ order, busy, onMove, onRefund }: { order: PhysicalOrder; busy: boolean; onMove: (returnId: string, status: string, extra?: Record<string, unknown>) => void; onRefund?: (() => void) | null }) {
   const nameOfLine = (id: string) => {
     const l = order.lines.find((x) => x.orderId === id)
     return l ? lineName(l) : "Item"
@@ -967,24 +987,42 @@ function ReturnsCard({ order, busy, onMove }: { order: PhysicalOrder; busy: bool
       </div>
       <ul className="space-y-3 px-4 pb-4 pt-1">
         {order.returns.map((r) => (
-          <ReturnBlock key={r.id} r={r} nameOfLine={nameOfLine} busy={busy} onMove={(status, extra) => onMove(r.id, status, extra)} />
+          <ReturnBlock key={r.id} r={r} currency={order.currency} nameOfLine={nameOfLine} busy={busy} canRefund={!!onRefund && order.status !== "refunded"} onRefund={onRefund ?? undefined} onMove={(status, extra) => onMove(r.id, status, extra)} />
         ))}
       </ul>
     </section>
   )
 }
 
-function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine: (id: string) => string; busy: boolean; onMove: (status: string, extra?: Record<string, unknown>) => void }) {
+function ReturnBlock({
+  r,
+  currency,
+  nameOfLine,
+  busy,
+  canRefund,
+  onRefund,
+  onMove,
+}: {
+  r: ReturnRec
+  currency: string
+  nameOfLine: (id: string) => string
+  busy: boolean
+  canRefund: boolean
+  onRefund?: () => void
+  onMove: (status: string, extra?: Record<string, unknown>) => void
+}) {
   const tone = r.status === "requested" ? "attention" : r.status === "completed" ? "success" : "neutral"
   const label: Record<string, string> = { requested: "Requested", approved: "Approved", rejected: "Declined", in_transit: "On its way back", received: "Received", completed: "Closed", cancelled: "Cancelled" }
   const reasons = useReasons("return")
   const small = "h-8 px-3 text-[12.5px]"
+  /* Approving or declining asks for the words the buyer's email carries: how to send it back, or why not. */
+  const [answer, setAnswer] = React.useState<{ to: "approved" | "rejected"; note: string } | null>(null)
   return (
     <li className="rounded-xl border border-[#eceef1] px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="flex min-w-0 items-center gap-2 text-[13px] font-medium text-[#1a1a2e]">
           <StatusBadge tone={tone}>{label[r.status] ?? r.status}</StatusBadge>
-          <span className="truncate">{reasonLabel(r.reason, "return", reasons)}</span>
+          <span className="truncate">{r.reasonLabel || reasonLabel(r.reason, "return", reasons)}</span>
           {r.requestedBy === "buyer" ? <span className="shrink-0 text-[12px] font-normal text-[#6b7280]">asked by the buyer</span> : null}
         </p>
         <span className="text-[12px] text-[#9ca3af]">{dateTime(r.createdAt)}</span>
@@ -998,13 +1036,49 @@ function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine
         ))}
       </ul>
       {r.customerNote ? <p className="mt-1.5 text-[13px] italic text-[#4b5563]">&ldquo;{r.customerNote}&rdquo;</p> : null}
-      <div className="mt-2 flex flex-wrap gap-2">
+      {r.merchantNote && !answer ? <p className="mt-1.5 text-[13px] text-[#4b5563]"><span className="font-medium text-[#1a1a2e]">Your note:</span> {r.merchantNote}</p> : null}
+      {r.refundedCents > 0 ? <p className="mt-1.5 text-[13px] text-[#166534]" data-return-refunded="">Refunded {money(r.refundedCents, currency)}</p> : null}
+      {answer ? (
+        <div className="mt-2 space-y-2" data-return-answer={answer.to}>
+          <label className="block text-[12.5px] font-medium text-[#1a1a2e]" htmlFor={`return-note-${r.id}`}>
+            {answer.to === "approved" ? "Instructions for the buyer" : "Why it can't be returned"}
+          </label>
+          <textarea
+            id={`return-note-${r.id}`}
+            autoFocus
+            rows={3}
+            maxLength={1000}
+            value={answer.note}
+            onChange={(e) => setAnswer({ ...answer, note: e.target.value })}
+            placeholder={answer.to === "approved" ? "Pack it in its box, write the order number inside and post it to the address in this email." : "It was used, or it's past the return window."}
+            className="w-full rounded-lg border border-[#d9dce1] px-3 py-2 text-[13.5px] leading-5 focus:border-[#1a1a2e] focus:outline-none"
+          />
+          <p className="text-[12px] text-[#6b7280]">{answer.to === "approved" ? "Emailed to the buyer with your default location's address." : "Emailed to the buyer."}</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className={cn(answer.to === "approved" ? BTN_PRIMARY : BTN_DANGER, small)}
+              disabled={busy}
+              onClick={() => {
+                onMove(answer.to, { note: answer.note.trim() || null })
+                setAnswer(null)
+              }}
+            >
+              {answer.to === "approved" ? "Approve and email" : "Decline and email"}
+            </button>
+            <button type="button" className={cn(BTN_SECONDARY, small)} disabled={busy} onClick={() => setAnswer(null)}>
+              Back
+            </button>
+          </div>
+        </div>
+      ) : null}
+      <div className={cn("mt-2 flex flex-wrap gap-2", answer && "hidden")}>
         {r.status === "requested" ? (
           <>
-            <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={() => onMove("approved")}>
+            <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={() => setAnswer({ to: "approved", note: r.merchantNote ?? "" })}>
               Approve
             </button>
-            <button type="button" className={cn(BTN_DANGER, small)} disabled={busy} onClick={() => onMove("rejected")}>
+            <button type="button" className={cn(BTN_DANGER, small)} disabled={busy} onClick={() => setAnswer({ to: "rejected", note: "" })}>
               Decline
             </button>
           </>
@@ -1014,9 +1088,14 @@ function ReturnBlock({ r, nameOfLine, busy, onMove }: { r: ReturnRec; nameOfLine
             Mark received
           </button>
         ) : null}
+        {r.status === "received" && canRefund && onRefund ? (
+          <button type="button" className={cn(BTN_PRIMARY, small)} disabled={busy} onClick={onRefund} data-return-refund="">
+            Refund
+          </button>
+        ) : null}
         {r.status === "received" ? (
           <button type="button" className={cn(BTN_SECONDARY, small)} disabled={busy} onClick={() => onMove("completed")}>
-            Close return
+            {r.refundedCents > 0 ? "Close return" : "Close without refund"}
           </button>
         ) : null}
         {r.status === "approved" || r.status === "requested" ? (

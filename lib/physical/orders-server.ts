@@ -20,7 +20,7 @@ import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
-import { readMethod } from "./fulfillment"
+import { readMethod, sellerNextStep } from "./fulfillment"
 import { normaliseTrackingNumber } from "./carriers"
 import { cleanNote } from "./notes"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
@@ -78,6 +78,10 @@ export interface ReturnRecord {
   trackingNumber: string | null
   refundedCents: number
   createdAt: string
+  /** The reason as it read when asked (part 109), so a reason renamed later still reads as it did. */
+  reasonLabel?: string | null
+  receivedAt?: string | null
+  closedAt?: string | null
   items: { id: string; orderId: string; quantity: number; restock: boolean; restockedQuantity: number; condition: string | null }[]
 }
 
@@ -102,9 +106,10 @@ export interface PhysicalOrder {
   platformFeeCents: number
   couponCode: string | null
   address: Record<string, any> | null
-  delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+  /** `kind` local: the seller brings it (lib/physical/local-delivery.ts), with their note. */
+  delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null; kind?: "ship" | "local"; note?: string | null } | null
   deliveryMethod: DeliveryMethod
-  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady } | null
+  pickup: { locationId: string | null; name: string; address: string[]; instructions: string | null; ready: PickupReady; hours?: string | null } | null
   processingAt: string | null
   deliveredAt: string | null
   buyerNote: string | null
@@ -217,11 +222,13 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     platformFeeCents: co.platform_fee_cents,
     couponCode: co.coupon_code,
     address: co.shipping_address,
-    delivery: co.shipping_rate?.name ? { name: co.shipping_rate.name, priceCents: co.shipping_rate.price_cents ?? 0, minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null } : null,
+    delivery: co.shipping_rate?.name
+      ? { name: co.shipping_rate.name, priceCents: co.shipping_rate.price_cents ?? 0, minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null, kind: co.shipping_rate.kind === "local" ? "local" : "ship", note: co.shipping_rate.local_note ?? null }
+      : null,
     deliveryMethod: co.delivery_method === "pickup" ? "pickup" : co.delivery_method === "none" ? "none" : "ship",
     pickup:
       co.delivery_method === "pickup" && co.pickup
-        ? { locationId: co.pickup_location_id ?? null, name: co.pickup.name, address: Array.isArray(co.pickup.address) ? co.pickup.address : [], instructions: co.pickup.instructions ?? null, ready: co.pickup.ready ?? "24h" }
+        ? { locationId: co.pickup_location_id ?? null, name: co.pickup.name, address: Array.isArray(co.pickup.address) ? co.pickup.address : [], instructions: co.pickup.instructions ?? null, ready: co.pickup.ready ?? "24h", hours: co.pickup.hours ?? null }
         : null,
     processingAt: co.processing_at ?? null,
     deliveredAt: co.delivered_at ?? null,
@@ -260,6 +267,9 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       trackingNumber: r.tracking_number,
       refundedCents: r.refunded_cents,
       createdAt: r.created_at,
+      reasonLabel: r.reason_label ?? null,
+      receivedAt: r.received_at ?? null,
+      closedAt: r.closed_at ?? null,
       items: itemsByR.get(r.id) ?? [],
     })),
     events: "receiptToken" in where ? [] : await orderEvents(db, co.id),
@@ -537,10 +547,39 @@ async function releaseRefundedStock(db: Db, creatorId: string, order: PhysicalOr
   await addOrderEvent(db, { checkoutId: order.id, creatorId, kind: "order.cancelled", message: "Refunded in full before it shipped. Stock released.", actor, key: `refund_release:${order.id}` })
 }
 
+/**
+ * The return a refund was for: the one named, else the one return waiting
+ * on its money (received, else the only one approved or on its way back).
+ * Its refunded total grows by the refund, so "Return complete" says what
+ * went back and the order page shows it.
+ */
+export function returnForRefund(returns: Pick<ReturnRecord, "id" | "status">[], named: string | null): string | null {
+  if (named) return returns.some((r) => r.id === named) ? named : null
+  const received = returns.filter((r) => r.status === "received")
+  if (received.length === 1) return received[0].id
+  const waiting = returns.filter((r) => r.status === "received" || r.status === "in_transit" || r.status === "approved")
+  return waiting.length === 1 ? waiting[0].id : null
+}
+
+async function countRefundOnReturn(db: Db, creatorId: string, returns: ReturnRecord[], named: string | null, amountCents: number): Promise<void> {
+  if (!(amountCents > 0)) return
+  const id = returnForRefund(returns, named)
+  const r = id ? returns.find((x) => x.id === id) : null
+  if (!r) return
+  await db.from("commerce_returns").update({ refunded_cents: (r.refundedCents ?? 0) + amountCents, updated_at: new Date().toISOString() }).eq("id", r.id).eq("creator_id", creatorId)
+}
+
 /** After the existing refund route refunded lines: the order and its timeline catch up. */
 export async function noteRefund(db: Db, creatorId: string, checkoutId: string, returnId: string | null): Promise<Outcome> {
   const before = await loadOrder(db, { creatorId, checkoutId })
   if (!before) return { ok: false, error: "Order not found.", status: 404 }
+  /*
+    What the order had refunded before this refund: the checkout's stored
+    total, which restate below moves on. The lines (and so `before`) already
+    carry the new refund, since the refund route wrote them first.
+  */
+  const { data: stored } = await db.from("commerce_checkouts").select("refunded_cents").eq("id", checkoutId).eq("creator_id", creatorId).maybeSingle()
+  const storedBefore = Number((stored as { refunded_cents?: number | null } | null)?.refunded_cents ?? before.refundedCents)
   const updated = await restate(db, creatorId, checkoutId)
   if (!updated) return { ok: false, error: "Order not found." }
   if (updated.refundedCents > 0) await addOrderEvent(db, {
@@ -552,11 +591,7 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
     key: `refund_total:${checkoutId}:${updated.refundedCents}`,
   })
   if (updated.refundedCents > before.refundedCents) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - before.refundedCents)
-  if (returnId) {
-    const refundedForReturn = Math.max(0, updated.refundedCents - before.refundedCents)
-    const r = before.returns.find((x) => x.id === returnId)
-    if (r && refundedForReturn > 0) await db.from("commerce_returns").update({ refunded_cents: r.refundedCents + refundedForReturn, updated_at: new Date().toISOString() }).eq("id", returnId).eq("creator_id", creatorId)
-  }
+  await countRefundOnReturn(db, creatorId, before.returns, returnId, updated.refundedCents - Math.min(storedBefore, before.refundedCents))
   await releaseRefundedStock(db, creatorId, updated, "creator")
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
@@ -582,6 +617,8 @@ export async function syncCheckoutRefunds(db: Db, paymentIntentId: string): Prom
     const before = Number((co as { refunded_cents?: number | null }).refunded_cents ?? 0)
     const updated = await restate(db, creatorId, checkoutId)
     if (!updated || updated.refundedCents <= 0) continue
+    /* A refund made in Stripe, or one the webhook saw first: counted on the return waiting for it. */
+    await countRefundOnReturn(db, creatorId, updated.returns, null, updated.refundedCents - before)
     /* A refund made in Stripe's dashboard reaches the buyer as well; one made with the Refund button was already emailed (same key). */
     if (updated.refundedCents > before) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - before)
     await addOrderEvent(db, {
@@ -721,6 +758,27 @@ export async function moveReturn(
   if (to === "approved" || to === "rejected" || to === "received" || to === "completed") await queueReturnEmail(db, r.checkout_id, creatorId, returnId, to)
   const updated = await restate(db, creatorId, r.checkout_id)
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * The next step for the seller on a paid order (lib/physical/fulfillment.ts
+ * sellerNextStep): who ships each part and how that place hears of it. For
+ * the seller's new order email; null for an order that doesn't ship.
+ */
+export async function sellerNextStepFor(db: Db, creatorId: string, checkoutId: string): Promise<string | null> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order || !order.lines.some((l) => l.requiresShipping)) return null
+  const { data: locs } = await db.from("inventory_locations").select("id, name, forwarding").eq("creator_id", creatorId)
+  const byId = new Map(((locs ?? []) as { id: string; name: string; forwarding: string | null }[]).map((l) => [l.id, l]))
+  const groups = order.lines
+    .filter((l) => l.requiresShipping)
+    .map((l) => {
+      const at = l.locationId ? byId.get(l.locationId) : undefined
+      const method = l.fulfillmentMethod ?? "self"
+      const forwarding = (["none", "email", "webhook", "provider"] as const).find((f) => f === at?.forwarding) ?? (method === "self" ? "none" : null)
+      return { method, locationName: at?.name ?? null, forwarding }
+    })
+  return sellerNextStep({ pickup: order.deliveryMethod === "pickup", pickupAt: order.pickup?.name ?? null, local: order.delivery?.kind === "local", groups })
 }
 
 /* ── lists ────────────────────────────────────────────────────────────── */

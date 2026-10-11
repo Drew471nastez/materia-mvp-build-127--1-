@@ -42,7 +42,7 @@ A few keys are written by panels of their own rather than listed in a group:
 | `page_seo` | Each page's own search title, description and whether search engines may list it, by page key. | Website settings › Pages & Navigation |
 | `site_language` | The language the site is written in, for the page's `lang`. | Website settings › General |
 
-A template reads theme settings through `theme`: the tokens under `theme.colors`, `theme.typography`, `theme.radius` and `theme.spacing`, and every setting as stored under `theme.settings`. The full list, with defaults, is in [Dynamic values](/developers/dynamic-values#theme). The groups Shopify's theme settings have that a template reads as values are there too: `theme.brand` (`headline`, `description`, `image`, `image_width`), `theme.badges` (`sale`, `sale_text`, `position`), `theme.cart.type` (`drawer`, `page` or `notification`) and `theme.currency` (`code`, `show_code`).
+A template reads theme settings through `theme`: the tokens under `theme.colors`, `theme.typography`, `theme.radius` and `theme.spacing`, and every setting as stored under `theme.settings`. The full list, with defaults, is in [Dynamic values](/developers/dynamic-values#theme). The groups other store themes' settings have that a template reads as values are there too: `theme.brand` (`headline`, `description`, `image`, `image_width`), `theme.badges` (`sale`, `sale_text`, `position`), `theme.cart.type` (`drawer`, `page` or `notification`) and `theme.currency` (`code`, `show_code`).
 
 ### Settings that reach a section by attribute
 
@@ -236,6 +236,6 @@ The theme settings object, exactly as the builder stores it, with every media UR
 
 ## What the site reads, and what it does not
 
-A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way a Shopify theme is: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` and `blocks/*.storelib` change what a page draws.
+A visitor's page is drawn from three things: the website's live pages, its live theme settings, and its section files, which are the theme's own 33 with the website's changed and added files in their place. The code editor shows more files than that, laid out the way store themes usually are: `theme.json`, `config/settings_schema.json`, `config/settings_data.json`, `templates/*.json`, two files under `snippets` and `assets/styles.css` and `assets/theme.js`. Those are views of the theme's data. Saving an edit to one stores the file, and **nothing on the site reads it**. Only `sections/*.storelib` and `blocks/*.storelib` change what a page draws.
 
 A section's CSS is always scoped to that section; see [Styling](/developers/styling). CSS for the whole site goes in Theme settings › Custom CSS, above.

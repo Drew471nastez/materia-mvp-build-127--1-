@@ -53,7 +53,7 @@ async function main() {
   check("  and the overlay group", has(/class="mobile-bottom-nav"/) && has(/popup__title">Get 10% off/))
   check("  `if x and` reads as `if x`", !has(/lax-cond/))
   check("  `| append:` with no value is the value", has(/lax-append">ok</), (home.match(/lax-append">[^<]*/) ?? [""])[0])
-  check("  a stray endif is a comment, not a lost page", has(/Liquid syntax error/))
+  check("  a stray endif is a comment, not a lost page", has(/Template syntax error/))
   check("divided_by: 0 does not stop the header", has(/class="div0">/) && has(/class="nav-link/))
   check("a menu handle of the original store is the shop's main menu", has(/class="nav-link[^"]*" href="\/collections\/all">Shop</))
   check("a featured product handle of the original store is the shop's first product", has(/fp-title">Linen shirt 1</), (home.match(/featured-product">.{0,120}/s) ?? [""])[0].replace(/\s+/g, " "))

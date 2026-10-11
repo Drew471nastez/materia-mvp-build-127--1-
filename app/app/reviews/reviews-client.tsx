@@ -562,7 +562,7 @@ function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: (n: nu
           </p>
         ) : (
           <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
-            A CSV with a row per review and columns for the product (its address or title), the rating and the review. Exports from Judge.me and Shopify Product Reviews work as they are. Imported reviews are not marked Verified buyer.
+            A CSV with a row per review and columns for the product (its address or title), the rating and the review. Judge.me exports and the usual product reviews CSV work as they are. Imported reviews are not marked Verified buyer.
           </p>
         )}
         {error ? <p className="mt-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}

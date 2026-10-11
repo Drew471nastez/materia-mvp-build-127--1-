@@ -189,6 +189,40 @@ export function guessCarrier(number: string | null | undefined): string | null {
   return null
 }
 
+/**
+ * THE RETURN WINDOW (Settings > Returns and refunds, "Return window"): its
+ * days count from when the buyer has the items. For each shipment that was
+ * not cancelled that is when it was delivered (picked up, for a pickup), or
+ * when it was shipped if it has no tracking number to say it arrived (a
+ * pickup marked ready counts from then too). A tracked shipment still on its
+ * way has not started its window. An order with nothing to ship counts from
+ * payment. The window is open while any shipment's is: not started yet, or
+ * within its days. `endsAt` is the last day, once every shipment started.
+ * Pure: the buyer's order page and the return route read it the same way.
+ */
+export function returnWindow(
+  o: { lines: { requiresShipping: boolean }[]; shipments: { status: string; trackingNumber: string | null; shippedAt: string | null; deliveredAt: string | null; provider?: string | null }[]; paidAt: string | null; pickup?: boolean },
+  days: number,
+  now: number = Date.now(),
+): { open: boolean; started: boolean; endsAt: string | null } {
+  const span = Math.max(0, Math.floor(days)) * 86_400_000
+  const startOf = (iso: string | null) => {
+    const t = iso ? Date.parse(iso) : NaN
+    return Number.isFinite(t) ? t : null
+  }
+  let starts: (number | null)[]
+  if (!o.lines.some((l) => l.requiresShipping)) starts = [startOf(o.paidAt)]
+  else {
+    const live = o.shipments.filter((s) => s.status !== "cancelled")
+    if (live.length === 0) return { open: true, started: false, endsAt: null }
+    starts = live.map((s) => startOf(s.deliveredAt) ?? (o.pickup || s.provider === "pickup" || !s.trackingNumber ? startOf(s.shippedAt) : null))
+  }
+  const started = starts.every((t) => t !== null)
+  const open = starts.some((t) => t === null || now - t <= span)
+  const last = started && starts.length ? Math.max(...(starts as number[])) + span : null
+  return { open, started, endsAt: last !== null ? new Date(last).toISOString() : null }
+}
+
 /** What buyers and the merchant call an order: short, stable, from its id. */
 export function orderNumber(checkoutId: string): string {
   return `#${checkoutId.replace(/-/g, "").slice(0, 8).toUpperCase()}`

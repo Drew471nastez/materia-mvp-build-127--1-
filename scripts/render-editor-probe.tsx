@@ -116,6 +116,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   /* PROBE_API_DELAY_MS: every route answers after this long, a signed-in round trip (scripts/check-editor-inspector.ts times the opening with it). */
   const apiDelay = (window as unknown as { PROBE_API_DELAY_MS?: number }).PROBE_API_DELAY_MS
   if (apiDelay) await new Promise((r) => setTimeout(r, apiDelay))
+  /* PROBE_ROUTE_DELAY_MS: a route (by a piece of its address) answering later still, so a probe can choose the order things arrive in (scripts/check-canvas-flash.ts). */
+  const routeDelay = Object.entries((window as unknown as { PROBE_ROUTE_DELAY_MS?: Record<string, number> }).PROBE_ROUTE_DELAY_MS ?? {}).find(([part]) => url.includes(part))?.[1]
+  if (routeDelay) await new Promise((r) => setTimeout(r, routeDelay))
+  /* PROBE_CARDS: the shop's product cards as /api/website-builder/products?cards=1 answers them. */
+  const cards = (window as unknown as { PROBE_CARDS?: unknown[] }).PROBE_CARDS
+  if (cards && /\/website-builder\/products\?cards=1/.test(url)) return json({ shop: cards, catalog: cards })
   if (/\/themes\/probe-install\/agent-activity/.test(url) && probeGlobals.PROBE_CONNECTIONS) {
     return json({ ready: true, cursor: 0, connections: probeGlobals.PROBE_CONNECTIONS, events: [] })
   }
