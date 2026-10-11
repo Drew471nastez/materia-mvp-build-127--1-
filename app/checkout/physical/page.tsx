@@ -10,6 +10,7 @@ import { checkoutBrand, type CheckoutBrand } from "@/lib/checkout/brand-server"
 import { redirect } from "next/navigation"
 import { getMainDomain } from "@/lib/url-helpers"
 import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
+import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 
 export const dynamic = "force-dynamic"
 
@@ -49,7 +50,8 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     */
     if (backTo) {
       const site = new URL(backTo)
-      if (site.hostname !== getMainDomain()) {
+      /* Only a published website that serves its own checkout; a preview or an old address keeps this page. */
+      if (site.hostname !== getMainDomain() && (await servingSiteOrigin(db, shop, site.origin))) {
         const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"))
         if (site.pathname === "/cart" && !q.has("cart")) q.set("cart", "1")
         redirect(legacyBasketTarget(site.origin, q, site.host))

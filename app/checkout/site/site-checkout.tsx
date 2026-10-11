@@ -74,6 +74,8 @@ export interface SiteCheckoutProps {
 }
 
 const PAID_SCREEN_MS = 1100
+/** How long a cart that ships keeps paying into the same held checkout; the server holds its stock for 35 minutes. */
+const INTENT_REUSE_MS = 25 * 60_000
 
 type Address = { line1: string; line2: string; city: string; region: string; postalCode: string; country: string; phone: string; company: string }
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", region: "", postalCode: "", country: "", phone: "", company: "" }
@@ -279,7 +281,7 @@ export function SiteCheckout({
   }, [])
   const secretRef = React.useRef<string | null>(null)
   /* A held checkout's key (a cart that ships): the same while the order is the same, a new one once it changes. */
-  const intentKey = React.useRef<{ key: string; sig: string } | null>(null)
+  const intentKey = React.useRef<{ key: string; sig: string; at: number } | null>(null)
 
   const [arriving, setArriving] = React.useState(false)
   const siteHost = (() => {
@@ -456,16 +458,19 @@ export function SiteCheckout({
   const createIntent = async (contact?: { email?: string; name?: string }, methods?: string[]): Promise<IntentResult> => {
     const body = orderBody(contact)
     /* A cart that ships holds its stock under a key: the same key for the same order, a new one (letting the last go) once it changed. */
-    const sig = JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email])
+    /* Everything the held checkout keeps about the buyer is in the key's signature, so a retry with a changed detail is a new checkout, never a stale one. */
+    const sig = JSON.stringify([body.items, body.couponCode, body.address, body.deliveryOptionId, body.email, body.firstName, body.lastName, body.phone, body.buyerNote, body.emailOptIn])
     const before = intentKey.current
-    const key = before && before.sig === sig ? before.key : newKey()
-    intentKey.current = { key, sig }
+    /* A payment older than its stock hold (35 minutes on the server) is never reused: a new one, letting the old one go. */
+    const fresh = !!before && Date.now() - before.at < INTENT_REUSE_MS
+    const key = before && fresh && before.sig === sig ? before.key : newKey()
+    intentKey.current = { key, sig, at: key === before?.key ? before.at : Date.now() }
     const res = await call<{ clientSecret?: string; paymentIntentId?: string }>({ action: "intent", ...body, paymentMethods: methods, clientKey: key, replaces: before && before.key !== key ? before.key : null })
     if (!res.ok || !res.data.clientSecret || !res.data.paymentIntentId) {
       const field = res.data.field as keyof BusinessDetails | undefined
       if (field && field in EMPTY_BUSINESS) setBusinessErrors({ [field]: res.data.error || "Check this field." })
       /* A failed start is a new checkout next time, which lets this one's stock go first (if it held any). */
-      intentKey.current = { key, sig: "" }
+      intentKey.current = { key, sig: "", at: 0 }
       throw new Error(res.data.error || "The payment could not be started. Nothing was charged.")
     }
     secretRef.current = res.data.clientSecret

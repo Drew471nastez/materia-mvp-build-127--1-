@@ -67,3 +67,33 @@ export async function siteBuyerOfRequest(db: Db, request: Request, creatorId: st
 }
 
 export { sessionCookieName }
+
+/**
+ * The origin, when this creator's PUBLISHED website answers there with its
+ * own checkout (siteOfHost: published, not a live AI site, not a creator
+ * page domain, not banned), else null. Every link to a website's checkout is
+ * decided with this first: a preview of a site not published yet, an AI
+ * site or an old address would otherwise send the buyer to a host that has
+ * no checkout, and the platform's own checkout is kept for those.
+ */
+export async function servingSiteOrigin(db: Db, creatorId: string, origin: string | null | undefined): Promise<string | null> {
+  if (!origin) return null
+  let host: string
+  try {
+    host = new URL(origin).host
+  } catch {
+    return null
+  }
+  const site = await siteOfHost(db, host)
+  return site && site.creatorId === creatorId ? site.origin : null
+}
+
+/** The first of this creator's addresses (a connected domain before a subdomain) whose published website serves its checkout. */
+export async function firstServingSite(db: Db, creatorId: string, hosts: string[]): Promise<string | null> {
+  const ordered = [...hosts].sort((a, b) => Number(a.endsWith(".storelib.com")) - Number(b.endsWith(".storelib.com")))
+  for (const h of ordered.slice(0, 12)) {
+    const served = await servingSiteOrigin(db, creatorId, `https://${h}`)
+    if (served) return served
+  }
+  return null
+}

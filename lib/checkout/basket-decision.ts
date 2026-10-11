@@ -12,7 +12,8 @@
  *            bought, or the total is under the smallest card payment
  *   ships    something in it ships: the whole cart goes to the physical
  *            checkout, which takes digital lines beside shipped ones
- *   free     a code took the whole basket to $0: no card at all
+ *   free     a code took the whole basket to $0, or (on a checkout that
+ *            keeps $0 lines) everything in it is free: no card at all
  *   pay      one shop, server prices, at least $0.50: the branded checkout
  *
  * Whether the seller can take payments is a database read and is asked
@@ -52,7 +53,8 @@ export function basketDecision(priced: PricedCart, opts: { shopId?: string | nul
     }
   }
 
-  if (priced.coupon && priced.totalCents === 0) return { kind: "free", creatorId }
+  /* Free: a code took it to $0, or every line is free on its own (kept only by a checkout that asks, priceCart keepFree). The prices are the server's either way. */
+  if (priced.totalCents === 0 && (priced.coupon || priced.lines.every((l) => l.item.priceCents === 0))) return { kind: "free", creatorId }
 
   if (priced.totalCents < MIN_CHARGE_CENTS) {
     return {

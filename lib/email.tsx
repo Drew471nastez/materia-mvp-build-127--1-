@@ -145,6 +145,13 @@ export interface SendBuyerEmailParams {
   attachments?: MailAttachment[]
   /** Only used if the order cannot be read back for the receipt. */
   amountCents?: number | null
+  /**
+   * The website the order was paid on (https://<site host>, app/checkout/site),
+   * for the receipt and invoice links only: they open on the site, which
+   * serves both. baseUrl is ignored for them while SITE_URL is set
+   * (getStableBaseUrl), so this is taken as it is.
+   */
+  receiptBaseUrl?: string | null
 }
 
 export interface SendSellerEmailParams {
@@ -754,6 +761,8 @@ export async function sendBuyerDownloadEmail(
   attempt = 1,
 ): Promise<{ success: boolean; error?: string; logId?: string }> {
   const { orderId, creatorId, buyerEmail, buyerFirstName, productTitle, receiptToken, sellerReplyTo, baseUrl, variantName, attachments } = params
+  const siteBase = typeof params.receiptBaseUrl === "string" && /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(params.receiptBaseUrl) ? params.receiptBaseUrl : null
+  const receiptUrl = (path: string) => (siteBase ? new URL(path, siteBase).toString() : buildUrl(path, baseUrl))
 
   const alreadySent = await wasEmailAlreadySent(admin, orderId, "buyer_download")
   if (alreadySent) return { success: true }
@@ -784,7 +793,7 @@ export async function sendBuyerDownloadEmail(
   // This ensures buyers can reply directly to the seller!
   const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
 
-  const receiptLink = buildUrl(`/receipt/${encodeURIComponent(receiptToken)}`, baseUrl)
+  const receiptLink = receiptUrl(`/receipt/${encodeURIComponent(receiptToken)}`)
   const customerEmail = normalizeEmail(buyerEmail)
 
   /* One email per payment: a basket's lines are read together and listed in
@@ -803,7 +812,7 @@ export async function sendBuyerDownloadEmail(
   if (pdf) {
     model.document = {
       kind: /^Invoice-/.test(pdf.filename) ? "invoice" : "receipt",
-      link: buildUrl(`/api/checkout/invoice?token=${encodeURIComponent(receiptToken)}`, baseUrl),
+      link: receiptUrl(`/api/checkout/invoice?token=${encodeURIComponent(receiptToken)}`),
     }
   }
   const firstTitle = model.items[0]?.title ?? productTitle

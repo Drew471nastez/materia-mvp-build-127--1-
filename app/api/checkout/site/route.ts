@@ -417,6 +417,9 @@ async function confirm(request: Request, admin: Admin, site: SiteOfCheckout, bod
   const paymentIntentId = typeof body.paymentIntentId === "string" ? body.paymentIntentId : ""
   const clientSecret = typeof body.clientSecret === "string" ? body.clientSecret : ""
   if (!/^pi_[A-Za-z0-9]+$/.test(paymentIntentId) || !clientSecret) return json({ error: "Missing payment." }, 400)
+  /* Each call asks Stripe: counted with the other payment calls. A paid order is also written by the webhook, so a limited buyer still gets it. */
+  const limited = await rateLimit({ bucket: "payment", subjects: [addressSubject(request)], windows: LIMITS.payment, message: "Too many tries just now. Your order is safe: wait a minute and refresh this page." })
+  if (limited) return limited
   const platform = `https://${getMainDomain()}`
   const wholeCart = body.wholeCart === true
 
@@ -492,10 +495,11 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     return NextResponse.json({ receiptToken: started.receiptToken, thanks: siteThanksHref(started.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, (co as { session_fingerprint?: string } | null)?.session_fingerprint ?? null, wholeCart) })
   }
 
-  if (decision.kind !== "free" || priced.ok === false || !priced.coupon) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
+  /* Free by the server's own prices: a code that took it to $0, or products that are free (basketDecision). */
+  if (decision.kind !== "free" || priced.ok === false || priced.totalCents !== 0) return json({ error: "This order isn't free any more. Refresh the page." }, 409)
   const coupon = priced.coupon
-  const holder = needsHold(coupon) ? holderForEmail(contact.email) : null
-  if (holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+  const holder = coupon && needsHold(coupon) ? holderForEmail(contact.email) : null
+  if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
   const written = await fulfilFreeCart(admin, {
     creatorId: site.creatorId,
     items: priced.lines.map((l) => l.item),
@@ -505,14 +509,14 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     buyerLastName: contact.last || null,
     origin,
     attribution,
-    couponId: coupon.id,
+    couponId: coupon?.id ?? null,
     couponHolder: holder,
     baseUrl: `https://${getMainDomain()}`,
     request,
     consent: contact.optedIn ? "ticked" : "none",
   })
   if (written.ok === false) {
-    if (holder) await releaseCouponHold(admin, coupon.id, holder)
+    if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
     return json({ error: "The order could not be saved. Try again in a moment." }, 500)
   }
   return NextResponse.json({ receiptToken: written.receiptToken, thanks: siteThanksHref(written.receiptToken, { whole: wholeCart }) }, { headers: afterPaidHeaders(site, written.sessionFingerprint, wholeCart) })

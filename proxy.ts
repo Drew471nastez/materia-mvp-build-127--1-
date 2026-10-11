@@ -415,6 +415,8 @@ function compatAnswers(pathname: string, request: NextRequest): boolean {
      anything under it, it is the website's own checkout (siteCheckoutFor). */
   if (pathname.startsWith("/checkout/")) return false
   if (pathname === "/checkout" && (request.nextUrl.searchParams.has("items") || request.nextUrl.searchParams.has("productId"))) return false
+  /* A receipt is Storelib's page on the site (siteCheckoutFor), never a theme's 404: the thank you page links to it. */
+  if (pathname === "/receipt" || pathname.startsWith("/receipt/")) return false
   /*
     THE VISITOR'S ACCOUNT is drawn by the theme itself, on this host, with
     no frame (lib/storelib-theme/compat/site.ts, accountPage): sign in, the
@@ -1201,7 +1203,7 @@ export async function proxy(request: NextRequest) {
         creator with no OnePage (oldOnePageTarget).
       */
       /* The website's checkout, its thank you page and its receipts, on this host (siteCheckoutFor). A live AI site keeps the platform's. */
-      if ((pathname.startsWith("/checkout") || pathname.startsWith("/receipt")) && !(await hasLiveAiSite(subdomain))) {
+      if ((pathname.startsWith("/checkout") || pathname.startsWith("/receipt")) && !(await hasLiveAiSite(subdomain)) && (await hasPublishedWebsite(subdomain))) {
         const checkout = await siteCheckoutFor(request, subdomain, host, pathname, search)
         if (checkout) return checkout
       }

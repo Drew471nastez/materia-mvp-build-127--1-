@@ -26,6 +26,7 @@ import { timed } from "@/lib/perf/server-timing"
 import { basketDecision } from "@/lib/checkout/basket-decision"
 import { afterPaidTarget, basketCheckoutHref } from "@/lib/checkout/basket-link"
 import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
+import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { loadStoreName } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
@@ -214,9 +215,12 @@ async function handlePOST(request: Request) {
     (priceCart, handOff) and the shipped lines are dropped, as before it
     existed.
   */
+  /* The shop's own PUBLISHED website serves its own checkout there (lib/checkout/site-checkout-server); a preview, an AI site or an old address keeps the platform's. */
+  const siteServes = siteOrigin !== platformOrigin && !!(await servingSiteOrigin(admin, creatorId, siteOrigin))
+
   if (decision.kind === "ships") {
     /* From the shop's own website: its own checkout, on its own address (app/checkout/site), which asks for the address and the delivery. */
-    if (siteOrigin !== platformOrigin) {
+    if (siteServes) {
       return NextResponse.json({ url: siteCheckoutHref({ origin: siteOrigin, items: decision.items, back: returnPath, couponCode: typeof body.couponCode === "string" ? body.couponCode : null, wholeCart: true }), ships: true })
     }
     return NextResponse.json({ url: physicalCheckoutHref(creatorId, decision.items, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
@@ -233,7 +237,7 @@ async function handlePOST(request: Request) {
   const attributionNow = () => attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
 
   const totalCents = priced.totalCents
-  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
   if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
@@ -267,7 +271,7 @@ async function handlePOST(request: Request) {
       .filter((i) => kept.has(`${i.productId}::${i.variantId ?? ""}`))
     const touches = body.origin && typeof body.origin === "object" ? (body.origin as { touches?: unknown }).touches : undefined
     /* The shop's own website asked: its own checkout, on its own address (app/checkout/site, lib/checkout/site-checkout). */
-    if (siteOrigin !== platformOrigin) {
+    if (siteServes) {
       return NextResponse.json({
         url: siteCheckoutHref({
           origin: siteOrigin,

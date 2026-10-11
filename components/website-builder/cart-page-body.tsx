@@ -156,7 +156,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
     if (shopId && lines.some((l) => l.physical)) {
       setBusy(true)
       /* On the website: its own checkout, on this same address (app/checkout/site), which asks for the address and the delivery. A preview on storelib.com keeps the platform's. */
-      window.location.href = onWebsiteHost(window.location.hostname, getMainDomain())
+      window.location.href = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
         ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", couponCode: applied?.code ?? null, wholeCart: true })
         : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
       return

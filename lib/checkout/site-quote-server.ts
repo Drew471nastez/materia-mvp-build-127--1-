@@ -62,10 +62,10 @@ export type SiteQuoteAnswer = { ok: true; quote: SiteQuote } | { ok: false; stat
 export async function priceSiteCart(db: Db, creatorId: string, body: Body) {
   const handOff = await isPhysicalCommerceEnabled().catch(() => false)
   let couponError: string | null = null
-  let priced: PricedCart = await priceCart(db, { items: body.items, couponCode: body.couponCode, buyerId: null, handOff })
+  let priced: PricedCart = await priceCart(db, { items: body.items, couponCode: body.couponCode, buyerId: null, handOff, keepFree: true })
   if (priced.ok === false && typeof body.couponCode === "string" && body.couponCode.trim()) {
     couponError = priced.error
-    priced = await priceCart(db, { items: body.items, couponCode: null, buyerId: null, handOff })
+    priced = await priceCart(db, { items: body.items, couponCode: null, buyerId: null, handOff, keepFree: true })
   }
   return { priced, couponError, decision: basketDecision(priced, { shopId: creatorId }), handOff }
 }

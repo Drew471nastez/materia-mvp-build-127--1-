@@ -347,7 +347,8 @@ export async function fulfilFreeCart(
     buyerLastName: string | null
     origin: FulfilContext["origin"]
     attribution?: FulfilContext["attribution"]
-    couponId: string
+    /** The code that made it free; null for a cart that is free on its own (app/checkout/site). */
+    couponId: string | null
     couponHolder: string | null
     baseUrl: string
     request?: Request
@@ -489,7 +490,8 @@ async function sideEffects(
           productTitle: titles.get(first.productId) ?? "Your purchase",
           receiptToken: s.receiptToken,
           sellerReplyTo: sellerEmail,
-          baseUrl: s.buyerBaseUrl || s.baseUrl,
+          baseUrl: s.baseUrl,
+          receiptBaseUrl: s.buyerBaseUrl ?? null,
           amountCents: s.paidTotal,
         }),
       )
