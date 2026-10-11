@@ -26,6 +26,8 @@ import { MIN_CHARGE_CENTS, priceOrder } from "@/lib/checkout/pricing"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
+import { SALE_HOLDER_KEY, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 import { attributionForCheckout, attributionToMetadata, recordCheckoutStartAttribution, recordContactAttribution } from "@/lib/attribution/server"
 import { randomUUID } from "node:crypto"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
@@ -206,6 +208,19 @@ async function handlePOST(request: Request) {
     throw e
   }
 
+  /*
+    LIMIT SALES: one copy held under the product's limit before a
+    PaymentIntent exists, in one locked step in the database, so two buyers
+    paying for the last copy cannot both pass (lib/checkout/sales-limit). The
+    holder is this buyer's address, so a second press after a declined card
+    refreshes the same copy. Only a product with a limit is asked about.
+  */
+  const saleHolder = limitOf(product) !== null ? saleHolderForEmail(email) : null
+  if (saleHolder && !(await holdSale(admin, product.id, saleHolder))) {
+    if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    return NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 })
+  }
+
   /* Where the checkout began: the page's account, every field checked, or
      what its address says. Words and hosts only (lib/orders/order-source). */
   const origin = originOf(body.origin, request)
@@ -236,6 +251,8 @@ async function handlePOST(request: Request) {
     coupon_code: coupon?.code || "",
     /* Whose place under the code's limit the order turns into its use. */
     ...(holder ? { coupon_holder: holder } : {}),
+    /* Whose copy under the product's limit the order takes (lib/checkout/sales-limit). */
+    ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
     tip_cents: String(totals.tipCents),
     access_token: user ? "" : accessToken,
     session_fingerprint: sessionFingerprint,
@@ -380,6 +397,8 @@ async function handlePOST(request: Request) {
     console.error("[stripe-session] PaymentIntent failed:", error instanceof Error ? error.message : error)
     /* Nothing to pay, so no place kept under the code's limit. */
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    /* Nor a copy under the product's limit. */
+    if (saleHolder) await releaseSale(admin, product.id, saleHolder)
     /*
       A SELLER STILL LINKED TO THE OLD STRIPE PLATFORM. Their row can say
       "ready" from before the move, so the gate above lets the checkout

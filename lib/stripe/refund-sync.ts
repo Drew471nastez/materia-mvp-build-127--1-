@@ -102,7 +102,8 @@ async function markRow(db: Db, row: OrderRow, refund: Stripe.Refund, cents: numb
       .from("orders")
       .update({
         refunded_at: new Date((refund.created || Date.now() / 1000) * 1000).toISOString(),
-        refund_reason: refund.reason || "requested_by_customer",
+        /* A copy refunded because the product had sold out says so (lib/checkout/sold-out-refund.ts). */
+        refund_reason: refund.metadata?.refund_reason === "sold_out" ? "sold_out" : refund.reason || "requested_by_customer",
         refund_amount_cents: total,
         stripe_refund_id: refund.id,
       })

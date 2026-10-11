@@ -46,6 +46,8 @@ import { cartFingerprint, cartReceiptToken } from "./cart-tokens"
 import { businessFromMetadata, businessFromStripe, type BusinessDetails } from "./business"
 import { invoiceFilename, invoiceForOrder, renderInvoicePdf, type OrderRow } from "./invoice"
 import { raiseSaleEvents } from "@/lib/orders/sale-events"
+import { SALE_HOLDER_KEY } from "./sales-limit"
+import { SOLD_OUT_REASON, refundOverLimit } from "./sold-out-refund"
 
 type Db = FulfilContext["admin"]
 
@@ -139,6 +141,7 @@ export async function fulfilCartSession(
     },
     /* Settings › Taxes, as the cart route charged it (each line's share is on the line, `cart_tax`). */
     tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
+    saleHolder: metadata[SALE_HOLDER_KEY] || null,
   }
 
   const written = await writeBasket(admin, ctx, items, {
@@ -244,6 +247,7 @@ export async function fulfilCartPayment(
     feeAudit: { planUsed: metadata.plan_used || null, pricingTier: metadata.pricing_tier || null, feeRuleVersion: metadata.fee_rule_version || null },
     /* Settings › Taxes, as the website's checkout charged it (each line's share is on the line, `cart_tax`). */
     tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
+    saleHolder: metadata[SALE_HOLDER_KEY] || null,
   }
   const written = await writeBasket(admin, ctx, items, {
     paidTotal,
@@ -326,7 +330,40 @@ async function writeBasket(
       items,
     })
   }
+
+  /*
+    LIMIT SALES: a line paid for after its product's last copy had gone was
+    written (the money is on the payment) but not fulfilled, and is refunded
+    here, after the basket's sale is on the seller's ledger so the refund
+    comes off it (lib/checkout/sold-out-refund). A line written over the
+    limit by an earlier call whose refund did not go through is found by its
+    reason and tried again, under the same key, so once.
+  */
+  const owed = await soldOutOwed(admin, items.map((_, i) => ctx.receiptTokenFor(i)), created)
+  for (const line of owed) {
+    try {
+      await refundOverLimit(admin, { orderId: line.orderId, productId: line.productId, creatorId: ctx.creatorId, amountCents: line.amountCents, provider: ctx.provider ?? "stripe", paymentId: ctx.paymentIntentId })
+    } catch (e) {
+      console.error("[cart] sold out refund failed for order", line.orderId, e instanceof Error ? e.message : e)
+      failed++
+    }
+  }
   return { created: created.length > 0, receiptToken, complete: failed === 0 }
+}
+
+/** The lines over the limit this call wrote, and any an earlier call wrote whose refund is still owed. */
+async function soldOutOwed(admin: Db, tokens: string[], created: FulfilledLine[]): Promise<{ orderId: string; productId: string; amountCents: number }[]> {
+  const out = new Map<string, { orderId: string; productId: string; amountCents: number }>()
+  for (const l of created) if (l.soldOut) out.set(l.orderId, { orderId: l.orderId, productId: l.productId, amountCents: l.amountCents })
+  try {
+    const { data } = await admin.from("orders").select("id, product_id, amount_cents").in("receipt_token", tokens).eq("refund_reason", SOLD_OUT_REASON).eq("status", "completed")
+    for (const r of (data ?? []) as { id: string; product_id: string; amount_cents: number | null }[]) {
+      if (!out.has(r.id)) out.set(r.id, { orderId: r.id, productId: r.product_id, amountCents: r.amount_cents ?? 0 })
+    }
+  } catch {
+    /* only the retry of an earlier failure is lost */
+  }
+  return [...out.values()]
 }
 
 /**
@@ -358,6 +395,8 @@ export async function fulfilFreeCart(
     request?: Request
     /** The news box, ticked, on a checkout that shows it (app/checkout/site). */
     consent?: "ticked" | "none"
+    /** Who holds the copies of limited products the route took for this basket (lib/checkout/sales-limit). */
+    saleHolder?: string | null
   },
 ): Promise<{ ok: true; receiptToken: string; sessionFingerprint: string; complete: boolean } | { ok: false }> {
   const sessionId = `free_${randomBytes(18).toString("base64url")}`
@@ -392,6 +431,7 @@ export async function fulfilFreeCart(
     device,
     origin: b.origin,
     attribution: b.attribution ?? null,
+    saleHolder: b.saleHolder ?? null,
   }
   const written = await writeBasket(admin, ctx, b.items, {
     paidTotal: 0,

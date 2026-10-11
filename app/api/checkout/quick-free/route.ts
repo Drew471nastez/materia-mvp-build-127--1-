@@ -13,6 +13,8 @@ import { attributionForCheckout, recordContactAttribution, recordOrderAttributio
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
@@ -125,6 +127,12 @@ async function handlePOST(request: Request) {
       }
     }
 
+    /* LIMIT SALES: a free copy is one of the limited run too, held in one locked step until its order counts it (lib/checkout/sales-limit). */
+    const saleHolder = limitOf(product) !== null ? saleHolderForEmail(String(email)) : null
+    if (saleHolder && !(await holdSale(admin, product.id, saleHolder, 1, CLAIM_HOLD_SECONDS))) {
+      return NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 })
+    }
+
     // Generate tokens
     const accessToken = nanoid(32)
     const sessionFingerprint = nanoid(32)
@@ -191,6 +199,9 @@ async function handlePOST(request: Request) {
       order = result2.data
       orderError = result2.error
     }
+
+    /* The order counts the copy now, or there is no order: either way the place goes. */
+    if (saleHolder) await releaseSale(admin, product.id, saleHolder)
 
     if (orderError || !order) {
       console.error("[quick-free] Order creation failed:", orderError)

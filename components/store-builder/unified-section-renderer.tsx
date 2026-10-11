@@ -98,6 +98,8 @@ export interface ProductData {
   // Denormalised on the product row; the card shows a rating without a query.
   reviews_count?: number | null
   reviews_average?: number | null
+  /** Every copy of a limited run sold (lib/products/sales-limit.ts), counted on the server. */
+  sold_out?: boolean | null
   // Refund policy fields
   refund_policy_enabled?: boolean
   refund_policy_type?: 'no_refunds' | '7_day' | '14_day' | '30_day' | '6_month' | null

@@ -47,6 +47,8 @@ interface ProductData {
 
 interface StickyAddToCartProps {
   isPurchased?: boolean
+  /** Every copy of a limited run sold (lib/products/sales-limit.ts): the bar says so and does not buy. */
+  soldOut?: boolean
   downloadFiles?: Array<{ id: string; file_name?: string }>
 
   settings: StickyAddToCartSettings
@@ -410,6 +412,7 @@ export function LiveStickyAddToCart({
   onAddToCart,
   isPurchased: serverIsPurchased = false,
   downloadFiles: serverDownloadFiles = [],
+  soldOut = false,
 }: StickyAddToCartProps & { onAddToCart?: () => void }) {
   /* Browsing in the editor's canvas is the point; buying from it is not. */
   const inEditorFrame = useEditorFrame()
@@ -536,9 +539,10 @@ export function LiveStickyAddToCart({
 
   /* A membership is joined, and a member opens it from the library, not from a downloads list. */
   const isMembership = product.type === "membership"
+  const closed = soldOut && !isPurchased
   const buttonText = isPurchased
     ? (isMembership ? "Open" : downloadFiles.length > 0 ? "Download" : "Access")
-    : isMembership ? "Join" : getButtonText(settings.buttonStyle)
+    : closed ? "Sold out" : isMembership ? "Join" : getButtonText(settings.buttonStyle)
 
   const handleDownloadFile = async (assetId: string) => {
     setDownloadingId(assetId)
@@ -551,6 +555,8 @@ export function LiveStickyAddToCart({
   const handleClick = async () => {
     /* Same rule as the buy button: the canvas browses, it does not buy. */
     if (inEditorFrame) return
+    /* A limited run that has sold out: the bar says so and does nothing. */
+    if (closed) return
     if (isPurchased) {
       if (isMembership) {
         window.location.assign(new URL("/account/library/memberships", getCanonicalSiteUrl()).toString())
@@ -660,6 +666,8 @@ export function LiveStickyAddToCart({
             type="button"
             size="sm"
             onClick={handleClick}
+            disabled={closed}
+            data-sold-out={closed ? "" : undefined}
             className="shrink-0 h-10 px-5 text-sm font-medium cursor-pointer relative z-10 flex items-center gap-2"
             style={{
               backgroundColor: settings.buttonColor || "#2563eb",
@@ -718,6 +726,8 @@ export function LiveStickyAddToCart({
               type="button"
               size="sm"
               onClick={handleClick}
+              disabled={closed}
+              data-sold-out={closed ? "" : undefined}
               className="shrink-0 h-11 px-7 text-[15px] font-medium cursor-pointer relative z-10 flex items-center gap-2"
               style={{
                 backgroundColor: settings.buttonColor || "#2563eb",

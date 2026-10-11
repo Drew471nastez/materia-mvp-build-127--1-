@@ -7,6 +7,9 @@ import { productIndexable } from "@/lib/seo/indexing"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { isBanned } from "@/lib/seo/bans"
 import { soldOut } from "@/lib/website-builder/shop-products"
+import { fewLeftText, salesSoldOut } from "@/lib/products/sales-limit"
+import { salesStanding } from "@/lib/products/sales-standings"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { DB_CATEGORY_TO_ID, categoryLabel, categoryPath } from "@/lib/marketplace/categories"
 import { hasCategoryPage } from "@/lib/explore/category-pages"
 import Link from "next/link"
@@ -497,6 +500,15 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   const downloadButtonBgColor = buyButtonColor || themeConfig?.productHeader?.buyButtonColor || "#2563eb"
   const downloadButtonTextColor = buyButtonTextColor || themeConfig?.productHeader?.buyButtonTextColor || "#ffffff"
 
+  /*
+    LIMIT SALES (lib/products/sales-limit.ts): a download with a limit says
+    Sold out, and its buttons stop, once every copy is sold or held by a
+    payment in progress; under ten left it says how many. Counted on the
+    server from the orders, beside the purchase reads below. The checkout
+    holds the last copy whatever this page said (lib/checkout/sales-limit).
+  */
+  const salesRead = product.type !== "physical" ? readSalesStanding(product.id) : Promise.resolve(null)
+
   // ---------------------------------------------------------------------------
   // Purchase state - includes variant-level access control
   // ---------------------------------------------------------------------------
@@ -585,6 +597,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
   // ---------------------------------------------------------------------------
   const productVariants = await variantsPromise
   timer.mark("variants")
+  const salesState = await salesRead
+  const salesView = salesState ? { soldOut: salesSoldOut(salesState), fewLeft: fewLeftText(salesState) } : null
 
   // Transform variants data - price_cents is the FINAL price for the variant
   const variants = productVariants.map((v) => ({
@@ -1150,6 +1164,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 compareAtCents={product.compare_at_cents}
                 creatorId={product.creator_id}
                 serverHasPurchased={hasPurchased}
+                sales={salesView}
                 serverAssetId={firstAssetId}
                 serverPurchasedVariantIds={purchasedVariantIds}
             serverProductFiles={productDownloadFiles}
@@ -1509,6 +1524,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             compareAtCents={product.compare_at_cents}
             creatorId={product.creator_id}
             serverHasPurchased={hasPurchased}
+            sales={salesView}
             serverAssetId={firstAssetId}
             serverPurchasedVariantIds={purchasedVariantIds}
             serverProductFiles={productDownloadFiles}
@@ -1663,7 +1679,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
       price: product.price_cents === 0 ? "0" : (product.price_cents / 100).toFixed(2),
       priceCurrency: "USD",
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
-      availability: soldOut(product) ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
+      availability: soldOut(product) || salesView?.soldOut ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
       url: canonicalUrl,
       seller: {
         "@type": "Person",
@@ -1841,6 +1857,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             }}
             creatorId={product.creator_id}
             isPurchased={hasPurchased}
+            soldOut={salesView?.soldOut ?? false}
             downloadFiles={productDownloadFiles}
           />
         )}
@@ -2012,6 +2029,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           }}
           creatorId={product.creator_id}
           isPurchased={hasPurchased}
+          soldOut={salesView?.soldOut ?? false}
           downloadFiles={productDownloadFiles}
         />
 
@@ -2103,4 +2121,13 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
     </div>
   )
+}
+
+/** A download's standing under its sales limit, read with the server's own client (product_sales_status is server only). Null for no limit, and whenever it cannot be read. */
+async function readSalesStanding(productId: string) {
+  try {
+    return await salesStanding(createAdminClient(), productId)
+  } catch {
+    return null
+  }
 }

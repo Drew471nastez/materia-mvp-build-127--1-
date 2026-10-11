@@ -42,6 +42,8 @@ import { raiseSaleEvents } from "@/lib/orders/sale-events"
 import { postLedger } from "@/lib/payments/ledger"
 import { markFeeRecord, paidAirwallexCheckout, type PaidCheckout } from "@/lib/payments/checkout"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { SALE_HOLDER_KEY, claimSale, releaseSale } from "./sales-limit"
+import { markSoldOut, owesSoldOutRefund, refundOverLimit } from "./sold-out-refund"
 
 type Db = { from: (table: string) => any; rpc: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -201,6 +203,10 @@ export async function fulfilAirwallexIntent(
 export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { request?: Request; baseUrl: string }): Promise<Fulfilment> {
   const m = paid.metadata
   const found = await existingOrder(admin, paid.provider, paid.paymentId, m.receipt_token)
+  /* An order written over the sales limit whose refund did not go through the first time: tried again, under the same key, so once. */
+  if (found && m.product_id && (await owesSoldOutRefund(admin, found.id))) {
+    return refundedOverLimit(admin, paid, { orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, productId: m.product_id, creatorId: m.creator_id, total: found.amount_cents ?? paid.amountMinor, feeCents: 0, destinationPaymentId: null, retry: true })
+  }
   if (found) {
     return { ok: true, created: false, orderId: found.id, receiptToken: found.receipt_token, sessionFingerprint: found.session_fingerprint ?? null, amountCents: found.amount_cents ?? paid.amountMinor }
   }
@@ -263,6 +269,16 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     agreed_at: m.agreed_at || new Date(paid.createdSeconds * 1000).toISOString(),
   }
 
+  /*
+    LIMIT SALES (lib/checkout/sales-limit.ts): the copy this payment held
+    when it started is taken again, and kept while the order is written. A
+    payment that arrives with no copy left is still written as an order (the
+    money was taken) but is refunded below instead of fulfilled. Asked only
+    for a product with a limit; anything else answers yes at once.
+  */
+  const saleHolder = m[SALE_HOLDER_KEY] || `p:${paid.paymentId}`
+  const withinLimit = await claimSale(admin, productId, saleHolder)
+
   const { data: order, error } = await admin.from("orders").insert(row).select(ORDER_READ).single()
   if (error || !order) {
     /* Somebody else made it a moment ago: theirs is the order. */
@@ -271,6 +287,10 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     console.error("[fulfil] order insert failed", paid.paymentId, error?.code, error?.message)
     return { ok: false, status: 500, error: "The order could not be saved. The payment is safe; refresh this page in a moment." }
   }
+  /* The order counts the copy now; the place it held goes. */
+  await releaseSale(admin, productId, saleHolder)
+  if (!withinLimit) await markSoldOut(admin, order.id)
+  if (!withinLimit) return refundedOverLimit(admin, paid, { orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, productId, creatorId, total, feeCents, destinationPaymentId: facts.destinationPaymentId })
 
   const origin = orderOriginFrom(m, opts.request)
   const source = orderSourceFrom(m, opts.request)
@@ -448,6 +468,37 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   })
 
   return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
+}
+
+/**
+ * The order for a payment that came in over the product's limit: the seller's
+ * ledger gets the sale (so the refund's debit has something to come off), and
+ * then the whole payment goes back (./sold-out-refund.ts). No library entry,
+ * no download email, no sales count. The buyer's receipt page reads the
+ * order as refunded.
+ */
+async function refundedOverLimit(
+  admin: Db,
+  paid: PaidCheckout,
+  o: { orderId: string; receiptToken: string; sessionFingerprint: string | null; productId: string; creatorId: string; total: number; feeCents: number; destinationPaymentId: string | null; retry?: boolean },
+): Promise<Fulfilment> {
+  console.warn("[fulfil] over the sales limit, refunding:", paid.paymentId, o.productId)
+  /* The sale on the ledger once (its key is the order), on the first pass only. */
+  if (paid.provider === "stripe" && !o.retry) {
+    try {
+      await recordSale(admin, { creatorId: o.creatorId, orderId: o.orderId, total: o.total, fee: o.feeCents, destinationPaymentId: o.destinationPaymentId })
+    } catch (e) {
+      console.error("[fulfil] ledger for a sold out order:", e instanceof Error ? e.message : e)
+    }
+  }
+  try {
+    await refundOverLimit(admin, { orderId: o.orderId, productId: o.productId, creatorId: o.creatorId, amountCents: o.total, provider: paid.provider, paymentId: paid.paymentId })
+  } catch (e) {
+    /* Stripe could not be reached: the webhook answers 500 and Stripe sends the event again, which finds the order and comes back here. */
+    console.error("[fulfil] sold out refund failed for order", o.orderId, e instanceof Error ? e.message : e)
+    return { ok: false, status: 503, error: "This product sold out while you were paying. Your payment is being refunded." }
+  }
+  return { ok: true, created: true, orderId: o.orderId, receiptToken: o.receiptToken, sessionFingerprint: o.sessionFingerprint, amountCents: o.total }
 }
 
 export function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {

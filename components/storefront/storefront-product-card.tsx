@@ -36,6 +36,8 @@ export interface StorefrontCardProduct {
   categories?: Array<{ id?: string; name: string; slug?: string; type?: string | null }> | null
   reviews_count?: number | null
   reviews_average?: number | null
+  /** Every copy of a limited run sold (lib/products/sales-limit.ts). */
+  sold_out?: boolean | null
 }
 
 export interface StorefrontProductCardProps {
@@ -87,6 +89,7 @@ export function StorefrontProductCard({
         price_interval: product.price_interval ?? null,
         reviews_count: product.reviews_count ?? null,
         reviews_average: product.reviews_average ?? null,
+        sold_out: product.sold_out ?? null,
         categories: (product.categories || []).map((c) => ({
           id: c.id || c.name,
           name: c.name,

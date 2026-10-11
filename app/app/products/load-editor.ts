@@ -7,6 +7,8 @@ import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow,
 import { paymentsReadyFrom } from "@/lib/home/progress"
 import { providerPaymentsReady } from "@/lib/payments/readiness"
 import { storeCurrencyOf } from "@/lib/store/currency"
+import { readSalesLimit } from "@/lib/products/sales-limit"
+import { copiesSold } from "@/lib/products/sales-standings"
 
 /**
  * ===========================================================================
@@ -79,6 +81,15 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     id ? supabase.from("digital_assets").select("id, file_name, file_path, file_size, mime_type, scan_status").eq("product_id", id) : Promise.resolve({ data: [] }),
     /* The variants table may be missing on an old database; no variants then, as before. */
     id ? supabase.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", id).order("position") : Promise.resolve({ data: [], error: null }),
+    /*
+      LIMIT SALES (lib/products/sales-limit, SQL part 150): the limit in its
+      own read, so a database without the column opens the editor as before
+      and only this answers "not there"; and copies sold, counted from the
+      paid orders on the server. Used only once the product is known to be
+      this creator's, below.
+    */
+    id ? readLimitColumn(supabase, id) : Promise.resolve({ limit: null, missing: false }),
+    id ? copiesSold(createAdminClient(), id) : Promise.resolve(null),
   ])
   /* Never an unhandled rejection when the check below returns first. */
   productReads.catch(() => {})
@@ -88,7 +99,7 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   if (!user) return { state: "signed-out" }
 
   /* The creator and profiles rows through the request's own copies (lib/auth/request-scope): on a full load the /app layout has already asked for both, and the editor now shares those answers instead of asking again. */
-  const [creatorRow, profileRow, [productRes, assetsRes, variantsRes]] = await Promise.all([
+  const [creatorRow, profileRow, [productRes, assetsRes, variantsRes, limitRead, sold]] = await Promise.all([
     creatorForRequest(user.id),
     profileForRequest(user.id),
     productReads,
@@ -139,6 +150,7 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
       variants: ((variantsRead.data as EditorVariantRow[] | null) ?? []),
       /* A table that is not there is no variants, as before; any other failure is "not read", and a save leaves the saved ones alone. */
       variantsUnread: !!variantsRead.error && variantsRead.error.code !== "42P01" && variantsRead.error.code !== "PGRST205",
+      sales: { limit: limitRead.limit, missing: limitRead.missing, sold },
     },
   }
 }
@@ -149,5 +161,16 @@ async function readPayoutCurrency(creatorId: string): Promise<{ data: { payout_c
     return { data: (data as { payout_currency?: string | null } | null) ?? null }
   } catch {
     return { data: null }
+  }
+}
+
+/** The product's sales limit in a read of its own: the column may not be there yet (part 150). */
+async function readLimitColumn(supabase: Awaited<ReturnType<typeof createClient>>, id: string): Promise<{ limit: number | null; missing: boolean }> {
+  try {
+    const { data, error } = await supabase.from("products").select("sales_limit").eq("id", id).maybeSingle()
+    if (error) return { limit: null, missing: missingColumn(error) }
+    return { limit: readSalesLimit((data as { sales_limit?: unknown } | null)?.sales_limit), missing: false }
+  } catch {
+    return { limit: null, missing: false }
   }
 }

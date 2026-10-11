@@ -41,6 +41,9 @@ import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
 import { apportionFee, chargeUnits } from "@/lib/checkout/cart-items"
 import { cartFingerprint, cartReceiptToken } from "@/lib/checkout/cart-tokens"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { claimSale, holdBasket, readLimits, releaseSale, releaseSales } from "@/lib/checkout/sales-limit"
+import { SOLD_OUT_REASON, markSoldOut, refundOverLimit } from "@/lib/checkout/sold-out-refund"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { paymentFacts, recordSale } from "@/lib/checkout/fulfil-payment"
 import { recordCartCustomer, type FulfilContext } from "@/lib/checkout/fulfil-cart-item"
@@ -328,6 +331,24 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     }
   }
 
+  /*
+    LIMIT SALES: a download in the cart with a sales limit holds its copy
+    while the page is open, in one locked step, by the buyer's address
+    (lib/checkout/sales-limit). The address is on the checkout, so
+    releaseCheckout gives the copy back whenever the checkout closes unpaid.
+  */
+  const digitalLines = q.lines.filter((l) => l.type !== "physical")
+  if (digitalLines.length) {
+    const limits = await readLimits(db, digitalLines.map((l) => l.productId))
+    if (limits.size) {
+      const copies = await holdBasket(db, digitalLines.map((l) => ({ productId: l.productId, quantity: l.quantity, title: l.title })), [...limits.keys()], holderForEmail(email))
+      if (copies.ok === false) {
+        await releaseCheckout(db, checkoutId, "cancelled", "Sold out")
+        return { ok: false, status: 409, error: soldOutMessage(copies.title) }
+      }
+    }
+  }
+
   /* A code with a use limit keeps a place while the page is open. */
   let holder: string | null = null
   if (priced.coupon && needsHold(priced.coupon)) {
@@ -600,11 +621,24 @@ export async function completePhysicalIntent(db: Db, paymentIntentId: string, ba
 /** The stock held for a checkout goes back, and the checkout is closed. */
 export async function releaseCheckout(db: Db, checkoutId: string, status: "expired" | "failed" | "cancelled", reason: string): Promise<void> {
   await db.rpc("physical_release", { p_checkout: checkoutId, p_reason: status })
+  await releaseDownloadCopies(db, checkoutId)
   await db
     .from("commerce_checkouts")
     .update({ status, cancel_reason: reason.slice(0, 300), updated_at: new Date().toISOString() })
     .eq("id", checkoutId)
     .eq("status", "pending")
+}
+
+/** The copies a checkout's limited downloads held (startCheckout), given back. Never throws. */
+async function releaseDownloadCopies(db: Db, checkoutId: string): Promise<void> {
+  try {
+    const { data: co } = await db.from("commerce_checkouts").select("status, buyer_email, lines").eq("id", checkoutId).maybeSingle()
+    if (!co || co.status === "paid" || !co.buyer_email) return
+    const ids = ((Array.isArray(co.lines) ? co.lines : []) as LineSnapshot[]).filter((l) => l.type !== "physical").map((l) => l.product_id)
+    await releaseSales(db, ids, holderForEmail(String(co.buyer_email)))
+  } catch {
+    /* they lapse on their own */
+  }
 }
 
 /**
@@ -779,6 +813,9 @@ export async function completeCheckout(
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i]
     const receiptToken = cartReceiptToken(sessionId, i)
+    /* LIMIT SALES: a download's copy, held at the start by the buyer's address, taken again while its order is written (lib/checkout/sales-limit). */
+    const saleHolder = l.type !== "physical" ? (co.buyer_email ? holderForEmail(String(co.buyer_email)) : `p:${sessionId}`) : null
+    const withinLimit = saleHolder ? await claimSale(db, l.product_id, saleHolder, l.quantity) : true
     const { data: order, error } = await db
       .from("orders")
       .insert({
@@ -826,6 +863,7 @@ export async function completeCheckout(
       })
       .select("id")
       .single()
+    if (saleHolder) await releaseSale(db, l.product_id, saleHolder)
     if (error?.code === "23505") continue
     if (error || !order) {
       failed++
@@ -835,6 +873,11 @@ export async function completeCheckout(
     created.push({ index: i, orderId: order.id, productId: l.product_id, amountCents: amounts[i] })
     await tagOrderSource(db, order.id, "website", origin)
     await recordOrderAttribution(db, order.id, (co.attribution ?? null) as Attribution | null)
+    /* Over the limit: a record of the money, refunded below once the sale is on the ledger, never a purchase. */
+    if (!withinLimit) {
+      await markSoldOut(db, order.id)
+      continue
+    }
     /* A download in the same cart is the buyer's to keep, as in any basket. */
     if (l.type !== "physical" && co.buyer_id) {
       let q = db.from("entitlements").select("id").eq("buyer_id", co.buyer_id).eq("product_id", l.product_id)
@@ -865,6 +908,16 @@ export async function completeCheckout(
       lastName,
       origin,
     })
+  }
+  /* LIMIT SALES: every line of this checkout written over a download's limit whose refund is still owed, now or from an earlier try (lib/checkout/sold-out-refund). */
+  const { data: owed } = await db.from("orders").select("id, product_id, amount_cents").eq("checkout_id", c.checkoutId).eq("refund_reason", SOLD_OUT_REASON).eq("status", "completed")
+  for (const o of (owed ?? []) as { id: string; product_id: string; amount_cents: number | null }[]) {
+    try {
+      await refundOverLimit(db, { orderId: o.id, productId: o.product_id, creatorId: co.creator_id, amountCents: o.amount_cents ?? 0, provider: co.provider === "free" ? "free" : "stripe", paymentId: c.paymentIntentId ?? co.stripe_payment_intent_id ?? null })
+    } catch (e) {
+      console.error("[physical] sold out refund failed for order", o.id, e instanceof Error ? e.message : e)
+      failed++
+    }
   }
   return { ok: true, receiptToken: co.receipt_token, sessionFingerprint: fingerprint, checkoutId: c.checkoutId, complete: failed === 0 }
 }

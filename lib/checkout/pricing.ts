@@ -20,6 +20,7 @@ import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type Coupo
 import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
+import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -259,6 +260,8 @@ export type PricedCart =
       ships: { productId: string; variantId: string | null; quantity: number; customPriceCents?: number }[]
       /** Every creator whose published product was asked for. */
       creatorIds: string[]
+      /** The lines' products that have a sales limit: each takes a held copy when the payment starts (lib/checkout/sales-limit). */
+      limited: string[]
       subtotalCents: number
       discountCents: number
       totalCents: number
@@ -349,6 +352,10 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const soldOut = new Set<string>()
   await Promise.all([...variantsById.values()].map(async (v) => { if (await variantSoldOut(db, v)) soldOut.add(v.id) }))
 
+  /* A download with a sales limit whose copies have all been sold is left out and named, like a sold out option. Copies held by payments in progress are the hold's business, at the checkout, where this buyer's own held copy counts as theirs. */
+  const standings = await salesStandings(db as Db & { rpc?: (fn: string, args: Record<string, unknown>) => any }, productIds)
+  const limited = [...standings.keys()]
+
   const byId = new Map<string, CartProduct>((products as CartProduct[]).map((p) => [p.id, p]))
   const lines: CartPricedLine[] = []
   const dropped: string[] = []
@@ -376,6 +383,8 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     const variant = want.variantId ? variantsById.get(want.variantId) : null
     if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
     if (variant && soldOut.has(variant.id)) { dropped.push(product.title); continue }
+    const standing = standings.get(productId)
+    if (standing && standing.sold >= standing.limit) { dropped.push(product.title); continue }
     /* Pay what you want is the amount the buyer named on the product page,
        held to the product's (or the option's) own minimum and to the
        ceiling; a line that named none is its minimum. An amount under the
@@ -397,7 +406,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const subtotalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
   const priced = (coupon: CouponRow | null, couponLabel: string | null) => {
     const discountCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
-    return { ok: true as const, lines, dropped, ownedAny: ownedList.length > 0, owned: ownedList, ships, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
+    return { ok: true as const, lines, dropped, ownedAny: ownedList.length > 0, owned: ownedList, ships, creatorIds, limited, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
   }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null

@@ -27,6 +27,8 @@ import { tagOrderSource, type OrderOrigin } from "@/lib/orders/order-source"
 import { recordContactAttribution, recordOrderAttribution, type Attribution } from "@/lib/attribution/server"
 import { recordCustomer } from "./fulfil-payment"
 import { lineTotalCents } from "./cart-items"
+import { claimSale, releaseSale } from "./sales-limit"
+import { markSoldOut } from "./sold-out-refund"
 
 export interface FulfilLineInput {
   productId: string
@@ -72,6 +74,8 @@ export interface FulfilContext {
   feeAudit?: { planUsed: string | null; pricingTier: string | null; feeRuleVersion: string | null }
   /** The basket's tax, as the cart route charged it: whether it was inside the prices, and where. */
   tax?: { included: boolean; country: string | null } | null
+  /** Who held the basket's copies under a product's sales limit when the payment started (lib/checkout/sales-limit). */
+  saleHolder?: string | null
 }
 
 export interface FulfilledLine {
@@ -79,6 +83,8 @@ export interface FulfilledLine {
   productId: string
   receiptToken: string
   amountCents: number
+  /** Paid for after the product's last copy had gone: written, not fulfilled, and refunded by the basket (lib/checkout/sold-out-refund). */
+  soldOut?: boolean
 }
 
 export type LineOutcome = { status: "created"; line: FulfilledLine } | { status: "exists" } | { status: "failed" }
@@ -90,6 +96,9 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
   const taxCents = Math.max(0, Math.round(line.taxCents ?? 0))
   const amountCents = lineTotalCents(line) + (ctx.tax?.included ? 0 : taxCents)
   const receiptToken = ctx.receiptTokenFor(index)
+  /* LIMIT SALES: the copy held when the payment started, taken again and kept while the order is written (lib/checkout/sales-limit). Only a limited product is asked about. */
+  const saleHolder = ctx.saleHolder || `p:${ctx.sessionId}`
+  const withinLimit = await claimSale(ctx.admin, line.productId, saleHolder, line.quantity)
 
   const { data: order, error } = await ctx.admin
     .from("orders")
@@ -127,10 +136,17 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
     .select("id, receipt_token")
     .single()
 
+  /* The order counts the copy now, or another caller's does, or there is none: the place goes either way. */
+  await releaseSale(ctx.admin, line.productId, saleHolder)
   if (error?.code === "23505") return { status: "exists" }
   if (error || !order) {
     console.error("[checkout/cart] order insert failed for product", line.productId, error?.code, error?.message)
     return { status: "failed" }
+  }
+  /* Several copies on one line are several of a limited run (product_copies_sold): kept on the order on its own, so a database without the column (part 78) loses only this. */
+  if (line.quantity > 1) {
+    const { error: qtyError } = await ctx.admin.from("orders").update({ quantity: line.quantity }).eq("id", order.id)
+    if (qtyError) console.warn("[checkout/cart] quantity not kept on the order:", qtyError.code)
   }
   /* Settings › Taxes: the line's tax on its order, for the receipt and reports. Its
      own writes after the order exists, so a database without SQL part 110
@@ -147,6 +163,13 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
   /* A basket is only ever filled on a creator's website. */
   await tagOrderSource(ctx.admin, order.id, "website", ctx.origin)
   await recordOrderAttribution(ctx.admin, order.id, ctx.attribution)
+
+  /* Over the limit: a record of the money, refunded by the basket, never a purchase (no library entry, no sales count). */
+  if (!withinLimit) {
+    console.warn("[checkout/cart] over the sales limit:", line.productId, order.id)
+    await markSoldOut(ctx.admin, order.id)
+    return { status: "created", line: { orderId: order.id, productId: line.productId, receiptToken: order.receipt_token, amountCents, soldOut: true } }
+  }
 
   if (ctx.buyerId) {
     let q = ctx.admin

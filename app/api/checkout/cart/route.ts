@@ -32,6 +32,8 @@ import { loadTaxForCheckout } from "@/lib/tax/server"
 import { basketTax, percentText } from "@/lib/tax/rules"
 import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
+import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 
 export const runtime = "nodejs"
 
@@ -324,17 +326,40 @@ async function handlePOST(request: Request) {
      open (lib/checkout/coupon-holds), and the page expires before the place
      does. The holder is the buyer, or this browser: coming back from Stripe
      and pressing Check out again refreshes the same place, not a second one. */
-  let holder: string | null = null
-  if (coupon && needsHold(coupon)) {
+  const basketHolder = async () => {
     const jar = await cookies()
     const kept = jar.get(HOLD_COOKIE)?.value
-    holder = user ? `u:${user.id}` : kept && isHolder(kept) ? kept : newHolder()
-    if (!user && holder !== kept) {
-      jar.set(HOLD_COOKIE, holder, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" })
+    const made = user ? `u:${user.id}` : kept && isHolder(kept) ? kept : newHolder()
+    if (!user && made !== kept) {
+      jar.set(HOLD_COOKIE, made, { httpOnly: true, secure: true, sameSite: "lax", maxAge: 60 * 60 * 24, path: "/" })
     }
+    return made
+  }
+  let holder: string | null = null
+  if (coupon && needsHold(coupon)) {
+    holder = await basketHolder()
     if (!(await holdCouponUse(admin, coupon.id, holder))) {
       return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
     }
+  }
+
+  /*
+    LIMIT SALES: each download with a sales limit holds its copies while
+    this Stripe page is open, in one locked step per product, so two buyers
+    paying for the last copy cannot both pass (lib/checkout/sales-limit).
+    The holder is the code's: the buyer, or this browser, so Check out again
+    refreshes the same copies. The page expires before the hold does.
+  */
+  const needCopies = lines.some((l) => priced.limited.includes(l.item.productId))
+  const saleHolder = needCopies ? holder ?? (await basketHolder()) : null
+  let heldCopies: string[] = []
+  if (saleHolder) {
+    const copies = await holdBasket(admin, lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), priced.limited, saleHolder)
+    if (copies.ok === false) {
+      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+      return NextResponse.json({ error: soldOutMessage(copies.title), code: "sold_out" }, { status: 409 })
+    }
+    heldCopies = copies.held
   }
 
   const chargeCurrency = platformChargeCurrency()
@@ -389,7 +414,7 @@ async function handlePOST(request: Request) {
       ...(freeLines.length > 0 && coupon
         ? { custom_text: { submit: { message: `Also included, free with ${coupon.code}: ${freeLines.join(", ")}`.slice(0, 1000) } } }
         : {}),
-      ...(holder ? { expires_at: Math.floor(Date.now() / 1000) + HELD_SESSION_SECONDS } : {}),
+      ...(holder || saleHolder ? { expires_at: Math.floor(Date.now() / 1000) + HELD_SESSION_SECONDS } : {}),
       customer_email: user?.email ?? undefined,
       payment_intent_data: {
         application_fee_amount: fee.platformFeeCents,
@@ -445,6 +470,8 @@ async function handlePOST(request: Request) {
           ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "" }
           : {}),
         ...packItems(lines.map((l) => l.item)),
+        /* Whose copies under the products' sales limits the orders take (lib/checkout/sales-limit). */
+        ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
       },
     }
     /* Last, and only while Stripe's 50 keys allow. */
@@ -517,6 +544,7 @@ async function handlePOST(request: Request) {
     console.error("[checkout/cart] session creation failed:", error?.message)
     /* No page, no payment: the place goes back. */
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    await releaseSales(admin, heldCopies, saleHolder)
     /*
       A seller still linked to the old Stripe platform: the same narrow test
       the single product checkout uses (app/api/checkout/stripe-session).
@@ -581,7 +609,21 @@ async function freeBasket(
     return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
   }
 
+  /* LIMIT SALES: a free copy is one of the limited run too, held until its order counts it (lib/checkout/sales-limit). */
+  const needCopies = c.priced.lines.some((l) => c.priced.limited.includes(l.item.productId))
+  const saleHolder = needCopies ? saleHolderForEmail(email) : null
+  let heldCopies: string[] = []
+  if (saleHolder) {
+    const copies = await holdBasket(c.admin, c.priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), c.priced.limited, saleHolder, CLAIM_HOLD_SECONDS)
+    if (copies.ok === false) {
+      if (holder) await releaseCouponHold(c.admin, coupon.id, holder)
+      return NextResponse.json({ error: soldOutMessage(copies.title), code: "sold_out" }, { status: 409 })
+    }
+    heldCopies = copies.held
+  }
+
   const written = await fulfilFreeCart(c.admin, {
+    saleHolder,
     creatorId: c.creatorId,
     items: c.priced.lines.map((l) => l.item),
     buyerId: c.user?.id ?? null,
@@ -596,6 +638,7 @@ async function freeBasket(
     request,
   })
   if (written.ok === false) {
+    await releaseSales(c.admin, heldCopies, saleHolder)
     if (holder) await releaseCouponHold(c.admin, coupon.id, holder)
     return NextResponse.json({ error: "The order could not be saved. Try again in a moment." }, { status: 500 })
   }

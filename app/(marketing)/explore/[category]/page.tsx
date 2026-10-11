@@ -1,4 +1,6 @@
 import { Metadata } from "next"
+import { salesStandings } from "@/lib/products/sales-standings"
+import { salesSoldOut } from "@/lib/products/sales-limit"
 import { notFound } from "next/navigation"
 import { CATEGORY_PAGES } from "@/lib/explore/category-pages"
 import { createClient } from "@/lib/supabase/server"
@@ -166,6 +168,8 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
     }
 
     const intervals = await intervalsPromise
+    /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server. */
+    const standings = await salesStandings(createAdminClient(), products.map((p) => p.id))
     // Build products with creator info
     productsWithCreators = products.map((product) => {
       const creator = productCreators.find((c) => c.id === product.creator_id)
@@ -173,6 +177,7 @@ async function readCategoryCatalogue(supabase: Supabase): Promise<any[]> {
       return {
         ...product,
         ...(intervals.has(product.id) ? { price_interval: intervals.get(product.id) } : {}),
+        ...(salesSoldOut(standings.get(product.id)) ? { sold_out: true } : {}),
         creator: creator ? { ...creator, profile } : null,
         categories: [],
         categoryName: product.category || null,
