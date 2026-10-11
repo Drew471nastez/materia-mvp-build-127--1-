@@ -15,6 +15,8 @@ import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
 import { CompatTheme, splitCompatFile, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 import { CANVAS_BRIDGE } from "@/lib/storelib-theme/compat/canvas-bridge"
+import { echoBlockSetting, echoOf, echoSectionSetting, reconcileEchoes, resetLive, withLive } from "@/lib/website-builder/live-settings"
+import type { SectionInstance } from "@/lib/website-builder/types"
 
 let passed = 0
 let failed = 0
@@ -141,6 +143,31 @@ console.log("\nS1  A PUBLISHED WEBSITE'S JAVASCRIPT CARRIES NO ENGINE")
   check("no module on a published page's path imports the engine, the sources, zod or postcss", heavy.length === 0, heavy)
   check("the control names live apart from their zod checks", !/from "zod"/.test(read("lib/storelib-theme/controls/types.ts")) && /export \{ CONTROL_TYPES, LEGACY_TYPE_ALIASES, SHOPIFY_TYPE_ALIASES, resolveControlType, type ControlType \}/.test(read("lib/storelib-theme/controls/registry.ts")))
   check("the block tree's save schema is marked pure, so a bundle that never saves leaves zod out", /export const BlockInstanceSchema: z\.ZodType<BlockShape> = \/\* @__PURE__ \*\/ z\.lazy\(/.test(read("lib/website-builder/block-tree.ts")))
+}
+
+console.log("\nN2  A COMMITTED CHANGE IS DRAWN BY ITS SECTION BEFORE THE DEFERRED CANVAS HAS IT")
+{
+  resetLive()
+  const hero = { id: "h1", type: "hero", name: "Hero", settings: { heading: "Hello" }, blocks: [{ id: "b1", type: "item", settings: { text: "One" } }] } as SectionInstance
+  echoSectionSetting("h1", "heading", "Hello there")
+  echoBlockSetting("h1", "b1", "text", "Two")
+  const e = echoOf("h1")
+  const drawn = withLive(hero, e)
+  check("the echo draws the committed value and the block's", drawn.settings.heading === "Hello there" && (drawn.blocks?.[0].settings as Record<string, unknown>).text === "Two" && hero.settings.heading === "Hello")
+  const editorNow = { ...hero, settings: { heading: "Hello there" }, blocks: [{ id: "b1", type: "item", settings: { text: "Two" } }] } as SectionInstance
+  reconcileEchoes((id) => (id === "h1" ? editorNow : undefined))
+  check("an echo the editor holds stays", echoOf("h1") === e)
+  reconcileEchoes((id) => (id === "h1" ? hero : undefined))
+  check("an echo the editor no longer holds (an Undo) is dropped at once", echoOf("h1") === undefined)
+  echoSectionSetting("h1", "heading", "Again")
+  reconcileEchoes(() => undefined)
+  check("an echo of a section that is gone is dropped", echoOf("h1") === undefined)
+  resetLive()
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("the editor echoes a section's and a block's committed setting, after the same-value check", /if \(current && sameSettingValue\(current\.settings\?\.\[key\], value\)\) return\s*\/\*[^*]*\*\/\s*if \(current\) echoSectionSetting\(sectionId, key, value\)/.test(editor) && /if \(block\) echoBlockSetting\(sectionId, blockKey, key, value\)/.test(editor))
+  check("and checks every echo against its own state after each render", /useLayoutEffect\(\(\) => \{\s*reconcileEchoes\(\(id\) => sectionsRef\.current\.find\(\(s\) => s\.id === id\)\)\s*\}\)/.test(editor))
+  const live = read("lib/website-builder/live-settings.ts")
+  check("a section draws the echo under a finger's value, and lets go of it once its copy has caught up", /withLive\(withLive\(section, e\), o\)/.test(live) && /if \(e && echoes\.get\(section\.id\) === e && settled\(section, e\)\) echoes\.delete\(section\.id\)/.test(live))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
