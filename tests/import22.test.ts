@@ -80,7 +80,7 @@ function themeWith(files: Record<string, string>, shop: Record<string, unknown> 
 
 async function site(zip: JSZip) {
   const r = await convertShopifyTheme(zip, { fallbackName: "t" })
-  if (!r.ok) throw new Error(r.error)
+  if (!("theme" in r)) throw new Error((r as { error: string }).error)
   const theme = themeOfInstall(r.theme.files, r.theme.settings, { assetUrl: (n) => `/a/${n}`, assetText: () => null })
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
   const data = { creatorId: "c", theme, pages, products: [product], collections: [], menus: {}, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}" }, host: "shop.test" } as unknown as SiteData
@@ -260,7 +260,7 @@ async function main() {
     zip.file("templates/index.liquid", `<div class="index">{{ content_for_index }}</div>`)
     zip.file("templates/product.liquid", `<div class="product">{{ product.title }}</div>`)
     const r = await convertShopifyTheme(zip, { fallbackName: "v" })
-    if (!r.ok) throw new Error(r.error)
+    if (!("theme" in r)) throw new Error((r as { error: string }).error)
     const home = r.theme.pages.find((p) => p.page_key === "home")
     const ids = (home?.sections ?? []).filter((x) => !x.group).map((x) => x.id)
     check("content_for_index's sections are the home page's, in that order, editable", ids.join(",") === "rich,1525295772132", ids)
