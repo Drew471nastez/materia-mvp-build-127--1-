@@ -136,6 +136,7 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { CompatCanvas, loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
+import { faviconFollows } from "@/lib/website-builder/favicon-sync"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -4544,9 +4545,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       deferLive(`theme:${key}`, () => updateSettingRef.current(key, value))
       return
     }
-    if (sameSettingValue(settingsRef.current[key], value)) return
+    /* The favicon is one value in Website settings and in an imported theme's own settings (lib/website-builder/favicon-sync.ts): a write of one carries the other. */
+    const follows = faviconFollows(settingsRef.current as Record<string, unknown>, key, value)
+    if (sameSettingValue(settingsRef.current[key], value) && !follows) return
     debouncedPushUndo()
-    setSettingsDraft(prev => ({ ...prev, [key]: value }))
+    setSettingsDraft(prev => ({ ...prev, [key]: value, ...faviconFollows(prev as Record<string, unknown>, key, value) }))
 
     // If updating logo in theme settings, also sync to header section
     if (key in LOGO_SYNC_THEME_TO_HEADER) {
