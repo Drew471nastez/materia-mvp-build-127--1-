@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
-import { CANVAS_SHOWN } from "@/lib/storelib-theme/compat/canvas-network"
+import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { cartLines, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -214,7 +214,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const drawn = drawPage(compatTheme!, page, list, { scripts: true, extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` })
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
+    /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
+    return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -296,7 +297,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       let html: string
       try {
-        html = drawSection(compatTheme, ctx, s, at, group).html
+        html = canvasInsets(drawSection(compatTheme, ctx, s, at, group).html)
       } catch (e) {
         /* This section stays as it was drawn; the others still change. */
         console.error("[compat-canvas] a section could not be drawn", e)
