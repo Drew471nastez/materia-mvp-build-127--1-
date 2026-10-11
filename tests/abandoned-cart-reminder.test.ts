@@ -5,8 +5,8 @@
  *   the single product checkout, the physical checkout and a signed in
  *   buyer's website basket each write a start when they reach Pay, only
  *   while the setting is on;
- *   the hourly sweep reminds an hour later, only a buyer who asked for news
- *   or is on the list, never one who bought since, never one who left the
+ *   the hourly sweep reminds an hour later, only a buyer who ticked the news
+ *   box on that checkout, never one who bought since, never one who left the
  *   list, and not at all once the store turned the setting off;
  *   a store with no reminder automation of its own gets Storelib's one
  *   reminder email (it used to get nothing), with the person's own
@@ -126,8 +126,8 @@ async function main() {
     const w = world()
     subscribe(w, "cy@example.com")
     await recordCheckoutStart(w.db, { creatorId: w.creatorId, productId: w.productId, email: "cy@example.com", paymentIntentId: "cs_cy", optedIn: false })
-    const { reminded } = await sweep(w)
-    check("a buyer already on the list is reminded (a signed in website basket has no news box)", reminded.length === 1)
+    const { res, reminded } = await sweep(w)
+    check("a buyer already on the list who did not tick the box on this checkout is not reminded (round 23: only a tick asks for it)", reminded.length === 0 && res.outcomes.no_consent === 1)
   }
   {
     const w = world()

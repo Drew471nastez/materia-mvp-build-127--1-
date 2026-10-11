@@ -168,7 +168,11 @@ export function CheckoutPanel() {
       <Card title="Abandoned checkouts" description="A buyer who reached Pay and left without paying.">
         <Toggle
           label="Send a checkout reminder"
-          description="One email an hour later with a link back to what they chose, only to buyers who ticked the news box. It stops the moment they buy."
+          description={
+            config.marketingOptIn
+              ? "One email an hour later with a link back to what they chose, only to buyers who ticked the news box. It stops the moment they buy."
+              : "One email an hour later, only to buyers who ticked the news box. With the news box hidden nobody can tick it, so no reminder goes out."
+          }
           checked={config.abandonedRecovery}
           onChange={(v) => change({ abandonedRecovery: v })}
         />

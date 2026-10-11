@@ -15,8 +15,8 @@
  *                  started (a second try with a new card is a new start and
  *                  a real order): nothing to remind
  *   unsubscribed   the address is off the creator's list: nothing
- *   no_consent     they did not tick the box and are not on the list: a
- *                  reminder is marketing, so nothing
+ *   no_consent     they did not tick the box on this checkout: a reminder
+ *                  is marketing, and only a tick here asks for it
  *   entered        the creator's checkout reminders are entered, once per
  *                  start, and at most once a week per person (the flow's
  *                  entry rule)
@@ -120,7 +120,8 @@ export async function decideStart(store: Store, s: CheckoutStart): Promise<Start
   if (await store.purchasedSince(s.creator_id, s.email, s.created_at)) return "bought"
   const standing = await store.standing(s.creator_id, s.email)
   if (standing.suppressed) return "unsubscribed"
-  if (!s.email_opt_in && standing.subscribed !== true) return "no_consent"
+  /* Only a buyer who ticked "Email me with news and offers" on this checkout (Settings › Checkout): already being on the list from somewhere else is not a yes to this reminder. */
+  if (!s.email_opt_in) return "no_consent"
   return "entered"
 }
 
