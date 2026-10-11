@@ -297,8 +297,32 @@ const go = async (page: Page, url: string) => {
 }
 const wants = (what: string) => !ONLY.length || ONLY.includes(what)
 /* A group of checks that stopped part way (the browser stopped answering on a busy machine) is one failure, and the rest still run. */
-const guard = async (what: string, label: string, run: () => Promise<void>) => {
-  try { await run() } catch (e) { check(`${label}: the ${what} checks ran to the end`, false, String(e).slice(0, 160)) }
+/*
+  A PAGE OF THEIR OWN for these checks, as the visitor's browser has it:
+  the made up shop's pictures, Shopify's CDN pictures answered (as live),
+  nothing else from outside. A group that stopped part way (a browser that
+  stopped answering, on a busy machine) is one failure; the next group gets
+  a new page, so one stuck tab does not fail the rest.
+*/
+async function w5Page(browser: import("puppeteer-core").Browser, base: string, label: string): Promise<Page> {
+  const p = await browser.newPage()
+  await p.setViewport({ width: label === "phone" ? 390 : 1440, height: label === "phone" ? 844 : 900, isMobile: label === "phone", hasTouch: label === "phone" })
+  await p.evaluateOnNewDocument("window.__name = (f) => f")
+  /* Layout shift and the largest picture, from the first byte of every page (read by loadingChecks). */
+  await p.evaluateOnNewDocument(() => { const W = window as unknown as { __w5cls: number; __w5lcp: string }; W.__w5cls = 0; W.__w5lcp = ""; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) W.__w5cls += e.value }).observe({ type: "layout-shift", buffered: true }); new PerformanceObserver((l) => { const e = l.getEntries().pop() as unknown as { element?: Element; url?: string } | undefined; if (e) W.__w5lcp = `${e.element?.tagName.toLowerCase() ?? ""} ${(e.url ?? "").split("/").pop()?.slice(0, 40) ?? ""}` }).observe({ type: "largest-contentful-paint", buffered: true }) } catch {} })
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    const u = r.url()
+    if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
+    if (/shopify(cdn|cloud)?\.com/.test(u)) { if (r.resourceType() !== "image") return r.abort(); return /\.svg(\?|$)/i.test(u) ? r.respond({ status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#ccc"/></svg>' }) : r.respond({ status: 200, contentType: "image/png", body: PNGS[0] }) }
+    if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
+    if (u.startsWith(base) || u.startsWith("data:")) return r.continue()
+    return r.abort()
+  })
+  return p
+}
+const guard = async (what: string, label: string, run: () => Promise<void>): Promise<boolean> => {
+  try { await run(); return true } catch (e) { check(`${label}: the ${what} checks ran to the end`, false, String(e).slice(0, 160)); return false }
 }
 
 /* Where the header is, and where the Overlay group's bars (a phone tab bar) are. */
@@ -657,6 +681,7 @@ async function recentChecks(page: Page, base: string, label: string) {
   sidebar shows on the page.
 */
 async function overlayChecks(page: Page, base: string, label: string, overlay: { id: string; hidden: boolean }[]) {
+  if (!overlay.length) { console.log(`  --    ${label}: the theme has no Overlay group`); return }
   for (const [where, at] of [["the website", (p: string) => `${base}${p}`], ["the canvas", (p: string) => `${base}/__canvas?path=${encodeURIComponent(p)}`]] as const) {
     for (const path of ["/", "/products/linen-shirt-2", "/collections/all"]) {
       await go(page, at(path))
@@ -830,13 +855,21 @@ async function run(zipPath: string) {
         return [...new Set([...atRest, ...hovered])]
       }
 
-      /* Layout shift and the largest picture, from the first byte of every page (read by loadingChecks). */
-      await page.evaluateOnNewDocument(() => { const W = window as unknown as { __w5cls: number; __w5lcp: string }; W.__w5cls = 0; W.__w5lcp = ""; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) W.__w5cls += e.value }).observe({ type: "layout-shift", buffered: true }); new PerformanceObserver((l) => { const e = l.getEntries().pop() as unknown as { element?: Element; url?: string } | undefined; if (e) W.__w5lcp = `${e.element?.tagName.toLowerCase() ?? ""} ${(e.url ?? "").split("/").pop()?.slice(0, 40) ?? ""}` }).observe({ type: "largest-contentful-paint", buffered: true }) } catch {} })
-      if (wants("loading")) await guard("loading", label, () => loadingChecks(page, base, label))
-      if (wants("overlay")) await guard("overlay", label, () => overlayChecks(page, base, label, overlay))
-      if (wants("cards")) await guard("cards", label, () => cardChecks(page, base, label))
-      if (wants("recent")) await guard("recent", label, () => recentChecks(page, base, label))
-      if (wants("header")) await guard("header", label, () => headerChecks(page, base, label === "phone", label, name))
+      {
+        let wp = await w5Page(browser, base, label)
+        const groups: [string, (p: Page) => Promise<void>][] = [
+          ["loading", (p) => loadingChecks(p, base, label)],
+          ["overlay", (p) => overlayChecks(p, base, label, overlay)],
+          ["cards", (p) => cardChecks(p, base, label)],
+          ["recent", (p) => recentChecks(p, base, label)],
+          ["header", (p) => headerChecks(p, base, label === "phone", label, name)],
+        ]
+        for (const [what, fn] of groups) {
+          if (!wants(what)) continue
+          if (!(await guard(what, label, () => fn(wp)))) { await wp.close().catch(() => {}); wp = await w5Page(browser, base, label) }
+        }
+        await wp.close().catch(() => {})
+      }
       if (ONLY.length && !ONLY.includes("core")) { await page.deleteCookie({ name: CART_COOKIE, url: base }); await page.close(); continue }
       for (const path of ["/", "/collections/all", "/collections/summer?sort_by=price-descending", "/search?q=linen", "/pages/contact", "/no-such-page"]) {
         const m = await visit(path)
