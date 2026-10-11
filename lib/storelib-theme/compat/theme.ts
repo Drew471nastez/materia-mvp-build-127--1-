@@ -57,6 +57,26 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
+import { linkFactsOf, siteLink } from "./links"
+
+/** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
+const linksOfPage = new WeakMap<object, (url: string) => string>()
+function pageLinks(page: CompatPage): (url: string) => string {
+  const hit = linksOfPage.get(page)
+  if (hit) return hit
+  const facts = linkFactsOf(page)
+  const seen = new Map<string, string>()
+  const link = (url: string) => {
+    let to = seen.get(url)
+    if (to === undefined) {
+      to = siteLink(url, facts)
+      seen.set(url, to)
+    }
+    return to
+  }
+  linksOfPage.set(page, link)
+  return link
+}
 
 type O = Record<string, unknown>
 
@@ -164,6 +184,8 @@ export interface CompatPage {
   search?: { terms: string; results: CardLike[]; performed: boolean } | null
   /** `page` on a page template: its title and its body. */
   pageObject?: { title: string; content: string; handle: string; url: string } | null
+  /** The site's page keys, so a link to a page it has none of goes somewhere that is (./links.ts). Absent: pages are not checked. */
+  pageKeys?: readonly string[]
   /** Products like the one a recommendations request names (/recommendations/products). */
   recommendations?: { products: CardLike[]; intent?: string } | null
   /** What the search box has found so far (/search/suggest). */
@@ -368,6 +390,7 @@ export class CompatTheme {
       imageUrl: (v) => (this.opts.imageUrl ? this.opts.imageUrl(v) : /^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
       currentPath: page.path,
       current: page.product ?? null,
+      link: pageLinks(page),
     }
   }
 
@@ -393,7 +416,8 @@ export class CompatTheme {
     const collection = page.collection ? collectionObject(page.collection, undefined, page.catalog ? { filters: page.catalog.filters ?? [], sort_by: page.catalog.sortBy ?? "" } : {}) : page.template === "collection" ? collections.all as O : null
 
     const linklists: O = {}
-    for (const [handle, m] of Object.entries(page.menus)) linklists[handle] = linklistObject(handle, m.title ?? handle, m.links, page.path)
+    const link = pageLinks(page)
+    for (const [handle, m] of Object.entries(page.menus)) linklists[handle] = linklistObject(handle, m.title ?? handle, m.links, page.path, link)
     const all_products: O = {}
     for (const p of page.products) {
       const handle = String(p.settings.slug ?? "")
