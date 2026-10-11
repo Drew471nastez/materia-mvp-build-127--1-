@@ -733,7 +733,8 @@ export function FilesLibraryChooser({
       onOpenAutoFocus={(e) => e.preventDefault()}
       sheet={{ maxHeight: "calc(var(--vv-h, 100dvh) * 0.88)", height: "calc(var(--vv-h, 100dvh) * 0.88)" }}
       className="flex h-[min(580px,calc(100dvh-112px))] w-[min(700px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.45),0_2px_8px_rgba(17,24,39,0.06)] sm:max-w-none"
-      dialog={{ "aria-describedby": undefined } as never}
+      /* The scrim Storelib's other windows use (components/physical/ui Modal), a little deeper for a window of pictures. */
+      dialog={{ "aria-describedby": undefined, overlayClassName: "bg-[rgba(17,24,39,0.42)]" } as never}
     >
       <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind}>
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pt-4">
