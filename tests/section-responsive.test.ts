@@ -1336,9 +1336,11 @@ check(
    */
   /window\.addEventListener\("pageshow", onPageShow\)/.test(editor) &&
     /window\.addEventListener\("popstate", revive\)/.test(editor) &&
-    // The watchdog finishes the journey rather than abandoning it: a page
-    // still here after three seconds loads the address it was going to.
-    /const watchdog = window\.setTimeout\(\(\) => \{[\s\S]*?if \(href\) window\.location\.assign\(href\)[\s\S]*?\}, 3000\)/.test(editor) &&
+    // Changed on purpose (round 23): the watchdog revives the editor long
+    // after the push could have landed. It used to load the address with
+    // location.assign at three seconds, the very moment the router's own push
+    // started, which turned most Backs into full page loads.
+    /const watchdog = window\.setTimeout\(revive, LEAVING_SEEN_MS \+ NAVIGATE_CEILING_MS \+ 2000\)/.test(editor) &&
     /if \(e\.persisted\) revive\(\)/.test(editor) &&
     // it clears BOTH, or the confirm reopens the moment anything sets it again
     /setLeaving\(false\)\s*\n\s*setPendingExit\(null\)/.test(editor) &&
