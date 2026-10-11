@@ -260,7 +260,8 @@ async function handlePOST(request: Request) {
     buyer_device_type: deviceInfo.deviceType || "",
     buyer_os: deviceInfo.os || "",
     buyer_browser: deviceInfo.browser || "",
-    email_opt_in: body.emailOptIn === true ? "true" : "false",
+    /* Only a box the store shows can be ticked (Settings › Checkout): with it off, a sent yes is not one. */
+    email_opt_in: checkoutConfig.marketingOptIn && body.emailOptIn === true ? "true" : "false",
     agreed_to_terms: "true",
     agreed_at: new Date().toISOString(),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
@@ -352,7 +353,7 @@ async function handlePOST(request: Request) {
        the same tick then finds them subscribed and starts nothing
        (lib/contacts/checkout-welcome). */
     const started = intent.id
-    const optedIn = body.emailOptIn === true
+    const optedIn = checkoutConfig.marketingOptIn && body.emailOptIn === true
     const source = contactSourceOfOrder(origin, product.id)
     after(async () => {
       /* Settings › Checkout › Abandoned checkouts: off, a start is never written, so no reminder can follow it. */

@@ -131,6 +131,10 @@ export interface StripePayProps {
   payLabel: string
   /** Under the email: the name and the news tick box. */
   contactExtra: React.ReactNode
+  /** Between the contact and the payment: a delivery address and its method, for an order that ships (app/checkout/site). */
+  afterContact?: React.ReactNode
+  /** The email is the signed in account's and cannot be changed here (Settings › Checkout, an account first). */
+  emailLocked?: boolean
   /** Between the payment and Pay: business details, consent, a message. */
   beforePay: React.ReactNode
 }
@@ -221,6 +225,8 @@ function StripePayInner({
   setBusy,
   payLabel,
   contactExtra,
+  afterContact,
+  emailLocked = false,
   beforePay,
 }: StripePayProps & {
   methods: CheckoutMethod[]
@@ -437,12 +443,17 @@ function StripePayInner({
             placeholder="you@example.com"
             value={email}
             onChange={(e) => onEmail(e.target.value.slice(0, 254))}
+            readOnly={emailLocked}
+            aria-readonly={emailLocked || undefined}
+            className={emailLocked ? "bg-[#f7f7f8] text-[#4b5563]" : undefined}
             aria-label="Email"
             data-checkout-email=""
           />
         </div>
         <div className="mt-3.5">{contactExtra}</div>
       </section>
+
+      {afterContact ? <div className="mt-8">{afterContact}</div> : null}
 
       {/* ── Payment ─────────────────────────────────────────────────── */}
       <section aria-labelledby="checkout-payment" className="mt-8">

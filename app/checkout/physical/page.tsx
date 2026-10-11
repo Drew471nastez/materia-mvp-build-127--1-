@@ -7,6 +7,9 @@ import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { DEFAULT_CHECKOUT } from "@/lib/store/checkout-config"
 import { checkoutReturns } from "@/lib/checkout/site-hosts"
 import { checkoutBrand, type CheckoutBrand } from "@/lib/checkout/brand-server"
+import { redirect } from "next/navigation"
+import { getMainDomain } from "@/lib/url-helpers"
+import { legacyBasketTarget } from "@/lib/checkout/site-checkout"
 
 export const dynamic = "force-dynamic"
 
@@ -20,9 +23,10 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
  * quantities, lib/physical/cart-link.ts), else this browser's cart for the
  * shop; ?return= where Back goes.
  */
-export default async function PhysicalCheckoutPage({ searchParams }: { searchParams: Promise<{ shop?: string; items?: string; return?: string }> }) {
+export default async function PhysicalCheckoutPage({ searchParams }: { searchParams: Promise<{ shop?: string; items?: string; return?: string; [key: string]: string | undefined }> }) {
   await requirePhysicalPage()
-  const { shop, return: asked } = await searchParams
+  const sp = await searchParams
+  const { shop, return: asked } = sp
   let brand: CheckoutBrand = { name: "Checkout", imageUrl: null, kind: null }
   let config = DEFAULT_CHECKOUT
   let backTo: string | null = null
@@ -38,6 +42,19 @@ export default async function PhysicalCheckoutPage({ searchParams }: { searchPar
     brand = shopBrand
     config = checkout
     backTo = returns.cancel
+    /*
+      FROM THE SHOP'S OWN WEBSITE: paid for on the website now, at its own
+      address (app/checkout/site), never here. A link made before that (a
+      cached cart script, a bookmark) is sent on with its cart.
+    */
+    if (backTo) {
+      const site = new URL(backTo)
+      if (site.hostname !== getMainDomain()) {
+        const q = new URLSearchParams(Object.entries(sp).filter((e): e is [string, string] => typeof e[1] === "string"))
+        if (site.pathname === "/cart" && !q.has("cart")) q.set("cart", "1")
+        redirect(legacyBasketTarget(site.origin, q, site.host))
+      }
+    }
   }
   /* Who is buying, for a store that asks for an account first (Settings › Checkout). */
   let buyer = { signedIn: false, confirmed: false }

@@ -11,8 +11,8 @@
  *   the cart          /cart.js  /cart/add(.js)  /cart/change(.js)
  *                     /cart/update(.js)  /cart/clear(.js)   a cookie holds it
  *   checkout          /cart with `checkout`, /checkout: straight on to
- *                     Storelib's branded basket checkout, with the lines
- *                     (storelib.com/checkout/cart, lib/checkout/basket-link)
+ *                     the website's own checkout on this same host, with
+ *                     the lines (/checkout?items=, lib/checkout/site-checkout)
  *   products as data  /products/<handle>.js  .json
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
@@ -39,8 +39,8 @@ import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
 import { facet } from "./facets"
-import { CLEAR_CART_PARAM, basketCheckoutHref } from "@/lib/checkout/basket-link"
-import { getMainDomain } from "@/lib/url-helpers"
+import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
+import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
@@ -899,32 +899,20 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
 }
 
 /**
- * CHECKOUT IS STORELIB'S, AND THE SHOP'S. The lines go straight on to
- * Storelib's branded basket checkout on storelib.com (app/checkout/cart): the
- * shop's logo and name across the top, Back to this site's cart, Stripe's
- * form inside the page. One redirect, answered here without reading
- * anything, so the press lands on the checkout with nothing in between. It
- * used to be a page that said "Opening checkout…", posted the lines to
- * /api/checkout/cart and went on to Stripe's own hosted page, unbranded.
- * The checkout prices every line again from the database; the theme never
- * sees a price it could set. `whole`: the whole cart (emptied after paying),
- * not a Buy it now of one item.
+ * CHECKOUT IS ON THIS SITE. The lines go straight on to the website's own
+ * checkout at this same address (/checkout, app/checkout/site): the shop's
+ * logo across the top, Back to this site's cart, Storelib's own card form.
+ * One redirect, answered here without reading anything, so the press lands
+ * on the checkout with nothing in between. It used to go to storelib.com,
+ * where the buyer was a stranger and the address was the platform's. The
+ * checkout prices every line again from the database and takes the shop
+ * from this host; the theme never sees a price it could set. `whole`: the
+ * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
   if (!items.length) return redirect("/cart")
-  const host = site.host.replace(/[^a-z0-9.:-]/gi, "")
-  const back = host ? `https://${host}/cart` : null
-  return redirect(
-    basketCheckoutHref({
-      base: `https://${getMainDomain()}`,
-      shopId: site.creatorId,
-      items,
-      back,
-      wholeCart: whole,
-      origin: { site: host || null },
-    }),
-  )
+  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole }))
 }
 
 /**
