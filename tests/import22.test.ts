@@ -267,7 +267,7 @@ async function main() {
     check("with their values from settings_data.json", (home?.sections ?? []).find((x) => x.id === "1525295772132")?.settings.title === "Spring")
     check("a section not in content_for_index is not on the page", !ids.includes("unused") && !ids.includes("header"))
     check("the report says so", r.report.notes.some((n) => n.file === "templates/index.liquid" && /content_for_index/.test(n.message)))
-    check("the summary counts the pages a Liquid template makes", /and 2 pages from Shopify/.test(conversionSummary(r.report)), conversionSummary(r.report))
+    check("the summary counts the pages a Liquid template makes", /\band 2 pages came across\./.test(conversionSummary(r.report)), conversionSummary(r.report))
     const { get } = await site(zip)
     const page = await get("/")
     check("the home page draws them inside index.liquid, where it says", /<div class="index"><div id="shopify-section-rich"[^>]*><div class="rte">Made by hand<\/div><\/div><div id="shopify-section-1525295772132"[^>]*><div class="slides">Spring<\/div>/.test(page), page.slice(page.indexOf("<main>"), page.indexOf("<main>") + 400))
