@@ -233,6 +233,7 @@ check("the home leads with search, then popular articles, then topics", home.ind
 check("every popular article exists", POPULAR_HELP.every((p) => { const [c, s] = p.split("/"); return !!helpArticle(c, s) }))
 check("an article page has its contents, beside it and folded on a phone", /<OnThisPage items=\{toc\} variant="side" \/>/.test(page) && /<OnThisPage items=\{toc\} variant="inline" \/>/.test(page))
 check("  previous and next, related articles, and the date it was checked", /data-help-prevnext/.test(page) && /data-help-related/.test(page) && /Updated <time dateTime/.test(page))
+check("the contents beside an article stay in view: no overflow-x-hidden scroll box around the page", /overflow-x-clip/.test(read("app/help/layout.tsx")) && !/overflow-x-hidden/.test(read("app/help/layout.tsx")) && /sticky top-24/.test(page))
 const parts = read("components/help/help-parts.tsx")
 check("a heading carries the id its contents link to, clear of the sticky header", /id=\{idOf\(b\.text\)\}/.test(parts) && /scroll-mt-24/.test(parts))
 check("a screenshot shows its phone picture on a phone", /<source media="\(max-width: 639px\)" srcSet=\{b\.phone\.src\}/.test(parts))
