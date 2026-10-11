@@ -548,7 +548,7 @@ export function FilesLibrary({
 
   const remove = React.useCallback(async (f: LibraryFile) => {
     const r = await api("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
-    if (!r.ok) {
+    if ("error" in r) {
       toast.error(r.error)
       return false
     }
