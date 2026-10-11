@@ -192,7 +192,7 @@ const countLabel = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
 
 type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | null
 
-export function PhysicalFulfillment({ state, className, onNotice }: { state: PhysicalOrderState; className?: string; onNotice?: (message: string) => void }) {
+export function PhysicalFulfillment({ state, number: shown, className, onNotice }: { state: PhysicalOrderState; /** The order's number on the Orders page (#1004), for each shipment's own (#1004-F1). */ number?: number; className?: string; onNotice?: (message: string) => void }) {
   const { order, locations, error, setError, busy, act } = state
   const [dialog, setDialog] = React.useState<Dialog>(null)
 
@@ -230,7 +230,7 @@ export function PhysicalFulfillment({ state, className, onNotice }: { state: Phy
     if (!e && done) onNotice?.(done)
   }
   const live = order.shipments.filter((s) => s.status !== "cancelled")
-  const number = (s: PhysicalShipment) => `${orderNumber(order.id)}-F${order.shipments.indexOf(s) + 1}`
+  const number = (s: PhysicalShipment) => `${shown ? `#${shown}` : orderNumber(order.id)}-F${order.shipments.indexOf(s) + 1}`
 
   return (
     <div className={cn("grid min-w-0 gap-4", className)} data-physical-order="">
@@ -460,7 +460,7 @@ function LineRow({ line, quantity, currency }: { line: PhysicalLine; quantity: n
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium text-[#1a1a2e]">{line.title}</p>
-        <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? `SKU ${line.sku}` : null].filter(Boolean).join(" · ") || "Ships"}</p>
+        {line.variantName || line.sku ? <p className="truncate text-[12px] text-[#6b7280]">{[line.variantName, line.sku ? `SKU ${line.sku}` : null].filter(Boolean).join(" · ")}</p> : null}
       </div>
       <span className="hidden text-[13px] tabular-nums text-[#6b7280] sm:inline">
         {money(unit, currency)} &times; {quantity}
@@ -485,7 +485,7 @@ export function ShippingCard({ order, onNotice, className }: { order: PhysicalOr
     <section className={cn(card, "px-4 py-3.5", className)} data-shipping-card="">
       {pickup && order.pickup ? (
         <>
-          <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Picked up at</h2>
+          <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Pickup at</h2>
           <p className="mt-2 text-[13px] leading-[19px] text-[#303036]">
             {[order.pickup.name, ...order.pickup.address].map((l, i) => (
               <span key={`${i}:${l}`} className="block">

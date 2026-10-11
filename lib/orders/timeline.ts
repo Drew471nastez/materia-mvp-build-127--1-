@@ -121,7 +121,8 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
 
   /* Access is for what downloads; a parcel's progress comes from its shipments (physicalEvents). */
   const digitalItems = order.lines.filter((l) => l.product?.type !== "physical").reduce((n, l) => n + Math.max(1, l.quantity ?? 1), 0)
-  if (order.fulfillment === "fulfilled" && digitalItems > 0) {
+  const given = order.shipping ? order.lines.some((l) => l.product?.type !== "physical" && (l.status === "completed" || l.status === "refunded")) : order.fulfillment === "fulfilled"
+  if (given && digitalItems > 0) {
     events.push({ id: "access", at: order.createdAt, text: `Access given to ${itemsLabel(order.shipping ? digitalItems : order.itemCount)}`, tone: "success", glyph: "access" })
   }
 
