@@ -3,7 +3,8 @@
  *  SETTINGS, ROUND 20, MEASURED: THE GLIDE UP AND THE SHEET THAT IS ALWAYS ONE
  * ===========================================================================
  * The real Settings in the real sheet (scripts/render-settings20.tsx) with a
- * real history, in Chromium, at 1440x900 and at 390x844 touch with 4x CPU.
+ * real history, in Chromium, at 1440x900, at 2560x1440, and at 390x844
+ * touch with 4x CPU.
  *
  *   A SECTION     pressed in the column while far down the longest one: the
  *                 new section on the press, never the old one riding up; it
@@ -113,10 +114,10 @@ const say = (ok, line) => { if (!ok) bad++; console.log(`  ${ok ? "ok   " : "FAI
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
 const SHOTS = process.env.SHOTS
 
-async function setUp({ phone }) {
+async function setUp({ phone, width = 1440, height = 900 }) {
   const page = await browser.newPage()
   if (phone) await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true, deviceScaleFactor: 1 })
-  else await page.setViewport({ width: 1440, height: 900 })
+  else await page.setViewport({ width, height })
   const errors = []
   page.on("pageerror", (e) => errors.push(String(e)))
   /* A document load, not a pushState (which puppeteer also reports as a navigation). */
@@ -169,11 +170,12 @@ async function open(page) {
 }
 
 /* ── A SECTION, FROM FAR DOWN, ON A COMPUTER ── */
-console.log("\na computer, 1440x900: a section pressed far down the longest one")
-{
-  const page = await setUp({ phone: false })
+/* A computer, and a large screen, where the sheet is taller than the column needs. */
+for (const [width, height, tabs] of [[1440, 900, ["billing", "checkout", "security", "domains"]], [2560, 1440, ["billing", "domains"]]]) {
+  console.log(`\na computer, ${width}x${height}: a section pressed far down the longest one`)
+  const page = await setUp({ phone: false, width, height })
   await open(page)
-  for (const tab of ["billing", "checkout", "security", "domains"]) {
+  for (const tab of tabs) {
     await page.evaluate(() => document.querySelector('[data-settings-side-tab="general"]').click())
     await wait(700)
     const from = await page.evaluate(() => { const s = document.querySelector("[data-settings-sheet-scroll]"); s.scrollTop = s.scrollHeight; return s.scrollTop })
@@ -231,7 +233,7 @@ console.log("\na computer, 1440x900: a section pressed far down the longest one"
   const frames = (await page.evaluate(() => window.__stop())).filter((f) => f.t >= tp)
   const first = frames.find((f) => f.tab === "privacy")
   say(!!first && first.scroll === 0, `near the top (5px) it is simply at the top in the frame it appears (${first?.scroll})`)
-  if (SHOTS) await page.screenshot({ path: `${SHOTS}/s20-desktop-privacy.png` })
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/s20-desktop-${width}-privacy.png` })
   say(page.errors.length === 0, `no page errors${page.errors.length ? `: ${page.errors.join(" | ")}` : ""}`)
   await page.close()
 }

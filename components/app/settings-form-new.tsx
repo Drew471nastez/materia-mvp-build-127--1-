@@ -941,6 +941,12 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     */
     requestLeave(() => {
       scrollPending.current = true
+      /*
+        NO HEIGHT LOST WHILE THE NEXT SECTION COMES (round 20). Its box keeps the open section's height until the swap's
+        layout effect has read the scroll: a short section put in under a long one's scroll laid the page out short, the
+        browser dropped the scroll to the top in that frame, and "Settings" popped in over a column that jumped down.
+      */
+      if (formRef.current) formRef.current.style.minHeight = `${formRef.current.offsetHeight}px`
       /* Where the column is on screen as it is pressed, so it can be eased from there if the swap moves it (below). */
       const column = formRef.current?.closest("[data-settings-columns]")?.querySelector<HTMLElement>("[data-settings-groups]")
       columnFrom.current = column && column.offsetHeight > 0 ? column.getBoundingClientRect().top : null
@@ -977,12 +983,14 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const bar = pillRowRef.current
     const held = !!bar && getComputedStyle(bar).display !== "none" && !!formRef.current && !!scroller
     const target = held ? Math.max(0, formRef.current!.getBoundingClientRect().top - scroller!.getBoundingClientRect().top + scroller!.scrollTop - bar!.offsetHeight - 12) : 0
+    /* Where the old section was scrolled to, read while the press's hold (handleTabChange) still keeps its height. */
+    const from = scroller?.scrollTop ?? 0
     /* A short section still fills the screen under the row, so the row can stay where it is. Measured first, set once:
        clearing it before measuring laid the page out short and the browser pulled the scroll to the top. */
     if (formRef.current) formRef.current.style.minHeight = held ? `${scroller!.clientHeight}px` : ""
-    if (!scroller || scroller.scrollTop <= target) return
+    if (!scroller || from <= target) return
     /* In this frame the new section is never painted part way down the old one's scroll: at most GLIDE_FROM_PX above its top, then up. */
-    const still = scroller.scrollTop - target <= SNAP_PX || typeof scroller.scrollTo !== "function" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    const still = from - target <= SNAP_PX || typeof scroller.scrollTo !== "function" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
     /*
       From where the column is still held (sticky) and the title still out of view, so neither moves in the swap's frame:
       GLIDE_FROM_PX, or more when the column's own place is further down than that.
@@ -991,7 +999,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const column = columns?.querySelector<HTMLElement>("[data-settings-groups]")
     const shownColumn = !!column && column.offsetHeight > 0
     const columnHeld = shownColumn ? columns!.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - (parseFloat(getComputedStyle(column!).top) || 0) : 0
-    const start = still ? target : Math.min(scroller.scrollTop, target + Math.max(GLIDE_FROM_PX, Math.ceil(columnHeld)))
+    const start = still ? target : Math.min(from, target + Math.max(GLIDE_FROM_PX, Math.ceil(columnHeld)))
     /*
       THE COLUMN STAYS WHERE IT WAS HELD IN THE FRAME OF THE SWAP. It is held (sticky) inside the row it shares with the
       section, and a short section made that row too short to hold it GLIDE_FROM_PX down: the column was pushed up by
@@ -1002,7 +1010,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     glideHold.current?.()
     const box = formRef.current
     if (!held && !still && box && shownColumn) {
-      box.style.minHeight = `${column!.offsetHeight + start - target}px`
+      /* And tall enough that the scroll can stand at `start` at all: a short section (Domains on a large screen) let it fall to the top at once. */
+      box.style.minHeight = `${Math.max(column!.offsetHeight, scroller.clientHeight) + start - target}px`
       const release = () => {
         window.clearTimeout(timer)
         scroller.removeEventListener("scroll", onScroll)

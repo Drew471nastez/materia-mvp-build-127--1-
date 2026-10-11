@@ -120,7 +120,7 @@ check(
     "a switch opens the new section at its top, under the pills when they are held, with no pin from 1024px",
     /* Changed on purpose (round R1): set in the layout effect's frame, and the sections are no longer inside a <form> (AI Memory's Remember submitted it and closed the sheet). */
     /* Changed on purpose (round 20, "auto scroll up smoothly"): from GLIDE_FROM_PX above the top, then the browser's smooth scroll (tests/settings20.test.ts). */
-    /if \(!scroller \|\| scroller\.scrollTop <= target\) return/.test(settings) && /scroller\.scrollTo\(\{ top: target, behavior: "smooth" \}\)/.test(settings) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(settings)
+    /if \(!scroller \|\| from <= target\) return/.test(settings) && /scroller\.scrollTo\(\{ top: target, behavior: "smooth" \}\)/.test(settings) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(settings)
       && /<div ref=\{formRef\} data-settings-content="">/.test(settings) && !/<form ref=\{formRef\}/.test(settings),
   )
   check(
