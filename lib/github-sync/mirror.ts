@@ -130,7 +130,7 @@ async function keepLast(db: Db, installId: string, outcome: { ok: true } | { ok:
       failed: [],
       notes: [],
       head_at: prev?.head_at ?? null,
-      ...(outcome.ok ? {} : { problem: outcome.problem }),
+      ...("problem" in outcome ? { problem: outcome.problem } : {}),
     }
     await db.from("theme_github_links").update({ sync_state: { ...state, last } }).eq("install_id", installId)
   } catch {
