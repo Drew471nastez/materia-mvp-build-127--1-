@@ -31,5 +31,19 @@ console.log("\nThe page a cover is taken of")
   check("the photographer asks for reduced motion too", /prefers-reduced-motion", value: "reduce"/.test(read("lib/website-builder/cover-shot.ts")))
 }
 
+console.log("\nPublishing ends, and sooner")
+{
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  const publish = editor.slice(editor.indexOf("const publishChanges = async"), editor.indexOf("const handleSave = async"))
+  check("the three saves before a publish go at the same time", /await Promise\.all\(\[\s*putJsonWithRetry\([^)]*settings`/.test(publish) && /syncHeaderFooterToAllPages\("draft"\),\s*\]\)/.test(publish))
+  check("the publish itself has an end, and says so when it is reached", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/publish`[\s\S]*?PUBLISH_MS\)/.test(publish) && /e instanceof LoadTimeout/.test(publish) && /const PUBLISH_MS = 45_000/.test(editor))
+  check("  and a refusal that is not JSON is still a message, not a spinner", /await res\.json\(\)\.catch\(\(\) => \(\{\}\)\)/.test(publish))
+  check("the header and footer copy to every page has an end", /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/sections\/sync-global`[\s\S]{0,600}?20_000\)\.catch\(\(\) => null\)/.test(editor))
+  check("every save try has an end, retried like a dropped connection", /fetchWithin\(url, \{ method: "PUT"[^)]*\}, ATTEMPT_MS\)/.test(read("lib/website-builder/save-request.ts")))
+  const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
+  const later = route.slice(route.indexOf("after(async () => {"))
+  check("the history row, the backup and the files' versions come after the answer", /takeBackup\(admin, installId/.test(later) && /theme_publish_history/.test(later) && /recordVersion\(admin, installId, file\.path/.test(later) && route.indexOf("after(async () => {") < route.indexOf("await revalidatePublishedSite(creator.id)\n\n"))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)

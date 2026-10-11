@@ -1995,11 +1995,6 @@ export async function proxy(request: NextRequest) {
       url.pathname.startsWith("/u/") ||
       creatorPath ||
       productPath
-    /* The cover's page loads no script and calls no server the picture does not need (lib/website-builder/cover-still.ts). */
-    if (url.pathname.startsWith("/cover-render/")) {
-      const existing = supabaseResponse.headers.get("Content-Security-Policy")
-      supabaseResponse.headers.set("Content-Security-Policy", existing ? `${existing}, ${COVER_STILL_POLICY}` : COVER_STILL_POLICY)
-    }
     const framed = framableWhenEmbedded && url.searchParams.get("embedded") === "1"
     if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
@@ -2009,6 +2004,11 @@ export async function proxy(request: NextRequest) {
         "Content-Security-Policy",
         existing ? `${existing}; ${rule}` : rule,
       )
+    }
+    /* The cover's page loads no script and calls no server the picture does not need (lib/website-builder/cover-still.ts). */
+    if (url.pathname.startsWith("/cover-render/")) {
+      const existing = supabaseResponse.headers.get("Content-Security-Policy")
+      supabaseResponse.headers.set("Content-Security-Policy", existing ? `${existing}, ${COVER_STILL_POLICY}` : COVER_STILL_POLICY)
     }
   }
 
