@@ -17,6 +17,7 @@
  */
 
 import { inAppDepth } from "./in-app-history"
+import { markBackStarted } from "@/lib/ui/new-deploy"
 import { fallbackHref, planBack, type BackEvidence, type BackPlan } from "./back-plan"
 
 /** How long a real back has to show itself before the fallback is used. */
@@ -83,6 +84,8 @@ export function pushBackOnce(href: string, navigate: (href: string) => void): bo
     pushedFrom = window.location.pathname
     pushedAt = now
     swallowEchoClicks()
+    /* A way back, so a newer deploy does not turn it into a whole page load (round 23, lib/ui/new-deploy fullLoadFor). */
+    markBackStarted(now)
   }
   navigate(href)
   return true
@@ -206,10 +209,13 @@ export function backThen(fallback: () => void, watchMs: number = BACK_WATCH_MS):
   window.addEventListener("pagehide", done)
   window.addEventListener("beforeunload", done)
   nav?.addEventListener?.("navigate", done)
+  markBackStarted()
   window.history.back()
   const timer = window.setTimeout(() => {
     if (settled) return
     done()
+    /* Its fallback is the same way back: marked again, so it stays a client navigation too. */
+    markBackStarted()
     fallback()
   }, watchMs)
   return () => {

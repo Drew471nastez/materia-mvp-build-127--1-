@@ -22,20 +22,26 @@
  */
 
 /**
- * HOW LONG THE SCREEN THAT SAYS YOU ARE LEAVING STAYS BEFORE THE PUSH.
- *
- * A warm route paints the next page before this one has drawn the screen
- * saying where you are going, and what is left is a press, a pause, and then
- * somewhere else. Long enough to read the first word, short enough that
- * nobody waits for it.
+ * HOW LONG THE SCREEN THAT SAYS YOU ARE LEAVING STAYS BEFORE THE PUSH: not at
+ * all (round 23, the owner: "make sure back and entering pages don't have
+ * that delay"). It held every way out of an editor for three seconds before
+ * the page even asked for the next one, on a route already fetched ahead. The
+ * push goes on the press now; the screen only shows when the next page is
+ * slow to come (app/globals.css .wb-leaving, its delay).
  *
  * Here rather than in either editor, because both of them leave and a second
  * copy of this number is a second answer to the same question.
  */
-export const LEAVING_SEEN_MS = 3_000
+export const LEAVING_SEEN_MS = 0
 
-/** Long enough for a warm route, short enough that nobody wonders. */
-export const NAVIGATE_CEILING_MS = 2500
+/**
+ * A soft navigation still not there after this is loaded as a document. Not
+ * sooner: a whole page load is slower than a slow server, and at 2.5s a cold
+ * server answering a little late turned an ordinary Back into a reload of the
+ * whole app (round 23). The app's own spinner gives a navigation the same
+ * time (lib/ui/app-navigation NAV_SPINNER_CAP_MS).
+ */
+export const NAVIGATE_CEILING_MS = 8_000
 
 export function navigateWithCeiling(
   soft: () => void,

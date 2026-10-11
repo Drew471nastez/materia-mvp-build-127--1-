@@ -397,6 +397,18 @@ function armStuckCheck(nav: AppNavigation, from: number) {
       document.addEventListener("visibilitychange", back)
       return
     }
+    /*
+      THE PAGE IS ALREADY THERE (round 23). A page outside the shell (the website builder's editor, a creator's page, Help)
+      lands with the shell gone, so nothing was left to end the record, and two seconds after its answer the page that had
+      just come was loaded again as a document: entering the editor by a link reloaded it once it was up. The address
+      showing the page (its query may have moved on since, as the editor's does) is the landing; only a page that never
+      came is loaded for real.
+    */
+    const navPath = pathOf(new URL(nav.href as string, window.location.href).pathname)
+    if (pathOf(window.location.pathname) === navPath && committedPath !== navPath) {
+      endAppNavigation()
+      return
+    }
     console.warn(`[app-navigation] ${nav.href}: the router's answer came back and the page did not land; loading it as a document`)
     window.location.assign(nav.href as string)
   }, Math.max(0, due - performance.now()))

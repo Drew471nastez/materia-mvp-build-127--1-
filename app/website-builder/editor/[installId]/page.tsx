@@ -103,7 +103,7 @@ import { sectionDisplayName } from "@/lib/website-builder/section-name"
 import { PIN_AFTER_SELECT_MS, PIN_WHILE_OPENING_MS, pinScroll, resetClippedAncestors, revealWithin, reviveScroller } from "@/lib/website-builder/canvas-scroll"
 import { scrollToHash, themeRootOf } from "@/lib/website-builder/section-motion"
 import { SITE_DRAWER_OPEN_ATTRIBUTE } from "@/components/website-builder/drawer-frame"
-import { LEAVING_SEEN_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
+import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
 import { fileLinkHref, isCanvasNavigationLink, isTypingTarget, leavesThePage, type ClickTargetLike } from "@/lib/website-builder/canvas-intercept"
 import { FIELD_FLASH_MS, chainFrom, clickTarget, type ClickTarget, type ElementLike } from "@/lib/website-builder/click-to-edit"
 
@@ -7763,16 +7763,16 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     window.addEventListener("pageshow", onPageShow)
     window.addEventListener("popstate", revive)
     /**
-     * AND IF IT IS STILL HERE, IT LOADS THE ADDRESS FOR REAL. This used to
-     * clear the screen and leave the person standing in the editor they had
-     * asked to leave, which is the half of "it hangs" that no amount of
-     * waiting fixed.
+     * AND IF IT IS STILL HERE LONG AFTER THE PUSH, IT COMES BACK TO LIFE.
+     * Loading the address for real is the ceiling's job, counted from the
+     * push (leaveFor, lib/website-builder/navigate-ceiling). This watchdog
+     * used to do it itself, 3s after the press: the very moment the push
+     * started, after the old 3s hold. So a way back that was already on its
+     * way was thrown out for a whole page load, unless the router happened to
+     * finish within the same few milliseconds: the "random" reload going back
+     * to Website (round 23, measured in scripts/nav23-real-router).
      */
-    const watchdog = window.setTimeout(() => {
-      const href = leavingHref.current
-      if (href) window.location.assign(href)
-      else revive()
-    }, 3000)
+    const watchdog = window.setTimeout(revive, LEAVING_SEEN_MS + NAVIGATE_CEILING_MS + 2000)
     return () => {
       window.removeEventListener("pageshow", onPageShow)
       window.removeEventListener("popstate", revive)
