@@ -27,7 +27,8 @@ import { fixInlineStyles, fixThemeCss } from "../lib/storelib-theme/compat/css-f
 import { inlineSpriteFiles } from "../lib/storelib-theme/compat/icons"
 import { compatFilter } from "../lib/storelib-theme/compat/filters"
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
-import { canvasAccountPage, themeAsset, type SiteData } from "../lib/storelib-theme/compat/site"
+import { answer, canvasAccountPage, themeAsset, type SiteData } from "../lib/storelib-theme/compat/site"
+import { themeCustomer } from "../lib/storelib-theme/compat/account"
 import { CANVAS_BRIDGE } from "../lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
@@ -169,6 +170,31 @@ async function main() {
     check("  and leaves them for any other link or page", /if \(accountRef\.current\) setAccountPath\(null\)/.test(canvas) && /useEffect\(\(\) => setAccountPath\(null\), \[pageKey, productId\]\)/.test(canvas))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("the editor says so in its toast: Sign in works on your live site", /toast\("Sign in works on your live site"/.test(editor) && /what === "account" \? "account" : "checkout"/.test(canvas))
+  }
+
+  console.log("\nDownloads from the website's own account\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{% sections 'header-group' %}<main>{{ content_for_layout }}</main></body></html>`),
+      "sections/hdr.storelib": section("hdr", `<header class="hdr">Shop</header>`),
+    }
+    const site: SiteData = { creatorId: "c", theme: new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` }), pages: { home: [{ id: "h", type: "hdr", group: "header" }] }, products: [], collections: [], menus: {}, shop: { name: "S", currency: "USD", moneyFormat: "${{amount}}" }, host: "shop.test" }
+    const OID = "40000000-0000-4000-8000-000000000001"
+    const customer = { name: "Ana Pop", first_name: "Ana", email: "ana@mail.test", orders: [{ id: OID, number: "40000000", date: "Sep 20, 2026", status: "Complete", state: "open", total: "$12.00", items: [{ title: "Apron pattern", image: "", url: "", variant: "" }], item_count: 1, action_label: "Download", action_url: `/account/orders/${OID}` }], orders_count: 1 }
+    const order = { id: OID, number: "40000000", date: "Sep 20, 2026", total: "$12.00", lines: [{ orderId: OID, title: "Apron pattern", variant: "", image: "", url: "/products/apron", files: [{ id: "f1", name: "apron.pdf", size: "2.3 MB", url: `/api/site-account/download?order=${OID}&file=f1` }], note: "" }] }
+    const get = (path: string, account: unknown, q = "") => answer(site, { method: "GET", path, query: new URLSearchParams(q), body: null, cart: [], account: account as never })
+    const page = await get(`/account/orders/${OID}`, { customer, order })
+    const html = String(page.body)
+    check("an order's page draws on the website, in the theme, with each file and a Download on this host", page.status === 200 && /class="hdr"/.test(html) && /apron\.pdf/.test(html) && html.includes(`href="/api/site-account/download?order=${OID}&amp;file=f1" download`) && !/storelib\.com/.test(html), html.slice(0, 400))
+    const refused = String((await get(`/account/orders/${OID}`, { customer, order }, "download=refunded")).body)
+    check("  why a download went back to it, as a fixed sentence", /This order was refunded, so its files are closed\./.test(refused))
+    check("  an address that is not a reason prints nothing", !/role="alert"/.test(String((await get(`/account/orders/${OID}`, { customer, order }, "download=<b>x</b>")).body)))
+    const notTheirs = await get(`/account/orders/${OID}`, { customer, order: null })
+    check("an order that is not theirs goes back to the account", notTheirs.status === 303 && notTheirs.headers?.Location === "/account")
+    const guest = await get(`/account/orders/${OID}`, { customer: null })
+    check("a guest signs in first, and comes back to the order", guest.status === 303 && guest.headers?.Location === `/account/login?return=${encodeURIComponent(`/account/orders/${OID}`)}`)
+    const drop = themeCustomer(customer as never) as { orders: { customer_url: string }[] }
+    check("a theme's own account template links the order to that page (customer_url)", drop.orders[0].customer_url === `/account/orders/${OID}`)
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

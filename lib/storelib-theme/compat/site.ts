@@ -328,7 +328,7 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     const notice = req.query.get("profile") === "saved" ? "Saved." : req.query.get("profile") === "error" ? "That name could not be saved. Try again." : req.query.get("deleted") === "no" ? "Your account could not be deleted. Try again." : null
     const edit = req.query.get("edit")
     if (!edit && !notice) {
-      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras())
+      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras(customer))
       if (own) return own
     }
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
@@ -368,8 +368,19 @@ export function canvasAccountPage(site: SiteData, path: string, opts: { extraHea
 }
 
 /** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */
-function accountExtras(): string {
-  return `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
+function accountExtras(customer: SiteAccount["customer"]): string {
+  /*
+    A theme's order table says Paid and a total; what was bought to download
+    is a step further in. Each order with files is listed here too, each
+    opening its page on this website, where the files are.
+  */
+  const downloads = (customer?.orders ?? []).filter((o) => o.action_label === "Download" && o.action_url.startsWith("/account/orders/"))
+  const list = downloads.length
+    ? `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:24px 20px 0"><h2 style="margin:0 0 8px;font-size:1.15em">Downloads</h2><ul style="list-style:none;margin:0;padding:0">${downloads
+        .map((o) => `<li style="display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)"><span style="min-width:0;overflow-wrap:anywhere">${escapeText(o.items.map((i) => i.title).join(", "))} <span style="opacity:.7;font-size:.9em">${escapeText(o.date)}</span></span><a href="${escapeText(o.action_url)}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;flex:none">Download</a></li>`)
+        .join("")}</ul></div>`
+    : ""
+  return `${list}<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
 }
 
 /**
