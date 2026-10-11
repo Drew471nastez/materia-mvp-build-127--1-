@@ -27,7 +27,11 @@
  *                  and it goes; anywhere else it springs back.
  *   CLOSE          the button, Escape, a click on the dimmed page, or the
  *                  drag.
- *   SCROLL         inside the sheet only, contained. Once it has moved, its
+ *   SCROLL         inside the sheet only, contained. Below 1024px, where it
+ *                  is a page under the app's header, it does not rubber band
+ *                  at all ("the top overscroll is very flexible"): the same
+ *                  overscroll-behavior none as every other /app scroller.
+ *                  Once it has moved, its
  *                  top edge fades and softly blurs what passes under it
  *                  rather than cutting it off at a hard line.
  *   MOTION         up from below the screen on the app's sheet curve, and
@@ -43,6 +47,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { backThen } from "@/lib/navigation/go-back"
+import { hasUnsaved, requestLeave } from "@/lib/settings/unsaved-guard"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 420
@@ -124,7 +129,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
     }
   }, [router, overlay])
 
-  const close = React.useCallback(
+  const closeNow = React.useCallback(
     (from = 0, speed = 0) => {
       if (leaving.current) return
       leaving.current = true
@@ -203,6 +208,28 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       window.setTimeout(remove, ms + 200)
     },
     [router, overlay],
+  )
+
+  /*
+    NOT WITH CHANGES THAT AREN'T SAVED (lib/settings/unsaved-guard.ts). Every
+    way out (the button, Escape, the dim, a drag let go past the line) asks
+    first: Save, Discard or Keep editing (components/app/settings/leave-
+    guard.tsx). A drag that asked springs back to rest while the question is
+    up, and the sheet only goes once Save or Discard has been chosen.
+  */
+  const close = React.useCallback(
+    (from = 0, speed = 0) => {
+      if (leaving.current) return
+      if (!hasUnsaved()) return closeNow(from, speed)
+      const el = panel.current
+      if (el && from !== 0) {
+        el.style.transform = ""
+        if (!reducedMotion() && typeof el.animate === "function") el.animate([{ transform: `translate3d(0, ${from}px, 0)` }, { transform: "translate3d(0, 0, 0)" }], { duration: 260, easing: EASE })
+      }
+      if (scrim.current) scrim.current.style.opacity = ""
+      requestLeave(() => closeNow())
+    },
+    [closeNow],
   )
 
   React.useEffect(() => {
@@ -502,7 +529,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           {/* Its own scroll, with the app's slim light bar (globals.css, .wb-slim-scroll). */}
           <div
             ref={scroller}
-            className="wb-slim-scroll absolute inset-0 overflow-y-auto overflow-x-clip overscroll-contain [scrollbar-gutter:stable]"
+            className="wb-slim-scroll absolute inset-0 overflow-y-auto overflow-x-clip overscroll-contain [scrollbar-gutter:stable] max-lg:overscroll-none"
             data-settings-sheet-scroll=""
           >
             {children}

@@ -18,6 +18,8 @@ import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
 import { HowItWorks } from "@/components/app/settings/how-it-works"
 import { CountryFlag } from "@/components/app/settings/country-picker"
+import { createPortal } from "react-dom"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark } from "@/lib/store/currency-context"
 
@@ -293,11 +295,24 @@ type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string; data?: R
 const kept = new Map<string, { at: number; result: Promise<ApiResult<unknown>>; data?: unknown }>()
 const KEEP_MS = 60_000
 
+/*
+ * KEPT PAST A MINUTE, READ AGAIN BEHIND IT (round R1). A kept answer used to
+ * vanish after a minute: Settings left open on Profile for longer, then
+ * Store details pressed, drew grey boxes and waited for the server again,
+ * "some tabs take long to load". Now an answer older than a minute is still
+ * what a panel draws first (peekGet), and the read that refreshes it runs
+ * behind it; the panel's own api() call then brings the fresh one.
+ */
 function keep(path: string): Promise<ApiResult<unknown>> {
-  const entry: { at: number; result: Promise<ApiResult<unknown>>; data?: unknown } = { at: Date.now(), result: Promise.resolve({ ok: false, error: "" }) }
+  const previous = kept.get(path)
+  const entry: { at: number; result: Promise<ApiResult<unknown>>; data?: unknown } = { at: Date.now(), result: Promise.resolve({ ok: false, error: "" }), data: previous?.data }
   entry.result = request<unknown>(path).then((r) => {
     if (r.ok) entry.data = r.data
-    else if (kept.get(path) === entry) kept.delete(path)
+    else if (kept.get(path) === entry) {
+      /* A failed refresh keeps the last good answer to draw, marked stale so the next look asks again. */
+      if (entry.data !== undefined) entry.at = 0
+      else kept.delete(path)
+    }
     return r
   })
   kept.set(path, entry)
@@ -312,23 +327,30 @@ export function prefetchGet(paths: string[]): void {
   }
 }
 
-/** Settles when every one of these has been read (fetched now if it wasn't kept), never with an error. */
+/** Settles when every one of these has been read (fetched now if it wasn't kept), never with an error. An answer already kept, however old, counts as read. */
 export function whenGets(paths: string[]): Promise<void> {
+  const waiting = paths.filter((p) => kept.get(p)?.data === undefined)
   prefetchGet(paths)
-  return Promise.all(paths.map((p) => kept.get(p)?.result.catch(() => null) ?? Promise.resolve(null))).then(() => undefined)
+  return Promise.all(waiting.map((p) => kept.get(p)?.result.catch(() => null) ?? Promise.resolve(null))).then(() => undefined)
 }
 
-/** What a prefetch already brought back for this address, for a panel's first draw. */
+/** Read this now even if a fresh answer is kept, and keep what comes back: for a panel whose list changes behind it (Activity). */
+export function readFresh<T>(path: string): Promise<ApiResult<T>> {
+  return keep(path) as Promise<ApiResult<T>>
+}
+
+/** What a prefetch already brought back for this address, for a panel's first draw: the last good answer, however old. */
 export function peekGet<T>(path: string): T | null {
   const e = kept.get(path)
-  return e && e.data !== undefined && Date.now() - e.at <= KEEP_MS ? (e.data as T) : null
+  return e && e.data !== undefined ? (e.data as T) : null
 }
 
 /** After a write, the kept reads it touches are read again: the same area (/api/store/taxes/...), and physical settings for any physical write. */
 function refreshAfterWrite(path: string): void {
   const area = path.split("?")[0].split("/").slice(0, 4).join("/")
   for (const key of kept.keys()) {
-    if (key.startsWith(area) || (path.startsWith("/api/physical/") && key.startsWith("/api/physical/settings"))) void keep(key)
+    /* And any kept read the write sits under: DELETE /api/ai-memory/<id> reads /api/ai-memory again (its area is only three parts deep). */
+    if (key.startsWith(area) || path.split("?")[0].startsWith(`${key.split("?")[0]}/`) || (path.startsWith("/api/physical/") && key.startsWith("/api/physical/settings"))) void keep(key)
   }
 }
 
@@ -337,6 +359,8 @@ export async function api<T = Record<string, unknown>>(path: string, init?: { me
   if (method === "GET") {
     const e = kept.get(path)
     if (e && Date.now() - e.at <= KEEP_MS) return e.result as Promise<ApiResult<T>>
+    /* A kept address read again keeps the cache fresh for the next panel that peeks. */
+    if (e) return keep(path) as Promise<ApiResult<T>>
     return request<T>(path)
   }
   const r = await request<T>(path, init)
@@ -372,12 +396,116 @@ export function dateTime(iso: string | null | undefined): string {
   return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 }
 
+/** Below 640px, the breakpoint every Modal turns into the app's own bottom sheet at. */
+const PHONE_QUERY = "(max-width: 639.98px)"
+function subscribePhone(fn: () => void): () => void {
+  const mq = window.matchMedia?.(PHONE_QUERY)
+  mq?.addEventListener?.("change", fn)
+  return () => mq?.removeEventListener?.("change", fn)
+}
+/** A phone, read from the screen and kept in step with it (false on the server). */
+export function useModalPhone(): boolean {
+  return React.useSyncExternalStore(subscribePhone, () => !!window.matchMedia?.(PHONE_QUERY).matches, () => false)
+}
+
 /**
- * A dialog from 640px and a sheet from the bottom on a phone. Escape and the
- * backdrop close it; the page behind does not scroll; focus goes into it and
- * back to what opened it.
+ * A field typed into stays in sight. With the keyboard up the sheet's column
+ * is shorter (BottomSheet aboveKeyboard), and a field near its foot would sit
+ * under the keys; it is brought to the nearest edge of the scroll once the
+ * keyboard has arrived, and again whenever what is visible changes size.
+ */
+function useFieldInView(box: React.RefObject<HTMLElement | null>, on: boolean) {
+  React.useEffect(() => {
+    const el = box.current
+    if (!on || !el) return
+    let t = 0
+    const bring = () => {
+      const f = document.activeElement as HTMLElement | null
+      if (!f || !el.contains(f) || !/^(INPUT|TEXTAREA|SELECT)$/.test(f.tagName)) return
+      const a = el.getBoundingClientRect()
+      const b = f.getBoundingClientRect()
+      const pad = 16
+      if (b.bottom > a.bottom - pad) el.scrollTop += b.bottom - a.bottom + pad
+      else if (b.top < a.top + pad) el.scrollTop -= a.top + pad - b.top
+    }
+    const soon = () => {
+      window.clearTimeout(t)
+      t = window.setTimeout(bring, 280)
+    }
+    el.addEventListener("focusin", soon)
+    window.visualViewport?.addEventListener("resize", soon)
+    return () => {
+      window.clearTimeout(t)
+      el.removeEventListener("focusin", soon)
+      window.visualViewport?.removeEventListener("resize", soon)
+    }
+  }, [box, on])
+}
+
+/**
+ * A dialog from 640px and the app's own bottom sheet on a phone
+ * (components/ui/bottom-sheet.tsx: it rises, follows the thumb, flicks
+ * closed). Escape and the backdrop close it; the page behind does not
+ * scroll; focus goes into it and back to what opened it.
+ *
+ * ON A PHONE IT SITS ON THE KEYBOARD. "Create channel is a modal where the
+ * keyboard covers the inputs and you can't type." The sheet is
+ * `aboveKeyboard`, its fields scroll inside it and the one being typed in is
+ * kept in sight (useFieldInView), and the buttons stay at its foot, above
+ * the keys.
+ *
+ * ON THE BODY, NOT INSIDE THE PAGE. Drawn where it was used, a modal inside
+ * the phone's Settings page (a layer under the app's header and nav pill)
+ * was under both. Both halves are portalled to the body.
  */
 export function Modal({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
+  const phone = useModalPhone()
+  if (phone) return <ModalSheet open={open} onClose={onClose} title={title} footer={footer} wide={wide}>{children}</ModalSheet>
+  return <ModalDialog open={open} onClose={onClose} title={title} footer={footer} wide={wide}>{children}</ModalDialog>
+}
+
+function ModalSheet({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
+  const body = React.useRef<HTMLDivElement>(null)
+  useFieldInView(body, open)
+  return (
+    <BottomSheet
+      isOpen={open}
+      onClose={onClose}
+      label={title}
+      hideFrom={null}
+      fill
+      aboveKeyboard
+      maxHeight={wide ? "calc(var(--vv-h, 100dvh) * 0.92)" : "calc(var(--vv-h, 100dvh) * 0.88)"}
+      header={
+        <div className="flex items-center justify-between gap-3 px-4 pb-1 pt-2" data-modal-sheet-head="">
+          <h2 className="text-[16px] font-semibold text-[#1a1a2e]">{title}</h2>
+          <button type="button" data-close="" data-sheet-close="" aria-label="Close" className="grid h-9 w-9 place-items-center rounded-full bg-[#f3f4f6] text-[#6b7280] active:bg-[#e5e7eb]">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      }
+    >
+      <div
+        className="flex min-h-0 flex-1 flex-col"
+        data-modal-sheet=""
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") e.preventDefault()
+        }}
+      >
+        <div ref={body} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4 pt-2" data-modal-sheet-body="">
+          {children}
+        </div>
+        {footer ? (
+          <div className="flex shrink-0 flex-wrap justify-end gap-2 border-t border-[#f1f2f4] bg-white px-4 pb-2 pt-3 [&_button]:min-h-11" data-modal-sheet-foot="">
+            {footer}
+          </div>
+        ) : null}
+      </div>
+    </BottomSheet>
+  )
+}
+
+function ModalDialog({ open, onClose, title, children, footer, wide }: { open: boolean; onClose: () => void; title: string; children: React.ReactNode; footer?: React.ReactNode; wide?: boolean }) {
   const panel = React.useRef<HTMLDivElement>(null)
   const opener = React.useRef<HTMLElement | null>(null)
   React.useEffect(() => {
@@ -398,9 +526,9 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
       opener.current?.focus?.({ preventScroll: true })
     }
   }, [open, onClose])
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="presentation">
+  if (!open || typeof document === "undefined") return null
+  return createPortal(
+    <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center" role="presentation" data-modal-dialog="">
       <div className="absolute inset-0 bg-[rgba(17,24,39,0.36)] animate-in fade-in duration-150" onClick={onClose} aria-hidden />
       <div
         ref={panel}
@@ -424,6 +552,7 @@ export function Modal({ open, onClose, title, children, footer, wide }: { open: 
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
         {footer ? <div className="flex flex-wrap justify-end gap-2 border-t border-[#f1f2f4] px-4 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] sm:px-5 sm:pb-3">{footer}</div> : null}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

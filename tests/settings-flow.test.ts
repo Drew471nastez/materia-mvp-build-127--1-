@@ -118,8 +118,9 @@ check(
     /* Changed on purpose (round U): the owner asked for every section to open at its top, and the old pin was never released. */
     /* Round V: with the pills held at the top (below 1024px) a section opens just under them, and a short one is given a screen's height so the row stays put; from 1024px, the very top and no pin. */
     "a switch opens the new section at its top, under the pills when they are held, with no pin from 1024px",
-    /scroller\.scrollTo\(\{ top: target, behavior: "instant" as ScrollBehavior \}\)/.test(settings) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(settings)
-      && /<form ref=\{formRef\} onSubmit=\{handleSubmit\}( className=\{[^}]+\})?>/.test(settings),
+    /* Changed on purpose (round R1): set in the layout effect's frame, and the sections are no longer inside a <form> (AI Memory's Remember submitted it and closed the sheet). */
+    /if \(scroller && scroller\.scrollTop > target\) scroller\.scrollTop = target/.test(settings) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(settings)
+      && /<div ref=\{formRef\} data-settings-content="">/.test(settings) && !/<form ref=\{formRef\}/.test(settings),
   )
   check(
     "and a refresh of the domain list keeps the list on screen",
@@ -150,7 +151,8 @@ check(
     /* Changed on purpose (round V, the owner): the pill row is back under 1024px, in the groups' order, and the list of rows is gone. */
     /* Changed on purpose (the owner: "the pill shapes how it was"): the pills as before the sheet, each with its own fill that fades in place, centred on a press. */
     "under 1024px a row of pills in the groups' order, the pressed one centred; no list of rows",
-    /data-settings-tab-fill=""/.test(settings) && /data-settings-tabs=""/.test(settings) && /pill\.offsetLeft - \(row\.clientWidth - pill\.offsetWidth\) \/ 2/.test(settings) && !/data-settings-list=""/.test(settings),
+    /* Changed on purpose (round R1): the fill is the pill's own background, no span laid over it ("the text hides and the icon flashes"). */
+    /data-settings-tab-on=\{on \? "" : undefined\}/.test(settings) && !/data-settings-tab-fill=""/.test(settings) && /data-settings-tabs=""/.test(settings) && /pill\.offsetLeft - \(row\.clientWidth - pill\.offsetWidth\) \/ 2/.test(settings) && !/data-settings-list=""/.test(settings),
   )
   check(
     "no tab is scaled under the finger, and the selected tab is announced",
@@ -862,7 +864,7 @@ check(
   )
   check(
     "every /app page shell wears it: Settings, Home, Analytics, and the list pages through orders/order-parts GUTTER",
-    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /className="max-w-4xl lg:max-w-\[1200px\] mx-auto app-gutter py-6 sm:py-8/.test(code("components/app/settings-form-new.tsx"))
+    /* Changed on purpose: Settings is wider from 1024px, where its groups stand beside the open section. */ /* And round R1: its foot is room for the nav pill and the save bar, so the top is set on its own. */ /className=\{`max-w-4xl lg:max-w-\[1200px\] mx-auto app-gutter pt-6 sm:pt-8/.test(code("components/app/settings-form-new.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto"/.test(code("components/app/dashboard-client.tsx"))
       && /className="app-gutter py-6 max-w-\[1200px\] mx-auto space-y-6"/.test(code("app/app/analytics/analytics-client.tsx"))
       && /export const GUTTER = "app-gutter"/.test(code("app/app/orders/order-parts.tsx")),

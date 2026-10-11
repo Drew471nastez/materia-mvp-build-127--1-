@@ -12,6 +12,7 @@ import {
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { createPortal } from "react-dom"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
@@ -573,12 +574,14 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         </div>
       </div>
 
-      {/* Invoice Detail Modal (Desktop) */}
-      {selectedInvoice && (
-        <div className="hidden sm:block">
-          <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
-        </div>
-      )}
+      {/* Invoice Detail Modal (Desktop). On the body: inside Settings' page (640 to 1023px, a layer under the app's header) it was drawn under the header. */}
+      {selectedInvoice && typeof document !== "undefined" &&
+        createPortal(
+          <div className="hidden sm:block">
+            <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
+          </div>,
+          document.body,
+        )}
 
       {/* Invoice Detail Bottom Sheet (Mobile). Always mounted, so it can
           slide out after the invoice is cleared: the sheet keeps what it was
@@ -938,9 +941,19 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
 
   return (
     <div>
-      {/* Plans on its own row, the same size as the tab's other section headings; the Monthly and Yearly pill centred over the cards (components/billing/plan-cards). */}
+      {/*
+        A CENTRED HEADER OVER THE PLANS (round R1). "The left aligned Plans
+        heading goes." It now reads like the plans page (upgrade-page-client
+        "Choose a plan"), a step smaller inside Settings: centred over the
+        Monthly and Yearly pill and the two cards, with one line under it.
+      */}
       <PlanCards
-        heading={<h2 className="text-[17px] font-bold text-[#1a1a2e]">Plans</h2>}
+        heading={
+          <div className="mx-auto max-w-[560px] pt-1 text-center sm:pt-2" data-plans-header="">
+            <h2 className="text-[26px] font-bold leading-[1.1] tracking-[-0.02em] text-[#1a1a2e] sm:text-[32px]">Plans and pricing</h2>
+            <p className="mt-2 text-balance text-[14.5px] leading-[1.5] text-[#6b7280] sm:text-[15px]">Start free. Upgrade when you&apos;re ready, and change or cancel anytime.</p>
+          </div>
+        }
         actions={{ free: actionFor("free"), growth: actionFor("growth") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
       />

@@ -9,7 +9,7 @@
 import * as React from "react"
 import { FileImage, Package, Settings2, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_SECONDARY, Card, Notice, api, peekGet } from "@/components/physical/ui"
+import { BTN_SECONDARY, Card, Notice, api, peekGet, prefetchGet, readFresh } from "@/components/physical/ui"
 import { GROUP_LABELS, actorLabel, describeActivity, groupOf, type ActivityEntry, type ActivityGroup } from "@/lib/activity/actions"
 
 type Filter = "all" | ActivityGroup
@@ -17,6 +17,14 @@ const FILTERS: Filter[] = ["all", "products", "orders", "settings", "files"]
 const ICONS: Record<ActivityGroup, React.ComponentType<{ className?: string }>> = { products: Package, orders: ShoppingBag, settings: Settings2, files: FileImage }
 
 type Page = { entries: ActivityEntry[]; more: boolean; missing: boolean }
+
+const EMPTY_LINE: Record<Filter, string> = {
+  all: "When you add a product, ship an order or change a setting, it shows up here.",
+  products: "Adding, renaming, repricing or publishing a product shows up here.",
+  orders: "Fulfilling, cancelling, refunding or a buyer opening a return shows up here.",
+  settings: "Changes to your store, checkout, taxes, shipping and integrations show up here.",
+  files: "Files you delete from your library show up here.",
+}
 
 export function dayLabel(iso: string, now = new Date()): string {
   const d = new Date(iso)
@@ -29,50 +37,78 @@ export function dayLabel(iso: string, now = new Date()): string {
 
 const timeOf = (iso: string) => new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(iso))
 
+const pathOf = (f: Filter, before: number | null = null) => {
+  const q = new URLSearchParams()
+  if (f !== "all") q.set("group", f)
+  if (before) q.set("before", String(before))
+  const qs = q.toString()
+  return `/api/store/activity${qs ? `?${qs}` : ""}`
+}
+
+/**
+ * WHAT A PILL SHOWS THE MOMENT IT IS PRESSED (round R1). "Switching its pills
+ * shows blank, then Nothing here yet after a delay." A press cleared the list
+ * and asked the server again, every time. Now, in order:
+ *
+ *   its own answer, kept   from an earlier press or fetched ahead
+ *                          (components/physical/ui peekGet)
+ *   worked out from All    when All is the whole log (no Show more), every
+ *                          filter is exactly All's rows of that group, so it
+ *                          needs no request at all
+ *   still unknown          a few grey rows the shape of the list, never an
+ *                          empty card and never "Nothing here yet" until the
+ *                          answer says so
+ */
+function firstPage(f: Filter): Page | null {
+  const own = peekGet<Page>(pathOf(f))
+  if (own) return own
+  const all = peekGet<Page>(pathOf("all"))
+  if (f !== "all" && all && !all.more && !all.missing) return { entries: all.entries.filter((e) => groupOf(e.action) === f), more: false, missing: false }
+  return null
+}
+
 export function ActivityPanel() {
   const [filter, setFilter] = React.useState<Filter>("all")
-  /* Drawn at once from what Settings fetched ahead (components/physical/ui prefetchGet). */
-  const kept = peekGet<Page>("/api/store/activity")
-  const [entries, setEntries] = React.useState<ActivityEntry[] | null>(kept?.entries ?? null)
-  const [more, setMore] = React.useState(kept?.more ?? false)
-  const [missing, setMissing] = React.useState(kept?.missing ?? false)
+  /* Each pill's list as far as it has been read: its first page and any Show more after it. */
+  const [lists, setLists] = React.useState<Partial<Record<Filter, Page>>>(() => {
+    const all = firstPage("all")
+    return all ? { all } : {}
+  })
   const [error, setError] = React.useState<string | null>(null)
   const [loadingMore, setLoadingMore] = React.useState(false)
+  const shown = lists[filter] ?? firstPage(filter)
+  const entries = shown?.entries ?? null
+  const more = shown?.more ?? false
+  const missing = shown?.missing ?? false
 
-  const fetchPage = React.useCallback(async (f: Filter, before: number | null) => {
-    const q = new URLSearchParams()
-    if (f !== "all") q.set("group", f)
-    if (before) q.set("before", String(before))
-    const qs = q.toString()
-    return api<Page>(`/api/store/activity${qs ? `?${qs}` : ""}`)
-  }, [])
-
+  /* The pill's own first page, read now (kept, so a second press is instant), and the other pills' fetched ahead once All says they need it. */
   React.useEffect(() => {
     let live = true
-    /* A change of filter clears the list; the first read keeps what was fetched ahead on screen. */
-    if (filter !== "all" || !peekGet("/api/store/activity")) setEntries(null)
     setError(null)
-    void fetchPage(filter, null).then((r) => {
+    const path = pathOf(filter)
+    /* Drawn from what is kept, and always read again behind it: a change made a moment ago elsewhere shows up here. */
+    void readFresh<Page>(path).then((r) => {
       if (!live) return
-      if ("error" in r) return setError(r.error)
-      setEntries(r.data.entries)
-      setMore(r.data.more)
-      setMissing(r.data.missing)
+      if (!r.ok) return setError(r.error)
+      setLists((l) => ({ ...l, [filter]: r.data }))
+      if (filter === "all" && r.data.more) prefetchGet(FILTERS.filter((f) => f !== "all").map((f) => pathOf(f)))
     })
     return () => {
       live = false
     }
-  }, [filter, fetchPage])
+  }, [filter])
 
   const showMore = async () => {
     const last = entries?.[entries.length - 1]
     if (!last) return
     setLoadingMore(true)
-    const r = await fetchPage(filter, last.id)
+    const r = await api<Page>(pathOf(filter, last.id))
     setLoadingMore(false)
-    if ("error" in r) return setError(r.error)
-    setEntries((list) => [...(list ?? []), ...r.data.entries])
-    setMore(r.data.more)
+    if (!r.ok) return setError(r.error)
+    setLists((l) => {
+      const base = l[filter] ?? shown ?? { entries: [], more: false, missing: false }
+      return { ...l, [filter]: { ...base, entries: [...base.entries, ...r.data.entries], more: r.data.more } }
+    })
   }
 
   const days: { label: string; rows: ActivityEntry[] }[] = []
@@ -86,26 +122,51 @@ export function ActivityPanel() {
   return (
     <div className="space-y-4 sm:space-y-6" data-activity-panel="">
       <Card title="Activity" description="Every change made to your store: products, orders, settings and files, who made it and when.">
-        <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Show" data-activity-filters="">
-          {FILTERS.map((f) => (
-            <button key={f} type="button" role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} className={cn("inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium transition-colors", filter === f ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8f9fa]")}>
-              {f === "all" ? "All" : GROUP_LABELS[f]}
-            </button>
-          ))}
+        {/* Storelib's pills (Settings' own row): words on the card, the open one on a soft grey fill with a hairline, eased in place. */}
+        <div className="-mx-1 mb-4 flex gap-1 overflow-x-auto px-1 py-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Show" data-activity-filters="">
+          {FILTERS.map((f) => {
+            const on = filter === f
+            return (
+              <button
+                key={f}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                onClick={() => setFilter(f)}
+                onPointerEnter={() => prefetchGet([pathOf(f)])}
+                className={cn(
+                  "inline-flex h-9 shrink-0 items-center rounded-full px-3.5 text-[13.5px] font-medium outline-none transition-[color,background-color,box-shadow] duration-150 ease-out focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
+                  on ? "bg-[#f3f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_#d1d5db,0_1px_2px_rgba(0,0,0,0.04)]" : "text-[#6b7280] hover:bg-[#f7f7f8] hover:text-[#1a1a2e] active:bg-[#f3f4f6]",
+                )}
+              >
+                {f === "all" ? "All" : GROUP_LABELS[f]}
+              </button>
+            )
+          })}
         </div>
 
-        {error ? <Notice>{error}</Notice> : null}
+        {error && !entries ? <Notice>{error}</Notice> : null}
         {missing ? <Notice>The activity log needs SQL part 113 (supabase/sql/run-now/113_store_activity.sql). Once it has run, changes show here from then on.</Notice> : null}
 
         {entries === null && !error ? (
-          <div className="min-h-[200px]" aria-busy="true" />
+          <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" aria-busy="true" aria-label="Loading" data-activity-loading="">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className="flex items-center gap-3 px-3.5 py-3">
+                <span aria-hidden className="h-8 w-8 shrink-0 rounded-lg bg-[#f3f4f6]" />
+                <span className="min-w-0 flex-1 space-y-1.5">
+                  <span aria-hidden className="block h-3.5 rounded bg-[#f1f2f4]" style={{ width: `${62 - i * 9}%` }} />
+                  <span aria-hidden className="block h-3 w-24 rounded bg-[#f5f6f7]" />
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : entries && entries.length === 0 && !missing ? (
-          <div className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-[#e3e5e8] px-4 py-8 text-center" data-activity-empty="">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">Nothing here yet</p>
-            <p className="mt-1 text-[13px] text-[#6b7280]">When you add a product, ship an order or change a setting, it shows up here.</p>
+          <div key={filter} className="flex min-h-[160px] flex-col items-center justify-center rounded-xl border border-dashed border-[#e3e5e8] px-4 py-8 text-center animate-in fade-in-50 duration-150 motion-reduce:animate-none" data-activity-empty="">
+            <p className="text-[14px] font-medium text-[#1a1a2e]">{filter === "all" ? "Nothing here yet" : `No ${GROUP_LABELS[filter].toLowerCase()} changes yet`}</p>
+            <p className="mt-1 text-[13px] text-[#6b7280]">{EMPTY_LINE[filter]}</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div key={filter} className="space-y-5 animate-in fade-in-50 duration-150 motion-reduce:animate-none" data-activity-list={filter}>
             {days.map((d) => (
               <section key={d.label} aria-label={d.label}>
                 <h3 className="mb-1.5 text-[12.5px] font-semibold text-[#6b7280]">{d.label}</h3>
