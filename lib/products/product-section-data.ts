@@ -153,7 +153,7 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
   /* Whether each can be bought: stock for what ships, the purchase limit for the rest. */
   let stock = new Map<string, { soldOut: boolean; left: number | null; maxQuantity: number; lowAt?: number }>()
   if (type === "physical" && row.creator_id && variantsLive.length) {
-    stock = await physicalStock(db, { creator_id: row.creator_id, track_inventory: row.track_inventory, continue_selling: row.continue_selling, low_stock_threshold: row.low_stock_threshold ?? null }, variantsLive.map((v) => ({ id: v.id, name: v.name ?? "", active: v.active, track_inventory: v.track_inventory, inventory_policy: v.inventory_policy })))
+    stock = await physicalStock(db, { id: row.id, creator_id: row.creator_id, track_inventory: row.track_inventory, continue_selling: row.continue_selling, low_stock_threshold: row.low_stock_threshold ?? null }, variantsLive.map((v) => ({ id: v.id, name: v.name ?? "", active: v.active, track_inventory: v.track_inventory, inventory_policy: v.inventory_policy })))
   }
   const limited = new Set<string>()
   if (type !== "physical") {
