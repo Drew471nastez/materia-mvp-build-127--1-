@@ -3,6 +3,9 @@
 import { SectionTitleRename } from "@/components/website-builder/editor/section-title-rename"
 import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/website-builder/save-problem"
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
+import { SyncNotice, useSyncStatus, type AgentNote, type SyncConflict } from "@/components/website-builder/github-sync-notice"
+import type { ReportFile, SyncAction } from "@/lib/github-sync/editor-status"
+import { isGitHubName } from "@/lib/agent-access/connection-mark"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
 import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
@@ -136,7 +139,7 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
+import { forgetCompatFiles, loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows } from "@/lib/website-builder/favicon-sync"
@@ -2901,7 +2904,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (e.origin !== window.location.origin) return
       const data = e.data as { type?: string; dirty?: boolean; path?: string } | null
       if (data?.type === "storelib:code-dirty") setCodeDirty(Boolean(data.dirty))
-      if (data?.type === "storelib:file-saved") void loadStorelibSources()
+      /* A file saved in the code editor is a draft: the site has something to publish, whichever page is open. */
+      if (data?.type === "storelib:file-saved") {
+        void loadStorelibSources()
+        setUnpublished(true)
+      }
     }
     window.addEventListener("message", onMessage)
     return () => window.removeEventListener("message", onMessage)
@@ -3010,6 +3017,27 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * resetting to a comfortable false.
    */
   const [unpublished, setUnpublished] = useState(false)
+
+  /**
+   * ANYTHING TO PUBLISH, ANYWHERE, AND WHAT THE LAST GITHUB SYNC DID.
+   * `has_draft` above is the open page's alone, so a push or an agent that
+   * changed a section file, a snippet or the settings left Publish reading
+   * "Published" with the change sitting in the draft. The server's answer
+   * covers every page, the settings and every file (the same drafts Publish
+   * promotes), and holds after a reload: components/website-builder/
+   * github-sync-notice.tsx, lib/github-sync/editor-status.ts.
+   */
+  const { status: syncStatus, refresh: refreshSync } = useSyncStatus(installId)
+  useEffect(() => {
+    if (syncStatus.pending?.any) setUnpublished(true)
+  }, [syncStatus.pending])
+  /** GitHub rewrote what is open here while it had an edit not saved yet: nothing autosaves until one is picked. */
+  const [syncConflict, setSyncConflict] = useState<SyncConflict | null>(null)
+  const syncConflictRef = useRef<SyncConflict | null>(null)
+  syncConflictRef.current = syncConflict
+  /** Changes a connected agent (not GitHub) made in this visit, for "3 changes from Claude Code. Publish to make them live." */
+  const [agentNote, setAgentNote] = useState<AgentNote | null>(null)
+  /** An imported theme's own files changed underneath the canvas (a push or an agent): it reads them again. */
 
   /**
    * A PAGE SWITCH IS IN FLIGHT.
@@ -4135,6 +4163,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * Awaited, not fired and forgotten: the write must land while
      * `currentPage` and `sections` still agree about which page they describe.
      */
+    /* An edit here and GitHub's version of the same page: switching would save one over the other unasked. */
+    if (syncConflictRef.current) {
+      showNotification("Pick which version to keep first", "error")
+      return
+    }
     if (isDirty && !saving && !publishing) {
       await saveDraft({ quiet: true })
     }
@@ -5552,7 +5585,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * would write a state nobody has finished producing.
    */
   useEffect(() => {
-    if (!isDirty || saving || publishing || loading) return
+    /* Not over a version GitHub just wrote, until the creator picks (syncConflict). */
+    if (!isDirty || saving || publishing || loading || syncConflict) return
     const timer = setTimeout(() => {
       // Checked when it FIRES, not when it was scheduled: the switch may have
       // started in between, and that is the whole window this guards.
@@ -5563,7 +5597,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // `saveDraft` is redefined on every render and is not a dependency worth
     // tracking: what should restart the timer is a CHANGE, not a re-render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isDirty, saving, publishing, loading, sections, settingsDraft])
+  }, [isDirty, saving, publishing, loading, sections, settingsDraft, syncConflict])
 
   // Save header/footer to all pages so they stay universal
   const syncHeaderFooterToAllPages = async (mode: "draft" | "publish" = "draft") => {
@@ -5631,7 +5665,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
-  const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
+  const saveDraft = async (options: { quiet?: boolean; keepMine?: boolean } = {}): Promise<boolean> => {
+    /* Never over GitHub's version while the creator has not picked (syncConflict), unless saving IS their pick. */
+    if (syncConflictRef.current) {
+      if (!options.keepMine) {
+        showNotification("Pick which version to keep first", "error")
+        return false
+      }
+      setSyncConflict(null)
+    }
     /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
     const t0 = performance.now()
     try {
@@ -5675,14 +5717,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const publishChanges = async () => {
+    /* Two versions of the same page: which one goes live is the creator's to say first. */
+    if (syncConflictRef.current) {
+      showNotification("Pick which version to keep first", "error")
+      return
+    }
     setPublishing(true)
     try {
       /*
-        1. Save what is in the editor: the settings, this page, and the
-           header, footer and overlay groups onto every other page. Three
-           writes to different rows, so at the same time rather than one
-           after another; each one ends (lib/website-builder/save-request).
+        1. Save what is in the editor and not saved yet. Only then: with
+        nothing unsaved, the draft on the server already is this editor's
+        work, plus whatever GitHub or an agent wrote since, and writing this
+        copy again would put the editor's older copy of the settings and
+        this page over a push it had not read yet. Publish publishes the
+        draft, exactly. The writes go to different rows, so at the same time;
+        each one ends (lib/website-builder/save-request).
       */
+      if (isDirty) {
       const [settingsRes, sectionsRes] = await Promise.all([
         putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft }),
         putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
@@ -5699,6 +5750,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
         setPublishing(false)
         return
+      }
       }
 
       /*
@@ -5729,8 +5781,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setIsDirty(false)
       setUnpublished(false)
       setHasPublished(true)
+      setAgentNote(null)
       snapshotAfterSave()
       showNotification("Changes saved and published")
+      /* Nothing left to publish now; the server says so, and the GitHub line goes with it. */
+      void refreshSync()
     } catch (e) {
       showNotification(
         e instanceof LoadTimeout
@@ -6264,6 +6319,14 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (events.length > 0) setUnpublished(true)
     /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
     if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
+    /* Which of what is open was rewritten, for the conflict line: a page, home's header and footer, or the settings. */
+    let replacedWhat: string | null = null
+    /* An agent's own changes, counted for the "Publish to make them live" line (a push says its own, from the server). */
+    const byAgents = events.filter((ev) => !isGitHubName(ev.agent_name))
+    if (byAgents.length) {
+      const who = byAgents[byAgents.length - 1].agent_name
+      setAgentNote((prev) => (prev && prev.who === who ? { who, count: prev.count + byAgents.length } : { who, count: byAgents.length }))
+    }
     const files = await loadStorelibSources()
     const custom = files ? customSectionSchemas(files) : {}
     /* One poll can hold two writers; each gets its own run of lines. */
@@ -6318,7 +6381,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       /* A page or the settings rewritten whole: this one, home's header and footer, or the settings, are on screen now. */
       if (ev.detail?.replaced) {
         const page = ev.detail.page ?? null
-        if (page === null || page === currentPageRef.current || page === "home") replacedHere = true
+        if (page === null || page === currentPageRef.current || page === "home") {
+          replacedHere = true
+          replacedWhat = page === null ? "the theme settings" : page === currentPageRef.current ? "this page" : "the header and footer"
+        }
       }
     }
     /*
@@ -6329,19 +6395,77 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       instead, and the line says how to take GitHub's version.
     */
     if (replacedHere) {
-      if (!isDirty && !saving && !publishing) {
+      if (!isDirtyRef.current && !savingRef.current && !publishing) {
         clearHistory()
         await loadData()
       } else {
-        changes.push({ key: "github-kept", text: "Your unsaved edit is kept. Pull from GitHub after it saves to take theirs.", sectionType: null })
+        /*
+          BOTH CHANGED IT. The edit here is not saved yet and the draft under
+          it is GitHub's now. Autosave would have written this copy over
+          theirs without a word; it waits instead, and the creator picks.
+        */
+        setSyncConflict({ what: replacedWhat ?? "this page", by: who })
+        changes.push({ key: "github-conflict", text: "Your unsaved edit is kept until you pick a version.", sectionType: null })
       }
     }
     flush()
+    void refreshSync()
+  }
+  /** The conflict line's two buttons. */
+  const keepMyVersion = () => setSyncConflict(null)
+  const takeGitHubVersion = async () => {
+    setSyncConflict(null)
+    setIsDirty(false)
+    clearHistory()
+    await loadData()
+  }
+  /**
+   * One button of the sync line, through the requests Website settings ›
+   * GitHub already uses (rate limited per site there): Pull, Push, and a
+   * built-in back to Storelib's version. Reconnect and Pick repository open
+   * that panel. Resolves to the words to show when it did not work.
+   */
+  const runSyncAction = async (action: SyncAction, file?: ReportFile): Promise<string | null> => {
+    if (action === "open") {
+      if (file?.url) window.open(file.url, "_blank", "noopener,noreferrer")
+      return null
+    }
+    if (action === "reconnect" || action === "repo") {
+      openGitHub()
+      return null
+    }
+    const post = async (body: Record<string, unknown>) => {
+      try {
+        const r = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/github`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        })
+        const d = (await r.json().catch(() => ({}))) as { error?: string }
+        return { status: r.status, error: r.ok ? null : (d.error ?? "That didn't work. Try again in a minute.") }
+      } catch {
+        return { status: 0, error: "Couldn't reach Storelib. Check your connection and try again." }
+      }
+    }
+    let result: { status: number; error: string | null }
+    if (action === "reset" && file) {
+      /* The site's own copy goes, or, when it never took one, Storelib's text goes back to GitHub with a Push. */
+      result = await post({ action: "reset-override", path: file.path })
+      if (result.status === 404) result = await post({ action: "export" })
+    } else if (action === "push" || (action === "retry" && syncStatus.github?.direction === "to_github")) {
+      result = await post({ action: "export" })
+    } else {
+      result = await post({ action: "pull" })
+    }
+    await refreshSync()
+    if (!result.error) void loadStorelibSources()
+    return result.error
   }
   const { brief: connectionsBrief, following: agentConnected, settled: connectionsSettled } = useSiteActivity({
     installId,
     recheck: projectSettingsOpen,
     onEvents: handleAgentEvents,
+    onSyncChanged: () => void refreshSync(),
   })
   /**
    * WHAT IS OPEN, for a connected agent's storelib_read_selected_section.
@@ -8174,7 +8298,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /** Save, from the leave dialog: the draft is written and then the page goes where it was going. */
   const saveThenLeave = async (): Promise<boolean> => {
-    const ok = await saveDraft({ quiet: true })
+    /* Save, pressed on the way out, keeps this editor's version. */
+    const ok = await saveDraft({ quiet: true, keepMine: true })
     if (!ok) return false
     const href = pendingExit
     setPendingExit(null)
@@ -8971,6 +9096,28 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       )}
 
       {/* ── A save that did not go through: what happened and the one thing to do ── */}
+      {/* ── What came in from GitHub or an agent, what didn't, and two versions of one page: lib/github-sync/editor-status.ts ── */}
+      <div className="pointer-events-none fixed left-0 right-0 flex flex-col items-center gap-2" style={{ top: `calc(env(safe-area-inset-top, 0px) + ${saveProblem ? 116 : 60}px)`, zIndex: 100 }}>
+        <SyncNotice
+          installId={installId}
+          report={syncStatus.github}
+          pending={syncStatus.pending}
+          live={install?.status === "published"}
+          publishedAt={install?.published_at ?? null}
+          unpublished={unpublished}
+          agentNote={agentNote}
+          conflict={syncConflict}
+          phone={isMobileView}
+          onPublish={() => {
+            setPublishOpen(true)
+            if (isMobileView) { setMobileSidebarOpen(false); setAiOpen(false) }
+          }}
+          onAction={runSyncAction}
+          onKeepMine={keepMyVersion}
+          onUseTheirs={() => void takeGitHubVersion()}
+          onAgentNoteSeen={() => setAgentNote(null)}
+        />
+      </div>
       {saveProblem ? (
         <div className="pointer-events-none fixed left-0 right-0 z-[99] flex justify-center" style={{ top: "calc(env(safe-area-inset-top, 0px) + 60px)", zIndex: 101 }}>
           <SaveProblemBanner

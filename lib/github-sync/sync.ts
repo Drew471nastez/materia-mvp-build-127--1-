@@ -70,9 +70,18 @@ const TIME_BUDGET_MS = 45_000
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/+$/, "")
 
+/**
+ * What kind of problem a file had, so the builder can say it in plain words
+ * and offer the one button that fixes it (lib/github-sync/editor-status.ts).
+ * `error` stays the developer's line, for the commit comment.
+ */
+export type FileProblemKind = "invalid" | "wrong-kind" | "built-in" | "theme-settings" | "binary" | "too-large" | "not-saved" | "unreadable" | "page"
+
 export interface FileProblem {
   path: string
   error: string
+  kind?: FileProblemKind
+  line?: number
 }
 
 export interface FileNote {
@@ -94,12 +103,16 @@ export interface LastSync {
   problem?: string
   /** When the commit this sync applied was made: a push whose head is older is not applied. */
   head_at?: string | null
+  /** Theme files a push changed that were not read (too many in one push, or out of time): Pull takes them. */
+  unread?: number
 }
 
 export interface SyncState {
   /** Path in the theme to the blob GitHub and Storelib last agreed on. */
   files?: Record<string, string>
   last?: LastSync
+  /** The newest push to another branch of the linked repository, which Storelib does not read. */
+  ignored?: { branch: string; at: string; commit: string | null }
 }
 
 export interface GitHubLink {
@@ -222,7 +235,7 @@ export async function exportSite(
   } catch (e) {
     const x = e instanceof GitHubError ? explainFailure(e, { repo: link.repo_full_name, branch: link.branch }) : null
     const line = x ? failureLine(x) : "Something went wrong sending the theme to GitHub. Press Push again."
-    const last: LastSync = { at, direction: "to_github", commit: null, ok: false, saved: [], failed: [], notes: [], problem: x?.problem ?? "unknown" }
+    const last: LastSync = { at, direction: "to_github", commit: null, ok: false, saved: [], failed: [], notes: [], problem: x?.problem ?? "unknown", head_at: link.sync_state?.last?.head_at ?? null }
     await saveLink(db, link.install_id, { last_error: line, sync_state: { ...(link.sync_state ?? {}), last } })
     await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `${deps.reason ? `${deps.reason}, not sent` : "Not sent"}: ${line}` })
     throw new SyncError(line)
@@ -244,9 +257,17 @@ export interface ApplyResult {
   notes: FileNote[]
   /** The blobs now agreed on, for sync_state.files. */
   shas: Record<string, string>
+  /** Files not reached before the time ran out: Pull takes them. */
+  unread?: number
 }
 
 const looksBinary = (b: Uint8Array) => b.subarray(0, 8000).includes(0)
+
+/** "line 12" in a checker's message, as a number. */
+function lineOf(message: string): number | undefined {
+  const m = /\bline (\d{1,6})\b/.exec(message)
+  return m ? Number(m[1]) : undefined
+}
 
 /** The same value, written the same way: key order and spacing do not count as a change. */
 function stable(value: unknown): string {
@@ -334,6 +355,7 @@ export async function applyFiles(
   for (const f of files) {
     if (opts.deadline && Date.now() > opts.deadline) {
       out.notes.push({ path: f.path, note: `${f.path} was not reached in time. Press Pull to finish.` })
+      out.unread = (out.unread ?? 0) + 1
       continue
     }
     const role = roleOf(f.path, compat)
@@ -351,7 +373,7 @@ export async function applyFiles(
     }
     if (role === "template" || role === "group") {
       if (looksBinary(f.bytes)) {
-        out.failed.push({ path: f.path, error: `${f.path}: not a text file` })
+        out.failed.push({ path: f.path, error: `${f.path}: not a text file`, kind: "binary" })
         continue
       }
       pageFiles[f.path] = Buffer.from(f.bytes).toString("utf8")
@@ -363,7 +385,7 @@ export async function applyFiles(
       text = `base64:${Buffer.from(f.bytes).toString("base64")}`
     } else {
       if (looksBinary(f.bytes)) {
-        out.failed.push({ path: f.path, error: `${f.path}: a binary file here is not read. Only text files and fonts are.` })
+        out.failed.push({ path: f.path, error: `${f.path}: a binary file here is not read. Only text files and fonts are.`, kind: "binary" })
         continue
       }
       text = Buffer.from(f.bytes).toString("utf8")
@@ -372,12 +394,12 @@ export async function applyFiles(
     if (role === "settings") {
       const bad = jsonError(f.path, text)
       if (bad) {
-        out.failed.push({ path: f.path, error: bad })
+        out.failed.push({ path: f.path, error: bad, kind: "invalid", line: lineOf(bad) })
         continue
       }
       const v = JSON.parse(text) as unknown
       if (!v || typeof v !== "object" || Array.isArray(v)) {
-        out.failed.push({ path: f.path, error: `${f.path}: must be one JSON object of settings` })
+        out.failed.push({ path: f.path, error: `${f.path}: must be one JSON object of settings`, kind: "invalid" })
         continue
       }
       let next = { ...(v as Record<string, unknown>) }
@@ -394,7 +416,7 @@ export async function applyFiles(
       next = sanitizeThemeSettings(next)
       const stop = await backup()
       if (stop) {
-        out.failed.push({ path: f.path, error: `${f.path}: ${stop}` })
+        out.failed.push({ path: f.path, error: `${f.path}: ${stop}`, kind: "not-saved" })
         continue
       }
       const upd = await db.from("store_theme_settings").update({ draft_settings: next }).eq("install_id", link.install_id).select("install_id")
@@ -402,7 +424,7 @@ export async function applyFiles(
       if (!wrote) {
         const ins = upd.error ? upd : await db.from("store_theme_settings").insert({ install_id: link.install_id, settings: {}, draft_settings: next })
         if (ins.error) {
-          out.failed.push({ path: f.path, error: `${f.path}: could not be saved just now. Push again.` })
+          out.failed.push({ path: f.path, error: `${f.path}: could not be saved just now. Push again.`, kind: "not-saved" })
           continue
         }
       }
@@ -414,27 +436,30 @@ export async function applyFiles(
     }
 
     /* A theme's own file: a .storelib source, an imported theme's file, a font, an asset. */
+    /* A copy of one of Storelib's own sections or blocks: a refusal of it offers Storelib's version back. */
+    let builtIn = false
     if (role === "source") {
       const isCompat = isCompatSource(text)
       if (snap.compat && !isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: this is an imported Shopify theme, so its files start with <template compat="shopify">. Copy that line and the schema layout from another file in the same folder.` })
+        out.failed.push({ path: f.path, error: `${f.path}: this is an imported Shopify theme, so its files start with <template compat="shopify">. Copy that line and the schema layout from another file in the same folder.`, kind: "wrong-kind" })
         continue
       }
       if (!snap.compat && isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: <template compat="shopify"> is for imported Shopify themes. Write it as a Storelib section (https://storelib.com/developers/sections).` })
+        out.failed.push({ path: f.path, error: `${f.path}: <template compat="shopify"> is for imported Shopify themes. Write it as a Storelib section (https://storelib.com/developers/sections).`, kind: "wrong-kind" })
         continue
       }
       const allowed = repoMayWrite(f.path, compat)
       if (allowed.ok === false) {
-        out.failed.push({ path: f.path, error: allowed.error })
+        out.failed.push({ path: f.path, error: allowed.error, kind: "invalid" })
         continue
       }
+      builtIn = allowed.override
       /* An imported theme's settings come from its import: its markup changes here, its <schema> does not. */
       const had = snap.compat && /^(sections|blocks)\//.test(f.path) ? snap.files[f.path] : undefined
       if (had !== undefined) {
         const schemaProblem = compatSchemaChange(f.path, had, text)
         if (schemaProblem) {
-          out.failed.push({ path: f.path, error: schemaProblem })
+          out.failed.push({ path: f.path, error: schemaProblem, kind: "theme-settings" })
           continue
         }
       }
@@ -443,7 +468,7 @@ export async function applyFiles(
         const type = f.path.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, "")
         const problem = newQualityErrors(text, allowed.override ? snap.defaults[f.path] : undefined, f.path, type)
         if (problem) {
-          out.failed.push({ path: f.path, error: `${f.path}: ${problem.message}` })
+          out.failed.push({ path: f.path, error: `${f.path}: ${problem.message}`, kind: allowed.override ? "built-in" : "invalid" })
           continue
         }
       }
@@ -452,13 +477,13 @@ export async function applyFiles(
         parseCompat(text)
       } catch (e) {
         const line = e instanceof CompatSyntaxError ? e.line : undefined
-        out.failed.push({ path: f.path, error: `${f.path}${line ? ` line ${line}` : ""}: ${(e as Error).message}` })
+        out.failed.push({ path: f.path, error: `${f.path}${line ? ` line ${line}` : ""}: ${(e as Error).message}`, kind: "invalid", line })
         continue
       }
     } else if (/\.json$/.test(f.path)) {
       const bad = jsonError(f.path, text)
       if (bad) {
-        out.failed.push({ path: f.path, error: bad })
+        out.failed.push({ path: f.path, error: bad, kind: "invalid", line: lineOf(bad) })
         continue
       }
     }
@@ -467,7 +492,12 @@ export async function applyFiles(
       const first = saved.errors?.[0]
       /* This line becomes a commit comment, which a public repository shows
          to everyone: a database's own words never go into it. */
-      out.failed.push({ path: f.path, error: `${f.path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? publicError(saved.status, saved.error)}` })
+      out.failed.push({
+        path: f.path,
+        error: `${f.path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? publicError(saved.status, saved.error)}`,
+        kind: saved.status === 422 || first ? (builtIn ? "built-in" : "invalid") : "not-saved",
+        line: first?.line,
+      })
       continue
     }
     conflictNote(f.path)
@@ -486,7 +516,7 @@ export async function applyFiles(
     const has = (type: string) =>
       !!SECTION_SCHEMAS[type] || `sections/${type}.storelib` in snap.defaults || `sections/${type}.storelib` in snap.files || savedTypes.has(type)
     const merged = mergePages(snap.pages, pageFiles, { knownTypes: has, maxSections: LIMITS.sectionsPerTemplate, newPageKey: isPageKey })
-    for (const e of merged.errors) out.failed.push({ path: e.path, error: e.reason })
+    for (const e of merged.errors) out.failed.push({ path: e.path, error: e.reason, kind: "page", line: lineOf(e.reason) })
     const failedPaths = new Set(merged.errors.map((e) => e.path))
     const types = new Set(merged.pages.flatMap((p) => p.sections.map((s) => s.type)))
     const own = await readOwnSectionFields(db, link.install_id, types)
@@ -494,13 +524,13 @@ export async function applyFiles(
     for (const page of merged.pages) {
       const file = `templates/${page.page_key}.json`
       if (stop) {
-        out.failed.push({ path: file, error: `${file}: ${stop}` })
+        out.failed.push({ path: file, error: `${file}: ${stop}`, kind: "not-saved" })
         continue
       }
       const sections = sanitizeSections(page.sections as unknown as SectionInstance[], own)
       const tooBig = sections.map((s) => blockTreeProblem(s)).find((p) => p !== null)
       if (tooBig) {
-        out.failed.push({ path: file, error: `${file}: ${tooBig}` })
+        out.failed.push({ path: file, error: `${file}: ${tooBig}`, kind: "page" })
         continue
       }
       const exists = snap.pages.some((p) => p.page_key === page.page_key)
@@ -508,7 +538,7 @@ export async function applyFiles(
         ? await db.from("store_theme_pages").update({ draft_sections: sections }).eq("install_id", link.install_id).eq("page_key", page.page_key)
         : await db.from("store_theme_pages").insert({ install_id: link.install_id, page_key: page.page_key, sections: [], draft_sections: sections })
       if (w.error) {
-        out.failed.push({ path: file, error: `${file}: could not be saved just now. Push again.` })
+        out.failed.push({ path: file, error: `${file}: could not be saved just now. Push again.`, kind: "not-saved" })
         continue
       }
       await logActivity(db, link.install_id, who, { path: `pages/${page.page_key}`, action: exists ? "page" : "page_created", detail: { page: page.page_key, replaced: true } })
@@ -576,7 +606,7 @@ async function readIncoming(token: string, repo: string, files: Map<string, { sh
       const entry = files.get(`${root}${path}`)
       if (!entry) continue
       if (entry.size > 20 * 1024 * 1024) {
-        failed.push({ path, error: `${path}: over 20 MB, which Storelib does not take` })
+        failed.push({ path, error: `${path}: over 20 MB, which Storelib does not take`, kind: "too-large" })
         continue
       }
       /* Already agreed on, or already the site's own bytes: no need to download it to know. */
@@ -587,7 +617,7 @@ async function readIncoming(token: string, repo: string, files: Map<string, { sh
       try {
         incoming.push({ path, bytes: await blobAt(token, repo, entry.sha), sha: entry.sha })
       } catch (e) {
-        failed.push({ path, error: `${path}: ${e instanceof GitHubError ? failureLine(explainFailure(e, { repo })) : "could not be read from GitHub"}` })
+        failed.push({ path, error: `${path}: ${e instanceof GitHubError ? failureLine(explainFailure(e, { repo })) : "could not be read from GitHub"}`, kind: "unreadable" })
       }
     }
   }
@@ -597,17 +627,41 @@ async function readIncoming(token: string, repo: string, files: Map<string, { sh
 
 async function finish(db: Db, link: GitHubLink, r: ApplyResult & { removed?: string[] }, commit: string, direction: "from_github", how: string, headAt: string | null = null) {
   const at = new Date().toISOString()
-  const last: LastSync = { at, direction, commit, ok: r.failed.length === 0, saved: r.saved, failed: r.failed, notes: r.notes, head_at: headAt ?? at }
+  const last: LastSync = { at, direction, commit, ok: r.failed.length === 0, saved: r.saved, failed: r.failed, notes: r.notes, head_at: headAt ?? at, ...(r.unread ? { unread: r.unread } : {}) }
   const files = { ...(link.sync_state?.files ?? {}), ...r.shas }
   await saveLink(db, link.install_id, {
     last_synced_sha: commit,
     last_synced_at: at,
     last_error: r.failed.length ? `${r.failed.length} file${r.failed.length === 1 ? " was" : "s were"} not taken. ${r.failed[0].error}` : null,
-    sync_state: { files, last },
+    sync_state: { ...(link.sync_state ?? {}), files, last },
   })
   if (r.saved.length || r.failed.length) {
     await recordEvent(db, link.install_id, { direction, ok: r.failed.length === 0, summary: takenSummary(r, how), commit_sha: commit })
   }
+}
+
+/**
+ * A push that could not be taken at all (GitHub would not answer, the site
+ * could not be read, too many files, the branch was deleted), kept on the
+ * link as the last sync so the builder shows it, with its fix, after a
+ * reload and on any device. What was applied before (the agreed files, the
+ * last commit, its time) is left exactly as it was.
+ */
+async function failWhole(db: Db, link: GitHubLink, e: { problem: string; line: string; commit: string | null; unread?: number }) {
+  const prev = link.sync_state ?? {}
+  const last: LastSync = {
+    at: new Date().toISOString(),
+    direction: "from_github",
+    commit: e.commit,
+    ok: false,
+    saved: [],
+    failed: [],
+    notes: [],
+    problem: e.problem,
+    head_at: prev.last?.head_at ?? null,
+    ...(e.unread ? { unread: e.unread } : {}),
+  }
+  await saveLink(db, link.install_id, { last_error: e.line, sync_state: { ...prev, last } })
 }
 
 /** "Pull from GitHub": every theme file on the linked branch, now. */
@@ -680,28 +734,52 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
   const repoId = payload.repository?.id
   const repo = payload.repository?.full_name
   const after = payload.after
-  if (!branch || !repoId || !repo || !after || payload.deleted) return []
-  if (isOwnPush(payload, cfg.slug)) return []
+  if (!branch || !repoId || !repo || !after) return []
+  if (!payload.deleted && isOwnPush(payload, cfg.slug)) return []
   const deadline = Date.now() + TIME_BUDGET_MS
 
-  const { data } = await db.from("theme_github_links").select("*").eq("repo_id", repoId).eq("branch", branch).limit(100)
-  /* A site whose creator switched incoming changes off is left alone, and so
-     is a link made through another installation than the one GitHub says
-     sent this: its token is not the one that can read this repository. And a
-     push whose head is the commit Storelib itself last wrote is its own. */
+  /* Every site linked to this repository, on any branch: the others are told their push was not read. */
+  const { data } = await db.from("theme_github_links").select("*").eq("repo_id", repoId).limit(200)
+  /* A link made through another installation than the one GitHub says sent
+     this is not this push's: its token is not the one that can read this
+     repository, and a push it did not send must not write on its link. */
   const from = Number(payload.installation?.id)
-  const links = ((data ?? []) as GitHubLink[]).filter(
-    (l) => l.pull_on_push !== false && (!Number.isSafeInteger(from) || Number(l.installation_id) === from) && l.last_synced_sha !== after,
-  )
+  const reachable = ((data ?? []) as GitHubLink[]).filter((l) => !Number.isSafeInteger(from) || Number(l.installation_id) === from)
+
+  /* The linked branch was deleted on GitHub: nothing to take, and the builder says what to do. */
+  if (payload.deleted) {
+    for (const l of reachable.filter((x) => x.branch === branch)) {
+      const line = `The ${branch} branch was deleted on GitHub. Press Push to make it again, or pick another branch under Change repository.`
+      await failWhole(db, l, { problem: "branch-deleted", line, commit: null })
+      await recordEvent(db, l.install_id, { direction: "from_github", ok: false, summary: line })
+    }
+    return []
+  }
+
+  /* A push to another branch is not read. Said once on the link, so the builder can say why nothing changed. */
+  for (const l of reachable) {
+    if (!l.branch || l.branch === branch || l.pull_on_push === false) continue
+    const prev = l.sync_state ?? {}
+    const sameBranch = prev.ignored?.branch === branch
+    await saveLink(db, l.install_id, { sync_state: { ...prev, ignored: { branch, at: new Date().toISOString(), commit: after } } })
+    if (!sameBranch) {
+      await recordEvent(db, l.install_id, { direction: "from_github", ok: true, summary: `A push to ${branch} was not read: this site follows ${l.branch}. Merge it into ${l.branch} to bring it in.`, commit_sha: after })
+    }
+  }
+
+  /* A site whose creator switched incoming changes off is left alone. And a
+     push whose head is the commit Storelib itself last wrote is its own. */
+  const links = reachable.filter((l) => l.branch === branch && l.pull_on_push !== false && l.last_synced_sha !== after)
   if (links.length === 0) return []
 
   let token: string
   try {
     token = await installationToken(cfg, links[0].installation_id)
   } catch (e) {
-    const line = e instanceof GitHubError ? failureLine(explainFailure(e, { repo, branch })) : "GitHub could not be reached."
+    const x = e instanceof GitHubError ? explainFailure(e, { repo, branch }) : null
+    const line = x ? failureLine(x) : "GitHub could not be reached."
     for (const l of links) {
-      await saveLink(db, l.install_id, { last_error: line })
+      await failWhole(db, l, { problem: x?.problem ?? "unreachable", line, commit: after })
       await recordEvent(db, l.install_id, { direction: "from_github", ok: false, summary: `A push to ${branch} was not read: ${line}`, commit_sha: after })
     }
     return []
@@ -728,7 +806,7 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
       const { data: install } = await db.from("store_theme_installs").select("name").eq("id", link.install_id).maybeSingle()
       snap = await readSnapshot(db, link.install_id, { name: (install?.name as string) || "Site" })
     } catch {
-      await saveLink(db, link.install_id, { last_error: "Storelib could not read this website to take a push. Press Pull to try again." })
+      await failWhole(db, link, { problem: "site-unreadable", line: "Storelib could not read this website to take a push. Press Pull to try again.", commit: after })
       continue
     }
     const accept = (p: string) => readsBack(roleOf(p, { compat: snap.compat })) || ["media", "reference", "generated"].includes(roleOf(p, { compat: snap.compat }))
@@ -739,7 +817,7 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     }
     if (changed.length > MAX_FILES_PER_PUSH) {
       out.skipped = `${changed.length} theme files in one push; at most ${MAX_FILES_PER_PUSH} are read from a push. Press Pull in the builder to take them all.`
-      await saveLink(db, link.install_id, { last_error: out.skipped })
+      await failWhole(db, link, { problem: "too-many", line: out.skipped, commit: after, unread: changed.length })
       await recordEvent(db, link.install_id, { direction: "from_github", ok: false, summary: `${who} pushed ${out.skipped}`, commit_sha: after })
       outcomes.push(out)
       continue
@@ -751,8 +829,9 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     try {
       tree ??= (await treeAt(token, repo, after)).files
     } catch (e) {
-      const line = e instanceof GitHubError ? failureLine(explainFailure(e, { repo, branch })) : "GitHub could not be reached."
-      await saveLink(db, link.install_id, { last_error: line })
+      const x = e instanceof GitHubError ? explainFailure(e, { repo, branch }) : null
+      const line = x ? failureLine(x) : "GitHub could not be reached."
+      await failWhole(db, link, { problem: x?.problem ?? "unreachable", line, commit: after })
       outcomes.push({ ...out, failed: [{ path: "", error: line }] })
       continue
     }
