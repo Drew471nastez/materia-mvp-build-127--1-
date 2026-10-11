@@ -21,12 +21,15 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/storelib-reviews.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/canvas20.test.ts",
   "tests/files-picker19.test.ts",
+  "tests/files-w6.test.ts",
   "tests/perf-speed18.test.ts",
   "tests/perf-health18.test.ts",
+  "tests/perf-collect.test.ts",
   "tests/profile-display-name.test.ts",
   "tests/new-tab-links.test.ts",
   "tests/lean-images.test.ts",
@@ -45,6 +48,10 @@ const SUITES = [
   "tests/compat-accounts.test.ts",
   "tests/compat-storefront-accuracy.test.ts",
   "tests/compat-section-preview.test.ts",
+  "tests/canvas-loading.test.ts",
+  "tests/compat-recently-viewed.test.ts",
+  "tests/compat-header-cards.test.ts",
+  "tests/shopify-overlay-import.test.ts",
   "tests/editor-save-errors.test.ts",
   "tests/builder-october-fixes.test.ts",
   "tests/editor-inspector.test.ts",
@@ -131,6 +138,8 @@ const SUITES = [
   "tests/cart-checkout.test.ts",
   "tests/basket-checkout.test.ts",
   "tests/site-checkout.test.ts",
+  "tests/owned-checkout.test.ts",
+  "tests/membership-duplicates.test.ts",
   "tests/checkout-safety.test.ts",
   "tests/checkout-receipt.test.ts",
   "tests/return-to.test.ts",
@@ -339,6 +348,7 @@ const SUITES = [
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",
+  "tests/github-theme-sync.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",
@@ -534,6 +544,8 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  "tests/physical-w7.test.ts",
+  "tests/editor-engine-w4b.test.ts",
   /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
   "tests/orders20.test.ts",
   /* Round 21 */

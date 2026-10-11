@@ -124,6 +124,8 @@ export const SITE_ROUTES = Object.freeze({
   /** POST `confirm=delete`: deletes the signed-in customer's own account on this website. */
   account_delete_url: "/api/site-account/delete",
   account_logout_url: "/account/logout",
+  /** Track your order without an account: the order number and email, the link emailed (app/checkout/site/track). */
+  order_lookup_url: "/checkout/track",
   /** The password page a website shows while it asks for a password. */
   password_url: "/password",
   /** POST `password` (and `return`, a path): lets the visitor in for thirty days. */

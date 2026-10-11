@@ -59,12 +59,13 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       count: boolean
       head: boolean
       limit: number | null
+      offset: number
       single: "one" | "maybe" | null
       payload: any
       returning: boolean
       conflict: string[] | null
       ignoreDuplicates: boolean
-    } = { op: "select", filters: [], select: null, count: false, head: false, limit: null, single: null, payload: null, returning: false, conflict: null, ignoreDuplicates: true }
+    } = { op: "select", filters: [], select: null, count: false, head: false, limit: null, offset: 0, single: null, payload: null, returning: false, conflict: null, ignoreDuplicates: true }
 
     /** One condition against one row, the way PostgREST reads it. */
     const one = (kind: string, col: string, val: unknown, row: Row): boolean => {
@@ -193,7 +194,8 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       }
 
       let hit = rows.filter(matches)
-      if (state.limit !== null) hit = hit.slice(0, state.limit)
+      /* range(from, to) skips `from` rows, as PostgREST's offset does. */
+      if (state.limit !== null || state.offset) hit = hit.slice(state.offset, state.limit !== null ? state.offset + state.limit : undefined)
       if (state.count && state.head) return { data: null, error: null, count: rows.filter(matches).length }
       const data = hit.map((r) => (state.select ? embed(r, state.select) : { ...r }))
       if (state.single === "maybe") {
@@ -248,13 +250,14 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       gte: (c: string, v: unknown) => (state.filters.push(["gte", c, v]), builder),
       lte: (c: string, v: unknown) => (state.filters.push(["lte", c, v]), builder),
       ilike: (c: string, v: unknown) => (state.filters.push(["ilike", c, v]), builder),
+      like: (c: string, v: unknown) => (state.filters.push(["like", c, v]), builder),
       gt: (c: string, v: unknown) => (state.filters.push(["gt", c, v]), builder),
       lt: (c: string, v: unknown) => (state.filters.push(["lt", c, v]), builder),
       not: (c: string, op: string, v: unknown) => (state.filters.push([`not.${op}`, c, v], builder), builder),
       /** PostgREST's `or=(...)`: the keyset cursors and the member search both use one. */
       or: (expr: string) => (state.filters.push(["or", "", expr]), builder),
       order: () => builder,
-      range: (a: number, b: number) => ((state.limit = b - a + 1), builder),
+      range: (a: number, b: number) => ((state.offset = a), (state.limit = b - a + 1), builder),
       limit: (n: number) => ((state.limit = n), builder),
       maybeSingle: () => ((state.single = "maybe"), builder),
       single: () => ((state.single = "one"), builder),

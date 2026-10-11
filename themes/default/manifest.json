@@ -30,6 +30,10 @@
     "proof_testimonials",
     "proof_featured",
     "proof_logos",
+    "reviews_product",
+    "reviews_badge",
+    "reviews_carousel",
+    "reviews_all",
     "community_card",
     "cta_simple",
     "cta_image",
@@ -123,6 +127,10 @@
     "proof_testimonials",
     "proof_featured",
     "proof_logos",
+    "reviews_product",
+    "reviews_badge",
+    "reviews_carousel",
+    "reviews_all",
     "community_card",
     "cta_simple",
     "cta_image",
@@ -155,6 +163,7 @@
     "features": "Features",
     "content": "Content",
     "social-proof": "Social Proof",
+    "reviews": "Reviews",
     "cta": "CTA",
     "media": "Media",
     "about": "About",
@@ -184,6 +193,10 @@
     {
       "id": "social-proof",
       "label": "Social Proof"
+    },
+    {
+      "id": "reviews",
+      "label": "Reviews"
     },
     {
       "id": "cta",

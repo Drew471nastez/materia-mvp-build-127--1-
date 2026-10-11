@@ -39,6 +39,8 @@ export interface Env {
   paginate?(ctx: Ctx, list: unknown, by: number): { page: unknown; paginate: Record<string, unknown> }
   /** A tag nobody knows: drawn as nothing, and reported. */
   unknownTag?(name: string): void
+  /** `{% render block %}` on an app block: what Storelib draws in its place, or null for none (Storelib Reviews, ./storelib-reviews.ts). */
+  appBlock?(ctx: Ctx, block: Record<string, unknown>): string | null
 }
 
 export type FilterFn = (input: unknown, args: unknown[], kwargs: Record<string, unknown>, ctx: Ctx) => unknown
@@ -576,7 +578,16 @@ function renderTablerow(n: Extract<Node, { k: "tablerow" }>, ctx: Ctx, out: stri
 }
 
 function renderSnippet(n: Extract<Node, { k: "render" }>, ctx: Ctx, out: string[]) {
-  const name = toOutput(evaluate(n.name, ctx))
+  const named = evaluate(n.name, ctx)
+  /* `{% render block %}`: an app block, which has no snippet; Storelib draws its own in its place when it has one. */
+  if (named && typeof named === "object" && typeof (named as Record<string, unknown>).type === "string" && ctx.env.appBlock) {
+    const drawn = ctx.env.appBlock(ctx, named as Record<string, unknown>)
+    if (drawn !== null) {
+      out.push(drawn)
+      return
+    }
+  }
+  const name = toOutput(named)
   if (ctx.depth > BUDGET.depth) throw new CompatRenderError(`Snippets render each other more than ${BUDGET.depth} deep (does ${name} render itself?)`, n.line)
   const tree = ctx.env.snippet(name)
   if (!tree) {

@@ -29,6 +29,8 @@ import type { CheckoutConfig, FieldRule } from "@/lib/store/checkout-config"
 
 export const SITE_CHECKOUT_PATH = "/checkout"
 export const SITE_THANKS_PATH = "/checkout/thanks"
+/** Track your order without an account: the order number and email, the link emailed (app/checkout/site/track). */
+export const SITE_TRACK_PATH = "/checkout/track"
 /** Where the proxy sends a site host's /checkout inside the app (app/checkout/site). */
 export const SITE_CHECKOUT_ROUTE = "/checkout/site"
 
@@ -224,6 +226,8 @@ export function basketTitle(titles: string[]): string {
  *   /checkout                 the checkout (app/checkout/site); a form that
  *                             posts here is sent on to it as a GET
  *   /checkout/thanks/<token>  the thank you page
+ *   /checkout/track           Track your order: number and email, the link
+ *                             to the order emailed to that email
  *   /checkout/cart, /checkout/physical
  *                             the old links (bookmarks, emails, a cached
  *                             cart script), sent to /checkout with their cart
@@ -249,6 +253,11 @@ export function siteCheckoutRouteFor(pathname: string, search: string, method: s
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(token)) return null
     return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/thanks/${token}${search}` }
   }
+  if (path === SITE_TRACK_PATH) {
+    if (method.toUpperCase() === "POST") return { kind: "redirect", to: SITE_TRACK_PATH, status: 303 }
+    return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/track${search}` }
+  }
+  if (path === `${SITE_CHECKOUT_ROUTE}/track`) return { kind: "redirect", to: `${SITE_TRACK_PATH}${search}`, status: 302 }
   /* The page's own inside address, asked for directly: sent to its public one, so the site's password is asked as for /checkout. */
   if (path === SITE_CHECKOUT_ROUTE) return { kind: "redirect", to: `${SITE_CHECKOUT_PATH}${search}`, status: 302 }
   if (path.startsWith(`${SITE_CHECKOUT_ROUTE}/thanks/`)) return { kind: "redirect", to: `${SITE_THANKS_PATH}/${path.slice(SITE_CHECKOUT_ROUTE.length + "/thanks/".length)}${search}`, status: 302 }

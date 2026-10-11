@@ -560,7 +560,18 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
 }
 
 /** The order a supplier or dropshipper is asked to ship: what, how many, to whom. No prices. */
-export function supplierOrderEmail(m: { shopName: string; orderNumber: string; locationName: string; lines: (EmailLine & { sku?: string | null })[]; address: Partial<Address> | null; buyerEmail: string | null; deliveryName: string | null; note: string | null }): {
+export function supplierOrderEmail(m: {
+  shopName: string
+  orderNumber: string
+  locationName: string
+  lines: (EmailLine & { sku?: string | null })[]
+  address: Partial<Address> | null
+  buyerEmail: string | null
+  deliveryName: string | null
+  note: string | null
+  /** Where they add the tracking once it ships (lib/physical/partner-server.ts): the buyer is emailed it at once. */
+  trackingLink?: string | null
+}): {
   subject: string
   html: string
   text: string
@@ -576,6 +587,7 @@ export function supplierOrderEmail(m: { shopName: string; orderNumber: string; l
     `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table></td></tr>`,
     addressBlock("Ship to", m.address, m.deliveryName ? `Delivery: ${esc(m.deliveryName)}` : undefined),
     m.note ? addressBlock("Buyer's note", null, esc(m.note)) : "",
+    m.trackingLink ? button(m.trackingLink, "Add tracking") : "",
   ].join("")
   const text = [
     subject,
@@ -587,6 +599,36 @@ export function supplierOrderEmail(m: { shopName: string; orderNumber: string; l
     ...addressLines(m.address),
     ...(m.deliveryName ? [`Delivery: ${m.deliveryName}`] : []),
     ...(m.note ? ["", `Buyer's note: ${m.note}`] : []),
+    ...(m.trackingLink ? ["", `Shipped it? Add the tracking here and the buyer gets it right away: ${m.trackingLink}`] : []),
   ].join("\n")
-  return { subject, html: shell(m.shopName, `Order ${m.orderNumber} to fulfil`, `Please ship these items for ${esc(m.shopName)}, then reply with the tracking number.`, body, subject), text }
+  const intro = m.trackingLink
+    ? `Please ship these items for ${esc(m.shopName)}. When it's sent, press Add tracking and the buyer gets the tracking right away. You can also reply with it.`
+    : `Please ship these items for ${esc(m.shopName)}, then reply with the tracking number.`
+  return { subject, html: shell(m.shopName, `Order ${m.orderNumber} to fulfil`, intro, body, subject, { footer: `Sent by Storelib for ${esc(m.shopName)}. Reply to this email to reach them.` }), text }
+}
+
+/**
+ * THE LINK TO AN ORDER, ASKED FOR ON THE STORE'S WEBSITE (Track your order:
+ * app/checkout/site/track). Sent only to the address the order was placed
+ * with, so typing somebody's order number shows nothing to anybody else.
+ * One order per email, each with its number and date, and the page that
+ * follows it on the store's own address.
+ */
+export function orderLinkEmail(m: { shopName: string; orders: { number: string; date: string; url: string; status: string | null }[]; brand?: EmailBrand }): { subject: string; html: string; text: string } {
+  const list = m.orders.slice(0, 5)
+  const one = list.length === 1
+  const subject = one ? `Your order ${list[0].number} from ${m.shopName}` : `Your orders from ${m.shopName}`
+  const intro = one ? "Here's the link to your order. It shows where it is and its tracking." : "Here are the links to your orders. Each shows where it is and its tracking."
+  const body = list
+    .map((o, i) =>
+      one
+        ? button(o.url, "View your order")
+        : `<tr><td style="padding:${i === 0 ? 0 : 12}px 28px 0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:12px;"><tr><td style="padding:12px 16px;font-size:14px;line-height:20px;color:${INK};"><strong>Order ${esc(o.number)}</strong><br><span style="color:${MUTED};font-size:13px;">${esc([o.date, o.status].filter(Boolean).join(" · "))}</span></td><td align="right" style="padding:12px 16px;"><a href="${esc(o.url)}" style="font-size:14px;font-weight:600;color:${INK};text-decoration:underline;white-space:nowrap;">View order</a></td></tr></table></td></tr>`,
+    )
+    .join("")
+  const heading = one ? `Order ${list[0].number}` : "Your orders"
+  const footer = `You asked for this on ${esc(m.shopName)}'s website. If you didn't, you can ignore it.`
+  const html = shell(m.shopName, heading, esc(intro), body, subject, { footer, brand: { ...m.brand, helpUrl: null } })
+  const text = [`${m.shopName}: ${subject}`, "", intro, "", ...list.map((o) => `Order ${o.number}${o.date ? ` (${o.date})` : ""}: ${o.url}`), "", `You asked for this on ${m.shopName}'s website. If you didn't, you can ignore it.`, ...brandText({ ...m.brand, helpUrl: null })].join("\n")
+  return { subject, html, text }
 }

@@ -29,6 +29,7 @@ import { useConfirm } from "../new/confirm-sheet"
 import { Pill, usePill } from "../../coupons/coupon-parts"
 import { CollectionEditor } from "./collection-editor"
 import { CollectionCover, StatusMark, countWords, howWords, picturesOf, type Collection, type CollectionProduct } from "./collection-parts"
+import { pressMark } from "@/lib/press-mark"
 
 /* The products page's own measures (../products-client.tsx), so the two pages are one place. */
 const BAR_BUTTON_SIZE = "lg:h-[35px] lg:px-[13px] lg:text-[14.5px]"
@@ -164,9 +165,9 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                   <li
                     key={c.id}
                     data-row={c.id}
-                    className="relative flex h-16 items-center gap-3 px-3 has-[button[data-row-open]:active]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[74px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]"
+                    className="relative flex h-16 items-center gap-3 px-3 data-[pressed]:bg-[#eef0f2] [li+&]:before:absolute [li+&]:before:left-[74px] [li+&]:before:right-0 [li+&]:before:top-0 [li+&]:before:h-px [li+&]:before:bg-[#eceef1]"
                   >
-                    <button type="button" data-row-open="" aria-label={c.title} onClick={() => start(c)} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
+                    <button type="button" data-row-open="" aria-label={c.title} onClick={() => start(c)} {...pressMark} className="absolute inset-0 z-0 cursor-pointer outline-none [-webkit-tap-highlight-color:transparent] focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]" />
                     <CollectionCover collection={c} pictures={picturesOf(c, byId)} size="phone" />
                     <span className="pointer-events-none min-w-0 flex-1">
                       <span className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{c.title}</span>

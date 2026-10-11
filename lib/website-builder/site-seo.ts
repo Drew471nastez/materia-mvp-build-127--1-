@@ -214,8 +214,15 @@ export function productJsonLd(p: {
   priceCents: number | null
   inStock: boolean
   seller: string
+  /**
+   * Storelib Reviews: the product's published reviews, as its page shows
+   * them. Only real reviews, and only when there is at least one; never
+   * when the website does not show them.
+   */
+  rating?: { average: number; count: number; reviews?: { author: string; rating: number; body: string; title?: string; date: string }[] } | null
 }) {
   const price = typeof p.priceCents === "number" && p.priceCents >= 0 ? (p.priceCents / 100).toFixed(2) : null
+  const rated = p.rating && p.rating.count > 0 && p.rating.average > 0 ? p.rating : null
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -234,6 +241,23 @@ export function productJsonLd(p: {
             availability: p.inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             seller: { "@type": "Organization", name: p.seller },
           },
+        }
+      : {}),
+    ...(rated
+      ? {
+          aggregateRating: { "@type": "AggregateRating", ratingValue: rated.average.toFixed(1), reviewCount: rated.count, bestRating: 5, worstRating: 1 },
+          ...(rated.reviews?.length
+            ? {
+                review: rated.reviews.slice(0, 10).map((r) => ({
+                  "@type": "Review",
+                  author: { "@type": "Person", name: r.author },
+                  reviewRating: { "@type": "Rating", ratingValue: r.rating, bestRating: 5, worstRating: 1 },
+                  ...(r.title ? { name: plain(r.title, 120) } : {}),
+                  reviewBody: plain(r.body, 2000),
+                  ...(r.date ? { datePublished: r.date.slice(0, 10) } : {}),
+                })),
+              }
+            : {}),
         }
       : {}),
   }

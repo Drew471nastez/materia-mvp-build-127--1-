@@ -4,6 +4,7 @@ import { parseAirwallexEvent, verifyAirwallexSignature } from "@/lib/payments/ai
 import { handleAirwallexEvent } from "@/lib/payments/airwallex/events"
 import { claimEvent, finishEvent } from "@/lib/payments/store"
 import { describe } from "@/lib/payments/service"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -29,7 +30,7 @@ export const dynamic = "force-dynamic"
  *
  * Nothing here logs the body: account events carry identity data.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const raw = await request.text()
   const cfg = readAirwallexConfig()
   const secret = cfg.ok ? cfg.config.webhookSecret : null
@@ -76,3 +77,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "retry" }, { status: 500 })
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("infra", "/api/payments/airwallex/webhook", handlePOST)

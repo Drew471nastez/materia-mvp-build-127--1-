@@ -209,7 +209,7 @@ export async function applySnapshot(
   for (const file of snapshot.files ?? []) {
     if (typeof file?.path !== "string" || typeof file.content !== "string") continue
     const saved = await saveDraft(db, installId, file.path, file.content)
-    if (!saved.ok) return { error: saved.error }
+    if (saved.ok === false) return { error: saved.error }
     await recordVersion(db, installId, file.path, file.content, "restore")
   }
 

@@ -84,8 +84,10 @@ const server = createServer((req, res) => {
 await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()))
 const port = (server.address() as AddressInfo).port
 
-const shots = await takeCoverShots(`http://127.0.0.1:${port}/`)
+const taken = await takeCoverShots(`http://127.0.0.1:${port}/`)
 server.close()
+if (!taken.mobile) fail("The phone picture was not taken.")
+const shots = { ...taken, mobile: taken.mobile! }
 writeFileSync(join(root, ".probe-cover-desktop.webp"), shots.desktop)
 writeFileSync(join(root, ".probe-cover-phone.webp"), shots.mobile)
 

@@ -13,10 +13,11 @@ import { attributionForCheckout, recordContactAttribution, recordOrderAttributio
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { baseFor } from "@/lib/checkout/pricing"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
@@ -342,3 +343,6 @@ export async function POST(request: Request) {
     )
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/quick-free", handlePOST)

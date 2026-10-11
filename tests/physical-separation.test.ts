@@ -39,7 +39,8 @@ check("the Library's orders and receipts leave out an order that ships", /\.filt
 check("and its downloads were already digital only", /row\.product\?\.type === "digital"/.test(read("lib/library/get-library-downloads.ts")))
 check("the digital checkout refuses a product that ships", /This product ships, so it is bought from the shop's cart\./.test(read("lib/checkout/pricing.ts")))
 check("a paid physical order ends on its own order page", /\/checkout\/physical\/order\//.test(read("lib/physical/checkout-server.ts")))
-check("the shop's own customer account sends an order that ships to that page, as Track order", /shipsOnly \? "checkout\/physical\/order" : "receipt"/.test(read("lib/site-accounts/account-data.ts")) && /\? "Track order"/.test(read("lib/site-accounts/account-data.ts")))
+/* Keyed by the checkout's token (orderPagePath), which is the order page's key; the order row's own token is a receipt's. */
+check("the shop's own customer account sends an order that ships to that page, as Track order", /shipsOnly && orderPage\s*\? orderPage/.test(read("lib/site-accounts/account-data.ts")) && /orderPagePath\(shipFacts\.token\)/.test(read("lib/site-accounts/account-data.ts")) && /\? "Track order"/.test(read("lib/site-accounts/account-data.ts")))
 
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed > 0) process.exit(1)

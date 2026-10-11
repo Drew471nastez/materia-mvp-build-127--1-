@@ -2,10 +2,13 @@
  * ===========================================================================
  *  WHERE STORELIB'S OWN SPEED MEASUREMENTS LAND
  * ===========================================================================
- * From components/perf/perf-beacon.tsx, one page load in five on
- * storelib.com: a batch of items, each a metric, an area, a route pattern
- * and a number (lib/perf/telemetry.ts says exactly what passes). Public by
- * necessity, as visitors have no session.
+ * From components/perf/perf-beacon.tsx, every page load on storelib.com,
+ * the apps, OnePages and a website's own checkout: a batch of items, each a
+ * metric, an area, a route pattern and a number (lib/perf/telemetry.ts
+ * says exactly what passes). Public by necessity, as visitors have no
+ * session. The collector sends to /api/public/m (lib/perf/config.ts
+ * BEACON_PATH), which is this same handler; this address still answers for
+ * pages loaded before the move.
  *
  * WHAT IS KEPT is what cleanBatch lets through and phone or computer, read
  * from the user agent here and then forgotten. No address, no cookie, no

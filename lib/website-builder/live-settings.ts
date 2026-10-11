@@ -144,10 +144,77 @@ export function setLiveThemeSetting(key: string, value: unknown): void {
   notify()
 }
 
+/* ── Echoes: a committed change, drawn before the canvas's deferred copy has it ── */
+
+/**
+ * ===========================================================================
+ *  A WORD TYPED IS ON THE CANVAS IN ITS OWN FRAME, ON A SLOW PHONE TOO
+ * ===========================================================================
+ * Outside a gesture a setting is committed at once: the editor's state
+ * takes it, and the canvas draws from a deferred copy of that state
+ * (`useDeferredValue` in the editor), so the sidebar answers first and the
+ * page follows. The deferred pass renders the whole editor again at low
+ * priority, and each new key throws it away and starts it over. On a
+ * phone's CPU it never finished while somebody typed: measured typing a
+ * heading at 4x (docs/audits/website-builder-engine-2026-10.md, N2), 24
+ * keys, and the canvas drew once, after the last, 1.2 to 2.1 seconds behind.
+ *
+ * So every committed section or block setting is also echoed here, and the
+ * one section it belongs to draws it straight away, as a slider's value is
+ * drawn (useLiveSection), while the editor and the deferred canvas catch up
+ * behind it. An echo is only ever what the editor already holds:
+ *
+ *   it is let go of, quietly, once the canvas's own copy says the same
+ *   (the section is then drawn from that copy, unchanged)
+ *   the editor checks every echo against its current state after each of
+ *   its renders (reconcileEchoes), and one the editor no longer holds (an
+ *   Undo, an AI edit, the section deleted) is dropped at once, so an echo
+ *   can never draw over a newer truth.
+ */
+const echoes = new Map<string, Overrides>()
+
+/** A committed section setting, drawn by its section now. */
+export function echoSectionSetting(sectionId: string, key: string, value: unknown): void {
+  const cur = echoes.get(sectionId) ?? {}
+  echoes.set(sectionId, { ...cur, settings: { ...cur.settings, [key]: value } })
+  notify()
+}
+
+/** A committed block setting, drawn by its section now. `path` as the editor's writers take it. */
+export function echoBlockSetting(sectionId: string, path: string, key: string, value: unknown): void {
+  const cur = echoes.get(sectionId) ?? {}
+  echoes.set(sectionId, { ...cur, blocks: { ...cur.blocks, [path]: { ...cur.blocks?.[path], [key]: value } } })
+  notify()
+}
+
+/** What is echoed for a section now, if anything: for a test, or a probe. */
+export function echoOf(sectionId: string): Overrides | undefined {
+  return echoes.get(sectionId)
+}
+
+/**
+ * Every echo checked against the editor's own current sections: one whose
+ * section is gone, or which no longer says what the editor holds, is
+ * dropped. Called by the editor after each of its renders.
+ */
+export function reconcileEchoes(current: (sectionId: string) => SectionInstance | undefined): void {
+  if (echoes.size === 0) return
+  let dropped = false
+  for (const [id, o] of echoes) {
+    const now = current(id)
+    if (!now || !settled(now, o)) {
+      echoes.delete(id)
+      dropped = true
+    }
+  }
+  if (dropped) notify()
+}
+
 /** Everything live forgotten without committing: for a test, or an editor that is closing. */
 export function resetLive(): void {
   depth = 0
   sections.clear()
+  echoes.clear()
   theme = null
   commits.clear()
   notify()
@@ -209,14 +276,17 @@ function settled(section: SectionInstance, o: Overrides): boolean {
  */
 export function useLiveSection(section: SectionInstance): SectionInstance {
   const o = useSyncExternalStore(subscribe, () => sections.get(section.id), () => undefined)
-  const out = useMemo(() => withLive(section, o), [section, o])
+  const e = useSyncExternalStore(subscribe, () => echoes.get(section.id), () => undefined)
+  /* The echo of what was committed, then what a finger is moving over it. */
+  const out = useMemo(() => withLive(withLive(section, e), o), [section, e, o])
   useLayoutEffect(() => {
+    /* Quietly, both: what is drawn is already this. */
+    if (e && echoes.get(section.id) === e && settled(section, e)) echoes.delete(section.id)
     if (!o || depth > 0 || sections.get(section.id) !== o) return
     if (settled(section, o)) {
-      /* Quietly: what is drawn is already this. */
       sections.delete(section.id)
     }
-  }, [section, o])
+  }, [section, o, e])
   return out
 }
 
@@ -230,6 +300,10 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
   const at = useSyncExternalStore(subscribe, () => version, () => 0)
   /* Let go of a value once the editor's own copy says the same, as useLiveSection does: an Undo after a drag is then the Undo that is drawn. */
   useLayoutEffect(() => {
+    for (const s of list) {
+      const e = echoes.get(s.id)
+      if (e && settled(s, e)) echoes.delete(s.id)
+    }
     if (depth > 0) return
     for (const s of list) {
       const o = sections.get(s.id)
@@ -239,8 +313,9 @@ export function useLiveSections<T extends SectionInstance>(list: readonly T[]): 
   return useMemo(() => {
     void at
     return list.map((s) => {
+      const e = echoes.get(s.id)
       const o = sections.get(s.id)
-      return o ? (withLive(s, o) as T) : s
+      return e || o ? (withLive(withLive(s, e), o) as T) : s
     })
   }, [list, at])
 }

@@ -20,7 +20,7 @@ import { createElement } from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
 import { PerformanceAdmin } from "@/app/admin/performance/performance-admin"
-import { CLIENT_SAMPLE_RATE, DAILY_CAP, MAX_BATCH, MAX_ERRORS_PER_PAGE, MIN_RATE_BASE, MIN_SAMPLES, RAW_RETENTION_DAYS, ROLLUP_RETENTION_DAYS, SERVER_SAMPLE_RATE } from "@/lib/perf/config"
+import { CLIENT_SAMPLE_RATE, DAILY_CAP, FULL_VIEWS_PER_PAGE_LOAD, MAX_BATCH, MAX_ERRORS_PER_PAGE, MAX_ITEMS_PER_PAGE_LOAD, MIN_RATE_BASE, MIN_SAMPLES, RAW_RETENTION_DAYS, ROLLUP_RETENTION_DAYS, SERVER_ROUTE_PER_MINUTE, SERVER_SAMPLE_RATE } from "@/lib/perf/config"
 import { allowedBeacon, type HitStore } from "@/lib/perf/limit"
 import { OPTIMIZATIONS, type Optimization } from "@/lib/perf/optimizations"
 import { rankProblems } from "@/lib/perf/problems"
@@ -197,14 +197,19 @@ async function main() {
     check("one address gets 20 beacons a minute", allowed === 20 && allowedBeacon("1.2.3.4", now + 61_000, 20, store))
   }
 
-  console.log("\nCheap: sampled, batched, after the page")
+  console.log("\nCheap: every page load, capped, batched, after the page")
   {
-    check("one page load in five or fewer, one API request in five or fewer", CLIENT_SAMPLE_RATE > 0 && CLIENT_SAMPLE_RATE <= 0.2 && SERVER_SAMPLE_RATE > 0 && SERVER_SAMPLE_RATE <= 0.2)
+    /*
+      Round 20: one in five left most figures on "insufficient data" for days
+      at Storelib's traffic. Every page load and every timed call is measured
+      now; what keeps it cheap is the caps (tests/perf-collect.test.ts).
+    */
+    check("every page load and every timed API call, with caps per page load and per route", CLIENT_SAMPLE_RATE === 1 && SERVER_SAMPLE_RATE === 1 && MAX_ITEMS_PER_PAGE_LOAD > 0 && FULL_VIEWS_PER_PAGE_LOAD > 0 && SERVER_ROUTE_PER_MINUTE > 0)
     const comp = read("components/perf/perf-beacon.tsx")
     check("the dice are rolled before the collector is downloaded", /if \(Math\.random\(\) >= CLIENT_SAMPLE_RATE\) return[\s\S]*import\("@\/lib\/perf\/beacon-client"\)/.test(comp))
     check("and it loads when the browser is idle", /requestIdleCallback/.test(comp))
     const client = read("lib/perf/beacon-client.ts")
-    check("sent with sendBeacon, in batches, when the page is hidden or left", /navigator\.sendBeacon/.test(client) && /FLUSH_AT = 20/.test(client) && /visibilitychange/.test(client) && /pagehide/.test(client))
+    check("sent with sendBeacon, in batches, when the page is hidden or left, and at the next idle moment", /navigator\.sendBeacon/.test(client) && /FLUSH_AT = 20/.test(client) && /visibilitychange/.test(client) && /pagehide/.test(client) && /requestIdleCallback/.test(client))
     check("no cookie, no storage, no address sent", !/document\.cookie|localStorage|sessionStorage|location\.href|location\.search/.test(client))
     check("nothing runs per frame", !/setInterval/.test(client) && (client.match(/requestAnimationFrame/g) ?? []).length === 2)
     check("never in a frame or a scripted browser", /window\.self !== window\.top/.test(client) && /navigator\.webdriver/.test(client))
@@ -217,11 +222,11 @@ async function main() {
       Math.random = () => 0.99
       const handler = timed("app", "/api/dashboard", async () => new Response("ok", { status: 200 }))
       const res = await handler()
-      check("a request that did not draw the sample is answered untouched and not recorded", res.status === 200 && pendingTimings().length === before)
+      check("every request is answered untouched and recorded", res.status === 200 && pendingTimings().length === before + 1)
       Math.random = () => 0
       await handler()
       const last = pendingTimings()[pendingTimings().length - 1]
-      check("a sampled request is recorded with its status", pendingTimings().length === before + 1 && last.m === "api" && last.s === 200 && last.r === "/api/dashboard")
+      check("a request is recorded with its status", pendingTimings().length === before + 2 && last.m === "api" && last.s === 200 && last.r === "/api/dashboard")
       const throws = timed("checkout", "/api/checkout/process", async (): Promise<Response> => {
         throw new Error("boom")
       })
@@ -236,7 +241,7 @@ async function main() {
       Math.random = realRandom
     }
     const st = read("lib/perf/server-timing.ts")
-    check("timings are written after the response, in batches", /after\(flush\)/.test(st) && /FLUSH_AT = 25/.test(st) && /MAX_BUFFER = 200/.test(st))
+    check("timings are written after the response, one write pending at a time, in batches", /after\(flush\)/.test(st) && /if \(pending\) return/.test(st) && /MAX_BUFFER = 200/.test(st))
     const wrapped = ["app/api/checkout/process/route.ts", "app/api/checkout/stripe-session/route.ts", "app/api/checkout/confirm-payment/route.ts", "app/api/checkout/cart/route.ts", "app/api/explore/communities/route.ts", "app/api/dashboard/route.ts"]
     check("the routes that matter are timed", wrapped.every((f) => /export const (GET|POST) = timed\("/.test(read(f))))
   }
@@ -254,7 +259,9 @@ async function main() {
     const fns = ["perf_ingest(text, jsonb, integer)", "perf_window(timestamptz)", "perf_rollup_day(date)", "perf_errors(timestamptz, integer)", "perf_slow_queries(integer, double precision, integer)"]
     check("every function is the service role's alone", fns.every((f) => sql.includes(`REVOKE ALL ON FUNCTION public.${f} FROM PUBLIC, anon, authenticated;`) && sql.includes(`GRANT EXECUTE ON FUNCTION public.${f} TO service_role;`)))
     check("a daily cap counted per source before anything is kept", /INSERT INTO public\.perf_day_counts[\s\S]*IF v_n > greatest\(coalesce\(p_cap, 0\), 0\) THEN RETURN 0/.test(sql))
-    check(`raw samples kept ${RAW_RETENTION_DAYS} days, rollups ${ROLLUP_RETENTION_DAYS}`, sql.includes(`interval '${RAW_RETENTION_DAYS} days'`) && sql.includes(`v_today - ${ROLLUP_RETENTION_DAYS}`))
+    /* Part 133 keeps raw samples longer, for the 30 day window; it replaces only that function. */
+    const p133 = read("supabase/sql/run-now/133_perf_collect_everywhere.sql")
+    check(`raw samples kept ${RAW_RETENTION_DAYS} days (part 133), rollups ${ROLLUP_RETENTION_DAYS}`, sql.includes("interval '8 days'") && p133.includes(`interval '${RAW_RETENTION_DAYS} days'`) && p133.includes(`v_today - ${ROLLUP_RETENTION_DAYS}`))
     check("caps are what the routes pass", read("app/api/perf/beacon/route.ts").includes("DAILY_CAP.client") && read("lib/perf/server-timing.ts").includes("DAILY_CAP.server") && DAILY_CAP.client <= 50_000)
     check("pg_stat_statements is read only where it exists, with a reason otherwise", /WHERE e\.extname = 'pg_stat_statements'; IF v_schema IS NULL THEN RETURN jsonb_build_object\('available', false/.test(sql) && /EXCEPTION WHEN others THEN RETURN jsonb_build_object\('available', false/.test(sql))
     check("published websites' own Web Vitals only where their table exists", (sql.match(/to_regclass\('public\.site_web_vitals'\) IS NOT NULL/g) ?? []).length === 2)
@@ -298,7 +305,7 @@ async function main() {
     check("a measured figure is drawn with its samples", full.includes("2.1 s") && full.includes("40 samples"))
     check("one figure does not make an index", full.includes("data-health-score-empty"))
 
-    check("the window is 24h or 7d, nothing else", windowOf("24h") === "24h" && windowOf("x") === "7d" && windowOf(null) === "7d")
+    check("the window is 24h, 7d or 30d, nothing else", windowOf("24h") === "24h" && windowOf("30d") === "30d" && windowOf("x") === "7d" && windowOf(null) === "7d")
     const page = read("app/admin/performance/page.tsx")
     check("the page checks the admin cookie before it reads anything", /if \(!\(await isAdminAuthenticated\(\)\)\) return <AdminLogin \/>[\s\S]*readPerfReport\(/.test(page))
     const api = read("app/api/perf/admin/route.ts")
@@ -312,7 +319,7 @@ async function main() {
 
   console.log("\nCopy")
   {
-    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "components/perf/perf-beacon.tsx", "app/admin/performance/page.tsx", "app/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql"]
+    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "lib/perf/mark.ts", "lib/perf/site-vitals-inline.ts", "components/perf/perf-beacon.tsx", "app/admin/performance/page.tsx", "app/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/public/m/route.ts", "app/api/public/sv/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql", "supabase/sql/run-now/133_perf_collect_everywhere.sql"]
     const bad = files.filter((f) => /—|\b(unlock|elevate|seamless|powerful|effortless|effortlessly|supercharge|transform)/i.test(read(f)))
     check("no em dashes and none of the banned words", bad.length === 0, bad.join(", "))
   }

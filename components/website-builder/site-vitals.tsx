@@ -26,9 +26,10 @@
  */
 
 import { useEffect } from "react"
+import { SITE_BEACON_PATH } from "@/lib/perf/config"
 import { clsFromShifts, inpFromInteractions } from "@/lib/website-builder/web-vitals"
 
-const ENDPOINT = "/api/public/vitals"
+const ENDPOINT = SITE_BEACON_PATH
 
 let started = false
 

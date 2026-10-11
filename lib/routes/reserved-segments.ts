@@ -70,6 +70,8 @@ export const RESERVED_ROOT_SEGMENTS: readonly string[] = [
   "purchase",
   "receipt",
   "request",
+  /* A Storelib Reviews request link: /review/<token>. */
+  "review",
   "reset-password",
   /* Sell on Storelib and Become a seller: the one door into seller onboarding. */
   "sell",

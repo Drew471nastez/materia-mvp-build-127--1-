@@ -2857,24 +2857,24 @@ export function HeaderSection({ section, theme, isEditing, isSelected, onClick, 
   )
 
   // ── Layout variants ──────────────────────────────────────
-  // For the "fade siblings" hover style we wire the fade with an `:has()`
-  // selector on the nav wrapper. When any anchor inside the nav is hovered,
-  // every anchor drops to 40% opacity, and the hovered one stays at 100%.
+  // For the "fade siblings" hover style the nav's own :hover fades its
+  // anchors to 40% opacity, and the hovered one stays at 100%.
   /* With a drawer on larger screens the row has no links: the menu button opens them. */
   const navNode = drawerOnDesktop ? null : (
     <nav
       ref={dropdownRoot}
       className={cn(
         "flex items-center",
-        // "Fade siblings": when any link is hovered, every other anchor in
-        // the nav smoothly fades to 40% opacity. Uses :has() so it requires
-        // no JS, and hits every anchor — including dropdown triggers.
-        // The :has() sets a variable on the nav and the anchors read it, so
-        // no :has() rule ends in `a`: the browser keeps one list of what any
-        // change under any :has() restyles, and an `a` there restyled every
-        // link in the app each time a sheet or dialog opened or closed.
+        // "Fade siblings": while the pointer is over the nav, every anchor
+        // but the hovered one smoothly fades to 40% opacity, dropdown
+        // triggers included. The nav's own :hover sets a variable the
+        // anchors read. It was `:has(a:hover)`, and a hover state inside any
+        // :has() in the stylesheet made Chromium restyle the whole document
+        // on every hover change anywhere, the builder's canvas included
+        // (lib/press-mark.ts). The links sit edge to edge but for the gap,
+        // so the difference is the gap between two links.
         menuHoverStyle === "fade_siblings" &&
-          "[&_a]:transition-opacity [&_a]:duration-[220ms] [&_a]:[opacity:var(--nav-fade,1)] [&:has(a:hover)]:[--nav-fade:0.4] [&_a:hover]:opacity-100",
+          "[&_a]:transition-opacity [&_a]:duration-[220ms] [&_a]:[opacity:var(--nav-fade,1)] hover:[--nav-fade:0.4] [&_a:hover]:opacity-100",
       )}
       style={{ gap: `${linkSpacingPx}px` }}
     >

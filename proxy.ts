@@ -80,6 +80,8 @@ const RESERVED_PATHS = [
   "/community",
   "/native-start",
   "/receipt",
+  /* A Storelib Reviews request link (app/review/[token]): the same page on every host, the website's own included. */
+  "/review",
   /* A buyer's case about an order (lib/support/cases.ts): a platform page, linked from the platform's emails. */
   "/order-help",
   /* The page a website cover's screenshot is taken of. A platform surface,
@@ -417,6 +419,8 @@ function compatAnswers(pathname: string, request: NextRequest): boolean {
   if (pathname === "/checkout" && (request.nextUrl.searchParams.has("items") || request.nextUrl.searchParams.has("productId"))) return false
   /* A receipt is Storelib's page on the site (siteCheckoutFor), never a theme's 404: the thank you page links to it. */
   if (pathname === "/receipt" || pathname.startsWith("/receipt/")) return false
+  /* A review request link is Storelib Reviews' page on every host (app/review/[token]). */
+  if (pathname.startsWith("/review/")) return false
   /*
     THE VISITOR'S ACCOUNT is drawn by the theme itself, on this host, with
     no frame (lib/storelib-theme/compat/site.ts, accountPage): sign in, the
@@ -482,9 +486,9 @@ function policyAddress(pathname: string): string | null {
   return m ? `/${m[1]}` : null
 }
 
-/** The rewrite to the imported theme's handler, behind the site's password when it has one. */
+/** The rewrite to the imported theme's handler, behind the site's password when it has one: a page, and the shop's product list (/products.json); not a file a page loads (a script, /cart.js). */
 async function compatRewrite(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse> {
-  if (!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) {
+  if ((!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(pathname)) {
     const gate = await passwordPageFor(request, name, host, pathname, search)
     if (gate.blocked) return gate.blocked
   }
@@ -913,7 +917,7 @@ const FRAME_RESERVED_FIRST_SEGMENT = new Set([
   "checkout", "community", "cover-render", "creator-page", "dashboard", "developers", "downloads", "editions", "explore",
   "faq", "features", "help", "l", "legal", "library", "llms-full.txt", "llms.txt", "login", "member", "native-start",
   "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase", "receipt",
-  "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
+  "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sitemap.xml", "sites", "store",
   "store-builder", "stripe-done", "terms", "u", "unsubscribe", "upgrade", "verify-email",
   "w", "website-builder", "welcome", "wishlist",
 ])
@@ -1185,6 +1189,8 @@ export async function proxy(request: NextRequest) {
        * collision it avoids.
        */
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
+      /* A Storelib Reviews request link: its own page, on the website's host (app/review/[token]). */
+      if (pathname.startsWith("/review/")) return NextResponse.next()
       /* Every question this page asks below, started together (startSiteQuestions). */
       const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */
@@ -1980,8 +1986,10 @@ export async function proxy(request: NextRequest) {
       preview). It reads nothing and shows only what its parent on this
       origin posts to it, and it is framed on the same terms as the others.
     */
+    /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname.startsWith("/cover-render/") ||
       url.pathname.startsWith("/website-builder/code/") ||
       url.pathname.startsWith("/u/") ||
       creatorPath ||
@@ -1989,9 +1997,11 @@ export async function proxy(request: NextRequest) {
     const framed = framableWhenEmbedded && url.searchParams.get("embedded") === "1"
     if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
+      /* The cover's page draws a creator's own sections: framed, it is also given no origin of its own, whatever the frame's tag says. */
+      const rule = url.pathname.startsWith("/cover-render/") ? "sandbox allow-scripts; frame-ancestors 'self'" : "frame-ancestors 'self'"
       supabaseResponse.headers.set(
         "Content-Security-Policy",
-        existing ? `${existing}; frame-ancestors 'self'` : "frame-ancestors 'self'",
+        existing ? `${existing}; ${rule}` : rule,
       )
     }
   }

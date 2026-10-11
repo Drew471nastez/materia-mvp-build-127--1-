@@ -10,7 +10,7 @@ import { compatDraftHome } from "@/lib/website-builder/compat-site"
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-export async function GET(_req: Request, { params }: { params: Promise<{ pass: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ pass: string }> }) {
   const { pass } = await params
   const installId = readCoverPass(decodeURIComponent(pass))
   if (!installId) return new NextResponse("Not found", { status: 404 })
@@ -26,7 +26,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ pass: s
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "private, no-store",
       "X-Robots-Tag": "noindex",
-      "Content-Security-Policy": "sandbox allow-scripts",
+      /* Framed only by this origin, and only when asked to be (the Website page's live miniature, ?embedded=1); never by anybody else. */
+      "Content-Security-Policy": new URL(req.url).searchParams.get("embedded") === "1" ? "sandbox allow-scripts; frame-ancestors 'self'" : "sandbox allow-scripts",
     },
   })
 }

@@ -18,6 +18,15 @@ import "server-only"
  * Both answer in one shape (the physical checkout's quote), so the page has
  * one summary to draw. The shop is the site's (`creatorId`, from the host);
  * a product of another shop is refused here (basketDecision's seller guard).
+ *
+ * ALREADY YOURS. A buyer signed in to the website's own account proved their
+ * email with a code, so what that email already owns (a download, a course;
+ * never a physical product) is left out of the payment and listed in
+ * `owned`, for the page to say "already yours" with the way to the
+ * website's own downloads (lib/checkout/owned). A cart of nothing else is
+ * not an error: it is a quote with no lines and its `owned`, and the page
+ * draws "You already own this". A guest's typed email is never used for
+ * this (it would tell anyone what somebody else bought).
  */
 import { priceCart, type PricedCart } from "./pricing"
 import { basketDecision } from "./basket-decision"
@@ -44,11 +53,20 @@ export interface SiteQuoteLine {
   requiresShipping: boolean
 }
 
+export interface SiteOwnedLine {
+  productId: string
+  variantId: string | null
+  title: string
+  imageUrl: string | null
+}
+
 export interface SiteQuote {
   kind: "digital" | "ships"
   creatorId: string
   lines: SiteQuoteLine[]
   dropped: string[]
+  /** Lines the signed in customer already owns: left out of the payment, never in `dropped`. */
+  owned?: SiteOwnedLine[]
   stockIssues: { productId: string; variantId: string | null; title: string; available: number }[]
   requiresShipping: boolean
   coupon: { code: string; label: string | null; freeShipping: boolean } | null
@@ -62,16 +80,41 @@ export interface SiteQuote {
 
 export type SiteQuoteAnswer = { ok: true; quote: SiteQuote } | { ok: false; status: number; error: string }
 
+/** Who is buying, as far as owning goes: the website's signed in customer, whose address its sign in code proved. */
+export interface SiteOwner {
+  email: string
+}
+
 /** The cart priced as a basket; a code that does not fit is said, and the cart priced without it. */
-export async function priceSiteCart(db: Db, creatorId: string, body: Body) {
+export async function priceSiteCart(db: Db, creatorId: string, body: Body, owner: SiteOwner | null = null) {
   const handOff = await isPhysicalCommerceEnabled().catch(() => false)
+  const ownerEmail = owner?.email ?? null
   let couponError: string | null = null
-  let priced: PricedCart = await priceCart(db, { items: body.items, couponCode: body.couponCode, buyerId: null, handOff, keepFree: true })
+  let priced: PricedCart = await priceCart(db, { items: body.items, couponCode: body.couponCode, buyerId: null, ownerEmail, handOff, keepFree: true })
   if (priced.ok === false && typeof body.couponCode === "string" && body.couponCode.trim()) {
     couponError = priced.error
-    priced = await priceCart(db, { items: body.items, couponCode: null, buyerId: null, handOff, keepFree: true })
+    priced = await priceCart(db, { items: body.items, couponCode: null, buyerId: null, ownerEmail, handOff, keepFree: true })
   }
   return { priced, couponError, decision: basketDecision(priced, { shopId: creatorId }), handOff }
+}
+
+/** Every line of the cart is already the buyer's: nothing to pay, nothing else to say. */
+export function allOwned(priced: PricedCart): boolean {
+  return priced.ok === true && priced.lines.length === 0 && priced.ships.length === 0 && priced.owned.length > 0 && priced.dropped.length === priced.owned.length
+}
+
+function ownedOf(list: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] | undefined): SiteOwnedLine[] {
+  return (list ?? []).map((o) => ({ productId: o.productId, variantId: o.variantId, title: String(o.title ?? "Product"), imageUrl: o.thumbnailUrl ?? null }))
+}
+
+/** `dropped` without the owned lines, which the page says apart ("already yours", not "can't be bought"). */
+function droppedBesidesOwned(dropped: string[], owned: { title: string }[] | undefined): string[] {
+  const left = [...dropped]
+  for (const o of owned ?? []) {
+    const i = left.indexOf(o.title)
+    if (i >= 0) left.splice(i, 1)
+  }
+  return left
 }
 
 async function variantNames(db: Db, ids: string[]): Promise<Map<string, string>> {
@@ -96,9 +139,13 @@ export async function digitalCartTax(db: Db, creatorId: string, priced: Extract<
   return basketTax(await loadTaxForCheckout(db, creatorId), priced.lines.map((l) => ({ productId: l.item.productId, taxableCents: lineTotalCents(l.item) })), country)
 }
 
-export async function siteQuote(db: Db, creatorId: string, body: Body, requestCountry: string | null = null): Promise<SiteQuoteAnswer> {
-  const { priced, couponError, decision } = await priceSiteCart(db, creatorId, body)
-  if (decision.kind === "ships") return shippedQuote(db, creatorId, body)
+export async function siteQuote(db: Db, creatorId: string, body: Body, requestCountry: string | null = null, owner: SiteOwner | null = null): Promise<SiteQuoteAnswer> {
+  const { priced, couponError, decision } = await priceSiteCart(db, creatorId, body, owner)
+  if (decision.kind === "ships") return shippedQuote(db, creatorId, body, owner)
+  /* Everything in it is already theirs: a quote of nothing to pay, with what they own (the page says so, with the way to it). */
+  if (priced.ok === true && allOwned(priced) && priced.creatorIds.length === 1 && priced.creatorIds[0] === creatorId) {
+    return { ok: true, quote: { ...emptyQuote(creatorId), owned: ownedOf(priced.owned) } }
+  }
   if (decision.kind === "refuse" || priced.ok === false) {
     return { ok: false, status: decision.kind === "refuse" ? decision.status : 400, error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }
   }
@@ -120,7 +167,8 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
         discountCents: l.item.discountCents,
         requiresShipping: false,
       })),
-      dropped: priced.dropped.filter((d) => !/^[0-9a-f-]{36}$/i.test(d)),
+      dropped: droppedBesidesOwned(priced.dropped, priced.owned).filter((d) => !/^[0-9a-f-]{36}$/i.test(d)),
+      owned: ownedOf(priced.owned),
       stockIssues: [],
       requiresShipping: false,
       coupon: priced.coupon ? { code: priced.coupon.code, label: priced.couponLabel, freeShipping: false } : null,
@@ -132,8 +180,26 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
   }
 }
 
+/** A quote with nothing in it to pay for. */
+function emptyQuote(creatorId: string): SiteQuote {
+  return {
+    kind: "digital",
+    creatorId,
+    lines: [],
+    dropped: [],
+    owned: [],
+    stockIssues: [],
+    requiresShipping: false,
+    coupon: null,
+    couponError: null,
+    delivery: { ok: true, options: [], selectedId: null, needsCountry: false },
+    pickups: [],
+    totals: { itemsSubtotalCents: 0, discountCents: 0, shippingCents: 0, shippingDiscountCents: 0, taxCents: 0, taxIncluded: false, totalCents: 0 },
+  }
+}
+
 /** A cart that ships, priced by the physical checkout with the address and the delivery. */
-async function shippedQuote(db: Db, creatorId: string, body: Body): Promise<SiteQuoteAnswer> {
+async function shippedQuote(db: Db, creatorId: string, body: Body, owner: SiteOwner | null): Promise<SiteQuoteAnswer> {
   const [{ priceCheckout, quoteCheckout, readItems }, { deliveryEstimate }, { PICKUP_READY_LABEL }, { COUNTRY_CODES }] = await Promise.all([
     import("@/lib/physical/checkout-pricing-server"),
     import("@/lib/physical/rates"),
@@ -143,10 +209,11 @@ async function shippedQuote(db: Db, creatorId: string, body: Body): Promise<Site
   const items = readItems(body.items)
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : null
   let couponError: string | null = null
-  let priced = await priceCheckout(db, { items, couponCode: body.couponCode, buyerId: null, buyerEmail: email, shopId: creatorId })
+  const ownerEmail = owner?.email ?? null
+  let priced = await priceCheckout(db, { items, couponCode: body.couponCode, buyerId: null, buyerEmail: email, ownerEmail, shopId: creatorId })
   if (priced.ok === false && body.couponCode) {
     couponError = priced.error
-    priced = await priceCheckout(db, { items, couponCode: null, buyerId: null, buyerEmail: email, shopId: creatorId })
+    priced = await priceCheckout(db, { items, couponCode: null, buyerId: null, buyerEmail: email, ownerEmail, shopId: creatorId })
   }
   if (priced.ok === false) return { ok: false, status: priced.status, error: priced.error }
   if (priced.creatorId !== creatorId) return { ok: false, status: 400, error: "A cart can only hold one shop's products" }
@@ -170,7 +237,8 @@ async function shippedQuote(db: Db, creatorId: string, body: Body): Promise<Site
         discountCents: l.discountCents,
         requiresShipping: l.requiresShipping,
       })),
-      dropped: priced.dropped,
+      dropped: droppedBesidesOwned(priced.dropped, priced.owned),
+      owned: ownedOf(priced.owned),
       stockIssues: priced.stockIssues,
       requiresShipping: priced.requiresShipping,
       coupon: priced.coupon ? { code: priced.coupon.code, label: priced.couponLabel, freeShipping: priced.freeShipping } : null,

@@ -40,11 +40,20 @@ export function basketDecision(priced: PricedCart, opts: { shopId?: string | nul
   if (priced.ships.length > 0) return { kind: "ships", creatorId, items: priced.ships }
 
   if (priced.lines.length === 0) {
-    const named = priced.dropped.filter((d) => !/^[0-9a-f-]{36}$/i.test(d))
+    /* What is owned is said as owned; only what is left is "can't be bought". */
+    const ownedTitles = [...(priced.owned ?? []).map((o) => o.title)]
+    const named = priced.dropped.filter((d) => {
+      if (/^[0-9a-f-]{36}$/i.test(d)) return false
+      const i = ownedTitles.indexOf(d)
+      if (i < 0) return true
+      ownedTitles.splice(i, 1)
+      return false
+    })
+    const onlyOwned = priced.ownedAny && priced.dropped.length === (priced.owned?.length ?? priced.dropped.length)
     return {
       kind: "refuse",
       status: 400,
-      error: priced.ownedAny
+      error: onlyOwned
         ? "You already own everything in this cart"
         : named.length > 0
           ? `${named.slice(0, 3).join(", ")} can't be bought right now. Remove ${named.length === 1 ? "it" : "them"} and try again.`

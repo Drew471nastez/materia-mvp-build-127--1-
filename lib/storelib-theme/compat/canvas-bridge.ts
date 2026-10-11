@@ -187,7 +187,13 @@ export const CANVAS_BRIDGE = `
     return v;
   };
   var drawFrame = 0;
-  var drawBoxes = function () {
+  /*
+    \`withReport\`: the toolbar's box is sent from the same reading. The two
+    were read apart, each with its own run of hit tests down the section, in
+    the same frame; a box report waiting for the next frame is sent from this
+    one instead.
+  */
+  var drawBoxes = function (withReport) {
     drawFrame = 0;
     styleCache = null;
     fadeCache = null;
@@ -198,7 +204,12 @@ export const CANVAS_BRIDGE = `
     place(boxes.hover, hov && hov !== sec ? hov : null, 0);
     /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
     var b = place(boxes.block, blk, -2);
-    place(boxes.section, b ? null : sec, 0);
+    var seen = place(boxes.section, b ? null : sec, 0);
+    if (withReport === true || boxFrame) {
+      if (boxFrame) cancelAnimationFrame(boxFrame);
+      /* The section's reading, when it was read: with a block selected it was not, and the report reads it itself. */
+      report(b ? null : { el: sec, v: seen });
+    }
   };
   var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
   addEventListener("scroll", redraw, { passive: true, capture: true });
@@ -308,7 +319,34 @@ export const CANVAS_BRIDGE = `
   /* A theme that takes every link to play its own exit and then opens the page itself (location.href): the page it opened, as the builder would. */
   addEventListener("pagehide", function () {
     if (taken && Date.now() - taken.at < 3000) post({ type: "navigate", href: taken.href, chrome: taken.chrome });
+    else if (pressedCard && Date.now() - pressedCard.at < 3000) post({ type: "navigate", href: pressedCard.href, chrome: pressedCard.chrome });
   });
+  /*
+    A CARD THAT IS ITS OWN LINK. A product card pressed anywhere but on its
+    link (Horizon's, a picture or the space around the name) opens the
+    product with location.href, which a frame with no origin cannot report.
+    The press is remembered: the card is the nearest box around it whose
+    links all go to one page, and that page is what opened.
+  */
+  var pressedCard = null;
+  var oneLinkAround = function (el) {
+    for (var at = el, depth = 0; at && at !== document.body && depth < 8; at = at.parentElement, depth++) {
+      if (!at.querySelectorAll || (at.classList && at.classList.contains("shopify-section"))) return null;
+      var hrefs = {};
+      var n = 0;
+      Array.prototype.forEach.call(at.querySelectorAll("a[href]"), function (a) { var h = a.getAttribute("href") || ""; if (/^\\//.test(h) && !/^\\/\\//.test(h) && !hrefs[h]) { hrefs[h] = 1; n++; } });
+      if (n > 1) return null;
+      if (n === 1) return Object.keys(hrefs)[0];
+    }
+    return null;
+  };
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    pressedCard = null;
+    if (!t || !t.closest || t.closest("a[href], button, input, select, textarea, label, form, [role=button], summary")) return;
+    var href = oneLinkAround(t);
+    if (href) pressedCard = { href: href, at: Date.now(), chrome: !!t.closest("[class*='shopify-section-group-'], header, footer, nav") };
+  }, true);
   var follow = function (e, link) {
     var themeTook = false;
     var settled = false;
@@ -332,8 +370,7 @@ export const CANVAS_BRIDGE = `
       /* Off to another page: nothing of this one stays outlined while it goes. Back after a moment if the builder kept this page. */
       if (/^(\\/|https?:)/i.test(href) && !/^\\/?#/.test(href)) {
         leaving = true;
-        drawBoxes();
-        report();
+        drawBoxes(true);
         setTimeout(function () { leaving = false; redraw(); reportSoon(); }, 1500);
       }
     };
@@ -377,10 +414,10 @@ export const CANVAS_BRIDGE = `
   var boxFrame = 0;
   /* The part of it that can be seen, as the outline has it: covered by a drawer, there is nothing for the toolbar to point at. Sent only when it changed. */
   var lastBox = "";
-  var report = function () {
+  var report = function (read) {
     boxFrame = 0;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
-    var v = el ? visibleRect(el, 0) : null;
+    var v = el ? (read && read.el === el ? read.v : visibleRect(el, 0)) : null;
     var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
     var key = JSON.stringify(m);
     if (key === lastBox) return;
@@ -405,21 +442,22 @@ export const CANVAS_BRIDGE = `
     if (bursting) return;
     bursting = true;
     var tick = function () {
-      drawBoxes();
-      report();
+      drawBoxes(true);
       if (Date.now() < burstEnd) setTimeout(function () { requestAnimationFrame(tick); }, 80); else bursting = false;
     };
     requestAnimationFrame(tick);
   };
+  var watcher = null;
   if (typeof MutationObserver !== "undefined") {
-    new MutationObserver(function (records) {
+    watcher = new MutationObserver(function (records) {
       for (var i = 0; i < records.length; i++) {
         var t = records[i].target;
         if (t && t.nodeType === 1 && t.hasAttribute("data-sl-box")) continue;
         burst();
         return;
       }
-    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
+    });
+    watcher.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
   }
   var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } };
   addEventListener("transitionend", settled, true);
@@ -640,6 +678,16 @@ export const CANVAS_BRIDGE = `
     Array.prototype.forEach.call(b.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { keep(l.getAttribute("href")); });
     var y = scrollY;
     ops.forEach(function (op) { op(); });
+    /*
+      WHAT THIS WROTE IS NOT THE PAGE MOVING. The watcher above reads every
+      change as something of the theme's that opened or moved, and redrew
+      the outlines every 80ms for 700ms after it: on a slider dragged in the
+      sidebar that was all the time, a run of hit tests down the section
+      every few frames in the builder's own process. The changes made here
+      are taken back off its list; the outline is read again once, below,
+      and a transition they start is caught when it ends.
+    */
+    if (watcher) watcher.takeRecords();
     if (scrollY !== y) scrollTo(0, y);
     drawn[id] = html;
     clearTimeout(settleTimers[id]);
@@ -812,10 +860,16 @@ export const CANVAS_BRIDGE = `
         scrollTo({ top: m.top || 0, behavior: "instant" });
         requestAnimationFrame(function () { requestAnimationFrame(function () { post({ type: "settled", scrollY: scrollY }); }); });
       } else scrollTo({ top: m.top || 0 });
+    } else if (m.type === "hello") {
+      /* The builder heard the frame load but not this page say so: said again, whatever order the two happened in. */
+      ready();
     }
   });
-  var ready = function () { post({ type: "ready", scrollY: scrollY }); };
+  var saidReady = false;
+  var ready = function () { saidReady = true; post({ type: "ready", scrollY: scrollY }); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready); else ready();
+  /* Every section is in the page by the time this runs, at its foot. A deferred script of the theme's that stalls holds DOMContentLoaded back for good, and the canvas with it: ready is said anyway after a moment. */
+  setTimeout(function () { if (!saidReady) ready(); }, 2500);
   /*
     "loaded" (its first screen drawn, pictures in, entrance done) is said by
     canvas-network.ts, CANVAS_SHOWN, at the head of the page. It was said here

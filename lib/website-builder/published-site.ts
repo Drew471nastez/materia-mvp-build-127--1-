@@ -66,6 +66,7 @@ import {
   type CreatorFacts,
   communityReferences,
   pageWantsCollections,
+  pageWantsReviews,
 } from "@/lib/website-builder/storefront-data"
 import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
 import { creatorFacts, pickedProducts, publishedProductCount } from "@/lib/website-builder/storefront-data-server"
@@ -519,12 +520,20 @@ export async function dressPage(
           : read()
       })().catch(() => undefined)
     : undefined
+  /* Storelib Reviews, for a page with a review section: the shop's, and the product's on its page (lib/reviews/storefront-server.ts). */
+  const reviews = pageWantsReviews(sections, sourceOf)
+    ? await (async () => {
+        const { storefrontReviews } = await import("@/lib/reviews/storefront-server")
+        return (await storefrontReviews(site.creatorId, product?.id ? { id: product.id, title: product.title ?? null } : null)) as unknown as Record<string, unknown>
+      })().catch(() => undefined)
+    : undefined
   const data = storefrontData({
     dynamic,
     catalog: mergeCatalog(products, picked),
     menus: siteMenus(site.themeSettings, filled),
     communities,
     collections,
+    reviews,
   })
   return { sections: filled, data }
 }

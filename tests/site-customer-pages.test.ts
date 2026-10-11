@@ -101,7 +101,7 @@ function twoShops(): FakeSupabase {
   })
   db.table("orders", {}, [
     order("0a000000-0000-4000-8000-000000000001", A, PA1, ANA, "2026-09-20T10:00:00Z"),
-    order("0a000000-0000-4000-8000-000000000002", A, PA2, ANA, "2026-09-22T10:00:00Z"),
+    order("0a000000-0000-4000-8000-000000000002", A, PA2, ANA, "2026-09-22T10:00:00Z", { checkout_id: "cc000000-0000-4000-8000-000000000001" }),
     order("0a000000-0000-4000-8000-000000000003", A, PA1, IOAN, "2026-09-21T10:00:00Z"),
     /* Ana bought from B too: that order is B's, and never on A's website. */
     order("0b000000-0000-4000-8000-000000000001", B, PB1, ANA, "2026-09-23T10:00:00Z"),
@@ -109,10 +109,15 @@ function twoShops(): FakeSupabase {
     order("0a000000-0000-4000-8000-000000000004", A, PA1, ANA, "2026-09-24T10:00:00Z", { status: "failed" }),
   ])
   db.table("commerce_checkouts", {}, [
-    { id: "cc-1", creator_id: A, buyer_email: ANA, status: "paid", paid_at: "2026-09-22T10:00:00Z", shipping_address: { name: "Ana Pop", line1: "9 Elm Row", line2: "", city: "Cluj", region: "CJ", postalCode: "400000", country: "RO" } },
+    { id: "cc000000-0000-4000-8000-000000000001", creator_id: A, receipt_token: "co-token-wash-bag-aaaaaaaa", fulfillment_status: "fulfilled", delivery_method: "ship", cancelled_at: null, buyer_email: ANA, status: "paid", paid_at: "2026-09-22T10:00:00Z", shipping_address: { name: "Ana Pop", line1: "9 Elm Row", line2: "", city: "Cluj", region: "CJ", postalCode: "400000", country: "RO" } },
     { id: "cc-2", creator_id: A, buyer_email: ANA, status: "paid", paid_at: "2026-09-10T10:00:00Z", shipping_address: { name: "Ana Pop", line1: "9 Elm Row", line2: "", city: "Cluj", region: "CJ", postalCode: "400000", country: "RO" } },
     { id: "cc-3", creator_id: B, buyer_email: ANA, status: "paid", paid_at: "2026-09-23T10:00:00Z", shipping_address: { name: "Ana Pop", line1: "1 Secret Lane", city: "Oslo", postalCode: "0150", country: "NO" } },
     { id: "cc-4", creator_id: A, buyer_email: IOAN, status: "paid", paid_at: "2026-09-21T10:00:00Z", shipping_address: { name: "Ioan", line1: "3 Other St", city: "Iasi", country: "RO" } },
+  ])
+  /* The wash bag's parcel, with a number and no saved link: the carrier's own page is made for it. */
+  db.table("fulfillments", {}, [
+    { id: "f-1", checkout_id: "cc000000-0000-4000-8000-000000000001", creator_id: A, status: "in_transit", carrier: "UPS", tracking_number: "1Z999AA10123456784", tracking_url: null, created_at: "2026-09-23T10:00:00Z" },
+    { id: "f-2", checkout_id: "cc000000-0000-4000-8000-000000000001", creator_id: A, status: "cancelled", carrier: "DHL Express", tracking_number: "JD0000000001", tracking_url: null, created_at: "2026-09-22T12:00:00Z" },
   ])
   db.table("site_customers", { unique: [["creator_id", "email"]] }, [
     { id: CUST_ANA_A, creator_id: A, email: ANA, name: "Ana", created_at: "2026-09-01T00:00:00Z" },
@@ -222,7 +227,16 @@ async function main() {
     check("a wildcard in an email matches nobody's orders", sneaky.length === 0)
     const ships = (o: (typeof anaOnA)[number]) => o.items.every((i) => i.title === "Wash bag")
     check("the download is the order's own receipt on storelib.com", anaOnA.filter((o) => !ships(o)).every((o) => o.action_url.startsWith("https://storelib.com/receipt/tok-0a")))
-    check("an order that ships is followed on its own order page, with tracking, as a shop's account does", anaOnA.filter(ships).length > 0 && anaOnA.filter(ships).every((o) => o.action_url.startsWith("https://storelib.com/checkout/physical/order/tok-0a") && o.action_label === "Track order"), anaOnA.map((o) => `${o.items.map((i) => i.title).join("+")} ${o.action_label} ${o.action_url}`).join(" | "))
+    /*
+      The order page is keyed by its CHECKOUT's token. It used to be linked with
+      the order row's own token, which is a receipt's: the order page did not
+      know it and the button opened a 404.
+    */
+    check("an order that ships is followed on its own order page, with tracking, as a shop's account does", anaOnA.filter(ships).length > 0 && anaOnA.filter(ships).every((o) => o.action_url === "/checkout/physical/order/co-token-wash-bag-aaaaaaaa" && o.action_label === "Track order"), anaOnA.map((o) => `${o.items.map((i) => i.title).join("+")} ${o.action_label} ${o.action_url}`).join(" | "))
+    const bag = anaOnA.find(ships)!
+    check("  on the website's own host (a path, never storelib.com), with its status from the checkout", bag.order_url === bag.action_url && bag.status === "Shipped" && bag.fulfillment_status === "fulfilled", bag)
+    check("  and its live parcel with the carrier's own tracking page; a cancelled parcel is left out", bag.tracking?.length === 1 && bag.tracking[0].company === "UPS" && bag.tracking[0].number === "1Z999AA10123456784" && bag.tracking[0].url === "https://www.ups.com/track?tracknum=1Z999AA10123456784" && bag.tracking[0].status === "In transit", bag.tracking)
+    check("  a download in the same account keeps no parcel fields", anaOnA.filter((o) => !ships(o)).every((o) => o.tracking === undefined && o.order_url === undefined))
 
     const addresses = await customerAddresses(db, { creatorId: A, email: ANA })
     check("her addresses on A: the one her A orders went to, once", addresses.length === 1 && addresses[0].lines.join(" | ") === "Ana Pop | 9 Elm Row | Cluj, CJ 400000 | Romania", addresses)
@@ -232,6 +246,8 @@ async function main() {
     check("the account object carries orders and addresses for this website", account.orders_count === 2 && account.addresses?.length === 1 && account.sample === false)
     const html = draw("main_account", {}, { template: "page.account", globals: { customer: account as unknown as Record<string, unknown>, wishlist: { items: [], count: 0, signed_in: true } } })
     check("the account page shows the addresses block", /id="addresses"/.test(html) && /9 Elm Row/.test(html))
+    check("  and the parcel: its status, carrier and number, linked to the carrier's page", /class="track__status">In transit</.test(html) && /href="https:\/\/www\.ups\.com\/track\?tracknum=1Z999AA10123456784"[^>]*>UPS 1Z999AA10123456784</.test(html), html.match(/<ul class="track">[\s\S]*?<\/ul>/)?.[0])
+    check("  and Track order opens the order page on this site", /class="order__go" href="\/checkout\/physical\/order\/co-token-wash-bag-aaaaaaaa"/.test(html))
     const noAddr = draw("main_account", {}, { template: "page.account", globals: { customer: { ...account, addresses: [] } as unknown as Record<string, unknown> } })
     check("and no Addresses heading for a shop with nothing shipped", !/id="addresses"/.test(noAddr))
 

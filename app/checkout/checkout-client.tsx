@@ -52,6 +52,7 @@ import { StripePay, type IntentResult } from "./parts/stripe-pay"
 import { NativeWalletButtons } from "./parts/native-wallets"
 import { RETURN_PARAM, forgetSecret, redirectToAirwallex, takeSecret } from "./parts/airwallex-redirect"
 import { HtmlClass } from "@/components/platform/html-class"
+import { AccessLink } from "./parts/access-link"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { CommunityRefundPolicy, waiverSentence, type CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
 
@@ -1009,6 +1010,12 @@ export default function CheckoutPageClient({
 
   /* ── Pieces ──────────────────────────────────────────────────────── */
   /* Under the email, as Shopify puts it: the news box (never ticked for them), then the name as the store asks for it. */
+  /* A guest who bought it before: the receipts of that email's orders go to that email, and the page never says whether there were any (lib/checkout/access-link). */
+  const sendAccess = async (to: string) => {
+    const res = await fetch("/api/checkout/access-link", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: to, productId: product.id }) })
+    const data = (await res.json().catch(() => ({}))) as { message?: string; error?: string }
+    return { ok: res.ok, message: data.message || data.error || (res.ok ? "Check your inbox." : "That didn't go through. Try again in a moment.") }
+  }
   const namesAndNews = (
     <div className="space-y-3">
       {checkoutConfig.marketingOptIn ? (
@@ -1016,6 +1023,7 @@ export default function CheckoutPageClient({
           Email me with news and offers
         </CheckRow>
       ) : null}
+      {!isLoggedIn ? <AccessLink email={email} send={sendAccess} /> : null}
       {splitName ? (
         <div className="grid grid-cols-2 gap-3">
           <Field id="checkout-first" label="First name" error={fieldError?.field === "name" ? fieldError.message : null}>

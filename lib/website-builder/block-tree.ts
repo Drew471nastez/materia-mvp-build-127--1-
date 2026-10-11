@@ -176,8 +176,14 @@ type BlockShape = { id: string; type: string; settings: Record<string, unknown>;
  * everything inside it. One description, shared by every route that takes
  * sections, carries the whole tree: its blocks, whether it is hidden, and
  * whether its template placed it.
+ *
+ * MARKED PURE, so a bundle that does not use it leaves it, and zod with it,
+ * out. The canvas's live layer reads this module's tree helpers, and the
+ * live layer is in every published website's section renderer: a schema
+ * built when the module loads put zod (about 50KB) in every visitor's
+ * JavaScript for a check only the save routes make (the engine audit, S1).
  */
-export const BlockInstanceSchema: z.ZodType<BlockShape> = z.lazy(() =>
+export const BlockInstanceSchema: z.ZodType<BlockShape> = /* @__PURE__ */ z.lazy(() =>
   z.object({
     id: z.string().min(1).max(128),
     type: z.string().min(1).max(64),

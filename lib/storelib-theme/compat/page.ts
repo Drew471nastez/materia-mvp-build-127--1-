@@ -16,6 +16,7 @@ import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance,
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
 import { withShopifyModules } from "./shims"
+import { withStorelibReviewsSection } from "./storelib-reviews"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -58,10 +59,26 @@ export function pageParts(sections: readonly StoredSection[]): { header: StoredS
   return out
 }
 
+/**
+ * A section's place as the page draws it, from 0: among the shown sections
+ * of its own part (the template's, the header group's, the footer group's,
+ * its overlay group file's). `section.index` is that place plus one, and a
+ * theme draws by it (`if section.index == 1`: the hero's picture first, a
+ * header made transparent over it). Drawn again in the builder at its place
+ * in the whole page, the first section of a page was the fourth: a change to
+ * one value redrew it as another section would be.
+ */
+export function sectionIndexIn(list: readonly StoredSection[], section: StoredSection): number {
+  const chrome = (g: unknown) => g === "header" || g === "footer" || g === "overlay"
+  const same = list.filter((s) => !s.hidden && (chrome(section.group) ? s.group === section.group && (section.group !== "overlay" || (s.slot ?? "") === (section.slot ?? "")) : !chrome(s.group)))
+  return Math.max(0, same.indexOf(section))
+}
+
 /** The theme an install's files and settings make. */
 export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
   const compat = compatOf(settings)
-  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
+  /* With Storelib Reviews' own section, unless the theme has one by that name (./storelib-reviews.ts). */
+  return new CompatTheme(withStorelibReviewsSection(engineFiles(rows)), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
 }
 
 export interface DrawOptions {

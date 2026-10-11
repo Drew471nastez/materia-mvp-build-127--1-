@@ -37,7 +37,7 @@ for (const type of ["hero_product", "product_spotlight"]) {
 console.log("\nEverywhere else\n")
 {
   const page = read("app/checkout/page.tsx")
-  check("a buyer who owns it opens it in their library", /const OWNED = `\/account\/library\/products\/\$\{encodeURIComponent\(product\.id\)\}`/.test(page) && (page.match(/redirect\(OWNED\)/g) ?? []).length === 2)
+  check("a buyer who owns it opens it in their library", /const OWNED = `\/account\/library\/products\/\$\{encodeURIComponent\(product\.id\)\}`/.test(page) && (page.match(/redirect\(OWNED\)/g) ?? []).length === 1 && /if \(rowsOwn\(existingEntitlements/.test(page))
   const onepage = read("components/onepage/public-onepage.tsx")
   check("the OnePage product button opens checkout", /const buyUrl = data\.product_id && .*`\/checkout\?productId=\$\{encodeURIComponent\(data\.product_id\)\}`/.test(onepage) && (onepage.match(/href=\{buyUrl\}/g) ?? []).length === 3)
 }
