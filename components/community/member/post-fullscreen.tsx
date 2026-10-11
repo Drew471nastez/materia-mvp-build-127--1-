@@ -228,6 +228,7 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
               `innerHeight ${facts.innerH}  layout ${facts.layoutH}  scrollY ${facts.scrollY}`,
               `vv.height ${facts.vvH}  vv.offsetTop ${facts.vvTop}`,
               `native kb ${facts.native || "-"}  table kb ${facts.table ?? "-"}  floor ${facts.published || "-"}`,
+              `no keyboard ${facts.fullH ?? "-"}  web view resizes ${facts.resizes ? "yes" : "no"}`,
               `comment box top ${r(box?.top)} bottom ${r(box?.bottom)}  screen ${window.innerHeight}`,
             ].join("\n")
           })
