@@ -55,6 +55,9 @@ export interface OrderRow {
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
   property_type?: string | null
   property_id?: string | null
+  /** Settings › Taxes: the tax inside `amount_cents`, and whether it was part of the price or added on top. */
+  tax_cents?: number | null
+  tax_included?: boolean | null
   product?: {
     id: string
     title: string
@@ -80,6 +83,9 @@ export interface Order {
   sourceDetail: OrderOrigin | null
   subtotalCents: number
   tipCents: number
+  /** The tax in the total: added on top unless `taxIncluded`. */
+  taxCents: number
+  taxIncluded: boolean
   totalCents: number
   feeCents: number
   refundedCents: number
@@ -179,7 +185,10 @@ export function groupOrders(rows: OrderRow[]): Order[] {
        not added again for the total. */
     const tipCents = lines.reduce((n, r) => n + (r.tip_cents || 0), 0)
     const totalCents = lines.reduce((n, r) => n + (r.amount_cents || 0), 0)
-    const subtotalCents = Math.max(0, totalCents - tipCents)
+    const taxCents = lines.reduce((n, r) => n + Math.max(0, r.tax_cents || 0), 0)
+    const taxIncluded = taxCents > 0 && lines.filter((r) => (r.tax_cents || 0) > 0).every((r) => r.tax_included === true)
+    /* Tax added on top is in the amount too: the subtotal is the items, the tax its own row. */
+    const subtotalCents = Math.max(0, totalCents - tipCents - (taxIncluded ? 0 : taxCents))
     const refundedCents = lines.reduce((n, r) => n + refundedCentsOf(r), 0)
     const delivered = lines.map((r) => r.buyer_notified_at).filter((d): d is string => !!d).sort()
     const emailFailed = lines.some((r) => !r.buyer_notified_at && (r.buyer_email_last_error || "").trim())
@@ -196,6 +205,8 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       sourceDetail: sourceDetailOf(lines),
       subtotalCents,
       tipCents,
+      taxCents,
+      taxIncluded,
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
       refundedCents,
