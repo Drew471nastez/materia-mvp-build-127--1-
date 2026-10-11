@@ -26,7 +26,7 @@
  * screen, once, and keeps it.
  */
 import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
+import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
 import type { CompatPage, CompatTheme } from "@/lib/storelib-theme/compat/theme"

@@ -8,6 +8,7 @@ import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, us
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
+import dynamic from "next/dynamic"
 import { useRouter } from "next/navigation"
 import {
   ArrowLeft, Plug, Monitor, Smartphone, Loader2, Code2, ChevronDown, Plus, Eye, EyeOff, Trash2, Copy, Settings, Check, Layers, X, RotateCcw, Layout, AlignLeft, Image, MessageSquare, HelpCircle, Megaphone, BarChart2, Grid, Award, LayoutGrid, DollarSign, LayoutTemplate, Video, Users, MapPin, Mail, Clock, BookOpen, Shirt, Columns, Play, Star, Timer, Shield, Rss, SlidersHorizontal, Code, Bell, ChevronRight, Menu as MenuIcon, Package, Undo2, Redo2, ExternalLink, Search, FileText, ArrowRight, FolderOpen, MoreHorizontal, Upload, Info, Crop, CheckCircle, Type, Square, Rows3, Grid3x3, MousePointerClick, MoveHorizontal, Hash, Columns2, LayoutDashboard, Badge as BadgeIcon, ArrowUp, ArrowDown, Maximize2, Minimize2,
@@ -46,7 +47,6 @@ import { cn } from "@/lib/utils"
 import { PageList, PageSwitcher, type SwitcherPage } from "@/components/website-builder/page-switcher"
 import { PublishPanel } from "@/components/website-builder/publish-panel"
 import { PreviewModeSwitch, CodePane, type PreviewMode } from "@/components/website-builder/preview-mode-switch"
-import { ProjectSettings } from "@/components/website-builder/project-settings"
 import { settingsSectionFrom, type ConnectVia, type SettingsSection } from "@/components/website-builder/website-settings/types"
 import { ConnectionButton, LiveChangeNotice, addToBatch, useSiteActivity, type LiveBatch, type LiveChange } from "@/components/website-builder/site-connections"
 import { ConnectionMarkIcon } from "@/components/website-builder/connection-marks"
@@ -135,7 +135,7 @@ import { IconPicker } from "@/components/website-builder/icon-picker"
 import { LinkPicker, LinkTargetsProvider, useLinkTargets, type LinkTarget, type SectionLinkSource } from "@/components/website-builder/link-picker"
 import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
 import SectionRenderer from "@/components/website-builder/sections/SectionRenderer"
-import { CompatCanvas, loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
+import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows } from "@/lib/website-builder/favicon-sync"
@@ -150,7 +150,6 @@ import { CanvasTopLayerGuard } from "@/components/website-builder/canvas-top-lay
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { toast } from "sonner"
 import { getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
-import { ThemeChat } from "@/components/website-builder/theme-chat"
 import { ColorField } from "@/components/storefront/color-field"
 import { applyOp, type ThemeOp } from "@/lib/website-builder/agent/operations"
 import { switchKnob, switchTrack } from "@/components/ui/switch-style"
@@ -2625,7 +2624,40 @@ const INSPECT_FADE_MS = 200
 /** The longest the editor's loader waits for an imported theme's first page to paint. */
 const COMPAT_PAINT_CAP_MS = 8000
 
+/*
+  OUT OF THE FIRST PAINT. The AI conversation is drawn only once it has been
+  opened, and Website settings only while it is open, so neither has to arrive
+  before the editor can be used: each is its own chunk, fetched while the
+  browser is idle after the editor is up (warmPanels), so the first open is
+  not a wait. Together they are over 100 KB of the editor's code.
+*/
+const loadThemeChat = () => import("@/components/website-builder/theme-chat")
+const loadProjectSettings = () => import("@/components/website-builder/project-settings")
+/* An imported Shopify theme's canvas: only such a site needs it, and its code is asked for with the theme's files (warmCompat). */
+const loadCompatCanvas = () => import("@/components/website-builder/compat/compat-canvas")
+const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false })
+function warmCompat(installId: string) {
+  void loadCompatFiles(installId)
+  void loadCompatCanvas().catch(() => {})
+}
+const ThemeChat = dynamic(() => loadThemeChat().then((m) => m.ThemeChat), { ssr: false })
+const ProjectSettings = dynamic(() => loadProjectSettings().then((m) => m.ProjectSettings), { ssr: false })
+function warmPanels(): () => void {
+  const w = window as Window & { requestIdleCallback?: (f: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
+  const warm = () => {
+    void loadThemeChat().catch(() => {})
+    void loadProjectSettings().catch(() => {})
+  }
+  if (w.requestIdleCallback) {
+    const id = w.requestIdleCallback(warm, { timeout: 4000 })
+    return () => w.cancelIdleCallback?.(id)
+  }
+  const t = window.setTimeout(warm, 1500)
+  return () => window.clearTimeout(t)
+}
+
 export default function StoreEditorPage({ params }: { params: Promise<{ installId: string }> }) {
+  useEffect(() => warmPanels(), [])
   const { installId } = use(params)
   const router = useRouter()
 
@@ -2738,7 +2770,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   */
   useEffect(() => {
     try {
-      if (window.localStorage.getItem(`wb-compat:${installId}`) === "1") void loadCompatFiles(installId)
+      if (window.localStorage.getItem(`wb-compat:${installId}`) === "1") warmCompat(installId)
     } catch {
       /* no storage: the files are asked for once the install is in */
     }
@@ -3673,8 +3705,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const loadedSettings = settings?.draft_settings ?? settings?.settings ?? {}
     if (compatOf(loadedSettings)) {
       importedTheme.current = true
-      /* An imported theme's own files are the canvas's next wait: asked for now, beside the sections, not once the canvas mounts. */
-      void loadCompatFiles(installId)
+      /* An imported theme's own files and its canvas's code are the next wait: asked for now, beside the sections, not once the canvas mounts. */
+      warmCompat(installId)
       try { window.localStorage.setItem(`wb-compat:${installId}`, "1") } catch { /* see the prefetch above */ }
     } else {
       try { window.localStorage.removeItem(`wb-compat:${installId}`) } catch { /* see the prefetch above */ }

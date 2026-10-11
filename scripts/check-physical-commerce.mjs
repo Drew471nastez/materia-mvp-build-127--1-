@@ -191,7 +191,7 @@ try {
       posted = []
       await page.evaluate(() => { const s = document.querySelector("select[autocomplete=country]"); s.value = ""; s.dispatchEvent(new Event("change", { bubbles: true })) })
       await wait(600)
-      const before = await page.evaluate(() => ({ text: document.body.innerText, pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening)/.test(b.innerText.trim()))?.disabled }))
+      const before = await page.evaluate(() => ({ text: document.body.innerText, pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled }))
       expect(/Choose your country to see delivery options/.test(before.text), "no delivery options before a country")
       expect(before.pay === true, "Pay is off until the details are in")
       await page.type("input[type=email]", "mara@example.com")
@@ -201,14 +201,15 @@ try {
       await page.type("input[autocomplete=address-level2]", "Cluj")
       await page.type("input[autocomplete=postal-code]", "400001")
       await wait(900)
-      const after = await page.evaluate(() => ({ radios: document.querySelectorAll("input[name=delivery]").length, pay: [...document.querySelectorAll("button")].find((b) => /^Pay/.test(b.innerText.trim()))?.disabled, text: document.body.innerText }))
+      const after = await page.evaluate(() => ({ radios: document.querySelectorAll("input[name=delivery]").length, pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled, text: document.body.innerText }))
       expect(after.radios === 2, "the shop's two options for Romania", after.radios)
-      expect(after.pay === false && /Pay \$1\d\d\.\d\d/.test(after.text), "Pay is on, with the server's total on it", after.text.match(/Pay[^\n]*/)?.[0])
+      /* The button says Continue to payment (Stripe's form opens in the page); the server's total is in the order summary. */
+      expect(after.pay === false && /\b1\d\d\.\d\d\b/.test(after.text), "Pay is on, with the server's total on the page (in the store's currency)", after.text.match(/\d+\.\d\d/g)?.join(" "))
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `checkout-${label}`)
       await page.evaluate(() => [...document.querySelectorAll("input[name=delivery]")][1].click())
       await wait(700)
-      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Pay/.test(b.innerText.trim())).click())
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^(Pay|Continue to payment|Place order)/.test(b.innerText.trim())).click())
       await wait(500)
       const pay = posted.find((p) => p.url === "/api/physical/checkout")
       expect(!!pay && pay.body.deliveryOptionId === "r3" && pay.body.address?.country === "RO" && pay.body.items.length === 2, "Pay sends the chosen option, the address and the items", JSON.stringify(pay?.body ?? null).slice(0, 200))
@@ -227,7 +228,7 @@ try {
       /* Nothing ships to the United States here: said plainly, Pay off, pickup offered. */
       await page.select("select[autocomplete=country]", "US")
       await wait(900)
-      const none = await page.evaluate(() => ({ text: document.querySelector("[data-no-shipping]")?.innerText ?? "", pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening)/.test(b.innerText.trim()))?.disabled }))
+      const none = await page.evaluate(() => ({ text: document.querySelector("[data-no-shipping]")?.innerText ?? "", pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Opening|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled }))
       expect(/Shipping isn't available to United States/.test(none.text) && /Pick up above/.test(none.text) && none.pay === true, "no rate for the address: said plainly, Pay off, pickup offered", none.text)
       /* Pick up: no address, the point's details, Pay sends the pickup and no address. */
       posted = []
@@ -237,7 +238,7 @@ try {
       expect(/Studio/.test(pk.text) && /Usually ready in 24 hours/.test(pk.text) && /side door/i.test(pk.text) && !pk.address, "Pick up shows the point, when it's ready and the instructions, and no address", pk.text.slice(0, 160))
       await shot(page, `checkout-pickup-${label}`)
       expect(await sideways(page) === 0, "nothing scrolls sideways with pickup")
-      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^Pay/.test(b.innerText.trim())).click())
+      await page.evaluate(() => [...document.querySelectorAll("button")].find((b) => /^(Pay|Continue to payment|Place order)/.test(b.innerText.trim())).click())
       await wait(500)
       const pp = posted.find((p) => p.url === "/api/physical/checkout")
       expect(!!pp && pp.body.deliveryOptionId === "pickup:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" && pp.body.address === null && pp.body.name === "Mara Lind", "Pay for a pickup sends the pickup point, a name and no address", JSON.stringify(pp?.body ?? null).slice(0, 220))
@@ -324,7 +325,7 @@ try {
       await page.evaluate(() => document.querySelector("[aria-label='Edit Studio']").click())
       await wait(150)
       const lf = await page.evaluate(() => document.body.innerText)
-      expect(/Offer local pickup here/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
+      expect(/Local pickup/.test(lf) && /Buyers can collect their order/.test(lf) && /Usually ready in/.test(lf) && /Pickup instructions/.test(lf), "pickup: on, ready time and instructions in the location")
       await shot(page, `settings-pickup-${label}`)
       expect(/Email me when stock runs low/.test(lf), "low stock emails sit with the locations")
       await shot(page, `settings-${label}`)
@@ -491,7 +492,8 @@ try {
     /* ── The help guide ───────────────────────────────────────── */
     for (const article of ["how-physical-products-work", "shipping-profiles-zones-and-rates", "local-pickup", "ship-your-orders"]) {
       const { page, errors } = await open("help", `&article=${article}`)
-      const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img]").length)
+      /* Drawn figures, or the screenshots the guide carries now (scripts that retake them, round of 6d625ec4). */
+      const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img], figure img").length)
       expect(figures >= 1, `help: ${article} has its pictures (${label}px)`, figures)
       expect(await sideways(page) === 0, `help: ${article} doesn't scroll sideways (${label}px)`)
       await shot(page, `help-${article}-${label}`)

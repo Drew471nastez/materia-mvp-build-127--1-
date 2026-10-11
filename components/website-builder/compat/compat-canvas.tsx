@@ -34,6 +34,7 @@ import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/o
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { useLiveSections } from "@/lib/website-builder/live-settings"
+import { loadCompatFiles } from "./compat-files"
 
 export interface CompatCanvasProps {
   installId: string
@@ -77,25 +78,11 @@ export interface CompatCanvasProps {
 const canvasCarts = new Map<string, CanvasCart>()
 const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
 
-const loading = new Map<string, Promise<Record<string, string>>>()
-
 /** From the page saying it is ready to the placeholder going, unless its pictures are all in first. */
 const FIRST_PAINT_MS = 250
 
-/** The theme's own files (`shopify/…`), read once per install for the canvas and the settings panel together. */
-export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
-  const hit = loading.get(installId)
-  if (hit) return hit
-  const p = fetch(`/api/website-builder/themes/${installId}/files?compat=1`)
-    .then((r) => (r.ok ? r.json() : { files: {} }))
-    .then((d: { files?: Record<string, string> }) => d.files ?? {})
-    .catch(() => {
-      loading.delete(installId)
-      return {} as Record<string, string>
-    })
-  loading.set(installId, p)
-  return p
-}
+/* Kept apart (./compat-files) so the editor can ask for the files before this canvas's code has arrived. */
+export { loadCompatFiles }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
