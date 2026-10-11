@@ -115,7 +115,18 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
   const liquidTemplate = theme.files[`templates/${page.suffix ? `${page.template}.${page.suffix}` : page.template}.liquid`] ?? (page.suffix ? undefined : theme.files[`templates/${page.template}.liquid`])
   if (opts.content !== undefined) {
     content = opts.content
-  } else if (liquidTemplate !== undefined && parts.template.length === 0) {
+  } else if (liquidTemplate !== undefined && (parts.template.length === 0 || /\bcontent_for_index\b/.test(liquidTemplate))) {
+    /* An older theme's index.liquid: its {{ content_for_index }} is the page's sections, drawn where it says. */
+    if (parts.template.length) {
+      ctx.globals.content_for_index = parts.template
+        .filter((s) => !s.hidden)
+        .map((s, i) => {
+          const r = theme.renderSection(ctx, instanceOf(s), i)
+          if (r.errors.length) errors[s.id] = r.errors
+          return r.html
+        })
+        .join("")
+    }
     /* A template written in Liquid (gift_card.liquid, an older theme's product.liquid) is the page's content itself. */
     try {
       content = renderTree(parseCompat(isCompatSource(liquidTemplate) ? splitCompatFile(liquidTemplate).markup : liquidTemplate, { lax: true }), ctx)
@@ -140,7 +151,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     theme's ajax views are (`/cart?view=drawer`, `/search?view=json`). No
     layout, no head, nothing added: a script reads it as markup or JSON.
   */
-  const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : undefined
+  const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : opts.content === undefined ? theme.templateLayout(page.template, page.suffix) : undefined
   if (layout === "none" && opts.content === undefined) return { html: theme.finish(content), errors, ctx }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`

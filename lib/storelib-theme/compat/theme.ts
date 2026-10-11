@@ -36,6 +36,7 @@ import {
   cartObject,
   collectionByHandle,
   collectionObject,
+  currencySymbol,
   fontLinks,
   fontObject,
   linklistObject,
@@ -288,13 +289,48 @@ export interface RenderedSection {
   errors: string[]
 }
 
+// ── A section's Custom CSS ───────────────────────────────────────────────────
+
+/** Where a section keeps the Custom CSS Shopify's editor gave it (templates/*.json `custom_css`). */
+export const SECTION_CSS_KEY = "storelib_custom_css"
+
+/*
+  A SECTION'S CUSTOM CSS, as Shopify's editor applies it: to that section
+  and nothing else. Every rule is nested under the section's own element,
+  so `h2 { color: red }` is that section's headings. Only CSS: a < cannot
+  close the <style>, a backslash cannot spell a word past this, and
+  @import, expression() and javascript: are taken out.
+*/
+export function sectionCss(id: string, raw: unknown): string {
+  if (typeof raw !== "string" || !raw.trim()) return ""
+  const css = raw.slice(0, 20000).replace(/[<\\]/g, "").replace(/@import[^;]*;?/gi, "").replace(/expression\s*\(|javascript:|-moz-binding|behaviou?r\s*:/gi, "")
+  const target = /^[A-Za-z0-9_-]+$/.test(id) ? `#shopify-section-${id}` : `[id="shopify-section-${id.replace(/["\]\[]/g, "")}"]`
+  return `<style data-shopify>${target}{${css}}</style>`
+}
+
 // ── The theme ────────────────────────────────────────────────────────────────
+
+/*
+  THE THEME'S OWN LANGUAGE. `| t` reads the locale the theme marks as its
+  default: locales/en.default.json for most, and de.default.json for a theme
+  written in German, whose words are German and which has no English
+  default at all. English is read first when there is one, as the import
+  does (shopify/convert.ts defaultLocale).
+*/
+function defaultLocalePath(files: Record<string, string>, schema: boolean): string | null {
+  const suffix = schema ? ".default.schema.json" : ".default.json"
+  if (files[`locales/en${suffix}`] !== undefined) return `locales/en${suffix}`
+  for (const p of Object.keys(files).sort()) if (/^locales\/[^/]+$/.test(p) && p.endsWith(suffix) && (schema || !p.endsWith(".schema.json"))) return p
+  return null
+}
 
 export class CompatTheme {
   private parsed = new Map<string, Parsed | null>()
   private schemas = new Map<string, O>()
   private staticCache = new Map<string, { type: string; id: string }[]>()
   private locale: O | null
+  /** The language of that locale's words ("de" for de.default.json): request.locale. */
+  private lang: string
   private schemaLocale: O | null
   readonly settingsSchema: O[]
   readonly warnings: string[] = []
@@ -302,8 +338,10 @@ export class CompatTheme {
   readonly diagnostics = new Set<string>()
 
   constructor(public readonly files: Record<string, string>, public readonly settingsValues: O, private opts: CompatThemeOptions) {
-    this.locale = parseJsonLoose(files["locales/en.default.json"]) as O | null
-    this.schemaLocale = parseJsonLoose(files["locales/en.default.schema.json"]) as O | null
+    const localePath = defaultLocalePath(files, false)
+    this.locale = parseJsonLoose(files[localePath ?? ""]) as O | null
+    this.lang = localePath?.match(/^locales\/([^.]+)\./)?.[1] ?? "en"
+    this.schemaLocale = parseJsonLoose(files[defaultLocalePath(files, true) ?? ""]) as O | null
     const ss = parseJsonLoose(files["config/settings_schema.json"])
     this.settingsSchema = Array.isArray(ss) ? (ss as O[]) : []
   }
@@ -505,15 +543,16 @@ export class CompatTheme {
       [OUTPUT]: page.shop.name,
       name: page.shop.name,
       description: page.shop.description ?? "",
-      url: page.shop.url ?? "",
-      secure_url: page.shop.url ?? "",
+      /* The site's own address, as Shopify's shop.url is the store's: a theme's share links and gift card page write it in front of a path. */
+      url: page.shop.url ?? (page.host ? `https://${page.host}` : ""),
+      secure_url: page.shop.url ?? (page.host ? `https://${page.host}` : ""),
       domain: page.host ?? "",
       permanent_domain: page.host ?? "",
       email: page.shop.email ?? "",
       currency,
       money_format: moneyFormat,
       money_with_currency_format: `${moneyFormat} ${currency}`,
-      enabled_currencies: [{ iso_code: currency, symbol: "$", name: currency }],
+      enabled_currencies: [{ iso_code: currency, symbol: currencySymbol(currency), name: currency }],
       /* What Storelib's checkout takes (Stripe): cards and the two wallets. No PayPal, which it does not take. */
       enabled_payment_types: ["visa", "master", "american_express", "apple_pay", "google_pay"],
       locale: "en",
@@ -540,11 +579,11 @@ export class CompatTheme {
       shop,
       cart,
       routes: SHOPIFY_ROUTES,
-      request: requestObject(page.template, page.path, page.designMode, page.host),
+      request: requestObject(page.template, page.path, page.designMode, page.host, this.lang),
       localization: localizationObject(currency),
       template,
       page_title: page.title ?? defaultPageTitle(page),
-      page_description: page.description ?? page.shop.description ?? "",
+      page_description: page.description ?? defaultPageDescription(page),
       canonical_url: page.host ? `https://${page.host}${page.path}` : page.path,
       handle: page.product ? productObj?.handle : page.collection?.handle ?? "",
       content_for_header: shopifyBootstrap({ shopName: page.shop.name, host: page.host, currency, designMode: page.designMode, themeName: this.opts.themeName, storeId: page.shop.id, signedIn: !!page.customer }),
@@ -567,7 +606,8 @@ export class CompatTheme {
       metaobjects: {},
       powered_by_link: "",
       current_page: Number(page.query?.page ?? 1) || 1,
-      current_tags: [],
+      /* Nil unless a collection or blog is narrowed by tag, as on Shopify: Dawn's <title> writes ` – tagged "…"` whenever it is anything else, and an empty list is not nothing in Liquid. */
+      current_tags: null,
       additional_checkout_buttons: false,
       content_for_additional_checkout_buttons: "",
       recommendations: page.recommendations
@@ -692,6 +732,7 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
+    html = `${sectionCss(instance.id, instance.settings?.[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
@@ -862,6 +903,24 @@ export class CompatTheme {
 
   // ── The layout ──
 
+  /*
+    THE LAYOUT A JSON TEMPLATE NAMES. templates/password.json says
+    `"layout": "password"` (Dawn, Horizon): the password page is drawn in
+    layout/password.liquid, with no header or footer of the shop, as on
+    Shopify, not in theme.liquid. `"layout": false` is no layout at all.
+    Undefined when the template names none, or the theme has no such file.
+  */
+  private templateLayouts = new Map<string, string | undefined>()
+  templateLayout(template: string, suffix?: string): string | undefined {
+    const name = suffix ? `${template}.${suffix}` : template
+    if (this.templateLayouts.has(name)) return this.templateLayouts.get(name)
+    const json = parseJsonLoose(this.files[`templates/${name}.json`]) as O | null
+    const raw = json && typeof json === "object" ? json.layout : undefined
+    const out = raw === false ? "none" : typeof raw === "string" && raw && raw !== "theme" && this.fileFor("layout", raw) ? raw : undefined
+    this.templateLayouts.set(name, out)
+    return out
+  }
+
   /** The whole document of a page: the layout, with the page's sections where it says. */
   renderDocument(ctx: Ctx, content: string, head: { extraHead?: string; extraBodyEnd?: string; layout?: string } = {}): string {
     /* `{% layout 'alternate' %}` in a template: that layout when the theme has it, the theme's own otherwise. */
@@ -1009,6 +1068,18 @@ function emptyBlog(path: string): Record<string, unknown> {
  * the builder's canvas draws a cart or a product without a title, and a
  * theme's breadcrumb read the shop's name there ("Home > My store").
  */
+/*
+  WHAT A PAGE TELLS A SEARCH ENGINE when Website settings say nothing, as
+  Shopify's page_description: a product's or a collection's own words, else
+  the shop's description, else nil, so a theme's
+  `{% if page_description %}<meta name="description">` writes no empty tag.
+*/
+export function defaultPageDescription(page: CompatPage): string | null {
+  const plain = (v: unknown) => String(v ?? "").replace(/<(script|style)\b[\s\S]*?<\/\1>/gi, " ").replace(/<\/?(p|div|br|li|ul|ol|h[1-6]|tr|td|th|table|section|blockquote)\b[^>]*>/gi, " ").replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0, 320)
+  const own = page.template === "product" ? plain(page.product?.descriptionHtml || page.product?.settings?.description) : page.template === "collection" ? plain(page.collection?.description) : ""
+  return own || page.shop.description || null
+}
+
 export function defaultPageTitle(page: CompatPage): string {
   switch (page.template) {
     case "product": return String(page.product?.settings?.title ?? "") || page.shop.name
@@ -1100,9 +1171,42 @@ export function withoutPasswordFields(html: string): string {
   return out
 }
 
+/*
+  THE ID AND CLASS SHOPIFY GIVES A FORM the theme gave none: the same on
+  every draw, so a section drawn again (Section Rendering) has the form a
+  script found before, and a theme's CSS or an older script that finds
+  `#customer_login` or `.shopify-product-form` finds it here too.
+*/
+const FORM_CLASS: Record<string, string> = {
+  product: "shopify-product-form",
+  contact: "contact-form",
+  customer: "contact-form",
+  localization: "shopify-localization-form",
+  currency: "shopify-currency-form",
+  storefront_password: "storefront-password-form",
+  new_comment: "comment-form",
+}
+function shopifyFormId(type: string, obj: unknown): string | null {
+  const objId = obj && typeof obj === "object" ? toOutput((obj as O).id) : ""
+  switch (type) {
+    case "product": return objId ? `product_form_${objId}` : null
+    case "contact":
+    case "customer": return "contact_form"
+    case "customer_login": return "customer_login"
+    case "create_customer": return "create_customer"
+    case "recover_customer_password": return "recover_customer_password"
+    case "localization": return "localization_form"
+    case "currency": return "currency_form"
+    case "storefront_password": return "login_form"
+    case "new_comment": return "comment_form"
+    case "customer_address": return objId ? `address_form_${objId}` : "address_form_new"
+    default: return null
+  }
+}
+
 function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: string; close: string; form: O; body?: (html: string) => string } {
   const section = ctx.registers.section as O | undefined
-  const id = typeof args.id === "string" && args.id ? args.id : `${type.replace(/_/g, "-")}-${toOutput(section?.id ?? "x")}-${++formSeq}`
+  const id = typeof args.id === "string" && args.id ? args.id : shopifyFormId(type, obj) ?? `${type.replace(/_/g, "-")}-${toOutput(section?.id ?? "x")}-${++formSeq}`
   const action: Record<string, string> = {
     product: "/cart/add",
     cart: "/cart",
@@ -1120,12 +1224,15 @@ function formMarkup(ctx: Ctx, type: string, obj: unknown, args: O): { open: stri
     storefront_password: "/password",
     currency: "/cart/update",
   }
-  const attrs: string[] = [`method="post"`, `action="${action[type] ?? "#"}"`, `id="${escapeHtml(id)}"`, `accept-charset="UTF-8"`]
+  /* A contact or newsletter form posts to /contact#<its id>, as on Shopify: the page it comes back to opens at the form and its thank you. */
+  const to = type === "contact" || type === "customer" ? `/contact#${encodeURIComponent(id)}` : action[type] ?? "#"
+  const attrs: string[] = [`method="post"`, `action="${escapeHtml(to)}"`, `id="${escapeHtml(id)}"`, `accept-charset="UTF-8"`]
   for (const [k, v] of Object.entries(args)) {
     if (k === "id" || k === "return_to" || v === null || v === undefined || v === false) continue
     if (/^on/i.test(k) || !/^[a-zA-Z_:][-\w:.]*$/.test(k)) continue
     attrs.push(v === true ? k.replace(/_/g, "-") : `${k.replace(/_/g, "-")}="${escapeHtml(toOutput(v))}"`)
   }
+  if (args.class === undefined && FORM_CLASS[type]) attrs.push(`class="${FORM_CLASS[type]}"`)
   if (type === "product") attrs.push(`enctype="multipart/form-data"`, `data-type="add-to-cart-form"`)
   if (type === "contact" || type === "customer") attrs.push(`data-storelib-form="${type === "customer" ? "subscribe" : "contact"}"`)
   const hidden = [`<input type="hidden" name="form_type" value="${escapeHtml(type)}">`, `<input type="hidden" name="utf8" value="✓">`]

@@ -10151,6 +10151,15 @@ function SectionToolbar({
    */
   const lastBox = useRef<{ top: number; right: number } | null>(null)
   if (box) lastBox.current = box
+  /*
+    PLACED IN WHAT IT IS PLACED IN. It is positioned in the canvas area,
+    and its place was read against the scrolling page: the same box at
+    Desktop, but in the phone preview the page is a narrower frame in the
+    middle and the toolbar stood out at the canvas's right edge, 24px high.
+    Read against its own containing box once it is in the page.
+  */
+  const barRef = useRef<HTMLDivElement>(null)
+  const measureNow = useRef<() => void>(() => {})
   const present = box !== null
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -10201,8 +10210,11 @@ function SectionToolbar({
         return
       }
       const top = Math.max(r.top + 10, s.top + 10)
-      setBox({ top: top - s.top, right: s.right - r.right + 10 })
+      const host = (barRef.current?.offsetParent as HTMLElement | null) ?? scroller
+      const h = host.getBoundingClientRect()
+      setBox({ top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 })
     }
+    measureNow.current = measure
     // Coalesced into a frame: a scroll fires far more often than the screen
     // is painted, and a measurement per event is a measurement thrown away.
     const onScroll = () => {
@@ -10224,6 +10236,8 @@ function SectionToolbar({
       mo?.disconnect()
     }
   }, [sectionId])
+  /* Read again the moment it is in the page, against its own containing box. */
+  useLayoutEffect(() => { if (mounted) measureNow.current() }, [mounted])
 
   /**
    * The last place it was, so a toolbar on its way out has somewhere to
@@ -10279,6 +10293,7 @@ function SectionToolbar({
             // toolbar anybody should be able to press.
             "pointer-events-none -translate-y-1 scale-[0.97] opacity-0",
       )}
+      ref={barRef}
       style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
     >

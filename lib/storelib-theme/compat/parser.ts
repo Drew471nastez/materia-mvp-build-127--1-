@@ -18,6 +18,8 @@ export type Node =
   | { k: "continue" }
   | { k: "assign"; name: string; e: Expr }
   | { k: "capture"; name: string; body: Node[] }
+  /* `{% ifchanged %}…{% endifchanged %}`: its body, drawn only when it differs from the last time it was drawn. */
+  | { k: "ifchanged"; body: Node[] }
   | { k: "incdec"; name: string; by: 1 | -1 }
   | { k: "cycle"; group?: Expr; values: Expr[] }
   | { k: "render"; name: Expr; args: [string, Expr][]; with?: { e: Expr; as?: string; isFor: boolean }; include: boolean; line: number }
@@ -52,6 +54,7 @@ const ENDS: Record<string, string[]> = {
   for: ["else", "endfor"],
   tablerow: ["endtablerow"],
   capture: ["endcapture"],
+  ifchanged: ["endifchanged"],
   block: ["endblock"],
   partial: ["endpartial"],
   form: ["endform"],
@@ -225,6 +228,11 @@ class TreeBuilder {
         this.expectEnd("endcapture")
         return { k: "capture", name: n, body }
       }
+      case "ifchanged": {
+        const body = this.block(ENDS.ifchanged)
+        this.expectEnd("endifchanged")
+        return { k: "ifchanged", body }
+      }
       case "increment":
       case "decrement":
         return { k: "incdec", name: args.trim(), by: name === "increment" ? 1 : -1 }
@@ -310,6 +318,7 @@ class TreeBuilder {
       case "endfor":
       case "endcase":
       case "endcapture":
+      case "endifchanged":
       case "endform":
       case "endpaginate":
       case "endstyle":

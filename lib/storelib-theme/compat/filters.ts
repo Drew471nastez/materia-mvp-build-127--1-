@@ -161,10 +161,26 @@ function imageAttrs(v: unknown): { width?: number; height?: number; alt?: string
 
 const IMAGE_TAG_KEYS = new Set(["widths", "sizes", "preload", "alt", "class", "loading", "fetchpriority", "decoding", "width", "height", "style", "id", "role", "srcset", "data"])
 
+/*
+  THE PICTURE BEHIND AN ADDRESS. On Shopify, `image | image_url: width: 800`
+  is an address that still knows its picture, so `| image_tag` after it
+  writes the picture's own alt text when the theme passes none: the way
+  Dawn and Horizon write nearly every picture. Here image_url gives the
+  address, and the picture's alt is kept beside it for the draw.
+*/
+function kept(ctx: Ctx | undefined, image: unknown, url: string): string {
+  if (!ctx || !url || !image || typeof image !== "object") return url
+  const alt = imageAttrs(image).alt
+  if (alt === undefined) return url
+  const map = (ctx.registers.imageAlts ??= new Map<string, string>()) as Map<string, string>
+  if (map.size < 2000) map.set(url, alt)
+  return url
+}
+
 function imageTag(input: unknown, kwargs: Record<string, unknown>, ctx?: Ctx): string {
   const src = typeof input === "string" ? input : imageSrc(input)
   if (!src) return ""
-  const meta = imageAttrs(input)
+  const meta = typeof input === "string" ? { alt: ((ctx?.registers.imageAlts as Map<string, string> | undefined)?.get(input)) } : imageAttrs(input)
   const widthsRaw = kwargs.widths !== undefined ? str(kwargs.widths) : ""
   const widths = widthsRaw ? widthsRaw.split(",").map((x) => Math.trunc(Number(x.trim()))).filter((x) => x > 0) : [352, 832, 1200, 1600, 2400]
   const base = src
@@ -201,7 +217,9 @@ function imageTag(input: unknown, kwargs: Record<string, unknown>, ctx?: Ctx): s
 
 function cents(v: unknown): number | null {
   if (v === null || v === undefined || v === "") return null
-  if (typeof v === "number") return v
+  /* A sum the theme worked out with a float ("price | times: 0.8", "divided_by: 4.0") is a float, and still a price. */
+  if (v instanceof LFloat) return Math.round(v.v)
+  if (typeof v === "number") return Math.round(v)
   if (typeof v === "string") {
     const t = v.trim()
     if (/^-?\d+$/.test(t)) return Number(t)
@@ -219,6 +237,8 @@ function delimit(n: string, thousands: string): string {
 }
 
 export function formatMoney(amountCents: number, format: string): string {
+  /* Below zero, the sign goes in front of the whole price, as Shopify writes it: -$10.50, never $-10.50. */
+  if (amountCents < 0) return `-${formatMoney(-amountCents, format)}`
   const value = amountCents / 100
   const fixed = (d: number) => value.toFixed(d)
   return format.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key: string) => {
@@ -570,8 +590,8 @@ const F: Record<string, FilterFn> = {
   shopify_asset_url: (v, _a, _k, ctx) => shopifyGlobalAssetUrl(str(v)) ?? reg(ctx).assetUrl?.(str(v)) ?? "",
   file_url: (v, _a, _k, ctx) => reg(ctx).fileUrl?.(str(v)) ?? "",
   file_img_url: (v, [size], _k, ctx) => sized(reg(ctx).fileUrl?.(str(v)) ?? "", String(size ?? "").split("x")[0]),
-  image_url: (v, _a, kw) => sized(imageSrc(v), kw.width, kw.height),
-  img_url: (v, [size]) => { const s = str(size); const w = s === "master" ? 0 : Number(s.split("x")[0]) || (s.startsWith("x") ? Number(s.slice(1)) : 0); return sized(imageSrc(v), w) },
+  image_url: (v, _a, kw, ctx) => kept(ctx, v, sized(imageSrc(v), kw.width, kw.height)),
+  img_url: (v, [size], _k, ctx) => { const s = str(size); const w = s === "master" ? 0 : Number(s.split("x")[0]) || (s.startsWith("x") ? Number(s.slice(1)) : 0); return kept(ctx, v, sized(imageSrc(v), w)) },
   product_img_url: (v, [size]) => sized(imageSrc(v), String(size ?? "").split("x")[0]),
   collection_img_url: (v, [size]) => sized(imageSrc(v), String(size ?? "").split("x")[0]),
   article_img_url: (v, [size]) => sized(imageSrc(v), String(size ?? "").split("x")[0]),
@@ -600,7 +620,7 @@ const F: Record<string, FilterFn> = {
   external_video_tag: (v, _a, kw) => externalVideo(v, kw),
   external_video_url: (v) => externalVideoUrl(v),
   model_viewer_tag: (v, _a, kw) => imageTag((v as Record<string, unknown>)?.preview_image ?? v, kw),
-  structured_data: () => "",
+  structured_data: (v, _a, _k, ctx) => structuredData(v, ctx),
   default_errors: (v) => { const messages = v && typeof v === "object" && (v as Record<string, unknown>).messages && typeof (v as Record<string, unknown>).messages === "object" ? ((v as Record<string, unknown>).messages as Record<string, unknown>) : null; const msgs = toList(v).map((x) => (messages && messages[str(x)] !== undefined ? str(messages[str(x)]) : str(x))).filter(Boolean); return msgs.length ? `<div class="errors"><ul>${msgs.map((m) => `<li>${escapeHtml(m)}</li>`).join("")}</ul></div>` : "" },
   default_pagination: (v) => defaultPagination(v),
   /* A card's mark as a picture (paymentMark below), for themes that use an <img> rather than inline SVG. */
@@ -627,7 +647,12 @@ const F: Record<string, FilterFn> = {
   format_address: (v) => { const o = (v ?? {}) as Record<string, unknown>; return ["name", "company", "address1", "address2", "city", "province", "zip", "country"].map((k) => str(o[k])).filter(Boolean).map(escapeHtml).join("<br>") },
   metafield_tag: (v) => escapeHtml(str((v as Record<string, unknown>)?.value ?? v)),
   metafield_text: (v) => str((v as Record<string, unknown>)?.value ?? v),
-  weight_with_unit: (v, [unit]) => `${num(v)} ${str(unit) || "kg"}`,
+  /* A weight is kept in grams, as Shopify keeps it, and written in the unit asked for (the shop's, kg, when none is). */
+  weight_with_unit: (v, [unit]) => {
+    const u = (str(unit) || "kg").toLowerCase()
+    const per = ({ kg: 1000, g: 1, lb: 453.59237, lbs: 453.59237, oz: 28.349523125 } as Record<string, number>)[u] ?? 1000
+    return `${Math.round((num(v) / per) * 100) / 100} ${u === "lbs" ? "lb" : u in { kg: 1, g: 1, lb: 1, oz: 1 } ? u : "kg"}`
+  },
   item_count_for_variant: (v, [id]) => { const items = toList((v as Record<string, unknown>)?.items); return items.filter((i) => str((i as Record<string, unknown>).variant_id) === str(id)).reduce<number>((s, i) => s + num((i as Record<string, unknown>).quantity), 0) },
   line_items_for: (v, [obj]) => { const items = toList((v as Record<string, unknown>)?.items); const id = str((obj as Record<string, unknown>)?.id); return items.filter((i) => str((i as Record<string, unknown>).product_id) === id || str((i as Record<string, unknown>).variant_id) === id) },
   link_to_tag: (v, [tag]) => `<a href="?tag=${encodeURIComponent(str(tag))}" title="${attr(tag)}">${str(v)}</a>`,
@@ -691,6 +716,60 @@ const F: Record<string, FilterFn> = {
 }
 
 /** Values that can go to JSON: drops are plain objects already; functions and symbols fall away. */
+/*
+  SHOPIFY'S structured_data: what a product or an article is, for a search
+  engine, as JSON-LD. Dawn and Horizon write it inside their own
+  <script type="application/ld+json">; empty, that script was not JSON at
+  all, and a product page lost its price and stock in search results. A
+  product is a Product with an Offer per variant (price, currency, in stock
+  or not, the variant's own address), an article an Article. Anything
+  else is an empty object, which still reads as JSON.
+*/
+function structuredData(v: unknown, ctx: Ctx): string {
+  const o = v && typeof v === "object" ? (v as Record<string, unknown>) : null
+  const origin = str(prop(ctx.globals.request, "origin")) || str(prop(ctx.globals.shop, "url"))
+  const abs = (u: unknown) => { const t = str(u); return !t ? "" : /^https?:\/\//.test(t) ? t : t.startsWith("//") ? `https:${t}` : `${origin}${t.startsWith("/") ? "" : "/"}${t}` }
+  const plain = (x: unknown) => str(x).replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/gi, "").replace(/<\/?(p|div|br|li|ul|ol|h[1-6]|tr|td|th|table|section|blockquote)\b[^>]*>/gi, " ").replace(/<[^>]*>/g, "").replace(/\s+/g, " ").trim()
+  const shopName = str(prop(ctx.globals.shop, "name"))
+  let out: Record<string, unknown> = {}
+  if (o && Array.isArray(o.variants) && typeof o.handle === "string") {
+    const currency = reg(ctx).currency ?? "USD"
+    const images = toList(o.images).map((i) => abs(imageSrc(i))).filter(Boolean)
+    out = {
+      "@context": "http://schema.org/",
+      "@type": "Product",
+      "@id": `${abs(o.url)}#product`,
+      name: str(o.title),
+      url: abs(o.url),
+      ...(images.length ? { image: images } : {}),
+      description: plain(o.description),
+      brand: { "@type": "Brand", name: str(o.vendor) || shopName },
+      offers: (o.variants as Record<string, unknown>[]).map((variant) => ({
+        "@type": "Offer",
+        ...(str(variant.sku) ? { sku: str(variant.sku) } : {}),
+        ...(str(variant.title) && str(variant.title) !== "Default Title" ? { name: str(variant.title) } : {}),
+        availability: variant.available === false ? "http://schema.org/OutOfStock" : "http://schema.org/InStock",
+        price: (num(variant.price) / 100).toFixed(2),
+        priceCurrency: currency,
+        url: abs(variant.url ?? o.url),
+      })),
+    }
+  } else if (o && (typeof o.content === "string" || typeof o.excerpt === "string") && typeof o.title === "string") {
+    const image = imageSrc(o.image)
+    out = {
+      "@context": "http://schema.org/",
+      "@type": "Article",
+      headline: str(o.title),
+      ...(o.url ? { url: abs(o.url), mainEntityOfPage: abs(o.url) } : {}),
+      ...(image ? { image: [abs(image)] } : {}),
+      ...(o.published_at ? { datePublished: str(o.published_at) } : {}),
+      ...(o.author ? { author: { "@type": "Person", name: str(o.author) } } : {}),
+      publisher: { "@type": "Organization", name: shopName },
+    }
+  }
+  return JSON.stringify(out).replace(/<\//g, "<\\/")
+}
+
 function jsonSafe(v: unknown, depth = 0): unknown {
   if (depth > 8) return null
   if (v === null || v === undefined) return null
