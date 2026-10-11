@@ -143,7 +143,8 @@ export const EXPLAINERS = {
     lines: [
       "Your store's name and contact details go on receipts, order emails and your checkout, so buyers know who they bought from.",
       "Your phone is shown to your payment provider and on order emails, so a buyer or a carrier can reach you about an order.",
-      "The default region decides the currency new prices are in and the country new locations start in.",
+      "Where your store is based is the country new locations and tax regions start in. Prices are in your payout currency, set under Payments.",
+      "Business details put your legal name, address and tax number on every receipt and invoice.",
     ],
   },
 } satisfies Record<string, Explainer>
