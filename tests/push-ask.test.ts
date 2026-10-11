@@ -38,7 +38,7 @@ console.log("\nEvery install is asked")
 check("the app only: a browser has its own notifications", /if \(!inNativeApp\(\)\) return/.test(ask))
 check("not asked yet: the phone's own prompt, signed in or not", /if \(permission === "prompt"\) \{\s*const answer = await askPushPermission\(\)/.test(ask) && !/accountWantsPush/.test(ask))
 check("  a yes while signed in turns the account's own switch on", /answer === "granted" && \(await signedIn\(\)\)/.test(ask) && /JSON\.stringify\(\{ enabled: true \}\)/.test(ask))
-check("  a yes before signing in registers the phone on sign in", /onAuthStateChange/.test(init) && /event === "SIGNED_IN"/.test(init) && /if \(!\(await hasSession\(\)\)\) return/.test(client))
+check("  a yes before signing in registers the phone on sign in", /onAuthStateChange/.test(init) && /event === "SIGNED_IN"/.test(init) && /if \(!\(await sessionUser\(\)\)\) return/.test(client) && /if \(knownToken\) void sendToken\(knownToken, platform\)/.test(client))
 check("after the first frame, not during it", /setTimeout\(\(\) => void decide\(\), 1200\)/.test(ask))
 
 console.log("\nA no is reminded, and one tap opens the phone's settings")
