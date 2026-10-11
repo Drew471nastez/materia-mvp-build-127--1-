@@ -147,7 +147,7 @@ console.log("\nReceipts and orders\n")
   const view = read("app/receipt/[token]/receipt-view.tsx")
   check("the receipt page shows Tax, or Including tax", /<Row label=(?:"Tax"|\{receipt\.taxLabel \|\| "Tax"\}) value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label=(?:"Including tax"|\{includedTaxLabel\(receipt\.taxLabel\)\})/.test(view) && /<Row label="Total"/.test(view))
   const mail = read("lib/receipts/email.ts")
-  check("the receipt email too", /sumRow\("Tax", m\.taxText\)/.test(mail) && /sumRow\("Including tax", m\.taxText\)/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
+  check("the receipt email too", /sumRow\(taxName\(m\), m\.taxText\)/.test(mail) && /sumRow\(includedName\(m\), m\.taxText\)/.test(mail) && /\|\| "Tax"/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
   const [sale] = groupOrders([
     { id: "o1", product_id: "p1", amount_cents: 5831, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:00Z", stripe_session_id: "cs_1", tax_cents: 931, tax_included: false },
     { id: "o2", product_id: "p2", amount_cents: 1050, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:01Z", stripe_session_id: "cs_1", tax_cents: 50, tax_included: false },
@@ -155,7 +155,7 @@ console.log("\nReceipts and orders\n")
   check("Orders in the app: Subtotal + Tax = Total for a taxed basket", sale.taxCents === 981 && !sale.taxIncluded && sale.subtotalCents === 5900 && sale.totalCents === 6881, sale && { tax: sale.taxCents, sub: sale.subtotalCents })
   check("  the order page shows the Tax row and each line at its price", /<Row label=(?:"Tax"|\{order\.taxLabel \|\| "Tax"\}) value=\{formatMoney\(order\.taxCents\)\} \/>/.test(read("app/app/orders/order-detail.tsx")) && /line\.tax_included \? 0 : line\.tax_cents/.test(read("app/app/orders/order-detail.tsx")) && /tax_cents: Number\(order\.tax_cents\) \|\| 0/.test(read("lib/orders/load-rows.ts")))
   check("the single product checkout records whether its tax was included", /update\(\{ tax_included: true \}\)/.test(read("lib/checkout/fulfil-payment.ts")))
-  check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /t\.taxIncluded \? "Tax \(included\)" : "Tax"/.test(read("lib/physical/email-templates.ts")))
+  check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /t\.taxIncluded \? `Including \$\{/.test(read("lib/physical/email-templates.ts")) && /taxLabel: typeof co\.shipping_rate\?\.tax_label/.test(read("lib/physical/jobs-server.ts")))
 }
 
 console.log("\nA basket's invoice\n")

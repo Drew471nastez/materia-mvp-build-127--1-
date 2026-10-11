@@ -128,7 +128,7 @@ console.log("\nThe sheet opens at once, as a bottom sheet on a phone\n")
 {
   const panel = read("components/app/settings/customer-emails-panel.tsx")
   check("the preview is drawn in the browser, not fetched on each open", /previewCustomerEmail\(id, shop,/.test(panel) && !/\/api\/store\/emails\/preview/.test(panel))
-  check("  from what Settings already fetched", /peekGet<Loaded>\(PATH\)/.test(panel) && /emails: \(\) => \["\/api\/store\/emails"\]/.test(read("components/app/settings-form-new.tsx")))
+  check("  from what Settings already fetched", /peekGet<CustomerEmailsData>\(CUSTOMER_EMAILS_PATH\)/.test(panel) && /emails: \(\) => \["\/api\/store\/emails"\]/.test(read("components/app/settings-form-new.tsx")))
   check("a dialog on a computer, the shared bottom sheet on a phone", /<SheetDialog/.test(panel) && /phone=\{phone\}/.test(panel) && /usePhoneWidth\(\)/.test(panel))
   check("an editor with live preview, Save and Reset to default", /useDeferredValue\(draft\)/.test(panel) && /data-email-save/.test(panel) && /Reset to default/.test(panel))
   check("  placeholders can be added with a tap", /PLACEHOLDERS\.map/.test(panel) && /data-placeholder/.test(panel))

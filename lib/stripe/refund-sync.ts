@@ -366,8 +366,11 @@ async function emailRefund(db: Db, touched: Array<{ row: OrderRow; cents: number
     sellerEmail = ownerAddress(profile?.email) || undefined
   }
   const title = touched.length === 1 ? (product as any)?.title || "Your purchase" : `${touched.length} items`
+  /* An order that ships has its own refund email in the store's look (lib/physical/jobs-server.ts queueRefundEmail,
+     keyed by the refunded total, queued by the same webhook): the buyer gets that one, not this one as well. */
+  const shipped = touched.some((t) => typeof (t.row as { checkout_id?: unknown }).checkout_id === "string" && (t.row as { checkout_id?: string }).checkout_id)
   await sendRefundEmails({
-    buyerEmail: first.buyer_email || first.customer_email || undefined,
+    buyerEmail: shipped ? undefined : first.buyer_email || first.customer_email || undefined,
     sellerEmail,
     productTitle: title,
     refundAmount: touched.reduce((n, t) => n + t.cents, 0),

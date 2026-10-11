@@ -66,6 +66,7 @@ export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
   shipping_confirmation: { subject: "Order {{order_number}} is on the way", heading: "Your order is on the way", body: "Good news, {{customer_name}}. Your order has shipped. Track it any time with the link below.", button: "Track your package" },
   tracking_changed: { subject: "New tracking number for order {{order_number}}", heading: "Your tracking number changed", body: "The carrier gave your package a new tracking number. Use this one to follow it from now on.", button: "Track your package" },
   out_for_delivery: { subject: "Order {{order_number}} is out for delivery", heading: "Your order is out for delivery", body: "{{customer_name}}, your package is with the driver and should arrive today.", button: "Track your package" },
+  delivery_problem: { subject: "A problem delivering order {{order_number}}", heading: "There's a problem with your delivery", body: "{{customer_name}}, the carrier ran into a problem delivering your package. We're on it and will be in touch. If something about the address is wrong, reply to this email.", button: "View your order" },
   delivered: { subject: "Order {{order_number}} was delivered", heading: "Your order was delivered", body: "{{customer_name}}, your package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.", button: "View your order" },
   ready_for_pickup: { subject: "Order {{order_number}} is ready to pick up", heading: "Your order is ready to pick up", body: "Good news, {{customer_name}}. Your order is waiting for you. Bring your order number, {{order_number}}, and we'll hand it over.", button: "Get directions" },
   picked_up: { subject: "Order {{order_number}} was picked up", heading: "Your order was picked up", body: "Thanks, {{customer_name}}. Your order was collected. We hope you love it.", button: "View your order" },
@@ -199,7 +200,7 @@ export function emailIdForJob(template: string, kind?: string | null, status?: s
   if (template === "return") return status === "approved" ? "return_approved" : status === "received" ? "return_received" : status === "completed" ? "return_completed" : null
   if (template === "shipment") {
     if (pickup) return kind === "delivered" ? "picked_up" : "ready_for_pickup"
-    return kind === "delivered" ? "delivered" : kind === "out_for_delivery" ? "out_for_delivery" : kind === "tracking" ? "tracking_changed" : "shipping_confirmation"
+    return kind === "delivered" ? "delivered" : kind === "out_for_delivery" ? "out_for_delivery" : kind === "tracking" ? "tracking_changed" : kind === "failed" ? "delivery_problem" : "shipping_confirmation"
   }
   return null
 }

@@ -45,8 +45,10 @@ import { ScrollEdge } from "@/components/app/scroll-edge"
 import { GUTTER, LIST_WIDTH, MenuOption, MenuSurface, PaneBar, RowMenuButton, StatusBadge, buttonAccent, buttonSecondary, card, iconButton } from "../orders/order-parts"
 import { HOVER_PREFETCH_MS } from "../orders/order-prefetch"
 import { layerLinkClick, openLayer } from "./layer-nav"
+import { CustomerEmailsPanel, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { visibleCustomerEmails } from "@/lib/emails/customer-catalog"
 
-export type EmailsTab = "subscribers" | "messages" | "flows" | "published" | "scheduled" | "drafts"
+export type EmailsTab = "subscribers" | "messages" | "flows" | "customer" | "published" | "scheduled" | "drafts"
 
 /** A message from a contact form on one of the creator's websites (site_contact_messages, lib/site-contact). */
 export interface MessageRow {
@@ -131,6 +133,10 @@ export interface EmailsHomeProps {
   subscribers: SubscriberRow[]
   /** Buyers who are not on the list, counted as reachable from the store. */
   checkoutBuyersCount: number
+  /** The Customer emails tab's read (the store, its saved words), when it has come. */
+  customerEmails?: CustomerEmailsData | null
+  /** Physical commerce is on: the shipping, pickup and return emails are listed too. */
+  physical: boolean
   search: string
   onSearch: (q: string) => void
   onExportSubscribers: () => void
@@ -171,6 +177,7 @@ export const TABS: { id: EmailsTab; label: string }[] = [
   { id: "subscribers", label: "Subscribers" },
   { id: "messages", label: "Messages" },
   { id: "flows", label: "Automations" },
+  { id: "customer", label: "Customer emails" },
   { id: "published", label: "Sent" },
   { id: "scheduled", label: "Scheduled" },
   { id: "drafts", label: "Drafts" },
@@ -263,6 +270,8 @@ export function EmailsHome(props: EmailsHomeProps) {
           {tab === "subscribers" ? <SubscribersTable {...props} /> : null}
           {tab === "messages" ? <MessagesTable {...props} /> : null}
           {tab === "flows" ? <FlowsTable {...props} /> : null}
+          {/* The emails a buyer gets from the store: the same list, editor and saved words as Settings › Customer emails. */}
+          {tab === "customer" ? <CustomerEmailsPanel bare /> : null}
           {tab === "published" || tab === "scheduled" || tab === "drafts" ? <CampaignsTable {...props} /> : null}
         </section>
       </div>
@@ -404,6 +413,15 @@ function readingsFor(p: EmailsHomeProps): Reading[] {
       { label: "In progress", help: "People partway through an automation right now.", value: n(sum("in_progress")) },
       { label: "Emails sent", help: "Every email your automations have sent.", value: n(sent) },
       { label: "Open rate", help: "Of the emails your automations sent, how many were opened. Some mail apps hide opens, so this is a floor.", value: sent ? `${Math.round((sum("opened") / sent) * 1000) / 10}%` : "–" },
+    ]
+  }
+  if (p.tab === "customer") {
+    const c = p.customerEmails
+    const listed = visibleCustomerEmails(p.physical)
+    return [
+      { label: "Emails", help: "The emails your buyers get from your store: receipts, order and shipping updates, returns and the checkout reminder.", value: n(listed.length) },
+      { label: "Edited", help: "Emails you changed the words of. The rest go out with the default words.", value: c ? n(listed.filter((e) => c.copy[e.id]).length) : "–" },
+      { label: "Replies go to", help: "Your store's contact email, from Settings › Store details. A buyer who answers an email writes to it.", value: c?.shop.supportEmail || "–" },
     ]
   }
   if (p.tab === "published") {

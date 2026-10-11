@@ -267,7 +267,7 @@ async function main() {
     check("the studio is offered for pickup with its ready time and hours", r.q.pickups.length === 1 && p.pickup?.name === "Studio" && p.pickup.ready === "2h" && p.pickup.hours === "Mon to Fri 9:00 to 17:00" && p.priceCents === 0, p)
     const pick = await quote(shop(), [{ productId: HOODIE, variantId: HOODIE_V, quantity: 1 }], null, `pickup:${STUDIO}`)
     check("picking it up is free and holds the stock there", pick.q.option?.kind === "pickup" && pick.q.totals.shippingCents === 0 && pick.q.lines.every((l) => l.locationId === STUDIO))
-    check("the order keeps the hours, the buyer's page and the pickup email show them", /hours: pickup\.hours \?\? null/.test(read("lib/physical/checkout-server.ts")) && /data-pickup-hours/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /Open \$\{co\.pickup\.hours\}/.test(read("lib/physical/jobs-server.ts")))
+    check("the order keeps the hours, the buyer's page and the pickup email show them", /hours: pickup\.hours \?\? null/.test(read("lib/physical/checkout-server.ts")) && /data-pickup-hours/.test(read("app/checkout/physical/order/[token]/order-status-view.tsx")) && /Open \$\{co\.pickup\.hours\}|hours: typeof co\.pickup\.hours === "string"/.test(read("lib/physical/jobs-server.ts")))
   }
 
   section("Settings: Shipping and delivery, Locations")

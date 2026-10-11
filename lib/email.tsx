@@ -500,6 +500,9 @@ async function receiptEmailModel(
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
       taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, "en-US") : null,
       taxIncluded: v.taxIncluded === true,
+      /* The tax's own name and the business behind the store, when the receipt read them (SQL part 153). */
+      taxLabel: (v as { taxLabel?: string | null }).taxLabel ?? null,
+      legal: (v.seller as { legal?: ReceiptEmailModel["legal"] } | undefined)?.legal ?? null,
       totalText: money(v.totalCents),
       refundedText: v.refundedCents > 0 ? formatMoney(v.refundedCents, v.currency, "en-US") : null,
       link: params.receiptLink,
@@ -533,7 +536,7 @@ async function receiptEmailModel(
  * opening text and button label (lib/emails/customer-custom.ts), on the
  * model the receipt is drawn from. Nothing saved, nothing changes.
  */
-async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
+export async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
   if (!creatorId) return subject
   const [{ loadCustomerEmailCopy }, { resolveCopy, itemsText }] = await Promise.all([import("@/lib/emails/customer-copy-server"), import("@/lib/emails/customer-custom")])
   const saved = await loadCustomerEmailCopy(admin, creatorId)
@@ -594,6 +597,8 @@ type SaleRow = {
   variant_name?: string | null
   stripe_session_id?: string | null
   status?: string | null
+  /** A physical order's checkout (commerce_checkouts), when the row came from one. */
+  checkout_id?: string | null
 }
 
 const whole = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null)
@@ -693,7 +698,7 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   const customerName = nameOf(first?.buyer_first_name, first?.buyer_last_name) || nameOf(params.buyerFirstName, params.buyerLastName)
   const customerEmail = normalizeEmail(first?.buyer_email || params.buyerEmail || "")
   const country = safeText(first?.buyer_country || first?.buyer_country_code || sale.country || "")
-  const data: Record<string, unknown> = {
+  let data: Record<string, unknown> = {
     orderId: rows[0]?.id ?? params.orderId,
     orderNumber: number ? String(number) : "",
     productTitle: lines[0]?.title ?? safeText(params.productTitle),
@@ -714,6 +719,24 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
     cardBrand: first?.card_brand ?? "",
     cardLast4: first?.card_last4 ?? "",
     occurredAt,
+  }
+  /* An order that ships or is picked up: where, how, who fulfils it, and its shipping (lib/notify/seller-commerce.ts). */
+  const checkoutId = typeof first?.checkout_id === "string" && first.checkout_id ? first.checkout_id : null
+  if (checkoutId && params.creatorId) {
+    try {
+      const { data: co } = await admin
+        .from("commerce_checkouts")
+        .select("delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note")
+        .eq("id", checkoutId)
+        .eq("creator_id", params.creatorId)
+        .maybeSingle()
+      const [{ physicalSaleFacts, withPhysicalSale }, { sellerNextStepFor }] = await Promise.all([import("@/lib/notify/seller-commerce"), import("@/lib/physical/orders-server")])
+      /* What to do next, worded by who ships each part and how that place hears of it (lib/physical/fulfillment.ts sellerNextStep). */
+      const next = await sellerNextStepFor(admin, params.creatorId, checkoutId).catch(() => null)
+      data = withPhysicalSale(data, physicalSaleFacts(co), next)
+    } catch (e) {
+      console.error("[email] sale email: the order's delivery was not read:", e instanceof Error ? e.message : e)
+    }
   }
   return { data, orderIds, first: isFirst, occurredAt }
 }
@@ -813,7 +836,9 @@ export async function sendBuyerDownloadEmail(
   // 3) identity.replyTo (support email)
   // 4) platform support
   // This ensures buyers can reply directly to the seller!
-  const replyTo = normalizeEmail(sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
+  /* The store's own contact email (Settings › Store details) first, as every customer email signs with it (lib/emails/customer-copy-server.ts). */
+  const contact = sellerReplyTo ? null : await import("@/lib/emails/customer-copy-server").then((m) => m.storeContactEmail(admin, creatorId)).catch(() => null)
+  const replyTo = normalizeEmail(sellerReplyTo || "") || contact || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
 
   const receiptLink = receiptUrl(`/receipt/${encodeURIComponent(receiptToken)}`)
   const customerEmail = normalizeEmail(buyerEmail)

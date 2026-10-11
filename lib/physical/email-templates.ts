@@ -32,6 +32,14 @@ export interface EmailTotals {
   taxIncluded: boolean
   total: number
   currency: string
+  /**
+   * The tax by region or kind when the order has more than one ("VAT 19%",
+   * "Shipping tax"), in the order the checkout added them. Without it the
+   * one Tax row stands for all of it.
+   */
+  taxLines?: { label: string; cents: number }[] | null
+  /** The tax's name as the checkout set it ("VAT 19%", shipping_rate.tax_label, SQL part 153); "Tax" without one. */
+  taxLabel?: string | null
 }
 
 function esc(value: unknown): string {
@@ -67,16 +75,45 @@ export interface EmailBrand {
   websiteUrl?: string | null
   /** The buyer's order page, for "Get help with this order". */
   helpUrl?: string | null
+  /**
+   * THE LEGAL LINE at the very bottom: who is selling (the business name
+   * when it differs from the store's), the business address and tax number
+   * when the store gave them. Left out, the line is the store's name alone.
+   * A ship-from address is never used here: for many stores it is a home.
+   */
+  legal?: { name?: string | null; address?: string[] | null; taxId?: string | null; taxIdLabel?: string | null } | null
 }
 
-function brandTop(shopName: string, brand: EmailBrand | undefined, aside: string | undefined): string {
+/** "10 October 2026", in the store's time zone when known. "" for a date that can't be read. */
+export function orderDateText(value: string | number | Date | null | undefined, timeZone?: string | null): string {
+  if (value === null || value === undefined || value === "") return ""
+  const d = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(d.getTime())) return ""
+  try {
+    return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", ...(timeZone ? { timeZone } : {}) }).format(d)
+  } catch {
+    return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(d)
+  }
+}
+
+function brandTop(shopName: string, brand: EmailBrand | undefined, aside: string | undefined, date?: string | null): string {
   const logo = brand?.logoUrl && /^https:\/\//.test(brand.logoUrl) ? brand.logoUrl : null
   const name = logo
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding-right:10px;vertical-align:middle;"><img src="${esc(logo)}" height="36" alt="${esc(shopName)}" style="display:block;height:36px;width:auto;max-width:160px;border-radius:8px;border:0;"></td><td style="vertical-align:middle;font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</td></tr></table>`
     : `<span style="font-size:15px;font-weight:600;color:${INK};">${esc(shopName)}</span>`
+  const when = date ? `<br><span style="font-size:12px;letter-spacing:0;text-transform:none;color:${MUTED};">${esc(date)}</span>` : ""
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px 0;"><tr><td style="vertical-align:middle;">${name}</td>${
-    aside ? `<td align="right" style="vertical-align:middle;font-size:12px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};white-space:nowrap;">${esc(aside)}</td>` : ""
+    aside ? `<td align="right" style="vertical-align:middle;font-size:12px;line-height:18px;letter-spacing:0.04em;text-transform:uppercase;color:${MUTED};white-space:nowrap;">${esc(aside)}${when}</td>` : ""
   }</tr></table>`
+}
+
+/** The business behind the store, one small line: "Sold by" its legal name, its address, its tax number. Only what the store gave; the store's name alone without them. */
+function legalLine(shopName: string, brand: EmailBrand | undefined): string {
+  const l = brand?.legal
+  if (!l?.name?.trim()) return shopName
+  const parts = [`Sold by ${l.name.trim()}`, ...(l.address ?? []).map((a) => a.trim()).filter(Boolean)]
+  const tax = l.taxId?.trim() ? `${l.taxIdLabel?.trim() || "Tax ID"} ${l.taxId.trim()}` : ""
+  return [parts.join(", "), tax].filter(Boolean).join(" · ")
 }
 
 /** Where a question goes: reply, or the store's own address, phone and website, and the order page's help. */
@@ -90,19 +127,72 @@ function brandFooter(shopName: string, brand: EmailBrand | undefined, footer: st
   return `${first}${reach.length ? `<br>${reach.join(`<span style="color:#c4c8cf;">&nbsp;&nbsp;·&nbsp;&nbsp;</span>`)}` : ""}${help}`
 }
 
-function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string; brand?: EmailBrand } = {}): string {
-  const html = `<div style="background:#f8f9fa;padding:24px 12px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:${INK};">
-<style>@media only screen and (max-width:480px){td.col{display:block !important;width:100% !important;}td.step{font-size:11px !important;}}</style>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;">
-<tr><td style="padding:28px 28px 8px 28px;">
-${brandTop(shopName, opts.brand, opts.aside)}
+/** The inbox's one line under the subject: the opening text, as plain words. */
+function preheader(intro: string): string {
+  const t = intro.replace(/<br\s*\/?>/gi, " ").replace(/<[^>]+>/g, "").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim().slice(0, 140)
+  if (!t) return ""
+  return `<div style="display:none;font-size:1px;color:#f8f9fa;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all;">${t}${"&#8199;&#65279;&#847; ".repeat(30)}</div>`
+}
+
+/**
+ * EVERY BUYER EMAIL'S FRAME, the way every inbox draws it:
+ *
+ *   a document   doctype, charset, viewport, the subject as its title
+ *   tables       the layout is tables with inline styles; the card is a
+ *                600px table inside a fixed one for Outlook on Windows,
+ *                which ignores max-width
+ *   light only   `color-scheme: light only` keeps Apple Mail and iOS Mail
+ *                from repainting it, and every surface has its colour as
+ *                bgcolor as well as CSS, so the Gmail and Outlook apps that
+ *                invert anyway invert all of it together: nothing ends up
+ *                dark on dark
+ *   preheader    the opening text as the inbox's preview line
+ *   footer       where questions go, then the legal line: who sells, and
+ *                why this email came (an order email has no unsubscribe;
+ *                only the checkout reminder, which is marketing, has one)
+ */
+function shell(shopName: string, heading: string, intro: string, body: string, subject: string, opts: { aside?: string; footer?: string; brand?: EmailBrand; date?: string | null; reason?: string | null } = {}): string {
+  const legal = legalLine(shopName, opts.brand)
+  const reason = opts.reason === null ? "" : opts.reason ?? `You're getting this email because of your order with ${shopName}.`
+  const html = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="format-detection" content="telephone=no,address=no,email=no,date=no">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light">
+<title>${esc(subject)}</title>
+<!--[if mso]><noscript><xml><o:OfficeDocumentSettings><o:PixelsPerInch>96</o:PixelsPerInch></o:OfficeDocumentSettings></xml></noscript><![endif]-->
+<style>:root{color-scheme:light only;supported-color-schemes:light;}body{margin:0!important;padding:0!important;width:100%!important;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;}table{border-collapse:collapse;mso-table-lspace:0;mso-table-rspace:0;}img{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic;}a[x-apple-data-detectors]{color:inherit!important;text-decoration:none!important;}@media only screen and (max-width:480px){td.col{display:block !important;width:100% !important;}td.step{font-size:11px !important;}td.pe-pad{padding-left:20px !important;padding-right:20px !important;}}</style>
+</head>
+<body style="margin:0;padding:0;background-color:#f8f9fa;" bgcolor="#f8f9fa">
+${preheader(intro)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#f8f9fa" style="width:100%;background-color:#f8f9fa;"><tr><td align="center" style="padding:24px 12px;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:${INK};">
+<!--[if mso]><table role="presentation" width="560" align="center" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width:100%;max-width:560px;margin:0 auto;background-color:#ffffff;border:1px solid #e5e7eb;border-radius:16px;border-collapse:separate;font-family:Inter,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;">
+<tr><td class="pe-pad" style="padding:28px 28px 8px 28px;">
+${brandTop(shopName, opts.brand, opts.aside, opts.date)}
 <h1 style="margin:0 0 8px 0;font-size:22px;line-height:28px;font-weight:700;color:${INK};">${esc(heading)}</h1>
 <p style="margin:0 0 20px 0;font-size:14px;line-height:22px;color:${MUTED};">${intro}</p>
 </td></tr>
 ${body}
-<tr><td style="padding:24px 28px 28px 28px;"><p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:12.5px;line-height:20px;color:${MUTED};">${brandFooter(shopName, opts.brand, opts.footer)}</p></td></tr>
-</table></div>`
+<tr><td class="pe-pad" style="padding:24px 28px 28px 28px;"><p style="margin:0;padding-top:20px;border-top:1px solid ${LINE};font-size:12.5px;line-height:20px;color:${MUTED};">${brandFooter(shopName, opts.brand, opts.footer)}</p></td></tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+<p style="margin:16px auto 0 auto;max-width:560px;font-size:11.5px;line-height:17px;color:#9ca3af;text-align:center;" data-legal="">${esc(legal)}${reason ? `<br>${esc(reason)}` : ""}</p>
+</td></tr></table>
+</body>
+</html>`
   return finalizeEmailHtml(html, subject)
+}
+
+/** The plain text part's last lines: the legal line and why it came. */
+function legalText(shopName: string, brand: EmailBrand | undefined, reason?: string | null): string[] {
+  const why = reason === null ? "" : reason ?? `You're getting this email because of your order with ${shopName}.`
+  return ["", "--", legalLine(shopName, brand), ...(why ? [why] : [])]
 }
 
 /** Plain-text footer lines: the same ways to reach the store. */
@@ -165,9 +255,36 @@ function totalsTable(t: EmailTotals): string {
 ${row("Subtotal", formatMoney(t.subtotal, t.currency))}
 ${t.discount > 0 ? row("Discount", `-${formatMoney(t.discount, t.currency)}`) : ""}
 ${t.shipping > 0 || t.shippingDiscount > 0 ? row("Shipping", shipping === 0 ? "Free" : formatMoney(shipping, t.currency)) : ""}
-${t.tax > 0 ? row(t.taxIncluded ? "Tax (included)" : "Tax", formatMoney(t.tax, t.currency)) : ""}
+${taxRows(t).map((r) => row(r.label, r.value)).join("")}
 ${row("Total", formatMoney(t.total, t.currency), true)}
 </table></td></tr>`
+}
+
+/**
+ * The tax as rows: one per line the checkout kept, else one row named as the
+ * checkout named it ("VAT 19%"), else "Tax". Tax that was in the prices reads
+ * "Including VAT 19%", the words receipts use (lib/tax/rules includedTaxLabel).
+ */
+function taxRows(t: EmailTotals): { label: string; value: string }[] {
+  const name = (l: string) => {
+    const clean = l.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Tax"
+    return t.taxIncluded ? `Including ${/^tax\b/i.test(clean) ? "tax" + clean.slice(3) : clean}` : clean
+  }
+  const lines = (t.taxLines ?? []).filter((l) => l && l.cents > 0 && typeof l.label === "string" && l.label.trim())
+  if (lines.length) return lines.map((l) => ({ label: name(l.label), value: formatMoney(l.cents, t.currency) }))
+  return t.tax > 0 ? [{ label: name(t.taxLabel ?? ""), value: formatMoney(t.tax, t.currency) }] : []
+}
+
+/** The money as the plain text part says it, every row the HTML has. */
+function totalsText(t: EmailTotals): string[] {
+  const shipping = t.shipping - t.shippingDiscount
+  return [
+    `Subtotal: ${formatMoney(t.subtotal, t.currency)}`,
+    ...(t.discount > 0 ? [`Discount: -${formatMoney(t.discount, t.currency)}`] : []),
+    ...(t.shipping > 0 || t.shippingDiscount > 0 ? [`Shipping: ${shipping === 0 ? "Free" : formatMoney(shipping, t.currency)}`] : []),
+    ...taxRows(t).map((r) => `${r.label}: ${r.value}`),
+    `Total: ${formatMoney(t.total, t.currency)}`,
+  ]
 }
 
 function addressBlock(label: string, address: Partial<Address> | null, extra?: string): string {
@@ -192,7 +309,7 @@ export interface OrderEmailModel {
   statusUrl: string
   hasDownloads: boolean
   /** Picked up instead of shipped: where, when it is usually ready, and what to bring. */
-  pickup?: { name: string; address: string[]; ready: string | null; instructions: string | null } | null
+  pickup?: PickupPlace | null
   /** The store, for "or visit our store": its creator page. */
   storeUrl?: string | null
   /** How it was paid, as the receipt says it ("Visa ending 4242"). */
@@ -202,11 +319,23 @@ export interface OrderEmailModel {
   brand?: EmailBrand
   /** The store's own words from Settings › Customer emails (lib/emails/customer-custom.ts). */
   copy?: ResolvedCopy
+  /** When it was placed, as the buyer reads it ("10 October 2026"; orderDateText). */
+  orderDate?: string | null
 }
 
-function pickupBlock(p: { name: string; address: string[]; ready: string | null; instructions: string | null }): string {
+/** Where a pickup order is collected: the place, when it is usually ready, its opening hours and the store's instructions. */
+export interface PickupPlace {
+  name: string
+  address: string[]
+  ready: string | null
+  instructions: string | null
+  /** Opening hours as the store wrote them ("Mon to Fri 9:00 to 17:00"), when it gave them. */
+  hours?: string | null
+}
+
+function pickupBlock(p: PickupPlace): string {
   const lines = [p.name, ...p.address].map(esc).join("<br>")
-  const extra = [p.ready ? esc(p.ready) : "", p.instructions ? esc(p.instructions).replace(/\n/g, "<br>") : ""].filter(Boolean).join("<br><br>")
+  const extra = [p.ready ? esc(p.ready) : "", p.hours ? `Opening hours: ${esc(p.hours)}` : "", p.instructions ? esc(p.instructions).replace(/\n/g, "<br>") : ""].filter(Boolean).join("<br><br>")
   return `<tr><td style="padding:16px 28px 0 28px;"><p style="margin:0 0 6px 0;font-size:13px;font-weight:600;color:${INK};">Pick up at</p><p style="margin:0;font-size:14px;line-height:21px;color:${MUTED};">${lines}${extra ? `<br><br>${extra}` : ""}</p></td></tr>`
 }
 
@@ -240,7 +369,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
   const info: { label: string; html: string }[] = []
-  if (m.pickup) info.push({ label: "Pick up at", html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
+  if (m.pickup) info.push({ label: "Pick up at", html: [m.pickup.name, ...m.pickup.address].map(esc).join("<br>") + (m.pickup.ready ? `<br><br>${esc(m.pickup.ready)}` : "") + (m.pickup.hours ? `<br><br>Opening hours: ${esc(m.pickup.hours)}` : "") + (m.pickup.instructions ? `<br><br>${esc(m.pickup.instructions).replace(/\n/g, "<br>")}` : "") })
   else if (m.address?.line1) info.push({ label: "Shipping address", html: addressLines(m.address).map(esc).join("<br>") })
   if (!m.pickup && delivery) info.push({ label: "Shipping method", html: delivery })
   if (m.paymentLabel) info.push({ label: "Payment method", html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
@@ -258,16 +387,17 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     info.length ? sectionHeading("Customer information") + infoGrid(info) : "",
   ].join("")
   const text = [
-    `${m.shopName}: order ${m.orderNumber} confirmed`,
+    `${m.shopName}: order ${m.orderNumber} confirmed${m.orderDate ? ` (${m.orderDate})` : ""}`,
     "",
     m.copy?.introText ?? intro.replace(/<[^>]+>/g, ""),
     "",
     "Order summary",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
-    `Total: ${formatMoney(m.totals.total, m.totals.currency)}`,
+    "",
+    ...totalsText(m.totals),
     ...(saved > 0 ? [`You saved ${formatMoney(saved, m.totals.currency)}`] : []),
     ...(m.pickup
-      ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
+      ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.ready ? [m.pickup.ready] : []), ...(m.pickup.hours ? [`Opening hours: ${m.pickup.hours}`] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : [])]
       : m.address?.line1
         ? ["", "Shipping address:", ...addressLines(m.address), ...(m.deliveryName ? ["", `Shipping method: ${m.deliveryName}`] : [])]
         : []),
@@ -276,10 +406,11 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
     `${m.copy?.button ?? "View your order"}: ${m.statusUrl}`,
     ...(m.storeUrl ? [`Visit our store: ${m.storeUrl}`] : []),
     ...brandText(m.brand),
+    ...legalText(m.shopName, m.brand),
   ].join("\n")
   const brand: EmailBrand = { ...m.brand, email: m.brand?.email ?? m.supportEmail ?? null }
   const footer = brand.email ? "If you have any questions, reply to this email or write to the store:" : undefined
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand }), text }
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand, date: m.orderDate }), text }
 }
 
 /** "Get directions": the pickup address in a maps search, which opens the phone's maps app. */
@@ -295,10 +426,11 @@ export function pickupEmail(m: {
   buyerFirstName: string | null
   lines: EmailLine[]
   kind: "ready" | "picked_up"
-  pickup: { name: string; address: string[]; ready: string | null; instructions: string | null }
+  pickup: PickupPlace
   statusUrl: string
   brand?: EmailBrand
   copy?: ResolvedCopy
+  orderDate?: string | null
 }): { subject: string; html: string; text: string } {
   const heading = m.copy?.heading ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up")
   const subject = m.copy?.subject ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up").replace("Your order", `Order ${m.orderNumber}`)
@@ -320,32 +452,13 @@ export function pickupEmail(m: {
     m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
-    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `Directions: ${directions}`] : [])] : []),
+    ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.hours ? [`Opening hours: ${m.pickup.hours}`] : []), ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `Directions: ${directions}`] : [])] : []),
     "",
     `View your order: ${m.statusUrl}`,
     ...brandText(m.brand),
+    ...legalText(m.shopName, m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
-}
-
-/** To the seller: these sold down to their low stock line. */
-export function lowStockEmail(m: { shopName: string; items: { title: string; variantName: string | null; available: number; threshold: number }[]; inventoryUrl: string }): {
-  subject: string
-  html: string
-  text: string
-} {
-  const out = m.items.filter((i) => i.available <= 0).length
-  const subject = m.items.length === 1 ? `Low stock: ${m.items[0].title}${m.items[0].variantName ? ` (${m.items[0].variantName})` : ""}` : `${m.items.length} products are running low`
-  const intro = out > 0 ? "Some of your products are sold out or nearly sold out. Restock them so buyers can keep ordering." : "Some of your products are running low. Restock them before they sell out."
-  const rows = m.items
-    .map(
-      (i) =>
-        `<tr><td style="padding:8px 0;border-bottom:1px solid #f1f2f4;font-size:14px;color:${INK};">${esc(i.title)}${i.variantName ? `<br><span style="color:${MUTED};font-size:13px;">${esc(i.variantName)}</span>` : ""}</td><td style="padding:8px 0;border-bottom:1px solid #f1f2f4;font-size:14px;color:${i.available <= 0 ? "#b42318" : INK};text-align:right;white-space:nowrap;">${i.available <= 0 ? "Sold out" : `${i.available} left`}</td></tr>`,
-    )
-    .join("")
-  const body = `<tr><td style="padding:8px 28px 0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table></td></tr>${button(m.inventoryUrl, "Open Inventory")}`
-  const text = [subject, "", ...m.items.map((i) => `${i.title}${i.variantName ? ` (${i.variantName})` : ""}: ${i.available <= 0 ? "sold out" : `${i.available} left`}`), "", `Inventory: ${m.inventoryUrl}`].join("\n")
-  return { subject, html: shell(m.shopName, out > 0 ? "Stock is running out" : "Stock is running low", intro, body, subject), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
 }
 
 export interface ShipmentEmailModel {
@@ -358,14 +471,20 @@ export interface ShipmentEmailModel {
   trackingUrl: string | null
   address: Partial<Address> | null
   statusUrl: string
-  /** tracking: the parcel already left and its tracking number changed. */
-  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking"
+  /** tracking: the parcel already left and its tracking number changed. failed: the carrier (or the store's own delivery) could not deliver it. */
+  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking" | "failed"
+  /** Brought by the store itself (local delivery, part 154): no carrier or tracking, and the store's note for when. */
+  local?: boolean
+  localNote?: string | null
+  /** What went wrong, as the carrier or the store said it, for a failed delivery. */
+  problem?: string | null
   /** How it is coming, as the buyer chose it at checkout ("Standard, 3 to 5 business days"). */
   deliveryName?: string | null
   /** Some items of the order, not all: say so, so the buyer isn't left waiting on the rest by surprise. */
   partial?: boolean
   brand?: EmailBrand
   copy?: ResolvedCopy
+  orderDate?: string | null
 }
 
 /**
@@ -375,6 +494,9 @@ export interface ShipmentEmailModel {
  * in it. A part-shipment says the rest follows.
  */
 export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: string; text: string } {
+  const failed = m.kind === "failed"
+  /* Brought by the store itself (local delivery): no carrier, no tracking, the store's own words for when. */
+  const local = !!m.local
   const own =
     m.kind === "delivered"
       ? "Your order was delivered"
@@ -382,47 +504,65 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
         ? "Your order is out for delivery"
         : m.kind === "tracking"
           ? "Your tracking number changed"
-          : m.partial
-            ? "Part of your order is on the way"
-            : "Your order is on the way"
+          : failed
+            ? "There's a problem with your delivery"
+            : m.partial
+              ? "Part of your order is on the way"
+              : "Your order is on the way"
   const heading = m.copy?.heading ?? own
-  const subject = m.copy?.subject ?? (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
+  const subject =
+    m.copy?.subject ??
+    (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : failed ? `A problem delivering order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
   const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
-  const intro = m.copy?.introHtml ?? (
-    m.kind === "delivered"
-      ? `${hi ? `${hi}your` : "Your"} package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
+  const note = local && m.localNote ? ` ${esc(m.localNote)}` : ""
+  const intro =
+    m.copy?.introHtml ??
+    (m.kind === "delivered"
+      ? `${hi ? `${hi}your` : "Your"} ${local ? "order was handed over" : "package was delivered"}. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
       : m.kind === "out_for_delivery"
-        ? `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
+        ? local
+          ? `${hi ? `${hi}we're` : "We're"} bringing your order to you today.${note}`
+          : `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
         : m.kind === "tracking"
           ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
-          : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
+          : failed
+            ? `${hi ? `${hi}the` : "The"} ${local ? "delivery of your order" : "carrier"} ran into a problem${local ? "" : " delivering your package"}${m.problem ? `: ${esc(m.problem)}` : ""}. We're on it and will be in touch. If something about the address is wrong, reply to this email.`
+            : local
+              ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is on its way. We're delivering it to you ourselves.${note}`
+              : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
   const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
-  const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, m.copy?.button && m.kind === "delivered" ? m.copy.button : "View your order")
+  const primary =
+    m.trackingUrl && m.kind !== "delivered" && !local
+      ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order")
+      : button(m.statusUrl, m.copy?.button ?? "View your order")
   const info: { label: string; html: string }[] = []
-  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
-  if (m.deliveryName) info.push({ label: "Shipping method", html: esc(m.deliveryName) })
+  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
+  if (m.deliveryName) info.push({ label: local ? "Delivery" : "Shipping method", html: esc(m.deliveryName) })
   const body = [
-    progressBar(at),
-    m.kind === "delivered" ? "" : trackingBox(m.carrier, m.trackingNumber, m.trackingUrl),
+    failed ? "" : progressBar(at),
+    m.kind === "delivered" || local ? "" : trackingBox(m.carrier, m.trackingNumber, m.trackingUrl),
     primary,
-    sectionHeading(m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : "Items in this shipment"),
+    sectionHeading(m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : failed ? "Items in this delivery" : "Items in this shipment"),
     linesTable(m.lines, "USD", false, false),
     info.length ? sectionHeading("Delivery") + infoGrid(info) : "",
   ].join("")
-  const tracking = m.trackingNumber ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
+  const tracking = m.trackingNumber && !local ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
   const text = [
     `${m.shopName}: ${subject}`,
     "",
-    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
     ...(tracking ? ["", tracking] : []),
-    ...(m.trackingUrl ? [`Track: ${m.trackingUrl}`] : []),
+    ...(m.trackingUrl && !local ? [`Track: ${m.trackingUrl}`] : []),
+    ...(m.address?.line1 ? ["", `${m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to"}:`, ...addressLines(m.address)] : []),
+    ...(m.deliveryName ? [`${local ? "Delivery" : "Shipping method"}: ${m.deliveryName}`] : []),
     "",
     `View your order: ${m.statusUrl}`,
     ...brandText(m.brand),
+    ...legalText(m.shopName, m.brand),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
 }
 
 export function returnEmail(m: {
@@ -439,6 +579,7 @@ export function returnEmail(m: {
   returnAddress?: string[] | null
   brand?: EmailBrand
   copy?: ResolvedCopy
+  orderDate?: string | null
 }): {
   subject: string
   html: string
@@ -471,22 +612,24 @@ export function returnEmail(m: {
   ].join("")
   return {
     subject,
-    html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }),
+    html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }),
     text: [
       `${m.shopName}: ${heading}`,
       "",
       m.copy?.introText !== undefined ? [m.copy.introText, refundLine.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"),
       ...(m.note ? ["", m.note] : []),
       ...(m.status === "approved" && m.returnAddress?.length ? ["", "Send it to:", ...m.returnAddress] : []),
+      ...(m.lines?.length ? ["", "Items in this return:", ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`)] : []),
       "",
       `View your order: ${m.statusUrl}`,
       ...brandText(m.brand),
+      ...legalText(m.shopName, m.brand),
     ].join("\n"),
   }
 }
 
 /** The order was cancelled before it shipped: what was cancelled, and the money. */
-export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): {
+export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null }): {
   subject: string
   html: string
   text: string
@@ -506,12 +649,12 @@ export function orderCancelledEmail(m: { shopName: string; orderNumber: string; 
     sectionHeading("Cancelled items"),
     linesTable(m.lines, m.currency, true, false),
   ].join("")
-  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText !== undefined ? [m.copy.introText, money.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText !== undefined ? [m.copy.introText, money.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.currency)}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
 }
 
 /** Money went back: how much this time, how much in all, and when it shows. */
-export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): {
+export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy; orderDate?: string | null }): {
   subject: string
   html: string
   text: string
@@ -523,8 +666,8 @@ export function refundEmail(m: { shopName: string; orderNumber: string; buyerFir
     `<tr><td style="padding:4px 0;font-size:14px;color:${strong ? INK : MUTED};${strong ? "font-weight:600;" : ""}">${esc(label)}</td><td align="right" style="padding:4px 0;font-size:14px;color:${INK};${strong ? "font-weight:600;" : ""}">${esc(value)}</td></tr>`
   const table = `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${LINE};padding-top:8px;">${row("This refund", formatMoney(m.amountCents, m.currency), true)}${m.refundedCents !== m.amountCents ? row("Refunded in all", formatMoney(m.refundedCents, m.currency)) : ""}${row("Order total", formatMoney(m.totalCents, m.currency))}</table></td></tr>`
   const body = [table, button(m.statusUrl, m.copy?.button ?? "View your order")].join("")
-  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? "Your order was refunded" : "You were sent a refund"), intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, ...(m.refundedCents !== m.amountCents ? [`Refunded in all: ${formatMoney(m.refundedCents, m.currency)}`] : []), `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand), ...legalText(m.shopName, m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? "Your order was refunded" : "You were sent a refund"), intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand, date: m.orderDate }), text }
 }
 
 /**
@@ -555,8 +698,9 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
     `${label}: ${m.checkoutUrl}`,
     "",
     `Unsubscribe: ${m.unsubscribeUrl}`,
+    ...legalText(m.shopName, m.brand, null),
   ].join("\n")
-  return { subject, html: shell(m.shopName, heading, intro, body, subject, { footer, brand: m.brand ? { ...m.brand, helpUrl: null } : undefined }), text }
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { footer, brand: m.brand ? { ...m.brand, helpUrl: null } : undefined, reason: null }), text }
 }
 
 /** The order a supplier or dropshipper is asked to ship: what, how many, to whom. No prices. */
@@ -604,7 +748,7 @@ export function supplierOrderEmail(m: {
   const intro = m.trackingLink
     ? `Please ship these items for ${esc(m.shopName)}. When it's sent, press Add tracking and the buyer gets the tracking right away. You can also reply with it.`
     : `Please ship these items for ${esc(m.shopName)}, then reply with the tracking number.`
-  return { subject, html: shell(m.shopName, `Order ${m.orderNumber} to fulfil`, intro, body, subject, { footer: `Sent by Storelib for ${esc(m.shopName)}. Reply to this email to reach them.` }), text }
+  return { subject, html: shell(m.shopName, `Order ${m.orderNumber} to fulfil`, intro, body, subject, { footer: `Sent by Storelib for ${esc(m.shopName)}. Reply to this email to reach them.`, reason: null }), text }
 }
 
 /**
@@ -628,7 +772,7 @@ export function orderLinkEmail(m: { shopName: string; orders: { number: string; 
     .join("")
   const heading = one ? `Order ${list[0].number}` : "Your orders"
   const footer = `You asked for this on ${esc(m.shopName)}'s website. If you didn't, you can ignore it.`
-  const html = shell(m.shopName, heading, esc(intro), body, subject, { footer, brand: { ...m.brand, helpUrl: null } })
+  const html = shell(m.shopName, heading, esc(intro), body, subject, { footer, brand: { ...m.brand, helpUrl: null }, reason: null })
   const text = [`${m.shopName}: ${subject}`, "", intro, "", ...list.map((o) => `Order ${o.number}${o.date ? ` (${o.date})` : ""}: ${o.url}`), "", `You asked for this on ${m.shopName}'s website. If you didn't, you can ignore it.`, ...brandText({ ...m.brand, helpUrl: null })].join("\n")
   return { subject, html, text }
 }
