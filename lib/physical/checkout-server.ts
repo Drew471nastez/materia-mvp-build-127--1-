@@ -218,7 +218,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
     /* The card form's second press (a declined card, a bank's check abandoned): the same payment, while it can still be paid. */
-    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && existing.total_cents === totals.totalCents) {
+    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && existing.total_cents === totals.totalCents && new Date(existing.expires_at).getTime() > Date.now()) {
       try {
         const pi = await stripe.paymentIntents.retrieve(existing.stripe_payment_intent_id)
         if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret) {

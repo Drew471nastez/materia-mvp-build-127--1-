@@ -25,7 +25,7 @@ export async function drawerCheckout(lines: CartLine[], shopId: string | null): 
   if (lines.length === 0) return { go: null }
   if (shopId && lines.some((l) => l.physical)) {
     /* On the website: its own checkout at this same address (app/checkout/site). A preview on storelib.com keeps the platform's. */
-    const go = onWebsiteHost(window.location.hostname, getMainDomain())
+    const go = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
       ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", wholeCart: true })
       : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
     return { go, free: false }

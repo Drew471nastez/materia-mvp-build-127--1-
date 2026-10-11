@@ -249,7 +249,10 @@ export function siteCheckoutRouteFor(pathname: string, search: string, method: s
     if (!/^[A-Za-z0-9_-]{8,128}$/.test(token)) return null
     return { kind: "rewrite", path: `${SITE_CHECKOUT_ROUTE}/thanks/${token}${search}` }
   }
-  if (path === SITE_CHECKOUT_ROUTE || path.startsWith(`${SITE_CHECKOUT_ROUTE}/`)) return { kind: "pass" }
+  /* The page's own inside address, asked for directly: sent to its public one, so the site's password is asked as for /checkout. */
+  if (path === SITE_CHECKOUT_ROUTE) return { kind: "redirect", to: `${SITE_CHECKOUT_PATH}${search}`, status: 302 }
+  if (path.startsWith(`${SITE_CHECKOUT_ROUTE}/thanks/`)) return { kind: "redirect", to: `${SITE_THANKS_PATH}/${path.slice(SITE_CHECKOUT_ROUTE.length + "/thanks/".length)}${search}`, status: 302 }
+  if (path.startsWith(`${SITE_CHECKOUT_ROUTE}/`)) return { kind: "redirect", to: `${SITE_CHECKOUT_PATH}${search}`, status: 302 }
   if (path === "/checkout/cart" || path === "/checkout/physical") {
     const q = new URLSearchParams(search)
     const back = sameSitePath(q.get("return"), host)
@@ -288,7 +291,9 @@ export function legacyBasketTarget(siteOrigin: string, q: { get(key: string): st
  * machine: the host where /checkout is the website's own. The server decides
  * for real (siteOfHost); this only picks which link a cart writes.
  */
-export function onWebsiteHost(hostname: string, mainDomain: string): boolean {
+export function onWebsiteHost(hostname: string, mainDomain: string, pathname = "/"): boolean {
+  /* A preview link (/preview/<token>) is a site not published yet, or not as it is shown: its host has no checkout of its own. */
+  if (pathname === "/preview" || pathname.startsWith("/preview/")) return false
   const h = hostname.toLowerCase().split(":")[0]
   const main = mainDomain.toLowerCase().split(":")[0]
   if (!h || h === main || h === `www.${main}` || h === "localhost" || h === "127.0.0.1" || h.endsWith(".vercel.app")) return false
