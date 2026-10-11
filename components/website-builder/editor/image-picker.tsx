@@ -522,7 +522,7 @@ export function WbImagePicker({
           44px on a phone, because that is the smallest thing a thumb hits.
         */}
         <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
-          {changeMenu("flex h-11 w-full items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs data-[state=open]:bg-muted/60", "h-3.5 w-3.5 md:h-3 md:w-3")}
+          {changeMenu("flex h-11 items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs data-[state=open]:bg-muted/60", "h-3.5 w-3.5 md:h-3 md:w-3")}
           <button
             type="button"
             disabled={uploading}

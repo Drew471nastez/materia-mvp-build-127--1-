@@ -40,14 +40,15 @@ function main() {
 
   console.log("\nThe picture you chose is on screen before the upload finishes")
 
+  /* Round R6: what is shown at once can also be a copy already decoded (the files chooser's thumbnail), not only a local file. */
   check("the file becomes something an <img> can paint immediately",
-    /previewRef\.current = file \? URL\.createObjectURL\(file\) : null/.test(picker))
+    /previewRef\.current = file === null \? null : typeof file === "string" \? file : URL\.createObjectURL\(file\)/.test(picker))
   check("set before the upload starts, not after it returns",
     /showFile\(file\)\s*\n\s*setUploading\(true\)/.test(picker),
     "after the upload is exactly the gap that was reported")
   check("and revoked when it is replaced and when the panel goes away",
-    /if \(previewRef\.current\) URL\.revokeObjectURL\(previewRef\.current\)/.test(picker)
-      && /useEffect\(\(\) => \(\) => \{ if \(previewRef\.current\) URL\.revokeObjectURL/.test(picker),
+    /if \(previewRef\.current\?\.startsWith\("blob:"\)\) URL\.revokeObjectURL\(previewRef\.current\)/.test(picker)
+      && /useEffect\(\(\) => \(\) => \{ if \(previewRef\.current\?\.startsWith\("blob:"\)\) URL\.revokeObjectURL/.test(picker),
     "an object URL that is never revoked holds the file for the life of the tab")
   check("an upload that fails takes it away again",
     /showFile\(null\)\s*\n\s*toast\.error/.test(picker),
