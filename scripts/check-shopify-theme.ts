@@ -327,7 +327,7 @@ const headerLinksIn = (frame: Frame, scope = HEADER_SCOPE) => frame.evaluate((sc
       if (/^\/cart(\/|$)/.test(u.pathname)) continue
       const href = `${u.pathname}${u.search}`
       const r = a.getBoundingClientRect()
-      const shown = r.width > 1 && r.height > 1 && r.top < innerHeight && r.bottom > 0 && a.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+      const shown = r.width > 1 && r.height > 1 && r.top < innerHeight && r.bottom > 0 && a.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
       const had = seen.get(href)
       if (!had) seen.set(href, { href, shown, text: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 30) || (a.getAttribute("aria-label") ?? "") })
       else if (shown) had.shown = true
@@ -357,7 +357,7 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
         const r = el.getBoundingClientRect()
         if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return false
         /* Its own visibility (a child may be visible inside a hidden parent), and no parent undrawn or see-through. */
-        return el.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
       }
       const onTop = (el: Element) => {
         const r = el.getBoundingClientRect()
@@ -502,7 +502,7 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
         await f.evaluate(async () => { scrollTo(0, Math.min(1600, document.documentElement.scrollHeight - innerHeight)); await new Promise((r) => setTimeout(r, 400)); scrollBy(0, -120); await new Promise((r) => setTimeout(r, 700)) })
         const target = await f.evaluate((menu: string[]) => {
           const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
-          const a = [...document.querySelectorAll<HTMLAnchorElement>("header a[href], .shopify-section-group-header-group a[href]")].find((x) => { try { const u = new URL(x.getAttribute("href") ?? "", here); const r = x.getBoundingClientRect(); return menu.includes(u.pathname) && u.pathname !== "/" && r.top >= 0 && r.bottom <= innerHeight && r.width > 1 && x.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && (() => { const h = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2); return !!h && (h === x || x.contains(h)) })() } catch { return false } })
+          const a = [...document.querySelectorAll<HTMLAnchorElement>("header a[href], .shopify-section-group-header-group a[href]")].find((x) => { try { const u = new URL(x.getAttribute("href") ?? "", here); const r = x.getBoundingClientRect(); return menu.includes(u.pathname) && u.pathname !== "/" && r.top >= 0 && r.bottom <= innerHeight && r.width > 1 && x.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && (() => { const h = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2); return !!h && (h === x || x.contains(h)) })() } catch { return false } })
           return a ? new URL(a.getAttribute("href") ?? "", here).pathname : null
         }, MENU)
         if (!target) console.log(`  --    ${where}, ${label}: the header is not on screen once the page is scrolled (not sticky)`)
@@ -555,14 +555,14 @@ const cardsIn = (frame: Frame) => frame.evaluate(async () => {
   /* Each card brought into view, as a visitor scrolls to it: the pictures it shows there (not a slide waiting off to its side, not a picture shown on hover) have loaded. */
   for (const [handle, card] of byHandle) {
     const r0 = card.getBoundingClientRect()
-    if (!(card as HTMLElement).checkVisibility?.({ visibilityProperty: true }) || r0.width < 20) continue
+    if (!(card as HTMLElement).checkVisibility?.({ checkVisibilityCSS: true }) || r0.width < 20) continue
     card.scrollIntoView({ block: "center" })
     await new Promise((r) => setTimeout(r, 250))
     const n = Number(handle.split("-").pop())
     const text = (card as HTMLElement).innerText.replace(/\s+/g, " ").trim()
     const onScreen = (i: HTMLImageElement) => {
       const b = i.getBoundingClientRect()
-      if (b.width <= 20 || b.height <= 20 || !i.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false
+      if (b.width <= 20 || b.height <= 20 || !i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false
       const x = Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), y = Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2))
       return document.elementsFromPoint(x, y).includes(i)
     }
@@ -593,7 +593,7 @@ async function cardChecks(page: Page, base: string, label: string) {
     await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
     const spot = await frame.evaluate(() => {
       const main = document.querySelector("main, #MainContent") ?? document.body
-      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && (() => { for (let e: Element | null = i.parentElement, n = 0; e && n < 8; e = e.parentElement, n++) if (e.querySelector("a[href*='/products/linen-shirt-']")) return true; return false })() })
+      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && (() => { for (let e: Element | null = i.parentElement, n = 0; e && n < 8; e = e.parentElement, n++) if (e.querySelector("a[href*='/products/linen-shirt-']")) return true; return false })() })
       if (!img) return null
       img.scrollIntoView({ block: "center" })
       const b = img.getBoundingClientRect()
@@ -677,7 +677,7 @@ async function overlayChecks(page: Page, base: string, label: string, overlay: {
   }
   /* A word changed in the sidebar shows in the canvas at once, in that section alone, and the page keeps working. */
   const errors: string[] = []
-  const onError = (e: Error) => errors.push(String(e).slice(0, 160))
+  const onError = (e: unknown) => { errors.push(String(e).slice(0, 160)) }
   page.on("pageerror", onError)
   const changedOk: string[] = []
   const changedBad: string[] = []
@@ -719,7 +719,7 @@ async function loadingChecks(page: Page, base: string, label: string) {
     await new Promise((r) => setTimeout(r, 1500))
     const r = await page.evaluate(() => {
       const W = window as unknown as { __w5cls?: number; __w5lcp?: string }
-      const first = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 100 && b.height > 60 && b.top < innerHeight && b.bottom > 0 && i.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !i.closest("[class*='popup' i], [class*='modal' i], dialog") && document.elementsFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + Math.min(b.height / 2, (innerHeight - b.top) / 2)))).includes(i) })
+      const first = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 100 && b.height > 60 && b.top < innerHeight && b.bottom > 0 && i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && !i.closest("[class*='popup' i], [class*='modal' i], dialog") && document.elementsFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + Math.min(b.height / 2, (innerHeight - b.top) / 2)))).includes(i) })
       const lazyFirst = first.filter((i) => i.loading === "lazy" && !(i.complete && i.naturalWidth)).map((i) => (i.currentSrc || i.src).split("/").pop()?.slice(0, 40))
       const unsized = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 40 && !i.getAttribute("width") && !i.getAttribute("height") && getComputedStyle(i).aspectRatio === "auto" && getComputedStyle(i).position !== "absolute" && !/(%|vw|vh)/.test(i.style.height) }).length
       return { cls: W.__w5cls ?? -1, lcp: W.__w5lcp ?? "", lazyFirst, unsized }
