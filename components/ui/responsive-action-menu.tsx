@@ -53,7 +53,7 @@ export interface ActionMenuItem {
   section?: string
 }
 
-interface Group {
+export interface Group {
   title?: string
   items: ActionMenuItem[]
 }
@@ -175,72 +175,95 @@ export const ResponsiveActionMenu = React.memo(function ResponsiveActionMenu({
      */
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuPrimitive.Portal>
-        <DropdownMenuPrimitive.Content
-          data-action-list=""
-          align={align}
-          sideOffset={6}
-          collisionPadding={12}
-          className={cn(SURFACE, menuWidth)}
-        >
-          {groups.map((group, gi) => (
-            <React.Fragment key={gi}>
-              {gi > 0 && <DropdownMenuPrimitive.Separator className="h-px bg-[#ebecef]" />}
-              <DropdownMenuPrimitive.Group className="p-1.5">
-                {group.title && (
-                  <DropdownMenuPrimitive.Label className="px-2 pb-1 pt-1 text-[12px] font-medium text-[#6b7280]">
-                    {group.title}
-                  </DropdownMenuPrimitive.Label>
-                )}
-                {group.items.map((item, i) => {
-                  const tone = toneOf(item)
-                  /**
-                   * Three ways of saying "the pointer is on this row", because
-                   * only one of them was firing and the menu read as a list of
-                   * labels rather than a list of buttons. Radix marks the row it
-                   * has highlighted, focuses it on pointer move, and the plain
-                   * hover covers the case where neither has happened yet.
-                   */
-                  const row = cn(
-                    "flex h-8 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium outline-none transition-colors duration-100 [&_svg]:h-4 [&_svg]:w-4",
-                    tone.row,
-                  )
-                  const body = (
-                    <>
-                      {item.icon && <span className={cn("inline-flex shrink-0", tone.icon)}>{item.icon}</span>}
-                      <span className="truncate">{item.label}</span>
-                    </>
-                  )
-                  return item.href ? (
-                    <DropdownMenuPrimitive.Item key={i} asChild className={row}>
-                      <a
-                        href={item.href}
-                        target={item.target}
-                        rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
-                      >
-                        {body}
-                      </a>
-                    </DropdownMenuPrimitive.Item>
-                  ) : (
-                    <DropdownMenuPrimitive.Item key={i} onSelect={() => item.onClick?.()} className={row}>
-                      {body}
-                    </DropdownMenuPrimitive.Item>
-                  )
-                })}
-              </DropdownMenuPrimitive.Group>
-            </React.Fragment>
-          ))}
-        </DropdownMenuPrimitive.Content>
-      </DropdownMenuPrimitive.Portal>
+      <ActionDropdownContent groups={groups} align={align} menuWidth={menuWidth} />
     </DropdownMenu>
   )
 })
 
 /**
+ * The dropdown's surface and rows, for a caller that holds its own
+ * DropdownMenu root (a grid of pictures that builds one only for the tile
+ * whose menu is open, rather than one per tile). Inside a DropdownMenu.
+ */
+export function ActionDropdownContent({
+  groups,
+  align = "end",
+  menuWidth = "w-56",
+  onCloseAutoFocus,
+}: {
+  groups: Group[]
+  align?: "start" | "end" | "center"
+  menuWidth?: string
+  /** Where the focus goes back to when the trigger is a stand in (a menu held against something else). */
+  onCloseAutoFocus?: (e: Event) => void
+}) {
+  return (
+    <DropdownMenuPrimitive.Portal>
+      <DropdownMenuPrimitive.Content
+        data-action-list=""
+        align={align}
+        sideOffset={6}
+        collisionPadding={12}
+        onCloseAutoFocus={onCloseAutoFocus}
+        className={cn(SURFACE, menuWidth)}
+      >
+        {groups.map((group, gi) => (
+          <React.Fragment key={gi}>
+            {gi > 0 && <DropdownMenuPrimitive.Separator className="h-px bg-[#ebecef]" />}
+            <DropdownMenuPrimitive.Group className="p-1.5">
+              {group.title && (
+                <DropdownMenuPrimitive.Label className="px-2 pb-1 pt-1 text-[12px] font-medium text-[#6b7280]">
+                  {group.title}
+                </DropdownMenuPrimitive.Label>
+              )}
+              {group.items.map((item, i) => {
+                const tone = toneOf(item)
+                /**
+                 * Three ways of saying "the pointer is on this row", because
+                 * only one of them was firing and the menu read as a list of
+                 * labels rather than a list of buttons. Radix marks the row it
+                 * has highlighted, focuses it on pointer move, and the plain
+                 * hover covers the case where neither has happened yet.
+                 */
+                const row = cn(
+                  "flex h-8 w-full cursor-pointer select-none items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium outline-none transition-colors duration-100 [&_svg]:h-4 [&_svg]:w-4",
+                  tone.row,
+                )
+                const body = (
+                  <>
+                    {item.icon && <span className={cn("inline-flex shrink-0", tone.icon)}>{item.icon}</span>}
+                    <span className="truncate">{item.label}</span>
+                  </>
+                )
+                return item.href ? (
+                  <DropdownMenuPrimitive.Item key={i} asChild className={row}>
+                    <a
+                      href={item.href}
+                      target={item.target}
+                      rel={item.target === "_blank" ? "noopener noreferrer" : undefined}
+                    >
+                      {body}
+                    </a>
+                  </DropdownMenuPrimitive.Item>
+                ) : (
+                  <DropdownMenuPrimitive.Item key={i} onSelect={() => item.onClick?.()} className={row}>
+                    {body}
+                  </DropdownMenuPrimitive.Item>
+                )
+              })}
+            </DropdownMenuPrimitive.Group>
+          </React.Fragment>
+        ))}
+      </DropdownMenuPrimitive.Content>
+    </DropdownMenuPrimitive.Portal>
+  )
+}
+
+/**
  * The phone sheet's rows, memoised on the groups: drawn once when the sheet
  * opens and left alone while it slides, whatever the page behind it does.
  */
-const ActionSheetRows = React.memo(function ActionSheetRows({
+export const ActionSheetRows = React.memo(function ActionSheetRows({
   groups,
   onPick,
 }: {
