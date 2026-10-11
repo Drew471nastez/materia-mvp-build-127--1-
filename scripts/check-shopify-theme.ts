@@ -488,11 +488,12 @@ async function run(zipPath: string) {
       /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
       await visit("/products/linen-shirt-3")
       lastCheckout = null
-      /* The site's /checkout answers with a redirect to Storelib's branded checkout (lib/checkout/basket-link): its lines ride in the address. */
+      /* Buy it now lands on the site's own checkout (lib/checkout/site-checkout siteCheckoutHref): its lines ride in the address. */
       const onBasket = (r: { url(): string }) => {
         try {
           const u = new URL(r.url())
-          if (u.pathname === "/checkout/cart" && u.searchParams.get("items")) lastCheckout = { items: readBasketParams(u.searchParams).items }
+          /* The first one: the probe has no proxy, so its own /checkout answers again with the whole cart, where the live site rewrites it to the checkout page (proxy.ts). */
+          if (!lastCheckout && (u.pathname === "/checkout" || u.pathname === "/checkout/cart") && u.searchParams.get("items")) lastCheckout = { items: readBasketParams(u.searchParams).items }
         } catch {}
       }
       page.on("request", onBasket)
