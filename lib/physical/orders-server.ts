@@ -21,6 +21,7 @@ import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod, sellerNextStep } from "./fulfillment"
+import { CANCEL_DECLINED, CANCEL_REQUESTED, buyerCancelState, cleanCancelReason, openCancelRequest } from "./buyer-cancel"
 import { normaliseTrackingNumber } from "./carriers"
 import { cleanNote } from "./notes"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
@@ -497,6 +498,46 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
+  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * THE BUYER ASKS TO CANCEL (./buyer-cancel.ts): from their order page, by
+ * its token, while the order is still Unfulfilled and the shop takes such
+ * requests. One entry on the timeline, keyed by the order, which emails the
+ * seller; a second press finds it there and asks nothing again. Nothing is
+ * cancelled or refunded here.
+ */
+export async function requestBuyerCancel(db: Db, receiptToken: string, input: { reason: unknown; enabled: boolean }): Promise<Outcome> {
+  const order = await loadOrder(db, { receiptToken })
+  if (!order || !order.creatorId) return { ok: false, error: "Order not found.", status: 404 }
+  const state = buyerCancelState(order, input.enabled)
+  if (state === "requested") return { ok: true, order }
+  if (state === "cancelled") return { ok: false, error: "This order is already cancelled." }
+  if (state === "declined") return { ok: false, error: "The shop is going ahead with this order. Reply to your order email to ask about it." }
+  if (state !== "can_request") return { ok: false, error: input.enabled ? "This order can't be cancelled here any more: the shop has started on it. Reply to your order email to ask." : "This shop doesn't take cancellations here. Reply to your order email to ask." }
+  const reason = cleanCancelReason(input.reason)
+  await addOrderEvent(db, {
+    checkoutId: order.id,
+    creatorId: order.creatorId,
+    kind: CANCEL_REQUESTED,
+    message: `The buyer asked to cancel this order${reason ? `: ${reason}` : ""}`,
+    detail: reason ? { reason } : null,
+    actor: "buyer",
+    key: `cancel_request:${order.id}`,
+  })
+  const fresh = await loadOrder(db, { receiptToken })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/** The seller keeps the order the buyer asked to cancel. The buyer's page says the shop is going ahead. */
+export async function declineBuyerCancel(db: Db, creatorId: string, checkoutId: string, note: unknown): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (!openCancelRequest(order)) return { ok: true, order }
+  const said = cleanText(note, 200)
+  await addOrderEvent(db, { checkoutId, creatorId, kind: CANCEL_DECLINED, message: `Kept the order the buyer asked to cancel${said ? `: ${said}` : ""}`, actor: "creator", key: `cancel_declined:${checkoutId}` })
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }

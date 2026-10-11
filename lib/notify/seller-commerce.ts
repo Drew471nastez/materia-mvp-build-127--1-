@@ -186,11 +186,12 @@ export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSa
 
 /* ── The seller's other order emails ────────────────────────────────────── */
 
-export type SellerCommerceKind = "return_requested" | "order_cancelled" | "delivery_exception" | "payment_failed" | "low_stock"
+export type SellerCommerceKind = "return_requested" | "cancel_requested" | "order_cancelled" | "delivery_exception" | "payment_failed" | "low_stock"
 
 /** The order event that sends each (lib/physical/events-server.ts sellerEmailFor). */
 export function sellerKindForEvent(kind: string): SellerCommerceKind | null {
   if (kind === "return.requested") return "return_requested"
+  if (kind === "order.cancel_requested") return "cancel_requested"
   if (kind === "order.cancelled") return "order_cancelled"
   if (kind === "delivery.exception" || kind === "fulfillment.exception") return "delivery_exception"
   if (kind === "payment.failed") return "payment_failed"
@@ -260,6 +261,13 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
       paragraphs = [`${buyer} asked to return ${count ? plural(count, "item") : "items"} from ${order}. Review it, then approve it with your return instructions or decline it with a reason. The buyer is emailed either way.`]
       facts = [...itemFacts(m.lines), { label: "Reason", value: str(m.reason, 160) }, { label: "Buyer's note", value: str(m.note, 400) }].filter((f) => f.value)
       action = link("Review and approve", orderPath)
+      break
+    case "cancel_requested":
+      subject = `Cancel request for ${order}`
+      heading = "A buyer asked to cancel an order"
+      paragraphs = [`${buyer} asked to cancel ${order} before it shipped. Don't send it yet. Open the order to cancel and refund it, or keep it and let them know. Nothing is cancelled until you do.`]
+      facts = [...itemFacts(m.lines), { label: "Reason", value: str(m.reason, 160) }, { label: "Order total", value: money(m.totalCents) }].filter((f) => f.value)
+      action = link("Review request", orderPath)
       break
     case "order_cancelled":
       family = "transaction"

@@ -101,6 +101,7 @@ const CHECKOUT_LABELS: Record<keyof CheckoutConfig, string> = {
   company: "Company name",
   phone: "Phone number",
   address2: "Address line 2",
+  buyerCancel: "Let buyers ask to cancel",
 }
 
 const word = (v: unknown): string => {
@@ -159,6 +160,7 @@ export function factFor(key: FactKey): Fact {
             .map((e) => ({ name: humanType(e.type), value: e.channels.join(", ").replace("in_app", "bell"), note: e.requirement === "required_service" ? "Always sent" : "Can be turned off in Settings › Notifications" })),
           { name: "Low stock", value: "email", note: "Physical commerce: one a day at most, when Locations › Low stock › Email me is on" },
           { name: "New order for a partner location", value: "email", note: "To the location's orders email, with Add tracking" },
+          { name: "Cancel request", value: "email", note: "A buyer pressed Cancel order on their order page; answered from the order" },
         ],
       }
     case "rateKinds":

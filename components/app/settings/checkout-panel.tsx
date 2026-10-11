@@ -178,6 +178,17 @@ export function CheckoutPanel() {
         />
       </Card>
 
+      {physical ? (
+        <Card title="Cancellations" description="Orders that ship, before you send them.">
+          <Toggle
+            label="Let buyers ask to cancel"
+            description="Cancel order on the buyer's order page while the order is still Unfulfilled. You get an email and answer from the order: cancel and refund it, or keep it. Nothing is cancelled until you do."
+            checked={config.buyerCancel}
+            onChange={(v) => change({ buyerCancel: v })}
+          />
+        </Card>
+      ) : null}
+
       <Card title="Customer information" description="What checkout asks for. Email is always asked.">
         <div>
           <Row title="Full name" line="One field, or first and last name apart.">

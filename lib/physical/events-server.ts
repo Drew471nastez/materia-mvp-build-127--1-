@@ -55,6 +55,8 @@ export async function addOrderEvent(
 /** Order events the seller gets an email for. A cancellation is told only when the buyer did it. */
 export function sellerEmailFor(kind: string, actor: EventActor | undefined): boolean {
   if (kind === "return.requested") return true
+  /* A buyer's Cancel order on their order page asks the seller (./buyer-cancel.ts): told at once, so nothing is sent meanwhile. */
+  if (kind === "order.cancel_requested") return actor === "buyer"
   if (kind === "order.cancelled") return actor === "buyer"
   return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "payment.failed"
 }

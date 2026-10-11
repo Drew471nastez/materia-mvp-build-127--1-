@@ -31,6 +31,11 @@ export interface CheckoutConfig {
   phone: FieldRule
   /** Apartment, suite, unit: physical orders only. */
   address2: FieldRule
+  /**
+   * Cancel order on the buyer's order page while nothing has shipped or been started: it asks the shop, which
+   * cancels and refunds from the order or keeps it (lib/physical/buyer-cancel.ts). Physical orders only.
+   */
+  buyerCancel: boolean
 }
 
 export const DEFAULT_CHECKOUT: CheckoutConfig = {
@@ -42,6 +47,7 @@ export const DEFAULT_CHECKOUT: CheckoutConfig = {
   company: "off",
   phone: "optional",
   address2: "optional",
+  buyerCancel: true,
 }
 
 const RULES: FieldRule[] = ["off", "optional", "required"]
@@ -62,6 +68,7 @@ export function checkoutConfig(raw: unknown): CheckoutConfig {
     company: rule(o.company, DEFAULT_CHECKOUT.company),
     phone: rule(o.phone, DEFAULT_CHECKOUT.phone),
     address2: rule(o.address2, DEFAULT_CHECKOUT.address2),
+    buyerCancel: bool(o.buyerCancel, DEFAULT_CHECKOUT.buyerCancel),
   }
 }
 
