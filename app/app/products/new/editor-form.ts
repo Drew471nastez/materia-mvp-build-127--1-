@@ -163,6 +163,8 @@ export interface LoadedProduct {
   variants: EditorVariantRow[]
   /** The variants could not be read: none are shown, and a save keeps the saved ones rather than deleting them. */
   variantsUnread?: boolean
+  /** Limit sales (SQL part 150): the saved limit, copies sold from the paid orders, and whether the column is missing. */
+  sales?: { limit: number | null; sold: number | null; missing: boolean }
 }
 
 export interface EditorCreator {
@@ -259,6 +261,9 @@ export interface EditorForm {
   whatsIncluded: string[]
   faqs: FAQItem[]
   customFields: CustomField[]
+  /** Limit sales for a download: on, and the number of copies as typed. */
+  limitSalesEnabled: boolean
+  salesLimit: string
 }
 
 export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "course" | "physical" = "digital"): EditorForm {
@@ -290,6 +295,8 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
       whatsIncluded: course ? COURSE_WHATS_INCLUDED : startAs === "physical" ? PHYSICAL_WHATS_INCLUDED : DEFAULT_WHATS_INCLUDED,
       faqs: course ? COURSE_FAQS : startAs === "physical" ? PHYSICAL_FAQS : DEFAULT_FAQS,
       customFields: [],
+      limitSalesEnabled: false,
+      salesLimit: "",
     }
   }
   const { product, assets, variants } = loaded
@@ -335,6 +342,8 @@ export function initialForm(loaded: LoadedProduct | null, startAs: "digital" | "
     whatsIncluded: Array.isArray(product.whats_included) ? (product.whats_included as string[]) : DEFAULT_WHATS_INCLUDED,
     faqs,
     customFields: fieldRows(product.custom_fields),
+    limitSalesEnabled: typeof loaded.sales?.limit === "number",
+    salesLimit: typeof loaded.sales?.limit === "number" ? String(loaded.sales.limit) : "",
   }
 }
 
@@ -383,7 +392,7 @@ export function snapshotOf(v: SnapshotFields): string {
   ])
 }
 
-/** The snapshot of a form as it opens: the saved product, so it opens clean. */
+/** The snapshot of a form as it opens: the saved product, its sales limit included, so it opens clean. */
 export function snapshotOfForm(form: EditorForm): string {
-  return snapshotOf({ ...form, limitSalesEnabled: false, salesLimit: "" })
+  return snapshotOf(form)
 }

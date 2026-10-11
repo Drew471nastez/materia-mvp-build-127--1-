@@ -32,6 +32,8 @@ interface ProductCardProps {
     categoryName?: string | null // Pre-computed category name for display
     reviews_count?: number | null
     reviews_average?: number | null
+    /** Every copy of a limited run sold (lib/products/sales-limit.ts), counted on the server: the card says so. */
+    sold_out?: boolean | null
     categories?: {
       id: string
       name: string
@@ -429,12 +431,21 @@ export const ProductCard = memo(function ProductCard({
           </div>
           <div className="mt-auto pt-4">
             <span className="font-semibold" style={surface?.priceColor ? { color: surface.priceColor } : undefined}>{priceLabel.main}</span>
-            {priceLabel.was && (
+            {priceLabel.was && !product.sold_out && (
               <span
                 className="ml-2 text-sm text-muted-foreground line-through"
                 style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
               >
                 {priceLabel.was}
+              </span>
+            )}
+            {product.sold_out && (
+              <span
+                data-sold-out=""
+                className="ml-2 text-sm font-medium text-muted-foreground"
+                style={surface?.mutedColor ? { color: surface.mutedColor } : undefined}
+              >
+                Sold out
               </span>
             )}
           </div>

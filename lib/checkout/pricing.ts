@@ -20,7 +20,7 @@ import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type Coupo
 import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
-import { salesStandings } from "./sales-limit"
+import { salesStandings } from "@/lib/products/sales-standings"
 import { ownedKey, ownedLines } from "./owned"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any

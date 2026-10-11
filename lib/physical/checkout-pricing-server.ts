@@ -17,7 +17,7 @@ import "server-only"
  * delivery and hold no stock. Something the buyer already owns is left out.
  */
 
-import { salesStandings } from "@/lib/checkout/sales-limit"
+import { salesStandings } from "@/lib/products/sales-standings"
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { ownedKey, ownedLines } from "@/lib/checkout/owned"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"

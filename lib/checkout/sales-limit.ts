@@ -39,7 +39,9 @@ import "server-only"
  */
 import { holderForEmail } from "./coupon-holds"
 import { unpackItems } from "./cart-items"
-import { readSalesLimit, type SalesStanding } from "@/lib/products/sales-limit"
+import { readSalesLimit } from "@/lib/products/sales-limit"
+/* The reads every surface makes, in a module the shop's client code may also import (no server-only imports there). */
+export { copiesSold, salesStanding, salesStandings } from "@/lib/products/sales-standings"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -160,33 +162,6 @@ export async function claimSale(db: Db, productId: string, holder: string, quant
   return holdSale(db, productId, holder, quantity, CLAIM_HOLD_SECONDS)
 }
 
-/**
- * Each limited product's standing: its limit, copies sold, copies held.
- * Products with no limit are absent, and so is everything on a database
- * before part 150 or one that cannot be asked: the page sells as before.
- */
-export async function salesStandings(db: Db, productIds: string[]): Promise<Map<string, SalesStanding>> {
-  const out = new Map<string, SalesStanding>()
-  const ids = [...new Set(productIds)].filter((id) => typeof id === "string" && /^[0-9a-f-]{36}$/i.test(id)).slice(0, 500)
-  if (!ids.length || !db.rpc) return out
-  try {
-    const { data, error } = await db.rpc("product_sales_status", { p_products: ids })
-    if (error) return out
-    for (const r of (data ?? []) as { product_id: string; sales_limit: unknown; sold: unknown; held: unknown }[]) {
-      const limit = readSalesLimit(r.sales_limit)
-      if (limit === null) continue
-      out.set(r.product_id, { limit, sold: Math.max(0, Number(r.sold) || 0), held: Math.max(0, Number(r.held) || 0) })
-    }
-  } catch {
-    /* no standings: nothing is shown as limited */
-  }
-  return out
-}
-
-/** One product's standing, or null. */
-export async function salesStanding(db: Db, productId: string): Promise<SalesStanding | null> {
-  return (await salesStandings(db, [productId])).get(productId) ?? null
-}
 
 /**
  * A payment that will not happen (Stripe cancelled it, or its page expired

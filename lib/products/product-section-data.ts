@@ -30,6 +30,8 @@ import { SAY_LEFT_FROM, liveVariant, physicalStock } from "@/lib/physical/storef
 import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
 import { shownCustomFields } from "./custom-fields"
+import { salesStanding } from "./sales-standings"
+import { FEW_LEFT, copiesLeft } from "./sales-limit"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -141,14 +143,17 @@ export function descriptionHtml(description: string | null | undefined): string 
  */
 export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean } = {}): Promise<ProductSectionData> {
   const type = row.type ?? ""
-  const [rawVariants, options, files] = await Promise.all([
+  const [rawVariants, options, files, standing] = await Promise.all([
     readVariants(db, row.id),
     type === "physical" ? readOptions(db, row.id) : Promise.resolve([] as ProductOptionData[]),
     opts.files && type !== "physical" ? readFiles(db, row.id) : Promise.resolve([] as NonNullable<ProductSectionData["files"]>),
+    /* Limit sales (lib/products/sales-limit.ts): a download's copies left, counted on the server. None for no limit, or a client that may not ask. */
+    type !== "physical" ? salesStanding(db as Parameters<typeof salesStanding>[0], row.id).catch(() => null) : Promise.resolve(null),
   ])
 
   const variantsLive = rawVariants.filter((v) => liveVariant({ id: v.id, name: v.name ?? "", active: v.active }))
-  const productSoldOut = typeof row.inventory_count === "number" && row.inventory_count <= 0 && type !== "physical"
+  const salesLeft = standing ? copiesLeft(standing) : null
+  const productSoldOut = (typeof row.inventory_count === "number" && row.inventory_count <= 0 && type !== "physical") || salesLeft === 0
 
   /* Whether each can be bought: stock for what ships, the purchase limit for the rest. */
   let stock = new Map<string, { soldOut: boolean; left: number | null; maxQuantity: number; lowAt?: number }>()
@@ -214,14 +219,24 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     variants,
     /* A product without variants: its own count, when it is counted, and only
        when it is few (or none), as for a variant. Plenty is said as nothing. */
-    inventory_left:
+    inventory_left: fewestLeft(
       typeof row.inventory_count === "number" && type !== "physical" && row.inventory_count <= SAY_LEFT_FROM ? Math.max(0, row.inventory_count) : null,
+      /* A limited run's copies left, said only under FEW_LEFT (or none: sold out). */
+      salesLeft !== null && salesLeft < FEW_LEFT ? salesLeft : null,
+    ),
     created_at: row.created_at ?? null,
     category: row.category ?? null,
     low_stock_at: [...stock.values()][0]?.lowAt ?? null,
     faqs: productFaqs(row.faqs),
     details: shownCustomFields(row.custom_fields),
   }
+}
+
+/** The lower of two "left" counts, either of which may not be said. */
+function fewestLeft(a: number | null, b: number | null): number | null {
+  if (a === null) return b
+  if (b === null) return a
+  return Math.min(a, b)
 }
 
 /** The product's questions as plain text, the answered ones only, at most 30. Never markup: a block prints them as text. */

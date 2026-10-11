@@ -50,6 +50,8 @@
  * and checkout checks that address against the creator's own sites
  * (lib/checkout/return-url.ts). A section never builds one by hand.
  */
+import { salesStandings } from "@/lib/products/sales-standings"
+import { salesSoldOut } from "@/lib/products/sales-limit"
 import { cleanCustomFields } from "@/lib/products/custom-fields"
 import type { SectionInstanceData } from "@/lib/storelib-theme/types"
 import { mediaUrl } from "@/lib/storage/media-url"
@@ -412,8 +414,28 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
   const [variants, options] = await Promise.all([variantsInBatches(db as Db, rows.map((r) => r.id)), optionsInBatches(db as Db, physical)])
   const cards = rows.map((r) => toCard(r, variants, options))
   const stocked = creatorId ? await withPhysicalStock(db as Db, creatorId, rows, cards).catch(() => cards) : cards
-  const fielded = await withCustomFields(db as Db, stocked).catch(() => stocked)
+  const capped = await withSalesLimits(db, rows, stocked).catch(() => stocked)
+  const fielded = await withCustomFields(db as Db, capped).catch(() => capped)
   return creatorId ? await withRatings(db as Db, creatorId, fielded).catch(() => fielded) : fielded
+}
+
+/**
+ * LIMIT SALES ON A CARD (lib/products/sales-limit.ts): a download whose
+ * limited run has gone says Sold out and has no checkout, as a sold out
+ * product that ships does. Counted on the server (product_sales_status, the
+ * server's own client); any other client, or a database before part 150,
+ * leaves the cards as they were. Never throws.
+ */
+async function withSalesLimits(db: unknown, rows: ProductRow[], cards: ProductCard[]): Promise<ProductCard[]> {
+  const ids = rows.filter((r) => r.type !== "physical").map((r) => r.id)
+  if (ids.length === 0) return cards
+  const standings = await salesStandings(db as Parameters<typeof salesStandings>[0], ids)
+  if (standings.size === 0) return cards
+  return cards.map((card) => {
+    if (!salesSoldOut(standings.get(card.id))) return card
+    const variants = (card.settings.variants ?? []).map((v) => ({ ...v, available: false, checkout_url: "" }))
+    return { ...card, settings: { ...card.settings, available: false, tag: "Sold out", checkout_url: "", variants } }
+  })
 }
 
 /**

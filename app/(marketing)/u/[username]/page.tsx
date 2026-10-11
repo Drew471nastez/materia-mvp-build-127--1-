@@ -1,4 +1,6 @@
 import { personName } from "@/lib/profile/display-name"
+import { salesStandings } from "@/lib/products/sales-standings"
+import { salesSoldOut } from "@/lib/products/sales-limit"
 import type React from "react"
 import { hasBoughtFromCreator } from "@/lib/commerce/has-bought-from-creator"
 import { applyManualOrder } from "@/lib/store-builder/featured-order"
@@ -855,7 +857,11 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
   const srcParam = src === "platform" ? "?src=platform" : ""
 
   /* A membership's card says "$9/month", and "/year" for a yearly only plan: read only when the page sells one (lib/memberships/intervals). */
-  const intervals = await planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id))
+  /* Limit sales: a download whose limited run has gone says Sold out on its card (lib/products/sales-limit), counted on the server, asked beside the intervals. */
+  const [intervals, standings] = await Promise.all([
+    planIntervals(supabase, (products ?? []).filter((p) => p.type === "membership").map((p) => p.id)),
+    readStandings((products ?? []).map((p) => p.id)),
+  ])
   const productsData: ProductData[] =
     products?.map((p) => ({
       id: p.id,
@@ -877,6 +883,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       // for free, and only when there is one to show.
       reviews_count: p.reviews_count,
       reviews_average: p.reviews_average,
+      ...(salesSoldOut(standings.get(p.id)) ? { sold_out: true } : {}),
     })) || []
 
   // Use published config if it exists and has sections
@@ -1696,4 +1703,14 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
     </div>
     </>
   )
+}
+
+/** Each limited download's standing, read with the server's own client (product_sales_status is server only). Empty when it cannot be read. */
+async function readStandings(productIds: string[]) {
+  try {
+    const { createAdminClient } = await import("@/lib/supabase/admin")
+    return await salesStandings(createAdminClient(), productIds)
+  } catch {
+    return new Map<string, import("@/lib/products/sales-limit").SalesStanding>()
+  }
 }

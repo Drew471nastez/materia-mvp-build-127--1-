@@ -67,6 +67,7 @@ import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
+import { MAX_SALES_LIMIT, missingSalesLimit, readSalesLimit, soldOfText, typedSalesLimit } from "@/lib/products/sales-limit"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { FilesLibraryChooser, prefetchLibrary, type PickMany } from "@/components/files/files-library"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
@@ -118,11 +119,6 @@ function moneyTyped(raw: string): string {
   const clean = raw.replace(/,/g, ".").replace(/[^\d.]/g, "")
   const [whole, ...rest] = clean.split(".")
   return rest.length ? `${whole.slice(0, 7)}.${rest.join("").slice(0, 2)}` : whole.slice(0, 7)
-}
-
-/** A count as it is typed: digits only. */
-function countTyped(raw: string): string {
-  return raw.replace(/\D/g, "").slice(0, 7)
 }
 
 /*
@@ -581,9 +577,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [toast, setToast] = useState<{ message: string; visible: boolean; dismissing: boolean }>({ message: "", visible: false, dismissing: false })
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Limit product sales state
-  const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
-  const [salesLimit, setSalesLimit] = useState("")
+  /*
+    LIMIT SALES FOR A DOWNLOAD: the most copies that can ever be sold
+    (lib/products/sales-limit.ts, SQL part 150), saved on the product in a
+    request of its own, held at every checkout (lib/checkout/sales-limit.ts).
+    Copies sold come from the paid orders, read on the server as the page
+    opened; a refund in full gives its copy back.
+  */
+  const [limitSalesEnabled, setLimitSalesEnabled] = useState(initial.limitSalesEnabled)
+  const [salesLimit, setSalesLimit] = useState(initial.salesLimit)
+  const copiesSoldCount = loaded?.sales?.sold ?? null
+  /* The limit as saved, so a save only writes it when it changed, and a database without the column is never asked to write "none". */
+  const savedSalesLimit = useRef<number | null>(loaded?.sales?.limit ?? null)
   /*
     LIMIT SALES FOR A THING THAT SHIPS: the most one order may take, saved
     with its physical details (lib/physical/order-limit.ts). Stock already
@@ -820,6 +825,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     setError(null)
 
     const supabase = createClient()
+    /* Said once the save is done, when the sales limit could not be kept. */
+    let salesLimitNote: string | null = null
 
     try {
       /** One suffix scheme, used by both checks below. */
@@ -1012,6 +1019,26 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
       }
 
+      /*
+        LIMIT SALES, in a request of its own: a database that has not run
+        part 150 has no column, and the product must still save. Only for
+        something that does not ship (a thing that ships has its stock and
+        its most per order), and only when it changed.
+      */
+      if (finalProductId && productType !== "physical") {
+        const limit = limitSalesEnabled ? readSalesLimit(salesLimit) : null
+        if (limit !== savedSalesLimit.current) {
+          const { error: limitError } = await supabase.from("products").update({ sales_limit: limit }).eq("id", finalProductId)
+          if (!limitError) savedSalesLimit.current = limit
+          else {
+            console.warn("Sales limit was not saved:", limitError.message)
+            salesLimitNote = missingSalesLimit(limitError)
+              ? "Everything else is saved. Limit sales needs its database update: run SQL part 150 in Supabase."
+              : "Everything else is saved. The sales limit could not be saved; try again."
+          }
+        }
+      }
+
       /* SALES CHANNELS, after the product exists, so a new product's choice is kept too. Never fails the save. */
       if (finalProductId) {
         const channelsError = await channelsRef.current?.save(finalProductId)
@@ -1019,6 +1046,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
 
       setHasUnsavedChanges(false)
+      if (salesLimitNote) showToast(salesLimitNote)
 
       // Auto-generate ZIP bundle when product has 6+ digital files
       if (digitalFiles.length >= 6) {
@@ -1059,7 +1087,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     } finally {
       setIsSaving(false)
     }
-  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, digitalFiles.length])
+  }, [creatorId, productId, slug, productType, title, description, price, compareAtPrice, mediaItems, showSalesBadge, refundPolicyEnabled, refundPolicyType, seoTitle, seoDescription, callToAction, variants, whatsIncluded, faqs, selectedCategory, payWhatYouWant, pwywMinPrice, pwywSuggestedPrice, digitalFiles.length, limitSalesEnabled, salesLimit, showToast])
 
   // Process image to fit 1280x720 canvas (for non-widescreen images)
   const processImageToWidescreen = async (file: File): Promise<{ processedFile: File; wasProcessed: boolean; originalRatio: string }> => {
@@ -1631,6 +1659,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (fieldIssue) {
       showToast(fieldIssue)
       document.getElementById("custom-fields")?.scrollIntoView({ behavior: "smooth", block: "center" })
+      return false
+    }
+
+    /* Limit sales on with no number: say so rather than saving "no limit" (lib/products/sales-limit.ts). */
+    if (productType !== "physical" && limitSalesEnabled && readSalesLimit(salesLimit) === null) {
+      showToast("Enter how many copies can be sold")
+      document.getElementById("sales-limit")?.focus()
       return false
     }
 
@@ -3269,18 +3304,36 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                       onChange={setLimitSalesEnabled}
                     />
                     {limitSalesEnabled && (
-                      <div className="flex items-center gap-2 px-4 pb-3">
-                        <Input
-                          type="text"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          placeholder="100"
-                          aria-label="Copies"
-                          value={salesLimit}
-                          onChange={(e) => setSalesLimit(countTyped(e.target.value))}
-                          className="h-11 w-32 rounded-[10px] border-[#e5e7eb] text-[15px] sm:h-9 sm:rounded-lg sm:text-sm"
-                        />
-                        <span className="text-[14px] text-[#6b7280]">copies</span>
+                      <div className="px-4 pb-3" data-sales-limit="">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            id="sales-limit"
+                            type="text"
+                            inputMode="numeric"
+                            autoComplete="off"
+                            placeholder="100"
+                            aria-label="Copies"
+                            aria-describedby={copiesSoldCount !== null ? "sales-limit-sold" : undefined}
+                            value={salesLimit}
+                            onChange={(e) => setSalesLimit(typedSalesLimit(e.target.value))}
+                            className="h-11 w-32 rounded-[10px] border-[#e5e7eb] text-[15px] tabular-nums sm:h-9 sm:rounded-lg sm:text-sm"
+                          />
+                          <span className="text-[14px] text-[#6b7280]">copies</span>
+                        </div>
+                        {/* Sold so far, from the paid orders, against the number typed: the seller sees where a new limit lands before saving it. */}
+                        {copiesSoldCount !== null && (() => {
+                          const typed = readSalesLimit(salesLimit)
+                          const over = typed !== null && copiesSoldCount >= typed
+                          return (
+                            <p id="sales-limit-sold" data-sales-sold="" className="mt-1.5 text-[13px] leading-5 text-[#6b7280] tabular-nums">
+                              {typed !== null ? soldOfText(copiesSoldCount, typed) : `${copiesSoldCount.toLocaleString("en-US")} sold so far`}
+                              {over && <span className="font-medium text-[#b42318]"> · Sold out</span>}
+                            </p>
+                          )
+                        })()}
+                        {salesLimit.length >= 7 && readSalesLimit(salesLimit) === MAX_SALES_LIMIT && (
+                          <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">At most {MAX_SALES_LIMIT.toLocaleString("en-US")}.</p>
+                        )}
                       </div>
                     )}
                   </div>

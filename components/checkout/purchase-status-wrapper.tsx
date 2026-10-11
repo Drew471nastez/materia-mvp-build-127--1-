@@ -56,6 +56,12 @@ interface PurchaseStatusWrapperProps {
    * checkout. The page reads both on the server.
    */
   membership?: { memberHref: string | null } | null
+  /**
+   * Limit sales (lib/products/sales-limit.ts), counted on the server: every
+   * copy sold says Sold out in place of the buy button; a few left says how
+   * many under it. Null for a product with no limit.
+   */
+  sales?: { soldOut: boolean; fewLeft: string | null } | null
 }
 
 
@@ -122,6 +128,7 @@ function DigitalPurchaseStatus({
   pwywMinPriceCents = null,
   pwywSuggestedPriceCents = null,
   membership = null,
+  sales = null,
 }: PurchaseStatusWrapperProps) {
   const {
     hasPurchased,
@@ -462,18 +469,36 @@ function DigitalPurchaseStatus({
         </>
       ) : (
         <>
-          {/* Buy button - shown when user hasn't purchased THIS variant */}
-          <BuyButton
-            productId={productId}
-            price={currentPrice}
-            creatorId={creatorId}
-            backgroundColor={buyButtonBgColor}
-            textColor={buyButtonTextColor}
-            variantId={selectedVariant?.id}
-            callToAction={callToAction}
-            customPriceCents={isPwywActive ? getCustomPriceCents() : null}
-            disabled={isBuyDisabled}
-          />
+          {/* Buy button - shown when user hasn't purchased THIS variant; Sold out once a limited run has gone */}
+          {sales?.soldOut ? (
+            <button
+              type="button"
+              disabled
+              aria-disabled="true"
+              data-sold-out=""
+              className="flex min-h-[48px] w-full cursor-not-allowed items-center justify-center rounded-md px-4 text-[15px] font-semibold"
+              style={{ backgroundColor: themeColors?.cardBorderColor || "#e5e7eb", color: themeColors?.cardPriceColor || "#6b7280" }}
+            >
+              Sold out
+            </button>
+          ) : (
+            <BuyButton
+              productId={productId}
+              price={currentPrice}
+              creatorId={creatorId}
+              backgroundColor={buyButtonBgColor}
+              textColor={buyButtonTextColor}
+              variantId={selectedVariant?.id}
+              callToAction={callToAction}
+              customPriceCents={isPwywActive ? getCustomPriceCents() : null}
+              disabled={isBuyDisabled}
+            />
+          )}
+          {!sales?.soldOut && sales?.fewLeft && (
+            <p data-few-left="" className="text-center text-[13px] font-medium tabular-nums" style={{ color: themeColors?.cardPriceColor || "#6b7280" }}>
+              {sales.fewLeft}
+            </p>
+          )}
           {notPurchasedExtraContent}
         </>
       )}
