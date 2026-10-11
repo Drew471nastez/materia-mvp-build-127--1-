@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { getMainDomain } from "@/lib/url-helpers"
+import { physicalApiGate } from "@/lib/physical/gate"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
 import { PARTNER_PAGE_PREFIX, partnerShipped, shopWebhookSecret, verifyPartnerLink, webhookSignatureOk } from "@/lib/physical/partner-server"
 import { orderNumber } from "@/lib/physical/status"
@@ -36,6 +37,9 @@ function json(body: unknown, status = 200) {
 }
 
 export async function POST(request: Request) {
+  /* Physical commerce off (/admin): not found, as every /api/physical route. */
+  const off = await physicalApiGate()
+  if (off) return off
   const type = (request.headers.get("content-type") || "").toLowerCase()
   return type.startsWith("application/json") ? fromSystem(request) : fromPage(request)
 }
