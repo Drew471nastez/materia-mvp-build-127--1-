@@ -350,8 +350,8 @@ async function main() {
     check("the cheapest delivery home, with how long it takes and where it turns free", d?.ship?.country === "PT" && d.ship.priceCents === 499 && d.ship.estimate === "3 to 5 business days" && d.ship.freeFromCents === 7500, d?.ship)
     check("pickup for Small at Main Street only: Porto has none, the warehouse does not hand over", d?.pickup[SMALL]?.length === 1 && d.pickup[SMALL][0].name === "Main Street" && d.pickup[SMALL][0].ready === "Usually ready in 24 hours")
     check("no pickup for Large: only the warehouse holds it", !d?.pickup[LARGE])
-    check("the lines a product page says", deliveryLine(d!.ship, (c) => `$${(c / 100).toFixed(2)}`) === "Delivery $4.99, 3 to 5 business days" && pickupLine(d!.pickup[SMALL]) === "Pickup available at Main Street, Lisbon")
-    check("free delivery, and several pickup points", deliveryLine({ country: "PT", priceCents: 0, estimate: "2 business days", freeFromCents: 0 }, String) === "Free delivery, 2 business days" && pickupLine([{ name: "A", city: null, ready: "" }, { name: "B", city: null, ready: "" }]) === "Pickup available at A and 1 more place")
+    check("the lines a product page says", deliveryLine(d!.ship, (c) => `$${(c / 100).toFixed(2)}`) === "Delivery $4.99 to Portugal, 3 to 5 business days" && pickupLine(d!.pickup[SMALL]) === "Pickup available at Main Street, Lisbon")
+    check("free delivery, and several pickup points", deliveryLine({ country: "PT", priceCents: 0, estimate: "2 business days", freeFromCents: 0 }, String) === "Free delivery to Portugal, 2 business days" && pickupLine([{ name: "A", city: null, ready: "" }, { name: "B", city: null, ready: "" }]) === "Pickup available at A and 1 more place")
     const t = shopTables()
     t.products[0].fulfillment_method = "printful"
     check("a print on demand product is never offered for pickup", Object.keys((await productDelivery(fakeDb(t), CREATOR, PID))?.pickup ?? { x: 1 }).length === 0)
@@ -364,6 +364,7 @@ async function main() {
     const facts = await shopFacts(db, CREATOR)
     check("the shop's facts: returns and where shipping turns free", facts.returns?.enabled === true && facts.returns.windowDays === 30 && facts.freeShippingFromCents === 7500, facts)
     check("the storefront shop route answers with the same reader", /shopFacts\(createAdminClient\(\), creatorId\)/.test(read("app/api/physical/storefront/shop/route.ts")))
+    check("the shipping line is the buy box's own rule (lib/physical/delivery-promise.ts), so every product page agrees", /deliveryPromise\(\{/.test(read("lib/physical/storefront-facts.ts")) && /Local delivery available near the shop/.test(read("components/website-builder/sections/renderers/product/product-blocks.tsx")))
     check("the product section's data carries delivery for what ships", /type === "physical" && row\.creator_id \? productDelivery\(db, row\.creator_id, row\.id\)/.test(read("lib/products/product-section-data.ts")))
   }
 
@@ -401,7 +402,7 @@ async function main() {
     check("an imported theme's canvas reads the product page's stock and pickup from the storefront's route, again on coming back", /fetch\(`\/api\/physical\/storefront\/product\?productId=\$\{encodeURIComponent\(card\.id\)\}`/.test(canvas) && /document\.addEventListener\("visibilitychange", again\)/.test(canvas) && /withStock\(found, stock\.variants, showLeft\)/.test(canvas))
     check("  and shows Only N left only when Website settings › Commerce does", /const showLeft = siteCommerce\(settings\)\.showStockLeft/.test(canvas) && /\.\.\.\(showLeft \? \{ left: s\.left \} : \{\}\), max: s\.max, pickup: s\.pickup/.test(canvas))
     const route = read("app/api/physical/storefront/product/route.ts")
-    check("the storefront's product route says each option's pickup points and the delivery line, nothing more", /pickup: delivery\?\.pickup\[v\.id\] \?\? \[\]/.test(route) && /delivery: delivery\?\.ship \?\? null/.test(route))
+    check("the storefront's product route says each option's pickup points beside the buy box's delivery promise (F23)", /pickup: \(pickups as Record<string, unknown\[\]>\)\[v\.id\] \?\? \[\]/.test(route) && /productDelivery\(db, p\.creator_id, p\.id\)/.test(route) && /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise\) \} : null/.test(route))
     check("and the route draws it the way the live page does", /productSectionData\(createAdminClient\(\), product as ProductSectionRow, \{ files: true \}\)/.test(read("app/api/website-builder/products/route.ts")))
   }
 

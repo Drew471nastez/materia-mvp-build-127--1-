@@ -415,7 +415,7 @@ async function storelib(browser: Browser, port: number) {
     const small = await read()
     const box = await page.$eval("[data-delivery]", (el) => { const r = el.getBoundingClientRect(); return { top: Math.round(r.top + scrollY), w: Math.round(r.width) } })
     await page.screenshot({ path: `${OUT}/storelib-product-${vp.label}.png`, fullPage: false, clip: { x: 0, y: Math.max(0, box.top - (vp.touch ? 520 : 420)), width: vp.width, height: vp.touch ? 760 : 700 } })
-    check(`${vp.label}: Small: delivery with its days and where it turns free, pickup at Main Street, Only 3 left`, small.ship === "Delivery $4.99, 3 to 5 business daysFree over $75.00" && small.pickup === "Pickup available at Main Street, LisbonUsually ready in 24 hours" && /Only 3 left/.test(small.low ?? ""), small)
+    check(`${vp.label}: Small: delivery with its days and where it turns free, pickup at Main Street, Only 3 left`, small.ship === "Delivery $4.99 to Portugal, 3 to 5 business daysFree delivery on orders over $75.00" && small.pickup === "Pickup available at Main Street, LisbonUsually ready in 24 hours" && /Only 3 left/.test(small.low ?? ""), small)
     const pick = async (value: string) => {
       const btn = await page.$$(`[data-block-type="variant_picker"] button`)
       for (const b of btn) if ((await b.evaluate((e) => e.textContent?.trim())) === value) { if (vp.touch) await b.tap(); else await b.click(); break }

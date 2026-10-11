@@ -520,10 +520,12 @@ function Delivery({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const muted = ctx.palette.text_muted ?? ctx.palette.paragraph
   const variantId = ctx.variant?.id ?? ctx.product.variants?.[0]?.id ?? null
   const ship = on(s.show_delivery, true) ? deliveryLine(d?.ship ?? null, ctx.money) : null
-  const freeOver = on(s.show_delivery, true) && d?.ship && d.ship.priceCents > 0 && d.ship.freeFromCents ? `Free over ${ctx.money(d.ship.freeFromCents)}` : null
+  const freeOver = on(s.show_delivery, true) && d?.ship && d.ship.priceCents > 0 && d.ship.freeFromCents ? `Free delivery on orders over ${ctx.money(d.ship.freeFromCents)}` : null
   const points = on(s.show_pickup, true) && variantId ? d?.pickup?.[variantId] : undefined
   const pickup = pickupLine(points)
-  if (!ship && !pickup) {
+  /* The shop takes it round itself near one of its locations (Settings › Locations, local delivery): the buy box's words. */
+  const local = on(s.show_delivery, true) && d?.local === true ? "Local delivery available near the shop" : null
+  if (!ship && !pickup && !local) {
     return <EditorNote ctx={ctx}>{ctx.sample ? "Delivery and pickup show here for a product that ships" : "Set up rates in Settings, Shipping and delivery, or pickup in Locations"}</EditorNote>
   }
   const row = (icon: string, text: string, sub: string | null, key: string) => (
@@ -540,6 +542,7 @@ function Delivery({ s, ctx }: { s: S; ctx: ProductCtx }) {
   return (
     <div className="flex flex-col gap-2.5" data-delivery="">
       {ship ? row("truck", ship, freeOver, "ship") : null}
+      {local ? row("map-pin", local, null, "local") : null}
       {pickup ? row("store", pickup, points?.[0]?.ready ?? null, "pickup") : null}
     </div>
   )

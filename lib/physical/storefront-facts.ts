@@ -24,7 +24,8 @@
  * Never throws: a shop that cannot be read says nothing.
  */
 import { loadLocations, loadProfiles } from "./config-server"
-import { deliveryEstimate, freeShippingFrom, quoteDelivery } from "./rates"
+import { freeShippingFrom } from "./rates"
+import { deliveryPromise } from "./delivery-promise"
 import { PICKUP_READY_LABEL } from "./pickup"
 import { liveVariant } from "./storefront-stock"
 import type { Location, ShippingProfile } from "./types"
@@ -87,7 +88,7 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
       .maybeSingle()
     if (!product) return null
     const p = product as { price_cents?: number | null; track_inventory?: boolean | null; continue_selling?: boolean | null; shipping_profile_id?: string | null; weight_grams?: number | null; requires_shipping?: boolean | null; fulfillment_method?: string | null }
-    if (p.requires_shipping === false) return { ship: null, pickup: {} }
+    if (p.requires_shipping === false) return { ship: null, pickup: {}, local: false }
     const [{ data: settings }, profiles, locations, { data: variantRows }] = await Promise.all([
       db.from("commerce_settings").select("default_location_id").eq("creator_id", creatorId).maybeSingle(),
       loadProfiles(db as never, creatorId).catch(() => [] as ShippingProfile[]),
@@ -96,17 +97,22 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
     ])
     const variants = ((variantRows ?? []) as VariantRow[]).filter((v) => liveVariant(v))
 
-    /* Shipping: the cheapest rate for one of it to the home country, as the checkout would quote it. */
+    /* Shipping home: the cheapest rate for one of it, by the one rule the buy box says it (./delivery-promise.ts, F23), so every product page agrees. */
     let ship: ProductDelivery["ship"] = null
+    let local = false
     const country = await homeCountry(db, creatorId, settings?.default_location_id).catch(() => null)
-    if (country && profiles.length) {
-      const priceCents = Math.max(0, Number(variants[0]?.price_cents ?? p.price_cents) || 0)
-      const quote = quoteDelivery(profiles, [{ shippingProfileId: p.shipping_profile_id ?? null, quantity: 1, lineCents: priceCents, weightGrams: Math.max(0, Number(variants[0]?.weight_grams ?? p.weight_grams) || 0), requiresShipping: true }], country)
-      if (quote.ok && quote.required && quote.options.length) {
-        const best = quote.options[0]
-        const profile = profiles.find((x) => x.id === p.shipping_profile_id) ?? profiles.find((x) => x.isDefault) ?? profiles[0]
-        ship = { country, priceCents: best.priceCents, estimate: deliveryEstimate(best), freeFromCents: freeShippingFrom(profile, country) }
-      }
+    if (country) {
+      const promise = deliveryPromise({
+        profiles,
+        profileId: p.shipping_profile_id ?? null,
+        country,
+        priceCents: Math.max(0, Number(variants[0]?.price_cents ?? p.price_cents) || 0),
+        weightGrams: Math.max(0, Number(variants[0]?.weight_grams ?? p.weight_grams) || 0),
+        locations,
+        shipsItself: (p.fulfillment_method ?? "self") === "self",
+      })
+      if (promise.shipping) ship = { country, priceCents: promise.shipping.priceCents, estimate: promise.shipping.estimate ?? "", freeFromCents: promise.freeOverCents }
+      local = promise.localDelivery
     }
 
     /* Pickup: a location with pickup on that fulfils orders, for an item the seller ships themselves, holding the option (or selling it past zero). */
@@ -125,7 +131,7 @@ export async function productDelivery(db: Db, creatorId: string, productId: stri
         if (here.length) pickup[v.id] = here.map((l) => ({ name: l.name, city: l.city, ready: PICKUP_READY_LABEL[l.pickupReady] ?? "Usually ready in 24 hours" }))
       }
     }
-    return { ship, pickup }
+    return { ship, pickup, local }
   } catch {
     return null
   }
