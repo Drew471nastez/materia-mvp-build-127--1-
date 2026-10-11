@@ -29,7 +29,7 @@ import { build } from "esbuild"
 import { fakeDb } from "./_fake-db"
 import { REVIEWS_APP_DEFAULTS, canEditUntil, checkAppReviewInput, cleanReviewText, initialStatus, isVerifiedReview, mergeReviewsApp, publicName, readReviewsApp, sellerView, shownPhotos, startingStatus, websiteStatus } from "../lib/reviews/app-settings"
 import { withRatings } from "../lib/website-builder/shop-products"
-import { signRequestWith, verifyRequestWith } from "../lib/reviews/request-token"
+import { signDraftWith, signRequestWith, verifyDraftWith, verifyRequestWith, requestLinkOpen } from "../lib/reviews/request-token"
 import { DAY_MS, requestBlock, requestDueAt, reminderDueAt } from "../lib/reviews/request-schedule"
 import { reviewRequestBlock } from "../lib/reviews/request-rules"
 import { parseCsv, planImport } from "../lib/reviews/import-csv"
@@ -269,7 +269,7 @@ function website() {
 
 /* ── Routes ─────────────────────────────────────────────────────────── */
 
-const S: any = ((globalThis as any).__rvStubs = { admin: null, user: null, sent: [] as any[] })
+const S: any = ((globalThis as any).__rvStubs = { admin: null, user: null, sent: [] as any[], later: [] as Promise<unknown>[] })
 const dir = mkdtempSync(join(tmpdir(), "rv-stubs-"))
 const stub = (name: string, source: string) => {
   const file = join(dir, `${name}.mjs`)
@@ -284,6 +284,29 @@ const stubs: Record<string, string> = {
   "@/lib/reviews/requests-server": stub("rq", `export const askNow = async (_db, _c, orderId) => { globalThis.__rvStubs.sent.push({ kind: "ask", orderId }); return true }\nexport { requestContext } from ${JSON.stringify(pathToFileURL(join(dir, "ctx.mjs")).href)}\n`),
   "@/lib/activity/log-server": stub("act", `export const recordActivity = async () => undefined\n`),
   "@/lib/notifications/events": stub("ev", `export const noteReview = async () => undefined\n`),
+  /* What runs after a route's answer: kept, so a test can wait for it the way the request would. */
+  "@/lib/reviews/later": stub("later", `export const later = (task) => { globalThis.__rvStubs.later.push(task()) }\n`),
+  "@/lib/notify/providers/mailgun": stub("mail", `export const emailProvider = () => ({ send: async (m) => { globalThis.__rvStubs.sent.push({ kind: "mail", to: m.to, subject: m.subject, text: m.text, tags: m.tags }); return { status: "sent" } } })\nexport const mailgunDomain = () => "mg.test"\n`),
+}
+
+/** Two buckets that remember what is in them: review-photos (public) and review-uploads (private). */
+function fakeStorage() {
+  const buckets: Record<string, Set<string>> = { "review-photos": new Set(), "review-uploads": new Set() }
+  return {
+    buckets,
+    from: (b: string) => ({
+      upload: async (path: string) => (buckets[b].add(path), { error: null }),
+      remove: async (paths: string[]) => (paths.forEach((x) => buckets[b].delete(x)), { error: null }),
+      move: async (from: string, to: string, o?: { destinationBucket?: string }) => {
+        if (!buckets[b].has(from)) return { error: { message: "Object not found" } }
+        buckets[b].delete(from)
+        buckets[o?.destinationBucket ?? b].add(to)
+        return { error: null }
+      },
+      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://cdn.test/${b}/${path}` } }),
+      createSignedUrl: async (path: string) => ({ data: { signedUrl: `https://cdn.test/signed/${path}?t=1` } }),
+    }),
+  }
 }
 register(pathToFileURL(join(process.cwd(), "scripts/push-test-stubs.mjs")).href, { parentURL: import.meta.url, data: { stubs } })
 
@@ -308,13 +331,13 @@ async function bundle(entry: string, extraExternal: string[] = []): Promise<stri
   return pathToFileURL(out).href
 }
 
-function db(over: { app?: Record<string, unknown>; order?: Record<string, unknown>; reviews?: any[] } = {}) {
-  return fakeDb({
+function db(over: { app?: Record<string, unknown>; order?: Record<string, unknown>; reviews?: any[]; request?: Record<string, unknown> } = {}) {
+  const d: any = fakeDb({
     orders: [{ id: ORDER, product_id: PRODUCT, creator_id: CREATOR, buyer_email: "ana@example.com", buyer_first_name: "Ana Lopez", buyer_id: null, status: "completed", amount_cents: 1200, created_at: new Date(Date.now() - 10 * DAY_MS).toISOString(), receipt_token: "tok_x", ...over.order }],
     products: [{ id: PRODUCT, title: "Linen apron", slug: "linen-apron", status: "published", creator_id: CREATOR, thumbnail_url: null, reviews_count: 0, reviews_average: 0 }],
     creators: [{ id: CREATOR, user_id: SELLER_USER, stripe_account_id: "acct_1", paypal_merchant_id: null, support_email: "help@shop.example", reviews_count: 0, reviews_average: 0, display_name: "Drew Studio", slug: "drew" }],
     store_settings: [{ creator_id: CREATOR, reviews: { enabled: true, who: "anyone", photos: true, publish: "auto", minStars: 3, editDays: 30, ...over.app } }],
-    review_requests: [{ id: REQUEST, creator_id: CREATOR, order_id: ORDER, product_id: PRODUCT, email: "ana@example.com", first_name: "Ana", origin: null, status: "sent", due_at: new Date().toISOString(), sent_at: new Date().toISOString(), attempts: 1, review_id: null }],
+    review_requests: [{ id: REQUEST, creator_id: CREATOR, order_id: ORDER, product_id: PRODUCT, email: "ana@example.com", first_name: "Ana", origin: null, status: "sent", due_at: new Date().toISOString(), sent_at: new Date().toISOString(), attempts: 1, review_id: null, ...over.request }],
     reviews: over.reviews ?? [],
     review_authors: [],
     review_reports: [],
@@ -322,7 +345,21 @@ function db(over: { app?: Record<string, unknown>; order?: Record<string, unknow
     profiles: [],
     entitlements: [],
     email_suppressions: [],
+    review_drafts: [],
+    review_uploads: [],
   })
+  d.storage = fakeStorage()
+  return d
+}
+/** A photo uploaded from somewhere (owner), waiting in the private bucket. */
+function uploaded(d: any, owner: string, name = "c") {
+  const path = `${CREATOR}/${name.repeat(32).slice(0, 32)}.jpg`
+  d.storage.buckets["review-uploads"].add(path)
+  d.tables.review_uploads.push({ path, creator_id: CREATOR, owner, created_at: new Date().toISOString(), claimed_at: null })
+  return path
+}
+const settled = async () => {
+  while (S.later.length) await S.later.shift()
 }
 const req = (url: string, method: string, body?: unknown, headers: Record<string, string> = {}) =>
   new Request(`https://drew.storelib.com${url}`, { method, headers: { "content-type": "application/json", host: "drew.storelib.com", ...headers }, body: body === undefined ? undefined : JSON.stringify(body) })
@@ -331,6 +368,7 @@ function reset(d: any, user: any = null) {
   S.admin = d
   S.user = user
   S.sent = []
+  S.later = []
 }
 
 async function routes() {
@@ -341,6 +379,9 @@ async function routes() {
   const request = (await import(await bundle("app/api/reviews/request/route.ts"))) as any
   const site = (await import(await bundle("app/api/reviews/site/route.ts"))) as any
   const moderate = (await import(await bundle("app/api/app/reviews/[id]/route.ts"))) as any
+  const { sendReviewDigests } = (await import(await bundle("lib/reviews/digest-server.ts"))) as any
+  const { sweepReviewUploads } = (await import(await bundle("lib/reviews/photos-server.ts"))) as any
+  const { askNow: realAskNow } = (await import(ctxUrl)) as any
   const token = signRequestWith(KEY, REQUEST)
 
   realLog("\nFrom the review link")
@@ -382,26 +423,143 @@ async function routes() {
     check("an order made with the store's own address: 403", r.status === 403 && d.tables.reviews.length === 0)
   }
 
+  realLog("\nThe link's limits")
+  {
+    const d = db({ app: { enabled: false } })
+    reset(d)
+    const r = await request.POST(req("/api/reviews/request", "POST", { token, rating: 5, content: "Lovely apron." }))
+    check("the store turned the app off: the link takes no new review", r.status === 403 && d.tables.reviews.length === 0)
+  }
+  {
+    const d = db({ request: { sent_at: new Date(Date.now() - 200 * DAY_MS).toISOString() } })
+    reset(d)
+    const r = await request.POST(req("/api/reviews/request", "POST", { token, rating: 5, content: "Lovely apron." }))
+    check("a link sent over 180 days ago has expired", r.status === 410 && d.tables.reviews.length === 0 && requestLinkOpen({ sent_at: new Date().toISOString() }) && !requestLinkOpen({ sent_at: null }))
+  }
+  {
+    const d = db()
+    reset(d)
+    const mine = uploaded(d, `request:${REQUEST}`, "c")
+    const theirs = uploaded(d, `site:${CREATOR}`, "d")
+    const r = await request.POST(req("/api/reviews/request", "POST", { token, rating: 5, content: "Lovely apron.", photos: [mine, theirs] }))
+    const row = d.tables.reviews[0]
+    check("photos: only uploads made from this link, each taken once; one somebody else uploaded is left out", r.status === 200 && row?.photos?.length === 1 && row.photos[0].path === mine && d.tables.review_uploads.find((u: any) => u.path === mine)?.claimed_at && !d.tables.review_uploads.find((u: any) => u.path === theirs)?.claimed_at, row?.photos)
+    check("  the website shows the review, so its photo moved to the public bucket", d.storage.buckets["review-photos"].has(mine) && !d.storage.buckets["review-uploads"].has(mine))
+    const steal = await request.PATCH(req("/api/reviews/request", "PATCH", { token, rating: 5, content: "Lovely apron.", photos: [mine, theirs] }))
+    check("  a change cannot take another upload either", steal.status === 200 && d.tables.reviews[0].photos.length === 1)
+  }
+  {
+    const d = db({ app: { publish: "manual" } })
+    reset(d)
+    const mine = uploaded(d, `request:${REQUEST}`, "c")
+    await request.POST(req("/api/reviews/request", "POST", { token, rating: 5, content: "Lovely apron.", photos: [mine] }))
+    check("waiting for the store's approval on its website: the photo stays private", d.storage.buckets["review-uploads"].has(mine) && !d.storage.buckets["review-photos"].has(mine))
+  }
+
+  realLog("\nA buyer's own link from the website form (askNow)")
+  {
+    const app = readReviewsApp({ enabled: true, who: "anyone", request: { enabled: true } })
+    const sends = () => S.sent.filter((m: any) => m.kind === "mail").length
+    let d = db({ request: { status: "scheduled", sent_at: null } })
+    reset(d)
+    check("request emails off: nothing sent", (await realAskNow(d, CREATOR, ORDER, readReviewsApp({ enabled: true, request: { enabled: false } }))) === false && sends() === 0)
+    const first = await realAskNow(d, CREATOR, ORDER, app)
+    check("  on, never sent: sent, and when is kept", first === true && sends() === 1 && !!d.tables.review_requests[0].last_sent_at, { sent: S.sent, row: d.tables.review_requests[0] })
+    check("  asked again the same week: nothing, however often the form is sent", (await realAskNow(d, CREATOR, ORDER, app)) === false && (await realAskNow(d, CREATOR, ORDER, app)) === false && sends() === 1)
+    d = db({ request: { status: "reviewed" } })
+    reset(d)
+    check("  a request that is done: nothing", (await realAskNow(d, CREATOR, ORDER, app)) === false && sends() === 0)
+    d = db({ request: { status: "sent", sent_at: new Date(Date.now() - 10 * DAY_MS).toISOString() } })
+    reset(d)
+    check("  sent over a week ago: sent again", (await realAskNow(d, CREATOR, ORDER, app)) === true && sends() === 1)
+  }
+
   realLog("\nOn the website")
   {
     const d = db()
     reset(d)
+    const answers: string[] = []
+    const say = async (r: Response) => {
+      const body = JSON.stringify(await json(r))
+      answers.push(`${r.status} ${body}`)
+      return body
+    }
     const trap = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Buy now cheap", name: "Bot", email: "bot@spam.test", website: "http://spam" }))
-    check("the field a person never sees, filled in: told it worked, nothing kept", trap.status === 200 && d.tables.reviews.length === 0)
+    await say(trap)
+    await settled()
+    check("the field a person never sees, filled in: the usual answer, nothing kept or sent", trap.status === 202 && d.tables.reviews.length === 0 && d.tables.review_drafts.length === 0 && S.sent.length === 0)
+
     const r = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 2, content: "Seams came loose.", name: "Lee Park", email: "LEE@example.com" }))
-    const row = d.tables.reviews[0]
-    check("a visitor's review: not verified, no buyer or order, waiting (under three stars)", r.status === 200 && row?.verified === false && row?.buyer_id === null && row?.order_id === null && row?.source === "site" && row?.status === "pending" && row?.site_status === "shown" && row?.reviewer_name === "Lee P.", row)
-    check("the address is kept apart from the public row, lower case", !("email" in row) && d.tables.review_authors[0]?.email === "lee@example.com" && d.tables.review_authors[0]?.ip_hash?.length === 32)
-    const twice = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Second try.", name: "Lee", email: "lee@example.com" }))
-    check("the same address again: 409", twice.status === 409 && d.tables.reviews.length === 1)
+    await say(r)
+    check("  a visitor's review: nothing posted yet", d.tables.reviews.length === 0)
+    await settled()
+    const draft = d.tables.review_drafts[0]
+    const confirmMail = S.sent.find((m: any) => m.kind === "mail" && m.to === "lee@example.com")
+    check("  it waits (review_drafts, the address lower case) and a confirm link is emailed to that address", d.tables.reviews.length === 0 && draft?.email === "lee@example.com" && draft?.status === "waiting" && draft?.reviewer_name === "Lee P." && !!confirmMail && confirmMail.text.includes(`/review/confirm/${signDraftWith(KEY, draft.id)}`), { draft, sent: S.sent })
+
+    S.sent = []
     const buyer = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "I bought it.", name: "Ana", email: "ana@example.com" }))
-    check("a buyer's address: nothing taken from the form; their own link is emailed instead", buyer.status === 202 && (await json(buyer)).status === "check_email" && d.tables.reviews.length === 1 && S.sent.some((m: any) => m.kind === "ask" && m.orderId === ORDER))
+    await say(buyer)
+    await settled()
+    check("a buyer's address: their own verified link is sent instead, nothing held from the form", d.tables.review_drafts.length === 1 && S.sent.some((m: any) => m.kind === "ask" && m.orderId === ORDER) && !S.sent.some((m: any) => m.kind === "mail"), S.sent)
+
+    S.sent = []
+    const own = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Best shop ever.", name: "Drew", email: "help@shop.example" }))
+    await say(own)
+    await settled()
+    check("the store's own address: nothing held, nothing sent", d.tables.review_drafts.length === 1 && S.sent.length === 0, S.sent)
+
+    check("one answer for all of them: the same status and the same words, whoever typed what", new Set(answers).size === 1 && answers[0] === `202 ${JSON.stringify({ ok: true, status: "check_email" })}`, answers)
+
+    const token = signDraftWith(KEY, draft.id)
+    const page = (await import(await bundle("app/api/reviews/confirm/route.ts"))) as any
+    const press = () => {
+      const f = new FormData()
+      f.append("token", token)
+      return page.POST(new Request("https://storelib.com/api/reviews/confirm", { method: "POST", body: f }))
+    }
+    S.sent = []
+    const confirmed = await press()
+    const row = d.tables.reviews[0]
+    check("the confirm link, pressed: posted unverified, by the store's rule (waiting, under three stars), back to the page", confirmed.status === 303 && confirmed.headers.get("location") === `https://storelib.com/review/confirm/${token}` && row?.verified === false && row?.source === "site" && row?.buyer_id === null && row?.order_id === null && row?.status === "pending" && row?.site_status === "shown" && row?.reviewer_name === "Lee P.", { row, location: confirmed.headers.get("location") })
+    check("  the address kept apart from the public row", !("email" in row) && d.tables.review_authors[0]?.email === "lee@example.com" && d.tables.review_authors[0]?.ip_hash?.length === 32)
+    check("  the store hears in the bell, not an email each (the digest sends one later)", d.tables.seller_notifications.length === 1 && d.tables.seller_notifications[0].metadata?.digest === true && !S.sent.some((m: any) => m.kind === "review"))
+    const twice = await press()
+    check("  pressed again: once only", twice.status === 303 && /error=410/.test(twice.headers.get("location") ?? "") && d.tables.reviews.length === 1)
+
+    S.sent = []
+    const again = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Second try.", name: "Lee", email: "lee@example.com" }))
+    await settled()
+    check("the same address again: the same answer, and nothing held or sent", again.status === 202 && d.tables.review_drafts.length === 1 && S.sent.length === 0)
+
     const form = new FormData()
     for (const [k, v] of Object.entries({ productId: PRODUCT, rating: "5", content: "From the form.", name: "Kim Ro", email: "kim@example.com" })) form.append(k, v)
     const posted = await site.POST(new Request("https://drew.storelib.com/api/reviews/site", { method: "POST", body: form, headers: { referer: "https://drew.storelib.com/products/linen-apron?variant=1", host: "drew.storelib.com" } }))
-    check("the theme's plain form post: back to the page at #review-posted", posted.status === 303 && posted.headers.get("location") === "https://drew.storelib.com/products/linen-apron?variant=1#review-posted", posted.headers.get("location"))
+    check("the theme's plain form post: back to the page at #review-check-email", posted.status === 303 && posted.headers.get("location") === "https://drew.storelib.com/products/linen-apron?variant=1#review-check-email", posted.headers.get("location"))
     const away = await site.POST(new Request("https://drew.storelib.com/api/reviews/site", { method: "POST", body: (() => { const f = new FormData(); f.append("productId", PRODUCT); return f })(), headers: { referer: "https://evil.example/x", host: "drew.storelib.com" } }))
     check("  never back to another site's address", away.status === 303 && away.headers.get("location") === "https://drew.storelib.com/#review-error")
+    await settled()
+
+    S.sent = []
+    const later = Date.now() + 2 * 3_600_000
+    const digests = await sendReviewDigests(d, later)
+    const digest = S.sent.find((m: any) => m.kind === "mail" && m.to === "seller@example.com")
+    check("the store's digest: one email for its new website reviews, marked so each is in one only", digests === 1 && !!digest && /new review/i.test(digest.subject) && !!d.tables.seller_notifications[0].email_sent_at && (await sendReviewDigests(d, later)) === 0, S.sent)
+  }
+  {
+    const d = db()
+    reset(d)
+    const photo = uploaded(d, `site:${CREATOR}`)
+    await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Lovely colour.", name: "Mo Li", email: "mo@example.com", photos: [photo] }))
+    await settled()
+    const draft = d.tables.review_drafts[0]
+    check("a visitor's photo waits with their review, private", draft?.photos?.[0] === photo && d.storage.buckets["review-uploads"].has(photo) && !d.storage.buckets["review-photos"].has(photo), draft)
+    d.tables.review_drafts[0].created_at = new Date(Date.now() - 8 * DAY_MS).toISOString()
+    const swept = await sweepReviewUploads(d)
+    check("  unconfirmed after seven days: the review, its address and its photo are gone", swept.drafts === 1 && d.tables.review_drafts.length === 0 && !d.storage.buckets["review-uploads"].has(photo))
+    const stray = uploaded(d, `site:${CREATOR}`, "e")
+    d.tables.review_uploads.find((u: any) => u.path === stray).created_at = new Date(Date.now() - 2 * DAY_MS).toISOString()
+    check("  an upload no review took is swept after a day", (await sweepReviewUploads(d)).uploads === 1 && !d.storage.buckets["review-uploads"].has(stray))
   }
   {
     const d = db({ app: { who: "verified" } })
@@ -418,6 +576,7 @@ async function routes() {
       { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3", product_id: PRODUCT, creator_id: CREATOR, order_id: ORDER, buyer_id: null, rating: 1, content: "Broke in a week.", status: "published", site_status: "shown", hidden_by: null, verified: true, source: "request" },
     ]
     const d = db({ reviews })
+    d.storage.buckets["review-uploads"].add(`${CREATOR}/${"b".repeat(32)}.jpg`)
     const p = (id: string) => ({ params: Promise.resolve({ id }) })
     reset(d, { id: STRANGER })
     const theirs = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "publish" }), p(reviews[0].id))
@@ -426,10 +585,12 @@ async function routes() {
     check("signed out: 401", (await moderate.DELETE(req(`/api/app/reviews/${reviews[0].id}`, "DELETE"), p(reviews[0].id))).status === 401 && d.tables.reviews.length === 3)
     reset(d, { id: SELLER_USER })
     const pub = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "publish" }), p(reviews[0].id))
-    check("the store publishes a pending review: live, counted", pub.status === 200 && d.tables.reviews[0].status === "published" && !!d.tables.reviews[0].published_at && d.tables.products[0].reviews_count === 2)
+    const pic = `${CREATOR}/${"b".repeat(32)}.jpg`
+    check("the store publishes a pending review: live, and its photo public now", pub.status === 200 && d.tables.reviews[0].status === "published" && !!d.tables.reviews[0].published_at && d.storage.buckets["review-photos"].has(pic) && !d.storage.buckets["review-uploads"].has(pic))
+    check("  a visitor's review is not in Storelib's ratings (only verified buyers' are)", d.tables.products[0].reviews_count === 1 && d.tables.products[0].reviews_average === 1 && d.tables.creators[0].reviews_count === 1)
     await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "feature" }), p(reviews[0].id))
-    await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "remove_photo", photo: `${CREATOR}/${"b".repeat(32)}.jpg` }), p(reviews[0].id))
-    check("features it and takes a photo off", d.tables.reviews[0].featured === true && d.tables.reviews[0].photos[0].status === "removed")
+    await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "remove_photo", photo: pic }), p(reviews[0].id))
+    check("features it and takes a photo off: its file leaves the public bucket", d.tables.reviews[0].featured === true && d.tables.reviews[0].photos[0].status === "removed" && !d.storage.buckets["review-photos"].has(pic) && d.storage.buckets["review-uploads"].has(pic))
     const hide = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "hide" }), p(reviews[0].id))
     check("an unverified review: hidden by the store everywhere, kept, out of the rating", hide.status === 200 && d.tables.reviews[0].status === "hidden" && d.tables.reviews[0].hidden_by === "seller" && d.tables.products[0].reviews_count === 1)
     const reported = await moderate.PATCH(req(`/api/app/reviews/${reviews[1].id}`, "PATCH", { action: "publish" }), p(reviews[1].id))
@@ -449,7 +610,7 @@ async function routes() {
     check("  one a report hid stays Storelib's: hiding it changes nothing, publishing is refused", hideR.status === 200 && pubR.status === 409 && d.tables.reviews.find((r: any) => r.id === reportedV.id)?.status === "hidden")
     const gone = reviews[0].id
     const del = await moderate.DELETE(req(`/api/app/reviews/${gone}`, "DELETE"), p(gone))
-    check("an unverified review: deleted for good", del.status === 200 && d.tables.reviews.length === 3 && !d.tables.reviews.some((r: any) => r.id === gone))
+    check("an unverified review: deleted for good, its photo's file too", del.status === 200 && d.tables.reviews.length === 3 && !d.tables.reviews.some((r: any) => r.id === gone) && !d.storage.buckets["review-uploads"].has(`${CREATOR}/${"b".repeat(32)}.jpg`))
   }
 
   realLog("\nStars on the website's cards")
@@ -484,6 +645,16 @@ function wiring() {
   check("a photo: a picture by its bytes, the picture reader, the malware scan", /preparePublicImage\(/.test(photo) && /judgePicture\(/.test(photo) && /screenInBackground\(/.test(photo))
   check("the website's card ratings never import server code (the browser loads shop-products)", !/server-only|app-server/.test(read("lib/website-builder/shop-products.ts")))
   check("part 133: the website's own say (site_status), and a check that a verified review is never pending or hidden by the store", /ADD COLUMN IF NOT EXISTS site_status text NOT NULL DEFAULT 'shown'/.test(sql) && /CHECK \(NOT verified OR \(status <> 'pending' AND hidden_by IS DISTINCT FROM 'seller'\)\) NOT VALID/.test(sql) && /column_name = 'site_status'/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  check("part 133: website reviews wait in review_drafts, uploads in review_uploads and the private review-uploads bucket, all server only", /CREATE TABLE IF NOT EXISTS public.review_drafts/.test(sql) && /REVOKE ALL ON public.review_drafts FROM anon, authenticated/.test(sql) && /REVOKE ALL ON public.review_uploads FROM anon, authenticated/.test(sql) && /VALUES \('review-uploads', 'review-uploads', false/.test(sql))
+  check("  reviews.photos is not readable by the public: every other column is granted, photos is not", /REVOKE SELECT ON public.reviews FROM anon, authenticated/.test(sql) && /IF col.attname = 'photos' THEN EXECUTE format\('REVOKE SELECT/.test(sql))
+  check("  the ratings trigger counts verified buyers' reviews only, and the ratings are counted again", (sql.match(/r\.status = 'published' AND r\.verified/g) ?? []).length >= 8 && /UPDATE public.products p SET reviews_count/.test(sql))
+  check("Storelib's ratings (Explore, the product page, the creator) read verified buyers' only", /\.eq\("status", "published"\)\.neq\("verified", false\)/.test(read("lib/reviews/store.ts")))
+  const card = read("components/reviews/review-card.tsx")
+  check("the product page says Verified purchase only for a verified review, and the reads fetch it", /review\.verified !== false \?/.test(card) && /seller_reply_at, verified, source, \$\{BUYER\}/.test(read("lib/reviews/store.ts")) && /seller_reply_at, verified, source, \$\{buyer\}/.test(read("lib/commerce/product-page-cache.ts")))
+  const siteRoute = read("app/api/reviews/site/route.ts")
+  check("the website form: one answer whoever typed what, the address read after it, a per-store limit", /later\(\(\) => settleSiteReview\(/.test(siteRoute) && !/import [^\n]*(purchaseByAddress|addressReviewed|askNow)/.test(siteRoute) && /bucket: "review-site-store"/.test(siteRoute) && /\{ limit: 30, seconds: 3600 \}, \{ limit: 200, seconds: 86_400 \}/.test(siteRoute))
+  check("  the sections never say whether the address bought the product", !/You bought this/.test(read("themes/default/sections/reviews_product.storelib")) && !/You bought this/.test(read("lib/storelib-theme/compat/storelib-reviews.ts")))
+  check("a confirm link is not a request link", (() => { const t = signDraftWith(KEY, REQUEST); return verifyDraftWith(KEY, t) === REQUEST && verifyRequestWith(KEY, t) === null && verifyDraftWith(KEY, signRequestWith(KEY, REQUEST)) === null })())
   const shopRead = read("lib/reviews/storefront-server.ts")
   check("the website's review sections and its JSON-LD read only what the store shows there", (shopRead.match(/q\.eq\("site_status", "shown"\)/g) ?? []).length === 2)
   const marketRead = read("lib/reviews/store.ts")

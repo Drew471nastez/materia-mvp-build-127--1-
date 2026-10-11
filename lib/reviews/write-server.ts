@@ -19,18 +19,20 @@ import "server-only"
  * either way and waits, when it waits, on the website only (site_status);
  * an unverified one waits everywhere (app-settings startingStatus). The
  * ratings are counted again (published only), the
- * store is told, and its photos are the ones the upload route put in this
- * store's folder of review-photos, each checked again here by its path.
+ * store is told, and its photos are the uploads the caller claimed
+ * (photos-server claimUploads), moved to the public bucket only while the
+ * website shows the review (syncReviewPhotos).
  */
 import { canDeliver } from "@/lib/receipts/rules"
 import { refreshReviewStats } from "./store"
 import { startingStatus, type ReviewsAppSettings } from "./app-settings"
 import { notifySellerOfReview } from "./notify-seller"
+import { REVIEW_PHOTO_BUCKET, syncReviewPhotos } from "./photos-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-export const REVIEW_PHOTO_BUCKET = "review-photos"
+export { REVIEW_PHOTO_BUCKET }
 
 /** Each photo path as the review stores it: its address in the public bucket, approved. */
 export function photoEntries(db: Db, paths: string[]): { path: string; url: string; status: "approved" }[] {
@@ -61,6 +63,8 @@ export interface NewAppReview {
   orderId: string | null
   verified: boolean
   source: "request" | "site"
+  /** A website review: the store hears about it in the bell now and in one email for several (lib/reviews/digest-server), not an email each. */
+  digest?: boolean
   /** A visitor's address and network hash, kept apart from the public row (review_authors). */
   author?: { email: string | null; ipHash: string | null } | null
 }
@@ -105,6 +109,7 @@ export async function insertAppReview(db: Db, r: NewAppReview): Promise<WriteRes
         () => undefined,
       )
   }
+  await syncReviewPhotos(db, review)
   await refreshReviewStats(db, { productId: r.product.id, creatorId: r.creatorId, productSlug: r.product.slug })
   await notifySellerOfReview(db, {
     product: { ...r.product, creatorUserId: r.creatorUserId },
@@ -113,6 +118,7 @@ export async function insertAppReview(db: Db, r: NewAppReview): Promise<WriteRes
     rating: r.rating,
     content: r.content,
     pending: status === "pending",
+    digest: r.digest === true,
   })
   return { ok: true, review, status }
 }

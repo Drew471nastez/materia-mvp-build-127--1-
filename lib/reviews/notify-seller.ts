@@ -8,7 +8,10 @@ import "server-only"
  * (seller_notifications, type new_review) and the new review email, both
  * pointing at the review in Reviews. A review waiting for approval says so,
  * and links to the Pending list. The same two the receipt's review sends
- * (app/api/reviews/route.ts). Never fails the review.
+ * (app/api/reviews/route.ts). A website review (`digest`) gets the bell
+ * only; its email is one for several, sent by the email cron
+ * (./digest-server.ts), so a busy form cannot fill the store's inbox.
+ * Never fails the review.
  */
 import { after } from "next/server"
 import { resolveSellerEmail, sendReviewNotificationEmail } from "@/lib/email"
@@ -25,9 +28,10 @@ export async function notifySellerOfReview(
     rating: number
     content: string
     pending: boolean
+    digest?: boolean
   },
 ): Promise<void> {
-  const { product, reviewId, reviewerName, rating, content, pending } = input
+  const { product, reviewId, reviewerName, rating, content, pending, digest } = input
   if (!product.creatorUserId) return
   try {
     const title = product.title || "your product"
@@ -41,7 +45,7 @@ export async function notifySellerOfReview(
       action_url: pending ? `/app/reviews?status=pending&review=${reviewId}` : `/app/reviews?review=${reviewId}`,
       product_id: product.id,
       review_id: reviewId,
-      metadata: { reviewer_name: reviewerName, rating, content_preview: content.trim().slice(0, 100), pending },
+      metadata: { reviewer_name: reviewerName, rating, content_preview: content.trim().slice(0, 100), pending, ...(digest ? { digest: true } : {}) },
     })
     if (error) {
       console.error("[reviews] notification not written:", error.message)
@@ -53,6 +57,7 @@ export async function notifySellerOfReview(
         /* Outside a request: the milestone is noted by the hourly rules instead. */
       }
     }
+    if (digest) return
     const sellerEmail = await resolveSellerEmail(db, product.creator_id)
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com"
     await sendReviewNotificationEmail(db, {

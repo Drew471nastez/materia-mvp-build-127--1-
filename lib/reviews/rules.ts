@@ -85,11 +85,15 @@ export function guestReviewerName(firstName: unknown): string | null {
 
 export interface ReviewAuthorFields {
   reviewer_name?: string | null
+  /** False for a website visitor's or an imported review (run-now part 133): never called a verified buyer. */
+  verified?: boolean | null
   buyer?: { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null
 }
 
 /** What a review reads as when nobody ever gave a name. */
 export const UNNAMED_REVIEWER = "Verified buyer"
+/** The same for a review not tied to a purchase. */
+export const UNNAMED_CUSTOMER = "Customer"
 
 /**
  * Who wrote it, as a review card shows it.
@@ -102,7 +106,7 @@ export const UNNAMED_REVIEWER = "Verified buyer"
 export function reviewerOf(review: ReviewAuthorFields): { name: string; avatarUrl: string | null; avatarName: string; named: boolean } {
   const buyer = Array.isArray(review.buyer) ? review.buyer[0] : review.buyer
   const given = (buyer?.display_name || "").trim() || (review.reviewer_name || "").trim() || (buyer?.username || "").trim()
-  const name = (given || UNNAMED_REVIEWER).slice(0, 60)
+  const name = (given || (review.verified === false ? UNNAMED_CUSTOMER : UNNAMED_REVIEWER)).slice(0, 60)
   return { name, avatarUrl: buyer?.avatar_url || null, avatarName: given ? name : "", named: !!given }
 }
 

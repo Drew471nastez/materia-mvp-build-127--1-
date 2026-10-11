@@ -103,7 +103,7 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
             </SelectInput>
           </Field>
         ) : null}
-        <Field label="Who can write one" htmlFor="ra-who" hint={draft.who === "anyone" ? "A visitor's review is not marked Verified buyer. A buyer who uses the form is sent their own link instead." : "From the link in their review email or their receipt. Every review is a Verified buyer."}>
+        <Field label="Who can write one" htmlFor="ra-who" hint={draft.who === "anyone" ? "A visitor confirms their review from an email before it posts, and it is not marked Verified buyer or counted in your Storelib rating. A buyer who uses the form is sent their own link instead." : "From the link in their review email or their receipt. Every review is a Verified buyer."}>
           <SelectInput id="ra-who" value={draft.who} onChange={(v) => set({ who: v === "anyone" ? "anyone" : "verified" })}>
             <option value="verified">Buyers only</option>
             <option value="anyone">Anyone, on your website</option>

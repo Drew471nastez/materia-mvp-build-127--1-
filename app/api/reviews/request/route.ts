@@ -4,10 +4,11 @@ import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { canDeliver } from "@/lib/receipts/rules"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
 import { canEditUntil, checkAppReviewInput, initialStatus, readSiteStatus, websiteStatus } from "@/lib/reviews/app-settings"
-import { verifyRequest } from "@/lib/reviews/request-token"
+import { requestLinkOpen, verifyRequest } from "@/lib/reviews/request-token"
 import { requestContext } from "@/lib/reviews/requests-server"
 import { insertAppReview, photoEntries } from "@/lib/reviews/write-server"
 import { refreshReviewStats } from "@/lib/reviews/store"
+import { claimUploads, removeReviewPhotos, syncReviewPhotos } from "@/lib/reviews/photos-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,6 +26,10 @@ export const dynamic = "force-dynamic"
  * product from that order, verified, and nothing else. The purchase is
  * checked again here (still paid, not refunded), as is the seller rule
  * (lib/reviews/eligibility): the store's own order cannot review itself.
+ * A new review is taken only while the store has Storelib Reviews on and
+ * within REQUEST_LINK_DAYS of the email (a link is not a key forever). Photos are
+ * only uploads made from this same link, each taken once (photos-server
+ * claimUploads); a change keeps the photos the review already has.
  */
 const NO_LINK = "This review link does not work. Open the newest email about it, or ask the store."
 
@@ -62,8 +67,11 @@ export async function POST(request: NextRequest) {
   if (ctx.review) return answer({ error: "You already reviewed this. You can change it from this page.", alreadyReviewed: true }, 409)
   if (!canDeliver(order)) return answer({ error: "Only a completed purchase can be reviewed." }, 403)
   if (product.status === "deleted") return answer({ error: "This product is not sold any more." }, 410)
+  if (!settings.enabled) return answer({ error: "This store isn't taking reviews from this link right now." }, 403)
+  if (!requestLinkOpen(ctx.request as { sent_at?: string | null; created_at?: string | null })) return answer({ error: "This review link has expired." }, 410)
   const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos })
   if (!input.ok) return answer({ error: input.error }, 400)
+  input.photoPaths = await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths })
 
   const buyerId = typeof order.buyer_id === "string" ? order.buyer_id : null
   const eligibility = buyerId
@@ -113,7 +121,10 @@ export async function PATCH(request: NextRequest) {
   const now = new Date().toISOString()
   const kept = Array.isArray(review.photos) ? (review.photos as { path?: string; status?: string }[]) : []
   const removedByStore = new Set(kept.filter((p) => p?.status === "removed").map((p) => p.path))
-  const photos = photoEntries(db, input.photoPaths).map((p) => (removedByStore.has(p.path) ? { ...p, status: "removed" as const } : p))
+  const already = new Set(kept.map((p) => p?.path).filter((p): p is string => typeof p === "string"))
+  const fresh = await claimUploads(db, { creatorId: creator.id, owner: `request:${ctx.request.id}`, paths: input.photoPaths.filter((p) => !already.has(p)) })
+  const allowed = new Set([...already, ...fresh])
+  const photos = photoEntries(db, input.photoPaths.filter((p) => allowed.has(p))).map((p) => (removedByStore.has(p.path) ? { ...p, status: "removed" as const } : p))
   const { data: updated, error } = await db
     .from("reviews")
     .update({ rating: input.rating, title: input.title || null, content: input.content, ...(input.name ? { reviewer_name: input.name } : {}), photos, status, site_status, edited_at: now, updated_at: now, ...(status === "published" && review.status !== "published" ? { published_at: now } : {}) })
@@ -121,6 +132,9 @@ export async function PATCH(request: NextRequest) {
     .select("*")
     .single()
   if (error || !updated) return answer({ error: "The change did not save. Try again." }, 500)
+  await syncReviewPhotos(db, updated)
+  /* A photo the reviewer took off in the change: its file goes too. */
+  await removeReviewPhotos(db, [...already].filter((p) => !input.photoPaths.includes(p)))
   await refreshReviewStats(db, { productId: product.id, creatorId: creator.id, productSlug: product.slug })
   return answer({ ok: true, status: websiteStatus(updated), review: publicShape(updated) })
 }

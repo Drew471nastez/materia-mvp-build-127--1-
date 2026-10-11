@@ -37,8 +37,10 @@ export function missingColumn(error: PgError): boolean {
 }
 
 const BUYER = "buyer:profiles!buyer_id(id, display_name, avatar_url)"
-/** What a public card draws. */
-export const PUBLIC_REVIEW_COLUMNS = `id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, ${BUYER}`
+/** What a public card draws: with run-now part 133, whether it is a verified buyer's and where it came from, so the card says "Verified purchase" only when it is. */
+export const PUBLIC_REVIEW_COLUMNS = `id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, verified, source, ${BUYER}`
+/** The same before run-now part 133 (every review then was a buyer's). */
+const PART_52_REVIEW_COLUMNS = `id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, ${BUYER}`
 /** The same before run-now part 52. */
 const OLD_REVIEW_COLUMNS = `id, product_id, rating, content, created_at, ${BUYER}`
 
@@ -52,6 +54,9 @@ export interface PublicReview {
   reviewer_name?: string | null
   seller_reply?: string | null
   seller_reply_at?: string | null
+  /** False for a website visitor's or an imported review (run-now part 133). Absent before it: a buyer's. */
+  verified?: boolean | null
+  source?: string | null
   buyer?: { id: string; display_name?: string | null; avatar_url?: string | null } | null
 }
 
@@ -81,17 +86,25 @@ export async function readPublishedReviews(
     return q.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
   }
   let res = await run(PUBLIC_REVIEW_COLUMNS, true)
+  if (res.error && missingColumn(res.error)) res = await run(PART_52_REVIEW_COLUMNS, true)
   if (res.error && missingColumn(res.error)) res = await run(OLD_REVIEW_COLUMNS, false)
   if (res.error) throw new Error(`reviews could not be read (${res.error.code ?? "unknown"})`)
   return { reviews: (res.data ?? []) as PublicReview[], total: res.count ?? (res.data ?? []).length }
 }
 
-/** Ratings of the published reviews of one product or one creator. */
+/**
+ * Ratings of the published reviews of one product or one creator: verified
+ * buyers' only, as the ratings trigger counts them (run-now part 133), so a
+ * website visitor's or an imported review never moves a Storelib rating or
+ * Explore. Before part 133 there is no `verified`, and every review was a
+ * buyer's.
+ */
 export async function publishedRatings(db: Db, where: { productId?: string | null; creatorId?: string | null }): Promise<number[] | null> {
   const key = where.productId ? "product_id" : "creator_id"
   const value = where.productId ?? where.creatorId
   if (!value) return []
-  let res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published")
+  let res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published").neq("verified", false)
+  if (res.error && missingColumn(res.error)) res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published")
   if (res.error && missingColumn(res.error)) res = await db.from("reviews").select("rating").eq(key, value)
   if (res.error) return null
   return ((res.data ?? []) as { rating: number }[]).map((r) => Number(r.rating))

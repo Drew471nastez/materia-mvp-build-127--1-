@@ -5,10 +5,9 @@ import { addressSubject, callerAddress, emailSubject, rateLimit } from "@/lib/ap
 import { isUuid } from "@/lib/receipts/rules"
 import { checkAppReviewInput, cleanEmail } from "@/lib/reviews/app-settings"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
-import { checkGuestReviewEligibility } from "@/lib/reviews/eligibility"
-import { addressReviewed, insertAppReview, purchaseByAddress } from "@/lib/reviews/write-server"
-import { askNow } from "@/lib/reviews/requests-server"
 import { storeReviewPhoto } from "@/lib/reviews/photos-server"
+import { settleSiteReview } from "@/lib/reviews/site-server"
+import { later } from "@/lib/reviews/later"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -25,19 +24,32 @@ export const dynamic = "force-dynamic"
  *
  *   the product      published, and the store's own
  *   spam             `website` is a field a person never sees: filled in, the
- *                    answer is a quiet 200 and nothing is kept. And a limit
- *                    per network address and per email address.
- *   verified         never from this form: anybody can type an address.
- *                    When the address bought this product, the review is
- *                    not taken here; that buyer is emailed their own review
- *                    link instead (the request email), and a review from
- *                    that link is the verified one. Holding the inbox is
- *                    the proof.
+ *                    answer is the usual one and nothing is kept. A limit
+ *                    per network address and per email address, and one per
+ *                    store (30 an hour, 200 a day).
+ *   one answer       whatever address was typed, the answer is the same:
+ *                    202 { status: "check_email" } (the plain form: back to
+ *                    #review-check-email). Nothing in it, or in how long it
+ *                    took, says whether the address bought the product,
+ *                    already reviewed it or is the store's own. What the
+ *                    address is decides what happens after the answer
+ *                    (lib/reviews/later, lib/reviews/site-server):
+ *     bought it        that buyer is emailed their own review link (the
+ *                      request email, askNow), and a review from that link
+ *                      is the verified one. The form's words are dropped.
+ *     reviewed it, or the store's own address
+ *                      nothing
+ *     anybody else     the review is held (review_drafts) and a "confirm
+ *                      your review" link goes to the address. Opening it
+ *                      posts the review, unverified (/review/confirm/<token>,
+ *                      /api/reviews/confirm). Unconfirmed after seven days,
+ *                      it is dropped.
  *   one each         one review an address and product
- *   the store's own  its support address cannot review its products
  *
- * The email is kept apart from the review (review_authors, server only) and
- * is never shown; the review shows "Jane D.".
+ * The email is kept apart from the review (review_drafts, then
+ * review_authors, server only) and is never shown; the review shows
+ * "Jane D.". Photos go to the private uploads bucket and wait there with
+ * the draft (lib/reviews/photos-server).
  */
 const HEADERS = { "Cache-Control": "no-store" }
 const answer = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: HEADERS })
@@ -89,17 +101,18 @@ export async function POST(request: NextRequest) {
   return take(request, body, files, (out, status = 200) => {
     const st = (out as { status?: string; error?: string } | null)?.status
     if (status === 202 || st === "check_email") return backTo(request, "review-check-email")
-    if (status === 200 && st === "published") return backTo(request, "review-posted")
-    if (status === 200 && st === "pending") return backTo(request, "review-waiting")
     return backTo(request, "review-error")
   })
 }
 
 type Reply = (body: unknown, status?: number) => NextResponse
 
+/** What every accepted form gets, whatever the address turns out to be. */
+const CHECK_EMAIL = { ok: true, status: "check_email" }
+
 async function take(request: NextRequest, body: Record<string, unknown>, files: File[], answer: Reply): Promise<NextResponse> {
-  /* A field nobody sees, filled in: a script. Told it worked, and nothing is written. */
-  if (typeof body.website === "string" && body.website.trim() !== "") return answer({ ok: true, status: "pending" })
+  /* A field nobody sees, filled in: a script. The usual answer, and nothing is written or sent. */
+  if (typeof body.website === "string" && body.website.trim() !== "") return answer(CHECK_EMAIL, 202)
 
   const email = cleanEmail(body.email)
   if (!email) return answer({ error: "Enter your email address. It is not shown with your review." }, 400)
@@ -116,7 +129,7 @@ async function take(request: NextRequest, body: Record<string, unknown>, files: 
   const db = createAdminClient()
   const { data: product } = await db.from("products").select("id, title, slug, status, creator_id").eq("id", productId).eq("status", "published").maybeSingle()
   if (!product || !product.creator_id) return answer({ error: "This product is not available." }, 404)
-  const { data: creator } = await db.from("creators").select("id, user_id, banned_at").eq("id", product.creator_id).maybeSingle()
+  const { data: creator } = await db.from("creators").select("id, user_id, banned_at, display_name, slug").eq("id", product.creator_id).maybeSingle()
   if (!creator || (creator as { banned_at?: string | null }).banned_at) return answer({ error: "This product is not available." }, 404)
 
   const { settings, ready } = await loadReviewsApp(db, product.creator_id)
@@ -125,47 +138,41 @@ async function take(request: NextRequest, body: Record<string, unknown>, files: 
   const input = checkAppReviewInput(body, { creatorId: product.creator_id, photos: settings.photos })
   if (!input.ok) return answer({ error: input.error }, 400)
   if (!input.name) return answer({ error: "Add your name. Only your first name and an initial are shown." }, 400)
-
-  const eligibility = await checkGuestReviewEligibility(db, { productId, email })
-  if (!eligibility.ok) return answer({ error: eligibility.message }, 403)
-
-  const bought = await purchaseByAddress(db, productId, email)
-  if (bought?.buyer_id && bought.buyer_id === creator.user_id) return answer({ error: "You cannot review your own product." }, 403)
-  if (await addressReviewed(db, product.creator_id, productId, email, bought?.id ?? null, bought?.buyer_id ?? null)) {
-    return answer({ error: "You already reviewed this product.", alreadyReviewed: true }, 409)
-  }
-  /* A buyer's address: their verified review comes from their own link, sent to that inbox now. Nothing is kept from this form. */
-  if (bought) {
-    const sent = await askNow(db, product.creator_id, bought.id, settings).catch(() => false)
-    return answer({ ok: true, status: "check_email", sent }, 202)
-  }
-
   if (files.length > 4) return answer({ error: "Add up to 4 photos." }, 400)
+
+  /* One store's form cannot be used to flood it (or the inboxes it would write to). */
+  const storeLimited = await rateLimit({
+    bucket: "review-site-store",
+    subjects: [`store:${product.creator_id}`],
+    windows: [{ limit: 30, seconds: 3600 }, { limit: 200, seconds: 86_400 }],
+    message: "This store has had a lot of reviews today. Try again later.",
+  })
+  if (storeLimited) return files.length || !request.headers.get("content-type")?.includes("json") ? answer({ error: "limit" }, 429) : storeLimited
+
+  const owner = `site:${product.creator_id}`
   if (files.length && settings.photos) {
     for (const f of files) {
-      const stored = await storeReviewPhoto(db, product.creator_id, await f.arrayBuffer())
+      const stored = await storeReviewPhoto(db, product.creator_id, await f.arrayBuffer(), owner)
       if (!stored.ok) return answer({ error: stored.error }, stored.status)
       input.photoPaths.push(stored.path)
     }
   }
 
   const ip = callerAddress(request)
-  const saved = await insertAppReview(db, {
+  const typed = {
     creatorId: product.creator_id,
-    product: { id: product.id, title: product.title, slug: product.slug, creator_id: product.creator_id },
-    creatorUserId: creator.user_id ?? null,
-    settings,
+    creatorUserId: (creator as { user_id?: string | null }).user_id ?? null,
+    storeName: ((creator as { display_name?: string | null }).display_name || (creator as { slug?: string | null }).slug || "the store").trim(),
+    product: { id: product.id, title: product.title as string | null },
+    email,
+    ipHash: ip ? createHash("sha256").update(`review:${ip}`).digest("hex").slice(0, 32) : null,
     rating: input.rating,
     title: input.title,
     content: input.content,
     name: input.name,
     photoPaths: input.photoPaths,
-    buyerId: null,
-    orderId: null,
-    verified: false,
-    source: "site",
-    author: { email, ipHash: ip ? createHash("sha256").update(`review:${ip}`).digest("hex").slice(0, 32) : null },
-  })
-  if (!saved.ok) return answer({ error: saved.error, alreadyReviewed: saved.alreadyReviewed }, saved.status)
-  return answer({ ok: true, status: saved.status, verified: false })
+    owner,
+  }
+  later(() => settleSiteReview(db, typed, settings))
+  return answer(CHECK_EMAIL, 202)
 }
