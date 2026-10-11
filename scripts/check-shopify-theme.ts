@@ -213,13 +213,13 @@ async function serve(zipPath: string) {
   const port = (server.address() as { port: number }).port
   /* What the theme draws at all, so a check for something it never had (Timber has no Buy it now) is skipped, not failed. */
   const source = Object.entries(files).filter(([k]) => /\.(liquid|js)$/.test(k)).map(([, v]) => v).join("\n")
-  const uses = { paymentButton: /payment_button/.test(source), filters: /\.filters\b/.test(source), predictive: /predictive|search\/suggest/i.test(source) }
+  const uses = { svgIcons: Object.entries(files).some(([k, v]) => /\/(layout|sections|snippets|templates|blocks)\//.test(k) && /<svg/.test(v)), paymentButton: /payment_button/.test(source), filters: /\.filters\b/.test(source), predictive: /predictive|search\/suggest/i.test(source) }
   return { server, base: `http://127.0.0.1:${port}`, name: r.theme.name.toLowerCase().replace(/\W+/g, "-"), uses }
 }
 
 async function run(zipPath: string) {
   const { server, base, name, uses } = await serve(zipPath)
-  const themeUsesPaymentButton = uses.paymentButton, themeUsesFilters = uses.filters, themeUsesPredictive = uses.predictive
+  const themeUsesSvgIcons = uses.svgIcons, themeUsesPaymentButton = uses.paymentButton, themeUsesFilters = uses.filters, themeUsesPredictive = uses.predictive
   const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--hide-scrollbars"] })
   try {
     for (const [width, height, label] of [[1440, 900, "desktop"], [390, 844, "phone"]] as const) {
@@ -321,7 +321,8 @@ async function run(zipPath: string) {
         check(`${path} no sideways scroll`, m.overflow <= 1, `${m.overflow}px`)
         if (path === "/" || path === "/collections/all") {
           const ic = await icons()
-          check(`${path} every icon draws`, ic.svgs > 0 && ic.empty.length === 0 && ic.missing.length === 0 && ic.broken.length === 0, `${ic.svgs} svgs; empty: ${ic.empty.slice(0, 3).join(" | ") || "none"}; missing: ${ic.missing.slice(0, 3).join(" ") || "none"}; broken: ${ic.broken.join(" ") || "none"}`)
+          /* A classic theme draws its icons from an icon font (Timber), so it may have no svg at all: then there is nothing to break. */
+          check(`${path} every icon draws`, (ic.svgs > 0 || !themeUsesSvgIcons) && ic.empty.length === 0 && ic.missing.length === 0 && ic.broken.length === 0, `${ic.svgs} svgs; empty: ${ic.empty.slice(0, 3).join(" | ") || "none"}; missing: ${ic.missing.slice(0, 3).join(" ") || "none"}; broken: ${ic.broken.join(" ") || "none"}`)
         }
       }
       await page.screenshot({ path: `${OUT}/${name}-${label}-home.png` })
@@ -621,7 +622,7 @@ async function run(zipPath: string) {
           const shown = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
           const form = [...document.querySelectorAll<HTMLFormElement>("form")].find((f) => shown(f) && !!f.querySelector("input[type=email], input[name='customer[email]'], input[name=email]"))
           const email = form?.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")
-          return { header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
+          return { header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner]"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
         })
         if (at === "/account") {
           check("in the canvas, /account draws the theme's account page, about a sample customer", drawn.header && drawn.footer && drawn.account && errors.length === 0, JSON.stringify(drawn))
