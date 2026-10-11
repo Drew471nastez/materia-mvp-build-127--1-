@@ -4,6 +4,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
+import { creatorFor } from "@/lib/team/server"
+import type { TeamArea } from "@/lib/team/roles"
 
 /**
  * ===========================================================================
@@ -35,9 +37,16 @@ export function physicalJson(body: unknown, status = 200): NextResponse {
   return NextResponse.json(body, { status, headers: NO_STORE })
 }
 
-export async function physicalCaller(): Promise<PhysicalCaller | NextResponse> {
+/**
+ * `area` is the part of the store the route belongs to (lib/team/roles). A
+ * team member working in this store reaches the route only when their role
+ * has it; with no area named it is the owner's ("store"), so a route nobody
+ * has opened to the team stays the owner's alone. The owner, in their own
+ * account, is the owner here as everywhere.
+ */
+export async function physicalCaller(area: TeamArea = "store"): Promise<PhysicalCaller | NextResponse> {
   if (!(await isPhysicalCommerceEnabled())) return physicalJson({ error: "Not found." }, 404)
-  return shopCaller()
+  return shopCaller(area)
 }
 
 /**
@@ -45,16 +54,18 @@ export async function physicalCaller(): Promise<PhysicalCaller | NextResponse> {
  * collections group downloads, courses and memberships as well as goods, so
  * they are not behind the physical commerce switch.
  */
-export async function shopCaller(): Promise<PhysicalCaller | NextResponse> {
+export async function shopCaller(area: TeamArea = "store"): Promise<PhysicalCaller | NextResponse> {
   const supabase = await createClient()
   const {
     data: { user },
   } = await supabase.auth.getUser()
   if (!user) return physicalJson({ error: "Sign in to continue." }, 401)
   const db = createAdminClient()
-  const { data: creator } = await db.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator?.id) return physicalJson({ error: "Set up your store first." }, 403)
-  return { creatorId: creator.id as string, userId: user.id, db }
+  /* Whose store: their own, or the one they work in when their role has this area (lib/team/server creatorFor). */
+  const found = await creatorFor(db, user.id, area)
+  if (found.kind === "denied") return physicalJson({ error: "Your role on this store's team does not include this. Ask the store's owner." }, 403)
+  if (found.kind === "none") return physicalJson({ error: "Set up your store first." }, 403)
+  return { creatorId: found.creator.id, userId: user.id, db }
 }
 
 /** The JSON body of a request, or null when it is not an object. */
