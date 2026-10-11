@@ -22,6 +22,7 @@ import { createPortal } from "react-dom"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import type { ExplainerId } from "@/lib/settings/explainers"
 import { useMoneyMark } from "@/lib/store/currency-context"
+import { countTyped, decimalTyped, moneyTyped } from "@/lib/physical/typed-values"
 
 export const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
 export const CARD_PAD = "px-4 py-4 sm:px-6 sm:py-5"
@@ -30,6 +31,13 @@ export const PAGE_TITLE = "text-[24px] font-bold leading-8 text-[#1a1a2e] sm:tex
 export const MUTED = "text-[13px] leading-5 text-[#6b7280] sm:text-[14px]"
 export const FIELD =
   "h-11 w-full min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-3 text-[15px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] disabled:bg-[#f8f9fa] disabled:text-[#9ca3af] sm:h-10 sm:text-[14px]"
+/**
+ * The smaller field the options and variants use: 40px on a phone and 36px
+ * from 640px, with 16px type on a phone so iOS doesn't zoom the page when it
+ * is tapped. Same border, focus and colours as FIELD.
+ */
+export const FIELD_COMPACT =
+  "h-10 w-full min-w-0 rounded-lg border border-[#e5e7eb] bg-white px-2.5 text-[16px] text-[#1a1a2e] outline-none transition-[border-color,box-shadow] placeholder:text-[#9ca3af] focus:border-[#9ca3af] focus:ring-[3px] focus:ring-[rgba(17,24,39,0.06)] disabled:bg-[#f8f9fa] disabled:text-[#9ca3af] sm:h-9 sm:text-[14px]"
 export const BTN_PRIMARY =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white shadow-[0_1px_2px_rgba(16,24,40,0.12)] outline-none transition-colors hover:bg-[#2a2a44] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 disabled:pointer-events-none disabled:opacity-50 [-webkit-tap-highlight-color:transparent]"
 export const BTN_SECONDARY =
@@ -79,7 +87,7 @@ export const TextInput = React.forwardRef<HTMLInputElement, React.InputHTMLAttri
  * mark is the store's currency (lib/store/currency-context.tsx): $ before
  * the number, lei or kr after it, with room left so the two never overlap.
  */
-export function MoneyInput({ value, onChange, placeholder, className, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void }) {
+export function MoneyInput({ value, onChange, placeholder, className, inputClassName, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; inputClassName?: string; compact?: boolean }) {
   const { mark, node, pad } = useMoneyMark()
   return (
     <div className={cn("relative", className)}>
@@ -91,8 +99,8 @@ export function MoneyInput({ value, onChange, placeholder, className, ...props }
         autoComplete="off"
         placeholder={placeholder ?? (mark.decimals === 0 ? "0" : "0.00")}
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
-        className={cn(FIELD, "tabular-nums")}
+        onChange={(e) => onChange(moneyTyped(e.target.value, mark.decimals))}
+        className={cn(compact ? FIELD_COMPACT : FIELD, "tabular-nums", inputClassName)}
         style={pad}
       />
     </div>
@@ -117,7 +125,7 @@ export function money(cents: number, currency = "USD"): string {
   }
 }
 
-export function NumberInput({ value, onChange, className, allowNegative = false, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; allowNegative?: boolean }) {
+export function NumberInput({ value, onChange, className, allowNegative = false, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; allowNegative?: boolean; compact?: boolean }) {
   return (
     <input
       {...props}
@@ -125,13 +133,13 @@ export function NumberInput({ value, onChange, className, allowNegative = false,
       inputMode={allowNegative ? "text" : "numeric"}
       autoComplete="off"
       value={value}
-      onChange={(e) => onChange(e.target.value.replace(allowNegative ? /[^0-9-]/g : /[^0-9]/g, "").replace(/(?!^)-/g, ""))}
-      className={cn(FIELD, "tabular-nums", className)}
+      onChange={(e) => onChange(allowNegative ? e.target.value.replace(/[^0-9-]/g, "").replace(/(?!^)-/g, "").slice(0, 8) : countTyped(e.target.value))}
+      className={cn(compact ? FIELD_COMPACT : FIELD, "tabular-nums", className)}
     />
   )
 }
 
-export function DecimalInput({ value, onChange, className, suffix, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; suffix?: React.ReactNode }) {
+export function DecimalInput({ value, onChange, className, suffix, compact, ...props }: Omit<React.InputHTMLAttributes<HTMLInputElement>, "onChange" | "value"> & { value: string; onChange: (v: string) => void; suffix?: React.ReactNode; compact?: boolean }) {
   return (
     <div className="relative">
       <input
@@ -140,8 +148,8 @@ export function DecimalInput({ value, onChange, className, suffix, ...props }: O
         inputMode="decimal"
         autoComplete="off"
         value={value}
-        onChange={(e) => onChange(e.target.value.replace(/[^0-9.,]/g, "").replace(",", "."))}
-        className={cn(FIELD, "tabular-nums", suffix ? "pr-12" : "", className)}
+        onChange={(e) => onChange(decimalTyped(e.target.value))}
+        className={cn(compact ? FIELD_COMPACT : FIELD, "tabular-nums", suffix ? "pr-12" : "", className)}
       />
       {suffix ? <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-[13px] text-[#9ca3af]">{suffix}</span> : null}
     </div>
@@ -554,5 +562,24 @@ function ModalDialog({ open, onClose, title, children, footer, wide }: { open: b
       </div>
     </div>,
     document.body,
+  )
+}
+
+/**
+ * A part that opens under what opened it: the height through grid rows, 0fr
+ * to 1fr, so it reaches its own height without being measured, and the
+ * content fades in as it comes. Closing plays it backwards. Closed, it is
+ * inert, so Tab and a screen reader skip it. No motion under reduced motion.
+ */
+export function Reveal({ open, children, className }: { open: boolean; children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      data-reveal={open ? "open" : "closed"}
+      className={cn("grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0", className)}
+      inert={!open}
+      aria-hidden={!open}
+    >
+      <div className="min-h-0 overflow-hidden">{children}</div>
+    </div>
   )
 }

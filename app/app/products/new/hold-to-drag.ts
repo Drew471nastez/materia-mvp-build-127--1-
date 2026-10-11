@@ -67,3 +67,26 @@ export function liftTick(event: Event) {
 
 /** The classes every handle carries: a swipe scrolls, a hold never selects text or opens a callout. */
 export const HANDLE_TOUCH = "cursor-grab select-none touch-manipulation [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] active:cursor-grabbing"
+
+/*
+ * A GRIP THAT FOLLOWS THE FINGER AT ONCE, for the options and their values
+ * (components/physical/variant-options.tsx). "Arranging them, smooth drag":
+ * a hold before anything moves read as the list not answering. Those rows
+ * have a grip of their own, a small handle at the start of the row, so a
+ * finger on the grip means to move the row, not to scroll: the grip is
+ * `touch-action: none` (GRIP_TOUCH) and the row lifts after GRIP_DISTANCE_PX
+ * of movement, then tracks the finger. A swipe anywhere else on the row, or
+ * on the page, scrolls as before. The mouse and the keyboard are as above.
+ */
+export const GRIP_DISTANCE_PX = 3
+
+export function useGripDragSensors() {
+  return useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: MOUSE_DISTANCE_PX } }),
+    useSensor(TouchSensor, { activationConstraint: { distance: GRIP_DISTANCE_PX } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+}
+
+/** A grip's classes: the finger drags rather than scrolls, and a press never selects text or opens a callout. */
+export const GRIP_TOUCH = "cursor-grab select-none touch-none [-webkit-touch-callout:none] [-webkit-tap-highlight-color:transparent] active:cursor-grabbing"
