@@ -19,6 +19,7 @@ import { join } from "node:path"
 import { physicalTotals, type TaxSettings, type TotalsLine } from "@/lib/physical/totals"
 import { TAX_REGION_RULES, basketTax, checkoutTaxFor, digitalTax } from "@/lib/tax/rules"
 import { lineTotalCents, packItems, unpackItems } from "@/lib/checkout/cart-items"
+import { invoiceForOrder, type OrderRow } from "@/lib/checkout/invoice"
 
 let passed = 0
 let failed = 0
@@ -150,6 +151,18 @@ console.log("\nReceipts and orders\n")
   check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /t\.taxIncluded \? "Tax \(included\)" : "Tax"/.test(read("lib/physical/email-templates.ts")))
 }
 
+console.log("\nA basket's invoice\n")
+const invoiceDone = (async () => {
+  /* A database that answers nothing: the seller's name falls back, which is all this needs. */
+  const none: any = { from: () => none, select: () => none, eq: () => none, in: () => none, order: () => none, limit: () => none, maybeSingle: async () => ({ data: null, error: null }), then: (f: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(f) } // eslint-disable-line @typescript-eslint/no-explicit-any
+  const row = (id: string, amount: number, tax: number, at: string, productId: string): OrderRow => ({ id, created_at: at, status: "completed", amount_cents: amount, tip_cents: 0, buyer_email: "a@b.co", buyer_first_name: "Ada", buyer_last_name: null, payment_method: "card", card_brand: "visa", card_last4: "4242", product_id: productId, variant_name: null, stripe_payment_intent_id: "pi_1", stripe_session_id: "cs_1", tax_cents: tax, tax_included: false })
+  const P1 = "11111111-1111-1111-1111-111111111111"
+  const P2 = "22222222-2222-2222-2222-222222222222"
+  const rows = [row("o1", 4900 + 931, 931, "2026-10-01T10:00:00Z", P1), row("o2", 1000 + 50, 50, "2026-10-01T10:00:01Z", P2)]
+  const inv = await invoiceForOrder(none, rows[0], { basket: rows, items: [{ productId: P1, variantId: null, quantity: 1, priceCents: 4900 }, { productId: P2, variantId: null, quantity: 1, priceCents: 1000 }], business: null, discountCode: null })
+  check("the lines are their prices, the tax its own row, and they add up to what was charged", !!inv && inv.lines.map((l) => l.amountCents).join() === "4900,1000" && inv.taxCents === 981 && !inv.taxIncluded && inv.subtotalCents + (inv.taxCents ?? 0) === inv.totalCents && inv.totalCents === 6881, inv && { lines: inv.lines, tax: inv.taxCents, total: inv.totalCents })
+})()
+
 console.log("\nHow tax regions work, as Settings says it\n")
 {
   const panel = read("components/app/settings/taxes-panel.tsx")
@@ -166,5 +179,7 @@ console.log("\nHow tax regions work, as Settings says it\n")
   check("  in plain words: no em dash, none of the banned words", !/[—–]/.test(words) && !/\b(unlock|elevate|seamless|powerful|effortless|supercharge|transform)/i.test(words))
 }
 
-console.log(`\n${passed} passed, ${failed} failed\n`)
-if (failed) process.exit(1)
+void invoiceDone.then(() => {
+  console.log(`\n${passed} passed, ${failed} failed\n`)
+  if (failed) process.exit(1)
+})
