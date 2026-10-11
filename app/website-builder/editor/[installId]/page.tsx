@@ -65,7 +65,7 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
-import { deferLive, isLive, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -3408,6 +3408,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
+  /* A change drawn ahead of the deferred canvas is only ever what the editor holds now (lib/website-builder/live-settings.ts, echoes). */
+  useLayoutEffect(() => {
+    reconcileEchoes((id) => sectionsRef.current.find((s) => s.id === id))
+  })
   const settingsRef = useRef(settingsDraft)
   settingsRef.current = settingsDraft
   const undoRef = useRef(undoStack)
@@ -4819,6 +4823,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const current = sectionsRef.current.find(s => s.id === sectionId)
     if (current && sameSettingValue(current.settings?.[key], value)) return
+    /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
+    if (current) echoSectionSetting(sectionId, key, value)
     debouncedPushUndo()
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
@@ -4891,6 +4897,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const block = blockAt(section.blocks, path)?.block
     if (block && sameSettingValue(block.settings?.[key], value)) return
+    /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
+    if (block) echoBlockSetting(sectionId, blockKey, key, value)
     debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId

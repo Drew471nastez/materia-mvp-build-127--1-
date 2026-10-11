@@ -5070,12 +5070,21 @@ html.capacitor [tabindex="0"]:active {
    scroll that starts on one. A link or a button with a picture in it is a
    card, a row with a thumbnail, a cover: on a touch screen it answers the
    finger by opening, never by greying. Buttons without pictures keep the
-   press. Unlayered and important, so it is the last word over a utility. */
+   press. Unlayered and important, so it is the last word over a utility.
+
+   WHAT IS INSIDE A CARD IS NAMED, NEVER `*`. A bare `:active` after a
+   descendant combinator (`[data-card] :active`) made Chromium restyle the
+   whole document on every press and every release anywhere on a touch
+   screen: 1,346 elements, 40 to 150ms each, measured in the website builder
+   (docs/audits/website-builder-engine-2026-10.md, E1). The same press with
+   the inner element named by its kind restyles the few elements that
+   changed. Every element a card holds that can carry a press of its own is
+   one of these. */
 @media (hover: none), (pointer: coarse) {
   :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas):active,
-  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :active,
+  :is(a, button, [role="button"], [tabindex="0"]):has(img, picture, video, canvas) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active,
   :is([data-card], [data-product-card], [data-community-card]):active,
-  :is([data-card], [data-product-card], [data-community-card]) :active {
+  :is([data-card], [data-product-card], [data-community-card]) :is(a, button, [role="button"], [tabindex], div, span, p, img, picture, video, canvas, svg, figure, li, article, section, h1, h2, h3, h4, h5, h6):active {
     opacity: 1 !important;
     filter: none !important;
   }

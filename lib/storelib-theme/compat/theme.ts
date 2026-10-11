@@ -100,21 +100,86 @@ export function wrapCompatTemplate(markup: string): string {
   return `<template compat="shopify">\n${safe}\n</template>`
 }
 
-/** The markup and the schema of a compatible file. */
-export function splitCompatFile(source: string): { markup: string; schema: O | null } {
-  const lines = source.split("\n")
-  const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
-  if (start < 0) return { markup: "", schema: null }
-  let end = start + 1
-  while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
-  const markup = lines.slice(start + 1, end).join("\n").split(GUARD).join("")
-  const rest = lines.slice(end + 1).join("\n")
-  const sm = rest.match(/<schema>\s*([\s\S]*?)\s*<\/schema>/)
-  let schema: O | null = null
-  if (sm) {
-    try { schema = JSON.parse(sm[1]) as O } catch { schema = null }
+/**
+ * ===========================================================================
+ *  WHAT DOES NOT CHANGE WITH THE SETTINGS IS READ ONCE, FOR EVERY THEME OBJECT
+ * ===========================================================================
+ * A CompatTheme is made again for every change to the theme's settings: in
+ * the builder for every value a colour or a slider passes through, on the
+ * live site for every settings change it is sent. Each new one read every
+ * file again (split, lexed, parsed) and built its stylesheet bundle again,
+ * though none of that depends on a setting. Measured on Horizon's home page
+ * (docs/audits/website-builder-engine-2026-10.md, C1): a page drawn by a new
+ * theme object took 450 to 750ms, by the one before it 240ms, and 110ms of
+ * every draw, new or not, was the bundle's CSS fixes run again.
+ *
+ * So the three are held here by the text they come from: a file's markup and
+ * schema text by its source, a parsed tree by its markup, the fixed bundle by
+ * the CSS it was fixed from. The same text is the same answer, so nothing
+ * can be stale; a file that changes is a new key. Parsed trees are only read
+ * while drawing (runtime.ts writes to the context, never to a node), so one
+ * tree serves every theme object. Each map is bounded and forgets its oldest
+ * entry first.
+ */
+function boundedCache<V>(limit: number) {
+  const m = new Map<string, V>()
+  return {
+    get(k: string): V | undefined {
+      const v = m.get(k)
+      if (v !== undefined) { m.delete(k); m.set(k, v) }
+      return v
+    },
+    set(k: string, v: V): void {
+      if (m.size >= limit && !m.has(k)) m.delete(m.keys().next().value as string)
+      m.set(k, v)
+    },
   }
-  return { markup, schema }
+}
+const splitHeld = boundedCache<{ markup: string; schemaText: string | null }>(4000)
+const treesHeld = boundedCache<{ tree: Parsed | null; warning: string | null }>(4000)
+const bundlesHeld = boundedCache<string>(16)
+
+/** The markup and the schema of a compatible file. The schema is a new object on every call. */
+export function splitCompatFile(source: string): { markup: string; schema: O | null } {
+  let hit = splitHeld.get(source)
+  if (!hit) {
+    const lines = source.split("\n")
+    const start = lines.findIndex((l) => COMPAT_ATTR.test(l))
+    if (start < 0) return { markup: "", schema: null }
+    let end = start + 1
+    while (end < lines.length && !/^\s*<\/template>\s*$/.test(lines[end])) end++
+    const markup = lines.slice(start + 1, end).join("\n").split(GUARD).join("")
+    const rest = lines.slice(end + 1).join("\n")
+    const sm = rest.match(/<schema>\s*([\s\S]*?)\s*<\/schema>/)
+    hit = { markup, schemaText: sm ? sm[1] : null }
+    splitHeld.set(source, hit)
+  }
+  let schema: O | null = null
+  if (hit.schemaText !== null) {
+    try { schema = JSON.parse(hit.schemaText) as O } catch { schema = null }
+  }
+  return { markup: hit.markup, schema }
+}
+
+/** A file's markup parsed, strictly, or as Shopify's lenient parser reads it when that fails; with the warning to say so. */
+function parsedMarkup(markup: string): { tree: Parsed | null; warning: string | null } {
+  const held = treesHeld.get(markup)
+  if (held) return held
+  let out: { tree: Parsed | null; warning: string | null }
+  try {
+    out = { tree: parseCompat(markup), warning: null }
+  } catch (e) {
+    const line = e instanceof CompatSyntaxError ? ` line ${e.line}` : ""
+    const warning = `${line}: ${(e as Error).message}`
+    /* Read again as Shopify's lenient parser reads it: one bad tag in the layout no longer takes the header, the footer and the CSS with it. */
+    try {
+      out = { tree: parseCompat(markup, { lax: true }), warning }
+    } catch {
+      out = { tree: null, warning }
+    }
+  }
+  treesHeld.set(markup, out)
+  return out
 }
 
 /** A theme file's Shopify schema: the original, kept under "shopify", or the schema itself. */
@@ -250,18 +315,10 @@ export class CompatTheme {
     let out: Parsed | null = null
     if (src !== undefined) {
       const markup = isCompatSource(src) ? splitCompatFile(src).markup : src
-      try {
-        out = parseCompat(markup)
-      } catch (e) {
-        const line = e instanceof CompatSyntaxError ? ` line ${e.line}` : ""
-        this.warnings.push(`${path}${line}: ${(e as Error).message}`)
-        /* Read again as Shopify's lenient parser reads it: one bad tag in the layout no longer takes the header, the footer and the CSS with it. */
-        try {
-          out = parseCompat(markup, { lax: true })
-        } catch {
-          out = null
-        }
-      }
+      /* Parsed once for every theme object (parsedMarkup above); the warning is still this theme's to report. */
+      const read = parsedMarkup(markup)
+      if (read.warning !== null) this.warnings.push(`${path}${read.warning}`)
+      out = read.tree
     }
     this.parsed.set(path, out)
     return out
@@ -332,7 +389,10 @@ export class CompatTheme {
   }
 
   /** The CSS of every section, block and snippet's {% stylesheet %}, once each, as Shopify bundles it. */
+  /* The {% stylesheet %} of every file depends on the files alone: built once per theme object, and fixed once per distinct text (bundlesHeld). */
+  private cssBundle: string | null = null
   stylesheetBundle(): string {
+    if (this.cssBundle !== null) return this.cssBundle
     const parts: string[] = []
     for (const path of Object.keys(this.files).sort()) {
       if (!/^(sections|blocks|snippets)\/[^/]+\.(storelib|liquid)$/.test(path)) continue
@@ -341,7 +401,14 @@ export class CompatTheme {
       const css = t?.stylesheet.replace(/<\/?style\b[^>]*>/gi, "").trim()
       if (css) parts.push(`/* ${path} */\n${css}`)
     }
-    return fixThemeCss(parts.join("\n"))
+    const raw = parts.join("\n")
+    let fixed = bundlesHeld.get(raw)
+    if (fixed === undefined) {
+      fixed = fixThemeCss(raw)
+      bundlesHeld.set(raw, fixed)
+    }
+    this.cssBundle = fixed
+    return fixed
   }
 
   /**
