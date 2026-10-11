@@ -214,7 +214,8 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
                 </Row>
                 {d.apex !== false && (
                   <Row label={d.domain} hint="Redirects">
-                    <span className="text-[14px] text-white/60">to www.{d.domain}</span>
+                    {/* A second domain sends its visitors on to the primary one, once that is live (proxy.ts, a domain that is not primary). */}
+                    <span className="text-[14px] text-white/60">to {d.is_primary === false && liveHost ? liveHost : `www.${d.domain}`}</span>
                   </Row>
                 )}
                 <Row label="HTTPS" inline>
