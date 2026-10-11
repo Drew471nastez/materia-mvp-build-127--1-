@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
+import { readCancelFeedback, stripeCancellationDetails } from "@/lib/billing/cancel-reasons"
 
 function safeTimestamp(ts: any): string {
   if (!ts) return new Date().toISOString()
@@ -14,8 +15,12 @@ function safeTimestamp(ts: any): string {
   return new Date().toISOString()
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
+    /* Why they are leaving, from the Cancel plan dialog (lib/billing/cancel-reasons). Optional: no body still cancels. */
+    const feedback = readCancelFeedback(await request.json().catch(() => null))
+    const cancellationDetails = stripeCancellationDetails(feedback)
+
     const supabase = await createClient()
 
     // Get current user
@@ -90,6 +95,7 @@ export async function POST() {
       {
         cancel_at_period_end: true,
         metadata: { ...stripeSub.metadata, pending_plan_id: "" },
+        ...(cancellationDetails ? { cancellation_details: cancellationDetails } : {}),
       }
     )
 
@@ -104,7 +110,7 @@ export async function POST() {
 
     // Get the period end from the canceled subscription with robust fallbacks
     const cancelSub = canceledSubscription as any
-    let cancelPeriodEnd: any = cancelSub.current_period_end || cancelSub.current_period?.end_date || null
+    let cancelPeriodEnd: any = cancelSub.current_period_end || cancelSub.items?.data?.[0]?.current_period_end || cancelSub.current_period?.end_date || null
     if (!cancelPeriodEnd) {
       // Try cancel_at field (Stripe sets this on cancel_at_period_end)
       cancelPeriodEnd = cancelSub.cancel_at || null
@@ -120,6 +126,20 @@ export async function POST() {
         cancelPeriodEnd = anchorDate.toISOString()
       }
     }
+
+    /* One row per cancellation, server only (SQL part 128). Before that part runs there is no table: the cancel has already happened, so this only warns. */
+    const { error: recordError } = await createAdminClient()
+      .from("plan_cancellations")
+      .insert({
+        creator_id: creator.id,
+        user_id: user.id,
+        stripe_subscription_id: subscription.stripe_subscription_id,
+        plan_id: subscription.plan_id ?? null,
+        reason: feedback.reason,
+        note: feedback.note,
+        ends_at: cancelPeriodEnd ? safeTimestamp(cancelPeriodEnd) : null,
+      })
+    if (recordError) console.warn("[Cancel] plan_cancellations not written:", recordError.message)
 
     return NextResponse.json({
       success: true,
