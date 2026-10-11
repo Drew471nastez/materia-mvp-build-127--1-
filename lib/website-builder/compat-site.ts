@@ -324,6 +324,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const withStock = physical && card.settings.kind === "physical" && siteCommerce(settings as Record<string, unknown>).showStockLeft ? await compatStock(admin, creator.creatorId, card) : card
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
+    /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
+    reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     extraHead: draft ? undefined : liveNavigationMarkup(),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),

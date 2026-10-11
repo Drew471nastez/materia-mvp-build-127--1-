@@ -16,6 +16,7 @@ import { CompatTheme, splitCompatFile, isCompatSource, type CompatBlockInstance,
 import { compatOf, compatValues, engineFiles, templateOfPage } from "./install"
 import { overrideCss } from "./overrides"
 import { withShopifyModules } from "./shims"
+import { withStorelibReviewsSection } from "./storelib-reviews"
 
 /** A section as a page row stores it. */
 export interface StoredSection {
@@ -61,7 +62,8 @@ export function pageParts(sections: readonly StoredSection[]): { header: StoredS
 /** The theme an install's files and settings make. */
 export function themeOfInstall(rows: Record<string, string>, settings: unknown, opts: Omit<CompatThemeOptions, "renamed" | "themeName">): CompatTheme {
   const compat = compatOf(settings)
-  return new CompatTheme(engineFiles(rows), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
+  /* With Storelib Reviews' own section, unless the theme has one by that name (./storelib-reviews.ts). */
+  return new CompatTheme(withStorelibReviewsSection(engineFiles(rows)), compatValues(settings), { ...opts, renamed: compat?.renamed, themeName: compat?.theme, slots: compat?.slots, chromeGroups: compat?.chrome_groups })
 }
 
 export interface DrawOptions {

@@ -163,8 +163,10 @@ export function initialStatus(settings: Pick<ReviewsAppSettings, "publish" | "mi
  */
 export function publicName(raw: unknown): string | null {
   if (typeof raw !== "string") return null
-  const clean = raw.replace(/[\u0000-\u001f<>@"`\\]/g, " ").replace(/\s+/g, " ").trim()
-  if (!clean || /\w\.\w+\.\w/.test(clean) || /https?:|www\./i.test(clean)) return null
+  if (/@/.test(raw)) return null
+  const clean = raw.replace(/[\u0000-\u001f<>"`\\]/g, " ").replace(/\s+/g, " ").trim()
+  /* An address or a link is not a name: "jane@x.com", "www.x", "spam.shop". "J.R. Smith" is. */
+  if (!clean || /\w\.[a-z]{2,}\b/i.test(clean) || /https?:/i.test(clean)) return null
   const words = clean.split(" ").filter(Boolean)
   const first = words[0].slice(0, 24)
   if (words.length === 1) return first

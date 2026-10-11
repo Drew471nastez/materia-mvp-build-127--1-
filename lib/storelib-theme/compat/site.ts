@@ -69,6 +69,8 @@ export interface SiteData {
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
+  /** Storelib Reviews for a page: the shop's, and the product's on its page (lib/reviews/storefront.ts). Absent: none. */
+  reviews?: (product: { id: string; title: string } | null) => Promise<O | null>
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -533,13 +535,26 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head }
     return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head }
   }
-  if (path === "/" || path === "") return at("home", { title: site.shop.name })
+  /* Storelib Reviews, for the page's Storelib Reviews section and the app blocks a theme kept (./storelib-reviews.ts). Never stops a page. */
+  const reviewsFor = async (p: { id: string; title: string } | null) => (site.reviews ? await site.reviews(p).catch(() => null) : null)
+  if (path === "/" || path === "") return at("home", { title: site.shop.name, reviews: await reviewsFor(null) })
 
   const product = path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)$/)
   if (product) {
     const card = await findProduct(site, product[1])
     if (!card) return null
-    return at("product", { product: card, selectedVariantId: req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values")), title: String(card.settings.title ?? "") })
+    return at("product", { product: card, selectedVariantId: req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values")), title: String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) })
+  }
+
+  /* /reviews: every review of the shop in the theme's header and footer, until the creator makes a page of that name (Storelib Reviews). */
+  if ((path === "/reviews" || path === "/pages/reviews") && !site.pages.reviews) {
+    const reviews = await reviewsFor(null)
+    if (!reviews || (reviews as { enabled?: unknown }).enabled !== true) return null
+    const chrome = (sectionsOf(site, "home") ?? []).filter((x) => x.group === "header" || x.group === "footer" || x.group === "overlay")
+    const head = chrome.filter((x) => x.group === "header")
+    const rest = chrome.filter((x) => x.group !== "header")
+    const main: StoredSection = { id: "storelib-reviews-page", type: "storelib-reviews", settings: { heading: "Reviews", per_page: 12 } }
+    return { page: basePage(site, req, { template: "page", path, title: "Reviews", reviews }), sections: [...head, main, ...rest] }
   }
 
   if (path === "/collections") return at("collections", { title: "Collections" })
@@ -590,7 +605,8 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const handle = pageMatch[1]
     const title = handle.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase())
     const pageObject = { title, content: "", handle, url: `/pages/${handle}` }
-    return at(handle, { pageObject, title }) ?? (path.startsWith("/pages/") ? at("page", { pageObject, title }) : null)
+    const reviews = site.pages[handle] ? await reviewsFor(null) : null
+    return at(handle, { pageObject, title, reviews }) ?? (path.startsWith("/pages/") ? at("page", { pageObject, title }) : null)
   }
 
   if (/^\/blogs\/[^/]+$/.test(path)) return at("blog", { title: "Blog" })
