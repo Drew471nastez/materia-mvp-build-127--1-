@@ -205,6 +205,8 @@ export default function MembershipCheckout({ product, creator, plan, userEmail, 
       paymentMethodId,
       /* The EU withdrawal waiver was in the consent they ticked (round 13): kept on the subscription, and said again in the welcome email. */
       withdrawalWaiver: !!waiver,
+      /* This page's own last try (a declined card): a guest's is continued only when named (app/api/memberships/checkout). */
+      previousMembershipId: started.current?.membershipId || undefined,
     })
     if (!res.ok || !res.data.clientSecret || !res.data.subscriptionId) {
       if (res.data.code === "already_member") {

@@ -95,8 +95,15 @@ export async function POST(request: Request) {
 
   try {
     const admin = createAdminClient()
-    const { row } = await syncSubscription(admin, subscriptionId, { subscription: await retrieveSubscription(subscriptionId) })
+    const { row, duplicateOf } = await syncSubscription(admin, subscriptionId, { subscription: await retrieveSubscription(subscriptionId) })
     if (!row) return NextResponse.json({ error: "That membership could not be found." }, { status: 404 })
+    /*
+      A second membership of something this buyer already had (lib/memberships/duplicates):
+      cancelled, refunded and explained by email to the membership's address. The page is
+      answered as for any member, pointing at the membership they already have, so it says
+      nothing a person typing somebody else's email could learn from.
+    */
+    if (duplicateOf) return NextResponse.json({ membershipId: duplicateOf, status: "active", access: true })
     return NextResponse.json({ membershipId: row.id, status: row.status, access: grantsAccess(row) })
   } catch (e) {
     console.error("[memberships/confirm] not synced:", e instanceof Error ? e.message : e)
