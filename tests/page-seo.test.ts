@@ -176,7 +176,7 @@ console.log("\nA product is described in its creator's words, with its real avai
     /const ownTitle = typeof product\.seo_title === "string"/.test(meta) && /const tabTitle = ownTitle \|\|/.test(meta) && /const ogTitle = ownTitle \|\|/.test(meta) &&
       /const pageDescription = ownDescription \|\| plainSummary\(product\.description\)/.test(meta) && /product\.seo_description/.test(meta))
   check("its structured data says sold out when it is, and its trail points at a page that exists",
-    /availability: soldOut\(product\) \? "https:\/\/schema\.org\/OutOfStock" : "https:\/\/schema\.org\/InStock"/.test(page) &&
+    /availability: soldOut\(product\)( \|\| salesView\?\.soldOut)? \? "https:\/\/schema\.org\/OutOfStock" : "https:\/\/schema\.org\/InStock"/.test(page) &&
       /item: `https:\/\/storelib\.com\$\{categoryPath\(exploreCategory\)\}`/.test(page) && !/explore\?category=/.test(page) && /hasCategoryPage\(id\)/.test(page))
   check("and both layouts print it, not only the one nobody arranged",
     (page.match(/jsonLdScript\(productJsonLd\)/g) ?? []).length === 2 && (page.match(/jsonLdScript\(breadcrumbJsonLd\)/g) ?? []).length === 2 &&

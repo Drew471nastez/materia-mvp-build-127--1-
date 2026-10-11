@@ -327,6 +327,7 @@ async function main() {
       "lib/site-accounts/owned-products.ts": { count: 1, why: "the type of products a signed in customer already owns, nothing shown" },
       "app/api/checkout/access-link/route.ts": { count: 1, why: "the shop of the product asked about, to find that buyer's own receipts; nothing shown" },
       "app/api/checkout/site/route.ts": { count: 1, why: "the type of each line already in an imported theme's cart, to take out what the signed in customer owns" },
+      "lib/checkout/sales-limit.ts": { count: 2, why: "the sales limit of a product being paid for or written as an order, to hold its copy (a paid order of a product taken off sale since still counts); nothing shown" },
     }
     const reads = new Map<string, number>()
     const unfiltered: string[] = []
