@@ -107,7 +107,7 @@ export const WEB_ONLY_SEGMENTS = [
   "community", "cover-render", "creator-page", "creators", "dashboard", "developers", "downloads", "editions",
   "explore", "faq", "features", "feed", "help", "l", "legal", "library", "login", "logout", "marketplace", "media",
   "member", "native-start", "onboarding", "onepage-preview", "p", "pricing", "privacy", "products", "purchase",
-  "receipt", "register", "request", "reset-password", "sell", "signup", "site", "sitemap", "sites", "store",
+  "receipt", "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sites", "store",
   "store-builder", "terms", "u", "unsubscribe", "upgrade", "verify-email", "w", "website-builder", "welcome",
   "wishlist", ".well-known",
 ] as const

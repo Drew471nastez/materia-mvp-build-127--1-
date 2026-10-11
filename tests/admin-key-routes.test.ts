@@ -155,6 +155,9 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   // Reads of things that are already public.
   "reviews/stats/route.ts": "the rating shown on a public product page",
   "reviews/breakdown/route.ts": "the star counts under a public product's rating, from published reviews only, no names or text",
+  "reviews/request/route.ts": "Storelib Reviews: a review from the request email's link, which is the credential (an HMAC of one order line's request, lib/reviews/request-token); the order is read again and must still be paid, limited per address",
+  "reviews/site/route.ts": "Storelib Reviews: a visitor's review on a website whose store lets anyone write, checked against that store's own settings; never verified, a hidden field and limits per address and per email, the address kept server only",
+  "reviews/photo/route.ts": "Storelib Reviews: a photo for a review, with the request link as its credential or for a store that lets anyone write; a picture by its bytes, the picture reader and the malware scan, limited per address",
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",

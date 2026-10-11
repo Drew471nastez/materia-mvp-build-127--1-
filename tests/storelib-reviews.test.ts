@@ -212,14 +212,14 @@ function website() {
   check("Reviews carousel: the featured review and a link to /reviews", carousel.includes("Exactly right") && !carousel.includes("Fine.") && carousel.includes('href="/reviews"'))
   const all = drawNative("reviews_all", d, { template: "page" })
   check("All reviews: every review, with its product", all.includes("Oak board") && all.includes("Linen apron") && all.includes("Fine."))
-  const card = { id: PRODUCT, type: "product", settings: { title: "Linen apron", price: "$48.00", image: "", url: "/products/linen-apron", rating: 4.5, rating_count: 2, rating_percent: 90, rating_color: "#e8a33d" } }
+  const card = { id: PRODUCT, type: "product", settings: { title: "Linen apron", price: "$48.00", image: "", url: "/products/linen-apron" }, rating: { value: 4.5, count: 2, percent: 90, color: "#e8a33d" } }
   const plain = { id: "p2", type: "product", settings: { title: "Oak board", price: "$30.00", image: "", url: "/products/oak-board" } }
   const grid = drawNative("product_grid", d, { template: "index" }, { source: "shop" }, [card, plain])
-  check("a product card with reviews carries its stars; one without carries none", (grid.match(/card__rating/g) ?? []).length === 1 && grid.includes("(2)") && grid.includes("--rv: 90%"))
+  check("a product card with reviews carries its stars; one without carries none", (grid.match(/card__rating/g) ?? []).length === 1 && grid.includes("(2)") && grid.includes("width:90%"))
   check("the /reviews page is header, All reviews, footer", accountPageSections("reviews", [{ id: "h", type: "header", settings: {}, blocks: [], hidden: false }, { id: "f", type: "footer", settings: {}, blocks: [], hidden: false }] as never)?.map((s) => s.type).join() === "header,reviews_all,footer")
 
   realLog("\nAn imported Shopify theme")
-  const withRating = { id: PRODUCT, settings: { title: "Linen apron", price: "$48.00", url: "/products/linen-apron", slug: "linen-apron", rating: 4.5, rating_count: 2 } }
+  const withRating = { id: PRODUCT, settings: { title: "Linen apron", price: "$48.00", url: "/products/linen-apron", slug: "linen-apron" }, rating: { value: 4.5, count: 2, percent: 90, color: "#e8a33d" } }
   const mf = (productObject(withRating as never).metafields as Record<string, any>).reviews
   check("Shopify's own review metafields: rating.value.rating, scale_max, rating_count", mf.rating.value.rating === 4.5 && mf.rating.value.scale_max === 5 && mf.rating_count.value === 2)
   check("no reviews: no metafield, so a theme's `!= blank` draws no stars", Object.keys((productObject({ id: "x", settings: { title: "X" } } as never).metafields as Record<string, any>).reviews).length === 0)

@@ -54,6 +54,7 @@ a.rb__link:hover .rb__count { text-decoration: underline; text-underline-offset:
   "description": "Storelib Reviews: the stars and how many reviews, linking to them.",
   "version": "1.0.0",
   "icon": "star",
+  "supports_typography_overrides": false,
   "settings": [
     { "type": "header", "id": "hdr_content", "label": "Content" },
     { "type": "toggle", "id": "show_average", "label": "Show the average", "default": true },

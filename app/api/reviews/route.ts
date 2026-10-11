@@ -7,6 +7,8 @@ import { canDeliver, isUuid } from "@/lib/receipts/rules"
 import { checkReviewInput, guestReviewerName } from "@/lib/reviews/rules"
 import { readPublishedReviews, refreshReviewStats, missingColumn } from "@/lib/reviews/store"
 import { accountForOrder, existingReview, orderByReceipt } from "@/lib/reviews/access"
+import { loadReviewsApp } from "@/lib/reviews/app-server"
+import { initialStatus } from "@/lib/reviews/app-settings"
 
 const ALREADY_REVIEWED = "You already reviewed this product."
 
@@ -197,6 +199,9 @@ async function save(
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
+  /* Storelib Reviews on with approval (lib/reviews/app-settings): a review from the receipt or the library waits like one from the app's own link. */
+  const app = await loadReviewsApp(admin, product.creator_id).catch(() => null)
+  const status = app?.settings.enabled ? initialStatus(app.settings, r.rating) : "published"
   const row: Record<string, unknown> = {
     product_id: r.productId,
     creator_id: product.creator_id,
@@ -204,7 +209,7 @@ async function save(
     order_id: r.orderId,
     rating: r.rating,
     content: r.content,
-    status: "published",
+    status,
   }
   if (r.reviewerName) row.reviewer_name = r.reviewerName
 

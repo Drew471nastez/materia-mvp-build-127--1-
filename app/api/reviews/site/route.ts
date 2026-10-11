@@ -114,8 +114,8 @@ async function take(request: NextRequest, body: Record<string, unknown>, files: 
   const productId = typeof body.productId === "string" && isUuid(body.productId) ? body.productId : null
   if (!productId) return answer({ error: "Bad request" }, 400)
   const db = createAdminClient()
-  const { data: product } = await db.from("products").select("id, title, slug, status, creator_id").eq("id", productId).maybeSingle()
-  if (!product || product.status !== "published" || !product.creator_id) return answer({ error: "This product is not available." }, 404)
+  const { data: product } = await db.from("products").select("id, title, slug, status, creator_id").eq("id", productId).eq("status", "published").maybeSingle()
+  if (!product || !product.creator_id) return answer({ error: "This product is not available." }, 404)
   const { data: creator } = await db.from("creators").select("id, user_id, banned_at").eq("id", product.creator_id).maybeSingle()
   if (!creator || (creator as { banned_at?: string | null }).banned_at) return answer({ error: "This product is not available." }, 404)
 

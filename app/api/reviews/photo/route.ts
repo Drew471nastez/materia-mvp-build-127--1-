@@ -50,8 +50,8 @@ export async function POST(request: NextRequest) {
     const { data } = await db.from("review_requests").select("creator_id").eq("id", id).maybeSingle()
     creatorId = (data as { creator_id?: string } | null)?.creator_id ?? null
   } else if (typeof productId === "string" && isUuid(productId)) {
-    const { data } = await db.from("products").select("creator_id, status").eq("id", productId).maybeSingle()
-    if ((data as { status?: string } | null)?.status === "published") creatorId = (data as { creator_id?: string }).creator_id ?? null
+    const { data } = await db.from("products").select("creator_id").eq("id", productId).eq("status", "published").maybeSingle()
+    creatorId = (data as { creator_id?: string } | null)?.creator_id ?? null
   }
   if (!creatorId) return json({ error: "This product is not available." }, 404)
   const { settings } = await loadReviewsApp(db, creatorId)

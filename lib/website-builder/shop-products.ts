@@ -117,18 +117,23 @@ export interface ProductCard {
     category?: string
     /** A shipped product's options, such as Size and Colour, with their values. Empty for the rest. */
     options?: { name: string; values: string[] }[]
-    /**
-     * Storelib Reviews, while the store has it on with stars on cards
-     * (withRatings): the average of its published reviews to one decimal,
-     * how many there are, and the share of five stars filled, 0 to 100, for
-     * a star bar drawn with a width. Absent otherwise, and a card draws none.
-     */
-    rating?: number
-    rating_count?: number
-    rating_percent?: number
-    /** The store's star colour, as Storelib Reviews keeps it. */
-    rating_color?: string
   }
+  /**
+   * Storelib Reviews, while the store has it on with stars on cards
+   * (withRatings): the average of its published reviews to one decimal
+   * (`value`), how many there are, the share of five stars filled, 0 to 100,
+   * for a star bar drawn with a width, and the store's star colour. Beside
+   * the settings, not in them: it is the shop's fact, not a block's setting.
+   * Absent otherwise, and a card draws none: `{% if block.rating.count > 0 %}`.
+   */
+  rating?: CardRating
+}
+
+export interface CardRating {
+  value: number
+  count: number
+  percent: number
+  color: string
 }
 
 /** A product page's product: the card, and the words of its page. */
@@ -429,7 +434,7 @@ export async function withRatings(db: Db, creatorId: string, cards: ProductCard[
   if (!settings.enabled || !settings.display.showCardRating) return cards
   const byId = new Map<string, { count: number; average: number }>()
   for (let i = 0; i < cards.length; i += 80) {
-    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").in("id", cards.slice(i, i + 80).map((c) => c.id))
+    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("status", "published").in("id", cards.slice(i, i + 80).map((c) => c.id))
     if (error) return cards
     for (const r of (data ?? []) as { id: string; reviews_count?: number | null; reviews_average?: number | string | null }[]) {
       const count = Math.max(0, Math.floor(Number(r.reviews_count) || 0))
@@ -439,7 +444,7 @@ export async function withRatings(db: Db, creatorId: string, cards: ProductCard[
   }
   return cards.map((c) => {
     const r = byId.get(c.id)
-    return r ? { ...c, settings: { ...c.settings, rating: r.average, rating_count: r.count, rating_percent: Math.round((r.average / 5) * 100), rating_color: settings.display.starColor } } : c
+    return r ? { ...c, rating: { value: r.average, count: r.count, percent: Math.round((r.average / 5) * 100), color: settings.display.starColor } } : c
   })
 }
 
