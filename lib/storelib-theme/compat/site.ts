@@ -13,7 +13,8 @@
  *   checkout          /cart with `checkout`, /checkout: straight on to
  *                     the website's own checkout on this same host, with
  *                     the lines (/checkout?items=, lib/checkout/site-checkout)
- *   products as data  /products/<handle>.js  .json
+ *   products as data  /products/<handle>.js  .json  /products.json
+ *                     /collections/<handle>/products.json
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
  *   forms             /contact (contact and newsletter): Storelib's own
@@ -178,6 +179,21 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (method === "POST" && path === "/localization") return redirect(safeReturn(req.body?.return_to) ?? "/")
 
   /* ── products as data ── */
+  /*
+    THE SHOP'S PRODUCTS AS A LIST, /products.json and
+    /collections/<handle>/products.json, Shopify's public feed: a theme's
+    script builds a row of cards from it (recently viewed, "you may also
+    like"). `limit` (at most 250) and `page`, as Shopify reads them.
+  */
+  const feed = method === "GET" ? path.match(/^(?:\/collections\/([^/]+))?\/products\.json$/) : null
+  if (feed) {
+    const handle = feed[1]
+    const list = !handle || handle === "all" ? site.products : site.collections.find((c) => c.handle === handle || c.id === handle)?.products ?? null
+    if (!list) return json({ status: 404, message: "Not found" }, 404)
+    const limit = Math.min(250, Math.max(1, Math.floor(Number(req.query.get("limit") ?? 30)) || 30))
+    const pageNo = Math.max(1, Math.floor(Number(req.query.get("page") ?? 1)) || 1)
+    return json({ products: list.slice((pageNo - 1) * limit, pageNo * limit).map((c) => productFeedJson(productObject(c))) })
+  }
   const productData = path.match(/^\/products\/([^/]+)\.(js|json)$/)
   if (productData) {
     const card = await findProduct(site, productData[1])
@@ -755,6 +771,18 @@ export function productJson(p: O): O {
     id: p.id, title: p.title, handle: p.handle, description: p.description, url: p.url, vendor: p.vendor, type: p.type, tags: p.tags,
     price: p.price, price_min: p.price_min, price_max: p.price_max, price_varies: p.price_varies, compare_at_price: p.compare_at_price,
     available: p.available, variants, images, featured_image: images[0] ?? null, media: ((p.media as O[]) ?? []).map((m) => ({ id: m.id, media_type: "image", src: m.src, alt: m.alt, position: m.position, preview_image: { src: m.src } })),
+    options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
+  }
+}
+
+/** A product as Shopify's /products.json lists it: prices as "40.00", pictures as objects. */
+export function productFeedJson(p: O): O {
+  const dollars = (c: unknown) => (typeof c === "number" ? (c / 100).toFixed(2) : null)
+  const images = ((p.images as O[]) ?? []).map((i, n) => ({ id: i.id, position: n + 1, src: i.src, width: i.width, height: i.height, alt: i.alt ?? null, variant_ids: [] }))
+  return {
+    id: p.id, title: p.title, handle: p.handle, body_html: p.description, vendor: p.vendor, product_type: p.type, tags: p.tags, published_at: p.published_at,
+    variants: ((p.variants as O[]) ?? []).map((v, n) => ({ id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, sku: v.sku, requires_shipping: v.requires_shipping, taxable: true, featured_image: v.featured_image ? { src: (v.featured_image as O).src } : null, available: v.available, price: dollars(v.price), compare_at_price: dollars(v.compare_at_price), position: n + 1, product_id: p.id })),
+    images,
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
   }
 }

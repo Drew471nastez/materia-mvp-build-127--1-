@@ -251,6 +251,24 @@ async function serve(zipPath: string) {
 */
 const ONLY = (process.env.CHECKS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
 /* A page opened and settled. On a busy machine "settled" can take long; a page still busy after 90s is looked at as it is, and says so. */
+/* Where a page ends up after a press: polled until the path is the one wanted (or 8s), since a theme may write the history first. */
+const loads = new WeakMap<Page, { n: number }>()
+/* How many times the page's main frame has gone somewhere (a new page, or the same one written into the history). */
+const loadCount = (page: Page) => {
+  let c = loads.get(page)
+  if (!c) { const counter = { n: 0 }; c = counter; loads.set(page, counter); page.on("framenavigated", (f) => { if (f === page.mainFrame()) counter.n++ }) }
+  return c.n
+}
+const settledPath = async (page: Page, want: RegExp, withSearch = false, since = -1) => {
+  let got = ""
+  for (let t = 0; t < 40; t++) {
+    try { const u = new URL(page.url()); got = withSearch ? `${u.pathname}${u.search}` : u.pathname } catch { got = "" }
+    if (want.test(got) && (since < 0 || loadCount(page) > since)) break
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  await page.waitForNetworkIdle({ idleTime: 300, timeout: 8000 }).catch(() => {})
+  return got
+}
 const inFlight = new WeakMap<Page, Map<unknown, string>>()
 const go = async (page: Page, url: string) => {
   if (!inFlight.has(page)) {
@@ -272,12 +290,12 @@ const guard = async (what: string, label: string, run: () => Promise<void>) => {
 }
 
 /* What a header link is, read in the page: its address, and a mark to find it again. */
-type HeaderLink = { href: string; text: string }
+type HeaderLink = { href: string; text: string; shown: boolean }
 
 /** Every link of the header group's that goes somewhere on this site (the cart aside: the theme's drawer has its own check). */
 const headerLinksIn = (frame: Frame) => frame.evaluate(() => {
   const groups = [...document.querySelectorAll(".shopify-section-group-header-group, #shopify-section-header, [id^='shopify-section-'][id$='__header'], header")]
-  const seen = new Map<string, { href: string; text: string }>()
+  const seen = new Map<string, { href: string; text: string; shown: boolean }>()
   /* In the canvas the page is a srcdoc frame, with no address of its own: its links are read against the site's. */
   const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
   for (const g of groups) {
@@ -291,7 +309,11 @@ const headerLinksIn = (frame: Frame) => frame.evaluate(() => {
       /* The cart's own check is elsewhere; the account has its own pages. */
       if (/^\/cart(\/|$)/.test(u.pathname)) continue
       const href = `${u.pathname}${u.search}`
-      if (!seen.has(href)) seen.set(href, { href, text: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 30) || (a.getAttribute("aria-label") ?? "") })
+      const r = a.getBoundingClientRect()
+      const shown = r.width > 1 && r.height > 1 && r.top < innerHeight && r.bottom > 0 && a.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+      const had = seen.get(href)
+      if (!had) seen.set(href, { href, shown, text: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 30) || (a.getAttribute("aria-label") ?? "") })
+      else if (shown) had.shown = true
     }
   }
   return [...seen.values()]
@@ -410,31 +432,34 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
       await go(page, at(from))
       await new Promise((r) => setTimeout(r, 500))
       const frameOf = () => (where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame())
-      const links = (await headerLinksIn(frameOf())).slice(0, 14)
+      /* The shop's menus (shop() above) and whatever the header shows as the page opens must work; another link the header holds hidden (a product in a mega menu kept for a wider screen) is tried and said, not counted. */
+      const MENU = ["/", "/collections/all", "/collections/summer", "/collections/winter", "/pages/contact"]
+      const links = (await headerLinksIn(frameOf())).sort((a, b) => Number(MENU.includes(b.href) || b.shown) - Number(MENU.includes(a.href) || a.shown)).slice(0, 14)
+      const required = (l: HeaderLink) => MENU.includes(l.href) || l.shown
       const failed: string[] = []
+      const optional: string[] = []
       let ok = 0
       for (const l of links) {
         await go(page, at(from))
         await new Promise((r) => setTimeout(r, 400))
         await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
-        const nav = where === "the website" ? page.waitForNavigation({ timeout: 5000 }).catch(() => null) : null
+        const before = loadCount(page)
         const r = await pressHeaderLink(page, frameOf(), l.href, phone)
-        if (!r.pressed) { await page.screenshot({ path: `${OUT}/${name}-${label}-header-${++shot}.png` }); failed.push(`${l.text || l.href} ${l.href} unreachable [${r.trail.join(" > ")}]`); continue }
-        if (nav) {
-          await nav
-          await new Promise((r) => setTimeout(r, 200))
-          const u = new URL(page.url())
-          const got = `${u.pathname}${u.search}`
+        const miss = required(l) ? failed : optional
+        if (!r.pressed) { if (required(l)) await page.screenshot({ path: `${OUT}/${name}-${label}-header-${++shot}.png` }); miss.push(`${l.text || l.href} ${l.href} unreachable [${r.trail.join(" > ")}]`); continue }
+        if (where === "the website") {
+          const want = l.href.split("?")[0]
+          const got = await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?|$)|^/account|^/collections/all`), true, before)
           if (got === l.href || (l.href === "/products" && got.startsWith("/collections/all")) || (/^\/account/.test(l.href) && /^\/account/.test(got))) ok++
-          else failed.push(`${l.text} ${l.href} opened ${got} [${r.trail.join(" > ")}]`)
+          else miss.push(`${l.text} ${l.href} opened ${got} [${r.trail.join(" > ")}]`)
         } else {
           await new Promise((r) => setTimeout(r, 700))
           const navs = await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])
           if (navs.some((h) => { try { const u = new URL(h, "http://x"); return `${u.pathname}${u.search}` === l.href } catch { return false } })) ok++
-          else failed.push(`${l.text} ${l.href} told the builder ${navs.join(" ") || "nothing"} [${r.trail.join(" > ")}]`)
+          else miss.push(`${l.text} ${l.href} told the builder ${navs.join(" ") || "nothing"} [${r.trail.join(" > ")}]`)
         }
       }
-      check(`${where}, ${label}, from ${from}: every header link opens its page`, links.length > 0 && failed.length === 0, `${ok} of ${links.length}${failed.length ? `; ${failed.slice(0, 4).join(" | ")}` : ""}`)
+      check(`${where}, ${label}, from ${from}: every header link opens its page`, links.length > 0 && failed.length === 0, `${ok} of ${links.length}${failed.length ? `; ${failed.slice(0, 4).join(" | ")}` : ""}${optional.length ? `; not reached, kept hidden at this width: ${optional.slice(0, 3).join(" | ")}` : ""}`)
     }
   }
 }
@@ -454,7 +479,7 @@ async function readDown(page: Page, frame: Frame) {
   its name, a price, and a picture that loaded. A card the engine could not
   draw is missing, or empty, or prints a Liquid error.
 */
-const cardsIn = (frame: Frame) => frame.evaluate(() => {
+const cardsIn = (frame: Frame) => frame.evaluate(async () => {
   const main = document.querySelector("main, #MainContent, [role=main]") ?? document.body
   const handleOf = (a: Element) => (a.getAttribute("href") ?? "").match(/\/products\/([^/?#]+)/)?.[1] ?? null
   const byHandle = new Map<string, Element>()
@@ -473,14 +498,25 @@ const cardsIn = (frame: Frame) => frame.evaluate(() => {
     if (!had || had.contains(card) === false && card.contains(had)) byHandle.set(h, card)
   }
   const out: { handle: string; title: boolean; price: boolean; pictures: number; loaded: number; shown: boolean; text: string }[] = []
+  /* Each card brought into view, as a visitor scrolls to it: the pictures it shows there (not a slide waiting off to its side, not a picture shown on hover) have loaded. */
   for (const [handle, card] of byHandle) {
-    const r = card.getBoundingClientRect()
-    if (!(card as HTMLElement).checkVisibility?.({ visibilityProperty: true }) || r.width < 20) continue
+    const r0 = card.getBoundingClientRect()
+    if (!(card as HTMLElement).checkVisibility?.({ visibilityProperty: true }) || r0.width < 20) continue
+    card.scrollIntoView({ block: "center" })
+    await new Promise((r) => setTimeout(r, 250))
     const n = Number(handle.split("-").pop())
     const text = (card as HTMLElement).innerText.replace(/\s+/g, " ").trim()
-    const imgs = [...card.querySelectorAll("img")].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 20 && b.height > 20 && i.checkVisibility({ opacityProperty: true, visibilityProperty: true }) })
+    const onScreen = (i: HTMLImageElement) => {
+      const b = i.getBoundingClientRect()
+      if (b.width <= 20 || b.height <= 20 || !i.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return false
+      const x = Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), y = Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2))
+      return document.elementsFromPoint(x, y).includes(i)
+    }
+    const imgs = [...card.querySelectorAll("img")].filter(onScreen)
+    for (let t = 0; t < 10 && imgs.some((i) => !(i.complete && i.naturalWidth > 0)); t++) await new Promise((r) => setTimeout(r, 150))
     out.push({ handle, shown: true, title: new RegExp(`Linen shirt ${n}\\b`, "i").test(text + " " + [...card.querySelectorAll("img")].map((i) => i.alt).join(" ")), price: /\$\s?\d/.test(text), pictures: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, text: text.slice(0, 60) })
   }
+  scrollTo(0, 0)
   const errors = (document.body.innerText.match(/Liquid (syntax )?error[^\n]{0,80}/gi) ?? []).slice(0, 3)
   return { cards: out, errors }
 })
@@ -510,11 +546,11 @@ async function cardChecks(page: Page, base: string, label: string) {
       return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
     })
     if (!spot) { console.log(`  --    ${where}, ${label}: no card picture on /collections/all`); continue }
-    const nav = where === "the website" ? page.waitForNavigation({ timeout: 8000 }).catch(() => null) : null
     if (label === "phone") await page.touchscreen.tap(spot.x, spot.y)
     else await page.mouse.click(spot.x, spot.y)
     let opened = ""
-    if (nav) { await nav; opened = new URL(page.url()).pathname }
+    /* The address the page ends at: a theme may first write its own into the history (Horizon keeps the card to come back to), then leave. */
+    if (where === "the website") opened = await settledPath(page, /^\/products\//)
     else { await new Promise((r) => setTimeout(r, 1500)); opened = (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" ") }
     check(`${where}, ${label}: a product card's picture, pressed, opens the product`, /\/products\/linen-shirt-\d/.test(opened), opened || "nothing opened")
   }

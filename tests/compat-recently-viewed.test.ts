@@ -17,6 +17,7 @@
  *   /products/<handle>?view=<alt>                       one card per product
  *   /products/<handle>?sections=<file name>             the same, as JSON
  *   /products/<handle>.js                               cards built in JS
+ *   /products.json, /collections/<handle>/products.json the shop's feed
  *   /recommendations/products?…&section_id=             related products
  *
  * The browser half (each one on a page, live and in the canvas) is
@@ -109,6 +110,9 @@ async function main() {
     const c = await get("/products/shirt-2.js", "")
     const p = JSON.parse(c.body) as { id: string; handle: string; url: string; title: string; price: number; featured_image: string; images: string[] }
     check("the product as data: its id, handle, address, name, price in cents and picture", p.id === ID(2) && p.handle === "shirt-2" && p.url === "/products/shirt-2" && p.title === "Shirt 2" && p.price === 1200 && p.featured_image === "https://img.test/p2.png" && p.images[0] === p.featured_image, p)
+    const feed = JSON.parse((await get("/products.json", "limit=2&page=2")).body) as { products: { handle: string; variants: { price: string }[]; images: { src: string }[] }[] }
+    check("the shop's feed, /products.json, a page at a time, prices as Shopify writes them there", feed.products.map((x) => x.handle).join() === "shirt-2,shirt-3" && feed.products[0].variants[0].price === "12.00" && feed.products[0].images[0].src === "https://img.test/p2.png", feed)
+    check("  a collection that is not the shop's is not found", (await get("/collections/nope/products.json", "")).status === 404)
     const d = await get("/recommendations/products", `product_id=${ID(1)}&section_id=product-recommendations&limit=2&intent=related`)
     check("related products, by section", d.status === 200 && handles(d.body).length === 2 && !handles(d.body).includes("shirt-1"), d)
   }

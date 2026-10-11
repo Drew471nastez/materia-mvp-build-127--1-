@@ -482,9 +482,9 @@ function policyAddress(pathname: string): string | null {
   return m ? `/${m[1]}` : null
 }
 
-/** The rewrite to the imported theme's handler, behind the site's password when it has one. */
+/** The rewrite to the imported theme's handler, behind the site's password when it has one: a page, and the shop's product list (/products.json); not a file a page loads (a script, /cart.js). */
 async function compatRewrite(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse> {
-  if (!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) {
+  if ((!/\.[a-z0-9]{1,8}$/i.test(pathname) && !pathname.startsWith("/cart/")) || /^(?:\/collections\/[^/]+)?\/products\.json$/i.test(pathname)) {
     const gate = await passwordPageFor(request, name, host, pathname, search)
     if (gate.blocked) return gate.blocked
   }
