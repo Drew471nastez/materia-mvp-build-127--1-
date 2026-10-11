@@ -17,6 +17,7 @@ import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 
 type O = Record<string, unknown>
 
@@ -139,7 +140,10 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
 
   const options_with_values = optionNames.map((name, pos) => {
     const values = optionsIn[pos]?.values ?? [...new Set(variants.map((v) => (v.options as string[])[pos]))]
+    /* A colour option's values as colours, as Storelib's own product page draws them (lib/products/product-page-model.ts): the swatch a theme's card and picker read. */
+    const colour = isColorOption(name)
     const optionValues = values.map((value, vi) => {
+      const hex = colour ? swatchColor(String(value)) : null
       const match = variants.find((v) => (v.options as string[])[pos] === value)
       return {
         [OUTPUT]: value,
@@ -150,7 +154,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
         available: variants.some((v) => (v.options as string[])[pos] === value && v.available),
         variant: match ?? null,
         product_url: null,
-        swatch: null,
+        swatch: hex ? { [OUTPUT]: hex, color: colorObject(hex), image: null } : null,
       }
     })
     return { [OUTPUT]: name, name, position: pos + 1, values: optionValues, selected_value: optionValues.find((v) => v.selected)?.name ?? null }

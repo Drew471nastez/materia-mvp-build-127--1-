@@ -17,6 +17,10 @@
  *                    asks for itself that way once the page has loaded and
  *                    fills its mega menu and drawer only when the index is
  *                    blank; with one, the menu stayed empty on the website.
+ *   SWATCHES         a colour option's values carry their colour
+ *                    (`value.swatch.color`), as Storelib's own product page
+ *                    draws them: Horizon's cards drew no swatches at all
+ *                    (it counts `values | map: 'swatch' | compact`).
  *   PICTURES         image_url asks the optimizer for the width the theme
  *                    asked for (Shopify's size), not twice it: a srcset's
  *                    "720w" file was 1920 wide. Storelib's own uploads
@@ -130,6 +134,20 @@ async function main() {
     }
     check("every section, drawn again for a change, is the markup the page drew", differ.length === 0 && /<h1>first<\/h1>/.test(html), differ)
     check("  the page's first section is section 1 (after two in the header), the header's second is 2, the overlay's second is 2", sectionIndexIn(list, list[3]) === 0 && sectionIndexIn(list, list[1]) === 1 && sectionIndexIn(list, list[7]) === 1)
+  }
+
+  console.log("\nA colour option's swatches\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{{ content_for_layout }}</body></html>`),
+      "sections/sw.storelib": section("sw", `{%- for o in product.options_with_values -%}[{{ o.name }}:{{ o.values | map: 'swatch' | compact | size }}{%- for v in o.values -%}|{{ v }}={{ v.swatch.color.rgb }}{%- endfor -%}]{%- endfor -%}`),
+    }
+    const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` })
+    const shirt = { id: "s", settings: { title: "Tee", slug: "tee", price: "$20.00", available: true, options: [{ name: "Color", values: ["Navy blue", "Sand", "Mystery"] }, { name: "Size", values: ["S", "M"] }], variants: [{ id: "v1", name: "Navy blue / S", available: true }, { id: "v2", name: "Sand / M", available: true }, { id: "v3", name: "Mystery / S", available: true }] } }
+    const ctx = theme.pageContext({ template: "product", path: "/products/tee", designMode: false, products: [shirt] as never, collections: [], menus: {}, shop: { name: "S" }, product: shirt as never })
+    const drawn = theme.renderSection(ctx, { id: "x", type: "sw", settings: {}, hidden: false, blocks: [] }).html
+    check("a colour option's values are swatches of their colour; a name that is no colour is none", drawn.includes("[Color:2|Navy blue=31 42 68|Sand=216 199 163|Mystery=]"), drawn)
+    check("  a size is never a swatch", drawn.includes("[Size:0|S=|M=]"), drawn)
   }
 
   console.log("\nPictures\n")
