@@ -166,7 +166,7 @@ async function main() {
     check("anything that is not an install id is no script at all", siteVitalsScript("x\"><img>") === "")
     check("the body is the shape the site route reads", /JSON\.stringify\(\{s:ID,lcp:/.test(js))
     const site = read("lib/website-builder/compat-site.ts")
-    check("added to every live page, never to a preview", /: `\$\{liveNavigationEnd\(\)\}\$\{siteVitalsScript\(row\.id\)\}`/.test(site) && /extraBodyEnd: draft \? `<div/.test(site))
+    check("added to every live page, never to a preview", /extraHead: draft \? undefined : liveNavigationMarkup\(\) \+ siteVitalsScript\(row\.id\)/.test(site))
     check("the React collector sends to the same path", /const ENDPOINT = SITE_BEACON_PATH/.test(read("components/website-builder/site-vitals.tsx")))
   }
 

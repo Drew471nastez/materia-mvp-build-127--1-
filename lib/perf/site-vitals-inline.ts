@@ -8,9 +8,10 @@
  * was never on it: its visitors' speed was never counted under "Published
  * websites", on a subdomain or a connected domain alike.
  *
- * This is the same collector as a few hundred bytes of inline script, added
- * at the end of every live page (lib/website-builder/compat-site.ts), never
- * on a preview or in the editor's canvas (it refuses to run in a frame).
+ * This is the same collector as a couple of kilobytes of inline script, in
+ * the head of every live page (lib/website-builder/compat-site.ts), never on
+ * a preview or in the editor's canvas (it refuses to run in a frame). The
+ * browser's observers are buffered, so where it runs costs nothing measured.
  * The same rules as the React one, and lib/website-builder/web-vitals.ts's
  * algorithms written out: LCP until the first input, CLS by session windows,
  * INP as the slowest interaction with one forgiven per fifty. One beacon
@@ -25,7 +26,7 @@ import { SITE_BEACON_PATH } from "./config"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-/** The script, ready to go before </body>; empty for anything that is not an install id. */
+/** The script, ready for the page's head; empty for anything that is not an install id. */
 export function siteVitalsScript(installId: string): string {
   if (!UUID.test(installId)) return ""
   const id = JSON.stringify(installId.toLowerCase())
