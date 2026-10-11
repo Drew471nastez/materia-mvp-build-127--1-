@@ -112,10 +112,13 @@ async function handlePOST(request: Request) {
       return confirm(request, admin, site, body)
     case "free":
       return free(request, admin, site, body)
+    /* Both act for the visitor (an email sent, a cart cookie changed): only from this website's own page. */
     case "access":
-      return access(request, admin, site, body)
-    case "forget":
-      return forget(request, admin, site)
+    case "forget": {
+      const { sameOriginWrite } = await import("@/lib/site-accounts/respond")
+      if (!sameOriginWrite(request, (request.headers.get("host") || "").trim().toLowerCase())) return json({ error: "Open the checkout from the shop's website." }, 403)
+      return body.action === "access" ? access(request, admin, site, body) : forget(request, admin, site)
+    }
     case "abandon": {
       const { abandonCheckout } = await import("@/lib/physical/checkout-server")
       return json({ ok: await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.clientKey }) })

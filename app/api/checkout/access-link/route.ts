@@ -21,6 +21,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const json = (data: unknown, status = 200) => NextResponse.json(data, { status, headers: { "Cache-Control": "no-store" } })
 
 export async function POST(request: Request) {
+  /* JSON only: another site cannot send that without asking first (CORS), so only the checkout's own page can make this send an email. */
+  if (!(request.headers.get("content-type") || "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request" }, 415)
   let body: { email?: unknown; productId?: unknown }
   try {
     body = await request.json()
