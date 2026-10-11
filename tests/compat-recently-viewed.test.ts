@@ -68,7 +68,7 @@ async function main() {
   const zip = new JSZip()
   for (const [k, v] of Object.entries(FILES)) zip.file(k, v)
   const r = await convertShopifyTheme(zip, { fallbackName: "rv" })
-  if (!r.ok) throw new Error(r.error)
+  if (r.ok !== true) throw new Error("error" in r ? String(r.error) : "not converted")
   const files = r.theme.files
   const theme = themeOfInstall(files, r.theme.settings, { assetUrl: (n) => `/a/${n}`, assetText: () => null })
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections])) as SiteData["pages"]

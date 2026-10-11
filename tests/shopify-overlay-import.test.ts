@@ -57,7 +57,7 @@ async function main() {
   const zip = new JSZip()
   for (const [k, v] of Object.entries(FILES)) zip.file(k, v)
   const r = await convertShopifyTheme(zip, { fallbackName: "overlay" })
-  if (!r.ok) throw new Error(r.error)
+  if (r.ok !== true) throw new Error("error" in r ? String(r.error) : "not converted")
   const home = r.theme.pages.find((p) => p.page_key === "home")!
   const group = (g: string) => home.sections.filter((s) => s.group === g).map((s) => s.id)
 
