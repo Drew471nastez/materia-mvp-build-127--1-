@@ -57,6 +57,8 @@ export interface OrderRow {
   /** The delivery the buyer chose: the rate's name ("Standard"), and whether they collect it. */
   physical_method?: string | null
   physical_pickup?: boolean | null
+  /** A parcel of this order is marked as a delivery problem (a fulfillment with status failed). */
+  physical_problem?: boolean | null
   /** This line's share of what the buyer paid for delivery, inside `amount_cents` (lib/physical/checkout-server). */
   shipping_cents?: number | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
@@ -96,6 +98,13 @@ export interface Shipping {
   /** The rate the buyer chose, "Standard" or "Express"; null when none is recorded. */
   method: string | null
   pickup: boolean
+  /** A parcel ran into a delivery problem: the badge says so instead of Fulfilled, as the buyer's order page does. */
+  problem?: boolean
+}
+
+/** Whether a stage still shows a delivery problem: only while the parcel is out (not delivered, returned or cancelled). */
+export function showsProblem(stage: ShipStage, problem: boolean | null | undefined): boolean {
+  return !!problem && (stage === "fulfilled" || stage === "partially_fulfilled")
 }
 
 export const SHIP_STAGE_LABEL: Record<ShipStage, string> = {
@@ -307,7 +316,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
           : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
-      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true } : null,
+      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true, problem: lines.some((r) => r.physical_problem === true) } : null,
     })
   }
 

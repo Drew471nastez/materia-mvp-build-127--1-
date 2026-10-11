@@ -252,7 +252,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             <h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">#{order.number}</h1>
             <span className="flex flex-wrap items-center gap-1.5">
               <PaymentBadge status={order.payment} />
-              {stage ? <ShipBadge stage={stage} /> : <FulfillmentBadge status={order.fulfillment} />}
+              {stage ? <ShipBadge stage={stage} problem={parcel ? parcel.shipments.some((s) => s.status === "failed") : order.shipping?.problem} /> : <FulfillmentBadge status={order.fulfillment} />}
             </span>
           </>
         }

@@ -296,8 +296,11 @@ export function PhysicalFulfillment({
         const items = s.items.reduce((n, i) => n + i.quantity, 0)
         const cancelled = s.status === "cancelled"
         const delivered = s.status === "delivered"
+        const problem = s.status === "failed"
         const badge = cancelled ? (
           <StatusBadge tone="neutral">Cancelled</StatusBadge>
+        ) : problem ? (
+          <StatusBadge tone="critical">Delivery problem</StatusBadge>
         ) : delivered ? (
           <StatusBadge tone="success">{pickup ? "Picked up" : "Delivered"}</StatusBadge>
         ) : (
@@ -330,7 +333,13 @@ export function PhysicalFulfillment({
         return (
           <section key={s.id} className={cn(card, "min-w-0", cancelled && "opacity-60")} data-shipment={s.status}>
             <CardTop badge={badge} count={items} sub={[number(s), s.shippedAt ? dateTime(s.shippedAt) : null, locName(s.locationId)].filter(Boolean).join(" · ")} menu={menu.length ? <CardMenu title={number(s)} items={menu} /> : null} />
-            {!pickup && !cancelled ? <TrackingRow shipment={s} transit={transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {!pickup && !cancelled ? <TrackingRow shipment={s} transit={problem ? null : transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
+            {problem ? (
+              <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
+                The carrier reported a problem delivering this package. The buyer sees it on their order page and gets the Delivery problem email. Check the tracking, contact them or the carrier, then mark it in transit or delivered when it moves again.
+              </p>
+            ) : null}
             {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}
             <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
               {s.items.map((i) => {

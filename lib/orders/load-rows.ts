@@ -67,9 +67,16 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     tax_included: order.tax_included === true,
     tax_label: typeof order.tax_label === "string" && order.tax_label.trim() ? order.tax_label.trim().slice(0, 80) : null,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
-    /* A physical line: its share of delivery, and of tax added on top, which it keeps in its snapshot (the checkout holds the order's), not in the column. */
+    /* A physical line: its share of delivery, and of its tax (added on top, or inside the price with tax_included), which it keeps in its snapshot (the checkout holds the order's), not in the column. */
     ...(order.checkout_id
-      ? { checkout_id: order.checkout_id as string, quantity: (order.quantity as number) ?? 1, shipping_cents: Number(order.shipping_cents) || 0, tax_cents: Number(order.tax_cents) || Number(order.product_snapshot?.tax_cents) || 0 }
+      ? {
+          checkout_id: order.checkout_id as string,
+          quantity: (order.quantity as number) ?? 1,
+          shipping_cents: Number(order.shipping_cents) || 0,
+          tax_cents: Number(order.tax_cents) || Number(order.product_snapshot?.tax_cents) || 0,
+          tax_included: order.tax_included === true || order.product_snapshot?.tax_included === true,
+          tax_label: typeof order.tax_label === "string" && order.tax_label.trim() ? order.tax_label.trim().slice(0, 80) : typeof order.product_snapshot?.tax_label === "string" && order.product_snapshot.tax_label.trim() ? order.product_snapshot.tax_label.trim().slice(0, 80) : null,
+        }
       : {}),
   }
 }
@@ -128,11 +135,21 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid: its stage, returns and delivery come from its checkout. */
   const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
   if (checkoutIds.length) {
-    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; shipping_rate: { name?: string; tax_label?: string } | null }
+    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; tax_cents?: number | null; shipping_rate: { name?: string; tax_label?: string; tax_included?: boolean } | null }
     const byCheckout = new Map<string, Checkout>()
+    const problems = new Set<string>()
     for (let i = 0; i < checkoutIds.length; i += 500) {
-      const { data } = await admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, shipping_rate").eq("creator_id", creatorId).in("id", checkoutIds.slice(i, i + 500))
+      const slice = checkoutIds.slice(i, i + 500)
+      const [{ data }, failed] = await Promise.all([
+        admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, tax_cents, shipping_rate").eq("creator_id", creatorId).in("id", slice),
+        /* A parcel the carrier (or the seller) marked as a delivery problem: the list says so, as the buyer's page does. */
+        Promise.resolve(admin.from("fulfillments").select("checkout_id").in("checkout_id", slice).eq("status", "failed")).then(
+          (r: { data: { checkout_id: string }[] | null }) => r.data ?? [],
+          () => [] as { checkout_id: string }[],
+        ),
+      ])
       for (const c of (data ?? []) as Checkout[]) byCheckout.set(c.id, c)
+      for (const f of failed) problems.add(f.checkout_id)
     }
     for (const r of rows) {
       const c = r.checkout_id ? byCheckout.get(r.checkout_id) : undefined
@@ -141,8 +158,23 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
       r.physical_return = c.return_status ?? null
       r.physical_pickup = c.delivery_method === "pickup"
       r.physical_method = typeof c.shipping_rate?.name === "string" ? c.shipping_rate.name : null
+      r.physical_problem = problems.has(c.id)
       /* The tax's name as the physical checkout charged it ("VAT 19%"). */
       if (typeof c.shipping_rate?.tax_label === "string" && c.shipping_rate.tax_label.trim()) r.tax_label = c.shipping_rate.tax_label.trim().slice(0, 80)
+    }
+    /*
+      An order paid before its lines kept tax inside the price (lib/physical/checkout-server.ts): its checkout still
+      holds the tax and that it was included, so the order shows its "Includes" row too. Put on the order's first line,
+      since the order adds its lines' tax up.
+    */
+    for (const c of byCheckout.values()) {
+      const tax = Math.max(0, Number(c.tax_cents) || 0)
+      if (!c.shipping_rate?.tax_included || tax <= 0) continue
+      const own = rows.filter((r) => r.checkout_id === c.id)
+      if (own.length === 0 || own.some((r) => (r.tax_cents || 0) > 0)) continue
+      own.sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id))
+      own[0].tax_cents = tax
+      for (const r of own) r.tax_included = true
     }
   }
   return { products, rows }
