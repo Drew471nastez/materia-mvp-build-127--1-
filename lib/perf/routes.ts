@@ -8,11 +8,14 @@
  * the number of distinct routes stays small, so a day rolls up into a few
  * hundred rows however many pages were visited.
  *
- * Published websites on a subdomain or a connected domain are not measured
- * here: they have their own collector (components/website-builder/
- * site-vitals.tsx), whose numbers the health page reads as "Published
- * websites". The admin, the sign in pages and the marketing pages are left
- * out on purpose.
+ * WHICH HOSTS (classifyFor). storelib.com, which is also what the iOS and
+ * Android apps load; storelib.me, where OnePages live (creator pages); and
+ * on a published website's own host (a subdomain or a connected domain) only
+ * Storelib's own pages there, its checkout and receipt. The website's own
+ * pages have their own collector (components/website-builder/site-vitals.tsx
+ * and lib/perf/site-vitals-inline.ts for an imported theme), whose numbers
+ * the health page reads as "Published websites". The admin, the sign in
+ * pages and the marketing pages are left out on purpose.
  *
  * Pure. The beacon calls it in the browser; tests/perf-health18.test.ts
  * holds it.
@@ -32,7 +35,7 @@ const STATIC_WORDS = new Set([
   "learn", "library", "links", "members", "membership", "memberships", "moderation", "navigation", "new", "notifications", "offers", "onepage",
   "orders", "payments", "payouts", "physical", "post", "posts", "preferences", "products", "receipt", "receipts", "reviews", "sales", "saved",
   "search", "sections", "settings", "sites", "space", "spaces", "stripe", "support", "themes", "upgrade", "website-builder", "wishlist", "demo",
-  "creator-page", "order",
+  "creator-page", "order", "site", "cart", "thanks", "success", "wallet-return",
 ])
 
 const BUILDER_IN_APP = new Set(["website-builder", "onepage", "creator-page", "sites"])
@@ -53,6 +56,28 @@ export function isStorelibHost(hostname: string, mainDomain = "storelib.com"): b
   if (h === mainDomain || h === `www.${mainDomain}`) return true
   if (h === "localhost" || h === "127.0.0.1") return true
   return h.endsWith(".vercel.app")
+}
+
+/** The OnePage host (storelib.me), as lib/onepage/address.ts reads it; NEXT_PUBLIC_, so the browser has it too. */
+function onePageHost(): string {
+  return (process.env.NEXT_PUBLIC_ONEPAGE_DOMAIN || "storelib.me").trim().toLowerCase()
+}
+
+/**
+ * The area and route pattern of a page on any host, or null when the page is
+ * not Storelib's to measure (see WHICH HOSTS above).
+ */
+export function classifyFor(hostname: string, pathname: string, onePage = onePageHost()): { area: Area; route: string } | null {
+  const h = hostname.toLowerCase()
+  if (isStorelibHost(h)) return classify(pathname)
+  const segs = (pathname.split(/[?#]/)[0] || "/").toLowerCase().split("/").filter(Boolean)
+  if (h === onePage || h === `www.${onePage}`) {
+    /* storelib.me/{name} is a creator's OnePage; nothing else there is a page. */
+    return segs.length === 1 && !segs[0].includes(".") ? { area: "creator", route: "/:onepage" } : null
+  }
+  /* A website's own host: Storelib's checkout and receipt on it, nothing else. */
+  if (segs[0] === "checkout" || segs[0] === "receipt") return classify(pathname)
+  return null
 }
 
 /**
@@ -103,7 +128,16 @@ export function classify(pathname: string): { area: Area; route: string } | null
     case "checkout":
     case "pay":
     case "purchase":
+    case "receipt":
       return { area: "checkout", route: join([first, ...segs.slice(1).map(generic)]) }
+    /* The buyer's side of the app: what a buyer opens the app to. */
+    case "library":
+    case "downloads":
+    case "wishlist":
+    case "onboarding":
+    case "upgrade":
+    case "native-start":
+      return { area: "app", route: join([first, ...segs.slice(1).map(generic)]) }
   }
 
   /* Everything else at the root is either Storelib's own page (not measured) or a creator's. */

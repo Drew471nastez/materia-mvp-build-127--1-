@@ -1,13 +1,13 @@
 "use client"
 
 /**
- * Storelib's own speed measurement, mounted once in the root layout. It does
- * nothing on four page loads in five: the dice are rolled here, before the
- * collector (lib/perf/beacon-client.ts) is even downloaded, and the one page
- * load in five that draws it loads the collector when the browser is idle,
- * so it never competes with the page for the first frames. The observers it
- * starts read the browser's buffered entries, so nothing measured before
- * then is lost.
+ * Storelib's own speed measurement, mounted once in the root layout. The
+ * collector (lib/perf/beacon-client.ts) is loaded when the browser is idle,
+ * so it never competes with the page for the first frames, and its
+ * observers read the browser's buffered entries, so nothing measured before
+ * then is lost. Every page load measures itself today (CLIENT_SAMPLE_RATE,
+ * lib/perf/config.ts, says why); the dice stay here, before the collector is
+ * even downloaded, for the day the rate comes down.
  */
 
 import { useEffect } from "react"

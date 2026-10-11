@@ -13,21 +13,25 @@ import type { ErrorGroupRow, Problem } from "./problems"
 import type { Aggregate, HealthResult } from "./scoring"
 import type { SupabaseInfo, VercelInfo } from "./infra-types"
 
-export type WindowId = "24h" | "7d"
+export type WindowId = "24h" | "7d" | "30d"
 
+/** Every window is worked out from raw samples, which are kept long enough for the longest (RAW_RETENTION_DAYS). */
 export const WINDOWS: { id: WindowId; label: string; hours: number }[] = [
   { id: "24h", label: "Last 24 hours", hours: 24 },
   { id: "7d", label: "Last 7 days", hours: 24 * 7 },
+  { id: "30d", label: "Last 30 days", hours: 24 * 30 },
 ]
 
 export function windowOf(raw: string | null | undefined): WindowId {
-  return raw === "24h" ? "24h" : "7d"
+  return raw === "24h" || raw === "30d" ? raw : "7d"
 }
 
 export interface ScoreDay {
   day: string
   score: number | null
   subs: { id: string; score: number | null }[]
+  /** The day's provisional score (lib/perf/scoring.ts rule 6), kept beside the official one; null for a day scored before it existed. */
+  provisional?: { score: number; confidence: "high" | "medium" | "low" } | null
 }
 
 export interface SlowQuery {

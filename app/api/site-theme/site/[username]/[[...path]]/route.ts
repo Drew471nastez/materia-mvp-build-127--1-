@@ -22,6 +22,7 @@ import { POST as subscribeRoute } from "@/app/api/website-builder/subscribe/rout
 import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
+import { timed } from "@/lib/perf/server-timing"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -193,6 +194,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   return new NextResponse(body, { status: out.status, headers })
 }
 
-export const GET = handle
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts): an imported theme's pages, cart and section calls. */
+const timedHandle = timed("sites", "/api/site-theme/site", handle)
+export const GET = timedHandle
 export const HEAD = handle
-export const POST = handle
+export const POST = timedHandle

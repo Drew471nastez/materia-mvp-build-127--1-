@@ -111,6 +111,8 @@ export const ONEPAGE_HOST_API: readonly { path: RegExp; methods: readonly string
   { path: /^\/api\/download\/[A-Za-z0-9-]{1,64}\/?$/, methods: ["GET", "HEAD"] },
   /* The creator arriving from the app, so their own visits are not counted here (lib/analytics/own-marker). */
   { path: /^\/api\/analytics\/own\/?$/, methods: ["GET"] },
+  /* Storelib's own speed, measured on the OnePage (lib/perf/config.ts BEACON_PATH): no visitor data. */
+  { path: /^\/api\/public\/m\/?$/, methods: ["POST"] },
 ]
 
 /** Files a OnePage's markup may ask the host for directly: fonts, media, icons. */

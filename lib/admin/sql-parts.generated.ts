@@ -117,4 +117,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "127", file: "127_checkout_start_basket.sql", sha256: "32b9a40e9f953a9b507f754c1f177d6cc411fcc8d5743314ef9bd5cc56039c17" },
   { part: "128", file: "128_plan_cancellations.sql", sha256: "55d887cf001c2b4b6802988ae1139825368cfb2c59bb6c86876473ab317d4238" },
   { part: "129", file: "129_customer_email_words_and_tax_on_receipts.sql", sha256: "aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b" },
+  { part: "132", file: "132_perf_collect_everywhere.sql", sha256: "d0cb76a717c9b34c4df43f836bf81147699307c932c7fdb8f704a49546d56091" },
 ]

@@ -10,12 +10,13 @@ import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { timed } from "@/lib/perf/server-timing"
 
 type Params = { params: Promise<{ installId: string }> }
 
 // POST /api/website-builder/themes/[installId]/publish
 // body: { action: "publish" | "unpublish" | "save_draft" }
-export async function POST(req: Request, { params }: Params) {
+async function handlePOST(req: Request, { params }: Params) {
   const { installId } = await params
   const supabase = await createClient()
   const admin = createAdminClient()
@@ -272,3 +273,6 @@ export async function POST(req: Request, { params }: Params) {
 
   return NextResponse.json({ error: "Invalid action" }, { status: 400 })
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("builder", "/api/website-builder/themes/:id/publish", handlePOST)
