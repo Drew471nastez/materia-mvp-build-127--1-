@@ -38,6 +38,7 @@ import "server-only"
  * no copy left. Nothing the browser sends is counted.
  */
 import { holderForEmail } from "./coupon-holds"
+import { unpackItems } from "./cart-items"
 import { readSalesLimit, type SalesStanding } from "@/lib/products/sales-limit"
 
 type Db = { from: (table: string) => any; rpc?: (fn: string, args: Record<string, unknown>) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -87,6 +88,35 @@ export async function releaseSale(db: Db, productId: string | null | undefined, 
 export async function releaseSales(db: Db, productIds: Iterable<string>, holder: string | null | undefined): Promise<void> {
   if (!holder) return
   await Promise.all([...new Set(productIds)].map((id) => releaseSale(db, id, holder)))
+}
+
+/**
+ * A basket's copies of its limited products, held together: one hold per
+ * product for all its lines' copies. When one has no copy left, the ones
+ * already held are given back and that product's title is answered.
+ */
+export async function holdBasket(
+  db: Db,
+  lines: { productId: string; quantity: number; title?: string | null }[],
+  limited: string[],
+  holder: string,
+  seconds = SALE_HOLD_SECONDS,
+): Promise<{ ok: true; held: string[] } | { ok: false; title: string }> {
+  const want = new Map<string, { quantity: number; title: string }>()
+  for (const l of lines) {
+    if (!limited.includes(l.productId)) continue
+    const had = want.get(l.productId)
+    want.set(l.productId, { quantity: (had?.quantity ?? 0) + Math.max(1, Math.floor(l.quantity) || 1), title: String(l.title ?? "") })
+  }
+  const held: string[] = []
+  for (const [productId, w] of want) {
+    if (!(await holdSale(db, productId, holder, w.quantity, seconds))) {
+      await releaseSales(db, held, holder)
+      return { ok: false, title: w.title }
+    }
+    held.push(productId)
+  }
+  return { ok: true, held }
 }
 
 /** The product's limit, read on its own so a database without the column (before part 133) answers "none". */
@@ -156,4 +186,17 @@ export async function salesStandings(db: Db, productIds: string[]): Promise<Map<
 /** One product's standing, or null. */
 export async function salesStanding(db: Db, productId: string): Promise<SalesStanding | null> {
   return (await salesStandings(db, [productId])).get(productId) ?? null
+}
+
+/**
+ * A payment that will not happen (Stripe cancelled it, or its page expired
+ * or failed): the copies it held go back now rather than when the hold
+ * lapses. Read from what the payment carries: its holder, and its product
+ * or its basket's lines. Never throws.
+ */
+export async function releaseHeldCopies(db: Db, metadata: Record<string, string> | null | undefined): Promise<void> {
+  const holder = metadata?.[SALE_HOLDER_KEY]
+  if (!metadata || !holder) return
+  const ids = metadata.product_id ? [metadata.product_id] : unpackItems(metadata).map((i) => i.productId)
+  await releaseSales(db, ids, holder)
 }

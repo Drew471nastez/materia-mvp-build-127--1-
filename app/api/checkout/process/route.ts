@@ -16,6 +16,8 @@ import { priceOrder } from "@/lib/checkout/pricing"
 import { recordCouponUse } from "@/lib/checkout/coupons"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
+import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
@@ -104,6 +106,13 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: "That code has been used up." }, { status: 400 })
     }
 
+    /* LIMIT SALES: a free copy is still one of the limited run. Held in one locked step before the order is written, and let go once the order counts it (lib/checkout/sales-limit). */
+    const saleHolder = limitOf(product) !== null ? saleHolderForEmail(email) : null
+    if (saleHolder && !(await holdSale(admin, product.id, saleHolder, 1, CLAIM_HOLD_SECONDS))) {
+      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+      return NextResponse.json({ error: soldOutMessage(product.title), code: "sold_out" }, { status: 409 })
+    }
+
     /* Owning it already still makes a receipt (for a re-download); only the library row is not doubled. */
     let alreadyOwned = false
     if (user) {
@@ -180,8 +189,11 @@ async function handlePOST(request: Request) {
     if (orderError || !order) {
       console.error("[checkout/process] order could not be saved:", orderError?.code, orderError?.message)
       if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+      if (saleHolder) await releaseSale(admin, product.id, saleHolder)
       return NextResponse.json({ error: "The order could not be saved. Try again in a moment." }, { status: 500 })
     }
+    /* The order counts the copy now. */
+    if (saleHolder) await releaseSale(admin, product.id, saleHolder)
 
     console.log("[checkout/process] Order created successfully:", order.id)
     const origin = originOf(body.origin, request)

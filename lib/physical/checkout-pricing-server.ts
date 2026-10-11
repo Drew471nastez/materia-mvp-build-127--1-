@@ -17,6 +17,7 @@ import "server-only"
  * delivery and hold no stock. Something the buyer already owns is left out.
  */
 
+import { salesStandings } from "@/lib/checkout/sales-limit"
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
@@ -173,6 +174,10 @@ export async function priceCheckout(
     for (const v of (vs ?? []) as Record<string, any>[]) digitalVariants.set(v.id, v)
   }
 
+  /* A download with a sales limit whose copies have all been sold is left out and named (lib/checkout/sales-limit). The checkout's hold decides the last copies. */
+  const digitalIds = rows.filter((p) => p.type !== "physical").map((p) => p.id)
+  const salesStanding = digitalIds.length ? await salesStandings(db as Parameters<typeof salesStandings>[0], digitalIds) : new Map()
+
   const [settings, locations] = await Promise.all([loadSettings(db, creatorId), loadLocations(db, creatorId)])
   const fulfilling = locations.filter((l) => l.active && l.fulfillsOrders).map((l) => l.id)
   const defaultLocation = settings.defaultLocationId && fulfilling.includes(settings.defaultLocationId) ? settings.defaultLocationId : (fulfilling[0] ?? null)
@@ -200,6 +205,11 @@ export async function priceCheckout(
     }
     if (p.type !== "physical") {
       if (owned.has(p.id)) {
+        dropped.push(p.title)
+        continue
+      }
+      const standing = salesStanding.get(p.id)
+      if (standing && standing.sold >= standing.limit) {
         dropped.push(p.title)
         continue
       }

@@ -10,6 +10,8 @@ import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
 import { holdCouponUse, holderForEmail, needsHold, releaseCouponHold } from "@/lib/checkout/coupon-holds"
+import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
+import { soldOutMessage } from "@/lib/products/sales-limit"
 import { fulfilCartPayment, fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { basketTitle, fieldPlan, missingField, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
@@ -212,6 +214,17 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   const coupon = priced.coupon
   const holder = needsHold(coupon) ? holderForEmail(contact.email) : null
   if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+  /* LIMIT SALES: each limited download's copies held before the PaymentIntent exists, by the buyer's address (lib/checkout/sales-limit). */
+  const saleHolder = priced.lines.some((l) => priced.limited.includes(l.item.productId)) ? saleHolderForEmail(contact.email) : null
+  let heldCopies: string[] = []
+  if (saleHolder) {
+    const copies = await holdBasket(admin, priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), priced.limited, saleHolder)
+    if (copies.ok === false) {
+      if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+      return json({ error: soldOutMessage(copies.title), code: "sold_out" }, 409)
+    }
+    heldCopies = copies.held
+  }
 
   /*
     SETTINGS › TAXES: the tax the quote showed (lib/checkout/site-quote-server
@@ -229,6 +242,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     fee = await calculatePlatformFeeForCheckout(priced.totalCents, site.creatorId, admin, chargeCurrency)
   } catch (e) {
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    await releaseSales(admin, heldCopies, saleHolder)
     if (e instanceof UnsupportedFeeCurrencyError) return json({ error: "This currency is not available for checkout yet." }, 400)
     throw e
   }
@@ -262,6 +276,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 80) } : {}),
     ...packItems(priced.lines.map((l) => l.item)),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
+    ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),
   }
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
@@ -306,6 +321,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   } catch (error) {
     console.error("[checkout/site] PaymentIntent failed:", error instanceof Error ? error.message : error)
     if (holder) await releaseCouponHold(admin, coupon?.id, holder)
+    await releaseSales(admin, heldCopies, saleHolder)
     const e = error as { param?: string; message?: string } | null
     if (/destination/i.test(e?.param ?? "") || /destination|connected account/i.test(e?.message ?? "")) {
       const gone = await stripe.accounts.retrieve(account).then(() => false, (x: unknown) => accountIsGone(x))
@@ -512,7 +528,19 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
   const coupon = priced.coupon
   const holder = coupon && needsHold(coupon) ? holderForEmail(contact.email) : null
   if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
+  /* LIMIT SALES: a free copy is one of the limited run too, held until its order counts it (lib/checkout/sales-limit). */
+  const saleHolder = priced.lines.some((l) => priced.limited.includes(l.item.productId)) ? saleHolderForEmail(contact.email) : null
+  let heldCopies: string[] = []
+  if (saleHolder) {
+    const copies = await holdBasket(admin, priced.lines.map((l) => ({ productId: l.item.productId, quantity: l.item.quantity, title: String(l.product.title ?? "") })), priced.limited, saleHolder, CLAIM_HOLD_SECONDS)
+    if (copies.ok === false) {
+      if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
+      return json({ error: soldOutMessage(copies.title), code: "sold_out" }, 409)
+    }
+    heldCopies = copies.held
+  }
   const written = await fulfilFreeCart(admin, {
+    saleHolder,
     creatorId: site.creatorId,
     items: priced.lines.map((l) => l.item),
     buyerId: null,
@@ -528,6 +556,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
     consent: contact.optedIn ? "ticked" : "none",
   })
   if (written.ok === false) {
+    await releaseSales(admin, heldCopies, saleHolder)
     if (holder && coupon) await releaseCouponHold(admin, coupon.id, holder)
     return json({ error: "The order could not be saved. Try again in a moment." }, 500)
   }

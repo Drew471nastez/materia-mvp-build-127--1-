@@ -20,6 +20,12 @@ export const FEW_LEFT = 10
 /** What a buyer is told when the last copy has gone, at the checkout and on the page. */
 export const SOLD_OUT = "Sold out"
 
+/** What the checkout answers when the last copy has gone, naming the product when it can. */
+export function soldOutMessage(title?: string | null): string {
+  const name = typeof title === "string" ? title.trim().slice(0, 120) : ""
+  return name ? `Sold out. Every copy of ${name} has been sold.` : "Sold out. Every copy has been sold."
+}
+
 /** A stored or typed limit as a whole number from 1 to 1,000,000, or null for none. */
 export function readSalesLimit(value: unknown): number | null {
   if (value === null || value === undefined || value === "" || typeof value === "boolean") return null

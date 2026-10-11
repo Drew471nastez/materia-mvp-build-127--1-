@@ -12,6 +12,7 @@ import { fulfilPaymentIntent, isCheckoutIntent } from "@/lib/checkout/fulfil-pay
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { recordCheckoutContactAndWelcome } from "@/lib/contacts/checkout-welcome"
 import { fulfilCartPayment, fulfilCartSession, isCartIntent, isCartSession } from "@/lib/checkout/fulfil-cart-session"
+import { releaseHeldCopies } from "@/lib/checkout/sales-limit"
 import { syncChargeRefund } from "@/lib/stripe/refund-sync"
 import { disputedProductName, markPaymentDisputed, restorePaymentAfterWonDispute } from "@/lib/stripe/dispute-orders"
 import { disputeFeeMinor, isClosed, isInquiry, outcomeOf } from "@/lib/stripe/dispute-facts"
@@ -169,6 +170,22 @@ async function handleStripeEvent(request: Request) {
   if (isMembershipEventType(event.type)) {
     const answered = await handleMembershipEvent(supabaseAdmin, event)
     if (answered) return answered
+  }
+
+  /*
+    LIMIT SALES: a payment that will not happen gives back the copies of
+    limited downloads it held (lib/checkout/sales-limit), now rather than
+    when the hold lapses. A product's PaymentIntent cancelled; a basket's
+    Stripe page expired or its delayed payment failed. Nothing is answered
+    here: the handlers below still see the event.
+  */
+  if (event.type === "payment_intent.canceled") {
+    const pi = event.data.object as Stripe.PaymentIntent
+    await releaseHeldCopies(supabaseAdmin, pi.metadata as Record<string, string>)
+  }
+  if (event.type === "checkout.session.expired" || event.type === "checkout.session.async_payment_failed") {
+    const session = event.data.object as Stripe.Checkout.Session
+    if (isCartSession(session)) await releaseHeldCopies(supabaseAdmin, session.metadata as Record<string, string>)
   }
 
   // ============================================================================
