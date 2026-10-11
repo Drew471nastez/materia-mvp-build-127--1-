@@ -3,7 +3,7 @@ import { randomBytes } from "crypto"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { emailButton } from "@/lib/mail-document"
+import { resetPasswordEmail } from "@/lib/account/reset-email"
 
 export const runtime = "nodejs"
 
@@ -65,40 +65,15 @@ export async function POST(request: Request) {
     // Send password reset email
     if (isSmtpConfigured()) {
       try {
+        /* Branded like every account email, and transactional: no click tracking on the link, no stale bounce dropping it (lib/account/reset-email.ts). */
+        const mail = resetPasswordEmail({ resetUrl, minutes: 60 })
         const result = await sendEmail({
           from: "Storelib <noreply@storelib.com>",
           to: user.email,
-          subject: "Reset your password",
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <h1 style="font-size: 24px; font-weight: 600; margin-bottom: 16px;">Reset your password</h1>
-              <p style="color: #666; margin-bottom: 24px;">
-                You requested to reset your password on Storelib. Click the button below to set a new password:
-              </p>
-
-              <div style="text-align: center; margin-bottom: 24px;">
-                ${emailButton({ href: resetUrl, label: "Reset Password", fill: "#2563eb", padding: "12px 32px", radius: 8, text: "font-weight: 600;", align: "center" })}
-              </div>
-
-              <p style="color: #999; font-size: 14px; margin-bottom: 16px;">
-                Or copy and paste this link into your browser:
-              </p>
-              <p style="color: #666; font-size: 12px; word-break: break-all; background: #f5f5f5; padding: 12px; border-radius: 6px;">
-                ${resetUrl}
-              </p>
-
-              <p style="color: #999; font-size: 12px; margin-top: 24px;">
-                This link expires in 1 hour. If you didn't request this, please ignore this email.
-              </p>
-            </div>
-          `,
-          text: `Reset your password
-
-You requested to reset your password on Storelib. Click the button below to set a new password:
-
-${resetUrl}
-
-This link expires in 1 hour. If you didn't request this, please ignore this email.`,
+          subject: mail.subject,
+          html: mail.html,
+          text: mail.text,
+          transactional: true,
         })
 
         if (!result.success) {

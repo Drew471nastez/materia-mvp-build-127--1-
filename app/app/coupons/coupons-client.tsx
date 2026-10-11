@@ -14,6 +14,7 @@ import { withReturn } from "./coupon-form"
 import { Pill, inkDepth, usePill } from "./coupon-parts"
 import { isReturning, openCoupon, peekReturn, takeReturn } from "./list-return"
 import { holdLanding } from "@/lib/ui/app-navigation"
+import { pressMark } from "@/lib/press-mark"
 import { whenIdle } from "../products/list-return"
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -310,12 +311,13 @@ export function CouponsClient({ initialCoupons, products }: CouponsClientProps) 
                 {shown.map(({ coupon, state }) => {
                   const dates = datesText(coupon, state)
                   return (
-                    <li key={coupon.id} data-row={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 has-[a:active]:bg-[#f6f7f8]">
+                    <li key={coupon.id} data-row={coupon.id} className="relative flex min-h-[76px] items-center gap-3 py-3 pl-4 pr-1.5 data-[pressed]:bg-[#f6f7f8]">
                       <Link
                         href={`/app/coupons/${coupon.id}`}
                         aria-label={`${coupon.code}, ${discountText(coupon)}`}
                         onTouchStart={() => warm(`/app/coupons/${coupon.id}`)}
                         onClick={openFromLink(`/app/coupons/${coupon.id}`)}
+                        {...pressMark}
                         className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#111113]"
                       />
                       <span className="pointer-events-none min-w-0 flex-1">

@@ -96,6 +96,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "auth/confirm-email/route.ts": "carries the confirmation token",
   "auth/exchange-reset-code/route.ts": "carries the one-time code",
   "auth/request-password-reset/route.ts": "takes an email and sends a link; it tells the caller nothing",
+  "checkout/site/track/route.ts": "Track your order on a website: the store is the host's, the link goes only to the order's own email, and the answer is the same whether anything matched; rate limited",
+  "physical/partner-tracking/route.ts": "a fulfilment partner reports tracking: proven by the shop's webhook secret (HMAC) or a link signed for one order and location, not by a session",
   "auth/signup-guard/route.ts": "runs during sign-up, before an account exists",
   "auth/validate-reset-token/route.ts": "carries the reset token",
   "auth/verify-email/route.ts": "carries the verification token",
@@ -140,7 +142,7 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "onepage/track/route.ts": "a OnePage link click from a visitor; whose OnePage it is comes from the onepages row, and the analytics copy goes through lib/analytics/collect",
   "blog/track/route.ts": "records a blog page view",
   "public/vitals/route.ts": "a published site's speed numbers from its visitors, for a published site only, validated, capped per site a day and limited per address",
-  "perf/beacon/route.ts": "Storelib's own speed numbers from one page load in five, checked item by item (lib/perf/telemetry), capped per day by the database, limited per address, and answered 204 with nothing in it",
+  "perf/beacon/route.ts": "Storelib's own speed numbers from every page load (also answered at /api/public/m), checked item by item (lib/perf/telemetry), capped per day by the database, limited per address, and answered 204 with nothing in it",
   "website-builder/contact/route.ts": "a visitor writing to a creator from a contact form on their website; a trap field, a timing check and the rate limiter per visitor, address and store, and it tells the caller nothing about the list",
 
   // A creator's website, signing a customer in with a credential of its own (lib/site-accounts).
@@ -149,12 +151,18 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "site-account/profile/route.ts": "the website's own signed session cookie is the credential, for this host's creator, and the customer row must still be there; it changes that customer's name and nothing else",
   "site-account/wishlist/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; without it the answer is signedIn false and nothing is read",
   "site-account/download/route.ts": "the website's own signed session cookie is the credential, for this host's creator; the order must have been placed with the email that session proved, on this website, and the file must be one its receipt lists, decided again by resolveDownloadAccess with the order's own token read on the server, under the download limits and the scan gate",
+  "site-account/owned/route.ts": "the website's own signed session cookie is the credential, for one host and one creator; it answers which of that creator's products the session's customer already owns, by the email their sign in code proved, and a guest gets signedIn false and nothing read",
+  "checkout/access-link/route.ts": "a guest's 'Email me my link' on the Explore checkout: JSON only, limited per caller and per email, the same answer whatever the email, and the receipts go only to the address on the orders, after the answer (lib/checkout/access-link)",
   "site-account/delete/route.ts": "the website's own signed session cookie is the credential, for this host's creator, from a same-origin form with confirm=delete; it deletes that customer's own account row (and what it saved) and nothing else, limited per customer",
   "site-password/route.ts": "a visitor typing a website's password on its password page (same-origin forms only, the host must be a creator's published website, limited per visitor and per website before any compare against the stored hash), or the owner's two minute signed note, spent once; it only ever sets a pass cookie for that host",
 
   // Reads of things that are already public.
   "reviews/stats/route.ts": "the rating shown on a public product page",
   "reviews/breakdown/route.ts": "the star counts under a public product's rating, from published reviews only, no names or text",
+  "reviews/request/route.ts": "Storelib Reviews: a review from the request email's link, which is the credential (an HMAC of one order line's request, lib/reviews/request-token); the order is read again and must still be paid, limited per address",
+  "reviews/site/route.ts": "Storelib Reviews: a visitor's review on a website whose store lets anyone write, checked against that store's own settings; one answer whatever address is typed, nothing posted until the emailed link is confirmed, never verified, a hidden field and limits per address, per email and per store, the address kept server only",
+  "reviews/confirm/route.ts": "Storelib Reviews: the confirm link emailed to the address typed into a website review form; the HMAC token signed for one held review is the proof, it posts that review once, unverified, rate limited per address",
+  "reviews/photo/route.ts": "Storelib Reviews: a photo for a review, with the request link as its credential or for a store that lets anyone write; a picture by its bytes, the picture reader and the malware scan, limited per address",
   "domains/resolve/route.ts": "maps a public hostname to the site it serves",
   "v2/search/route.ts": "public search over published products",
   "website-builder/search/route.ts": "public search inside a published site",

@@ -49,6 +49,13 @@ const BUILT_IN_ART: Record<string, React.ReactNode> = {
       <path d="M4 9h16M4 14.5h16M10 9v11.5" />
     </>
   ),
+  /* Storelib Reviews: a speech card with a star in it. */
+  "storelib-reviews": (
+    <>
+      <path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-7l-4 3.5v-3.5H5A1.5 1.5 0 0 1 3.5 15V6A1.5 1.5 0 0 1 5 4.5z" />
+      <path d="m12 7.2 1.15 2.33 2.57.37-1.86 1.81.44 2.56L12 13.06l-2.3 1.21.44-2.56-1.86-1.81 2.57-.37z" />
+    </>
+  ),
 }
 
 /** Has a drawing of Storelib's own. */

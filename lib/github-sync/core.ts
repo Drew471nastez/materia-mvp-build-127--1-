@@ -3,13 +3,12 @@
  *  A SITE IN A GITHUB REPOSITORY, THE PARTS THAT NEED NO NETWORK
  * ===========================================================================
  * A creator links one site to one repository. Storelib writes the whole
- * theme into it, laid out as "Export theme" lays it out: a Storelib theme's
- * settings, pages, header and footer groups, sections and blocks; an imported
- * Shopify theme in Shopify's own folders. AGENTS.md and CLAUDE.md tell Claude
- * Code or Codex what the files are. From then on, a push to the linked branch
- * is taken into the site as drafts (lib/github-sync/apply.ts), each kind of
- * file through the same checks the builder's own save runs, and an open
- * builder shows it within seconds.
+ * theme into it (./layout.ts says what goes where), with an AGENTS.md and a
+ * CLAUDE.md that tell Claude Code or Codex what the files are. From then on,
+ * every push to the linked branch is read back file by file: sections,
+ * blocks, settings, pages and an imported theme's own files are checked and
+ * saved into the site as a draft, and an open builder shows it within
+ * seconds.
  *
  * This file is everything about that which can be decided without talking to
  * GitHub or the database: checking a webhook's signature, signing the state
@@ -17,40 +16,19 @@
  * changed, where a file lives in the repository, and what gets exported.
  * It imports nothing from Next, so tests/github-sync.test.ts runs it as is.
  */
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto"
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto"
 /* The one rulebook, so a repository's agents read what the builder and MCP agents read. Pure text, no Next. */
 import { RULEBOOK_VERSION, ruleGroupsMarkdown } from "@/lib/agent-rules"
 
-/** A section file: the one kind a connected agent writes, and the kind every push took before the whole theme travelled. */
+/** The one kind of file a push can change on a site. Same rule as a connected agent. */
 export const SYNCED = /^sections\/[a-z0-9_-]{1,64}\.storelib$/
 
-/** A theme block file. */
-export const BLOCK_FILE = /^blocks\/_?[a-z0-9][a-z0-9_-]{0,63}\.storelib$/
-
-/** A Storelib theme's data, as the theme package writes it: each page, the header, footer and overlay groups, the settings. */
-export const STORELIB_DATA = /^(?:templates\/[A-Za-z0-9_.-]{1,80}\.json|sections\/(?:header|footer|overlay)-group\.json|config\/settings\.json)$/
-
-/** An imported Shopify theme's own files, in its own folders, as its export writes them. */
-export const SHOPIFY_FILE =
-  /^(?:(?:layout|sections|blocks|snippets)\/[A-Za-z0-9_][A-Za-z0-9_.-]{0,100}\.liquid|(?:assets|locales)\/[A-Za-z0-9_][A-Za-z0-9_.@ ()+-]{0,120}|config\/settings_(?:schema|data)\.json|templates\/(?:customers\/)?[A-Za-z0-9_.-]{1,80}\.json|sections\/[A-Za-z0-9_-]{1,80}-group\.json)$/
-
-/** Every file the repository holds for its site: what is written there and what a push brings back. */
-export function tracked(path: string): boolean {
-  return SYNCED.test(path) || BLOCK_FILE.test(path) || STORELIB_DATA.test(path) || SHOPIFY_FILE.test(path)
-}
-
-/** The files a site of this kind reads back from its repository. */
-export function trackedFor(kind: "storelib" | "shopify", path: string): boolean {
-  return kind === "shopify" ? SHOPIFY_FILE.test(path) : SYNCED.test(path) || BLOCK_FILE.test(path) || STORELIB_DATA.test(path)
-}
-
-/** A file as people call it: "faq" for sections/faq.storelib, "about" for templates/about.json. */
-export function fileName(path: string): string {
-  return (path.split("/").pop() ?? path).replace(/\.(storelib|liquid|json)$/, "")
-}
-
-/** Files one push may change on a site. A whole theme pushed at once is Pull from GitHub's job. */
-export const MAX_FILES_PER_PUSH = 60
+/**
+ * Files one push brings in, at most. An agent restyling a whole theme
+ * touches a few hundred; past this the push is reported and Pull from
+ * GitHub, which picks up where it stopped, finishes it.
+ */
+export const MAX_FILES_PER_PUSH = 400
 
 /** How long the link in "Connect GitHub" stays good for. */
 export const STATE_TTL_MS = 15 * 60 * 1000
@@ -134,11 +112,11 @@ export function repoPathFor(root: string, themePath: string): string {
   return `${root}${themePath}`
 }
 
-/** A repository path as a theme path the site will accept, or null. */
-export function themePathFor(root: string, repoPath: string): string | null {
+/** A repository path as a theme path the site will accept, or null. `accept` widens it past section files. */
+export function themePathFor(root: string, repoPath: string, accept: (themePath: string) => boolean = (p) => SYNCED.test(p)): string | null {
   if (!repoPath.startsWith(root)) return null
   const rest = repoPath.slice(root.length)
-  return tracked(rest) ? rest : null
+  return accept(rest) ? rest : null
 }
 
 /** A branch name GitHub would accept, and nothing that reads as a path trick. */
@@ -164,6 +142,8 @@ export function validRepoName(name: unknown): name is string {
 
 export interface PushCommit {
   message?: string
+  /** When the commit was made, as GitHub reports it. */
+  timestamp?: string
   added?: string[]
   modified?: string[]
   removed?: string[]
@@ -205,15 +185,15 @@ export function isOwnPush(payload: PushPayload, appSlug: string | undefined): bo
  * reported, not applied: a section a page uses is never deleted from under
  * it by a push.
  */
-export function changedFiles(commits: PushCommit[], root: string): { changed: string[]; removed: string[] } {
+export function changedFiles(commits: PushCommit[], root: string, accept?: (themePath: string) => boolean): { changed: string[]; removed: string[] } {
   const state = new Map<string, "changed" | "removed">()
   for (const c of commits) {
     for (const p of [...(c.added ?? []), ...(c.modified ?? [])]) {
-      const t = themePathFor(root, p)
+      const t = themePathFor(root, p, accept)
       if (t) state.set(t, "changed")
     }
     for (const p of c.removed ?? []) {
-      const t = themePathFor(root, p)
+      const t = themePathFor(root, p, accept)
       if (t) state.set(t, "removed")
     }
   }
@@ -227,15 +207,15 @@ export function changedFiles(commits: PushCommit[], root: string): { changed: st
  * The same, from GitHub's compare API, which lists every file however many
  * commits a push has (a push's own list stops at twenty).
  */
-export function changedFromCompare(files: { filename?: string; status?: string; previous_filename?: string }[], root: string) {
+export function changedFromCompare(files: { filename?: string; status?: string; previous_filename?: string }[], root: string, accept?: (themePath: string) => boolean) {
   const changed: string[] = []
   const removed: string[] = []
   for (const f of files) {
     if (f.status === "renamed" && f.previous_filename) {
-      const old = themePathFor(root, f.previous_filename)
+      const old = themePathFor(root, f.previous_filename, accept)
       if (old) removed.push(old)
     }
-    const t = themePathFor(root, f.filename ?? "")
+    const t = themePathFor(root, f.filename ?? "", accept)
     if (!t) continue
     if (f.status === "removed") removed.push(t)
     else changed.push(t)
@@ -262,90 +242,59 @@ export function pushedBy(payload: PushPayload): string {
  * and most others read AGENTS.md; CLAUDE.md imports AGENTS.md so there is
  * one text to keep right.
  */
-/** The guide for an imported Shopify theme's repository: its own folders, and what comes back. */
-export function shopifyGuide(opts: { siteName: string; branch: string; root: string }): string {
+export function agentsGuide(opts: { siteName: string; branch: string; root: string; kind?: "storelib" | "shopify" }): string {
+  const where = opts.root ? `\`${opts.root}\`` : "this repository"
+  const shopify = opts.kind === "shopify"
   return `# ${opts.siteName} on Storelib
 
-This repository is linked to a Storelib site built from an imported Shopify
-theme, and holds that theme in Shopify's own folders: \`layout/\`,
-\`sections/\`, \`blocks/\`, \`snippets/\`, \`templates/\`, \`config/\`,
-\`locales/\` and the text files of \`assets/\`. Pictures stay on Storelib.
+${where === "this repository" ? "This repository" : `The folder ${where}`} is a Storelib website${shopify ? " imported from a Shopify theme" : ""},
+the whole theme: settings, pages, sections, blocks${shopify ? ", snippets, layout and the theme's own files under \`shopify/\`" : ""}.
+README.md says what each folder is and which ones Storelib reads back.
 
 ## How changes reach the site
 
-1. Change a section's, block's, snippet's or layout's Liquid, a stylesheet or
-   script in \`assets/\`, or a locale file.
+1. Change a file, or add one. Sections are \`sections/<type>.storelib\`
+   (lower case, digits, \`_\` and \`-\`). A page's sections and their
+   settings are \`templates/<page>.json\`; the header and footer, once for
+   every page, are \`sections/header-group.json\` and
+   \`sections/footer-group.json\`; the theme's settings are
+   \`config/settings.json\`.
 2. Commit and push to \`${opts.branch}\`.
-3. Storelib takes each changed file into the site as a draft and checks its
-   Liquid the way the builder does. A builder that is open shows it within a
-   few seconds.
-4. The commit gets a status named "Storelib": green when every file went in,
-   red with the first problem when one did not.
+3. Storelib reads every changed file and saves it to the site as a draft. A
+   builder that is open shows it within a few seconds.
+4. The commit gets a status named "Storelib", and when a file was not taken
+   a comment on the commit lists each one with its line and what to fix. The
+   other files in the same push are still taken. Fix the file and push again.
 5. Nothing is live until the creator presses Publish in the builder.
 
-A section's \`{% schema %}\` is the theme's import: change the markup, not
-the settings, or import the theme again to change those. The pages
-(\`templates/*.json\`) and the theme settings (\`config/settings_data.json\`)
-are here to read; they are edited in the builder. A new section comes in with
-a fresh import of the theme.
-`
-}
-
-export function agentsGuide(opts: { siteName: string; branch: string; root: string }): string {
-  const where = opts.root ? `\`${opts.root}sections/\`` : "`sections/`"
-  return `# ${opts.siteName} on Storelib
-
-This repository is linked to a Storelib site and holds its whole theme, laid
-out as Storelib's "Export theme" lays it out:
-
-- ${where}: one file per section, written in the Storelib Builder Framework.
-- \`blocks/\`: the theme blocks sections hold.
-- \`templates/<page>.json\`: each page, its sections in order with their
-  settings and blocks.
-- \`sections/header-group.json\` and \`sections/footer-group.json\`: the
-  header and footer every page shares.
-- \`config/settings.json\`: the theme settings (colour schemes, type, layout,
-  menus).
-
-## How changes reach the site
-
-1. Change or add a file: a section, a block, a page, a group or the settings.
-   A new section is named \`sections/<type>.storelib\` (lower case, digits,
-   \`_\` and \`-\`).
-2. Commit and push to \`${opts.branch}\`.
-3. Storelib takes every changed file into the site as a draft, through the
-   same checks the builder's own save runs: a section or block is compiled, a
-   page or the settings are cleaned and held to the page limits. A builder
-   that is open shows it within a few seconds.
-4. The commit gets a status named "Storelib": green when every file went in,
-   red with the first error when one did not. A file that fails is not saved;
-   fix it and push again.
-5. Nothing is live until the creator presses Publish in the builder.
-
-A built-in section is never changed from here. Keep every section and block
-\`id\` in a page file as it is: the id is how the creator's content stays with
-its section. Other files in this repository are yours and Storelib ignores
-them. Deleting a section file here does not remove the section from the site,
-because a page may be using it, and deleting a page file does not delete the
-page.
+${shopify
+    ? "Every section here is the theme's own; change it in place. Keep the `<template compat=\"shopify\">` line and the schema block as they are."
+    : "A built-in section (one Storelib ships, such as `sections/hero.storelib`) can be edited in place here. Storelib keeps your version as this site's own copy, draws it on this site only, and the creator can reset it to Storelib's version. `sections/header.storelib` and `sections/footer.storelib` cannot be replaced; a header of your own is a new section with `\"kind\": \"header\"`."}
+README.md, AGENTS.md, CLAUDE.md and storelib.json are rewritten by Storelib,
+so a change to them is not kept. Deleting a section file here does not remove
+the section from the site, because a page may be using it. Files outside the
+theme's folders are yours and Storelib ignores them.
 
 ## Read the rules before you write anything
 
 https://storelib.com/developers/rules is what every agent follows on a
 Storelib site. The short version:
 
-- You write \`sections/<type>.storelib\` files only. The built-in sections
-  Storelib ships are in this repository to read; a change to one is refused on
-  the commit. To change how one works, add a NEW section beside it with its
-  own name, and the creator puts it on the page.
 - Every word, picture, link and button a visitor sees is a setting or a block
   in the schema, so the creator can edit it: a \`url\` setting for every link
   and button, one block per menu link, an \`image_picker\` for every picture.
+- To add something new, add a NEW section beside the others with its own
+  name, and put it on the page in \`templates/<page>.json\`.
 - A page copied from a screenshot is split into one section per part of it
   (header, hero, features, footer...), each with its full schema.
 - Menus, sheets and dialogs open with HTML (\`popover\`, \`<details>\`), work
   at 375px wide with 44px targets, and stop moving under reduced motion.
+- Keep every setting id in a file you change, so the creator's content stays.
 - No generic AI styling and no AI-sounding copy.
+
+The full rulebook at the end of this file says built-in sections are
+read-only. That is for agents connected over MCP; in this repository editing
+one in place is allowed, as above.
 
 ## How to work
 
@@ -367,7 +316,12 @@ same way.
 
 The full reference is at https://storelib.com/developers, and all of it as one
 text file is at https://storelib.com/llms-full.txt. Read it before writing.
-The rules that are refused most often:
+${shopify ? `This theme's own sections are Shopify Liquid inside \`<template compat="shopify">\`,
+drawn by Storelib's Liquid engine: what it supports is at
+https://storelib.com/developers/imported-shopify-themes. A new section here is
+written the same way: start from a copy of one of the theme's own section
+files. The Storelib format below is for Storelib themes.
+` : ""}The rules that are refused most often:
 
 - A section file has \`<template>\`, \`<style scoped>\`, \`<schema>\` and an
   optional \`<script>\`. The template language is \`{{ }}\`, \`{% if %}\`,
@@ -427,25 +381,6 @@ anything.
 @AGENTS.md
 `
 
-/**
- * Every file an export writes: the site's theme files, as the builder would
- * open them (lib/github-sync/snapshot.ts), and the two guides. Paths are
- * repository paths.
- */
-export function exportPlan(
-  files: { path: string; source: string }[],
-  opts: { siteName: string; branch: string; root: string; kind?: "storelib" | "shopify" },
-): { path: string; content: string }[] {
-  const out: { path: string; content: string }[] = []
-  for (const s of files) {
-    if (tracked(s.path)) out.push({ path: repoPathFor(opts.root, s.path), content: s.source })
-  }
-  out.sort((a, b) => a.path.localeCompare(b.path))
-  out.push({ path: `${opts.root}AGENTS.md`, content: opts.kind === "shopify" ? shopifyGuide(opts) : agentsGuide(opts) })
-  out.push({ path: `${opts.root}CLAUDE.md`, content: CLAUDE_MD })
-  return out
-}
-
 /* ── a change made in the builder, as the repository sees it ────────────── */
 
 export type BuilderChange =
@@ -455,36 +390,25 @@ export type BuilderChange =
 
 export type RepoChange = { path: string; content: string } | { path: string; delete: true }
 
-/** A Storelib section or block file, which sits at the same path in the builder and in the repository. */
-export function codeFile(path: string): boolean {
-  return SYNCED.test(path) || BLOCK_FILE.test(path)
-}
-
 /**
- * The changes, as the repository sees them: a section or block file at its
- * own path. Anything else a builder saves (an imported theme's files, which
- * live in the repository under Shopify's names) goes as a whole-theme export
- * instead (mirrorToGitHub), so this returns nothing for it.
+ * The changes, as the repository sees them. Section files by default; the
+ * mirror widens it to every theme file the repository holds (./layout.ts),
+ * never to pages or settings, which are written from the builder's own
+ * tables on Push and Publish.
  */
-export function changesFor(root: string, change: BuilderChange): RepoChange[] {
+export function changesFor(root: string, change: BuilderChange, accept: (path: string) => boolean = (p) => SYNCED.test(p)): RepoChange[] {
   const out: RepoChange[] = []
-  if (change.kind === "save" && codeFile(change.path)) out.push({ path: repoPathFor(root, change.path), content: change.content })
-  if (change.kind === "delete" && codeFile(change.path)) out.push({ path: repoPathFor(root, change.path), delete: true })
+  if (change.kind === "save" && accept(change.path)) out.push({ path: repoPathFor(root, change.path), content: change.content })
+  if (change.kind === "delete" && accept(change.path)) out.push({ path: repoPathFor(root, change.path), delete: true })
   if (change.kind === "rename") {
-    if (codeFile(change.from)) out.push({ path: repoPathFor(root, change.from), delete: true })
-    if (codeFile(change.to)) out.push({ path: repoPathFor(root, change.to), content: change.content })
+    if (accept(change.from)) out.push({ path: repoPathFor(root, change.from), delete: true })
+    if (accept(change.to)) out.push({ path: repoPathFor(root, change.to), content: change.content })
   }
   return out
 }
 
-/** The id Git gives a file's bytes, so a file GitHub already has the same as the site is never fetched. */
-export function gitBlobSha(content: string): string {
-  const body = Buffer.from(content, "utf8")
-  return createHash("sha1").update(`blob ${body.length}\0`).update(body).digest("hex")
-}
-
 export function describeChange(change: BuilderChange): string {
-  const name = (p: string) => p.replace(/^(sections|blocks)\//, "").replace(/\.storelib$/, "")
+  const name = (p: string) => p.replace(/^(sections|blocks|snippets|layout)\//, "").replace(/\.storelib$/, "")
   if (change.kind === "save") return `Saved ${name(change.path)} in the builder`
   if (change.kind === "delete") return `Deleted ${name(change.path)} in the builder`
   return `Renamed ${name(change.from)} to ${name(change.to)} in the builder`

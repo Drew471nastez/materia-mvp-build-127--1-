@@ -234,6 +234,15 @@ async function main() {
     const o = (c.orders as Record<string, unknown>[])[0]
     check("customer as a theme reads it: names, orders in cents, labels, addresses", c.first_name === "Ana" && c.last_name === "Pop" && c.orders_count === 1 && o.name === "#3F2A9C1B" && o.total_price === 9300 && o.financial_status === "paid" && o.fulfillment_status === "fulfilled" && c.addresses_count === 1 && (c.default_address as Record<string, unknown>).address1 === "1 Main St")
     check("a customer with no name is called by their email", themeCustomer({ ...ANA, name: "", first_name: "" }).name === "ana@mail.test")
+    /* Something that ships: its order page on this site, Shopify's fulfilment words, and the parcel on each line item. */
+    const shipping: StorelibCustomer = { ...ANA, orders: [{ ...ANA.orders[0], status: "Partly shipped", fulfillment_status: "partially_fulfilled", order_url: "/checkout/physical/order/co-tok", action_url: "/checkout/physical/order/co-tok", tracking: [{ company: "Royal Mail", number: "AB123456789GB", url: "https://www.royalmail.com/track-your-item#/tracking-results/AB123456789GB", status: "In transit" }] }] }
+    const so = (themeCustomer(shipping).orders as Record<string, any>[])[0]
+    check("a part-shipped order is Shopify's partial, opening its order page on this site", so.fulfillment_status === "partial" && so.customer_url === "/checkout/physical/order/co-tok" && so.fulfillment_status_label === "Partly shipped" && so.cancelled === false)
+    check("  each line item carries the parcel: company, number and link", so.line_items[0].fulfillment?.tracking_company === "Royal Mail" && so.line_items[0].fulfillment?.tracking_number === "AB123456789GB" && /royalmail\.com/.test(so.line_items[0].fulfillment?.tracking_url))
+    const cancelledOrder = (themeCustomer({ ...ANA, orders: [{ ...ANA.orders[0], status: "Cancelled", fulfillment_status: "cancelled" }] }).orders as Record<string, any>[])[0]
+    check("  a cancelled order says cancelled and is not fulfilled", cancelledOrder.cancelled === true && cancelledOrder.fulfillment_status === "unfulfilled")
+    const page = body(await call(plain, "GET", "/account", { account: { customer: shipping } }))
+    check("  Storelib's account in the theme lists the parcel, linked to the carrier", /<ul class="sl-acc__track"><li><strong>In transit<\/strong> <a class="sl-acc__link" href="https:\/\/www\.royalmail\.com[^"]*" target="_blank" rel="noopener">Royal Mail AB123456789GB<\/a>/.test(page))
     check("withoutPasswordFields leaves every other field", withoutPasswordFields(`<input type="email" name="e"><p class="field"><input type='password' id=pw><label for="pw">Pw</label></p><button>Go</button>`) === `<input type="email" name="e"><button>Go</button>`)
     const errs = { __list__: ["form"], messages: { form: "Nope." } }
     check("default_errors reads messages by field", String(compatFilter("default_errors")!(errs, [], {}, undefined as never)).includes("<li>Nope.</li>"))

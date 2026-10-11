@@ -46,7 +46,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import type { StorefrontGlobals } from "@/lib/storelib-theme/globals"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
-export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password"
+export type AccountPageKey = "account" | "login" | "wishlist" | "contact" | "password" | "reviews"
 
 /** Whether any section on the page asked to show the store's support email. */
 function wantsEmail(sections: SectionInstance[]): boolean {
@@ -83,7 +83,7 @@ export async function renderAccountPage(
 ) {
   const found = await publishedShopByName(username)
   /* Renamed for good: the same page at the new name, permanently (308), as every other page of a website. */
-  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}${ACCOUNT_PAGE_PATHS[key] ?? "/"}`)
+  if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}${key === "reviews" ? "/reviews" : (ACCOUNT_PAGE_PATHS[key] ?? "/")}`)
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
@@ -130,7 +130,7 @@ export async function renderAccountPage(
       {/* The contact page and the wishlist are pages of the website like any
           other, and a visit to either counts in Analytics, with its path. The
           account pages (sign in, orders, profile) are private. */}
-      {(key === "contact" || key === "wishlist") && <TrackView type="store" creatorId={site.creatorId} />}
+      {(key === "contact" || key === "wishlist" || key === "reviews") && <TrackView type="store" creatorId={site.creatorId} />}
       <StoreTracking creatorId={site.creatorId} />
       <SiteVitals installId={site.installId} />
     </StorelibSourcesProvider>

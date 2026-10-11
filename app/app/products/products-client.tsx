@@ -29,6 +29,7 @@ import { useLanguage } from "@/lib/i18n"
 import { STORELIB_LOGO, STORELIB_LOGO_SHADOW, storelibAssetUrl } from "@/lib/brand/logo"
 import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/images/optimized-url"
 import { archiveProduct, isArchivedProduct as isArchived, restoreProduct } from "@/lib/products/archive"
+import { pressMark } from "@/lib/press-mark"
 
 interface Product {
   id: string
@@ -1510,7 +1511,7 @@ const PhoneRow = memo(function PhoneRow({
       data-row={product.id}
       hidden={hidden}
       data-opening={opening ? "" : undefined}
-      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] has-[a[data-row-link]:active]:bg-[#eef0f2] data-[opening]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
+      className="relative flex h-16 items-center gap-3 px-3 [content-visibility:auto] data-[pressed]:bg-[#eef0f2] data-[opening]:bg-[#eef0f2] [li:not([hidden])~&]:before:absolute [li:not([hidden])~&]:before:left-[74px] [li:not([hidden])~&]:before:right-0 [li:not([hidden])~&]:before:top-0 [li:not([hidden])~&]:before:h-px [li:not([hidden])~&]:before:bg-[#eceef1]"
     >
       <Link
         href={href}
@@ -1522,6 +1523,7 @@ const PhoneRow = memo(function PhoneRow({
         onMouseLeave={() => api.current?.leave()}
         onPointerDown={() => api.current?.warm(product.id)}
         onFocus={() => api.current?.warm(product.id)}
+        {...pressMark}
         className="absolute inset-0 z-0 outline-none focus-visible:shadow-[inset_0_0_0_2px_#1a1a2e]"
       />
       <Thumb src={product.thumbnail_url} title={product.title} size="phone" />

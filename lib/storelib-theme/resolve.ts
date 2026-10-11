@@ -296,12 +296,18 @@ function productRef(v: string, opts: ResolveOptions): unknown {
     if (!page) return ""
     const full = lookupIn(opts.catalog).get(page.id) ?? (typeof page.settings.url === "string" ? lookupIn(opts.catalog).get(page.settings.url) : undefined)
     const item = full ? { ...full, settings: { ...page.settings, ...full.settings } } : page
-    return new Linked(safeHref(typeof item.settings.url === "string" ? item.settings.url : "#"), { id: item.id, ...item.settings })
+    return new Linked(safeHref(typeof item.settings.url === "string" ? item.settings.url : "#"), { id: item.id, ...item.settings, ...ratingOf(item) })
   }
   const item = lookupIn(opts.catalog).get(key)
   if (!item) return safeHref(key)
   const href = safeHref(typeof item.settings.url === "string" ? item.settings.url : key)
-  return new Linked(href, { id: item.id, ...item.settings })
+  return new Linked(href, { id: item.id, ...item.settings, ...ratingOf(item) })
+}
+
+/** Storelib Reviews' rating, which a card carries beside its settings (lib/website-builder/shop-products.ts withRatings). */
+function ratingOf(item: unknown): { rating?: unknown } {
+  const r = (item as { rating?: unknown } | null)?.rating
+  return r && typeof r === "object" ? { rating: r } : {}
 }
 
 /**

@@ -5,7 +5,7 @@
  *
  *   npx tsx tests/storelib-theme.test.ts
  */
-import { themeSourcesModule } from "../scripts/emit-theme-sources"
+import { sectionTypesModule, themeSourcesModule } from "../scripts/emit-theme-sources"
 import { readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
 
@@ -91,6 +91,12 @@ check("every example validates against its own type", CONTROL_TYPES.every((t) =>
   try { onDisk = read("themes/default/sources.generated.ts") } catch { /* not emitted yet */ }
   check("themes/default/sources.generated.ts is what scripts/emit-theme-sources.ts would write", onDisk === themeSourcesModule())
   check("the generated module carries the hero", onDisk.includes('"sections/hero.storelib"'))
+  /* The names alone, for the registry a visitor's browser loads: the same list, and never the sources (the engine audit, S1). */
+  let types = ""
+  try { types = read("themes/default/section-types.generated.ts") } catch { /* not emitted yet */ }
+  check("themes/default/section-types.generated.ts is what scripts/emit-theme-sources.ts would write", types === sectionTypesModule() && types.includes('"hero"'))
+  const registry = read("components/website-builder/sections/registry.ts")
+  check("the section registry takes the names from the light list, not from the schemas module", /from "@\/themes\/default\/section-types\.generated"/.test(registry) && !/from "@\/lib\/website-builder\/storelib-schemas"/.test(registry))
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

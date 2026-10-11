@@ -60,6 +60,22 @@ const REVIEW_COLUMNS = new Set([
   "edited_at",
   "seller_reply",
   "seller_reply_at",
+  /*
+    Added by run-now part 134 (Storelib Reviews): a title, photos, featured,
+    verified, where it came from, who hid it, when it was published, and
+    site_status (the store's say over its own website only). The
+    app's reads ask again without them when the part has not run
+    (lib/reviews/storefront-server, app/app/reviews/load-reviews), and its
+    writes answer that the part is needed.
+  */
+  "title",
+  "photos",
+  "featured",
+  "site_status",
+  "verified",
+  "source",
+  "hidden_by",
+  "published_at",
 ])
 
 const SKIP = new Set(["node_modules", ".next", ".git", "ios", "android", "public", "tests"])

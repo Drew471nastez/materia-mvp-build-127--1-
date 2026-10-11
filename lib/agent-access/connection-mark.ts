@@ -283,6 +283,9 @@ export function describeChange(event: ActivityEvent, nameOf: (type: string) => s
   }
   if (!type) {
     if (/settings/i.test(event.path)) return "Theme settings changed"
+    /* A page's template from a GitHub push (lib/github-sync/sync.ts). */
+    const template = /^templates\/([A-Za-z0-9_.-]+)\.json$/.exec(event.path)?.[1]
+    if (template) return event.action === "created" ? `New page: ${titleFromType(template)}` : `${template === "home" ? "Home page" : titleFromType(template)} changed`
     return `${event.path} changed`
   }
   const name = (nameOf(type) ?? titleFromType(type)).trim()

@@ -202,6 +202,11 @@ export async function productStructuredData(slug: string, site: { url: string; s
   const product = await fetchProductBySlug(slug, site.creatorId)
   if (!product) return null
   const images = [product.thumbnail_url, ...(product.gallery_urls ?? [])].filter((u): u is string => typeof u === "string" && /^https?:\/\//.test(u))
+  /* Storelib Reviews: the rating and reviews the page shows, only while the app shows them on this website. */
+  const reviews = site.creatorId
+    ? await import("@/lib/reviews/storefront-server").then((m) => m.storefrontReviews(site.creatorId!, { id: product.id, title: product.title ?? null })).catch(() => null)
+    : null
+  const own = reviews?.enabled ? reviews.product : null
   return jsonLdScript(
     productJsonLd({
       url: site.url,
@@ -212,6 +217,7 @@ export async function productStructuredData(slug: string, site: { url: string; s
       /* Sold out when its stock is counted and none is left: the shop's own rule. */
       inStock: !soldOut(product),
       seller: site.seller,
+      rating: own && own.summary.count > 0 ? { average: own.summary.average, count: own.summary.count, reviews: own.items.map((r) => ({ author: r.author, rating: r.rating, body: r.body, title: r.title, date: r.iso })) } : null,
     }),
   )
 }

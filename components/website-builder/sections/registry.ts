@@ -30,7 +30,16 @@ import { ProductSection } from "./renderers/ProductSection"
 // scripts/check-storelib-hero.mjs measures the engine's output against, and
 // leaves with the next section that moves.
 import { StorelibSection } from "./StorelibSection"
-import { STORELIB_SECTION_TYPES } from "@/lib/website-builder/storelib-schemas"
+/*
+  THE NAMES, NOT THE FILES. This imported STORELIB_SECTION_TYPES from
+  lib/website-builder/storelib-schemas, which reads every section's schema
+  when it loads: every visitor of every published website downloaded the
+  theme's sources, the schema parser, its validator and postcss (1.3MB, 288KB
+  gzipped, in the production build's site chunk) and parsed fifty-three
+  schemas before the page could answer a tap. The generated list is the same
+  names (tests/storelib-theme.test.ts) and nothing else.
+*/
+import { DEFAULT_STORELIB_SECTION_TYPES as STORELIB_SECTION_TYPES } from "@/themes/default/section-types.generated"
 import { RichTextSection } from "./renderers/RichTextSection"
 import { ImageBannerSection } from "./renderers/ImageBannerSection"
 import { ImageSection } from "./renderers/ImageSection"

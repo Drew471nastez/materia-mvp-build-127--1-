@@ -8,6 +8,8 @@ import { createClient } from "@/lib/supabase/server"
 import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
 import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
+import { timed } from "@/lib/perf/server-timing"
+import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib-reviews"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -80,7 +82,7 @@ async function getCreatorInstall(installId: string) {
 
 // GET /api/website-builder/themes/[installId]/files?path=templates/home.json
 // Returns file content — custom override if it exists, else default
-export async function GET(req: Request, { params }: Params) {
+async function handleGET(req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, install } = await getCreatorInstall(installId)
   if (error || !supabase || !install) return NextResponse.json({ error }, { status })
@@ -139,7 +141,8 @@ export async function GET(req: Request, { params }: Params) {
       ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (data ?? [])
     const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
-    return NextResponse.json({ files })
+    /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
+    return NextResponse.json({ files: withStorelibReviewsSection(files) })
   }
 
   // List all custom files if no path
@@ -382,3 +385,6 @@ export async function PATCH(req: Request, { params }: Params) {
   after(() => mirrorToGitHub(installId, { kind: "rename", from, to, content: source }))
   return NextResponse.json({ ok: true, path: to })
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const GET = timed("builder", "/api/website-builder/themes/:id/files", handleGET)

@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils"
 import { getStripePromise, resetStripePromise } from "./stripe-loader"
 import { METHOD_SETS, type CheckoutMethod } from "@/lib/checkout/payment-methods"
 import { CHECKOUT_CURRENCY, FIELD_SHADOW, OrDivider, PayButton, SectionTitle, TextInput, PayDock } from "./ui"
+import { perfFail, perfStep, sinceScreenStart, timedStep } from "@/lib/perf/mark"
 
 /** A phone's own keyboard zooms into any field set under 16px. */
 function touchScreen(): boolean {
@@ -93,6 +94,16 @@ export function paymentErrorText(error: Pick<StripeError, "type" | "message"> | 
   if (!error) return "The payment did not go through. Nothing was charged."
   if (error.type === "card_error" || error.type === "validation_error") return error.message || "Check the card details and try again."
   return "The payment did not go through. Nothing was charged. Try again."
+}
+
+/**
+ * A confirm Stripe answered with an error that is not the buyer's card or
+ * their typing: a reliability failure for /admin/performance (lib/perf/mark).
+ * A declined card is the bank's answer, not a fault, and is not counted.
+ */
+function noteConfirm(t0: number, error: Pick<StripeError, "type"> | null | undefined) {
+  if (!error) perfStep("/step/checkout/confirm", performance.now() - t0)
+  else if (error.type !== "card_error" && error.type !== "validation_error") perfFail("/step/checkout/confirm", error.type)
 }
 
 /** A request that never reached the server reads as the connection, not as a refusal. */
@@ -264,6 +275,14 @@ function StripePayInner({
     const t = window.setTimeout(() => setFailed(true), LOAD_PATIENCE_MS)
     return () => window.clearTimeout(t)
   }, [paymentReady])
+  /* How long the payment form took to be ready from the screen opening, or that it never was (lib/perf/mark). Once per form. */
+  const noted = React.useRef(false)
+  React.useEffect(() => {
+    if (noted.current || (!paymentReady && !failed)) return
+    noted.current = true
+    if (paymentReady) perfStep("/step/checkout/ready", sinceScreenStart())
+    else perfFail("/step/checkout/ready", online ? "load" : "offline")
+  }, [paymentReady, failed, online])
   /* Coming back online with a form that never drew: try once more, unasked. */
   const wasOnline = React.useRef(online)
   React.useEffect(() => {
@@ -284,7 +303,8 @@ function StripePayInner({
         onError(paymentErrorText(submitError))
         return
       }
-      const intent = await createIntent(undefined, methods)
+      const intent = await timedStep("/step/checkout/intent", () => createIntent(undefined, methods))
+      const t0 = performance.now()
       if (intent.type === "setup") {
         /* A free trial: the card is saved, nothing is charged today. */
         const { error, setupIntent } = await stripe.confirmSetup({
@@ -296,6 +316,7 @@ function StripePayInner({
           },
           redirect: "if_required",
         })
+        noteConfirm(t0, error)
         if (error) {
           onError(paymentErrorText(error))
           return
@@ -312,6 +333,7 @@ function StripePayInner({
         },
         redirect: "if_required",
       })
+      noteConfirm(t0, error)
       if (error) {
         onError(paymentErrorText(error))
         return
@@ -385,11 +407,13 @@ function StripePayInner({
                   const walletEmail = e.billingDetails?.email || email
                   const walletName = e.billingDetails?.name || payerName()
                   if (walletEmail && walletEmail !== email) onEmail(walletEmail)
-                  const intent = await createIntent({ email: walletEmail, name: walletName }, methods)
+                  const intent = await timedStep("/step/checkout/intent", () => createIntent({ email: walletEmail, name: walletName }, methods))
+                  const t0 = performance.now()
                   const confirmed =
                     intent.type === "setup"
                       ? await stripe.confirmSetup({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
                       : await stripe.confirmPayment({ elements, clientSecret: intent.clientSecret, confirmParams: { return_url: returnUrl() }, redirect: "if_required" })
+                  noteConfirm(t0, confirmed.error)
                   if (confirmed.error) {
                     e.paymentFailed({ reason: "fail" })
                     onError(paymentErrorText(confirmed.error))

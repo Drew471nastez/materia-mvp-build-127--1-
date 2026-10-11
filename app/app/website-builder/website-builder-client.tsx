@@ -91,6 +91,7 @@ import { ThemeCover, coverSpecFromDefinition } from "@/components/website-builde
 import { relativeTime } from "@/lib/website-builder/relative-time"
 import { type Cover, coverBeingWatched, latestCover, requestCover, savedAt, seedCover, watchCover } from "@/lib/website-builder/cover-refresh"
 import { decodeCover, isDecoded, rememberCover, shownCover } from "@/lib/website-builder/cover-memory"
+import { fetchWithin } from "@/lib/website-builder/load-guard"
 import { HelpLabel } from "@/components/app/help-label"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { LIBRARY_FULL_CODE, LIBRARY_RULE, LIBRARY_RULE_TITLE } from "@/lib/website-builder/library-limit"
@@ -308,23 +309,109 @@ function WebsiteCover({ install, eager = false, preparing = false }: { install: 
     const t = window.setTimeout(() => setPrevious(null), COVER_FADE_MS + 60)
     return () => window.clearTimeout(t)
   }, [previous])
+  /*
+    NO PHOTOGRAPH YET IS NOT A GREY BOX FOR AS LONG AS ONE TAKES. The big
+    card shows the page itself, small, from the same page the photograph is
+    taken of (LiveMiniature), as soon as it has drawn: the site's name on
+    grey fades off it. The photograph, when it lands, fades in over it as
+    any new cover does, and the small page goes once it is covered. A
+    photograph that could not be taken leaves the small page where it is.
+  */
+  /* A picture whose file cannot be fetched is no picture either. */
+  const [broken, setBroken] = React.useState<string | null>(null)
+  const wantsMini = eager && (!face.url || broken === face.url)
+  const [miniMounted, setMiniMounted] = React.useState(wantsMini)
+  const [miniShown, setMiniShown] = React.useState(false)
+  React.useEffect(() => {
+    if (wantsMini) {
+      setMiniMounted(true)
+      return
+    }
+    const t = window.setTimeout(() => setMiniMounted(false), COVER_FADE_MS + 120)
+    return () => window.clearTimeout(t)
+  }, [wantsMini])
   const keyOf = (f: Face) => f.url ?? `pending:${install.id}`
   const draw = (f: Face) =>
-    f.url ? <CoverPicture installId={install.id} url={f.url} eager={eager} /> : <PendingCover name={install.name} preparing={preparing} />
+    f.url ? <CoverPicture installId={install.id} url={f.url} eager={eager} onBroken={setBroken} /> : <PendingCover name={install.name} preparing={preparing} />
+  /* The name on grey has already faded off the small page: it does not come back under the photograph. */
+  const pendingGone = (f: Face) => !f.url && miniShown
   return (
     <span className="relative block h-full w-full">
-      {previous && (
+      {miniMounted && <LiveMiniature installId={install.id} onShown={() => setMiniShown(true)} />}
+      {previous && !pendingGone(previous) && (
         <span key={keyOf(previous)} aria-hidden className="absolute inset-0">
           {draw(previous)}
         </span>
       )}
-      <span key={keyOf(face)} className={cn("relative block h-full w-full", previous && "wb-cover-in")}>
+      <span
+        key={keyOf(face)}
+        className={cn("relative block h-full w-full", previous && "wb-cover-in")}
+        style={pendingGone(face) ? { opacity: 0, transition: COVER_IN } : undefined}
+      >
         {draw(face)}
       </span>
     </span>
   )
 }
 const COVER_FADE_MS = 420
+
+/**
+ * ===========================================================================
+ *  THE PAGE ITSELF, SMALL, WHILE ITS PHOTOGRAPH IS ON ITS WAY
+ * ===========================================================================
+ * The page the server photographs (/cover-render, or an imported theme's
+ * /api/site-theme/cover), opened with the same two-minute pass for this one
+ * install (the cover route's GET ?render=1, owner only), at a laptop's
+ * width and scaled down to the card. In a sandbox with no origin, taking no
+ * presses, out of the tab order: it is a picture that happens to be live.
+ * Only ever on the one big card, and only while there is no photograph.
+ */
+function LiveMiniature({ installId, onShown }: { installId: string; onShown: () => void }) {
+  const [src, setSrc] = React.useState<string | null>(null)
+  const [width, setWidth] = React.useState(0)
+  const box = React.useRef<HTMLSpanElement | null>(null)
+  const shown = React.useRef(onShown)
+  shown.current = onShown
+  React.useEffect(() => {
+    let live = true
+    void fetchWithin(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover?render=1`, { cache: "no-store" }, 10_000)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { render?: unknown } | null) => {
+        if (live && d && typeof d.render === "string" && d.render.startsWith("/")) setSrc(d.render)
+      })
+      .catch(() => {})
+    return () => {
+      live = false
+    }
+  }, [installId])
+  React.useEffect(() => {
+    const el = box.current
+    if (!el) return
+    const fit = () => setWidth(el.clientWidth)
+    fit()
+    if (typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  return (
+    <span ref={box} aria-hidden data-cover-live="" className="absolute inset-0 overflow-hidden bg-white">
+      {src && width > 0 ? (
+        <iframe
+          src={src}
+          title=""
+          tabIndex={-1}
+          sandbox="allow-scripts"
+          loading="eager"
+          /* Its pictures and fonts a moment after the page itself: then the name over it fades. */
+          onLoad={() => window.setTimeout(() => shown.current(), 250)}
+          className="pointer-events-none absolute left-0 top-0 block origin-top-left border-0 bg-white"
+          style={{ width: 1440, height: 900, transform: `scale(${width / 1440})` }}
+        />
+      ) : null}
+    </span>
+  )
+}
 
 /**
  * The website's picture: the desktop screenshot the server took on the last
@@ -345,7 +432,7 @@ const COVER_FADE_MS = 420
  * the site's name on the plain grey the placeholder row had, breathing while
  * a photograph is on its way (PendingCover).
  */
-function CoverPicture({ installId, url, eager = false }: { installId: string; url: string; eager?: boolean }) {
+function CoverPicture({ installId, url, eager = false, onBroken }: { installId: string; url: string; eager?: boolean; onBroken?: (url: string) => void }) {
   const known = isDecoded(url) || shownCover(installId) === url
   const fade = useCoverFade(known)
   return (
@@ -366,7 +453,10 @@ function CoverPicture({ installId, url, eager = false }: { installId: string; ur
         rememberCover(installId, url)
         fade.onLoad(e)
       }}
-      onError={fade.onLoad}
+      onError={(e) => {
+        fade.onLoad(e)
+        onBroken?.(url)
+      }}
       style={fade.style}
     />
   )

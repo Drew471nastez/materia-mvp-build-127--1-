@@ -32,6 +32,7 @@ import { fieldsFromSubscription, graceEndsAt, grantsAccess, isMembershipSubscrip
 import { MEMBERSHIP_COLUMNS, receiptTokenFor, siteUrl, type Db, type MembershipRow } from "./server"
 import { communityAccessAfterMembership } from "@/lib/communities/server/payment-hooks"
 import { communityCancellationAfterMembership } from "@/lib/communities/server/membership-lifecycle"
+import { defaultDuplicateDeps, originalOf, otherMemberships, settleDuplicate, type DuplicateDeps } from "./duplicates"
 
 export async function retrieveSubscription(id: string): Promise<Stripe.Subscription> {
   return stripe.subscriptions.retrieve(id, { expand: ["default_payment_method", "pending_setup_intent"] })
@@ -45,6 +46,8 @@ async function rowFor(admin: Db, subscriptionId: string): Promise<MembershipRow 
 export interface SyncResult {
   row: MembershipRow | null
   transitions: Transition[]
+  /** This subscription was a second membership of something the buyer already had: cancelled and refunded (./duplicates). The original's id. */
+  duplicateOf?: string
 }
 
 /**
@@ -52,7 +55,7 @@ export interface SyncResult {
  * when the checkout did not get to (a buyer who closed the tab), from what
  * the checkout put on the subscription's metadata.
  */
-export async function syncSubscription(admin: Db, subscriptionId: string, opts: { now?: number; subscription?: Stripe.Subscription } = {}): Promise<SyncResult> {
+export async function syncSubscription(admin: Db, subscriptionId: string, opts: { now?: number; subscription?: Stripe.Subscription; duplicateDeps?: DuplicateDeps } = {}): Promise<SyncResult> {
   const now = opts.now ?? Date.now()
   const sub = opts.subscription ?? (await retrieveSubscription(subscriptionId))
   if (!isMembershipSubscription(sub)) return { row: null, transitions: [] }
@@ -81,13 +84,35 @@ export async function syncSubscription(admin: Db, subscriptionId: string, opts: 
     const { data, error } = await admin.from("memberships").insert(insert).select(MEMBERSHIP_COLUMNS).single()
     if (error) {
       /* Made a moment ago by the other path: theirs is the row, and this is an update of it. */
-      if (error.code === "23505") return syncSubscription(admin, subscriptionId, { now, subscription: sub })
+      if (error.code === "23505") return syncSubscription(admin, subscriptionId, { now, subscription: sub, duplicateDeps: opts.duplicateDeps })
       throw new Error(`membership insert: ${error.code ?? ""} ${error.message ?? ""}`)
     }
     row = data as MembershipRow
   }
 
   const changed = transitions(before, row, now)
+
+  /*
+    A SECOND MEMBERSHIP OF THE SAME THING (./duplicates). A guest is no longer
+    looked up by email before paying, so the second one is settled here, when
+    it gets access: cancelled, refunded, the buyer emailed, and none of a new
+    member's effects. One already settled stays settled. A read that fails
+    lets the membership through, as before this check existed.
+  */
+  const settled = sub.metadata?.duplicate_of
+  if (settled) {
+    if (!grantsAccess(row, now)) return { row, transitions: [], duplicateOf: settled }
+    const { data: original } = await admin.from("memberships").select(MEMBERSHIP_COLUMNS).eq("id", settled).maybeSingle()
+    if (original) return { row: await settleDuplicate(admin, sub, row, original as MembershipRow, opts.duplicateDeps ?? defaultDuplicateDeps(), now), transitions: [], duplicateOf: settled }
+  } else if (changed.includes("access_on")) {
+    try {
+      const original = originalOf(row, await otherMemberships(admin, row), now)
+      if (original) return { row: await settleDuplicate(admin, sub, row, original, opts.duplicateDeps ?? defaultDuplicateDeps(), now), transitions: [], duplicateOf: original.id }
+    } catch (e) {
+      console.error(`[memberships] duplicate check failed for ${row.id}:`, e instanceof Error ? e.message : e)
+    }
+  }
+
   await applyEffects(admin, before, row, changed, { withdrawalWaiver: sub.metadata?.withdrawal_waiver === "accepted" })
   return { row, transitions: changed }
 }
@@ -282,6 +307,11 @@ export async function recordPaidInvoice(admin: Db, invoice: Stripe.Invoice, opts
   if (kept?.order_id) return { orderId: kept.order_id as string }
   const total = invoice.amount_paid ?? 0
   if (total <= 0 || !row.product_id || !row.creator_id) return { orderId: null }
+  /* A second membership already settled as a duplicate (./duplicates): refunded, so not a sale. */
+  if (row.status === "expired") {
+    const s = await stripe.subscriptions.retrieve(subId).catch(() => null)
+    if (s?.metadata?.duplicate_of) return { orderId: null }
+  }
 
   const pi = await paymentIntentOf(invoice)
   const facts = pi ? paymentFacts(pi) : null

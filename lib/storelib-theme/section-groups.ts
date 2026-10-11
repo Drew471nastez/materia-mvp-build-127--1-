@@ -116,7 +116,8 @@ const BUILT_IN_GROUPS: Record<string, SectionGroup[]> = {
 }
 
 /* What floats over the page rather than sitting in it: a popup, a bar fixed to the bottom of a phone, back to top, a chat button. */
-const OVERLAY = /\b(pop[ _-]?up|modal|back[ _-]?to[ _-]?top|scroll[ _-]?to[ _-]?top|mobile[ _-]?(nav|navigation|bar|menu|tab[ _-]?bar|dock)|bottom[ _-]?(nav|navigation|bar|menu|dock)|tab[ _-]?bar|cookie[ _-]?(bar|banner|consent)?|age[ _-]?(gate|verification|check)|exit[ _-]?intent|floating|whats[ _-]?app|chat[ _-]?(button|bubble|widget)|quick[ _-]?view)\b/i
+/* And a sticky add to cart bar, a drawer (cart, menu, search), an age verifier, a sales notification, a spin to win wheel. */
+const OVERLAY = /\b(pop[ _-]?up|modal|back[ _-]?to[ _-]?top|scroll[ _-]?to[ _-]?top|mobile[ _-]?(nav|navigation|bar|menu|tab[ _-]?bar|dock)|bottom[ _-]?(nav|navigation|bar|menu|dock)|tab[ _-]?bar|cookie[ _-]?(bar|banner|consent)?|age[ _-]?(gate|verification|verifier|check)|exit[ _-]?intent|floating|whats[ _-]?app|chat[ _-]?(button|bubble|widget)|quick[ _-]?(view|shop)|sticky[ _-]?(atc|add[ _-]?to[ _-]?cart|cart|buy[ _-]?(button|bar)?)|(cart|menu|search|wishlist|filter|side)[ _-]?drawer|drawer|sales?[ _-]?(pop|notification|notice)s?|fake[ _-]?order|recent[ _-]?sales|spin[ _-]?(the[ _-]?)?wheel|spin[ _-]?to[ _-]?win|toast)\b/i
 
 /** Whether a section's name or type reads as something that floats over the page: a popup, a phone tab bar, back to top. */
 export function floatsOverPage(nameOrType: string): boolean {

@@ -190,20 +190,29 @@ export function ActionDropdownContent({
   align = "end",
   menuWidth = "w-56",
   onCloseAutoFocus,
+  sideOffset = 6,
+  collisionBoundary,
+  collisionPadding = 12,
 }: {
   groups: Group[]
   align?: "start" | "end" | "center"
   menuWidth?: string
   /** Where the focus goes back to when the trigger is a stand in (a menu held against something else). */
   onCloseAutoFocus?: (e: Event) => void
+  /** How far from the trigger. */
+  sideOffset?: number
+  /** What the menu stays inside and flips against (a window it opened from), rather than the whole screen. */
+  collisionBoundary?: Element | null
+  collisionPadding?: number
 }) {
   return (
     <DropdownMenuPrimitive.Portal>
       <DropdownMenuPrimitive.Content
         data-action-list=""
         align={align}
-        sideOffset={6}
-        collisionPadding={12}
+        sideOffset={sideOffset}
+        collisionPadding={collisionPadding}
+        collisionBoundary={collisionBoundary ?? undefined}
         onCloseAutoFocus={onCloseAutoFocus}
         className={cn(SURFACE, menuWidth)}
       >

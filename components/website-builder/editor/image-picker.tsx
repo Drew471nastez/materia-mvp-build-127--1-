@@ -69,9 +69,19 @@ export function WbImagePicker({
   bucket = "store-builder-images" as const,
   folder = "logos",
   layout = "box",
+  onAddMany,
+  max,
 }: {
   value: string | undefined
   onChange: (url: string | null) => void
+  /**
+   * A list's "add" field (an image gallery): Your files opens with several
+   * to tick, and several files chosen or dropped are uploaded together.
+   * Every one is handed over at once, in order. `onChange` still takes one.
+   */
+  onAddMany?: (urls: string[]) => void
+  /** How many more the list takes. */
+  max?: number
   label?: string
   aspectRatio?: "square" | "video" | "logo" | "favicon"
   /**
@@ -223,6 +233,51 @@ export function WbImagePicker({
     }
   }, [bucket, folder, onChange, showFile])
 
+  /*
+    SEVERAL FILES INTO A LIST'S ADD FIELD. Each the way one is (checked,
+    without its location details, into the same folder), side by side, and
+    the ones that made it are handed over together, in the order chosen.
+  */
+  const handleFiles = useCallback(async (list: File[]) => {
+    if (!onAddMany || list.length < 2) {
+      if (list[0]) void handleFile(list[0])
+      return
+    }
+    const room = max === undefined ? list.length : Math.max(0, max)
+    if (list.length > room) toast.error(room === 0 ? "This list is full." : `Only the first ${room} were added.`)
+    const wanted = list.slice(0, room).filter(f => {
+      const ext = (f.name.split(".").pop() ?? "").toLowerCase()
+      return ALLOWED_TYPES.has(f.type) && SAFE_EXTENSIONS.has(ext) && f.size <= MAX_IMAGE_BYTES
+    })
+    if (wanted.length < Math.min(list.length, room)) toast.error("Some files were skipped.")
+    if (!wanted.length) return
+    setUploading(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not logged in")
+      const urls = await Promise.all(wanted.map(async (file, i) => {
+        try {
+          const ext = (file.name.split(".").pop() ?? "").toLowerCase()
+          const filePath = `${user.id}/${folder}/${Date.now()}-${i}.${ext}`
+          const { error } = await supabase.storage.from(bucket).upload(filePath, await withoutMetadata(file), { cacheControl: "31536000", upsert: true, contentType: file.type })
+          if (error) return null
+          confirmUpload(bucket, filePath)
+          return supabase.storage.from(bucket).getPublicUrl(filePath).data.publicUrl
+        } catch {
+          return null
+        }
+      }))
+      const done = urls.filter((u): u is string => !!u)
+      if (done.length < wanted.length) toast.error(`${wanted.length - done.length} could not be uploaded.`)
+      if (done.length) onAddMany(done)
+    } catch {
+      toast.error("Upload failed. Try again.")
+    } finally {
+      setUploading(false)
+    }
+  }, [bucket, folder, handleFile, max, onAddMany])
+
   const pick = () => { if (!uploading) inputRef.current?.click() }
   const choose = () => { if (!uploading) setLibraryOpen(true) }
   /*
@@ -280,14 +335,19 @@ export function WbImagePicker({
         ref={inputRef}
         type="file"
         accept="image/*"
+        multiple={!!onAddMany && !url}
         className="hidden"
-        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }}
+        onChange={e => { const list = Array.from(e.target.files ?? []); if (list.length) void handleFiles(list); e.target.value = "" }}
       />
       <FilesLibraryChooser
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
         selectedUrl={url ?? null}
         onPick={picked}
+        /* A list's add field ticks several; a picture already there is changed for one. */
+        multiple={!!onAddMany && !url}
+        max={max}
+        onPickMany={picks => onAddMany?.(picks.map(p => p.url))}
       />
     </>
   )
@@ -447,7 +507,7 @@ export function WbImagePicker({
           onClick={pick}
           onDragOver={e => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
-          onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+          onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const list = Array.from(e.dataTransfer.files); if (list.length) void handleFiles(list) }}
         >
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-black/[0.06] bg-white text-muted-foreground/70 dark:bg-white/[0.05]">
             <ImageIcon className="h-[18px] w-[18px]" />
@@ -555,7 +615,7 @@ export function WbImagePicker({
         onClick={pick}
         onDragOver={e => { e.preventDefault(); setDragOver(true) }}
         onDragLeave={() => setDragOver(false)}
-        onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
+        onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const list = Array.from(e.dataTransfer.files); if (list.length) void handleFiles(list) }}
       >
         <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
         <p className="text-[13px] font-medium text-muted-foreground">Add image</p>

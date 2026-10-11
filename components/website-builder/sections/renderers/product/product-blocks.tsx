@@ -73,7 +73,8 @@ export interface ProductCtx {
   inEditor: boolean
   /** Buttons that send somewhere are inert: the inspector is on. */
   inert: boolean
-  buy: { add: () => void; now: () => void; added: boolean; unavailable: string | null }
+  /** `owned`: the visitor signed in to this website already owns it (lib/site-accounts/owned-products): where their downloads are. */
+  buy: { add: () => void; now: () => void; added: boolean; unavailable: string | null; owned?: string | null }
   wishlist: { saved: boolean; toggle: () => void }
   radius: string
   buttonRadius: CSSProperties
@@ -432,6 +433,25 @@ function BuyButtons({ s, ctx }: { s: S; ctx: ProductCtx }) {
   /* In the editor the buttons do nothing but are drawn as a visitor sees them: faded only when a visitor would find them so. */
   const faded = !ctx.canBuy || !!buy.unavailable
   const blocked = buy.unavailable ?? (soldOut ? "Sold out" : null)
+  /* Already theirs: no second purchase, the way to the files instead (Gumroad's "View content"). */
+  if (buy.owned) {
+    return (
+      <div className="flex flex-col gap-2.5" data-buy-buttons="" data-owned="">
+        <p className="m-0 text-[14px] font-medium" style={{ color: outline }}>
+          You already own this.
+        </p>
+        <a
+          href={buy.owned}
+          onClick={(e) => e.stopPropagation()}
+          className="flex w-full shrink-0 items-center justify-center px-5 text-[15px] font-semibold no-underline transition-opacity hover:opacity-90"
+          style={{ height: h, minHeight: h, background: fill, color: text, border: `2px solid ${fill}`, ...ctx.buttonRadius }}
+          data-owned-downloads=""
+        >
+          Go to your downloads
+        </a>
+      </div>
+    )
+  }
   return (
     <div className={cn("flex flex-col gap-2.5", row && "@[480px]:flex-row")} data-buy-buttons="">
       {showAdd ? (

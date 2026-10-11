@@ -143,6 +143,10 @@ export async function recordCronRun(job: string, request: Request, run: () => Pr
   /* Only a caller holding the cron secret is a run: anybody else is answered 401 by the job and leaves no record. */
   const secret = process.env.CRON_SECRET
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) return run()
+  /* How long it ran and what it answered, for Infrastructure on /admin/performance (lib/perf/server-timing timedJob). */
+  const t0 = performance.now()
+  const timing = (status: number) =>
+    import("@/lib/perf/server-timing").then((m) => m.timedJob(job, performance.now() - t0, status)).catch(() => undefined)
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   const headers = key ? { apikey: key, Authorization: `Bearer ${key}`, "Content-Type": "application/json", Prefer: "return=representation" } : null
@@ -178,10 +182,12 @@ export async function recordCronRun(job: string, request: Request, run: () => Pr
       /* A body that cannot be read twice is left out of the record. */
     }
     await finish(ok, answer.status, detail)
+    await timing(answer.status)
     if (!ok) await reportError({ source: "cron", where: job, error: new Error(`answered ${answer.status}: ${detail.slice(0, 200)}`) })
     return answer
   } catch (error) {
     await finish(false, 500, messageOf(error))
+    await timing(500)
     await reportError({ source: "cron", where: job, error })
     throw error
   }

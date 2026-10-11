@@ -14,5 +14,5 @@ export default async function ReviewsPage() {
   /* No session yet: the app shell's gate draws its own frame over this while it restores the session. */
   if (load.state === "signed-out") return null
   if (load.state === "no-creator") redirect("/sell")
-  return <ReviewsClient initialReviews={load.reviews} products={load.products} ready={load.ready} />
+  return <ReviewsClient initialReviews={load.reviews} products={load.products} ready={load.ready} app={load.app} />
 }

@@ -164,6 +164,15 @@ export function communityReferences(
  * page's `collections` (the collections page's own section, or one a
  * creator wrote). A page that does neither reads nothing.
  */
+/**
+ * Whether a page draws Storelib Reviews: a section whose template reads
+ * `reviews.` (sections/reviews_*.storelib, or one a creator wrote). Only
+ * those pages read the reviews.
+ */
+export function pageWantsReviews(sections: SectionInstance[], sourceOf: (type: string) => string | undefined): boolean {
+  return sections.some((s) => !s.hidden && /\breviews\.(?:all|product|enabled|sample|star_color)\b/.test(sourceOf(s.type) ?? ""))
+}
+
 export function pageWantsCollections(
   sections: SectionInstance[],
   schemaOf: (type: string) => SectionSchema | undefined,
@@ -312,12 +321,15 @@ export function storefrontData(input: {
   communities?: StorefrontData["communities"]
   /** The creator's published collections, read on the server; absent means none. */
   collections?: StorefrontData["collections"]
+  /** Storelib Reviews for the page (lib/reviews/storefront.ts); absent means none. */
+  reviews?: StorefrontData["reviews"]
 }): StorefrontData {
   return {
     catalog: input.catalog,
     menus: input.menus,
     ...(input.communities ? { communities: input.communities } : {}),
     ...(input.collections ? { collections: input.collections } : {}),
+    ...(input.reviews ? { reviews: input.reviews } : {}),
     shop: input.dynamic.shop,
     creator: input.dynamic.creator,
     product: input.dynamic.product ?? null,

@@ -25,7 +25,7 @@
  * DRAWN WHEN SEEN. A card builds its frame the first time it comes near the
  * screen, once, and keeps it.
  */
-import { createContext, memo, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { createContext, memo, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react"
 import { loadCompatFiles } from "@/components/website-builder/compat/compat-files"
 import { assetAddresses, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, withoutScripts, type StoredBlock, type StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -35,6 +35,10 @@ import type { SectionSchema } from "@/lib/website-builder/types"
 interface CompatPreviewValue {
   theme: CompatTheme | null
   page: CompatPage
+  /** Whose theme: the key the cards' heights are remembered under. */
+  installId: string
+  /** The theme's files could not be had: each card names its section rather than shimmering for good. */
+  failed: boolean
 }
 
 const CompatPreviewContext = createContext<CompatPreviewValue | null>(null)
@@ -58,11 +62,17 @@ export function CompatPreviewProvider({
   children: ReactNode
 }) {
   const [files, setFiles] = useState<Record<string, string> | null>(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
-    void loadCompatFiles(installId).then((f) => {
-      if (live) setFiles(f)
-    })
+    loadCompatFiles(installId).then(
+      (f) => {
+        if (live) setFiles(f)
+      },
+      () => {
+        if (live) setFailed(true)
+      },
+    )
     return () => {
       live = false
     }
@@ -109,7 +119,7 @@ export function CompatPreviewProvider({
     }
   }, [])
 
-  const value = useMemo(() => ({ theme, page }), [theme, page])
+  const value = useMemo(() => ({ theme, page, installId, failed: failed || (!!files && !theme) }), [theme, page, installId, failed, files])
   return <CompatPreviewContext.Provider value={value}>{children}</CompatPreviewContext.Provider>
 }
 
@@ -240,12 +250,97 @@ function whenIdle(job: () => void): () => void {
   }
 }
 
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   A CARD IS ITS OWN HEIGHT FROM ITS FIRST FRAME, THE SECOND TIME
+  ═══════════════════════════════════════════════════════════════════════
+  A card's height is only known once its frame has loaded and been measured,
+  and it was drawn at half its width until then: every card jumped as its
+  preview came in, and the cards under it with it. The heights measured are
+  remembered for the theme in this browser (a convenience: a wrong or
+  missing one only means a card is measured again), so a library opened
+  again, in this visit or the next, has every card at its own height before
+  anything in it has loaded.
+*/
+type Heights = Record<string, number>
+const heightMemory = new Map<string, Heights>()
+const heightsKey = (installId: string, renderWidth: number) => `wb-compat-preview-h:${installId}:${renderWidth}`
+function rememberedHeights(installId: string, renderWidth: number): Heights {
+  const k = heightsKey(installId, renderWidth)
+  let hit = heightMemory.get(k)
+  if (!hit) {
+    hit = {}
+    try {
+      const raw = window.localStorage.getItem(k)
+      const parsed = raw ? (JSON.parse(raw) as unknown) : null
+      if (parsed && typeof parsed === "object") for (const [key, v] of Object.entries(parsed)) if (typeof v === "number" && v > 0 && v < 20_000) hit[key] = v
+    } catch {
+      /* no storage: measured as they come */
+    }
+    heightMemory.set(k, hit)
+  }
+  return hit
+}
+const heightWrites = new Map<string, number>()
+function rememberHeight(installId: string, renderWidth: number, key: string, h: number) {
+  const all = rememberedHeights(installId, renderWidth)
+  if (all[key] === h) return
+  all[key] = h
+  const k = heightsKey(installId, renderWidth)
+  window.clearTimeout(heightWrites.get(k))
+  heightWrites.set(k, window.setTimeout(() => {
+    try {
+      window.localStorage.setItem(k, JSON.stringify(all))
+    } catch {
+      /* full or blocked: kept for this visit only */
+    }
+  }, 600))
+}
+
+/*
+  DRAWN AHEAD, IN THE EDITOR'S QUIET MOMENTS. A card's page (a string: the
+  theme's layout around its one section) is drawn before the card is ever
+  near the screen, after everything that is near it, so scrolling down the
+  library finds pages already drawn and only their frames to load.
+*/
+const later: (() => void)[] = []
+let laterRunning = false
+function drainLater() {
+  if (queue.length) {
+    /* What is on screen first. */
+    window.setTimeout(drainLater, 120)
+    return
+  }
+  const job = later.shift()
+  if (!job) {
+    laterRunning = false
+    return
+  }
+  job()
+  /* Only when the editor is truly idle, never on a deadline: somebody typing is never held up by a card nobody has asked for. */
+  const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
+  if (w.requestIdleCallback) w.requestIdleCallback(drainLater)
+  else window.setTimeout(drainLater, 400)
+}
+function whenQuiet(job: () => void): () => void {
+  later.push(job)
+  if (!laterRunning) {
+    laterRunning = true
+    window.setTimeout(drainLater, 300)
+  }
+  return () => {
+    const at = later.indexOf(job)
+    if (at >= 0) later.splice(at, 1)
+  }
+}
+
 export const CompatPreviewBox = memo(function CompatPreviewBox({
   type,
   presetIndex,
   schema,
   width,
   renderWidth,
+  eager = false,
 }: {
   type: string
   presetIndex: number
@@ -254,19 +349,25 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
   width: number
   /** The width the section is laid out at, scaled down to the card. */
   renderWidth: number
+  /** Among the first few of what the library shows: its frame is loaded ahead, not when it nears the screen. */
+  eager?: boolean
 }) {
   const ctx = useCompatPreview()
   const box = useRef<HTMLDivElement | null>(null)
   const frame = useRef<HTMLIFrameElement | null>(null)
   const key = `${type}:${presetIndex}`
   const cache = ctx?.theme ? cacheFor(ctx.theme) : null
-  const [seen, setSeen] = useState(false)
-  const [drawnHeight, setDrawnHeight] = useState<number | null>(() => cache?.heights.get(key) ?? null)
+  const [seen, setSeen] = useState(eager)
+  /* Measured this visit, or remembered from the last one (rememberedHeights). */
+  const [drawnHeight, setDrawnHeight] = useState<number | null>(() => cache?.heights.get(key) ?? (ctx && typeof window !== "undefined" ? rememberedHeights(ctx.installId, renderWidth)[key] ?? null : null))
   /* A section with nothing to show until it is filled in (apps, custom code): its name instead of a blank card. */
   const [blank, setBlank] = useState(() => cache?.blank.has(key) ?? false)
   /* Shown once it has been measured, faded in: never a white box that jumps to its height. */
   const [shown, setShown] = useState(false)
   const [srcDoc, setSrcDoc] = useState<string | null>(() => cache?.docs.get(key) ?? null)
+  useEffect(() => {
+    if (eager) setSeen(true)
+  }, [eager])
 
   /* Built the first time it comes near the screen, then kept. */
   useEffect(() => {
@@ -276,24 +377,35 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       setSeen(true)
       return
     }
+    /*
+      NEAR THE SCREEN MEANS NEAR THE LIST'S OWN VIEW. Watched against the
+      window, the margin never reached past the library's scrolling list, which
+      cuts off whatever it does not show: a card was only drawn once it was
+      already on screen, and came in grey, then empty, then drawn. Against the
+      list, the cards a little further down are drawn before they are reached.
+    */
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         setSeen(true)
         io.disconnect()
       }
-    }, { rootMargin: "600px 0px" })
+    }, { root: el.closest<HTMLElement>("[data-library-scroll]"), rootMargin: "800px 0px" })
     io.observe(el)
     return () => io.disconnect()
   }, [seen])
 
-  /* Drawn once per theme, in the idle queue; a card already drawn this visit comes straight from the cache. */
+  /* Drawn once per theme: near the screen, in the idle queue; otherwise ahead, in a quieter one. A card already drawn this visit comes straight from the cache. */
   useEffect(() => {
-    if (!seen || !ctx?.theme || !cache) return
+    if (!ctx?.theme || !cache) return
     if (cache.docs.has(key)) {
-      setSrcDoc(cache.docs.get(key) ?? null)
+      if (seen) setSrcDoc(cache.docs.get(key) ?? null)
       return
     }
-    return whenIdle(() => {
+    const job = () => {
+      if (cache.docs.has(key)) {
+        if (seen) setSrcDoc(cache.docs.get(key) ?? null)
+        return
+      }
       let doc: string | null = null
       try {
         doc = previewDocument(ctx.theme!, ctx.page, previewSectionFor(type, presetIndex, schema))
@@ -301,13 +413,44 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
         doc = null
       }
       cache.docs.set(key, doc)
-      setSrcDoc(doc)
-    })
+      if (seen) setSrcDoc(doc)
+    }
+    return seen ? whenIdle(job) : whenQuiet(job)
   }, [seen, ctx, cache, key, type, presetIndex, schema])
 
+  /* Nothing to draw it from (its files did not come, or the section could not be drawn): its name, never a box that shimmers for good. */
+  const unavailable = !!ctx?.failed || (srcDoc === null && !!cache?.docs.has(key) && cache.docs.get(key) === null)
+  /* A frame that measured blank stays: its pictures and fonts may yet give it something to show, and it is measured again then. */
+  const named = blank || unavailable
   const scale = width > 0 ? width / renderWidth : 0.3
   const tallest = Math.round(width * TALLEST)
-  const height = blank ? 96 : drawnHeight ? Math.max(64, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * 0.5)
+  const wanted = named ? 96 : drawnHeight ? Math.max(64, Math.min(tallest, Math.ceil(drawnHeight * scale))) : Math.round(width * PLACEHOLDER_RATIO)
+  /*
+    NEVER SHORTER WHERE IT CAN BE SEEN. A card measured shorter than its
+    placeholder while somebody is looking keeps its height, the section on
+    white at its top, rather than pulling every card under it up the list;
+    it takes its own height once nobody can see it change (the library
+    opening again, releaseCompatHeld). Taller at once: a card that grows
+    moves nothing above it.
+  */
+  const [kept, setKept] = useState(() => ({ h: wanted, w: width }))
+  const height = kept.w === width ? kept.h : wanted
+  useLayoutEffect(() => {
+    if (kept.w !== width) {
+      setKept({ h: wanted, w: width })
+      return
+    }
+    if (kept.h === wanted) return
+    const take = () => setKept({ h: wanted, w: width })
+    if (wanted > kept.h || !inSight(box.current)) {
+      take()
+      return
+    }
+    held.add(take)
+    return () => {
+      held.delete(take)
+    }
+  }, [wanted, width, kept])
 
   /* Its height, once its pictures and fonts have had their say. */
   const measure = () => {
@@ -318,6 +461,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     if (h > 0) {
       setDrawnHeight(h)
       cache?.heights.set(key, h)
+      if (ctx) rememberHeight(ctx.installId, renderWidth, key, h)
     }
     setShown(true)
     const root = doc.querySelector<HTMLElement>(".shopify-section") ?? doc.body
@@ -336,10 +480,13 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       ref={box}
       data-preview-box=""
       data-compat-preview={type}
+      data-compat-preview-state={named ? "named" : shown ? "shown" : "waiting"}
       className="relative w-full overflow-hidden bg-[#f3f4f6]"
       style={{ height }}
     >
-      {srcDoc ? (
+      {/* Until the frame has drawn: a quiet light passing over the grey, so a card that is coming reads as coming. */}
+      {!shown && !named ? <span aria-hidden data-compat-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
+      {srcDoc && !unavailable ? (
         <iframe
           title={`${schema.name} preview`}
           srcDoc={srcDoc}
@@ -348,7 +495,6 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
           aria-hidden
           /* Its scale is the whole picture: the touch rule that flattens transforms inside a .group must leave it alone. */
           data-keep-transform=""
-          loading="lazy"
           onLoad={() => {
             measure()
             /* Fonts and the first pictures land a moment later and change the height. */
@@ -367,7 +513,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
           style={{ width: renderWidth, height: Math.ceil(height / scale), transform: `scale(${scale})`, pointerEvents: "none", opacity: shown ? 1 : 0, transition: "opacity 220ms ease-out" }}
         />
       ) : null}
-      {blank ? (
+      {named ? (
         <div className="absolute inset-0 flex items-center justify-center bg-[#f9fafb] px-4 text-center text-[13px] font-medium text-[#9ca3af]">
           {schema.name}
         </div>
@@ -375,3 +521,26 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
     </div>
   )
 })
+
+/* Cards keeping a height they are about to lose, until nobody can see them change. */
+const held = new Set<() => void>()
+/** Every held card takes its own height: the library calls this as it opens, before its first frame. */
+export function releaseCompatHeld() {
+  for (const take of [...held]) {
+    held.delete(take)
+    take()
+  }
+}
+
+/** A card's placeholder before its section has ever been measured: a desktop section's usual shape. */
+const PLACEHOLDER_RATIO = 0.5
+
+/** Where a change in this box's height would move something somebody can see (as the library's own cards, section-library.tsx). */
+function inSight(box: HTMLElement | null): boolean {
+  if (!box || box.getClientRects().length === 0) return false
+  const check = (box as HTMLElement & { checkVisibility?: (o?: Record<string, boolean>) => boolean }).checkVisibility
+  if (typeof check === "function" && !check.call(box, { visibilityProperty: true, opacityProperty: true })) return false
+  const list = box.closest("[data-library-scroll]")
+  if (!list) return true
+  return box.getBoundingClientRect().top < list.getBoundingClientRect().bottom
+}

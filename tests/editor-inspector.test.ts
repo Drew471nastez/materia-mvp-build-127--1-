@@ -130,7 +130,8 @@ async function main() {
 
   console.log("Opening")
   const asked = editor.indexOf("const sectionsAsked = Promise.all([")
-  const installFetch = editor.indexOf("const res = await fetch(`/api/website-builder/themes/${installId}`)")
+  /* Asked with an end and tried again on a 5xx (lib/website-builder/load-guard.ts), still after the sections are asked for. */
+  const installFetch = editor.indexOf("const r = await fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)")
   check("the sections are asked for beside the install, not after it", asked > 0 && installFetch > asked && /const asked = await sectionsAsked/.test(editor))
   /* Changed on purpose (round Y): warmCompat asks for the files and, with them, the canvas's own code, which is a chunk of its own now. */
   check("an imported theme's files are asked for as soon as it is known to be one", /importedTheme\.current = true\s*\n[^\n]*\n\s*warmCompat\(installId\)/.test(editor) && /getItem\(`wb-compat:\$\{installId\}`\) === "1"\) warmCompat\(installId\)/.test(editor) && /function warmCompat\(installId: string\) \{\s*void loadCompatFiles\(installId\)\s*void loadCompatCanvas\(\)/.test(editor))

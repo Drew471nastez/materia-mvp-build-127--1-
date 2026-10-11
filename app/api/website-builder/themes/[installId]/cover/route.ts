@@ -3,6 +3,8 @@ import { readTwice, UNREACHABLE } from "@/lib/website-builder/owned-install"
 import { createClient } from "@/lib/supabase/server"
 import { isThemeId } from "@/lib/website-builder/theme-registry"
 import { newestCover, renderOrigin, takeCover } from "@/lib/website-builder/cover-take"
+import { mintCoverPass } from "@/lib/website-builder/cover-pass"
+import { isCompatInstall } from "@/lib/website-builder/compat-site"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 
 /**
@@ -63,10 +65,24 @@ async function owned(installId: string): Promise<{ userId: string; creatorId: st
  * photograph is being taken after its answer, and swap it in the moment it
  * lands. `{ url: null }` until there is one.
  */
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
   const who = await owned(installId)
   if (who instanceof NextResponse) return who
+  /*
+    ?render=1: WHERE THE PAGE THE COVER IS TAKEN OF CAN BE SEEN, for the
+    owner's Website page to show it small while a photograph is on its way
+    or could not be taken (app/app/website-builder, LiveMiniature). The same
+    two-minute pass for this one install the browser that photographs it
+    gets (lib/website-builder/cover-pass.ts), and the same page; `embedded=1`
+    is what lets this origin, and only this origin, frame it (proxy.ts, and
+    the compat route's own header). Only the owner is ever handed one.
+  */
+  if (new URL(req.url).searchParams.get("render") === "1") {
+    const pass = encodeURIComponent(mintCoverPass(installId))
+    const render = (await isCompatInstall(installId)) ? `/api/site-theme/cover/${pass}?embedded=1` : `/cover-render/${pass}?embedded=1`
+    return NextResponse.json({ render }, { headers: { "Cache-Control": "no-store" } })
+  }
   try {
     const cover = await newestCover({ installId, userId: who.userId })
     return NextResponse.json(cover ?? { url: null }, { headers: { "Cache-Control": "no-store" } })
