@@ -55,7 +55,7 @@ import {
   statusLine,
   type PushPayload,
 } from "./core"
-import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
+import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
 import { GENERATED, SETTINGS_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
@@ -92,6 +92,8 @@ export interface LastSync {
   skipped?: { path: string; reason: string }[]
   /** For a sync that failed as a whole: which kind (./errors.ts). */
   problem?: string
+  /** When the commit this sync applied was made: a push whose head is older is not applied. */
+  head_at?: string | null
 }
 
 export interface SyncState {
@@ -197,7 +199,7 @@ export async function exportSite(
     )
     const shas: Record<string, string> = {}
     for (const f of files) shas[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
-    const last: LastSync = { at, direction: "to_github", commit: r.sha, ok: true, saved: [], failed: [], notes: [], skipped }
+    const last: LastSync = { at, direction: "to_github", commit: r.sha, ok: true, saved: [], failed: [], notes: [], skipped, head_at: r.sha ? at : (link.sync_state?.last?.head_at ?? null) }
     await saveLink(db, link.install_id, {
       last_synced_sha: r.sha ?? link.last_synced_sha,
       last_synced_at: at,
@@ -540,9 +542,9 @@ async function readIncoming(token: string, repo: string, files: Map<string, { sh
   return { incoming, failed }
 }
 
-async function finish(db: Db, link: GitHubLink, r: ApplyResult & { removed?: string[] }, commit: string, direction: "from_github", how: string) {
+async function finish(db: Db, link: GitHubLink, r: ApplyResult & { removed?: string[] }, commit: string, direction: "from_github", how: string, headAt: string | null = null) {
   const at = new Date().toISOString()
-  const last: LastSync = { at, direction, commit, ok: r.failed.length === 0, saved: r.saved, failed: r.failed, notes: r.notes }
+  const last: LastSync = { at, direction, commit, ok: r.failed.length === 0, saved: r.saved, failed: r.failed, notes: r.notes, head_at: headAt ?? at }
   const files = { ...(link.sync_state?.files ?? {}), ...r.shas }
   await saveLink(db, link.install_id, {
     last_synced_sha: commit,
@@ -596,6 +598,29 @@ export interface PushOutcome {
   skipped?: string
 }
 
+/**
+ * Whether a push's head is older than what this site last applied, so it
+ * must not be applied: a validly signed old push replayed, or one GitHub
+ * delivered late. Asked of GitHub's history first (the head is behind or the
+ * same as the last applied commit); for a rewritten branch, or when GitHub
+ * cannot say, by the commits' own times.
+ */
+export async function olderThanApplied(token: string, repo: string, link: GitHubLink, after: string, headAt: string | null): Promise<boolean> {
+  if (link.last_synced_sha) {
+    try {
+      const status = await compareStatus(token, repo, link.last_synced_sha, after)
+      if (status === "behind" || status === "identical") return true
+      if (status === "ahead") return false
+    } catch {
+      /* a base GitHub no longer has: fall back to the times */
+    }
+  }
+  const lastAt = link.sync_state?.last?.head_at
+  const a = headAt ? Date.parse(headAt) : NaN
+  const b = lastAt ? Date.parse(lastAt) : NaN
+  return Number.isFinite(a) && Number.isFinite(b) && a < b
+}
+
 /** GitHub → Storelib, for every site linked to this repository and branch. */
 export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload): Promise<PushOutcome[]> {
   const branch = branchOf(payload.ref)
@@ -640,8 +665,11 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
   }
   let tree: Map<string, { sha: string; size: number }> | null = null
 
+  const headAt = typeof payload.head_commit?.timestamp === "string" ? payload.head_commit.timestamp : null
   const outcomes: PushOutcome[] = []
   for (const link of links) {
+    /* An old push, replayed or delivered late, is not applied over a newer one. */
+    if (await olderThanApplied(token, repo, link, after, headAt)) continue
     let snap: ThemeSnapshot
     try {
       const { data: install } = await db.from("store_theme_installs").select("name").eq("id", link.install_id).maybeSingle()
@@ -683,7 +711,7 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     out.unchanged = r.unchanged
     out.failed = r.failed
     out.notes = r.notes
-    await finish(db, link, r, after, "from_github", `${who} pushed`)
+    await finish(db, link, r, after, "from_github", `${who} pushed`, headAt)
     outcomes.push(out)
   }
 

@@ -283,6 +283,16 @@ export async function compareFiles(token: string, repo: string, base: string, he
   return out
 }
 
+/**
+ * Where `head` stands against `base` in the repository's history: "ahead"
+ * (newer), "behind" or "identical" (already had), "diverged" (a rewritten
+ * branch). GitHub's own graph, so a commit's claimed date cannot fool it.
+ */
+export async function compareStatus(token: string, repo: string, base: string, head: string): Promise<string> {
+  const d = await call<{ status?: string }>(`/repos/${repo}/compare/${encodeURIComponent(base)}...${encodeURIComponent(head)}?per_page=1`, token)
+  return d.status ?? "unknown"
+}
+
 /** The green tick or red cross on a commit, named "Storelib". */
 export async function setStatus(
   token: string,

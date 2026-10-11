@@ -18,6 +18,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig } from "@/lib/github-sync/github"
 import { verifySignature, type PushPayload } from "@/lib/github-sync/core"
 import { applyPush } from "@/lib/github-sync/sync"
+import { seenDelivery, validDeliveryId } from "@/lib/github-sync/deliveries"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -49,6 +50,12 @@ export async function POST(req: Request) {
   if (event === "ping") return NextResponse.json({ ok: true })
 
   const db = createAdminClient()
+
+  /* Each delivery once: a redelivered or replayed one (validly signed, but old) changes nothing (lib/github-sync/deliveries.ts). */
+  const delivery = req.headers.get("x-github-delivery")
+  if (validDeliveryId(delivery) && (await seenDelivery(db, delivery))) {
+    return NextResponse.json({ ok: true, duplicate: true })
+  }
 
   if (event === "installation" && body.action === "deleted") {
     const id = Number((body.installation as { id?: number } | undefined)?.id)
