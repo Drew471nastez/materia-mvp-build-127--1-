@@ -128,7 +128,16 @@ export async function POST(request: Request) {
     }
 
     /* One row per cancellation, server only (SQL part 128). Before that part runs there is no table: the cancel has already happened, so this only warns. */
-    const { error: recordError } = await createAdminClient()
+    /* A second press on Cancel while one is still open records nothing new. */
+    const { data: openRow } = await createAdminClient()
+      .from("plan_cancellations")
+      .select("id")
+      .eq("creator_id", creator.id)
+      .eq("stripe_subscription_id", subscription.stripe_subscription_id)
+      .is("resumed_at", null)
+      .limit(1)
+      .maybeSingle()
+    const { error: recordError } = openRow ? { error: null } : await createAdminClient()
       .from("plan_cancellations")
       .insert({
         creator_id: creator.id,
@@ -149,7 +158,7 @@ export async function POST(request: Request) {
   } catch (error: any) {
     console.error("Error in POST /api/billing/subscription/cancel:", error)
     return NextResponse.json(
-      { error: error.message || "Failed to cancel subscription" },
+      { error: "We could not cancel your plan just now. Nothing was changed. Try again in a moment." },
       { status: 500 }
     )
   }
