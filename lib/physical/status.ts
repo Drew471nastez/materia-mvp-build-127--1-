@@ -58,6 +58,23 @@ export function returnStatusOf(lines: LineProgress[], openReturns: number): Retu
   return "none"
 }
 
+/**
+ * The items a request names, one entry per line: the same line twice is its
+ * quantities added together, so two entries of 2 on a line with 2 left are 4
+ * and refused, never 2 and 2 each passing on its own. Whole numbers above
+ * zero only; the first entry's other fields are kept.
+ */
+export function mergeItemQuantities<T extends { orderId: string; quantity: number }>(items: T[]): T[] {
+  const byLine = new Map<string, T>()
+  for (const item of items) {
+    const quantity = Math.floor(Number(item.quantity) || 0)
+    if (quantity <= 0) continue
+    const had = byLine.get(item.orderId)
+    byLine.set(item.orderId, had ? { ...had, quantity: had.quantity + quantity } : { ...item, quantity })
+  }
+  return [...byLine.values()]
+}
+
 /** What is still to ship on each line: ordered minus already in a fulfillment that was not cancelled. */
 export function unfulfilledQuantities(lines: LineProgress[]): Map<string, number> {
   return new Map(lines.filter((l) => l.requiresShipping).map((l) => [l.orderId, Math.max(0, l.quantity - l.fulfilled)]))
