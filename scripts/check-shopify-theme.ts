@@ -32,6 +32,27 @@
  *   in the canvas, /account, /account/login and /account/register draw in
  *   the theme, and sending a sign in form says it works on the live site
  *
+ * And, on a page of their own (CHECKS=header,cards,recent,overlay,loading
+ * runs any of these alone; `core` adds the checks above):
+ *
+ *   header     every link of the header pressed as a visitor presses it
+ *              (a menu, a mega menu or a drawer opened first), on the
+ *              website (the page opens) and in the canvas (the builder is
+ *              told to open it); after scrolling, a sticky header's too;
+ *              on a phone, the Overlay group's tab bar links
+ *   cards      every product card has its name, a price and its pictures
+ *              loaded (home, collections, search, a product's related
+ *              products), no Liquid error; a card's picture opens it
+ *   recent     three products looked at show in every recently viewed
+ *              section, on the website and in the canvas
+ *   overlay    each Overlay group section drawn once, in order, none
+ *              switched off; a word changed in one shows in the canvas
+ *   loading    home and a collection hold still (layout shift), no first
+ *              screen picture left waiting, every section a script asks
+ *              for (section rendering) answered
+ *
+ * SERVE=1 serves the site and the canvas alone, to look at by hand.
+ *
  * Measurements, not opinions: each line prints what it measured. Exits 1 on
  * any failure. Screenshots go to $OUT (default /tmp/shopify-theme-check).
  */
