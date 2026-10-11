@@ -24,9 +24,10 @@
  *   when a tab that sat in the background for hours is about to be used. At
  *   most once every CHECK_EVERY_MS. No timer, no loop.
  *
- *   WHAT CHANGES. The next route change to another page is a full page load
+ *   WHAT CHANGES. The next press forward to another page is a full page load
  *   instead of a client side one, so the person lands on the new code at a
- *   moment they chose to leave the page anyway. Not on a page that holds
+ *   moment they chose to leave the page anyway. Never a Back, a replace or a
+ *   close (fullLoadFor). Not on a page that holds
  *   unsaved work (lib/ui/leave-guard), not out of the website builder, whose
  *   editor saves on a timer and asks its own question on the way out, and not
  *   out of checkout.
@@ -75,12 +76,40 @@ const KEEP_SOFT = /^\/(website-builder|checkout)(\/|$)/
 
 export type NavigationType = "push" | "replace" | "traverse"
 
+/*
+  A BACK IS NEVER WHERE THE NEW CODE IS PICKED UP (round 23, the owner: "sometimes when I go back ... the whole page
+  randomly refreshes"). Several ways back are a push or a replace, not a traversal: a back with nothing of ours behind it
+  (lib/navigation/go-back pushBackOnce), the fallback of a Back that went nowhere (backThen), a sheet's close. Each marks
+  the window when it starts, and a navigation within BACK_MARK_MS of that mark stays a client one. Read from the window
+  because this file runs in instrumentation-client.ts, bundled apart from the app (see the top of the file).
+*/
+export const BACK_MARK = "__storelibBackAt"
+export const BACK_MARK_MS = 3_000
+
+/** Marked by every way back as it starts (lib/navigation/go-back). */
+export function markBackStarted(now: number = Date.now()) {
+  if (typeof window === "undefined") return
+  ;(window as unknown as Record<string, number>)[BACK_MARK] = now
+}
+
+function backJustStarted(now: number = Date.now()): boolean {
+  if (typeof window === "undefined") return false
+  const at = (window as unknown as Record<string, number | undefined>)[BACK_MARK]
+  return typeof at === "number" && now - at >= 0 && now - at < BACK_MARK_MS
+}
+
+/** Settings opened over a page (app/app/@sheet): a full load there would take the page under it away. */
+const SHEET_PATH = "/app/settings"
+
 /**
- * Whether the navigation the router just started should be a full page load,
- * and which kind: `assign` adds the entry a push would have, `replace` loads
- * in place of the entry a replace would have overwritten. Back and Forward
- * stay as they are: by the time the router hears of them the address is
- * already the destination, and the router's cache of that page is fine.
+ * Whether the navigation the router just started should be a full page load.
+ * Only ever a press forward to another page, the one moment somebody has
+ * chosen to leave the page anyway: `assign`, which adds the entry the push
+ * would have. Never a replace (a tab, a filter, a close, a fallback: the
+ * page did that, not the person), never Back or Forward (by the time the
+ * router hears of them the address is already the destination, and its cache
+ * of that page is fine), never a push that is a way back (`inBack`, above),
+ * and never into Settings over a page.
  */
 export function fullLoadFor(input: {
   href: string
@@ -92,8 +121,10 @@ export function fullLoadFor(input: {
   holdsWork: boolean
   /** How long ago this tab's code was loaded. Left out, the tab counts as old. */
   tabAgeMs?: number
-}): "assign" | "replace" | null {
-  if (!input.newDeploy || input.holdsWork || input.type === "traverse") return null
+  /** A way back started a moment ago (BACK_MARK): this push is its fallback, not a press forward. */
+  inBack?: boolean
+}): "assign" | null {
+  if (!input.newDeploy || input.holdsWork || input.type !== "push" || input.inBack) return null
   /*
     NOT WHILE SKEW PROTECTION STILL SERVES THIS TAB (round 15, the owner's "I leave the phone for a minute, tap Home, and it
     goes white"). Every chunk and router request of this tab carries its deployment (?dpl=, x-deployment-id), so Vercel
@@ -115,7 +146,8 @@ export function fullLoadFor(input: {
   if (KEEP_SOFT.test(from.pathname) || to.origin !== from.origin) return null
   /* The same page with a different query or hash is not a route change. */
   if (to.pathname === from.pathname) return null
-  return input.type === "push" ? "assign" : "replace"
+  if (to.pathname === SHEET_PATH) return null
+  return "assign"
 }
 
 // ─── In the browser ──────────────────────────────────────────────────────────
@@ -206,7 +238,7 @@ export function loadFullyIfBehind(href: string, type: NavigationType) {
     holdsWork: !!leaveGuard(),
     /* Wall clock since the page loaded: a suspended web view's performance.now() can stand still while the phone sleeps. */
     tabAgeMs: typeof performance !== "undefined" && performance.timeOrigin ? Date.now() - performance.timeOrigin : undefined,
+    inBack: backJustStarted(),
   })
   if (how === "assign") window.location.assign(href)
-  else if (how === "replace") window.location.replace(href)
 }

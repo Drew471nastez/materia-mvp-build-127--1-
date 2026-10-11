@@ -122,7 +122,7 @@ check("the question is above the shell: a dialog from md, the shared sheet below
 
 console.log("\nA navigation whose answer came back and did not land")
 check("the stage watches for it, once for the tab", /watchRouterAnswers\(\)/.test(stage))
-check("it loads the address as a document", /window\.location\.assign\(nav\.href as string\)/.test(nav) && NAV_STUCK_AFTER_ANSWER_MS === 2000)
+check("it loads the address as a document", /window\.location\.assign\(nav\.href as string\)/.test(nav) && NAV_STUCK_AFTER_ANSWER_MS === 6000)
 check("  from the answer's end, and from any script or stylesheet the page is still loading", /armStuckCheck\(nav, entry\.responseEnd\)/.test(nav) && /entry\.initiatorType === "script" \|\| entry\.initiatorType === "link"/.test(nav))
 check("  a tab in the background is asked again once it is back", /document\.visibilityState === "hidden"/.test(nav))
 {

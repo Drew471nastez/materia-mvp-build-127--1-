@@ -6,7 +6,7 @@ import { flushSync } from "react-dom"
 import { cn } from "@/lib/utils"
 import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
-import { getAppNavigation } from "@/lib/ui/app-navigation"
+import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
 import { LAYER_ATTR, openLayer, sweepLayers } from "@/lib/ui/layers"
 
 /**
@@ -110,9 +110,21 @@ type ViewTransitionProps = {
 */
 const ReactViewTransition = (React as unknown as { ViewTransition?: React.ComponentType<ViewTransitionProps> }).ViewTransition ?? null
 
+/*
+  ── NO LAYER MOVES ANY MORE (round 23) ──
+  The owner: "make sure back and entering pages don't have that slide animation delay; make it more stable, smooth,
+  clean, normal and simple". The product and coupon editors, the email composer and the plans page rose from the bottom
+  over 360ms and dropped back over 280ms, every time, on top of the wait for the page itself. Now a layer is simply there
+  on the commit that brings it and gone on the commit that takes it away, and the stage lands it the way it lands every
+  page of /app (components/app/app-stage.tsx: one short fade). Nothing else changes: the press is still answered, the page
+  under it still holds still, and the moves below stay written behind LAYER_MOVES for the day they are wanted again.
+*/
+const LAYER_MOVES: boolean = false
+
 /* ── Whether a layer moves here: a phone, motion allowed, no drop of our own running ── */
 const REDUCED = "(prefers-reduced-motion: reduce)"
 function layerMotionOn(): boolean {
+  if (!LAYER_MOVES) return false
   if (typeof window === "undefined" || !window.matchMedia) return false
   return window.matchMedia(LAYER_PHONE).matches && !window.matchMedia(REDUCED).matches
 }
@@ -1175,6 +1187,14 @@ export function PageLayer({
     releasePresses()
     /* React's move at this commit, or, where it cannot make one, ours on this box. */
     if (!markReactMotion("enter")) riseByHand(box.current)
+    /*
+      AND WITH NO MOVE, A WHOLE SCREEN LAYER IS SIMPLY THERE (round 23). The stage's landing faded it in from nothing,
+      and over the whole screen its first frame was empty: the page gone, the layer not yet drawn. Where it covers the
+      screen (a phone, or a layer at every width) it is drawn whole on its first frame, and so is the page it goes back
+      to. From 768px a phone only layer is a page in the shell and lands like one.
+    */
+    const whole = () => !LAYER_MOVES && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
+    if (whole()) holdLanding()
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
       requestAnimationFrame(() => {
@@ -1183,6 +1203,7 @@ export function PageLayer({
     }
     return () => {
       release()
+      if (whole()) holdLanding()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
       if (!dropAtCommit()) markReactMotion("leave")

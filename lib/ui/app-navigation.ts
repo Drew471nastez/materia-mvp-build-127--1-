@@ -354,7 +354,13 @@ export function watchRouterCommits() {
  * document. Resource timing only, so no request is touched and no response
  * is read.
  */
-export const NAV_STUCK_AFTER_ANSWER_MS = 2000
+/*
+  Six seconds, not two (round 23). Two seconds after its answer and its code, a heavy page can still be rendering on a
+  slow phone: the website builder's editor, entered by a link at 4x CPU, took up to 2.7s from its answer to its commit in
+  scripts/nav23-real-router, and the check loaded it again as a document just as it was arriving. The page the router
+  really lost is still loaded for real, a few seconds later.
+*/
+export const NAV_STUCK_AFTER_ANSWER_MS = 6000
 /** The router's request goes out inside the press, a moment either side of the record starting. */
 const ANSWER_SLACK_MS = 20
 
@@ -395,6 +401,18 @@ function armStuckCheck(nav: AppNavigation, from: number) {
         armStuckCheck(nav, performance.now())
       }
       document.addEventListener("visibilitychange", back)
+      return
+    }
+    /*
+      THE PAGE IS ALREADY THERE (round 23). A page outside the shell (the website builder's editor, a creator's page, Help)
+      lands with the shell gone, so nothing was left to end the record, and two seconds after its answer the page that had
+      just come was loaded again as a document: entering the editor by a link reloaded it once it was up. The address
+      showing the page (its query may have moved on since, as the editor's does) is the landing; only a page that never
+      came is loaded for real.
+    */
+    const navPath = pathOf(new URL(nav.href as string, window.location.href).pathname)
+    if (pathOf(window.location.pathname) === navPath && committedPath !== navPath) {
+      endAppNavigation()
       return
     }
     console.warn(`[app-navigation] ${nav.href}: the router's answer came back and the page did not land; loading it as a document`)

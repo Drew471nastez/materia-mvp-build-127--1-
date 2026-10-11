@@ -47,7 +47,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { BACK_HOLD_MS, backInFlight, backThen } from "@/lib/navigation/go-back"
-import { pageUnderSettingsSheet } from "@/lib/ui/app-navigation"
+import { pageUnderSettingsSheet, prefetchAppPage } from "@/lib/ui/app-navigation"
 import { hasUnsaved, requestLeave } from "@/lib/settings/unsaved-guard"
 import { inSheetSettingsLink, SETTINGS_PATH, SETTINGS_TAB_EVENT } from "@/lib/settings/sheet-links"
 
@@ -111,6 +111,32 @@ function reducedMotion(): boolean {
 */
 const STUCK_MS = 2500
 const MAX_HOPS = 3
+/*
+  OPENED ON ITS OWN, THE CLOSE IS A NAVIGATION TO THE DASHBOARD, which can take as long as the server takes. The sheet is
+  hidden the moment it is closed (round 23: it used to stay up under its sliding copy, so the press seemed to do nothing
+  and then the sheet blinked away when the dashboard came), and it only comes back, working, when the dashboard has not
+  come by the time the app gives any navigation up (lib/ui/app-navigation GIVE_UP_MS).
+*/
+const STUCK_PAGE_MS = 10_000
+
+/*
+  A DIALOG DRAWN OVER THE SHEET, NOT ONE THAT IS ONLY MOUNTED (round 23). The rail keeps its phone menu and the account
+  sheet in the page at every width, closed and hidden, both role=dialog aria-modal. Asking only "is there another
+  dialog" was always yes, so Escape never closed the sheet and a pull on its content never moved it. Only a dialog that is
+  drawn and takes presses counts.
+*/
+function dialogOverSheet(): boolean {
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>("[role=dialog][aria-modal=true]:not([data-settings-sheet])"))) {
+    if (el.getAttribute("data-mobile-menu") === "closed" || !el.getClientRects().length) continue
+    const cs = getComputedStyle(el)
+    if (cs.visibility === "hidden" || cs.pointerEvents === "none" || Number(cs.opacity) === 0) continue
+    return true
+  }
+  return false
+}
+
+/** The address is still on Settings: a close's way out has not been taken by something else (a Back, a link) meanwhile. */
+const onSettings = () => typeof window !== "undefined" && window.location.pathname === SETTINGS_PATH
 
 /** A touch that starts on one of these is the control's, not the sheet's. */
 const OWN_GESTURE = "input[type=range], textarea, [contenteditable=true], [data-no-sheet-drag], [role=slider]"
@@ -177,10 +203,10 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
     scrim.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: IN_MS, easing: "ease-out" })
   }, [here])
 
-  /* Opened on its own, closing loads the dashboard: fetched now so it is ready when the sheet starts to leave. */
+  /* Opened on its own, closing loads the dashboard: fetched now, whole (not only its frame), so it is there when the sheet leaves. */
   React.useEffect(() => {
     if (overlay) return
-    router.prefetch("/app")
+    prefetchAppPage(router, "/app")
     try {
       const from = document.referrer ? new URL(document.referrer) : null
       if (from && from.origin === window.location.origin && from.pathname !== window.location.pathname) router.prefetch(from.pathname + from.search)
@@ -211,7 +237,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           stuck.current = window.setTimeout(() => {
             if (alive.current && hereRef.current && window.location.pathname === SETTINGS_PATH) restore()
           }, STUCK_MS)
-        }, STUCK_MS)
+        }, overlay ? STUCK_MS : STUCK_PAGE_MS)
       }
 
       if (overlay) {
@@ -224,6 +250,12 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
         const under = () => pageUnderSettingsSheet(SETTINGS_PATH) ?? "/app"
         let waited = 0
         const back = () => {
+          /*
+            ONE WAY OUT, EVEN WHEN TWO ARE TAKEN (round 23). A Back (the browser's, a swipe, a second press somewhere)
+            that lands while the sheet is still sliding has already left Settings, and the sheet with it. Going Back
+            again from here took the page under it away too: the close that "goes twice".
+          */
+          if (!alive.current || !onSettings()) return
           setGone(true)
           watch()
           if (window.history.length <= 1) return router.replace(under())
@@ -266,6 +298,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       }
 
       const go = () => {
+        if (!onSettings()) return
         watch()
         /* Back to where it was opened from, when that was a page of ours; a cold open goes to the dashboard. */
         let ours = false
@@ -274,12 +307,19 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
         } catch {
           ours = false
         }
-        /* Through the back watch, so a Back that goes nowhere still lands on the dashboard. */
-        if (ours && window.history.length > 1) backThen(() => router.push("/app"))
-        else router.push("/app")
+        /*
+          Through the back watch, so a Back that goes nowhere still lands on the dashboard. In place of Settings, not on
+          top of it: closed is closed, and the Back after it does not open the sheet again.
+        */
+        const toDashboard = () => router.replace("/app")
+        if (ours && window.history.length > 1) backThen(toDashboard)
+        else toDashboard()
       }
       const root = el?.parentElement
-      if (!el || !root || !motion) return go()
+      if (!el || !root || !motion) {
+        setGone(true)
+        return go()
+      }
       /*
         OPENED ON ITS OWN: the page it goes to arrives under a still copy of
         the sheet, outside React, that slides down over it. The arrival is
@@ -297,6 +337,8 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       const ghostScroller = ghost.querySelector<HTMLElement>("[data-settings-sheet-scroll]")
       if (ghostScroller) ghostScroller.scrollTop = scrolledTo
       if (ghostPanel) ghostPanel.style.transform = `translate3d(0, ${from}px, 0)`
+      /* The sheet itself goes at once: only its copy is on the glass, sliding away, never the sheet again under it. */
+      setGone(true)
       go()
       const remove = () => ghost.remove()
       if (!ghostPanel) return remove()
@@ -335,7 +377,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.defaultPrevented) return
       /* Not over a dialog or a sheet of its own. */
-      if (document.querySelector("[role=dialog][aria-modal=true]:not([data-settings-sheet])")) return
+      if (dialogOverSheet()) return
       close()
     }
     window.addEventListener("keydown", onKey)
@@ -522,7 +564,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       if (e.touches.length !== 1 || leaving.current) return
       const t = e.touches[0]
       const target = e.target as Element | null
-      start = { y: t.clientY, x: t.clientX, top: box.scrollTop, skip: !!target?.closest?.(OWN_GESTURE) || !!document.querySelector("[role=dialog][aria-modal=true]:not([data-settings-sheet])") }
+      start = { y: t.clientY, x: t.clientX, top: box.scrollTop, skip: !!target?.closest?.(OWN_GESTURE) || dialogOverSheet() }
       pulling = false
     }
     const onMove = (e: TouchEvent) => {

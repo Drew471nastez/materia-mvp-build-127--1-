@@ -243,8 +243,15 @@ export function AppStage() {
     watchRouterCommits()
     watchRouterAnswers()
   }, [])
-  /* Leaving the shell: the page it showed is not under a Settings opened from outside it (lib/ui/app-navigation pageUnderSettingsSheet). */
-  useEffect(() => () => forgetCommitted(), [])
+  /*
+    Leaving the shell: the page it showed is not under a Settings opened from outside it (lib/ui/app-navigation
+    pageUnderSettingsSheet). And the navigation that took it away has landed: a page outside the shell (the editor, a
+    creator's page) has no stage to say so, and a record left open was later finished as a whole page load (round 23).
+  */
+  useEffect(() => () => {
+    forgetCommitted()
+    endAppNavigation()
+  }, [])
 
   /* Where the reader is, recorded as they scroll, for the way back. */
   useEffect(() => {

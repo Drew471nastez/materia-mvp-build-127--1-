@@ -1,0 +1,8 @@
+.next*
+node_modules
+next-env.d.ts
+public/
+serve-*.pid
+serve-*.log
+build-*.log
+tsconfig.json
