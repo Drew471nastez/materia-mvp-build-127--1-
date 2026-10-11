@@ -195,15 +195,25 @@ async function serve(zipPath: string) {
       const ctx = pageContextFor(theme, page as never, list)
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       const before = drawSection(theme, ctx, s, sectionIndexIn(list, s), group).html
-      const schema = splitCompatFile(theme.files[`sections/${theme.typeOf(s.type)}.storelib`] ?? "").schema as { settings?: { id?: string; type?: string; default?: unknown }[] } | null
+      type Field = { id?: string; type?: string; default?: unknown }
+      const schema = splitCompatFile(theme.files[`sections/${theme.typeOf(s.type)}.storelib`] ?? "").schema as { settings?: Field[]; blocks?: { type?: string; settings?: Field[] }[] } | null
       let changed: string | null = null
       let next = s
+      const words = (f: Field, values: Record<string, unknown> | undefined) => (f.id && /^(text|inline_richtext|textarea)$/.test(f.type ?? "") ? String((values ?? {})[f.id] ?? f.default ?? "").replace(/<[^>]+>/g, "").trim() : "")
       for (const f of schema?.settings ?? []) {
-        if (!f.id || !/^(text|inline_richtext|textarea)$/.test(f.type ?? "")) continue
-        const value = String((s.settings ?? {})[f.id] ?? f.default ?? "").replace(/<[^>]+>/g, "").trim()
+        const value = words(f, s.settings)
         if (value.length < 3 || !before.includes(value)) continue
-        changed = f.id
-        next = { ...s, settings: { ...(s.settings ?? {}), [f.id]: "W5 changed this" } }
+        changed = f.id!
+        next = { ...s, settings: { ...(s.settings ?? {}), [f.id!]: "W5 changed this" } }
+        break
+      }
+      /* Or a word of one of its blocks (a popup's heading). */
+      for (const b of changed ? [] : s.blocks ?? []) {
+        const def = (schema?.blocks ?? []).find((x) => x.type === b.type)
+        const f = (def?.settings ?? []).find((x) => { const v = words(x, b.settings); return v.length >= 3 && before.includes(v) })
+        if (!f) continue
+        changed = `${b.type}.${f.id}`
+        next = { ...s, blocks: (s.blocks ?? []).map((x) => (x === b ? { ...x, settings: { ...(x.settings ?? {}), [f.id!]: "W5 changed this" } } : x)) }
         break
       }
       const html = changed ? drawSection(theme, pageContextFor(theme, page as never, list.map((x) => (x === s ? next : x))), next, sectionIndexIn(list, s), group).html : before
@@ -441,6 +451,13 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
       if (ready) return { kind: "press", id: mark(ready), what: name(ready) }
       /* What would open one of the links. */
       const openers: { el: Element; how: "click" | "hover" }[] = []
+      /* A link on screen with something of the menu's own over it (a toggle laid over "Shop" on a phone): a tap lands on that, which opens its submenu. */
+      for (const a of links) {
+        if (!shown(a)) continue
+        const r = a.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
+        if (hit && hit !== a && !a.contains(hit) && hit.closest(scope)) openers.push({ el: hit, how: "click" })
+      }
       for (const a of links) {
         const chain: Element[] = []
         for (let e: Element | null = a.parentElement; e && e !== document.body; e = e.parentElement) chain.push(e)
