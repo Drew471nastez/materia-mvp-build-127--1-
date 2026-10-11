@@ -269,7 +269,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       fulfillment_status: priced.requiresShipping ? "unfulfilled" : "not_required",
       delivery_method: !priced.requiresShipping ? "none" : pickup ? "pickup" : "ship",
       pickup_location_id: pickup?.locationId ?? null,
-      pickup: pickup ? { location_id: pickup.locationId, name: pickup.name, address: pickup.address, instructions: pickup.instructions, ready: pickup.ready } : null,
+      pickup: pickup ? { location_id: pickup.locationId, name: pickup.name, address: pickup.address, instructions: pickup.instructions, ready: pickup.ready, hours: pickup.hours ?? null } : null,
       currency: chargeCurrency.toUpperCase(),
       items_subtotal_cents: totals.itemsSubtotalCents,
       discount_cents: totals.discountCents,
@@ -280,7 +280,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded }
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
         : { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded },
       lines: q.lines.map(snapshotLine),
       coupon_id: priced.coupon?.id ?? null,

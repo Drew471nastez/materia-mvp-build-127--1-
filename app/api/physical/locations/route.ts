@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
-import { loadLocations, locationFromRow, readLocation } from "@/lib/physical/config-server"
+import { loadLocations, locationFromRow, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -23,6 +23,8 @@ export async function POST(request: Request) {
   if ((count ?? 0) >= 50) return physicalJson({ error: "A shop can have up to 50 locations." }, 400)
   const { data, error } = await c.db.from("inventory_locations").insert({ ...read.row, creator_id: c.creatorId }).select("*").single()
   if (error || !data) return physicalJson({ error: error?.code === "23505" ? "You already have a location with that name." : "The location could not be saved." }, error?.code === "23505" ? 400 : 500)
+  /* Pickup hours and local delivery (part 154), apart: an older database still keeps the location. */
+  const extra = await saveLocationExtra(c.db, c.creatorId, String(data.id), read.extra)
   await recordActivity(c.db, c, { action: "location.added", subjectType: "location", subjectId: String(data.id), subjectLabel: String(data.name ?? "") })
-  return physicalJson({ location: locationFromRow(data) })
+  return physicalJson({ location: locationFromRow(extra.row ?? data), ...(extra.notice ? { message: extra.notice } : {}) })
 }

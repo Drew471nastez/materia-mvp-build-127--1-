@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
-import { loadSettings, locationFromRow, readLocation } from "@/lib/physical/config-server"
+import { loadSettings, locationFromRow, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -18,8 +18,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { data, error } = await c.db.from("inventory_locations").update(read.row).eq("id", id).eq("creator_id", c.creatorId).select("*").maybeSingle()
   if (error) return physicalJson({ error: "The location could not be saved." }, 500)
   if (!data) return physicalJson({ error: "Not found." }, 404)
+  const extra = await saveLocationExtra(c.db, c.creatorId, id, read.extra)
   await recordActivity(c.db, c, { action: "location.updated", subjectType: "location", subjectId: id, subjectLabel: String(data.name ?? "") })
-  return physicalJson({ location: locationFromRow(data) })
+  return physicalJson({ location: locationFromRow(extra.row ?? data), ...(extra.notice ? { message: extra.notice } : {}) })
 }
 
 /**

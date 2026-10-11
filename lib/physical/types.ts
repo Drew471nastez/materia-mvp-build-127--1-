@@ -100,6 +100,27 @@ export interface Location {
   pickupEnabled: boolean
   pickupInstructions: string | null
   pickupReady: PickupReady
+  /** Opening hours buyers can collect in, as the seller writes them ("Mon to Fri 9:00 to 17:00"). Part 154. */
+  pickupHours?: string | null
+  /** Delivering it yourself to nearby postal codes (./local-delivery.ts). Part 154; absent before it runs. */
+  localDelivery?: LocalDelivery | null
+}
+
+/**
+ * LOCAL DELIVERY, as Shopify has it: the seller drives orders from this
+ * location to buyers whose postal code starts with one of `codes`, in the
+ * location's own country, for `priceCents` (free from `freeOverCents`),
+ * when the order reaches `minOrderCents`.
+ */
+export interface LocalDelivery {
+  enabled: boolean
+  /** Upper case, spaces removed; each matches every postal code that starts with it ("400" covers 400001). */
+  codes: string[]
+  priceCents: number
+  minOrderCents: number | null
+  freeOverCents: number | null
+  /** Shown at checkout and in the order emails ("We deliver Tuesdays and Fridays, 5pm to 8pm"). */
+  note: string | null
 }
 
 /**
@@ -199,11 +220,13 @@ export interface PricedLine {
 }
 
 export interface DeliveryOption {
-  /** The rates chosen, one per shipping profile in the cart, joined: what the buyer picks is one option. A pickup is "pickup:<location id>". */
+  /** The rates chosen, one per shipping profile in the cart, joined: what the buyer picks is one option. A pickup is "pickup:<location id>", a local delivery "local:<location id>". */
   id: string
-  kind?: "ship" | "pickup"
+  kind?: "ship" | "pickup" | "local"
   /** For a pickup: where, and what the buyer should know. */
   pickup?: PickupInfo
+  /** For a local delivery: the location the seller drives it from, and their note. */
+  local?: { locationId: string; note: string | null }
   name: string
   priceCents: number
   minDays: number | null
@@ -218,4 +241,6 @@ export interface PickupInfo {
   address: string[]
   instructions: string | null
   ready: PickupReady
+  /** Opening hours, when the location gave them. */
+  hours?: string | null
 }

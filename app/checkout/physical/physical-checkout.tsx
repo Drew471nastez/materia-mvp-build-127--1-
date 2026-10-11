@@ -33,6 +33,7 @@ import { COUNTRIES } from "@/lib/checkout/countries"
 import { cartStorageKey, parseCart, serializeCart, type CartLine } from "@/lib/website-builder/cart"
 import { decodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import { postalCodeRequired } from "@/lib/physical/address"
+import { postalKey } from "@/lib/physical/local-delivery"
 import { regionsOf } from "@/lib/physical/regions"
 import { addressFormat } from "@/lib/address/format"
 import { countryName } from "@/lib/checkout/countries"
@@ -187,7 +188,8 @@ export function PhysicalCheckout({
     }
   }, [shopId, backTo])
 
-  /* The server's prices, asked again when anything that changes them changes. */
+  /* The server's prices, asked again when anything that changes them changes. The postal code counts once it names an area: it only decides local delivery. */
+  const postalForQuote = postalKey(address.postalCode).length >= 3 ? postalKey(address.postalCode) : ""
   const ask = React.useRef(0)
   React.useEffect(() => {
     if (!items || !shopId) return
@@ -202,7 +204,7 @@ export function PhysicalCheckout({
         const res = await fetch("/api/physical/checkout/quote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, deliveryOptionId: optionId, email }),
+          body: JSON.stringify({ shopId, items, couponCode: appliedCode, country: address.country, region: address.region, postalCode: postalForQuote, deliveryOptionId: optionId, email }),
         })
         const data = await res.json().catch(() => ({}))
         if (n !== ask.current) return
@@ -232,7 +234,7 @@ export function PhysicalCheckout({
     }, 250)
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, shopId, appliedCode, address.country, address.region, optionId])
+  }, [items, shopId, appliedCode, address.country, address.region, postalForQuote, optionId])
 
   /* A checkout offer taken: into the order, and the cart's too when the cart is where it came from. The server prices it again. */
   const addSuggestion = (sg: Suggestion, v: { id: string; name: string; priceCents: number } | null) => {
@@ -760,7 +762,8 @@ export function PhysicalCheckout({
                 ) : !quote.delivery.ok || quote.delivery.options.length === 0 ? (
                   <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3.5 py-3 text-[14px] text-[#991b1b]" data-no-shipping="">
                     <p className="font-medium">Shipping isn't available to {address.country ? countryName(address.country) : "this address"}.</p>
-                    <p className="mt-0.5 text-[13.5px]">{quote.delivery.ok ? "This shop doesn't ship there yet." : quote.delivery.error} {(quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up above instead." : "Try another address, or contact the shop."}</p>
+                    {/* The server names what can't come and what to do (lib/physical/rates unshippableMessage); its own words stand alone. */}
+                    <p className="mt-0.5 text-[13.5px]">{!quote.delivery.ok && quote.delivery.error ? quote.delivery.error : `This shop doesn't ship there yet. ${(quote.pickups?.length ?? 0) > 0 ? "You can choose Pick up above instead." : "Try another address, or contact the shop."}`}</p>
                   </div>
                 ) : (
                   <div className="overflow-hidden rounded-xl border border-[#d9dce1]">

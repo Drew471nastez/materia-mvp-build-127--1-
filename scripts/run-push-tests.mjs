@@ -555,6 +555,7 @@ const SUITES = [
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
   "tests/physical-w7.test.ts",
+  "tests/fulfil23.test.ts",
   "tests/editor-engine-w4b.test.ts",
   /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
   "tests/orders20.test.ts",
