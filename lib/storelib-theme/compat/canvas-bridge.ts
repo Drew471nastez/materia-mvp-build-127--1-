@@ -129,7 +129,8 @@ export const CANVAS_BRIDGE = `
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
     if (r.width < 1 || r.height < 1) { r = contentBox(el); loose = true; if (!r) return null; }
-    var left = Math.max(r.left + inset, 0), right = Math.min(r.right - inset, innerWidth);
+    /* A block as wide as the screen is outlined just inside it: two pixels out, its sides were off the page and only a line under it showed. */
+    var left = Math.max(r.left + inset, 0), right = Math.min(r.right - inset, document.documentElement.clientWidth || innerWidth);
     var top = Math.max(r.top + inset, 0), bottom = Math.min(r.bottom - inset, innerHeight);
     if (right - left < 1 || bottom - top < 1) return null;
     var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
@@ -155,19 +156,34 @@ export const CANVAS_BRIDGE = `
       to = Math.round(lo);
     }
     if (to - from < 2) return null;
-    return { left: r.left + inset, width: Math.max(0, r.width - inset * 2), top: from, bottom: to, cutTop: from > r.top + inset + 0.5, cutBottom: to < r.bottom - inset - 0.5 };
+    return { left: left, width: right - left, top: from, bottom: to, cutTop: from > r.top + inset + 0.5, cutBottom: to < r.bottom - inset - 0.5 };
   };
   var place = function (box, el, inset) {
     var v = visibleRect(el, inset);
     if (!v) { box.style.display = "none"; return null; }
     box.style.display = "block";
-    box.style.left = v.left + "px";
     box.style.width = v.width + "px";
-    box.style.top = v.top + "px";
     box.style.height = (v.bottom - v.top) + "px";
     /* Cut by the edge of the screen or by something over it: no line there. */
     box.style.borderTopWidth = v.cutTop ? "0" : "";
     box.style.borderBottomWidth = v.cutBottom ? "0" : "";
+    /*
+      FIXED IS NOT ALWAYS THE SCREEN. A theme that moves <html> or <body> (a translate), a filter
+      or \`contain\` on them (a page fade, a drawer that slides the
+      page) makes that element the box's frame, and every outline sat off by
+      its offset. Where the box lands is read back and the difference taken
+      out, so it is always on the element.
+    */
+    var dx = box.__dx || 0, dy = box.__dy || 0;
+    box.style.left = (v.left - dx) + "px";
+    box.style.top = (v.top - dy) + "px";
+    var got = box.getBoundingClientRect();
+    var ex = got.left - v.left, ey = got.top - v.top;
+    if (Math.abs(ex) > 0.5 || Math.abs(ey) > 0.5) {
+      box.__dx = dx + ex; box.__dy = dy + ey;
+      box.style.left = (v.left - box.__dx) + "px";
+      box.style.top = (v.top - box.__dy) + "px";
+    }
     return v;
   };
   var drawFrame = 0;
@@ -186,11 +202,13 @@ export const CANVAS_BRIDGE = `
     var sec = document.querySelector("[data-sl-selected]");
     var blk = document.querySelector("[data-sl-selected-block]");
     place(boxes.hover, hov && hov !== sec ? hov : null, 0);
-    var seen = place(boxes.section, sec, 0);
-    place(boxes.block, blk, -2);
+    /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
+    var b = place(boxes.block, blk, -2);
+    var seen = place(boxes.section, b ? null : sec, 0);
     if (withReport === true || boxFrame) {
       if (boxFrame) cancelAnimationFrame(boxFrame);
-      report({ el: sec, v: seen });
+      /* The section's reading, when it was read: with a block selected it was not, and the report reads it itself. */
+      report(b ? null : { el: sec, v: seen });
     }
   };
   var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
@@ -222,7 +240,20 @@ export const CANVAS_BRIDGE = `
     if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
     redraw();
   };
-  document.addEventListener("mouseover", function (e) {
+  /*
+    A MOUSE ONLY. A finger has no hover, but a tap sends the mouse events a
+    page expects after it, so a tapped section was outlined twice, hovered
+    and selected, and the hover stayed after the finger had gone. What the
+    last pointer was is known from its own events.
+  */
+  var touching = false;
+  document.addEventListener("pointerdown", function (e) {
+    touching = e.pointerType !== "mouse";
+    if (touching && hovered) { hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); }
+  }, true);
+  document.addEventListener("pointerover", function (e) {
+    if (e.pointerType !== "mouse") return;
+    touching = false;
     pointerAt = e.target;
     if (inspect) hover(sectionOf(e.target));
   }, true);
@@ -244,7 +275,8 @@ export const CANVAS_BRIDGE = `
     lent.removeAttribute("data-sl-href");
     lent = null;
   };
-  document.addEventListener("mouseover", function (e) {
+  document.addEventListener("pointerover", function (e) {
+    if (e.pointerType !== "mouse") return;
     var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
     if (a === lent) return;
     giveBack();
@@ -320,7 +352,18 @@ export const CANVAS_BRIDGE = `
     var path = [];
     var at = blockOf(e.target, s);
     while (at) { path.unshift(at.getAttribute("data-block-id")); at = blockOf(at.parentElement, s); }
-    post({ type: "pick", sectionId: idOf(s), blockPath: path });
+    var id = idOf(s);
+    /*
+      A TAP ON WHAT IS SELECTED GOES UP A LEVEL. A finger is wider than a
+      heading inside a slide inside a slideshow, and the first tap takes the
+      innermost block under it. Tapped again in the same place, the block
+      around it is selected, then the section, and then the innermost again
+      (with the section selected, a tap is a first tap). A mouse, which can
+      point at the section's own edge, picks exactly.
+    */
+    var where = touching && !link && selected.section === id && selected.block ? path.indexOf(selected.block) : -1;
+    if (where >= 0) path = path.slice(0, where);
+    post({ type: "pick", sectionId: id, blockPath: path });
   }, true);
   var fire = function (el, name, detail) { try { el.dispatchEvent(new CustomEvent(name, { bubbles: true, detail: detail })); } catch (e) {} };
   var selected = { section: null, block: null };
