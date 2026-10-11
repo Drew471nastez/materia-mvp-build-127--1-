@@ -532,6 +532,8 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
+  "tests/orders20.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

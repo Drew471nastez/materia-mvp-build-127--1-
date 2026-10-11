@@ -66,7 +66,10 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     tax_cents: Number(order.tax_cents) || 0,
     tax_included: order.tax_included === true,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
-    ...(order.checkout_id ? { checkout_id: order.checkout_id as string, quantity: (order.quantity as number) ?? 1 } : {}),
+    /* A physical line: its share of delivery, and of tax added on top, which it keeps in its snapshot (the checkout holds the order's), not in the column. */
+    ...(order.checkout_id
+      ? { checkout_id: order.checkout_id as string, quantity: (order.quantity as number) ?? 1, shipping_cents: Number(order.shipping_cents) || 0, tax_cents: Number(order.tax_cents) || Number(order.product_snapshot?.tax_cents) || 0 }
+      : {}),
   }
 }
 
@@ -121,15 +124,23 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
 
   const byId = new Map(products.map((p) => [p.id, p]))
   const rows = ordersData.map((order) => toOrderRow(order, byId.get(order.product_id)))
-  /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid. */
+  /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid: its stage, returns and delivery come from its checkout. */
   const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
   if (checkoutIds.length) {
-    const status = new Map<string, string>()
+    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; shipping_rate: { name?: string } | null }
+    const byCheckout = new Map<string, Checkout>()
     for (let i = 0; i < checkoutIds.length; i += 500) {
-      const { data } = await admin.from("commerce_checkouts").select("id, fulfillment_status").eq("creator_id", creatorId).in("id", checkoutIds.slice(i, i + 500))
-      for (const c of (data ?? []) as { id: string; fulfillment_status: string }[]) status.set(c.id, c.fulfillment_status)
+      const { data } = await admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, shipping_rate").eq("creator_id", creatorId).in("id", checkoutIds.slice(i, i + 500))
+      for (const c of (data ?? []) as Checkout[]) byCheckout.set(c.id, c)
     }
-    for (const r of rows) if (r.checkout_id && status.has(r.checkout_id)) r.physical_fulfillment = status.get(r.checkout_id) ?? null
+    for (const r of rows) {
+      const c = r.checkout_id ? byCheckout.get(r.checkout_id) : undefined
+      if (!c) continue
+      r.physical_fulfillment = c.fulfillment_status ?? null
+      r.physical_return = c.return_status ?? null
+      r.physical_pickup = c.delivery_method === "pickup"
+      r.physical_method = typeof c.shipping_rate?.name === "string" ? c.shipping_rate.name : null
+    }
   }
   return { products, rows }
 }

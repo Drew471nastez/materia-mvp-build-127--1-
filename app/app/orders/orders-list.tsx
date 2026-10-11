@@ -19,6 +19,7 @@ import { DateRangePicker } from "@/components/app/date-range-picker"
 import { presetRange, rangeLabel, type RangeValue } from "@/lib/date-range/range"
 import {
   COLUMNS,
+  SHIP_FILTERS,
   SORTS,
   SOURCE_LABEL,
   VIEWS,
@@ -40,6 +41,7 @@ import {
   MenuOption,
   MenuSurface,
   PaymentBadge,
+  ShipBadge,
   Sparkline,
   buttonAccent,
   buttonSecondary,
@@ -196,8 +198,10 @@ function OrdersTable(props: OrdersListProps) {
     timeZone,
   } = props
 
-  const filtering = query.q.trim() !== "" || query.source !== "any" || query.product !== ""
+  const filtering = query.q.trim() !== "" || query.source !== "any" || query.product !== "" || (query.fulfillment ?? "any") !== "any"
   const [searching, setSearching] = React.useState(filtering)
+  /* The Fulfillment filter is for a shop that ships something: a shop of downloads never sees it. */
+  const ships = React.useMemo(() => allOrders.some((o) => o.shipping), [allOrders])
   const searchRef = React.useRef<HTMLInputElement>(null)
 
   const columns = COLUMNS.filter((c) => !hidden.has(c.key))
@@ -233,7 +237,7 @@ function OrdersTable(props: OrdersListProps) {
               className="h-8 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#1a1a2e] hover:bg-[#f1f2f4]"
               onClick={() => {
                 props.onSearchText("")
-                onQuery({ q: "", source: "any", product: "", page: 1 })
+                onQuery({ q: "", source: "any", product: "", fulfillment: "any", page: 1 })
                 setSearching(false)
               }}
             >
@@ -259,7 +263,7 @@ function OrdersTable(props: OrdersListProps) {
         <ColumnsMenu hidden={hidden} onToggle={props.onToggleColumn} />
       </div>
 
-      {searching ? <FilterRow query={query} onQuery={onQuery} products={props.products} /> : null}
+      {searching ? <FilterRow query={query} onQuery={onQuery} products={props.products} ships={ships} /> : null}
 
       {pageOrders.length === 0 ? (
         <EmptyState
@@ -268,7 +272,7 @@ function OrdersTable(props: OrdersListProps) {
           rangeName={props.period.preset === "all_time" ? null : rangeLabel(props.period)}
           onClear={() => {
             props.onSearchText("")
-            onQuery({ view: "all", q: "", source: "any", product: "", page: 1 })
+            onQuery({ view: "all", q: "", source: "any", product: "", fulfillment: "any", page: 1 })
             setSearching(false)
           }}
           onAllTime={() => props.onPeriod({ preset: "all_time", ...presetRange("all_time", props.today, props.firstDay) })}
@@ -450,12 +454,20 @@ function Cell({ column, order, now, timeZone }: { column: ColumnKey; order: Orde
     case "payment":
       return <PaymentBadge status={order.payment} />
     case "fulfillment":
-      return <FulfillmentBadge status={order.fulfillment} />
+      /* A parcel: where it is (Unfulfilled to Delivered, or Returned). A download keeps its two words. */
+      return order.shipping ? <ShipBadge stage={order.shipping.stage} /> : <FulfillmentBadge status={order.fulfillment} />
     case "items":
       return <span>{itemsLabel(order.itemCount)}</span>
     case "delivery":
+      if (order.shipping) {
+        const { stage, pickup } = order.shipping
+        if (stage === "delivered" || stage === "returned" || stage === "partially_returned") return <span>{pickup ? "Picked up" : "Delivered"}</span>
+        if (stage === "fulfilled" || stage === "partially_fulfilled") return <span>{pickup ? "Ready for pickup" : "Shipped"}</span>
+        return <span className="text-[#9ca3af]">&ndash;</span>
+      }
       return <DeliveryBadge status={order.delivery} />
     case "method":
+      if (order.shipping) return <span className="block max-w-[180px] truncate">{order.shipping.pickup ? "Local pickup" : order.shipping.method || "Shipping"}</span>
       return order.customerEmail ? <span>Email</span> : <span className="text-[#9ca3af]">&ndash;</span>
   }
 }
@@ -499,14 +511,27 @@ function FilterRow({
   query,
   onQuery,
   products,
+  ships,
 }: {
   query: ListQuery
   onQuery: (next: Partial<ListQuery>) => void
   products: Array<{ id: string; title: string }>
+  ships: boolean
 }) {
   const product = products.find((p) => p.id === query.product)
+  const fulfillment = SHIP_FILTERS.find((f) => f.value === query.fulfillment)
   return (
     <div className="orders-strip flex items-center gap-2 overflow-x-auto border-b border-[#eef0f2] px-3 py-2">
+      {ships || fulfillment ? (
+        <FilterChip
+          label="Fulfillment"
+          value={fulfillment ? fulfillment.label : null}
+          onClear={() => onQuery({ fulfillment: "any", page: 1 })}
+          options={[{ value: "any", label: "Any status" }, ...SHIP_FILTERS]}
+          selected={query.fulfillment ?? "any"}
+          onSelect={(v) => onQuery({ fulfillment: v as ListQuery["fulfillment"], page: 1 })}
+        />
+      ) : null}
       <FilterChip
         label="Source"
         value={query.source === "any" ? null : SOURCE_LABEL[query.source]}
