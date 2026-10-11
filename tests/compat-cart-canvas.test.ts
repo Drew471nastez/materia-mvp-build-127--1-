@@ -203,7 +203,7 @@ async function main() {
   {
     const boot = shopifyBootstrap({ shopName: "S", currency: "USD", designMode: false })
     /* The terms helper on its own: the newsletter form (FORMS) disables its own button while it sends, which is not this rule. */
-    const terms = boot.slice(boot.indexOf('document.addEventListener("change"'), boot.indexOf("data-requires-terms") + 400)
+    const terms = boot.slice(boot.indexOf('document.addEventListener("change"'), boot.indexOf("storelib:wishlist:"))
     check("a ticked terms box frees a Check out the theme left disabled, and never disables one", /terms\|agree\|condition\|policy/.test(terms) && /c\.disabled=false/.test(terms) && !/\.disabled=true/.test(terms) && /data-requires-terms/.test(terms))
     check("  in the canvas too", /const TERMS = `document\.addEventListener/.test((await import("node:fs")).readFileSync("lib/storelib-theme/compat/shims.ts", "utf8")))
     const found = fieldMatches(products, `id:${ID(1)} OR id:${ID(3)}`)
