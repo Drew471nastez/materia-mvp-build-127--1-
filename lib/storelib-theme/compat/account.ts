@@ -284,7 +284,8 @@ ${notice(v.notice)}
 <input class="sl-acc__input" id="sl-acc-email" name="email" type="email" inputmode="email" autocomplete="email" maxlength="254" placeholder="you@example.com" required autofocus>
 <button class="${BUTTON_CLASS}" type="submit">Continue</button>
 </form>
-<p class="sl-acc__note">${v.register ? "Already have an account? Use the same email to sign in." : "New here? Signing in makes your account."}</p>`)
+<p class="sl-acc__note">${v.register ? "Already have an account? Use the same email to sign in." : "New here? Signing in makes your account."}</p>
+<p><a class="sl-acc__link" href="/checkout/track">Track an order without signing in</a></p>`)
 }
 
 export interface AccountView {

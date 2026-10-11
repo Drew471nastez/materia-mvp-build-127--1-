@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
+import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
@@ -12,6 +13,7 @@ import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { CART_COOKIE, readCartCookie } from "@/lib/storelib-theme/compat/site"
 import type { LinkItem } from "@/lib/physical/cart-link"
+import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
 
 export const dynamic = "force-dynamic"
@@ -45,6 +47,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const admin = createAdminClient()
   const site = await siteOfHost(admin, h.get("host"))
   if (!site) notFound()
+  /* Apple Pay and Google Pay on a website's own subdomain: registered with Stripe once, after this page is sent (lib/custom-domains/stripe-pmd). */
+  if (site.kind === "subdomain") after(() => ensureSiteWalletDomain(admin, site.host))
 
   const params = readSiteCheckoutParams(q)
   let items: LinkItem[] = params.items

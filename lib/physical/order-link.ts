@@ -37,3 +37,19 @@ export function originSiteHost(origin: unknown): string | null {
   const host = o.site.trim().toLowerCase().replace(/\.$/, "")
   return /^[a-z0-9.-]{3,253}$/.test(host) && host.includes(".") ? host : null
 }
+
+/**
+ * An order number as a buyer types it ("#3F2A9C1B", "3f2a 9c1b", "3F2A9C1B"):
+ * the eight letters and digits every email, receipt and account shows (the
+ * start of the order's id), uppercase. Null for anything else.
+ */
+export function readOrderNumber(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  const n = raw.replace(/[\s#-]/g, "").toUpperCase()
+  return /^[0-9A-F]{8}$/.test(n) ? n : null
+}
+
+/** Whether a row's id is the order a buyer named (lib/physical/status orderNumber, lib/receipts/rules orderNumberOf). */
+export function isOrderNumberOf(id: unknown, number: string): boolean {
+  return typeof id === "string" && id.replace(/-/g, "").slice(0, 8).toUpperCase() === number
+}

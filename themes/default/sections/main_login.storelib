@@ -34,6 +34,8 @@
         <button class="s__btn s__btn--primary" type="submit">{{ settings.continue_label }}</button>
       </form>
       {% if settings.note %}<p class="login__note">{{ settings.note }}</p>{% endif %}
+      {# A buyer who checked out as a guest follows an order by its number and email (app/checkout/site/track). #}
+      {% if settings.track_label %}<p class="login__track"><a class="login__link" href="/checkout/track">{{ settings.track_label }}</a></p>{% endif %}
     {% endif %}
   </div>
 </section>
@@ -99,6 +101,8 @@
 }
 .login__link:focus-visible { outline: 2px solid var(--s-heading); outline-offset: 2px; }
 .login__note { margin: 20px 0 0; font-size: 14px; line-height: 1.55; color: var(--s-para); }
+.login__track { margin: 8px 0 0; }
+.login__track .login__link { font-size: 14px; }
 @media (prefers-reduced-motion: reduce) { .s__btn { transition: none; } }
 </style>
 
@@ -120,6 +124,7 @@
     { "type": "text", "id": "email_placeholder", "label": "Placeholder", "default": "you@example.com" },
     { "type": "text", "id": "continue_label", "label": "Button", "default": "Continue" },
     { "type": "textarea", "id": "note", "label": "Small print", "default": "New here? Signing in makes your account. There is no password.", "info": "Empty hides it." },
+    { "type": "text", "id": "track_label", "label": "Order lookup link", "default": "Track an order without signing in", "info": "Opens the order lookup for guests. Empty hides it." },
     { "type": "header", "id": "hdr_code", "label": "Code step" },
     { "type": "text", "id": "code_heading", "label": "Heading", "default": "Enter your code" },
     { "type": "text", "id": "code_text", "label": "Line under the heading", "default": "We sent a code to", "info": "The email follows it." },
