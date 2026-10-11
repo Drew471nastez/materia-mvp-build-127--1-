@@ -45,6 +45,7 @@ import { relativeTime } from "@/lib/communities/format"
 import { postPath } from "@/lib/communities/post-url"
 import { openPostOver } from "@/lib/communities/client/open-post"
 import { registerCommunitySearch } from "@/lib/nav/community-search-bridge"
+import { useLayer } from "@/lib/ui/layers"
 import { api, apiBase } from "./api"
 import { PLAIN_ICON_BTN } from "./ui"
 import type { SearchIndex, SearchResults } from "./view-types"
@@ -61,6 +62,8 @@ export const SEARCH_PLACEHOLDER_SHORT = "Search this community"
 const SHORT_BELOW_PX = 380
 /** How long the phone's search screen takes to go when closed. */
 export const SCREEN_OUT_MS = 180
+/** Over an opened post (post-fullscreen.tsx, 130) and the tab bar lifted over it (131); under the composer's leave dialog and the picture viewer. */
+export const SEARCH_SCREEN_Z = 136
 
 /*
   THE SCREEN'S MOTION (round 12, ask 1). Its white surface never fades in, so the page is never seen through it; the field row and
@@ -662,6 +665,14 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
   useEffect(() => setActive(-1), [s.results])
+  /*
+    ROUND R8: OVER AN OPENED POST TOO. The screen was at z 80, under an opened post (130) and the tab bar lifted over it (131):
+    the tab bar's Search inside a post opened the screen behind the post, its field taking the caret where nobody could see it.
+    It is a layer that covers the bar now (lib/ui/layers.ts "search"), so the bar goes back under it, and it is drawn over the
+    post (SEARCH_SCREEN_Z).
+  */
+  const screenRef = useRef<HTMLDivElement>(null)
+  useLayer("search", mounted && open, screenRef)
 
   const close = useCallback((focusBack = true) => {
     setLeaving(true)
@@ -736,6 +747,7 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
       {mounted && open
         ? createPortal(
             <div
+              ref={screenRef}
               role="dialog"
               aria-modal="true"
               aria-label="Search this community"
@@ -744,7 +756,9 @@ export function CommunitySearchButton({ communityId, slug, className = "", trigg
                 through while it comes or goes; what is on it (the field and the results) rises in and settles, and on Cancel sinks and
                 fades while the surface goes with it at the end (SCREEN_OUT_MS).
               */
-              className={`fixed inset-0 z-[80] flex flex-col bg-white pt-[calc(env(safe-area-inset-top)+10px)] motion-reduce:animate-none ${leaving ? "pointer-events-none animate-[community-search-out_180ms_cubic-bezier(0.4,0,1,1)_forwards]" : ""}`}
+              className={`fixed inset-0 flex flex-col bg-white pt-[calc(env(safe-area-inset-top)+10px)] motion-reduce:animate-none ${leaving ? "pointer-events-none animate-[community-search-out_180ms_cubic-bezier(0.4,0,1,1)_forwards]" : ""}`}
+              style={{ zIndex: SEARCH_SCREEN_Z }}
+              data-layer-kind="search"
               data-leaving={leaving ? "" : undefined}
               data-community-search-screen=""
               onKeyDown={(e) => {

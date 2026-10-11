@@ -182,6 +182,14 @@ export function openLayer(kind: LayerKind, el?: (() => Element | null) | null): 
   return () => {
     if (!entries.delete(id)) return
     publish()
+    /*
+      AND AGAIN ONCE THE COMMIT IS OVER (round R8). A layer lets go in React's unmount, and React runs the cleanups of a
+      component before it takes that component's element out of the document, so the publish above still found the element
+      standing for the kind and left its class on <html>. Leaving New email on a phone kept `has-phone-page-layer`, which
+      hides the /app header ([data-shell-chrome]): a light grey band where the header was, over the violet strip, until some
+      other layer opened. A microtask runs after the commit has removed the element.
+    */
+    if (hasDom()) queueMicrotask(publish)
   }
 }
 

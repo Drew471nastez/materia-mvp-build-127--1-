@@ -23,6 +23,13 @@
  * on top of the email. On a wide screen it can also be dragged by the handle
  * in the margin.
  *
+ * A BUTTON ON A PHONE (round R8) is edited in a bottom sheet: a tap on it
+ * opens the sheet with its words, its link, its colour and its place, on the
+ * keyboard when one is up (components/ui/bottom-sheet.tsx aboveKeyboard), and
+ * Done, a pull down or a tap outside closes it. Its words are not typed on
+ * the button itself there: a field on the canvas under a rising sheet and a
+ * rising keyboard was the fight this replaces.
+ *
  * The blocks become email HTML in lib/email-campaigns/blocks.ts; the preview
  * (./email-preview.tsx) is that HTML, the real thing.
  */
@@ -32,6 +39,7 @@ import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, us
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { cn } from "@/lib/utils"
 import { buttonColors, themeOf, type EmailTheme } from "@/lib/email-campaigns/brand"
 import { blockHasContent, newBlock, safeImageSrc, type Block, type BlockIssue, type BlockType, type ButtonBlock, type ImageBlock } from "@/lib/email-campaigns/blocks"
@@ -161,7 +169,8 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
     requestAnimationFrame(() => {
       const el = blockEl(made.id)
       el?.scrollIntoView({ block: "nearest", behavior: "smooth" })
-      if (made.type === "button") el?.querySelector<HTMLInputElement>("[data-button-label]")?.focus({ preventScroll: true })
+      /* On a phone a button's words are typed in its sheet, which opens now that it is picked. */
+      if (made.type === "button" && !phone) el?.querySelector<HTMLInputElement>("[data-button-label]")?.focus({ preventScroll: true })
       else (document.activeElement as HTMLElement | null)?.blur?.()
     })
     if (made.type === "image") startUpload(made.id)
@@ -297,6 +306,8 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
   }
 
   const only = blocks.length === 1
+  /* The button whose sheet is open on a phone. */
+  const sheetButton = phone ? ((blocks.find((b) => b.id === selected && b.type === "button") as ButtonBlock | undefined) ?? null) : null
 
   return (
     <div
@@ -357,7 +368,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                 panel={
                   selected === b.id ? (
                     b.type === "button" ? (
-                      <ButtonPanel block={b} brand={theme.button} onChange={(p) => patch(b.id, p)} />
+                      phone ? null : <ButtonPanel block={b} brand={theme.button} onChange={(p) => patch(b.id, p)} />
                     ) : b.type === "image" ? (
                       <ImagePanel block={b} onChange={(p) => patch(b.id, p)} onUpload={() => startUpload(b.id)} uploading={!!uploading[b.id]} uploadError={uploadError[b.id] || null} />
                     ) : b.type === "product" ? (
@@ -380,7 +391,7 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
                     className={EMAIL_TYPE}
                   />
                 ) : b.type === "button" ? (
-                  <ButtonView block={b} theme={theme} onLabel={(label) => patch(b.id, { label } as Partial<Block>, true)} />
+                  <ButtonView block={b} theme={theme} onLabel={(label) => patch(b.id, { label } as Partial<Block>, true)} readOnly={phone} />
                 ) : b.type === "image" ? (
                   <ImageView block={b} uploading={uploading[b.id]} onDropFile={(f) => void upload(b.id, f)} onUpload={() => startUpload(b.id)} />
                 ) : b.type === "product" ? (
@@ -399,6 +410,55 @@ export function BlockEditor({ doc, creatorId, username, issues, showIssues, them
           </SortableContext>
         </DndContext>
       </div>
+
+      {phone ? (
+        <BottomSheet
+          isOpen={!!sheetButton}
+          onClose={() => setSelected(null)}
+          label="Button"
+          hideFrom="md"
+          aboveKeyboard
+          maxHeight="min(80dvh, 640px)"
+          header={
+            <div className="flex h-11 items-center justify-between gap-3 px-4">
+              <h2 className="text-[17px] font-semibold text-[#1a1a2e]">Button</h2>
+              <button
+                type="button"
+                onPointerDown={(e) => e.preventDefault()}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  ;(document.activeElement as HTMLElement | null)?.blur?.()
+                  setSelected(null)
+                }}
+                className="inline-flex h-9 items-center rounded-full bg-[#f1f2f4] px-4 text-[15px] font-semibold text-[#1a1a2e] active:bg-[#e6e8eb] [-webkit-tap-highlight-color:transparent]"
+                data-button-sheet-done=""
+              >
+                Done
+              </button>
+            </div>
+          }
+        >
+          <div className="px-4 pb-4 pt-2" data-button-sheet="">
+            {sheetButton ? <ButtonPanel block={sheetButton} brand={theme.button} onChange={(p) => patch(sheetButton.id, p, "label" in p)} sheet /> : null}
+            {/* The block's own moves, here too: under the sheet the corner menu cannot be reached. */}
+            {sheetButton ? (
+              <div className="mt-6 grid grid-cols-2 gap-2 border-t border-[#f1f2f4] pt-4" data-button-sheet-actions="">
+                {actionsFor(sheetButton.id).map((a) => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    onClick={() => a.onClick?.()}
+                    className={cn(buttonSecondary, "h-11 justify-center gap-2 text-[15px]", a.variant === "destructive" && "text-[#b42318]")}
+                  >
+                    {a.icon}
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </BottomSheet>
+      ) : null}
 
       <div className="flex items-center justify-center border-t border-[#eef0f2] px-4 py-3">
         <ResponsiveActionMenu
@@ -496,7 +556,7 @@ function Shell({
  * 16px semibold words, 8px corners, the brand's fill and the words that read
  * on it. Its words are typed on it, the field as wide as what is written.
  */
-function ButtonView({ block, theme, onLabel }: { block: ButtonBlock; theme: EmailTheme; onLabel: (label: string) => void }) {
+function ButtonView({ block, theme, onLabel, readOnly = false }: { block: ButtonBlock; theme: EmailTheme; onLabel: (label: string) => void; readOnly?: boolean }) {
   const c = buttonColors(block.color, theme)
   return (
     <div className="mb-5" style={{ textAlign: block.align }}>
@@ -512,7 +572,10 @@ function ButtonView({ block, theme, onLabel }: { block: ButtonBlock; theme: Emai
           aria-label="Button text"
           size={1}
           onChange={(e) => onLabel(e.target.value)}
-          className="col-start-1 row-start-1 w-full min-w-[3ch] cursor-text bg-transparent p-0 text-center text-[16px] font-semibold leading-5 outline-none placeholder:text-current placeholder:opacity-60"
+          /* On a phone the words are typed in the button's sheet: a tap here picks the block, which opens it. */
+          readOnly={readOnly}
+          tabIndex={readOnly ? -1 : undefined}
+          className={cn("col-start-1 row-start-1 w-full min-w-[3ch] cursor-text bg-transparent p-0 text-center text-[16px] font-semibold leading-5 outline-none placeholder:text-current placeholder:opacity-60", readOnly && "pointer-events-none cursor-pointer")}
           style={{ color: c.text }}
         />
       </span>

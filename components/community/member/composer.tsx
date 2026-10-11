@@ -823,6 +823,14 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     const prev = html.style.overscrollBehavior
     html.style.overscrollBehavior = "none"
     notedScroll.current = window.scrollY
+    /*
+      ROUND R8: THE FEED BEHIND IS NOT SHORTENED FOR THE SHEET'S KEYBOARD. With a field in the sheet typed in, KeyboardGuard's
+      `keyboard-open` cut the community's frame to the visible height (app/globals.css), which threw the feed's scroll back to
+      the top under the sheet: the whole page jumped as the keyboard came up and stayed at the top once it went down. The
+      sheet covers the frame, so the frame is marked while it is up, as an opened post marks it (data-post-over).
+    */
+    const shell = document.querySelector<HTMLElement>("[data-community-shell]")
+    shell?.setAttribute("data-sheet-over", "")
     setFilled(true)
     setSheetUp(true)
     const t = window.setTimeout(
@@ -837,6 +845,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     return () => {
       window.clearTimeout(t)
       html.style.overscrollBehavior = prev
+      shell?.removeAttribute("data-sheet-over")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sheet])
@@ -1299,6 +1308,8 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
             data-composer="sheet"
             data-composer-edit={editing ? "" : undefined}
             data-composer-sheet-in={sheetIn ? "true" : "false"}
+            /* The sheet puts its own fields on the keyboard (and keeps them in sight): KeyboardGuard leaves them alone. */
+            data-keyboard-own=""
             className="flex min-h-0 flex-1 flex-col bg-white"
           >
             <div className="shrink-0 border-b border-[#f0f1f3]">

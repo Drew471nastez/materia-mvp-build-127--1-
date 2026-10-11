@@ -53,7 +53,22 @@
  *
  * With no keyboard the room is the tab bar's (the bar is over the post).
  *
- * Pure: no DOM, no React. tests/communities-post17.test.ts holds the table.
+ * ROUND R8: A WEB VIEW THAT MAKES ROOM ITSELF IS NEVER LIFTED AGAIN (the
+ * owner's r2-community-comment-keyboard.webp, the iOS app: the comment box at
+ * the top of the screen, under the clock, and white from there down to the
+ * keys). The plugin row above trusts capacitor.config.ts `resize: "none"`.
+ * A build whose native config does not carry it (the plugin's own default is
+ * "native") resizes the whole web view to end at the keys, and the box was
+ * then lifted by the plugin's height on top of that: 464 - 380 = 84 on a
+ * 390x844 phone, exactly the picture. So the fixed box's height with no
+ * keyboard is kept (`fullH`), and once the box is shorter than that by more
+ * than any toolbar, the web view has made the room: the room under the box is
+ * what the visible part says (0, everything agrees), never a keyboard height.
+ * Seen once in a visit (`resizes`), it is known from the next focus on, so the
+ * box is not lifted for a frame before the web view shrinks.
+ *
+ * Pure: no DOM, no React. tests/communities-post17.test.ts holds the table,
+ * tests/community-mobile-r8.test.ts the resized web view.
  */
 import { keyboardInsetFrom } from "@/lib/ui/keyboard-safe-sheet"
 
@@ -82,6 +97,18 @@ export interface KeyboardFacts {
   table: number | null
   /** What ViewportVars publishes as --kb-inset (its floor where the platform says nothing). */
   published: number
+  /** The fixed box's height with no keyboard up, at this width (layoutH when not known). */
+  fullH?: number
+  /** This visit has already seen the web view resized for a keyboard. */
+  resizes?: boolean
+}
+
+/** Shorter than any keyboard, taller than any browser toolbar: a fixed box this much shorter than it was is a resized web view. */
+export const RESIZED_MIN_PX = 120
+
+/** The web view itself is shorter for the keyboard (the plugin's "native" resize, or Android's). */
+export function webViewResized(m: { layoutH: number; fullH?: number }): boolean {
+  return (m.fullH ?? m.layoutH) - m.layoutH > RESIZED_MIN_PX
 }
 
 export interface KeyboardPlan {
@@ -101,6 +128,8 @@ export function keyboardPlan(env: KeyboardEnv, m: KeyboardFacts): KeyboardPlan {
   const top = Math.max(0, Math.round(m.vvTop))
   if (!m.typing || env === "computer") return { top, foot: "tabs", source: "screen", atFocus: false, holdScroll: false }
   const reported = keyboardInsetFrom({ layoutHeight: m.layoutH, innerHeight: m.innerH, vvTop: m.vvTop, vvHeight: m.vvH })
+  /* ROUND R8: the iOS app's web view made the room itself (resized now, or seen to resize earlier in this visit): what the visible part says, never a keyboard height on top, and its scroll left alone. */
+  if ((env === "ios-app" || env === "ios-app-plugin") && (m.resizes || webViewResized(m))) return { top, foot: reported, source: "visual", atFocus: false, holdScroll: false }
   if (env === "ios-app-plugin" && m.native > 0) return { top, foot: Math.max(0, Math.round(m.native - top)), source: "native", atFocus: true, holdScroll: true }
   if (env === "ios-app") {
     if (reported > 0) return { top, foot: reported, source: "visual", atFocus: false, holdScroll: false }
