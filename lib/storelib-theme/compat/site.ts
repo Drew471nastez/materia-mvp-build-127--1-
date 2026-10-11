@@ -625,8 +625,15 @@ function sectionsAnswer(site: SiteData, page: CompatPage, sections: StoredSectio
       return drawSection(site.theme, ctx, s, at, group).html
     }
     const type = site.theme.typeOf(id)
-    if (!/^[A-Za-z0-9_-]+$/.test(type) || site.theme.files[`sections/${type}.storelib`] === undefined) return null
-    return drawSection(site.theme, ctx, { id, type, settings: {} }).html
+    if (/^[A-Za-z0-9_-]+$/.test(type) && site.theme.files[`sections/${type}.storelib`] !== undefined) return drawSection(site.theme, ctx, { id, type, settings: {} }).html
+    /*
+      A section of another page, by its own id: a recently viewed section on
+      the product page asks the search page for itself (`/search?q=id:…
+      &section_id={{ section.id }}`) and reads its products out of the
+      answer. Drawn with its own settings, about this page's results.
+    */
+    const elsewhere = Object.values(site.pages).flat().find((s) => s.id === id && !s.group && !s.hidden)
+    return elsewhere ? drawSection(site.theme, ctx, elsewhere).html : null
   }
   if (!many) {
     const out = one(ids[0])
