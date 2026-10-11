@@ -1,0 +1,15 @@
+{ "sections": {
+  "hero": { "type": "slideshow", "blocks": {
+    "s1": { "type": "slide", "settings": { "heading": "Stand Straighter. Move Better.", "text": "PostureX helps support your back and shoulders throughout the day", "button_label": "SHOP NOW", "button_link": "shopify://collections/all", "color": "#22252b" } },
+    "s2": { "type": "slide", "settings": { "heading": "Made for long days", "text": "Breathable, adjustable, invisible under a shirt", "button_label": "See the best seller", "button_link": "shopify://products/posturex-pro", "color": "#1d4ed8" } }
+  }, "block_order": ["s1", "s2"] },
+  "story": { "type": "rich-text", "blocks": {
+    "h": { "type": "heading", "settings": { "heading": "Feel the difference" } },
+    "t": { "type": "text", "settings": { "text": "<p>Worn by thousands every day.</p>" } },
+    "b": { "type": "button", "settings": { "label": "Read our story", "link": "shopify://pages/about-us" } }
+  }, "block_order": ["h", "t", "b"] },
+  "collections": { "type": "collection-list", "blocks": {
+    "c1": { "type": "collection", "settings": { "collection": "posture-correctors" } },
+    "c2": { "type": "collection", "settings": { "collection": "summer" } }
+  }, "block_order": ["c1", "c2"] }
+}, "order": ["hero", "story", "collections"] }
