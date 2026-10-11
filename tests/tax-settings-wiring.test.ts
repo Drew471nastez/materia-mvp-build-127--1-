@@ -20,6 +20,7 @@ import { physicalTotals, type TaxSettings, type TotalsLine } from "@/lib/physica
 import { TAX_REGION_RULES, basketTax, checkoutTaxFor, digitalTax } from "@/lib/tax/rules"
 import { lineTotalCents, packItems, unpackItems } from "@/lib/checkout/cart-items"
 import { invoiceForOrder, type OrderRow } from "@/lib/checkout/invoice"
+import { groupOrders } from "@/lib/orders/order-view"
 
 let passed = 0
 let failed = 0
@@ -147,6 +148,12 @@ console.log("\nReceipts and orders\n")
   check("the receipt page shows Tax, or Including tax", /<Row label="Tax" value=\{money\(receipt\.taxCents \?\? 0\)\} \/>/.test(view) && /<Row label="Including tax"/.test(view) && /<Row label="Total"/.test(view))
   const mail = read("lib/receipts/email.ts")
   check("the receipt email too", /sumRow\("Tax", m\.taxText\)/.test(mail) && /sumRow\("Including tax", m\.taxText\)/.test(mail) && /taxText: \(v\.taxCents \?\? 0\) > 0/.test(read("lib/email.tsx")))
+  const [sale] = groupOrders([
+    { id: "o1", product_id: "p1", amount_cents: 5831, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:00Z", stripe_session_id: "cs_1", tax_cents: 931, tax_included: false },
+    { id: "o2", product_id: "p2", amount_cents: 1050, tip_cents: 0, status: "completed", created_at: "2026-10-01T10:00:01Z", stripe_session_id: "cs_1", tax_cents: 50, tax_included: false },
+  ] as never)
+  check("Orders in the app: Subtotal + Tax = Total for a taxed basket", sale.taxCents === 981 && !sale.taxIncluded && sale.subtotalCents === 5900 && sale.totalCents === 6881, sale && { tax: sale.taxCents, sub: sale.subtotalCents })
+  check("  the order page shows the Tax row and each line at its price", /<Row label="Tax" value=\{formatMoney\(order\.taxCents\)\} \/>/.test(read("app/app/orders/order-detail.tsx")) && /line\.tax_included \? 0 : line\.tax_cents/.test(read("app/app/orders/order-detail.tsx")) && /tax_cents: Number\(order\.tax_cents\) \|\| 0/.test(read("lib/orders/load-rows.ts")))
   check("the single product checkout records whether its tax was included", /update\(\{ tax_included: true \}\)/.test(read("lib/checkout/fulfil-payment.ts")))
   check("physical order emails show tax from the checkout", /tax: co\.tax_cents/.test(read("lib/physical/jobs-server.ts")) && /t\.taxIncluded \? "Tax \(included\)" : "Tax"/.test(read("lib/physical/email-templates.ts")))
 }
@@ -155,7 +162,7 @@ console.log("\nA basket's invoice\n")
 const invoiceDone = (async () => {
   /* A database that answers nothing: the seller's name falls back, which is all this needs. */
   const none: any = { from: () => none, select: () => none, eq: () => none, in: () => none, order: () => none, limit: () => none, maybeSingle: async () => ({ data: null, error: null }), then: (f: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(f) } // eslint-disable-line @typescript-eslint/no-explicit-any
-  const row = (id: string, amount: number, tax: number, at: string, productId: string): OrderRow => ({ id, created_at: at, status: "completed", amount_cents: amount, tip_cents: 0, buyer_email: "a@b.co", buyer_first_name: "Ada", buyer_last_name: null, payment_method: "card", card_brand: "visa", card_last4: "4242", product_id: productId, variant_name: null, stripe_payment_intent_id: "pi_1", stripe_session_id: "cs_1", tax_cents: tax, tax_included: false })
+  const row = (id: string, amount: number, tax: number, at: string, productId: string): OrderRow => ({ id, created_at: at, status: "completed", amount_cents: amount, tip_cents: 0, buyer_email: "a@b.co", buyer_first_name: "Ada", buyer_last_name: null, payment_method: "card", card_brand: "visa", card_last4: "4242", product_id: productId, variant_name: null, stripe_payment_intent_id: "pi_1", stripe_session_id: "cs_1", tax_cents: tax, tax_included: false, product: { title: productId === P1 ? "Course" : "Book", creator_id: null } }) as OrderRow
   const P1 = "11111111-1111-1111-1111-111111111111"
   const P2 = "22222222-2222-2222-2222-222222222222"
   const rows = [row("o1", 4900 + 931, 931, "2026-10-01T10:00:00Z", P1), row("o2", 1000 + 50, 50, "2026-10-01T10:00:01Z", P2)]
