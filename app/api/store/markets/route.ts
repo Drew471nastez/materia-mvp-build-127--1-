@@ -18,7 +18,9 @@ export const dynamic = "force-dynamic"
  * only while they are).
  */
 async function base(c: { db: any; creatorId: string }) {
-  const { data } = await c.db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
+  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
+  const db = c.db
+  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
   return storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency)
 }
 

@@ -23,7 +23,9 @@ export const dynamic = "force-dynamic"
  * team members yet). Only a language the website has may be read or written.
  */
 async function storeLanguages(c: { db: any; creatorId: string }) {
-  const { data } = await c.db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
+  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
+  const db = c.db
+  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
   const loc = await localizationOf(c.db, c.creatorId, storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency))
   return { ready: loc.ready, loc: loc.value, languages: editorLanguages(loc.value) }
 }

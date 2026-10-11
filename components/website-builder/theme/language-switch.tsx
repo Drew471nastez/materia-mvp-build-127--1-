@@ -8,7 +8,8 @@
  * published language (Settings › Markets and languages): each language named
  * in its own words ("Français", "Deutsch"), and choosing one opens the same
  * page in it (/fr/products/mug). The choice is the visitor's: nothing is
- * redirected by the browser's language, and the address keeps it.
+ * redirected by the browser's language, and the address keeps it (no
+ * cookie: the address is the whole choice).
  *
  * On a page in another language than the website's own, every link to
  * another page of the website keeps the language: /about becomes /fr/about.
@@ -83,11 +84,6 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
   if (choice.languages.length < 2) return null
   const go = (code: string) => {
     if (code === choice.code) return
-    try {
-      document.cookie = `sl_lang=${encodeURIComponent(code)}; Path=/; Max-Age=31536000; SameSite=Lax`
-    } catch {
-      /* the choice still opens the page */
-    }
     const { pathname, search, hash } = window.location
     window.location.assign(`${localizedPath(bare(pathname, codes), code, choice.defaultLanguage)}${search}${hash}`)
   }

@@ -31,7 +31,9 @@ export async function POST(request: Request) {
   const limited = await rateLimit({ bucket: "site-translations-ai", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 6, seconds: 3600 }, { limit: 30, seconds: 86400 }], message: "Translating with AI can be used a few times an hour. Try again later." })
   if (limited) return limited
   const body = await readBody(request)
-  const { data } = await c.db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
+  /* The service role client the caller came with (lib/physical/auth shopCaller): a private column, read on the server only. */
+  const db = c.db
+  const { data } = await db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle()
   const loc = (await localizationOf(c.db, c.creatorId, storeCurrencyOf((data as { payout_currency?: string | null } | null)?.payout_currency))).value
   const locale = normalizeLocale(body?.locale)
   if (!locale || locale === loc.defaultLanguage || !editorLanguages(loc).includes(locale)) return physicalJson({ error: "Add this language to your website first." }, 400)
