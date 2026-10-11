@@ -40,6 +40,8 @@ import { orderPageUrl } from "./order-link-server"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
+import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
+import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
@@ -129,6 +131,9 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
       await enqueueJob(db, { creatorId, kind: "supplier_email", key: `supplier_email:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id } })
     } else if (loc.forwarding === "webhook") {
       await enqueueJob(db, { creatorId, kind: "webhook_delivery", key: `webhook:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id, event: "order.paid" } })
+    } else if (loc.forwarding === "provider" && loc.integration_id && (await providerTakesOrders(db, creatorId, loc.integration_id))) {
+      /* Printful or Printify, connected: the order goes there (lib/integrations/fulfilment/forward-server.ts). */
+      await enqueueJob(db, { creatorId, kind: "forward_fulfillment", key: `provider:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id, integrationId: loc.integration_id, creatorId } })
     } else if (loc.forwarding === "provider") {
       await addOrderEvent(db, {
         checkoutId,
@@ -139,6 +144,12 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
       })
     }
   }
+}
+
+/** A location's integration that Storelib sends orders to: Printful or Printify, connected. */
+async function providerTakesOrders(db: Db, creatorId: string, integrationId: string): Promise<boolean> {
+  const { data } = await db.from("commerce_integrations").select("provider, status").eq("id", integrationId).eq("creator_id", creatorId).maybeSingle()
+  return !!data && data.status === "connected" && !!connectorFor(data.provider)
 }
 
 /**
@@ -280,7 +291,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
           checkoutId: job.payload.checkoutId,
           creatorId: job.creator_id,
           kind: "job.failed",
-          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : "The order could not be sent to your webhook.",
+          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : "The order could not be sent to your webhook.",
           detail: { error: message },
           key: `job_dead:${job.id}`,
         })
@@ -300,6 +311,10 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
       return sendSupplierEmail(db, job.payload)
     case "webhook_delivery":
       return deliverWebhook(db, job.payload)
+    case "forward_fulfillment":
+      return forwardToProvider(db, job.payload, realForwardDeps)
+    case "tracking_sync":
+      return syncProviderTracking(db, job.payload, realForwardDeps)
     default:
       throw new Error("This kind of job is not available yet.")
   }
@@ -761,8 +776,41 @@ async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
   })
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const signature = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex")
-  const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": String(p.event ?? "order.paid") })
-  if (status < 200 || status >= 300) throw new Error(`Your webhook answered ${status}.`)
+  /* A failure is kept on the integration too, so Settings › Integrations shows it, not only the order (round 23). */
+  const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": String(p.event ?? "order.paid") }).catch(async (e) => {
+    await db.from("commerce_integrations").update({ last_error: `Your webhook could not be reached (${e instanceof Error ? e.message : "no answer"}). Storelib tries again.`.slice(0, 500) }).eq("id", integration.id)
+    throw e
+  })
+  if (status < 200 || status >= 300) {
+    await db.from("commerce_integrations").update({ last_error: `Your webhook answered ${status}. Storelib tries again.` }).eq("id", integration.id)
+    throw new Error(`Your webhook answered ${status}.`)
+  }
   await db.from("commerce_integrations").update({ last_sync_at: new Date().toISOString(), last_error: null, status: "connected" }).eq("id", integration.id)
   await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: "Order sent to your webhook", key: `forwarded_webhook:${co.id}:${p.locationId ?? ""}:${p.event ?? ""}` })
+}
+
+/**
+ * Settings › Integrations › Your own system: Send a test. A `ping`, signed
+ * exactly as an order is (X-Storelib-Timestamp, X-Storelib-Signature
+ * v1=HMAC-SHA256 of "<timestamp>.<body>"), so the seller's system can be
+ * checked before a real order arrives. What the address answered, said back.
+ */
+export async function sendTestWebhook(db: Db, creatorId: string): Promise<{ ok: true; status: number } | { ok: false; error: string }> {
+  const { data: integration } = await db.from("commerce_integrations").select("id, config, webhook_secret_ciphertext").eq("creator_id", creatorId).eq("provider", "custom_webhook").maybeSingle()
+  const url = integration?.config?.url as string | undefined
+  if (!integration || !url) return { ok: false, error: "Save a webhook address first." }
+  if (!url.startsWith("https://") || publicUrlProblem(url)) return { ok: false, error: "The webhook address must be a public https address." }
+  const secret = openSecret(integration.webhook_secret_ciphertext)
+  if (!secret) return { ok: false, error: "The signing secret could not be read. Set it again." }
+  const payload = JSON.stringify({ event: "ping", created: Math.floor(Date.now() / 1000), test: true })
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const signature = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex")
+  try {
+    const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": "ping" })
+    const ok = status >= 200 && status < 300
+    await db.from("commerce_integrations").update(ok ? { last_sync_at: new Date().toISOString(), last_error: null } : { last_error: `Your webhook answered ${status} to a test.` }).eq("id", integration.id)
+    return ok ? { ok: true, status } : { ok: false, error: `Your address answered ${status}. It should answer 2xx.` }
+  } catch (e) {
+    return { ok: false, error: `Your address could not be reached (${e instanceof Error ? e.message : "no answer"}).` }
+  }
 }

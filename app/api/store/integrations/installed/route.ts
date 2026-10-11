@@ -34,7 +34,8 @@ export async function GET() {
   const installed = applyCatalogOverrides(INTEGRATIONS, overrides, physical).filter((i) => {
     if (i.kind === "app") return i.appId === "storelib_reviews" && reviewsApp?.settings.enabled === true
     if (i.kind === "tracker") return !!(i.trackerId && (tracking as Record<string, string>)[i.trackerId])
-    if (i.kind === "commerce" && !i.builtIn) return providers.some((p) => p.provider === i.providerId && p.status !== "disconnected")
+    /* A Coming soon provider with a key kept from before is not installed: it does nothing. */
+    if (i.kind === "commerce" && !i.builtIn && !i.comingSoon) return providers.some((p) => p.provider === i.providerId && p.status !== "disconnected")
     return false
   }).map((i) => ({ id: i.id, name: i.name, needsAttention: i.kind === "commerce" && providers.some((p) => p.provider === i.providerId && p.status === "error") }))
   return physicalJson({ installed }, 200)

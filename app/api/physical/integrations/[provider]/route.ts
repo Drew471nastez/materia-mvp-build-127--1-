@@ -3,6 +3,7 @@ import { physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
 import { loadIntegrations, saveIntegration } from "@/lib/physical/integrations-server"
 import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { cachedCatalogOverrides } from "@/lib/integrations/overrides-server"
+import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -12,6 +13,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ prov
   const c = await physicalCaller()
   if (c instanceof NextResponse) return c
   const { provider } = await params
+  /* A key save asks the provider (Printful, Printify): a few a minute is plenty, and keeps their limits ours to spend. */
+  const limited = await rateLimit({ bucket: "integration-save", subjects: [`creator:${c.creatorId}`], windows: [{ limit: 20, seconds: 60 }, { limit: 300, seconds: 86400 }] })
+  if (limited) return limited
   const body = await readBody(request)
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   /* Paused or hidden for every store from /admin: it can still be disconnected, never connected (as the pixels' route). */

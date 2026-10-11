@@ -8,7 +8,10 @@
  *   tracker    analytics and ad pixels on the store's website
  *              (lib/store/tracking.ts); every store
  *   commerce   fulfilment, shipping, print on demand and suppliers
- *              (lib/physical/providers.ts); while physical commerce is on
+ *              (lib/physical/providers.ts); while physical commerce is on.
+ *              Printful and Printify take orders and send tracking back
+ *              (lib/integrations/fulfilment); the rest of the shipping and
+ *              dropshipping services are Coming soon, never a Connect button
  *   app        made by Storelib and run inside it, with a page of its own
  *              settings: Storelib Reviews (lib/reviews/app-settings.ts)
  *   listed     a service merchants ask for that Storelib does not connect
@@ -57,7 +60,7 @@ export interface Integration {
   about: string[]
   glance: { label: string; value: string }[]
   data: string[]
-  /** True while Storelib keeps the key but does not send orders there yet, or connects to it not at all (listed). */
+  /** True while Storelib does not connect to it yet: a Coming soon page with Tell me when it's ready, never a Connect button. */
   comingSoon?: boolean
   /** Turned off for every store from /admin (lib/integrations/overrides.ts): shown, never installable. */
   paused?: boolean
@@ -204,8 +207,23 @@ function fromTracker(id: TrackerId): Integration {
   }
 }
 
+/** Printful and Printify, connected: how an order gets there and tracking gets back, in the seller's words. */
+const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
+  printful: [
+    "Connect your Printful store with a private token. Storelib makes a location called Printful. A product you sell as Print on demand at that location goes to Printful when it is paid: each item by the SKU its Printful variant has, with the buyer's delivery address.",
+    "Orders wait in Printful as drafts until you approve them, so Printful charges you only then. Turn on Send orders straight to production and they are made as soon as they are paid.",
+    "When Printful ships a parcel, its carrier and tracking number come back to the order and your buyer gets the shipping email from your store. A product Printful doesn't have under that SKU is not sent: the order says so, for you to send it yourself.",
+  ],
+  printify: [
+    "Connect your Printify shop with a personal access token. Storelib makes a location called Printify. A product you sell as Print on demand at that location goes to Printify when it is paid: each item by the SKU its Printify variant has, with the buyer's delivery address.",
+    "Printify keeps each order on hold until you approve it there, and charges you only then. Turn on Send orders straight to production and they go to the print provider as soon as they are paid.",
+    "When a parcel ships, and again when it is delivered, Printify tells Storelib: the tracking reaches the order and your buyer gets the shipping and delivery emails from your store. A SKU Printify doesn't have is not sent: the order says so, for you to send it yourself.",
+  ],
+}
+
 function fromProvider(p: ProviderInfo): Integration {
   const builtIn = p.availability === "live"
+  const connects = p.availability === "connect"
   return {
     id: p.id.replace(/_/g, "-"),
     name: p.name,
@@ -216,17 +234,24 @@ function fromProvider(p: ProviderInfo): Integration {
     kind: "commerce",
     providerId: p.id,
     summary: PROVIDER_SUMMARY[p.id] ?? p.description.split(". ")[0].replace(/\.$/, "") + ".",
-    about: [p.description],
+    about: connects ? (CONNECT_ABOUT[p.id] ?? [p.description]) : builtIn ? [p.description] : [p.description, "Press Tell me when it's ready and you'll be counted: the integrations asked for most are built first."],
     glance: [
       { label: "Works with", value: "Physical products" },
-      { label: "Status", value: builtIn ? "Works today" : "Key stored, orders not sent yet" },
-      { label: "You add", value: p.fields.length === 0 ? "Nothing" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") },
+      { label: "Status", value: builtIn ? "Works today" : connects ? "Works once connected" : "Coming soon" },
+      /* Coming soon takes nothing, so it doesn't say what you would add. */
+      ...(builtIn || connects ? [{ label: "You add", value: p.fields.length === 0 ? "Nothing" : p.id === "printful" ? "A private token" : p.id === "printify" ? "A personal access token" : p.fields.map((f) => ({ api_key: "An API key", url: "A webhook address", email: "An email address", webhook_secret: "A signing secret" })[f]).join(", ") }] : []),
       { label: "Price", value: builtIn ? "Free" : `Free on Storelib; ${p.name}'s own pricing applies` },
     ],
     data: builtIn
       ? ["Nothing leaves Storelib except what this integration is for: the order's items and the delivery address, to whoever ships it."]
-      : [`Your ${p.name} key is stored encrypted and never shown again, only its last four characters.`, `When orders go to ${p.name}, they will carry the items and the delivery address and nothing else.`],
-    comingSoon: !builtIn,
+      : connects
+        ? [
+            `Each order sent to ${p.name} carries the items by SKU and quantity, the order number, and the buyer's name, delivery address, email and phone, so it can be shipped. Nothing about your other orders or products is sent.`,
+            `Your ${p.name} token is checked with ${p.name}, stored encrypted on Storelib's server and never sent back to your browser: this page shows only its last four characters.`,
+            `${p.name} tells Storelib which of its orders shipped; Storelib then reads that order from ${p.name} with your token before anything changes on yours.`,
+          ]
+        : [`Nothing is sent to ${p.name}. When it is connected, its page will say exactly what goes there before you turn it on.`],
+    comingSoon: !builtIn && !connects,
     docsUrl: p.docsUrl,
   }
 }

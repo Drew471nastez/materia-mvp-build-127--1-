@@ -313,7 +313,8 @@ console.log("\nThe help centre guide follows the switch")
 
 console.log("\nIntegrations are honest")
 check("only what really works is live", PROVIDERS.filter((p) => p.availability === "live").map((p) => p.id).sort().join() === "csv,custom_webhook,manual,supplier_email")
-check("the others say forwarding is not available yet", PROVIDERS.filter((p) => p.availability === "needs_setup").every((p) => /not available yet/.test(p.description)))
+/* Changed on purpose (round 23): the ones not built yet say so in their own line ("Not connected to Storelib yet") and take no key; Printful and Printify connect. */
+check("the others say they are not connected yet", PROVIDERS.filter((p) => p.availability === "needs_setup").every((p) => /Not connected to Storelib yet/.test(p.description)))
 const integ = code("lib/physical/integrations-server.ts")
 check("a not-live provider is saved as needs_setup, never connected", /row\.status = info\.availability === "live" \? "connected" : "needs_setup"/.test(integ))
 check("secrets are sealed and only their last four characters leave the server", /sealSecret\(/.test(integ) && /secretHint\(openSecret/.test(integ) && !/secret_ciphertext:\s*r\./.test(integ))

@@ -81,8 +81,9 @@ function wiring() {
 
   console.log("\nIntegrations\n")
   const dir = read("components/app/settings/integrations-directory.tsx")
-  check("a card pushes its page in, Back pops the list in, transform and opacity only", /const dx = how === "push" \? PAGE_SHIFT : -PAGE_SHIFT/.test(dir) && /el\.animate\(\[\{ opacity: 0, transform: `translate3d\(\$\{dx\}px, 0, 0\)` \}/.test(dir))
-  check("Back glides to the top of the list, held at its height until the glide is over", /el\.style\.minHeight = `\$\{el\.offsetHeight\}px`/.test(dir) && /glideScrollTop\(box, to, release\)/.test(dir))
+  /* Changed on purpose (round 23, the owner: "no slide delay, no flash, back returns to where you were"): no sideways push or pop, a 120ms fade from 0.55, and Back lands on the list exactly where it was (tests/integrations23.test.ts, scripts/check-integrations23.mjs). */
+  check("a card opens its page and Back the list in place, opacity only, never from blank", /const SWAP_FROM = 0\.55/.test(dir) && /el\.animate\(\[\{ opacity: SWAP_FROM \}, \{ opacity: 1 \}\]/.test(dir) && !/PAGE_SHIFT/.test(dir))
+  check("Back returns to where the list was, set before the frame is painted", /box\.scrollTop = at\.scroll/.test(dir) && /React\.useLayoutEffect/.test(dir))
   check("a category keeps the pills where they are and the cards settle in", /box\.scrollTop \+= now - want/.test(dir) && /\{ opacity: 0\.4, transform: "translate3d\(0, 6px, 0\)" \}/.test(dir))
   check("the page has a header with the mark, where it stands, and the action", /data-integration-header=""/.test(dir) && /data-integration-standing=\{status\}/.test(dir) && /data-integration-action=""/.test(dir))
 
