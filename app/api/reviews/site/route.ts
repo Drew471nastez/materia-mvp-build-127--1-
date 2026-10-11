@@ -8,6 +8,7 @@ import { loadReviewsApp } from "@/lib/reviews/app-server"
 import { checkGuestReviewEligibility } from "@/lib/reviews/eligibility"
 import { addressReviewed, insertAppReview, purchaseByAddress } from "@/lib/reviews/write-server"
 import { askNow } from "@/lib/reviews/requests-server"
+import { storeReviewPhoto } from "@/lib/reviews/photos-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -41,15 +42,62 @@ export const dynamic = "force-dynamic"
 const HEADERS = { "Cache-Control": "no-store" }
 const answer = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: HEADERS })
 
-export async function POST(request: NextRequest) {
-  let body: Record<string, unknown>
+/**
+ * THE WEBSITE'S OWN FORM posts here with no script (sections/
+ * reviews_product.storelib, and the Storelib Reviews section of an imported
+ * theme): form fields, the photos as files. The answer is then the page it
+ * came from, at #review-posted, #review-waiting, #review-check-email or
+ * #review-error, which that section shows. Only a path on the same host is
+ * gone back to.
+ */
+function backTo(request: NextRequest, hash: string): NextResponse {
+  let path = "/"
   try {
-    const b = await request.json()
-    if (!b || typeof b !== "object" || Array.isArray(b)) return answer({ error: "Bad request" }, 400)
-    body = b as Record<string, unknown>
+    const ref = new URL(request.headers.get("referer") ?? "")
+    if (ref.host === request.headers.get("host") || ref.host === new URL(request.url).host) path = `${ref.pathname}${ref.search}`
   } catch {
-    return answer({ error: "Bad request" }, 400)
+    /* No referer: the front page. */
   }
+  return NextResponse.redirect(new URL(`${path}#${hash}`, request.url), { status: 303, headers: HEADERS })
+}
+
+export async function POST(request: NextRequest) {
+  const form = (request.headers.get("content-type") ?? "").match(/multipart\/form-data|application\/x-www-form-urlencoded/i)
+  if (!form) {
+    let body: Record<string, unknown>
+    try {
+      const b = await request.json()
+      if (!b || typeof b !== "object" || Array.isArray(b)) return answer({ error: "Bad request" }, 400)
+      body = b as Record<string, unknown>
+    } catch {
+      return answer({ error: "Bad request" }, 400)
+    }
+    return take(request, body, [], answer)
+  }
+  let data: FormData
+  try {
+    data = await request.formData()
+  } catch {
+    return backTo(request, "review-error")
+  }
+  const body: Record<string, unknown> = {}
+  for (const k of ["productId", "rating", "title", "content", "name", "email", "website"]) {
+    const v = data.get(k)
+    if (typeof v === "string") body[k] = v
+  }
+  const files = data.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0)
+  return take(request, body, files, (out, status = 200) => {
+    const st = (out as { status?: string; error?: string } | null)?.status
+    if (status === 202 || st === "check_email") return backTo(request, "review-check-email")
+    if (status === 200 && st === "published") return backTo(request, "review-posted")
+    if (status === 200 && st === "pending") return backTo(request, "review-waiting")
+    return backTo(request, "review-error")
+  })
+}
+
+type Reply = (body: unknown, status?: number) => NextResponse
+
+async function take(request: NextRequest, body: Record<string, unknown>, files: File[], answer: Reply): Promise<NextResponse> {
   /* A field nobody sees, filled in: a script. Told it worked, and nothing is written. */
   if (typeof body.website === "string" && body.website.trim() !== "") return answer({ ok: true, status: "pending" })
 
@@ -61,7 +109,7 @@ export async function POST(request: NextRequest) {
     windows: [{ limit: 4, seconds: 600 }, { limit: 12, seconds: 86_400 }],
     message: "That is a lot of reviews at once. Try again later.",
   })
-  if (limited) return limited
+  if (limited) return files.length || !request.headers.get("content-type")?.includes("json") ? answer({ error: "limit" }, 429) : limited
 
   const productId = typeof body.productId === "string" && isUuid(body.productId) ? body.productId : null
   if (!productId) return answer({ error: "Bad request" }, 400)
@@ -90,6 +138,15 @@ export async function POST(request: NextRequest) {
   if (bought) {
     const sent = await askNow(db, product.creator_id, bought.id, settings).catch(() => false)
     return answer({ ok: true, status: "check_email", sent }, 202)
+  }
+
+  if (files.length > 4) return answer({ error: "Add up to 4 photos." }, 400)
+  if (files.length && settings.photos) {
+    for (const f of files) {
+      const stored = await storeReviewPhoto(db, product.creator_id, await f.arrayBuffer())
+      if (!stored.ok) return answer({ error: stored.error }, stored.status)
+      input.photoPaths.push(stored.path)
+    }
   }
 
   const ip = callerAddress(request)
