@@ -124,14 +124,40 @@ export const CANVAS_BRIDGE = `
     return r > l && b > t ? { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t } : null;
   };
   var leaving = false;
-  /* The part of an element on top and on screen, or null when none of it is. */
+  /* Something fixed or sticky that is not the element nor around it (a header, a tab bar) is what is seen at this point. */
+  var barAt = function (el, x, y) {
+    if (y < 0 || y >= innerHeight) return false;
+    var stack = document.elementsFromPoint(x, y);
+    for (var i = 0; i < stack.length; i++) {
+      var c = stack[i];
+      if (c.hasAttribute && c.hasAttribute("data-sl-box")) continue;
+      if (c === el || c.contains(el) || el.contains(c)) return false;
+      for (var n = c; n && n !== document.body; n = n.parentElement) {
+        if (n.contains(el)) break;
+        var p = styleOf(n).position;
+        if (p === "fixed" || p === "sticky") return true;
+      }
+      return false;
+    }
+    return false;
+  };
+  /*
+    The part of an element on top and on screen, or null when none of it is.
+    \`inset\` moves the outline in (or out, below zero) from the element's own
+    edges, AFTER the hit tests: they are always read inside the element.
+    Read 2px outside it (the selected block's outline), the point above its
+    top and the one under its foot were the section around it, so both
+    edges were taken as covered and dropped, and a block was outlined by its
+    two sides only. An edge is left off only where the element itself is
+    cut there: off the screen, or under a sticky header or a drawer.
+  */
   var visibleRect = function (el, inset) {
     if (!el || !el.isConnected || leaving) return null;
     var r = el.getBoundingClientRect(), loose = false;
     if (r.width < 1 || r.height < 1) { r = contentBox(el); loose = true; if (!r) return null; }
-    /* A block as wide as the screen is outlined just inside it: two pixels out, its sides were off the page and only a line under it showed. */
-    var left = Math.max(r.left + inset, 0), right = Math.min(r.right - inset, document.documentElement.clientWidth || innerWidth);
-    var top = Math.max(r.top + inset, 0), bottom = Math.min(r.bottom - inset, innerHeight);
+    var vw = document.documentElement.clientWidth || innerWidth, vh = innerHeight;
+    var left = Math.max(r.left, 0), right = Math.min(r.right, vw);
+    var top = Math.max(r.top, 0), bottom = Math.min(r.bottom, vh);
     if (right - left < 1 || bottom - top < 1) return null;
     var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
     var seen = function (y) {
@@ -156,7 +182,15 @@ export const CANVAS_BRIDGE = `
       to = Math.round(lo);
     }
     if (to - from < 2) return null;
-    return { left: left, width: right - left, top: from, bottom: to, cutTop: from > r.top + inset + 0.5, cutBottom: to < r.bottom - inset - 0.5 };
+    var cutTop = from > r.top + 0.5, cutBottom = to < r.bottom - 0.5;
+    /* A block as wide as the screen is outlined just inside it: two pixels out, its sides were off the page and only a line under it showed. */
+    var L = Math.max(r.left + inset, 0), R = Math.min(r.right - inset, vw);
+    var T = cutTop ? from : Math.max(r.top + inset, 0), B = cutBottom ? to : Math.min(r.bottom - inset, vh);
+    /* Drawn out from a block that sits right under a sticky header (or right over a tab bar): the line goes on the block's own edge, not 2px into the bar. */
+    if (inset < 0 && !cutTop && T < r.top && barAt(el, (left + right) / 2, T + 0.5)) T = r.top;
+    if (inset < 0 && !cutBottom && B > r.bottom && barAt(el, (left + right) / 2, B - 0.5)) B = r.bottom;
+    if (R - L < 1 || B - T < 2) return null;
+    return { left: L, width: R - L, top: T, bottom: B, cutTop: cutTop, cutBottom: cutBottom };
   };
   var place = function (box, el, inset) {
     var v = visibleRect(el, inset);
@@ -201,7 +235,7 @@ export const CANVAS_BRIDGE = `
     var hov = document.querySelector("[data-sl-hover]");
     var sec = document.querySelector("[data-sl-selected]");
     var blk = document.querySelector("[data-sl-selected-block]");
-    place(boxes.hover, hov && hov !== sec ? hov : null, 0);
+    place(boxes.hover, hov && hov !== blk && !(hov === sec && !blk) ? hov : null, 0);
     /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
     var b = place(boxes.block, blk, -2);
     var seen = place(boxes.section, b ? null : sec, 0);
@@ -230,6 +264,12 @@ export const CANVAS_BRIDGE = `
     var b = el && el.closest ? el.closest("[data-block-id]") : null;
     return b && section && section.contains(b) ? b : null;
   };
+  /*
+    THE HOVER IS WHAT A CLICK WOULD PICK: the innermost block under the
+    pointer, or its section where there is none. A section outlined while a
+    click then picked the title inside it said one thing and did another.
+  */
+  var targetOf = function (el) { var s = sectionOf(el); return s ? blockOf(el, s) || s : null; };
   var hovered = null;
   /* What the pointer is over, kept while the inspector is off too, so switching it on outlines that section without waiting for the pointer to move. */
   var pointerAt = null;
@@ -237,7 +277,8 @@ export const CANVAS_BRIDGE = `
     if (s === hovered) return;
     if (hovered) hovered.removeAttribute("data-sl-hover");
     hovered = s;
-    if (s && !s.hasAttribute("data-sl-selected")) s.setAttribute("data-sl-hover", "");
+    /* Not over its own outline: the block selected, or the section selected with no block of it. A section whose block is selected is still a section a click would pick. */
+    if (s && !s.hasAttribute("data-sl-selected-block") && !(s.hasAttribute("data-sl-selected") && !s.querySelector("[data-sl-selected-block]"))) s.setAttribute("data-sl-hover", "");
     redraw();
   };
   /*
@@ -255,7 +296,7 @@ export const CANVAS_BRIDGE = `
     if (e.pointerType !== "mouse") return;
     touching = false;
     pointerAt = e.target;
-    if (inspect) hover(sectionOf(e.target));
+    if (inspect) hover(targetOf(e.target));
   }, true);
   document.addEventListener("mouseleave", function () { pointerAt = null; if (hovered) hovered.removeAttribute("data-sl-hover"); hovered = null; redraw(); });
   /*
@@ -480,7 +521,7 @@ export const CANVAS_BRIDGE = `
     if (quiet) {
       if (s && inspect) { s.setAttribute("data-sl-selected", ""); s.removeAttribute("data-sl-hover"); }
       var qb = s && blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
-      if (qb && inspect) qb.setAttribute("data-sl-selected-block", "");
+      if (qb && inspect) { qb.setAttribute("data-sl-selected-block", ""); qb.removeAttribute("data-sl-hover"); }
       reportSoon();
       redraw();
       return;
@@ -501,7 +542,7 @@ export const CANVAS_BRIDGE = `
     fire(s, "shopify:section:select", { sectionId: sectionId, load: false });
     var b = blockId ? s.querySelector('[data-block-id="' + CSS.escape(blockId) + '"]') : null;
     if (b) {
-      if (inspect) b.setAttribute("data-sl-selected-block", "");
+      if (inspect) { b.setAttribute("data-sl-selected-block", ""); b.removeAttribute("data-sl-hover"); }
       fire(b, "shopify:block:select", { blockId: blockId, sectionId: sectionId, load: false });
     }
     if (scroll) {
@@ -820,7 +861,7 @@ export const CANVAS_BRIDGE = `
     clearTimeout(letGo);
     if (on) {
       if (selected.section) mark(selected.section, selected.block, false, true);
-      hover(pointerAt && pointerAt.isConnected ? sectionOf(pointerAt) : null);
+      hover(pointerAt && pointerAt.isConnected ? targetOf(pointerAt) : null);
       redraw();
       requestAnimationFrame(function () { requestAnimationFrame(function () { if (inspect) fadeBoxes(true); }); });
       return;

@@ -194,7 +194,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     has_only_default_variant: !rawVariants.length,
     options: optionNames,
     options_with_values,
-    options_by_name: Object.fromEntries(options_with_values.map((o) => [String(o.name).toLowerCase(), o])),
+    options_by_name: anyCase(Object.fromEntries(options_with_values.map((o) => [String(o.name).toLowerCase(), o]))),
     collections: [],
     metafields: productMetafields(s, (card as { rating?: unknown }).rating),
     gift_card: false,
@@ -763,7 +763,10 @@ export function blockAttributes(id: string): string {
 
 // ── The visitor's page ───────────────────────────────────────────────────────
 
-export function requestObject(pageType: string, path: string, designMode: boolean, host = ""): O {
+export function requestObject(pageType: string, path: string, designMode: boolean, host = "", lang = "en"): O {
+  const iso = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang) ? lang : "en"
+  const name = iso === "en" ? "English" : (() => { try { return new Intl.DisplayNames(["en"], { type: "language" }).of(iso) ?? iso } catch { return iso } })()
+  const endonym = iso === "en" ? "English" : (() => { try { return new Intl.DisplayNames([iso], { type: "language" }).of(iso) ?? iso } catch { return iso } })()
   return {
     page_type: pageType,
     path,
@@ -771,7 +774,7 @@ export function requestObject(pageType: string, path: string, designMode: boolea
     origin: host ? `https://${host}` : "",
     design_mode: designMode,
     visual_preview_mode: false,
-    locale: { [OUTPUT]: "en", iso_code: "en", name: "English", endonym_name: "English", primary: true, root_url: "/", direction: "ltr" },
+    locale: { [OUTPUT]: iso, iso_code: iso, name, endonym_name: endonym, primary: true, root_url: "/", direction: /^(ar|he|fa|ur)\b/.test(iso) ? "rtl" : "ltr" },
   }
 }
 
@@ -798,8 +801,27 @@ export const SHOPIFY_ROUTES: O = {
   storefront_login_url: "/account/login",
 }
 
+/*
+  Read by any spelling of its key: Shopify's options_by_name takes the
+  option's name in any case (`options_by_name['Color']` and `['color']`).
+  Its own keys are the lower case ones.
+*/
+function anyCase(o: O): O {
+  return new Proxy(o, { get: (t, k) => (typeof k === "string" && !(k in t) ? t[k.toLowerCase()] : (t as Record<string | symbol, unknown>)[k]) })
+}
+
+/** A currency's sign, as Shopify's currency.symbol gives it. */
+export function currencySymbol(iso: string): string {
+  try {
+    const part = new Intl.NumberFormat("en", { style: "currency", currency: iso, currencyDisplay: "narrowSymbol" }).formatToParts(0).find((p) => p.type === "currency")
+    return part?.value ?? iso
+  } catch {
+    return iso
+  }
+}
+
 export function localizationObject(currency: string): O {
-  const country = { [OUTPUT]: "US", iso_code: "US", name: "United States", currency: { iso_code: currency, symbol: "$", name: currency }, unit_system: "imperial", available_languages: [] as O[] }
+  const country = { [OUTPUT]: "US", iso_code: "US", name: "United States", currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency }, unit_system: "imperial", available_languages: [] as O[] }
   const language = { [OUTPUT]: "en", iso_code: "en", name: "English", endonym_name: "English", primary: true, root_url: "/" }
   country.available_languages = [language]
   return { country, language, available_countries: [country], available_languages: [language], market: { id: "storelib", handle: "default" } }
@@ -873,7 +895,7 @@ export function cartObject(lines: CartLineLike[], currency: string, note = ""): 
     total_weight: 0,
     cart_level_discount_applications: [],
     discount_applications: [],
-    currency: { iso_code: currency, [OUTPUT]: currency },
+    currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency, [OUTPUT]: currency },
     note,
     attributes: {},
     empty: items.length === 0,

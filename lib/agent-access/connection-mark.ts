@@ -204,13 +204,15 @@ export function actedRecently(mark: ConnectionMark, now: number): boolean {
  * ===========================================================================
  * Quickly while changes are arriving, so a run of edits reads as one live
  * notice; slower and slower while nothing happens, down to one small read
- * every twenty seconds. A tab coming back into view asks at once and starts
- * again from the quick end (the editor does that), so nobody waits twenty
- * seconds to see what an agent did while they were in the terminal.
+ * every ten seconds (it was twenty: a push to GitHub sat unseen in an open
+ * editor for that long, which read as having to refresh). A tab coming back
+ * into view, or the pointer coming back over it, asks at once and starts
+ * again from the quick end (site-connections.tsx), so nobody waits to see
+ * what an agent or a push did while they were somewhere else.
  */
 export const POLL_ACTIVE_MS = 3_000
 export const POLL_BASE_MS = 5_000
-export const POLL_MAX_MS = 20_000
+export const POLL_MAX_MS = 10_000
 
 export function nextPollDelay(previous: number, changesArrived: boolean): number {
   if (changesArrived) return POLL_ACTIVE_MS

@@ -17,6 +17,7 @@ import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
+import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -2003,6 +2004,11 @@ export async function proxy(request: NextRequest) {
         "Content-Security-Policy",
         existing ? `${existing}; ${rule}` : rule,
       )
+    }
+    /* The cover's page loads no script and calls no server the picture does not need (lib/website-builder/cover-still.ts). */
+    if (url.pathname.startsWith("/cover-render/")) {
+      const existing = supabaseResponse.headers.get("Content-Security-Policy")
+      supabaseResponse.headers.set("Content-Security-Policy", existing ? `${existing}, ${COVER_STILL_POLICY}` : COVER_STILL_POLICY)
     }
   }
 
