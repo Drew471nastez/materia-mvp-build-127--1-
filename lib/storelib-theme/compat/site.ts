@@ -132,7 +132,13 @@ const MAX_QTY = 99
 
 const html = (body: string, status = 200): SiteResponse => ({ status, type: "text/html; charset=utf-8", body, headers: { "Cache-Control": "private, no-store" } })
 const json = (value: unknown, status = 200, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status, type: "application/json; charset=utf-8", body: JSON.stringify(value), headers: { "Cache-Control": "private, no-store" }, ...extra })
-const redirect = (to: string, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status: 303, type: "text/plain", body: "", headers: { Location: to, "Cache-Control": "private, no-store" }, ...extra })
+/*
+  A path on this site stays on it. A browser reads "//host" and "/\\host" in
+  a Location as another site's address, and a decoded request path can begin
+  that way (/%2F%2Fevil.example), so the slashes in front fold into one.
+*/
+export const onSitePath = (to: string): string => (/^[/\\]{2}/.test(to) ? `/${to.replace(/^[/\\]+/, "")}` : to)
+const redirect = (to: string, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status: 303, type: "text/plain", body: "", headers: { Location: onSitePath(to), "Cache-Control": "private, no-store" }, ...extra })
 
 export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResponse> {
   const path = decodePath(req.path)
@@ -296,7 +302,7 @@ function decodePath(p: string): string {
 
 /** A `return_to` that stays on this website. */
 function safeReturn(v: unknown): string | null {
-  return typeof v === "string" && v.startsWith("/") && !v.startsWith("//") ? v : null
+  return typeof v === "string" && v.startsWith("/") && !/^\/[/\\]/.test(v) ? v : null
 }
 
 // ── Pages ───────────────────────────────────────────────────────────────────

@@ -63,7 +63,7 @@ import {
   ticketsOf,
   ticketsReady,
 } from "@/lib/communities/server/event-tickets"
-import { eventCheckoutParams, grantFromSession, isEventSession, revokeRefundedTicket, startEventCheckout, type CheckoutDeps } from "@/lib/communities/server/event-checkout"
+import { EVENT_HOLD_MINUTES, eventCheckoutParams, grantFromSession, isEventSession, revokeRefundedTicket, startEventCheckout, type CheckoutDeps } from "@/lib/communities/server/event-checkout"
 import { refundEveryTicket, refundTicket, type TicketRefundDeps } from "@/lib/communities/server/event-refunds"
 import { DEFAULT_ROLE_PERMISSIONS, OWNER_ONLY_ACTIONS, PERMISSION_GROUPS, can, parseRolePermissions } from "@/lib/communities/permissions"
 import type { Viewer } from "@/lib/communities/server/context"
@@ -523,7 +523,7 @@ async function main() {
     await startEventCheckout(db, deps, { community, viewer: viewerOf(BUYER), eventId: EID, email: null })
     const blocked = await startEventCheckout(db, deps, { community, viewer: viewerOf(SECOND), eventId: EID, email: null })
     check("a held seat blocks the next buyer while the hold lasts", blocked.ok === false && blocked.code === "full")
-    clock.now = NOW + 31 * 60_000
+    clock.now = NOW + (EVENT_HOLD_MINUTES + 1) * 60_000
     check("the sweep tidies the hold nobody paid", (await releaseDeadHolds(db)) === 1)
     const after = await startEventCheckout(db, deps, { community, viewer: viewerOf(SECOND), eventId: EID, email: null })
     check("and then the seat is somebody else's to buy", after.ok === true)

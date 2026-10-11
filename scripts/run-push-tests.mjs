@@ -548,6 +548,8 @@ const SUITES = [
   "tests/editor-engine-w4b.test.ts",
   /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
   "tests/orders20.test.ts",
+  /* Round 21 */
+  "tests/safety21.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

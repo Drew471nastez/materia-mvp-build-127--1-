@@ -52,6 +52,8 @@ export interface StripeSessions {
     sessions: {
       create(params: Stripe.Checkout.SessionCreateParams): Promise<Pick<Stripe.Checkout.Session, "id" | "client_secret">>
       retrieve(id: string): Promise<Stripe.Checkout.Session>
+      /** Closes a session nobody should pay any more (an event ticket's earlier form). */
+      expire?(id: string): Promise<unknown>
     }
   }
 }

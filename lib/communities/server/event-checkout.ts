@@ -36,7 +36,7 @@ import "server-only"
  * it against a stub.
  */
 import type Stripe from "stripe"
-import { eventPriceMode, salesOpen } from "../event-tickets"
+import { TICKET_HOLD_MINUTES, eventPriceMode, salesOpen } from "../event-tickets"
 import type { CommunityRow, EventRow } from "../types"
 import type { Viewer } from "./context"
 import { type Db } from "./db"
@@ -55,6 +55,41 @@ function holdToken(eventId: string, userId: string): string {
 }
 
 /** Everything Stripe is asked for, from the server's own facts. Pure, so the tests can read it. */
+/*
+  THE FORM LIVES NO LONGER THAN THE SEAT. A seat is held TICKET_HOLD_MINUTES
+  plus a margin, and Stripe's form closes a minute before that hold ends
+  (Stripe allows thirty minutes at the least). Before, the form stayed
+  payable for Stripe's default day while the seat went back after half an
+  hour, so a form left open could be paid for a seat sold to somebody else.
+*/
+export const EVENT_HOLD_MINUTES = TICKET_HOLD_MINUTES + 2
+export const EVENT_FORM_MINUTES = EVENT_HOLD_MINUTES - 1
+
+/**
+ * AN EARLIER FORM FOR THE SAME SEAT IS CLOSED BEFORE A NEW ONE OPENS. The
+ * hold keeps one session per member and event, so with a second tab both
+ * forms could be paid and only one became a ticket: the buyer was charged
+ * twice. "paid" when the earlier form was already paid (its ticket is on
+ * the way), "closed" when it can no longer be paid, "open" when Stripe
+ * could not say.
+ */
+export async function closeEarlierForm(stripe: StripeSessions, sessionId: string): Promise<"paid" | "closed" | "open"> {
+  const sessions = stripe.checkout.sessions
+  if (!sessions.expire) return "closed"
+  try {
+    await sessions.expire(sessionId)
+    return "closed"
+  } catch {
+    try {
+      const s = await sessions.retrieve(sessionId)
+      if (s.status === "complete" || s.payment_status === "paid") return "paid"
+      return s.status === "expired" ? "closed" : "open"
+    } catch {
+      return "open"
+    }
+  }
+}
+
 export function eventCheckoutParams(p: {
   event: Pick<EventRow, "id" | "title" | "cover_url" | "starts_at"> & { price_cents?: number | null }
   community: Pick<CommunityRow, "id" | "name" | "slug">
@@ -63,6 +98,7 @@ export function eventCheckoutParams(p: {
   destination: string
   currency: string
   fee: PlatformFee
+  now?: number
 }): Stripe.Checkout.SessionCreateParams {
   const amount = p.event.price_cents as number
   const metadata: Record<string, string> = {
@@ -85,6 +121,7 @@ export function eventCheckoutParams(p: {
   return {
     mode: "payment",
     ui_mode: "embedded",
+    expires_at: Math.floor((p.now ?? Date.now()) / 1000) + EVENT_FORM_MINUTES * 60,
     redirect_on_completion: "never",
     line_items: [
       {
@@ -144,8 +181,14 @@ export async function startEventCheckout(db: Db, deps: CheckoutDeps, a: { commun
   } catch {
     return refuse(400, "currency", "This currency is not available for checkout yet.")
   }
+  const earlier = mine?.checkout_session_id?.startsWith("cs_") && (mine.status === "held" || mine.status === "cancelled") ? mine.checkout_session_id : null
+  if (earlier) {
+    const closed = await closeEarlierForm(deps.stripe, earlier)
+    if (closed === "paid" && mine?.status === "held") return refuse(409, "already_paid", "You already paid for this ticket. It shows here in a moment.")
+    if (closed === "open") return refuse(502, "stripe", "The payment form did not load. Nothing was charged. Try again.")
+  }
   /* THE SEAT, BEFORE STRIPE: one locked statement decides it, so the last seat is never sold twice. */
-  const held = await holdSeat(db, { eventId: event.id, userId: viewer.userId, session: holdToken(event.id, viewer.userId) })
+  const held = await holdSeat(db, { eventId: event.id, userId: viewer.userId, session: holdToken(event.id, viewer.userId), minutes: EVENT_HOLD_MINUTES })
   if (held.ok === false) {
     if (held.error === "full") return refuse(409, "full", "This event is sold out.")
     if (held.error === "sales_closed") return refuse(409, "sales_closed", "Tickets for this event have closed.")

@@ -19,7 +19,7 @@ import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
-import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
+import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import { normaliseTrackingNumber } from "./carriers"
 import { cleanNote } from "./notes"
@@ -321,9 +321,7 @@ export async function fulfilItems(
   if (order.status !== "paid" && order.status !== "partially_refunded") return { ok: false, error: order.status === "refunded" ? "This order was refunded." : "Only a paid order can be fulfilled." }
   if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
   const open = unfulfilledQuantities(progressOf(order))
-  const items = input.items
-    .map((i) => ({ orderId: i.orderId, quantity: Math.floor(Number(i.quantity) || 0) }))
-    .filter((i) => i.quantity > 0)
+  const items = mergeItemQuantities(input.items.map((i) => ({ orderId: i.orderId, quantity: i.quantity })))
   if (items.length === 0) return { ok: false, error: "Choose at least one item to fulfil." }
   for (const i of items) {
     const left = open.get(i.orderId)
@@ -616,7 +614,7 @@ export async function openReturn(
   for (const r of order.returns.filter((x) => ["requested", "approved", "in_transit"].includes(x.status))) {
     for (const i of r.items) returnable.set(i.orderId, Math.max(0, (returnable.get(i.orderId) ?? 0) - i.quantity))
   }
-  const items = input.items.map((i) => ({ orderId: i.orderId, quantity: Math.floor(Number(i.quantity) || 0), restock: i.restock !== false })).filter((i) => i.quantity > 0)
+  const items = mergeItemQuantities(input.items.map((i) => ({ orderId: i.orderId, quantity: i.quantity, restock: i.restock !== false })))
   if (items.length === 0) return { ok: false, error: "Choose at least one item to return." }
   for (const i of items) {
     const left = returnable.get(i.orderId) ?? 0
