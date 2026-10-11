@@ -29,6 +29,7 @@ export const NAV: { group: string | null; items: NavItem[] }[] = [
       { id: "orders", label: "Orders" },
       { id: "payouts", label: "Payouts" },
       { href: "/admin/payments", label: "Payments" },
+      { href: "/admin/physical-commerce", label: "Physical commerce" },
     ],
   },
   {

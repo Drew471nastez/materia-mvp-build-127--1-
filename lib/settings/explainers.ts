@@ -107,6 +107,7 @@ export const EXPLAINERS = {
       "Built in ones need nothing more than turning on. The others ask for a key from your account with that service.",
       "Your data stays in your store. Turning an integration off stops what it sends, and keeps everything it already did.",
     ],
+    guide: "/help/physical-products/integrations",
   },
   packages: {
     title: "How packages work",
@@ -116,7 +117,7 @@ export const EXPLAINERS = {
       "Storelib adds the package's empty weight to the products inside when it works out a weight based shipping rate, so the buyer pays for what the parcel really weighs.",
       "Mark the one you use most as the default.",
     ],
-    guide: "/help/physical-products/tax-and-units",
+    guide: "/help/physical-products/units-and-packages",
   },
   fulfilment: {
     title: "Who ships your orders",
@@ -145,6 +146,7 @@ export const EXPLAINERS = {
       "Your phone is shown to your payment provider and on order emails, so a buyer or a carrier can reach you about an order.",
       "The default region decides the currency new prices are in and the country new locations start in.",
     ],
+    guide: "/help/physical-products/store-details",
   },
 } satisfies Record<string, Explainer>
 
