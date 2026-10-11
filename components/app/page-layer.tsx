@@ -110,9 +110,21 @@ type ViewTransitionProps = {
 */
 const ReactViewTransition = (React as unknown as { ViewTransition?: React.ComponentType<ViewTransitionProps> }).ViewTransition ?? null
 
+/*
+  ── NO LAYER MOVES ANY MORE (round 23) ──
+  The owner: "make sure back and entering pages don't have that slide animation delay; make it more stable, smooth,
+  clean, normal and simple". The product and coupon editors, the email composer and the plans page rose from the bottom
+  over 360ms and dropped back over 280ms, every time, on top of the wait for the page itself. Now a layer is simply there
+  on the commit that brings it and gone on the commit that takes it away, and the stage lands it the way it lands every
+  page of /app (components/app/app-stage.tsx: one short fade). Nothing else changes: the press is still answered, the page
+  under it still holds still, and the moves below stay written behind LAYER_MOVES for the day they are wanted again.
+*/
+const LAYER_MOVES: boolean = false
+
 /* ── Whether a layer moves here: a phone, motion allowed, no drop of our own running ── */
 const REDUCED = "(prefers-reduced-motion: reduce)"
 function layerMotionOn(): boolean {
+  if (!LAYER_MOVES) return false
   if (typeof window === "undefined" || !window.matchMedia) return false
   return window.matchMedia(LAYER_PHONE).matches && !window.matchMedia(REDUCED).matches
 }
