@@ -45,7 +45,7 @@ A pricing table, a menu of dishes, an event's tickets or a service's rates are p
 
 ## Which products: the sidebar decides
 
-The way a Shopify section offers products, and the way Storelib's own product sections do: a `source` select, and a picker for each source that needs one, shown only when it is chosen.
+The way Storelib's own product sections offer products: a `source` select, and a picker for each source that needs one, shown only when it is chosen.
 
 ```json
 { "type": "select", "id": "source", "label": "Products", "default": "shop", "options": [
@@ -103,7 +103,7 @@ In the builder, while the product page is open, `page.product` is the newest pro
 
 ## The main product section
 
-The product page's own section is `product`, the one every product template starts with. It reads whichever product's page is open, on the live site and in the builder (where it is the product chosen to preview), and is built the way Shopify's main product section is: the product's pictures in one column, and blocks in the other, which the creator adds, removes, reorders and styles in the sidebar.
+The product page's own section is `product`, the one every product template starts with. It reads whichever product's page is open, on the live site and in the builder (where it is the product chosen to preview), and is built the way a store theme's main product section is: the product's pictures in one column, and blocks in the other, which the creator adds, removes, reorders and styles in the sidebar.
 
 | Block | What it draws |
 | --- | --- |
@@ -135,7 +135,7 @@ Write a new section for the product page only for something these blocks cannot 
 
 ## Filtering the shop
 
-The shop (`/products`) and the search page filter the way a Shopify collection does: a price range, in stock only, the kind of product, the values of its options (Size, Colour) and an order. The address is the state, so a filtered list can be linked and reloaded:
+The shop (`/products`) and the search page filter the way a store's collection does: a price range, in stock only, the kind of product, the values of its options (Size, Colour) and an order. The address is the state, so a filtered list can be linked and reloaded:
 
 ```
 /products?price_min=10&price_max=50&available=1&type=physical&opt.size=M&sort=price-asc
@@ -211,11 +211,11 @@ To let the creator pick which product a section shows, give it a `product_picker
 {% endif %}
 ```
 
-Printed on its own, `{{ settings.product | url }}` is still the product's page address. The setting holds the address, the id or the handle, so a Shopify theme's `waxed-tote` resolves too.
+Printed on its own, `{{ settings.product | url }}` is still the product's page address. The setting holds the address, the id or the handle, so an imported theme's `waxed-tote` resolves too.
 
 ### This page's product: `@current`
 
-On the product page the first choice in the picker is **This page's product**, stored as `@current`. One section set once then shows each product on its own page, the way a Shopify setting with a dynamic source does. On any other page `@current` is empty, never another product.
+On the product page the first choice in the picker is **This page's product**, stored as `@current`. One section set once then shows each product on its own page, the way a setting with a dynamic source does. On any other page `@current` is empty, never another product.
 
 ### Several products, in the creator's order
 

@@ -287,15 +287,16 @@ async function main() {
       let cards = 0
       for (let i = 0; i < 60 && drawnCards < 6; i++) {
         await sleep(250)
-        /* Down the list, as somebody looking would: a card is drawn as it comes near. */
-        if (i % 4 === 3) await page.evaluate(() => { const c = [...document.querySelectorAll("[data-compat-preview]")].find((b) => !b.querySelector("iframe")); c?.scrollIntoView({ block: "center" }) })
-        ;({ cards, drawnCards } = await page.evaluate(() => ({ cards: document.querySelectorAll("[data-library-card]").length, drawnCards: document.querySelectorAll("[data-compat-preview] iframe").length })))
+        /* Down the list, as somebody looking would: the cards nearest the screen are drawn first. */
+        if (i % 4 === 3) await page.evaluate(() => { const c = [...document.querySelectorAll("[data-compat-preview]")].find((b) => b.getAttribute("data-compat-preview-state") === "waiting"); c?.scrollIntoView({ block: "center" }) })
+        ;({ cards, drawnCards } = await page.evaluate(() => ({ cards: document.querySelectorAll("[data-library-card]").length, drawnCards: document.querySelectorAll("[data-compat-preview-state='shown']").length })))
       }
-      const filled = await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => {
-        const s = document.querySelector(".shopify-section")
-        return s ? (s.textContent ?? "").trim().length + s.querySelectorAll("img, svg, picture").length : -1
-      }).catch(() => -1)))
-      const withContent = filled.filter((n) => n > 0).length
+      /* Every card's section is in the one frame over the list (compat-section-preview.tsx, CompatPreviewSheet). */
+      const filled = await Promise.all(page.frames().filter((f) => f.parentFrame() === page.mainFrame() && f.url() === "about:srcdoc").map((f) => f.evaluate(() => [...document.querySelectorAll("[data-sl-pv][data-on]")].map((w) => {
+        const s = w.querySelector(".shopify-section") ?? w
+        return (s.textContent ?? "").trim().length + s.querySelectorAll("img, svg, picture").length
+      })).catch(() => [] as number[])))
+      const withContent = filled.flat().filter((n) => n > 0).length
       await page.screenshot({ path: "/tmp/compat-editor-library.png" })
       check("Add section's cards are the theme's sections, drawn", cards > 0 && drawnCards >= 6 && withContent >= 5, `${cards} cards, ${drawnCards} drawn, ${withContent} with content`)
       const picked = await page.evaluate(() => { const c = document.querySelector<HTMLElement>("[data-library-card]"); c?.click(); return c?.getAttribute("data-library-card") ?? null })

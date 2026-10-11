@@ -1264,7 +1264,7 @@ section("Autosave writes the draft, never the live site")
 
   check(
     "and it holds off while a save or a publish is already going",
-    /if \(!isDirty \|\| saving \|\| publishing \|\| loading\) return/.test(editor),
+    /if \(!isDirty \|\| saving \|\| publishing \|\| loading( \|\| syncConflict)?\) return/.test(editor),
   )
 
   check(

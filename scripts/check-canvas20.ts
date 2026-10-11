@@ -12,10 +12,10 @@
  *
  *   each frame of the canvas is held against a still of the page left (About)
  *   and a still of the page arrived at (Home), taken once each has settled.
- *   A frame like neither is a frame of something else: a page half drawn, a
- *   theme's entry animation part way, or two pages on top of each other. The
- *   switch should be About, About, ..., Home, Home: no frame in between, and
- *   never About again once Home has shown.
+ *   A frame like neither is About fading off Home or Home's own entrance
+ *   playing (round G: the hand over, scripts/check-canvas-flash.ts). The
+ *   switch should be About, About, ..., then one short run of those, then
+ *   Home, and never About again once it has started to go.
  *
  *   the sections panel is read on every frame of the editor: it should hold
  *   About's list until Home's is ready and then show Home's, never an empty
@@ -271,9 +271,22 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
     const settledAt = (() => { for (let i = marks.length - 1; i >= 0; i--) if (marks[i].k !== "B") return marks[i + 1]?.t ?? -1; return marks[0]?.t ?? -1 })()
     console.log(`        frames: ${runs(marks)}`)
     console.log(`        Home on screen ${settledAt}ms after the press; ${between.length} frames like neither page${between.length ? ` (at ${between.slice(0, 8).map((m) => `${m.t}ms A${m.dA}/B${m.dB}`).join(", ")})` : ""}`)
-    check(`${label}: no frame between About and Home (no half drawn page, no two pages at once)`, between.length === 0, `${between.length} of ${marks.length}`)
+    /*
+      Round G: About fades off Home (compat-canvas.tsx, HANDOVER_MS) and Home's
+      own entrance plays in view, so there are frames like neither page now:
+      About over Home ("g") and Home arriving ("x"). They come in one run,
+      straight after About and before Home settles, and are over within the
+      hand over and the theme's entrance; never About again in between.
+    */
+    const firstOther = marks.findIndex((m) => m.k !== "A")
+    const lastOther = (() => { for (let i = marks.length - 1; i >= 0; i--) if (marks[i].k === "g" || marks[i].k === "x") return i; return -1 })()
+    const run = firstOther >= 0 && lastOther >= firstOther ? marks.slice(firstOther, lastOther + 1) : []
+    check(`${label}: About hands over to Home in one run (About fading off, Home's entrance), never About again in between`, !run.some((m) => m.k === "A"), runs(run))
+    check(`${label}:   and it is over within 1400ms (the hand over and the theme's entrance)`, run.length === 0 || run[run.length - 1].t - run[0].t <= 1400, run.length ? `${run[run.length - 1].t - run[0].t}ms` : "a cut")
     check(`${label}: About never comes back once Home has shown`, backToA === 0, `${backToA}`)
-    check(`${label}: Home is on screen within ${touch ? 2600 : 1600}ms of the press (sections route ${API_MS}ms, hero picture ${PICTURE_MS}ms)`, settledAt >= 0 && settledAt <= (touch ? 2600 : 1600), `${settledAt}ms`)
+    /* Round G: Home starts to show as About begins to fade off it; its own entrance plays on after that, as on the live site. */
+    const shownAt = firstOther >= 0 ? marks[firstOther].t : settledAt
+    check(`${label}: Home starts to show within ${touch ? 2600 : 1600}ms of the press (sections route ${API_MS}ms, hero picture ${PICTURE_MS}ms)`, shownAt >= 0 && shownAt <= (touch ? 2600 : 1600), `${shownAt}ms, settled with its entrance at ${settledAt}ms`)
 
     /* The sections panel, every frame of the editor. */
     const rec = (await ed.page.evaluate(() => (window as unknown as { __rec: { t: number; rows: string; sk: boolean; empty: boolean; frames: string }[] }).__rec)).filter((r) => r.t >= at - 20)

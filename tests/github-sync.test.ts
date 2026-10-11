@@ -284,7 +284,7 @@ function main() {
     /recheck: projectSettingsOpen/.test(editor) &&
       (() => {
         const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
-        return /from\("theme_github_links"\)\.select\("repo_full_name"\)/.test(route) && !/installationToken|installationRepos|github-sync\/github/.test(route)
+        return /from\("theme_github_links"\)\.select\("repo_full_name, updated_at"\)/.test(route) && !/installationToken|installationRepos|github-sync\/github/.test(route)
       })())
   check("  and a phone reaches it from the menu, by the same mark", /isMobileView\s*\?\s*\[\{\s*label: connection\.online \? connection\.label : "GitHub",\s*icon: <ConnectionMarkIcon kind=\{connection\.kind\}/.test(editor))
   check("and coming back from GitHub opens Connections, then clears the address",
@@ -326,7 +326,7 @@ function main() {
 
   console.log("\nSwitches, pull and activity")
   const sync2 = read("lib/github-sync/sync.ts")
-  check("a site with incoming changes switched off is left alone", /\(l\) => l\.pull_on_push !== false &&/.test(sync2))
+  check("a site with incoming changes switched off is left alone", /\(l\) => l\.branch === branch && l\.pull_on_push !== false &&/.test(sync2))
   check("and so is a link made through another installation than the one that sent the push",
     /Number\(l\.installation_id\) === from/.test(sync2) && /const from = Number\(payload\.installation\?\.id\)/.test(sync2))
   check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /applyFiles\(db, link, snap, read\.incoming, "GitHub"/.test(sync2))

@@ -323,7 +323,7 @@ const STORELIB_APPS: Integration[] = [
     summary: "Collect product reviews by email and show them on your website.",
     about: [
       "Buyers get an email from your store a few days after they buy, or after their parcel arrives, with five stars to tap. The link opens a review page on your website, with no account needed, and photos if you allow them.",
-      "Reviews show on your website with the Product reviews, Star rating, Reviews carousel and All reviews sections, and on a reviews page at /reviews. Imported Shopify themes show their own stars from the same ratings. Your creator page and Explore read the same reviews.",
+      "Reviews show on your website with the Product reviews, Star rating, Reviews carousel and All reviews sections, and on a reviews page at /reviews. Imported themes show their own stars from the same ratings. Your creator page and Explore read the same reviews.",
       "Approve, hide, feature and answer reviews in Reviews. A review hidden by you is kept but leaves your store and its rating.",
     ],
     glance: [

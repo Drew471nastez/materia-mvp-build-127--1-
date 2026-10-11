@@ -45,7 +45,7 @@ async function main() {
   const home = await get("/")
   const has = (re: RegExp, h = home) => re.test(h)
   check("no Liquid left raw", !has(/\{\{|\{%/), (home.match(/.{0,40}(\{\{|\{%).{0,40}/) ?? [""])[0])
-  check("no Liquid error text", !has(/Liquid (syntax )?error/i), (home.match(/.{0,60}Liquid (syntax )?error.{0,80}/i) ?? [""])[0])
+  check("no Liquid error text", !has(/(Liquid|Template) (syntax )?error/i), (home.match(/.{0,60}(Liquid|Template) (syntax )?error.{0,80}/i) ?? [""])[0])
   check("announcement (plain {% section %})", has(/class="announce">Free shipping over \$50/))
   check("header (plain {% section %})", has(/class="site-header"/))
   check("  menu links from linklists", has(/class="nav-link[^"]*" href="\/collections\/all">Shop</))

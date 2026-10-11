@@ -179,7 +179,7 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
         <Toggle label="Verified buyer label" checked={draft.display.showVerified} onChange={(v) => setDisplay({ showVerified: v })} />
         <Toggle label="Dates" checked={draft.display.showDate} onChange={(v) => setDisplay({ showDate: v })} />
         <Toggle label="Photos in reviews" checked={draft.display.showPhotos} onChange={(v) => setDisplay({ showPhotos: v })} />
-        <Toggle label="Stars on product cards" description="Imported Shopify themes show their own stars from the same ratings." checked={draft.display.showCardRating} onChange={(v) => setDisplay({ showCardRating: v })} />
+        <Toggle label="Stars on product cards" description="Imported themes show their own stars from the same ratings." checked={draft.display.showCardRating} onChange={(v) => setDisplay({ showCardRating: v })} />
         <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
           Add reviews to your pages in the website editor: Product reviews, Star rating, Reviews carousel and All reviews are under Add section. Your website also has a reviews page at /reviews.
         </p>
