@@ -23,9 +23,12 @@ import { createHmac, timingSafeEqual } from "node:crypto"
 const LABEL = "storelib.review-request.v1"
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-function keyFrom(raw: string): Buffer | null {
+/** A website review's confirm link is signed under its own label, so neither kind of link passes for the other. */
+const DRAFT_LABEL = "storelib.review-confirm.v1"
+
+function keyFrom(raw: string, label = LABEL): Buffer | null {
   if (!raw || raw.length < 16) return null
-  return createHmac("sha256", raw).update(LABEL).digest()
+  return createHmac("sha256", raw).update(label).digest()
 }
 
 function secret(): string {
@@ -39,8 +42,8 @@ function idFrom(bytes: Buffer): string {
 }
 
 /** Signs with a given secret. Exported for the tests. */
-export function signRequestWith(rawSecret: string, requestId: string): string {
-  const key = keyFrom(rawSecret)
+export function signRequestWith(rawSecret: string, requestId: string, label = LABEL): string {
+  const key = keyFrom(rawSecret, label)
   if (!key) throw new Error("No review link key is configured")
   if (!UUID.test(requestId)) throw new Error("Not a request id")
   const id = idBytes(requestId.toLowerCase())
@@ -48,8 +51,8 @@ export function signRequestWith(rawSecret: string, requestId: string): string {
   return `${id.toString("base64url")}.${mac.toString("base64url")}`
 }
 
-export function verifyRequestWith(rawSecret: string, token: unknown): string | null {
-  const key = keyFrom(rawSecret)
+export function verifyRequestWith(rawSecret: string, token: unknown, label = LABEL): string | null {
+  const key = keyFrom(rawSecret, label)
   if (!key || typeof token !== "string" || token.length > 80) return null
   const m = token.match(/^([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]{22})$/)
   if (!m) return null
@@ -83,4 +86,35 @@ export function looksLikeRequestToken(token: unknown): token is string {
 /** The review page's address for a request, on a given origin. */
 export function reviewPagePath(token: string, rate?: number): string {
   return `/review/${token}${rate && rate >= 1 && rate <= 5 ? `?rate=${rate}` : ""}`
+}
+
+/** The confirm link of a review typed into a website's form (review_drafts): `/review/confirm/<token>`. */
+export function signDraftWith(rawSecret: string, draftId: string): string {
+  return signRequestWith(rawSecret, draftId, DRAFT_LABEL)
+}
+
+export function verifyDraftWith(rawSecret: string, token: unknown): string | null {
+  return verifyRequestWith(rawSecret, token, DRAFT_LABEL)
+}
+
+export function signDraft(draftId: string): string | null {
+  try {
+    return signDraftWith(secret(), draftId)
+  } catch {
+    return null
+  }
+}
+
+export function verifyDraft(token: unknown): string | null {
+  return verifyDraftWith(secret(), token)
+}
+
+export const confirmPagePath = (token: string) => `/review/confirm/${token}`
+
+/** A request link takes a new review for this long after its email (a link is not a key forever). */
+export const REQUEST_LINK_DAYS = 180
+
+export function requestLinkOpen(request: { sent_at?: string | null; created_at?: string | null }, now = Date.now()): boolean {
+  const at = Date.parse(String(request.sent_at ?? request.created_at ?? ""))
+  return Number.isFinite(at) && now - at <= REQUEST_LINK_DAYS * 86_400_000
 }

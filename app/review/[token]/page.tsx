@@ -3,8 +3,9 @@ import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { canDeliver } from "@/lib/receipts/rules"
 import { canEditUntil, publicName, readPhotos, websiteStatus } from "@/lib/reviews/app-settings"
-import { looksLikeRequestToken, verifyRequest } from "@/lib/reviews/request-token"
+import { looksLikeRequestToken, requestLinkOpen, verifyRequest } from "@/lib/reviews/request-token"
 import { requestContext } from "@/lib/reviews/requests-server"
+import { photoViewUrl } from "@/lib/reviews/photos-server"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { ReviewPageForm, type ReviewPageProps } from "./review-form"
 
@@ -43,7 +44,9 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
 
   const rateRaw = Number(Array.isArray(query.rate) ? query.rate[0] : query.rate)
   const review = ctx.review
-  const closed = !ctx.order || !canDeliver(ctx.order) || ctx.product.status === "deleted"
+  /* A new review needs the app on and a link under REQUEST_LINK_DAYS old (app/api/reviews/request); one already written can still be read here. */
+  const expired = !review && (!ctx.settings.enabled || !requestLinkOpen(ctx.request as { sent_at?: string | null; created_at?: string | null }))
+  const closed = !ctx.order || !canDeliver(ctx.order) || ctx.product.status === "deleted" || expired
   const props: ReviewPageProps = {
     token,
     storeName: ctx.storeName,
@@ -59,7 +62,8 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
           title: review.title ?? "",
           content: review.content ?? "",
           name: review.reviewer_name ?? "",
-          photos: readPhotos(review.photos).map((p) => ({ path: p.path, url: p.url, removed: p.status === "removed" })),
+          /* A photo not public yet (the store has not approved the review on its website) is shown to its writer by a short signed address. */
+          photos: await Promise.all(readPhotos(review.photos).map(async (p) => ({ path: p.path, url: (await photoViewUrl(db, review, p)) ?? p.url, removed: p.status === "removed" }))),
           status: websiteStatus(review),
           editable: canEditUntil(review.created_at, ctx.settings.editDays),
         }

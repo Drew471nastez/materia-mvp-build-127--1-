@@ -40,6 +40,8 @@ import { soldOnStorelib } from "./request-rules"
 import { readReviewsApp, type ReviewsAppSettings } from "./app-settings"
 import { reminderDueAt, requestBlock, requestDueAt, type RequestFacts, type Shipment } from "./request-schedule"
 import { signRequest } from "./request-token"
+import { sweepReviewUploads } from "./photos-server"
+import { sendReviewDigests } from "./digest-server"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -57,6 +59,10 @@ export interface SweepResult {
   reminded: number
   skipped: number
   failed: number
+  /** Unclaimed photo uploads and unconfirmed website reviews swept (photos-server). */
+  swept?: { uploads: number; drafts: number }
+  /** Stores sent a digest of their new website reviews (digest-server). */
+  digests?: number
 }
 
 const lower = (s: unknown) => (typeof s === "string" ? s.trim().toLowerCase() : "")
@@ -99,6 +105,8 @@ interface RequestRow {
   status: string
   due_at: string
   sent_at: string | null
+  reminded_at?: string | null
+  last_sent_at?: string | null
   attempts: number
 }
 
@@ -318,24 +326,33 @@ export async function sweepReviewRequests(opts: { now?: number; budgetMs?: numbe
       console.warn("[reviews] request run stopped for a store:", e instanceof Error ? e.message.slice(0, 120) : "unknown")
     }
   }
+  out.swept = await sweepReviewUploads(db, now)
+  out.digests = await sendReviewDigests(db, now)
   return out
 }
+
+/** A form cannot have one order's link sent more often than this. */
+export const ASK_AGAIN_MS = 7 * 86_400_000
 
 /**
  * A buyer who typed their address into the website's review form: their own
  * link, now, whatever the schedule says (the form proved nothing, the inbox
- * does). The request row is made when there is none; a link already sent is
- * sent again. The rules still apply (reviewed, unsubscribed, the store's own
- * order); the schedule and the "too late" rule do not. Limited by the form's
- * own rate limit. True when an email went.
+ * does). Run after the form has answered (the answer is the same whoever
+ * typed what). The request row is made when there is none. Not when the
+ * store has its request emails off, not for a request that is done
+ * (reviewed, skipped, failed), and not when a link for that order went out
+ * in the last seven days, however often the form is sent. The rules still
+ * apply (unsubscribed, the store's own order); the schedule and the "too
+ * late" rule do not. True when an email went.
  */
-export async function askNow(db: Db, creatorId: string, orderId: string, settings: ReviewsAppSettings): Promise<boolean> {
+export async function askNow(db: Db, creatorId: string, orderId: string, settings: ReviewsAppSettings, nowMs = Date.now()): Promise<boolean> {
+  if (!settings.enabled || !settings.request.enabled) return false
   const { data: order } = await db.from("orders").select(ORDER_COLUMNS).eq("id", orderId).maybeSingle()
   const o = order as Record<string, any> | null
   if (!o || !o.product_id || typeof o.buyer_email !== "string") return false
   let at: string | null = null
   if (soldOnStorelib(o) === "website") at = await originOf(db, creatorId)
-  const now = Date.now()
+  const now = nowMs
   await db
     .from("review_requests")
     .upsert(
@@ -344,14 +361,16 @@ export async function askNow(db: Db, creatorId: string, orderId: string, setting
     )
   const { data: row } = await db.from("review_requests").select("*").eq("order_id", orderId).maybeSingle()
   const r = row as RequestRow | null
-  if (!r || r.status === "reviewed") return false
+  if (!r || !["scheduled", "sent", "reminded"].includes(r.status)) return false
+  const last = Math.max(...[r.last_sent_at, r.reminded_at, r.sent_at].map((t) => (t ? Date.parse(t) || 0 : 0)))
+  if (last > now - ASK_AGAIN_MS) return false
   const facts = await factsFor(db, r)
   const block = requestBlock(facts, { enabledAt: null }, now, now)
   if (block) return false
   const sent = await sendAsk(r, facts, settings, false).catch(() => "retry" as const)
   if (sent !== "sent") return false
   const stamp = new Date().toISOString()
-  await db.from("review_requests").update({ status: r.status === "scheduled" ? "sent" : r.status, sent_at: r.sent_at ?? stamp, attempts: (r.attempts ?? 0) + 1, updated_at: stamp }).eq("id", r.id)
+  await db.from("review_requests").update({ status: r.status === "scheduled" ? "sent" : r.status, sent_at: r.sent_at ?? stamp, last_sent_at: stamp, attempts: (r.attempts ?? 0) + 1, updated_at: stamp }).eq("id", r.id)
   return true
 }
 

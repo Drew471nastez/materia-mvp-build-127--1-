@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { sellersReview } from "@/lib/reviews/access"
 import { refreshReviewStats } from "@/lib/reviews/store"
 import { isVerifiedReview, readPhotos, readSiteStatus } from "@/lib/reviews/app-settings"
-import { REVIEW_PHOTO_BUCKET } from "@/lib/reviews/write-server"
+import { removeReviewPhotos, syncReviewPhotos } from "@/lib/reviews/photos-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,7 +34,10 @@ export const dynamic = "force-dynamic"
  *              Unverified: off the website, the product page and the
  *              rating, kept.
  *   feature    first in "Featured" order and in the reviews carousel
- *   photo      one photo taken off (or put back); the review stays
+ *   photo      one photo taken off (or put back); the review stays. Its
+ *              file moves to the private bucket (or back), as every
+ *              photo's does when its review stops or starts showing on
+ *              the website (photos-server syncReviewPhotos).
  *   DELETE     unverified only: gone for good, with its photos
  *
  * The ratings are counted again after anything that changes what is
@@ -111,6 +114,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const missing = code === "42703" || code === "PGRST204" || code === "23514"
     return answer({ error: missing ? "Moderation turns on after the database update (SQL part 133)." : "That did not save. Try again." }, missing ? 409 : 500)
   }
+  await syncReviewPhotos(db, data)
   await refreshReviewStats(db, { productId: review.product_id, creatorId: review.creator_id, productSlug: found.product.slug })
   return answer({ ok: true, review: data })
 }
@@ -126,13 +130,7 @@ export async function DELETE(_request: NextRequest, { params }: Params) {
   const paths = readPhotos(review.photos).map((p) => p.path).filter((p) => p.startsWith(`${review.creator_id}/`))
   const { error } = await db.from("reviews").delete().eq("id", review.id)
   if (error) return answer({ error: "That did not delete. Try again." }, 500)
-  if (paths.length) {
-    try {
-      await db.storage.from(REVIEW_PHOTO_BUCKET).remove(paths)
-    } catch {
-      /* The review is gone; a photo left behind is swept with the bucket's other strays. */
-    }
-  }
+  await removeReviewPhotos(db, paths)
   await refreshReviewStats(db, { productId: review.product_id, creatorId: review.creator_id, productSlug: found.product.slug })
   return answer({ ok: true })
 }

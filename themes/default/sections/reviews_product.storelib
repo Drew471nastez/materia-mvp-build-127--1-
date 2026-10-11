@@ -44,7 +44,7 @@
 
     <p class="rv-note" id="review-posted">Thanks. Your review is up.</p>
     <p class="rv-note" id="review-waiting">Thanks. Your review shows once the store has read it.</p>
-    <p class="rv-note" id="review-check-email">You bought this, so we emailed you a link to review it as a verified buyer.</p>
+    <p class="rv-note" id="review-check-email">Thanks. Check your email and open the link in it to post your review.</p>
     <p class="rv-note rv-note--error" id="review-error">That didn't go through. Check the form and try again.</p>
 
     {% if settings.show_write and reviews.can_write and reviews.here.scope == 'product' %}

@@ -21,8 +21,12 @@ export const dynamic = "force-dynamic"
  * photos-server.ts: a picture by its bytes, its metadata removed, the
  * picture reader, the malware scan after the answer.
  *
- * Stored under the store's folder with a random name; the review form sends
- * the path back, and the review routes accept only paths in that folder.
+ * Stored in the private uploads bucket under the store's folder with a
+ * random name, and tied to where it came from (the request link, or the
+ * store's website form). The review form sends the path back, and a review
+ * takes only uploads tied to the same place, once (photos-server
+ * claimUploads). The answer's address is a short signed one, for the
+ * form's preview.
  */
 const json = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: UPLOAD_HEADERS })
 
@@ -42,6 +46,7 @@ export async function POST(request: NextRequest) {
 
   const db = createAdminClient()
   let creatorId: string | null = null
+  let owner = ""
   const token = form.get("token")
   const productId = form.get("productId")
   if (typeof token === "string" && token) {
@@ -49,15 +54,17 @@ export async function POST(request: NextRequest) {
     if (!id) return json({ error: "This review link does not work." }, 404)
     const { data } = await db.from("review_requests").select("creator_id").eq("id", id).maybeSingle()
     creatorId = (data as { creator_id?: string } | null)?.creator_id ?? null
+    owner = `request:${id}`
   } else if (typeof productId === "string" && isUuid(productId)) {
     const { data } = await db.from("products").select("creator_id").eq("id", productId).eq("status", "published").maybeSingle()
     creatorId = (data as { creator_id?: string } | null)?.creator_id ?? null
+    owner = `site:${creatorId}`
   }
   if (!creatorId) return json({ error: "This product is not available." }, 404)
   const { settings } = await loadReviewsApp(db, creatorId)
-  if (!settings.photos || (!token && (!settings.enabled || settings.who !== "anyone"))) return json({ error: "This store does not take photos with reviews." }, 403)
+  if (!settings.enabled || !settings.photos || (!token && settings.who !== "anyone")) return json({ error: "This store does not take photos with reviews." }, 403)
 
-  const stored = await storeReviewPhoto(db, creatorId, await file.arrayBuffer())
+  const stored = await storeReviewPhoto(db, creatorId, await file.arrayBuffer(), owner)
   if (!stored.ok) return json({ error: stored.error }, stored.status)
   return json({ path: stored.path, url: stored.url })
 }
