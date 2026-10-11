@@ -147,7 +147,7 @@ const ONE_OF_OURS = "Storelib's"
 function fileCopy(kind: FileProblemKind, line: number | null): { title: string; fix: string; showDetail: boolean } {
   switch (kind) {
     case "invalid":
-      return { title: line ? `Has a mistake on line ${line}` : "Has a mistake", fix: "Fix it on GitHub and push again. Everything else came in.", showDetail: true }
+      return { title: line ? `Has a mistake on line ${line}` : "Has a mistake", fix: "Fix it on GitHub and push again.", showDetail: true }
     case "page":
       return { title: "This page file has a mistake", fix: "The page kept its last version. Fix the file on GitHub and push again.", showDetail: true }
     case "wrong-kind":

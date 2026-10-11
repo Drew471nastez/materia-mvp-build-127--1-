@@ -119,7 +119,7 @@ const ACTION_LABEL: Record<SyncAction, string> = {
   retry: "Try again",
   pull: "Bring them in",
   push: "Send to GitHub",
-  reconnect: "Reconnect GitHub",
+  reconnect: "Reconnect",
   repo: "Pick repository",
   open: "Open in GitHub",
   reset: "Put back Storelib's version",
@@ -247,7 +247,7 @@ export function SyncNotice({
           ? `${r.taken} came in${live ? " and are ready to publish" : ""}. Fix the rest on GitHub and push again.`
           : "Fix them on GitHub and push again. Your site is unchanged.",
       primary: first ? { label: ACTION_LABEL[first], run: () => void run(first) } : null,
-      details: failedCount > 0 || (r.notes.length > 0),
+      details: failedCount > 0 || r.notes.length > 0 || !!p,
     }
   } else if (r && r.direction === "from_github" && r.taken > 0 && unpublished && (pending?.any ?? true) && later(r.at, publishedAt) && !seen.includes(r.key)) {
     const n = r.taken
@@ -327,12 +327,21 @@ export function SyncNotice({
     >
       <div className="flex items-center gap-3 py-2 pl-3.5 pr-1.5">
         <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", DOT[s.tone])} />
-        <span className="min-w-0 flex-1">
+        {/* On a phone the words themselves open the sheet: the bar keeps room for the one button that fixes it. */}
+        <span
+          className={cn("min-w-0 flex-1", phone && s.details && "cursor-pointer")}
+          role={phone && s.details ? "button" : undefined}
+          tabIndex={phone && s.details ? 0 : undefined}
+          onClick={phone && s.details ? () => setOpen(true) : undefined}
+          onKeyDown={phone && s.details ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true) } } : undefined}
+        >
           <span className={cn("block text-[13px] font-semibold text-[#1a1a2e]", phone ? "line-clamp-2" : "truncate")}>{s.title}</span>
-          <span className={cn("block text-[12px] text-[#6b7280]", phone ? "line-clamp-2" : "truncate")}>{s.body}</span>
+          <span className={cn("block text-[12px] text-[#6b7280]", phone ? "line-clamp-2" : "truncate")}>
+            {phone && s.details ? <span className="font-medium text-[#1a1a2e] underline underline-offset-2">See details</span> : s.body}
+          </span>
         </span>
         {s.key === "conflict" ? (
-          <>
+          phone ? null : <>
             <button type="button" onClick={onKeepMine} className={secondaryBtn}>
               Keep mine
             </button>
@@ -342,13 +351,13 @@ export function SyncNotice({
           </>
         ) : (
           <>
-            {s.details && !(phone && s.tone === "info") && (
+            {s.details && !phone && (
               <button type="button" aria-expanded={open} onClick={() => setOpen((v) => !v)} className={secondaryBtn}>
                 <span>Details</span>
                 {!phone && <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />}
               </button>
             )}
-            {s.primary && (!phone || !s.details || s.tone === "info") && (
+            {s.primary && (
               <button type="button" onClick={s.primary.run} disabled={busy !== null} className={primaryBtn}>
                 {busy && s.primary.label !== "Publish" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : s.primary.label}
               </button>
@@ -364,6 +373,17 @@ export function SyncNotice({
           </>
         )}
       </div>
+      {/* On a phone the two choices get the full width, under the words. */}
+      {phone && s.key === "conflict" && (
+        <div className="flex gap-2 px-3.5 pb-3">
+          <button type="button" onClick={onKeepMine} className={cn(secondaryBtn, "flex-1 justify-center border border-[#e5e7eb]")}>
+            Keep mine
+          </button>
+          <button type="button" onClick={onUseTheirs} className={cn(primaryBtn, "flex-1 justify-center")}>
+            Use GitHub's
+          </button>
+        </div>
+      )}
       {!phone && open && (
         <div className="border-t border-[#eceef1]">
           <div className="max-h-[min(50vh,420px)] overflow-y-auto overscroll-contain">{list}</div>
