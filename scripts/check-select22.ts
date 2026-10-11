@@ -116,7 +116,8 @@ async function run(browser: Browser, label: string, width: number, height: numbe
         return { block: b?.getAttribute("data-block-id") ?? null, rect: r ? { left: r.left, top: r.top, right: r.right, bottom: r.bottom } : null, vw: document.documentElement.clientWidth, vh: innerHeight }
       }))
       const box = await boxOf(frame, "block")
-      const toolbar = await ed.page.evaluate(() => { const b = document.querySelector<HTMLElement>(".wb-section-toolbar"); return !!b && b.getBoundingClientRect().height > 0 })
+      /* The section's toolbar, on the page it belongs to: inside the frame the page is drawn in (the phone preview's is narrower than the canvas). */
+      const toolbar = await ed.page.evaluate((f) => { const b = document.querySelector<HTMLElement>(".wb-section-toolbar"); const r = b?.getBoundingClientRect(); return !!r && r.height > 0 && r.left >= f.x - 1 && r.right <= f.x + f.width + 1 && r.top >= f.y - 1 }, { x: fb.x, y: fb.y, width: fb.width })
       const blockId = sel.block ?? ""
       const right = blockId === t.block || blockId.endsWith(`-${t.block}`) || blockId.endsWith(t.block)
       let off = 99
@@ -139,7 +140,7 @@ async function run(browser: Browser, label: string, width: number, height: numbe
         shot++
       }
     }
-    check(`${label}: each block pressed is the one selected, outlined on four sides on its own box, with its toolbar`, bad.length === 0, bad.length ? bad.join(" | ") : `${TARGETS.length} blocks`)
+    check(`${label}: each block pressed is the one selected, outlined on four sides on its own box, with its toolbar inside the page's frame`, bad.length === 0, bad.length ? bad.join(" | ") : `${TARGETS.length} blocks`)
     if (!touch) {
       /* Rest the mouse on the benefits while the bundle is selected. */
       await within(frame.evaluate(() => { const el = document.querySelector(".product-info__price")!; scrollTo(0, scrollY + el.getBoundingClientRect().top - 200) }))

@@ -184,6 +184,10 @@ async function main() {
   check("the hit tests are read inside the element; the 2px are added after them", /var left = Math\.max\(r\.left, 0\), right = Math\.min\(r\.right, vw\);/.test(CANVAS_BRIDGE) && /var cutTop = from > r\.top \+ 0\.5, cutBottom = to < r\.bottom - 0\.5;/.test(CANVAS_BRIDGE))
   check("the hover is what a click would pick: the block, or its section", /var targetOf = function \(el\) \{ var s = sectionOf\(el\); return s \? blockOf\(el, s\) \|\| s : null; \};/.test(CANVAS_BRIDGE) && /hov !== blk && !\(hov === sec && !blk\)/.test(CANVAS_BRIDGE))
 
+  console.log("\nThe section's toolbar")
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("it is placed against its own containing box, so in the phone preview it is on the page and not at the canvas's edge", /const host = \(barRef\.current\?\.offsetParent as HTMLElement \| null\) \?\? scroller/.test(editor) && /useLayoutEffect\(\(\) => \{ if \(mounted\) measureNow\.current\(\) \}, \[mounted\]\)/.test(editor))
+
   console.log("\nThe fixture theme's product page")
   const section = read("tests/fixtures/shopify-posture/sections/main-product-info.liquid")
   const template = JSON.parse(read("tests/fixtures/shopify-posture/templates/product.json")) as { sections: { main: { type: string; block_order: string[] } } }
