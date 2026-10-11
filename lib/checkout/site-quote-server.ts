@@ -166,7 +166,7 @@ async function shippedQuote(db: Db, creatorId: string, body: Body): Promise<Site
             selectedId: q.option?.id ?? null,
             needsCountry: priced.requiresShipping && !country,
           }
-        : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false, needsRegion: (q.quote as { needsRegion?: boolean }).needsRegion === true },
+        : { ok: false, error: (q.quote as { error?: string }).error ?? "Shipping isn't available to this address.", options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false, needsRegion: (q.quote as { needsRegion?: boolean }).needsRegion === true },
       pickups: q.pickups.map((o) => ({
         id: o.id,
         name: o.pickup?.name ?? o.name,

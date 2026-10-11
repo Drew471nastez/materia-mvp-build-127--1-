@@ -3,7 +3,7 @@ import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
-import { readSiteCheckoutParams, siteGate } from "@/lib/checkout/site-checkout"
+import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
 import { siteBuyerFrom, siteOfHost, sessionCookieName } from "@/lib/checkout/site-checkout-server"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
 import { checkoutBrand } from "@/lib/checkout/brand-server"
@@ -92,7 +92,9 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     checkoutReadyForCreator(site.creatorId).catch(() => false),
   ])
   const shopUrl = `${site.origin}/`
-  const backTo = `${site.origin}${params.back ?? (wholeCart ? "/cart" : "/")}`
+  /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
+  const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
+  const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
   const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }) : null
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
