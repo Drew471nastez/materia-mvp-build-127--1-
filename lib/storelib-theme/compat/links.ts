@@ -134,8 +134,8 @@ export function siteLink(raw: string, facts: LinkFacts, opts: SiteLinkOptions = 
   const abs = href.match(/^(?:https?:)?\/\/([^/?#]+)(.*)$/i)
   if (abs) {
     if (!/\.myshopify\.com$/i.test(abs[1])) return href
-    href = abs[2] || "/"
-    if (!href.startsWith("/")) href = `/${href}`
+    /* Its path, always one of this site's: "//x" or "/\\x" after the host would read as another site's address. */
+    href = `/${(abs[2] || "").replace(/^[/\\]+/, "")}`
   }
   if (!href.startsWith("/")) return href
   const cut = href.search(/[?#]/)
