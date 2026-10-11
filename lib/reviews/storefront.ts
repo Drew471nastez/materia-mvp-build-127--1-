@@ -79,8 +79,10 @@ export interface StorefrontReviews {
   creator_id: string
   /** The product this page is about, on a product page. */
   product: { id: string; title: string; summary: StorefrontReviewSummary; items: StorefrontReview[] } | null
-  /** The whole shop: the newest and featured reviews of every product. */
-  all: { summary: StorefrontReviewSummary; items: StorefrontReview[] }
+  /** The whole shop: the newest and featured reviews of every product, and the ones a carousel shows (featured, else four and five stars). */
+  all: { summary: StorefrontReviewSummary; items: StorefrontReview[]; featured_items: StorefrontReview[] }
+  /** What a Product reviews section draws here: the product's on its page, the shop's anywhere else. */
+  here: { scope: "product" | "shop"; product_id: string; summary: StorefrontReviewSummary; items: StorefrontReview[] }
   /** /reviews on this website. */
   page_url: string
 }
@@ -194,9 +196,23 @@ export function emptyStorefrontReviews(settings: ReviewsAppSettings, creatorId: 
     photo_action: "/api/reviews/photo",
     creator_id: creatorId,
     product: null,
-    all: { summary: summaryOf([]), items: [] },
+    all: { summary: summaryOf([]), items: [], featured_items: [] },
+    here: { scope: "shop", product_id: "", summary: summaryOf([]), items: [] },
     page_url: "/reviews",
   }
+}
+
+/** The carousel's reviews: the featured ones, or when none is featured, the four and five star ones. */
+export function featuredOf(items: StorefrontReview[]): StorefrontReview[] {
+  const featured = items.filter((r) => r.featured)
+  return featured.length ? featured : items.filter((r) => r.rating >= 4)
+}
+
+/** Fills `here` and `all.featured_items` from what is already in it. */
+function finish(out: StorefrontReviews): StorefrontReviews {
+  out.all.featured_items = featuredOf(out.all.items)
+  out.here = out.product ? { scope: "product", product_id: out.product.id, summary: out.product.summary, items: out.product.items } : { scope: "shop", product_id: "", summary: out.all.summary, items: out.all.items }
+  return out
 }
 
 /**
@@ -219,12 +235,12 @@ export function buildStorefrontReviews(input: {
   const limit = Math.max(1, Math.min(60, input.limit ?? 24))
   const show = settings.display.showPhotos
   const all = sortReviews(input.rows.map((r) => toStorefrontReview(r, byId.get(r.product_id), show)), settings.display.sort).slice(0, limit)
-  base.all = { summary: summaryOf(input.shopRatings ?? input.rows.map((r) => Number(r.rating))), items: all }
+  base.all = { summary: summaryOf(input.shopRatings ?? input.rows.map((r) => Number(r.rating))), items: all, featured_items: [] }
   if (input.product) {
     const items = sortReviews(input.product.rows.map((r) => toStorefrontReview(r, byId.get(r.product_id), show)), settings.display.sort).slice(0, limit)
     base.product = { id: input.product.id, title: (input.product.title ?? "").trim(), summary: summaryOf(input.product.ratings), items }
   }
-  return base
+  return finish(base)
 }
 
 /**
@@ -267,7 +283,7 @@ export function sampleStorefrontReviews(settings: ReviewsAppSettings, creatorId:
   const ratings = items.map((r) => r.rating)
   const out = emptyStorefrontReviews(settings, creatorId)
   out.sample = true
-  out.all = { summary: summaryOf(ratings), items }
+  out.all = { summary: summaryOf(ratings), items, featured_items: [] }
   if (product) out.product = { id: product.id, title: (product.title ?? "").trim(), summary: summaryOf(ratings), items }
-  return out
+  return finish(out)
 }

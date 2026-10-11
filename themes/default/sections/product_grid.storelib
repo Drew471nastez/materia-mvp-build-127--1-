@@ -67,6 +67,7 @@
               {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_rating and block.settings.rating_count > 0 %}<p class="card__rating" style="--rv-star: {{ block.settings.rating_color | default: '#f5a623' }};"><span class="card__stars" style="--rv: {{ block.settings.rating_percent }}%;" role="img" aria-label="Rated {{ block.settings.rating }} out of 5"></span><span class="card__rcount">({{ block.settings.rating_count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -90,6 +91,7 @@
               {% if settings.show_wishlist %}<button type="button" class="heart" data-storelib-wishlist="{{ block.id }}" aria-pressed="false" aria-label="Save {{ block.settings.title }}"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg></button>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_rating and block.settings.rating_count > 0 %}<p class="card__rating" style="--rv-star: {{ block.settings.rating_color | default: '#f5a623' }};"><span class="card__stars" style="--rv: {{ block.settings.rating_percent }}%;" role="img" aria-label="Rated {{ block.settings.rating }} out of 5"></span><span class="card__rcount">({{ block.settings.rating_count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -113,6 +115,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_rating and block.settings.rating_count > 0 %}<p class="card__rating" style="--rv-star: {{ block.settings.rating_color | default: '#f5a623' }};"><span class="card__stars" style="--rv: {{ block.settings.rating_percent }}%;" role="img" aria-label="Rated {{ block.settings.rating }} out of 5"></span><span class="card__rcount">({{ block.settings.rating_count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -137,6 +140,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title }}</h3>
+            {% if settings.show_rating and block.settings.rating_count > 0 %}<p class="card__rating" style="--rv-star: {{ block.settings.rating_color | default: '#f5a623' }};"><span class="card__stars" style="--rv: {{ block.settings.rating_percent }}%;" role="img" aria-label="Rated {{ block.settings.rating }} out of 5"></span><span class="card__rcount">({{ block.settings.rating_count }})</span></p>{% endif %}
             {% if settings.show_price and block.settings.price %}
               <p class="card__price">{{ block.settings.price }}{% if block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -163,6 +167,7 @@
               {# Theme settings › Badges: Sale on a discounted product, then the card's own tag (Sold out on the shop's). #}{% if block.settings.tag or theme.badges.sale and block.settings.compare_price %}<span class="badges" data-badges>{% if theme.badges.sale and block.settings.compare_price %}<span class="tag" data-badge="sale">{{ theme.badges.sale_text }}</span>{% endif %}{% if block.settings.tag %}<span class="tag" data-badge="{% if block.settings.tag == 'Sold out' %}soldout{% else %}tag{% endif %}">{{ block.settings.tag }}</span>{% endif %}</span>{% endif %}
             </div>
             <h3 class="card__title">{{ block.settings.title | default: block.settings.url.title }}</h3>
+            {% if settings.show_rating and block.settings.url.rating_count > 0 %}<p class="card__rating" style="--rv-star: {{ block.settings.url.rating_color | default: '#f5a623' }};"><span class="card__stars" style="--rv: {{ block.settings.url.rating_percent }}%;" role="img" aria-label="Rated {{ block.settings.url.rating }} out of 5"></span><span class="card__rcount">({{ block.settings.url.rating_count }})</span></p>{% endif %}
             {% if settings.show_price and (block.settings.price or block.settings.url.price) %}
               <p class="card__price">{{ block.settings.url.price | default: block.settings.price }}{% if block.settings.url.title %}{% if block.settings.url.compare_price %}<s class="card__was">{{ block.settings.url.compare_price }}</s>{% endif %}{% elsif block.settings.compare_price %}<s class="card__was">{{ block.settings.compare_price }}</s>{% endif %}</p>
             {% endif %}
@@ -254,6 +259,11 @@
 .card__media { overflow: hidden; border-radius: var(--s-radius); background: var(--s-border); }
 .card__media img { display: block; width: 100%; height: 100%; object-fit: cover; }
 .card__title { margin: 14px 0 0; font-size: 15px; font-weight: 600; color: var(--s-heading); }
+/* Storelib Reviews' stars on a card: five grey, five in the star colour over them cut to the rating (lib/website-builder/shop-products.ts withRatings). */
+.card__rating { margin: 6px 0 0; display: flex; align-items: center; gap: 6px; font-size: 13px; line-height: 1; color: var(--s-para); }
+.card__stars { position: relative; display: inline-block; letter-spacing: 1px; color: var(--s-border); }
+.card__stars::before { content: "\2605\2605\2605\2605\2605"; }
+.card__stars::after { content: "\2605\2605\2605\2605\2605"; position: absolute; inset: 0 auto 0 0; width: var(--rv, 0%); overflow: hidden; white-space: nowrap; color: var(--rv-star); }
 .card__text { margin: 6px 0 0; font-size: 14px; line-height: 1.55; color: var(--s-para); }
 .card__price { margin: 8px 0 0; display: flex; align-items: baseline; gap: 8px; font-size: 15px; font-weight: 600; color: var(--s-heading); }
 .card__was { font-size: 13px; font-weight: 400; color: var(--s-para); opacity: 0.7; }
@@ -488,6 +498,13 @@
       "id": "show_price",
       "label": "Show prices",
       "default": true
+    },
+    {
+      "type": "toggle",
+      "id": "show_rating",
+      "label": "Show star ratings",
+      "default": true,
+      "info": "From Storelib Reviews, when it is on and a product has reviews."
     },
     {
       "type": "toggle",

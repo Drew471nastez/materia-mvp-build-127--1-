@@ -226,7 +226,27 @@ function productMetafields(s: Record<string, unknown>): O {
     }
   }
   const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
-  return { custom, storelib: faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {} }
+  return { custom, storelib: faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {}, reviews: reviewMetafields(s) }
+}
+
+/**
+ * Shopify's standard review metafields, from Storelib Reviews' rating on the
+ * card (lib/website-builder/shop-products.ts withRatings): what every Online
+ * Store 2.0 theme reads for the stars on a product card and under a product's
+ * title. `reviews.rating.value` is a rating (`.rating`, `.scale_min`,
+ * `.scale_max`, and it prints as the number); `reviews.rating_count.value` a
+ * whole number. Absent with no published reviews, so a theme's
+ * `!= blank` test draws no stars.
+ */
+function reviewMetafields(s: Record<string, unknown>): O {
+  const count = typeof s.rating_count === "number" && s.rating_count > 0 ? Math.floor(s.rating_count) : 0
+  const average = typeof s.rating === "number" && s.rating > 0 ? Math.round(s.rating * 10) / 10 : 0
+  if (!count || !average) return {}
+  const value = { [OUTPUT]: average.toFixed(1), rating: average, scale_min: 1, scale_max: 5 }
+  return {
+    rating: { [OUTPUT]: average.toFixed(1), value, key: "rating", namespace: "reviews", type: "rating" },
+    rating_count: { [OUTPUT]: String(count), value: count, key: "rating_count", namespace: "reviews", type: "number_integer" },
+  }
 }
 
 /**
