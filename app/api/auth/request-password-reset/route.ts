@@ -1,8 +1,8 @@
-import { NextResponse } from "next/server"
+import { after, NextResponse } from "next/server"
 import { randomBytes } from "crypto"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { sendEmail, isSmtpConfigured } from "@/lib/mail"
-import { resetPasswordEmail } from "@/lib/account/reset-email"
+import { googleSignInEmail, resetPasswordEmail } from "@/lib/account/reset-email"
 import { rateLimit, addressSubject, emailSubject, LIMITS } from "@/lib/api/rate-limit"
 import { encodeCarry, readIntent, safeNext } from "@/lib/auth/continue"
 import { getMainDomain } from "@/lib/url-helpers"
@@ -59,13 +59,36 @@ function getProviders(user: any): Set<string> {
   return providers
 }
 
-// POST - Send password reset email (public - no auth required)
+/** The one answer every address gets, so the form never says which have an account. */
+const SENT = { success: true, message: "If an account with that email exists, we sent a reset link." }
+
+/*
+ * ===========================================================================
+ *  FORGOT PASSWORD: THE SAME ANSWER FOR EVERY ADDRESS
+ * ===========================================================================
+ * It used to answer "Password reset email sent" for an account, "If an
+ * account exists..." for none, a 409 naming Google for a Google-only account,
+ * and a 429 only an existing account could reach (its three resets an hour):
+ * four answers, so it told anybody which addresses have a Storelib account.
+ *
+ * Now the answer is SENT, or the 429 of the limit counted on the caller and
+ * the typed address before anything is looked up (the same for every
+ * address). The lookup and the email happen after the answer (next/server
+ * after), so the time it takes says nothing either. An account that signs in
+ * with Google or Apple and has no password gets an email saying so, rather
+ * than a message on the page; one over its three resets an hour gets nothing.
+ *
+ * The email is transactional (no click tracking on the link) but keeps the
+ * address's bounce record (keepBounce): anybody can type any address here,
+ * and clearing a hard bounce on every request would let a stranger do it to
+ * somebody else's inbox (lib/mailgun.ts).
+ */
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { email } = body
+    const body = await request.json().catch(() => ({}))
+    const email = typeof body?.email === "string" ? body.email : ""
 
-    if (!email) {
+    if (!email.trim()) {
       return NextResponse.json({ error: "Email is required" }, { status: 400 })
     }
 
@@ -73,7 +96,7 @@ export async function POST(request: Request) {
       This form sends mail to an address the caller names. Unlimited, it is a
       way to send somebody a few thousand messages from this domain, which is
       how a domain stops being delivered anywhere. Counted by the address
-      being mailed as well as the one asking.
+      being mailed as well as the one asking, before anything is looked up.
     */
     const limited = await rateLimit({
       bucket: "password-reset",
@@ -83,46 +106,45 @@ export async function POST(request: Request) {
     })
     if (limited) return limited
 
-    const cleanEmail = email.trim().toLowerCase()
-    const adminSupabase = createAdminClient()
-
-    // Find user by email (supports paginated auth users and OAuth-created accounts)
-    const user = await findAuthUserByEmail(adminSupabase, cleanEmail)
-
-    if (!user) {
-      // For security, don't reveal if email exists or not
-      // Just return success to prevent email enumeration
-      return NextResponse.json({
-        success: true,
-        message: "If an account with that email exists, we sent a reset link.",
-      })
+    if (!isSmtpConfigured()) {
+      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
     }
+
+    const cleanEmail = email.trim().toLowerCase()
+    /*
+      Sell on Storelib, and the page to go back to, when the login that sent
+      them to reset their password had them (lib/auth/continue.ts). Both are
+      checked here as everywhere else; the reset page hands them on to the
+      login it ends on.
+    */
+    const carry = encodeCarry({ intent: readIntent(body.intent), next: safeNext(body.next, getMainDomain()) })
+    after(() => sendReset(cleanEmail, carry))
+    return NextResponse.json(SENT)
+  } catch (error) {
+    console.error("Request password reset error:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
+
+/** After the answer: the account, if there is one, and its email. Never throws. */
+async function sendReset(cleanEmail: string, carry: string): Promise<void> {
+  try {
+    const adminSupabase = createAdminClient()
+    const user = await findAuthUserByEmail(adminSupabase, cleanEmail)
+    if (!user) return
 
     const providers = getProviders(user)
-    const isGoogleOnly = providers.has("google") && !providers.has("email")
-
-    if (isGoogleOnly) {
-      return NextResponse.json({
-        success: false,
-        accountType: "google_only",
-        message: "This account was created with Google. Please continue with Google.",
-      }, { status: 409 })
+    const social = !providers.has("email") && (providers.has("google") || providers.has("apple"))
+    if (social) {
+      const mail = googleSignInEmail({ loginUrl: "https://storelib.com/login", provider: providers.has("google") ? "Google" : "Apple" })
+      await sendEmail({ from: "Storelib <noreply@storelib.com>", to: cleanEmail, subject: mail.subject, html: mail.html, text: mail.text, transactional: true, keepBounce: true })
+      return
     }
 
-    // Rate limit: Check recent password reset attempts (max 3 per hour)
+    // At most three resets an hour per account: over it, nothing is sent (and the page said the same as ever).
     const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
-    const { data: recentRequests } = await adminSupabase
-      .from("password_reset_requests")
-      .select("id")
-      .eq("user_id", user.id)
-      .gte("created_at", oneHourAgo)
-
-    if (recentRequests && recentRequests.length >= 3) {
-      return NextResponse.json(
-        { error: "Too many reset attempts. Please try again in an hour." },
-        { status: 429 }
-      )
-    }
+    const { data: recentRequests } = await adminSupabase.from("password_reset_requests").select("id").eq("user_id", user.id).gte("created_at", oneHourAgo)
+    if (recentRequests && recentRequests.length >= 3) return
 
     // ── Bridge code approach ──────────────────────────────────────────
     // Instead of sending the user to Supabase's verification URL (which
@@ -133,27 +155,15 @@ export async function POST(request: Request) {
     // When the page loads with ?code=, it calls /api/auth/exchange-reset-code
     // which verifies the code + calls Supabase's verify endpoint server-side
     // (where hash fragments are never at risk) and returns the tokens.
-    //
-    // We also keep the Supabase generateLink call so the OTP exists in
-    // Supabase's DB — exchange-reset-code will call the verify URL later.
-
     const redirectTo = "https://storelib.com/reset-password"
-    const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({
-      type: "recovery",
-      email: cleanEmail,
-      options: { redirectTo },
-    })
-
+    const { data: linkData, error: linkError } = await adminSupabase.auth.admin.generateLink({ type: "recovery", email: cleanEmail, options: { redirectTo } })
     if (linkError || !linkData?.properties?.action_link) {
-      console.error("Error generating recovery link:", linkError)
-      return NextResponse.json({ error: "Failed to create reset request" }, { status: 500 })
+      console.error("[request-password-reset] recovery link not made:", linkError?.code ?? linkError?.status ?? "unknown")
+      return
     }
 
-    // Generate a cryptographically secure bridge code (48 bytes = 64 URL-safe chars)
+    // A cryptographically secure bridge code (48 bytes = 64 URL-safe chars), kept with its expiry.
     const bridgeCode = randomBytes(48).toString("base64url")
-
-    // Record the bridge code + the Supabase action_link so the exchange
-    // endpoint can call Supabase's verify URL server-side.
     await adminSupabase.from("password_reset_requests").insert({
       user_id: user.id,
       email: cleanEmail,
@@ -162,49 +172,21 @@ export async function POST(request: Request) {
       used: false,
     })
 
-    // The primary link the user clicks — uses a query param, never a hash fragment.
-    // Works reliably through Gmail proxy, Outlook SafeLinks, and every email client.
-    /*
-      Sell on Storelib, and the page to go back to, when the login that sent
-      them to reset their password had them (lib/auth/continue.ts). Both are
-      checked here as everywhere else; the reset page hands them on to the
-      login it ends on.
-    */
-    const carry = encodeCarry({ intent: readIntent(body.intent), next: safeNext(body.next, getMainDomain()) })
+    // A query param, never a hash fragment: works through Gmail's proxy, Outlook SafeLinks and every mail client.
     const resetUrl = `https://storelib.com/reset-password?code=${encodeURIComponent(bridgeCode)}${carry ? `&${carry}` : ""}`
-
-    // Send password reset email
-    if (isSmtpConfigured()) {
-      try {
-        /* Branded like every account email, and transactional: no click tracking on the link, no stale bounce dropping it (lib/account/reset-email.ts). */
-        const mail = resetPasswordEmail({ resetUrl, minutes: 60 })
-        const result = await sendEmail({
-          from: "Storelib <noreply@storelib.com>",
-          to: cleanEmail,
-          subject: mail.subject,
-          html: mail.html,
-          text: mail.text,
-          transactional: true,
-        })
-
-        if (!result.success) {
-          console.error("Error sending reset email:", result.error)
-          return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 })
-        }
-      } catch (emailError) {
-        console.error("Error sending reset email:", emailError)
-        return NextResponse.json({ error: "Failed to send reset email" }, { status: 500 })
-      }
-    } else {
-      return NextResponse.json({ error: "Email service not configured" }, { status: 500 })
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: "Password reset email sent",
+    /* Branded like every account email (lib/account/reset-email.ts). */
+    const mail = resetPasswordEmail({ resetUrl, minutes: 60 })
+    const result = await sendEmail({
+      from: "Storelib <noreply@storelib.com>",
+      to: cleanEmail,
+      subject: mail.subject,
+      html: mail.html,
+      text: mail.text,
+      transactional: true,
+      keepBounce: true,
     })
+    if (!result.success) console.error("[request-password-reset] email not sent")
   } catch (error) {
-    console.error("Request password reset error:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("[request-password-reset] failed:", error instanceof Error ? error.message : "unknown")
   }
 }

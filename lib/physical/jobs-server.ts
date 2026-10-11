@@ -476,14 +476,14 @@ async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> 
 }
 
 /** The partner's own page for this order, where tracking is added (./partner-server.ts), or null without a signing key. */
-function partnerPageUrl(checkoutId: string, locationId: string): string | null {
-  const token = signPartnerLink(checkoutId, locationId)
+function partnerPageUrl(checkoutId: string, location: { id: string; email: string | null; forwarding: string | null }): string | null {
+  const token = signPartnerLink(checkoutId, location)
   return token ? `https://${getMainDomain()}${PARTNER_PAGE_PREFIX}${token}` : null
 }
 
 async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
-  const { data: loc } = await db.from("inventory_locations").select("id, name, email").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
+  const { data: loc } = await db.from("inventory_locations").select("id, name, email, forwarding").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
   if (!loc?.email) throw new Error("The location has no email address.")
   const identity = await resolveCreatorIdentity(db, co.creator_id)
   const shopName = identity.fromName || "Storelib"
@@ -498,7 +498,7 @@ async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> 
     buyerEmail: null,
     deliveryName: co.shipping_rate?.name ?? null,
     note: co.buyer_note,
-    trackingLink: partnerPageUrl(co.id, loc.id),
+    trackingLink: partnerPageUrl(co.id, loc),
   })
   const sent = await sendEmail({ from: buildFromHeader(shopName), to: loc.email, replyTo: identity.replyTo || identity.sellerEmail || undefined, subject: mail.subject, html: mail.html, text: mail.text })
   if (!sent.success) throw new Error(sent.error || "Email not sent")

@@ -4,7 +4,7 @@ import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { sameOriginForm } from "@/lib/site-accounts/respond"
-import { PARTNER_PAGE_PREFIX, partnerShipped, shopWebhookSecret, verifyPartnerLink, webhookSignatureOk } from "@/lib/physical/partner-server"
+import { PARTNER_PAGE_PREFIX, partnerLinkHolds, partnerShipped, shopWebhookSecret, verifyPartnerLink, webhookSignatureOk } from "@/lib/physical/partner-server"
 import { orderNumber } from "@/lib/physical/status"
 
 export const runtime = "nodejs"
@@ -108,8 +108,9 @@ async function fromPage(request: Request) {
 
   const admin = createAdminClient()
   const { data: co } = await admin.from("commerce_checkouts").select("id, creator_id").eq("id", link.c).maybeSingle()
-  const { data: loc } = co ? await admin.from("inventory_locations").select("id, name").eq("id", link.l).eq("creator_id", co.creator_id).maybeSingle() : { data: null }
-  if (!co || !loc) return back("error=link")
+  const { data: loc } = co ? await admin.from("inventory_locations").select("id, name, email, forwarding").eq("id", link.l).eq("creator_id", co.creator_id).maybeSingle() : { data: null }
+  /* A link sent to an email the location no longer uses is closed (lib/physical/partner-link.ts partnerLinkVersion). */
+  if (!co || !loc || !partnerLinkHolds(link, loc)) return back("error=link")
   const result = await partnerShipped(admin, {
     creatorId: co.creator_id,
     checkoutId: co.id,

@@ -33,7 +33,7 @@ import { canMoveShipment, orderNumber } from "./status"
 import { normaliseTrackingNumber } from "./carriers"
 import { openSecret } from "./secrets"
 import { openItemsAt, readPartnerStatus } from "./partner-link"
-export { PARTNER_LINK_TTL_MS, PARTNER_PAGE_PREFIX, openItemsAt, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, type PartnerLink } from "./partner-link"
+export { PARTNER_LINK_TTL_MS, PARTNER_PAGE_PREFIX, openItemsAt, partnerLinkHolds, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, type PartnerLink } from "./partner-link"
 
 /** The shop's own webhook secret (Settings > Integrations > Your own system), opened, or null. */
 export async function shopWebhookSecret(db: Db, creatorId: string): Promise<string | null> {
