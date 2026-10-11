@@ -12,10 +12,11 @@
  *   physical    only listed while physical commerce is on
  *   sentWhen    the moment it goes, in the store's words
  */
-import { buyerReceiptEmailHtml } from "@/lib/receipts/email"
-import { orderCancelledEmail, orderConfirmationEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
+import { buyerReceiptEmailHtml, type ReceiptEmailModel } from "@/lib/receipts/email"
+import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
+import { itemsText, resolveCopy, type EmailCopy } from "./customer-custom"
 
-export type CustomerEmailGroup = "orders" | "shipping" | "pickup" | "returns"
+export type CustomerEmailGroup = "orders" | "shipping" | "pickup" | "returns" | "marketing"
 
 export interface CustomerEmail {
   id: string
@@ -25,7 +26,7 @@ export interface CustomerEmail {
   physical: boolean
 }
 
-export const GROUP_NAMES: Record<CustomerEmailGroup, string> = { orders: "Orders", shipping: "Shipping", pickup: "Local pickup", returns: "Returns" }
+export const GROUP_NAMES: Record<CustomerEmailGroup, string> = { orders: "Orders", shipping: "Shipping", pickup: "Local pickup", returns: "Returns", marketing: "Checkout" }
 
 export const CUSTOMER_EMAILS: CustomerEmail[] = [
   { id: "receipt", name: "Receipt", group: "orders", sentWhen: "Right after a buyer pays for a download, course or membership, with the link to it.", physical: false },
@@ -41,6 +42,7 @@ export const CUSTOMER_EMAILS: CustomerEmail[] = [
   { id: "return_approved", name: "Return approved", group: "returns", sentWhen: "When you approve a return, with your instructions.", physical: true },
   { id: "return_received", name: "Return received", group: "returns", sentWhen: "When the items reach you.", physical: true },
   { id: "return_completed", name: "Return complete", group: "returns", sentWhen: "When the return is closed, with any refund.", physical: true },
+  { id: "checkout_reminder", name: "Checkout reminder", group: "marketing", sentWhen: "An hour after a buyer leaves checkout without paying, if they asked for news. Turn it on in Checkout.", physical: false },
 ]
 
 export function visibleCustomerEmails(physical: boolean): CustomerEmail[] {
@@ -58,30 +60,42 @@ const STATUS = "https://storelib.com/checkout/physical/order/preview"
  * One email as its template draws it, with the store's name and sample
  * items and buyer. Null for an id that isn't one.
  */
-export function previewCustomerEmail(id: string, shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null }): { subject: string; html: string } | null {
+export function previewCustomerEmail(
+  id: string,
+  shop: { name: string; supportEmail?: string | null; storeUrl?: string | null; currency?: string; logoUrl?: string | null; phone?: string | null },
+  /** The store's own words (saved, or still being typed in the editor): drawn exactly as the sender draws them. */
+  words?: EmailCopy | null,
+): { subject: string; html: string } | null {
   const shopName = shop.name || "Your store"
   const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help` }
   const currency = (shop.currency || "USD").toUpperCase()
   const pickup = { name: "Studio", address: ["Strada Lipscani 12", "Bucharest"], ready: "Usually ready in 24 hours", instructions: "Ring the bell at the side door." }
+  const sampleLines = id === "receipt" ? [{ title: "The bread baking course" }] : id.startsWith("return_") ? [SAMPLE_LINES[0]] : SAMPLE_LINES
+  const copy = resolveCopy(words, { customer_name: "Maria", order_number: "#1042", shop_name: shopName, items: itemsText(sampleLines.map((l) => l.title)) })
   switch (id) {
-    case "receipt":
-      return {
-        subject: `Your receipt from ${shopName}`,
-        html: buyerReceiptEmailHtml({
-          firstName: "Maria",
-          sellerName: shopName,
-          orderNumber: "#1042",
-          dateText: "10 October 2026",
-          items: [{ title: "The bread baking course", variantName: null, amountText: "$49.00", note: null, thumbnailUrl: null }],
-          subtotalText: null,
-          tipText: null,
-          totalText: "$49.00",
-          refundedText: null,
-          link: "https://storelib.com/account/library",
-          buttonLabel: "Open your library",
-          supportEmail: shop.supportEmail || "hello@example.com",
-        }),
+    case "receipt": {
+      const model: ReceiptEmailModel = {
+        firstName: "Maria",
+        sellerName: shopName,
+        orderNumber: "#1042",
+        dateText: "10 October 2026",
+        items: [{ title: "The bread baking course", variantName: null, amountText: "$49.00", note: null, thumbnailUrl: null }],
+        subtotalText: null,
+        tipText: null,
+        totalText: "$49.00",
+        refundedText: null,
+        link: "https://storelib.com/account/library",
+        buttonLabel: copy?.button ?? "View your receipt",
+        supportEmail: shop.supportEmail || "hello@example.com",
+        heading: copy?.heading ?? null,
+        introHtml: copy?.introHtml || null,
       }
+      return { subject: copy?.subject ?? "Your receipt for The bread baking course", html: buyerReceiptEmailHtml(model) }
+    }
+    case "checkout_reminder": {
+      const m = checkoutReminderEmail({ shopName, buyerFirstName: "Maria", lines: SAMPLE_LINES, checkoutUrl: STATUS, unsubscribeUrl: "https://storelib.com/unsubscribe/preview", brand, copy })
+      return { subject: m.subject, html: m.html }
+    }
     case "order_confirmation": {
       const m = orderConfirmationEmail({
         shopName,
@@ -98,6 +112,7 @@ export function previewCustomerEmail(id: string, shop: { name: string; supportEm
         paymentLabel: "Visa ending 4242",
         supportEmail: shop.supportEmail ?? null,
         brand: { ...brand, websiteUrl: null },
+        copy,
       })
       return { subject: m.subject, html: m.html }
     }
@@ -106,12 +121,12 @@ export function previewCustomerEmail(id: string, shop: { name: string; supportEm
     case "out_for_delivery":
     case "delivered": {
       const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id
-      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand })
+      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy })
       return { subject: m.subject, html: m.html }
     }
     case "ready_for_pickup":
     case "picked_up": {
-      const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand })
+      const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand, copy })
       return { subject: m.subject, html: m.html }
     }
     case "return_approved":
@@ -129,15 +144,16 @@ export function previewCustomerEmail(id: string, shop: { name: string; supportEm
         lines: [{ ...SAMPLE_LINES[0], quantity: 1 }],
         returnAddress: status === "approved" ? [shopName, "Strada Lipscani 12", "030031 Bucharest", "RO"] : null,
         brand,
+        copy,
       })
       return { subject: m.subject, html: m.html }
     }
     case "order_cancelled": {
-      const m = orderCancelledEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", reason: "The apron in Sage sold out.", refundedCents: 9300, totalCents: 9300, currency, lines: SAMPLE_LINES, statusUrl: STATUS, brand })
+      const m = orderCancelledEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", reason: "The apron in Sage sold out.", refundedCents: 9300, totalCents: 9300, currency, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy })
       return { subject: m.subject, html: m.html }
     }
     case "refund": {
-      const m = refundEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 3200, refundedCents: 3200, totalCents: 9300, currency, paymentLabel: "Visa ending 4242", statusUrl: STATUS, brand })
+      const m = refundEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 3200, refundedCents: 3200, totalCents: 9300, currency, paymentLabel: "Visa ending 4242", statusUrl: STATUS, brand, copy })
       return { subject: m.subject, html: m.html }
     }
     default:

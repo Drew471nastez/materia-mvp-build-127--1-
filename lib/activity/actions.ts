@@ -29,6 +29,7 @@ const SETTINGS: Record<string, string> = {
   "settings.store": "Updated store details",
   "settings.checkout": "Changed checkout settings",
   "settings.taxes": "Changed tax settings",
+  "settings.customer_emails": "Changed a customer email",
   "settings.shipping": "Changed shipping settings",
   "settings.channels": "Changed sales channels",
   "settings.reasons": "Changed return and refund reasons",

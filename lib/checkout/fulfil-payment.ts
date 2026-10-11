@@ -299,6 +299,11 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     await step("tax", async () => {
       const { error: taxError } = await admin.from("orders").update({ tax_cents: Math.min(taxCents, total), tax_country: /^[A-Z]{2}$/.test(m.tax_country || "") ? m.tax_country : null }).eq("id", order.id)
       if (taxError) throw new Error(taxError.message)
+      /* Part of the price or on top (SQL part 129), for the receipt's Tax row: its own write, so an older database loses only this. */
+      if (m.tax_included === "true") {
+        const { error: inError } = await admin.from("orders").update({ tax_included: true }).eq("id", order.id)
+        if (inError) throw new Error(inError.message)
+      }
     })
   }
 

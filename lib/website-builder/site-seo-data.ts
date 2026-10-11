@@ -5,6 +5,7 @@ import "server-only"
  * sitemap lists. Reads only what a visitor can already see: published pages,
  * published products, and the address the site is served at.
  */
+import { offChannel } from "@/lib/store/channel-filter"
 import { unstable_cache } from "next/cache"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { primaryHostFor } from "@/lib/custom-domains/store"
@@ -83,6 +84,7 @@ export async function creatorAvatar(creatorId: string): Promise<string | null> {
 }
 
 interface ListedProduct {
+  id?: string
   slug: string
   title: string | null
   thumbnail_url: string | null
@@ -114,7 +116,7 @@ async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
         for (let from = 0; from < MAX_LISTED_PRODUCTS; from += PRODUCT_PAGE) {
           const { data, error } = await admin
             .from("products")
-            .select("slug, title, thumbnail_url, gallery_urls, updated_at")
+            .select("id, slug, title, thumbnail_url, gallery_urls, updated_at")
             .eq("creator_id", creatorId)
             .eq("status", "published")
             .not("slug", "is", null)
@@ -125,7 +127,9 @@ async function listedProducts(creatorId: string): Promise<ListedProduct[]> {
           rows.push(...((data ?? []) as ListedProduct[]))
           if (!data || data.length < PRODUCT_PAGE) break
         }
-        return rows.filter((p) => typeof p.slug === "string" && p.slug !== "")
+        /* Settings › Sales channels: a product taken off the Online store is not in its sitemap either (lib/store/channels). */
+        const off = await offChannel(admin, creatorId, "storefront")
+        return rows.filter((p) => typeof p.slug === "string" && p.slug !== "" && !off.has(p.id ?? ""))
       },
       ["site-seo-products", creatorId],
       { tags: [creatorShopTag(creatorId)], revalidate: 600 },

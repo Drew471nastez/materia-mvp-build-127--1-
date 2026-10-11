@@ -140,6 +140,7 @@ const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
   checkout: () => ["/api/store/settings"],
   channels: () => ["/api/store/channels"],
   taxes: () => ["/api/store/taxes"],
+  emails: () => ["/api/store/emails"],
   activity: () => ["/api/store/activity"],
   shipping: () => ["/api/physical/settings"],
   locations: () => ["/api/physical/settings"],

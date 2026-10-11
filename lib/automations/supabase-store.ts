@@ -355,14 +355,20 @@ export function supabaseStore(db: Db): Store {
       const out: RunLinks = { productUrl: null, orderUrl: null, checkoutUrl: null }
       const productId = run.context.product_id
       if (!productId) return out
-      const { data: product, error } = await db.from("products").select("id, slug, creator_id").eq("id", productId).maybeSingle()
+      const { data: product, error } = await db.from("products").select("id, slug, creator_id, type").eq("id", productId).maybeSingle()
       if (error) fail("read the product", error)
       /* Only this creator's own product: a run's context is ours, but a
          link in their email is checked against the row it names. */
       if (!product || product.creator_id !== run.creator_id) return out
       const { handle } = await identityOf(run.creator_id)
       if (product.slug) out.productUrl = handle ? `${APP_URL}/${encodeURIComponent(handle)}/${encodeURIComponent(product.slug)}` : `${APP_URL}/p/${encodeURIComponent(product.slug)}`
-      out.checkoutUrl = `${APP_URL}/checkout?productId=${encodeURIComponent(product.id)}${run.context.variant_id ? `&variantId=${encodeURIComponent(run.context.variant_id)}` : ""}`
+      /* A cart left behind goes back to its own checkout, items and all; a product that ships is never bought from the single product checkout, so without that it goes to the product. */
+      const cartPath = typeof run.context.checkout_path === "string" && /^\/checkout\/(physical|cart)\?[A-Za-z0-9_\-=&%.~+]+$/.test(run.context.checkout_path) ? run.context.checkout_path : null
+      out.checkoutUrl = cartPath
+        ? `${APP_URL}${cartPath}`
+        : product.type === "physical"
+          ? out.productUrl
+          : `${APP_URL}/checkout?productId=${encodeURIComponent(product.id)}${run.context.variant_id ? `&variantId=${encodeURIComponent(run.context.variant_id)}` : ""}`
       if (run.context.order_id) {
         const { data: order, error: orderError } = await db.from("orders").select("receipt_token, product_id, buyer_email").eq("id", run.context.order_id).maybeSingle()
         if (orderError) fail("read the order", orderError)
@@ -386,12 +392,26 @@ export function supabaseStarts(db: Db): StartsStore {
     async due(olderThanIso, newerThanIso, limit) {
       const { data, error } = await db
         .from("checkout_starts")
-        .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at")
+        .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at, return_path")
         .is("handled_at", null)
         .lt("created_at", olderThanIso)
         .gt("created_at", newerThanIso)
         .order("created_at", { ascending: true })
         .limit(limit)
+      /* A database without part 129's return_path: read the starts without it, as before. */
+      if (error && (error.code === "42703" || error.code === "PGRST204")) {
+        const again = await db
+          .from("checkout_starts")
+          .select("id, creator_id, product_id, variant_id, product_title, email, first_name, email_opt_in, source_detail, created_at")
+          .is("handled_at", null)
+          .lt("created_at", olderThanIso)
+          .gt("created_at", newerThanIso)
+          .order("created_at", { ascending: true })
+          .limit(limit)
+        if (!again.error) return (again.data ?? []) as CheckoutStart[]
+        if (isMissing(again.error)) return null
+        fail("read the started checkouts", again.error)
+      }
       if (error) {
         if (isMissing(error)) return null
         fail("read the started checkouts", error)

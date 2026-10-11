@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 126: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 129: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3155,6 +3155,13 @@ CREATE OR REPLACE FUNCTION public.perf_slow_queries(p_limit integer DEFAULT 20, 
 REVOKE ALL ON FUNCTION public.perf_slow_queries(integer, double precision, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.perf_slow_queries(integer, double precision, integer) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('126', '126_perf_health.sql', '1d0ed8ad5f10b6509b14db32878baea26f532499e0c43e298fb612ae8f12d10b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 129_customer_email_words_and_tax_on_receipts.sql
+/* Customer emails a store words itself, tax on every receipt, and the way back for a cart left at checkout. `store_settings.customer_emails` (part 109's table): the subject, heading, opening text and button label a store changed in Settings › Customer emails, one small object per email, only what differs from the default; plain text, escaped when the email is drawn. `orders.tax_included`: whether the tax on an order (part 110's `tax_cents`) was part of the price or added on top, so the receipt says "Tax" or "Including tax" and its subtotal adds up; the website basket now records its tax too. `checkout_starts.return_path` (the checkout reminder's table): for a cart left at the physical checkout or the website basket, the path back to that checkout with the same items, for "Finish checkout". Until it runs, every email goes out with its default words (the editor says saving needs this part), receipts show tax as added on top, and a cart's reminder links to the product instead. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.store_settings') IS NULL THEN RAISE NOTICE 'customer emails: store_settings is not there yet (part 109).'; RETURN; END IF; ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS customer_emails jsonb NOT NULL DEFAULT '{}'::jsonb; ALTER TABLE public.store_settings DROP CONSTRAINT IF EXISTS store_settings_customer_emails_check; ALTER TABLE public.store_settings ADD CONSTRAINT store_settings_customer_emails_check CHECK (jsonb_typeof(customer_emails) = 'object' AND pg_column_size(customer_emails) < 65536); END $do$;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_included boolean NOT NULL DEFAULT false;
+DO $do$ BEGIN IF to_regclass('public.checkout_starts') IS NULL THEN RAISE NOTICE 'checkout reminder: checkout_starts is not there yet (RUN_CHECKOUT_CONTACTS.sql).'; RETURN; END IF; ALTER TABLE public.checkout_starts ADD COLUMN IF NOT EXISTS return_path text; ALTER TABLE public.checkout_starts DROP CONSTRAINT IF EXISTS checkout_starts_return_path_check; ALTER TABLE public.checkout_starts ADD CONSTRAINT checkout_starts_return_path_check CHECK (return_path IS NULL OR (length(return_path) <= 1500 AND return_path ~ '^/checkout/(physical|cart)[?]')); END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('129', '129_customer_email_words_and_tax_on_receipts.sql', 'aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

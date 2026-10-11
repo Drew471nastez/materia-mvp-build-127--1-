@@ -404,7 +404,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
     : priced.lines
   const taxPlace = pickupLocation ? { country: pickupLocation.country, region: pickupLocation.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
-    lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable })),
+    lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
     { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },
   )
   return { quote, pickups, option, totals, lines }

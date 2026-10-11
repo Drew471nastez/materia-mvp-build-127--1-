@@ -9,6 +9,7 @@
  */
 
 import { emailButton, finalizeEmailHtml } from "@/lib/mail-document"
+import type { ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
 import type { Address } from "./types"
 
@@ -199,6 +200,8 @@ export interface OrderEmailModel {
   /** Where a question goes, said in the footer as well as by replying. */
   supportEmail?: string | null
   brand?: EmailBrand
+  /** The store's own words from Settings › Customer emails (lib/emails/customer-custom.ts). */
+  copy?: ResolvedCopy
 }
 
 function pickupBlock(p: { name: string; address: string[]; ready: string | null; instructions: string | null }): string {
@@ -230,10 +233,10 @@ function infoGrid(cells: { label: string; html: string }[]): string {
  * empty headings, no "Billing address" Storelib never asked for.
  */
 export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; html: string; text: string } {
-  const subject = `Order ${m.orderNumber} confirmed`
+  const subject = m.copy?.subject ?? `Order ${m.orderNumber} confirmed`
   const hello = m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, ` : ""
   const next = m.pickup ? "we're getting your order ready. We'll email you when it's ready to pick up." : m.address?.line1 ? "we're getting your order ready to be shipped. We'll let you know when it's on its way." : "your order is confirmed and everything is on your order page."
-  const intro = `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
+  const intro = m.copy?.introHtml ?? `${hello}${hello ? next : next.charAt(0).toUpperCase() + next.slice(1)}${m.hasDownloads ? " Your downloads are on your order page." : ""}`
   const saved = m.totals.discount + m.totals.shippingDiscount
   const delivery = m.deliveryName ? `${esc(m.deliveryName)}${m.deliveryEstimate ? `<br>${esc(m.deliveryEstimate)}` : ""}` : null
   const info: { label: string; html: string }[] = []
@@ -242,7 +245,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   if (!m.pickup && delivery) info.push({ label: "Shipping method", html: delivery })
   if (m.paymentLabel) info.push({ label: "Payment method", html: `${esc(m.paymentLabel)}<br>${esc(formatMoney(m.totals.total, m.totals.currency))}` })
 
-  const actions = `<tr><td style="padding:4px 28px 0 28px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>${emailButton({ href: m.statusUrl, label: "View your order", fill: INK, padding: "12px 20px", radius: 10, text: "font-size:14px;font-weight:600;" })}</td>${
+  const actions = `<tr><td style="padding:4px 28px 0 28px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td>${emailButton({ href: m.statusUrl, label: esc(m.copy?.button ?? "View your order"), fill: INK, padding: "12px 20px", radius: 10, text: "font-size:14px;font-weight:600;" })}</td>${
     m.storeUrl && /^https:\/\//.test(m.storeUrl) ? `<td style="padding-left:16px;font-size:14px;color:${MUTED};">or <a href="${esc(m.storeUrl)}" style="color:${INK};text-decoration:underline;">Visit our store</a></td>` : ""
   }</tr></table></td></tr>`
 
@@ -257,7 +260,7 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
   const text = [
     `${m.shopName}: order ${m.orderNumber} confirmed`,
     "",
-    intro.replace(/<[^>]+>/g, ""),
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, ""),
     "",
     "Order summary",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}: ${formatMoney(l.cents, m.totals.currency)}`),
@@ -270,13 +273,13 @@ export function orderConfirmationEmail(m: OrderEmailModel): { subject: string; h
         : []),
     ...(m.paymentLabel ? ["", `Payment method: ${m.paymentLabel}`] : []),
     "",
-    `View your order: ${m.statusUrl}`,
+    `${m.copy?.button ?? "View your order"}: ${m.statusUrl}`,
     ...(m.storeUrl ? [`Visit our store: ${m.storeUrl}`] : []),
     ...brandText(m.brand),
   ].join("\n")
   const brand: EmailBrand = { ...m.brand, email: m.brand?.email ?? m.supportEmail ?? null }
   const footer = brand.email ? "If you have any questions, reply to this email or write to the store:" : undefined
-  return { subject, html: shell(m.shopName, "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand }), text }
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Thank you for your purchase!", intro, body, subject, { aside: `Order ${m.orderNumber}`, footer, brand }), text }
 }
 
 /** "Get directions": the pickup address in a maps search, which opens the phone's maps app. */
@@ -295,17 +298,18 @@ export function pickupEmail(m: {
   pickup: { name: string; address: string[]; ready: string | null; instructions: string | null }
   statusUrl: string
   brand?: EmailBrand
+  copy?: ResolvedCopy
 }): { subject: string; html: string; text: string } {
-  const heading = m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up"
-  const subject = heading.replace("Your order", `Order ${m.orderNumber}`)
-  const intro =
+  const heading = m.copy?.heading ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up")
+  const subject = m.copy?.subject ?? (m.kind === "ready" ? "Your order is ready to pick up" : "Your order was picked up").replace("Your order", `Order ${m.orderNumber}`)
+  const intro = m.copy?.introHtml ?? (
     m.kind === "ready"
       ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is waiting for you. Bring your order number, ${esc(m.orderNumber)}, and we'll hand it over.`
-      : `${m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : ""}Your order was collected. We hope you love it.`
+      : `${m.buyerFirstName ? `Thanks, ${esc(m.buyerFirstName)}. ` : ""}Your order was collected. We hope you love it.`)
   const directions = m.kind === "ready" ? directionsUrl(m.pickup) : null
   const body = [
     m.kind === "ready" ? pickupBlock({ ...m.pickup, ready: null }) : "",
-    m.kind === "ready" && directions ? button(directions, "Get directions") : button(m.statusUrl, "View your order"),
+    m.kind === "ready" && directions ? button(directions, m.copy?.button ?? "Get directions") : button(m.statusUrl, m.copy?.button ?? "View your order"),
     m.kind === "ready" && directions ? textLink(m.statusUrl, "View your order") : "",
     sectionHeading(m.kind === "ready" ? "Ready for you" : "Picked up"),
     linesTable(m.lines, "USD", false, false),
@@ -313,7 +317,7 @@ export function pickupEmail(m: {
   const text = [
     `${m.shopName}: ${subject}`,
     "",
-    intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
     ...(m.kind === "ready" ? ["", "Pick up at:", m.pickup.name, ...m.pickup.address, ...(m.pickup.instructions ? ["", m.pickup.instructions] : []), ...(directions ? ["", `Directions: ${directions}`] : [])] : []),
@@ -361,6 +365,7 @@ export interface ShipmentEmailModel {
   /** Some items of the order, not all: say so, so the buyer isn't left waiting on the rest by surprise. */
   partial?: boolean
   brand?: EmailBrand
+  copy?: ResolvedCopy
 }
 
 /**
@@ -370,7 +375,7 @@ export interface ShipmentEmailModel {
  * in it. A part-shipment says the rest follows.
  */
 export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: string; text: string } {
-  const heading =
+  const own =
     m.kind === "delivered"
       ? "Your order was delivered"
       : m.kind === "out_for_delivery"
@@ -380,18 +385,19 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
           : m.partial
             ? "Part of your order is on the way"
             : "Your order is on the way"
-  const subject = m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : heading.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`)
+  const heading = m.copy?.heading ?? own
+  const subject = m.copy?.subject ?? (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
   const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
-  const intro =
+  const intro = m.copy?.introHtml ?? (
     m.kind === "delivered"
       ? `${hi ? `${hi}your` : "Your"} package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
       : m.kind === "out_for_delivery"
         ? `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
         : m.kind === "tracking"
           ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
-          : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`
+          : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
   const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
-  const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, "View your order")
+  const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, m.copy?.button && m.kind === "delivered" ? m.copy.button : "View your order")
   const info: { label: string; html: string }[] = []
   if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
   if (m.deliveryName) info.push({ label: "Shipping method", html: esc(m.deliveryName) })
@@ -407,7 +413,7 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
   const text = [
     `${m.shopName}: ${subject}`,
     "",
-    intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
     ...(tracking ? ["", tracking] : []),
@@ -432,14 +438,18 @@ export function returnEmail(m: {
   /** Where to send it, for an approved return: the store's return address. */
   returnAddress?: string[] | null
   brand?: EmailBrand
+  copy?: ResolvedCopy
 }): {
   subject: string
   html: string
   text: string
 } {
-  const heading =
+  const own =
     m.status === "approved" ? "Your return was approved" : m.status === "rejected" ? "About your return" : m.status === "received" ? "We received your return" : "Your return is complete"
-  const intro =
+  const heading = m.copy?.heading ?? own
+  /* A refund is said whatever the store wrote above it. */
+  const refundLine = m.status === "completed" && m.refundedCents > 0 ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.` : ""
+  const stock =
     m.status === "approved"
       ? m.returnAddress?.length
         ? "Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives."
@@ -449,13 +459,14 @@ export function returnEmail(m: {
         : m.status === "received"
           ? "Your items arrived back at the store. They'll check them and send your refund."
           : m.refundedCents > 0
-            ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.`
+            ? refundLine
             : "Your return is closed."
-  const subject = `${heading} (order ${m.orderNumber})`
+  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, refundLine].filter(Boolean).join("<br><br>") : stock
+  const subject = m.copy?.subject ?? `${own} (order ${m.orderNumber})`
   const body = [
     m.note ? addressBlock("From the store", null, esc(m.note).replace(/\n/g, "<br>")) : "",
     m.status === "approved" && m.returnAddress?.length ? addressBlock("Send it to", null, m.returnAddress.map(esc).join("<br>")) : "",
-    button(m.statusUrl, "View your order"),
+    button(m.statusUrl, m.copy?.button ?? "View your order"),
     m.lines?.length ? sectionHeading("Items in this return") + linesTable(m.lines, m.currency, false, false) : "",
   ].join("")
   return {
@@ -464,7 +475,7 @@ export function returnEmail(m: {
     text: [
       `${m.shopName}: ${heading}`,
       "",
-      intro.replace(/&amp;/g, "&"),
+      m.copy?.introText !== undefined ? [m.copy.introText, refundLine.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"),
       ...(m.note ? ["", m.note] : []),
       ...(m.status === "approved" && m.returnAddress?.length ? ["", "Send it to:", ...m.returnAddress] : []),
       "",
@@ -475,44 +486,79 @@ export function returnEmail(m: {
 }
 
 /** The order was cancelled before it shipped: what was cancelled, and the money. */
-export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand }): {
+export function orderCancelledEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; reason: string | null; refundedCents: number; totalCents: number; currency: string; lines: EmailLine[]; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): {
   subject: string
   html: string
   text: string
 } {
-  const subject = `Order ${m.orderNumber} was cancelled`
+  const subject = m.copy?.subject ?? `Order ${m.orderNumber} was cancelled`
   const money =
     m.refundedCents >= m.totalCents && m.totalCents > 0
       ? `Your payment of ${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method. Banks usually take 5 to 10 business days to show it.`
       : m.refundedCents > 0
         ? `${esc(formatMoney(m.refundedCents, m.currency))} was refunded to your original payment method.`
         : "If you were charged, the store will refund you and we'll email you when it's sent."
-  const intro = `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, your` : "Your"} order was cancelled and won't be shipped. ${money}`
+  /* The money is said whatever the store wrote above it. */
+  const intro = m.copy?.introHtml !== undefined ? [m.copy.introHtml, money].filter(Boolean).join("<br><br>") : `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, your` : "Your"} order was cancelled and won't be shipped. ${money}`
   const body = [
     m.reason ? addressBlock("Reason", null, esc(m.reason)) : "",
-    button(m.statusUrl, "View your order"),
+    button(m.statusUrl, m.copy?.button ?? "View your order"),
     sectionHeading("Cancelled items"),
     linesTable(m.lines, m.currency, true, false),
   ].join("")
-  const text = [`${m.shopName}: ${subject}`, "", intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText !== undefined ? [m.copy.introText, money.replace(/&amp;/g, "&")].filter(Boolean).join("\n\n") : intro.replace(/&amp;/g, "&"), ...(m.reason ? ["", `Reason: ${m.reason}`] : []), "", ...m.lines.map((l) => `${l.quantity} x ${l.title}`), "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? "Your order was cancelled", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
 }
 
 /** Money went back: how much this time, how much in all, and when it shows. */
-export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand }): {
+export function refundEmail(m: { shopName: string; orderNumber: string; buyerFirstName: string | null; amountCents: number; refundedCents: number; totalCents: number; currency: string; paymentLabel: string | null; statusUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): {
   subject: string
   html: string
   text: string
 } {
   const full = m.refundedCents >= m.totalCents && m.totalCents > 0
-  const subject = `Refund for order ${m.orderNumber}`
-  const intro = `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, we` : "We"} sent you a refund of ${esc(formatMoney(m.amountCents, m.currency))}${m.paymentLabel ? ` to your ${esc(m.paymentLabel)}` : " to your original payment method"}. Banks usually take 5 to 10 business days to show it.`
+  const subject = m.copy?.subject ?? `Refund for order ${m.orderNumber}`
+  const intro = m.copy?.introHtml ?? `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, we` : "We"} sent you a refund of ${esc(formatMoney(m.amountCents, m.currency))}${m.paymentLabel ? ` to your ${esc(m.paymentLabel)}` : " to your original payment method"}. Banks usually take 5 to 10 business days to show it.`
   const row = (label: string, value: string, strong = false) =>
     `<tr><td style="padding:4px 0;font-size:14px;color:${strong ? INK : MUTED};${strong ? "font-weight:600;" : ""}">${esc(label)}</td><td align="right" style="padding:4px 0;font-size:14px;color:${INK};${strong ? "font-weight:600;" : ""}">${esc(value)}</td></tr>`
   const table = `<tr><td style="padding:0 28px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-top:1px solid ${LINE};padding-top:8px;">${row("This refund", formatMoney(m.amountCents, m.currency), true)}${m.refundedCents !== m.amountCents ? row("Refunded in all", formatMoney(m.refundedCents, m.currency)) : ""}${row("Order total", formatMoney(m.totalCents, m.currency))}</table></td></tr>`
-  const body = [table, button(m.statusUrl, "View your order")].join("")
-  const text = [`${m.shopName}: ${subject}`, "", intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
-  return { subject, html: shell(m.shopName, full ? "Your order was refunded" : "You were sent a refund", intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+  const body = [table, button(m.statusUrl, m.copy?.button ?? "View your order")].join("")
+  const text = [`${m.shopName}: ${subject}`, "", m.copy?.introText ?? intro.replace(/&amp;/g, "&"), "", `This refund: ${formatMoney(m.amountCents, m.currency)}`, `Order total: ${formatMoney(m.totalCents, m.currency)}`, "", `View your order: ${m.statusUrl}`, ...brandText(m.brand)].join("\n")
+  return { subject, html: shell(m.shopName, m.copy?.heading ?? (full ? "Your order was refunded" : "You were sent a refund"), intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+}
+
+/**
+ * THE CHECKOUT REMINDER (Settings › Checkout › Abandoned checkouts): one
+ * email to a buyer who reached Pay and left, only when they asked for news
+ * or are on the store's list, with the way back to the checkout and the way
+ * off the list. lib/automations/abandoned-reminder.ts sends it when the
+ * store has no checkout reminder automation of its own.
+ */
+export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: string | null; lines: EmailLine[]; checkoutUrl: string; unsubscribeUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): {
+  subject: string
+  html: string
+  text: string
+} {
+  const first = m.lines[0]?.title ?? "your order"
+  const named = m.lines.length > 1 ? `${first} and ${m.lines.length - 1} more` : first
+  const subject = m.copy?.subject ?? `You left ${named} at checkout`
+  const heading = m.copy?.heading ?? "Still thinking it over?"
+  const intro = m.copy?.introHtml ?? `Hi ${esc(m.buyerFirstName || "there")}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.`
+  const label = m.copy?.button ?? "Finish checkout"
+  const body = [button(m.checkoutUrl, label), sectionHeading("In your checkout"), linesTable(m.lines, "USD", false, false)].join("")
+  const footer = `You're getting this because you asked ${esc(m.shopName)} for news. <a href="${esc(m.unsubscribeUrl)}" style="color:${INK};text-decoration:underline;">Unsubscribe</a>.`
+  const text = [
+    `${m.shopName}: ${subject}`,
+    "",
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
+    "",
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
+    "",
+    `${label}: ${m.checkoutUrl}`,
+    "",
+    `Unsubscribe: ${m.unsubscribeUrl}`,
+  ].join("\n")
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { footer, brand: m.brand ? { ...m.brand, helpUrl: null } : undefined }), text }
 }
 
 /** The order a supplier or dropshipper is asked to ship: what, how many, to whom. No prices. */

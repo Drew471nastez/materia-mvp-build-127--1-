@@ -51,6 +51,7 @@ export function BasketCheckout({
   wholeCart,
   lines,
   totalCents,
+  tax = null,
   dropped,
 }: {
   shopId: string
@@ -62,6 +63,8 @@ export function BasketCheckout({
   wholeCart: boolean
   lines: Line[]
   totalCents: number
+  /** Settings › Taxes: the tax in the total, as the session charges it. */
+  tax?: { cents: number; included: boolean; label: string } | null
   dropped: string[]
 }) {
   const [phase, setPhase] = React.useState<Phase>({ kind: "loading" })
@@ -178,7 +181,7 @@ export function BasketCheckout({
           <Problem message={phase.message} backTo={backTo} onRetry={retry} />
         ) : (
           <>
-            {phase.kind === "loading" ? <Holding brandName={brand.name} totalCents={totalCents} lines={lines} /> : null}
+            {phase.kind === "loading" ? <Holding brandName={brand.name} totalCents={totalCents} lines={lines} tax={tax} /> : null}
             {stripe ? (
               <div data-stripe-form="" className={cn("checkout-enter min-h-[560px] pt-2 sm:pt-6", phase.kind === "loading" && "pointer-events-none absolute inset-x-0 top-0 opacity-0")}>
                 <EmbeddedCheckoutProvider key={attempt} stripe={stripe} options={options}>
@@ -194,7 +197,7 @@ export function BasketCheckout({
 }
 
 /** The page's shape while Stripe's form is on its way: the shop, the total, the lines, the form's blocks. */
-function Holding({ brandName, totalCents, lines }: { brandName: string; totalCents: number; lines: Line[] }) {
+function Holding({ brandName, totalCents, lines, tax }: { brandName: string; totalCents: number; lines: Line[]; tax?: { cents: number; included: boolean; label: string } | null }) {
   const bar = "rounded-[6px] bg-[#eceef1]"
   return (
     <div data-holding="" aria-busy aria-label="Loading the payment form" className="grid gap-8 px-5 pt-7 sm:px-8 lg:grid-cols-2 lg:gap-16 lg:px-[60px] lg:pt-12">
@@ -218,6 +221,12 @@ function Holding({ brandName, totalCents, lines }: { brandName: string; totalCen
             </li>
           ))}
         </ul>
+        {tax ? (
+          <p data-basket-tax="" className="mt-4 flex items-baseline justify-between gap-3 border-t border-[#eceef1] pt-3 text-[14px] text-[#6b7280]">
+            <span>{tax.included ? `Including ${tax.label}` : tax.label}</span>
+            <span className="tabular-nums text-[#1a1a2e]">{money(tax.cents)}</span>
+          </p>
+        ) : null}
       </div>
       <div className="skeleton-deferred checkout-shimmer-soft mx-auto w-full max-w-[440px] lg:ml-0 lg:mr-auto">
         <div className="h-11 rounded-[8px] bg-[#f1f2f4]" />

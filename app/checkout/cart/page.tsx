@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { redirect } from "next/navigation"
+import { headers } from "next/headers"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { createClient } from "@/lib/supabase/server"
 import { priceCart } from "@/lib/checkout/pricing"
@@ -11,6 +12,9 @@ import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { detectedCountry } from "@/lib/store/settings-server"
+import { loadTaxForCheckout } from "@/lib/tax/server"
+import { basketTax, percentText } from "@/lib/tax/rules"
 import { BasketCheckout, BasketProblem } from "./basket-checkout"
 
 export const dynamic = "force-dynamic"
@@ -84,6 +88,12 @@ export default async function BasketCheckoutPage({ searchParams }: { searchParam
     lineCents: l.item.priceCents * l.item.quantity - l.item.discountCents,
   }))
   const items = params.items.filter((i) => lines.some((l) => l.productId === i.productId && (l.variantId ?? null) === (i.variantId ?? null)))
+  /* Settings › Taxes: the tax the session will charge (app/api/checkout/cart works it out the same way), shown while Stripe's form loads. */
+  const tax = basketTax(
+    await loadTaxForCheckout(admin, decision.creatorId),
+    lines.map((l) => ({ productId: l.productId, taxableCents: l.lineCents })),
+    detectedCountry(await headers()),
+  )
 
   return (
     <BasketCheckout
@@ -95,7 +105,8 @@ export default async function BasketCheckoutPage({ searchParams }: { searchParam
       couponCode={priced.coupon?.code ?? null}
       wholeCart={params.wholeCart}
       lines={lines}
-      totalCents={priced.totalCents}
+      totalCents={priced.totalCents + (tax.included ? 0 : tax.taxCents)}
+      tax={tax.taxCents > 0 ? { cents: tax.taxCents, included: tax.included, label: `${tax.name || "Tax"} (${percentText(tax.rateBps)})` } : null}
       dropped={priced.dropped.filter((d) => !/^[0-9a-f-]{36}$/i.test(d))}
     />
   )

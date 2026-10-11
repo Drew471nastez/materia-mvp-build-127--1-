@@ -137,6 +137,8 @@ export async function fulfilCartSession(
       pricingTier: metadata.pricing_tier || null,
       feeRuleVersion: metadata.fee_rule_version || null,
     },
+    /* Settings › Taxes, as the cart route charged it (each line's share is on the line, `cart_tax`). */
+    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
   }
 
   const written = await writeBasket(admin, ctx, items, {
