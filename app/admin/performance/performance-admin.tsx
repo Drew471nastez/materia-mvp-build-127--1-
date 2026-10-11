@@ -87,7 +87,7 @@ function Figure({ unit, value, samples, min, good, poor, compact }: { unit: Unit
           {formatValue(unit, value)}
           {compact ? <span className="text-[11px] text-[#6b6b76]">*</span> : null}
         </span>
-        {!compact ? <span className="block text-[11px] tabular-nums text-[#6b6b76]">{num(samples)} of {min} samples, provisional</span> : null}
+        {!compact ? <span className="block text-[11px] tabular-nums text-[#6b6b76]">Provisional, {num(samples)} of {min}</span> : null}
       </span>
     )
   }
@@ -552,6 +552,7 @@ function AreasPanel({ aggs }: { aggs: Aggregate[] }) {
           </li>
         ))}
       </ul>
+      <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] leading-5 text-[#6b6b76]">* Provisional: fewer samples than the official figure needs.</p>
     </Panel>
   )
 }

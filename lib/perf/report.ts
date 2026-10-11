@@ -17,9 +17,9 @@ export type WindowId = "24h" | "7d" | "30d"
 
 /** Every window is worked out from raw samples, which are kept long enough for the longest (RAW_RETENTION_DAYS). */
 export const WINDOWS: { id: WindowId; label: string; hours: number }[] = [
-  { id: "24h", label: "Last 24 hours", hours: 24 },
-  { id: "7d", label: "Last 7 days", hours: 24 * 7 },
-  { id: "30d", label: "Last 30 days", hours: 24 * 30 },
+  { id: "24h", label: "24 hours", hours: 24 },
+  { id: "7d", label: "7 days", hours: 24 * 7 },
+  { id: "30d", label: "30 days", hours: 24 * 30 },
 ]
 
 export function windowOf(raw: string | null | undefined): WindowId {

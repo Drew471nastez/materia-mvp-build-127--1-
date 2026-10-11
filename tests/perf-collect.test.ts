@@ -302,10 +302,10 @@ async function main() {
     }
     const html = renderToStaticMarkup(createElement(PerformanceAdmin, { initial: report }))
     check("the index is provisional, said so, with its confidence", html.includes("data-health-score-provisional") && /Provisional · low confidence/.test(html) && !html.includes("data-health-score=\""))
-    check("a figure on few samples shows its number, marked provisional", html.includes("data-figure-provisional") && /9 of 20 samples, provisional/.test(html))
+    check("a figure on few samples shows its number, marked provisional", html.includes("data-figure-provisional") && /Provisional, 9 of 20/.test(html))
     check("a sub score on few samples shows its provisional score", html.includes("data-sub-provisional"))
     check("the history shows a provisional day as such", /81, provisional/.test(html))
-    check("the 30 day window is offered", html.includes("Last 30 days"))
+    check("the 30 day window is offered", html.includes("30 days"))
     check("the flow steps have their own panel", html.includes("data-steps") && STEP_ROUTES.every((r) => html.includes(`data-step="${r}"`)))
     check("the header says every page load", /Measured on every page load/.test(html))
     check("no em dash in what the page says", !html.includes("—"))
