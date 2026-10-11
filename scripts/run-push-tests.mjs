@@ -46,6 +46,7 @@ const SUITES = [
   "tests/settings20.test.ts",
   "tests/limit21.test.ts",
   "tests/storefront23.test.ts",
+  "tests/followups23.test.ts",
   "tests/store-settings-reach.test.ts",
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",

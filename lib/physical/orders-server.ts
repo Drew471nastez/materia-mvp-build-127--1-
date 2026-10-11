@@ -512,7 +512,7 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
 export async function requestBuyerCancel(db: Db, receiptToken: string, input: { reason: unknown; enabled: boolean }): Promise<Outcome> {
   const order = await loadOrder(db, { receiptToken })
   if (!order || !order.creatorId) return { ok: false, error: "Order not found.", status: 404 }
-  const state = buyerCancelState(order, input.enabled)
+  const state = buyerCancelState({ ...order, events: await cancelEvents(db, order.id) }, input.enabled)
   if (state === "requested") return { ok: true, order }
   if (state === "cancelled") return { ok: false, error: "This order is already cancelled." }
   if (state === "declined") return { ok: false, error: "The shop is going ahead with this order. Reply to your order email to ask about it." }
@@ -529,6 +529,21 @@ export async function requestBuyerCancel(db: Db, receiptToken: string, input: { 
   })
   const fresh = await loadOrder(db, { receiptToken })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * The cancel request's entries alone, newest first. An order read by its token (the buyer's page) carries no
+ * timeline, since the shop's own notes are on it; these two are the buyer's business, so they are read apart.
+ */
+export async function cancelEvents(db: Db, checkoutId: string): Promise<OrderEvent[]> {
+  const { data } = await db
+    .from("commerce_order_events")
+    .select("id, kind, message, actor, created_at, detail")
+    .eq("checkout_id", checkoutId)
+    .in("kind", [CANCEL_REQUESTED, CANCEL_DECLINED])
+    .order("created_at", { ascending: false })
+    .limit(10)
+  return ((data ?? []) as { id: number; kind: string; message: string | null; actor: OrderEvent["actor"]; created_at: string; detail: Record<string, unknown> | null }[]).map((r) => ({ id: r.id, kind: r.kind, message: r.message ?? "", actor: r.actor, createdAt: r.created_at, detail: r.detail }))
 }
 
 /** The seller keeps the order the buyer asked to cancel. The buyer's page says the shop is going ahead. */

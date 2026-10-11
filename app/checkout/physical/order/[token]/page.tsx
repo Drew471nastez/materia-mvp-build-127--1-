@@ -5,7 +5,7 @@ import { loadOrder } from "@/lib/physical/orders-server"
 import { loadSettings } from "@/lib/physical/config-server"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { returnWindow, returnableQuantities } from "@/lib/physical/status"
-import { progressOf } from "@/lib/physical/orders-server"
+import { cancelEvents, progressOf } from "@/lib/physical/orders-server"
 import { OrderStatusView, PendingOrder } from "./order-status-view"
 import { reasonsFor } from "@/lib/store/reasons-server"
 import { reasonLabel } from "@/lib/store/reasons"
@@ -44,6 +44,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     openCaseFor(db, { checkoutId: order.id }),
     loadCheckoutConfig(db, order.creatorId),
   ])
+  const cancelAsked = await cancelEvents(db, order.id)
   const returnable = returnableQuantities(progressOf(order))
   /* Counted from delivery, or from shipping without tracking (lib/physical/status returnWindow), as the return route checks it. */
   const window = returnWindow({ ...order, pickup: order.deliveryMethod === "pickup" }, settings.returnWindowDays)
@@ -82,7 +83,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
       }}
       reasons={reasons.map((r) => ({ value: r.value, label: r.label }))}
       canReturn={windowOpen && !openReturn && [...returnable.values()].some((n) => n > 0)}
-      cancel={buyerCancelState(order, checkout.buyerCancel)}
+      cancel={buyerCancelState({ ...order, events: cancelAsked }, checkout.buyerCancel)}
     />
     </>
   )
