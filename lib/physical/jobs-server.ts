@@ -143,8 +143,12 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
 
 /**
  * After a sale: each variant that sold down to its low stock line (the
- * product's own, else the shop's) is emailed to the seller, at most once a
- * day per variant, when the shop has low stock emails on.
+ * product's own, else the shop's) is emailed to the seller when the shop has
+ * low stock emails on: ONE email a day at most, listing what sold down.
+ * The day's email is one job keyed by the shop and the day; a later sale the
+ * same day adds its variants to it while it waits, and once it has gone they
+ * wait for tomorrow's (run_after the next midnight UTC), so nothing that
+ * sold down is left out and no seller gets two in a day.
  */
 export async function queueLowStockAlerts(db: Db, creatorId: string, variantIds: string[]): Promise<void> {
   const ids = [...new Set(variantIds)].slice(0, 100)
@@ -169,9 +173,50 @@ export async function queueLowStockAlerts(db: Db, creatorId: string, variantIds:
     low.push({ variantId: v.id, title: p.title, variantName: v.name && v.name !== "Default" ? v.name : null, available, threshold })
   }
   if (low.length === 0) return
-  const day = new Date().toISOString().slice(0, 10)
-  const key = `email:low_stock:${creatorId}:${day}:${low.map((l) => l.variantId.slice(0, 8)).sort().join(",")}`.slice(0, 200)
-  await enqueueJob(db, { creatorId, kind: "send_email", key, payload: { template: "low_stock", creatorId, items: low } })
+  await queueDailyLowStock(db, creatorId, low)
+}
+
+type LowItem = { variantId: string; title: string; variantName: string | null; available: number; threshold: number }
+
+/** Today's items and the new ones, one per variant, the newest stock count kept. */
+export function mergeLowItems(had: unknown, next: LowItem[]): LowItem[] {
+  const byId = new Map<string, LowItem>()
+  for (const i of Array.isArray(had) ? (had as LowItem[]) : []) if (i && typeof i.variantId === "string") byId.set(i.variantId, i)
+  for (const i of next) byId.set(i.variantId, i)
+  return [...byId.values()].slice(0, 50)
+}
+
+/** The key of a shop's low stock email for a day (YYYY-MM-DD, UTC). */
+export const lowStockKey = (creatorId: string, day: string) => `email:low_stock:${creatorId}:${day}`
+
+async function queueDailyLowStock(db: Db, creatorId: string, low: LowItem[], now = new Date()): Promise<void> {
+  const today = now.toISOString().slice(0, 10)
+  const tomorrowAt = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+  for (const [day, runAfter] of [[today, null], [tomorrowAt.toISOString().slice(0, 10), tomorrowAt.toISOString()]] as const) {
+    const key = lowStockKey(creatorId, day)
+    const { data: job } = await db.from("commerce_jobs").select("id, status, payload").eq("idempotency_key", key).maybeSingle()
+    if (!job) {
+      const { error } = await db.from("commerce_jobs").insert({ creator_id: creatorId, kind: "send_email", status: "queued", payload: { template: "low_stock", creatorId, items: low }, idempotency_key: key, ...(runAfter ? { run_after: runAfter } : {}) })
+      if (!error) {
+        if (!runAfter) {
+          try {
+            after(() => runJobs(db, 5).then(() => undefined))
+          } catch {
+            /* Outside a request: the cron picks it up. */
+          }
+        }
+        return
+      }
+      if (error.code !== "23505") return console.error("[physical] low stock email not queued:", error.code)
+      continue
+    }
+    /* Still waiting: the new variants join it. Sent (or being sent): tomorrow's takes them. */
+    if (job.status === "queued" || job.status === "failed") {
+      const payload = (job.payload ?? {}) as Record<string, unknown>
+      await db.from("commerce_jobs").update({ payload: { ...payload, template: "low_stock", creatorId, items: mergeLowItems(payload.items, low) }, updated_at: new Date().toISOString() }).eq("id", job.id).in("status", ["queued", "failed"])
+      return
+    }
+  }
 }
 
 /**
@@ -278,7 +323,8 @@ function pickupOf(co: CheckoutForEmail) {
     address: Array.isArray(co.pickup.address) ? co.pickup.address : [],
     ready: PICKUP_READY_LABEL[co.pickup.ready as PickupReady] ?? null,
     instructions: co.pickup.instructions ?? null,
-    hours: typeof co.pickup.hours === "string" && co.pickup.hours.trim() ? co.pickup.hours.trim().slice(0, 200) : null,
+    /* The location's opening hours (part 154, recorded on the order): their own line, "Opening hours: ...". */
+    hours: typeof co.pickup.hours === "string" && co.pickup.hours.trim() ? co.pickup.hours.trim().slice(0, 300) : null,
   }
 }
 
@@ -421,7 +467,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       },
       address: addressOf(co.shipping_address),
       deliveryName: co.shipping_rate?.name ?? null,
-      deliveryEstimate: co.shipping_rate ? deliveryEstimate({ minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null }) || null : null,
+      /* A local delivery has no carrier estimate: the shop's own note says when it comes. */
+      deliveryEstimate: co.shipping_rate?.kind === "local" ? (co.shipping_rate.local_note ?? null) : co.shipping_rate ? deliveryEstimate({ minDays: co.shipping_rate.min_days ?? null, maxDays: co.shipping_rate.max_days ?? null }) || null : null,
       statusUrl: orderUrl,
       hasDownloads: co.lines.some((l) => l.type !== "physical"),
       pickup: pickupOf(co),

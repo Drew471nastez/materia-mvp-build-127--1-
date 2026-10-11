@@ -26,7 +26,9 @@ import { inSmartCollection, readRules, type RuleProduct } from "./collections"
 import { defaultPackageGrams, loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
 import { methodOf, readMethod } from "./fulfillment"
 import { isPickupOptionId, pickupOptions } from "./pickup"
-import { quoteDelivery, pickOption, type Quote } from "./rates"
+import { localDeliveryOptions } from "./local-delivery"
+import { quoteDelivery, pickOption, unshippableMessage, type Quote } from "./rates"
+import { countryName } from "@/lib/checkout/countries"
 import { physicalTotals, type PhysicalTotals, type TaxSettings } from "./totals"
 import { applyOffers, suggestionsFor, type AppliedOffer, type Offer } from "@/lib/offers/offers"
 import { loadOffers } from "@/lib/offers/offers-server"
@@ -395,9 +397,12 @@ export interface CheckoutQuote {
  * Delivery for the address and the totals with the chosen option (or the
  * cheapest shipping rate). A pickup option needs no address: tax is then
  * worked out for the pickup location, and the shipped lines' stock is held
- * there.
+ * there. Local delivery (./local-delivery.ts) joins the shipping options when
+ * the address's postal code is one a location delivers to, and holds the
+ * stock at that location. When something can't ship to the address, the
+ * buyer is told which item, by name.
  */
-export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok: true }>, address: Pick<Address, "country" | "region"> | null, optionId?: unknown): Promise<CheckoutQuote> {
+export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok: true }>, address: (Pick<Address, "country" | "region"> & { postalCode?: string | null }) | null, optionId?: unknown): Promise<CheckoutQuote> {
   let quote: Quote = { ok: true, required: false, options: [] }
   let pickups: DeliveryOption[] = []
   if (priced.requiresShipping) {
@@ -419,15 +424,30 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
         undefined,
         { packageGrams },
       )
+      const shipsCents = priced.lines.filter((l) => l.requiresShipping).reduce((n, l) => n + Math.max(0, l.unitCents * l.quantity - l.discountCents), 0)
+      const locals = localDeliveryOptions(priced.locations, priced.lines, priced.available, { country: address.country, postalCode: address.postalCode ?? null }, shipsCents)
+      if (locals.length) quote = quote.ok && quote.required ? { ...quote, options: [...quote.options, ...locals] } : { ok: true, required: true, options: locals }
+      else if (quote.ok === false && !quote.needsRegion) {
+        /* Which items can't come, by name: the product's own profile, or the general one it falls back to. */
+        const fallback = profiles.find((p) => p.isDefault) ?? profiles[0] ?? null
+        const stuck = new Set(quote.unshippableProfileIds)
+        const titles = priced.lines
+          .filter((l) => l.requiresShipping && (stuck.has(l.shippingProfileId ?? "") || (!profiles.some((p) => p.id === l.shippingProfileId) && !!fallback && stuck.has(fallback.id))))
+          .map((l) => l.title)
+        const noRatesAtAll = profiles.every((p) => p.zones.every((z) => z.rates.every((r) => !r.active)))
+        quote = { ...quote, error: unshippableMessage(titles.length ? titles : priced.lines.filter((l) => l.requiresShipping).map((l) => l.title), countryName(address.country) || null, { pickup: pickups.length > 0, noRatesAtAll }) }
+      }
     }
   }
   const pickup = isPickupOptionId(optionId) ? (pickups.find((o) => o.id === optionId) ?? null) : null
   const option = pickup ?? (quote.ok && quote.required ? (pickOption(quote, optionId) ?? quote.options[0] ?? null) : null)
-  const pickupLocation = pickup ? priced.locations.find((l) => l.id === pickup.pickup?.locationId) ?? null : null
-  const lines = pickupLocation
-    ? priced.lines.map((l) => (l.type === "physical" && l.requiresShipping ? { ...l, locationId: pickupLocation.id } : l))
+  /* Where the stock is handed over from: the pickup point, or the location that delivers it locally. */
+  const handOverId = pickup ? (pickup.pickup?.locationId ?? null) : option?.kind === "local" ? (option.local?.locationId ?? null) : null
+  const handOver = handOverId ? priced.locations.find((l) => l.id === handOverId) ?? null : null
+  const lines = handOver
+    ? priced.lines.map((l) => (l.type === "physical" && l.requiresShipping ? { ...l, locationId: handOver.id } : l))
     : priced.lines
-  const taxPlace = pickupLocation ? { country: pickupLocation.country, region: pickupLocation.region } : { country: address?.country ?? null, region: address?.region ?? null }
+  const taxPlace = pickup && handOver ? { country: handOver.country, region: handOver.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
     lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
     { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },

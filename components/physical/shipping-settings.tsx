@@ -384,11 +384,21 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
           </div>
         </Card>
       )}
-      <button type="button" className="sr-only" onClick={reload}>
-        Reload
-      </button>
+      {/* Local delivery and pickup are a place's, not a zone's: each location sets its own (Locations). */}
+      <p className="text-[13px] leading-[19px] text-[#6b7280]" data-local-hint="">
+        Local delivery and local pickup are set on each location, in Locations: {deliveryHint(data.locations)}
+      </p>
     </div>
   )
+}
+
+/** What the shop's locations offer besides shipping, in a few words. */
+function deliveryHint(locations: Location[]): string {
+  const live = locations.filter((l) => l.active)
+  const local = live.filter((l) => l.localDelivery?.enabled).map((l) => l.name)
+  const pickup = live.filter((l) => l.pickupEnabled).map((l) => l.name)
+  const parts = [local.length ? `local delivery from ${local.join(", ")}` : null, pickup.length ? `pickup at ${pickup.join(", ")}` : null].filter(Boolean)
+  return parts.length ? `${parts.join(", and ")}.` : "none yet."
 }
 
 function ProfileCard({
@@ -1092,7 +1102,8 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
     lands), scrolled into view if the form was long, and marked Saved for a
     moment so the eye finds it.
   */
-  const saved = (l: Location) => {
+  const saved = (l: Location, message?: string | null) => {
+    setNotice(message ?? null)
     setData((d) => (d ? { ...d, locations: d.locations.some((x) => x.id === l.id) ? d.locations.map((x) => (x.id === l.id ? l : x)) : [...d.locations, l] } : d))
     setEditing(null)
     setSavedId(l.id)
@@ -1127,6 +1138,7 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
                     {!l.active ? <Pill tone="gray">Off</Pill> : null}
                     {l.forwarding === "email" ? <Pill tone="blue">Emails orders</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">Webhook</Pill> : l.forwarding === "provider" ? <Pill tone="amber">Provider not connected</Pill> : null}
                     {l.pickupEnabled && l.active ? <Pill tone="green">Local pickup</Pill> : null}
+                    {l.localDelivery?.enabled && l.active ? <Pill tone="green">Local delivery</Pill> : null}
                     {savedId === l.id ? (
                       <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#047857]">
                         <Check className="h-3.5 w-3.5" aria-hidden />
@@ -1135,7 +1147,8 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
                     ) : null}
                   </p>
                   <p className="text-[13px] text-[#6b7280]">{[KIND_LABEL[l.kind], [l.city, l.country ? countryName(l.country) : null].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</p>
-                  {l.pickupEnabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pickup ready in {PICKUP_READY_SHORT[l.pickupReady]}</p> : null}
+                  {l.pickupEnabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pickup ready in {PICKUP_READY_SHORT[l.pickupReady]}{l.pickupHours ? ` · Open ${l.pickupHours}` : ""}</p> : null}
+                  {l.localDelivery?.enabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Delivers to {codesText(l.localDelivery.codes)} · {l.localDelivery.priceCents ? money(l.localDelivery.priceCents) : "Free"}</p> : null}
                 </div>
                 <div className="flex shrink-0 gap-1">
                   {data.settings.defaultLocationId !== l.id && l.active ? (
@@ -1170,12 +1183,17 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
   )
 }
 
+/** "400, 401 and 3 more": a location's local delivery codes in a line. */
+function codesText(codes: string[]): string {
+  return codes.length <= 3 ? codes.join(", ") : `${codes.slice(0, 2).join(", ")} and ${codes.length - 2} more`
+}
+
 /** Settings › Store details' country ("New locations and tax start here"), from what Settings read ahead; empty when none is saved. */
 function storeCountry(): string {
   return peekGet<{ settings?: { defaultCountry?: string | null } }>("/api/store/settings")?.settings?.defaultCountry ?? ""
 }
 
-function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initial?: Location; startCountry?: string; onCancel: () => void; onSaved: (l: Location) => void }) {
+function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initial?: Location; startCountry?: string; onCancel: () => void; onSaved: (l: Location, message?: string | null) => void }) {
   const [f, setF] = React.useState({
     name: initial?.name ?? "",
     kind: initial?.kind ?? ("home" as LocationKind),
@@ -1193,7 +1211,17 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
     pickupEnabled: initial?.pickupEnabled ?? false,
     pickupReady: initial?.pickupReady ?? ("24h" as PickupReady),
     pickupInstructions: initial?.pickupInstructions ?? "",
+    pickupHours: initial?.pickupHours ?? "",
   })
+  /* Local delivery, typed in the shop's money: dollars here, cents on the wire. */
+  const [local, setLocal] = React.useState(() => ({
+    enabled: initial?.localDelivery?.enabled ?? false,
+    codes: (initial?.localDelivery?.codes ?? []).join(", "),
+    price: initial?.localDelivery ? dollarsOf(initial.localDelivery.priceCents) : "",
+    min: initial?.localDelivery?.minOrderCents ? dollarsOf(initial.localDelivery.minOrderCents) : "",
+    freeOver: initial?.localDelivery?.freeOverCents ? dollarsOf(initial.localDelivery.freeOverCents) : "",
+    note: initial?.localDelivery?.note ?? "",
+  }))
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const set = (patch: Partial<typeof f>) => setF((x) => ({ ...x, ...patch }))
@@ -1320,7 +1348,10 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
                   ))}
                 </SelectInput>
               </Field>
-              <Field label="Pickup instructions" hint="Sent with the order confirmation and when it's ready">
+              <Field label="Opening hours" hint="When buyers can come. Shown at checkout and in the pickup email.">
+                <TextInput value={f.pickupHours} maxLength={300} placeholder="Mon to Fri 9:00 to 17:00, Sat 10:00 to 14:00" onChange={(e) => set({ pickupHours: e.target.value })} />
+              </Field>
+              <Field label="Pickup instructions" hint="Sent with the order confirmation and when it's ready" className="sm:col-span-2">
                 <textarea
                   value={f.pickupInstructions}
                   maxLength={1000}
@@ -1333,6 +1364,43 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
             </div>
           ) : null}
         </div>}
+        {partner ? null : (
+          <div className="py-3" data-local-delivery-form="">
+            <Toggle
+              label="Local delivery"
+              description="You bring orders to buyers nearby, by postal code. Offered at checkout next to shipping."
+              checked={local.enabled}
+              onChange={(v) => setLocal((x) => ({ ...x, enabled: v }))}
+            />
+            {local.enabled ? (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <Field label="Postal codes" hint={`In ${f.country ? countryName(f.country) : "this location's country"}. Separate with commas. A code covers every postal code that starts with it, so 400 covers 400001.`} className="sm:col-span-3">
+                  <textarea
+                    value={local.codes}
+                    rows={2}
+                    maxLength={6000}
+                    onChange={(e) => setLocal((x) => ({ ...x, codes: e.target.value }))}
+                    placeholder={format.postal.example ? `${format.postal.example}, ${format.postal.example.slice(0, 3)}` : "400, 401"}
+                    className={cn(FIELD, "h-auto min-h-[64px] py-2 leading-5")}
+                    aria-label="Postal codes"
+                  />
+                </Field>
+                <Field label="Delivery price">
+                  <MoneyInput value={local.price} onChange={(v) => setLocal((x) => ({ ...x, price: v }))} />
+                </Field>
+                <Field label="Minimum order" hint="Optional">
+                  <MoneyInput value={local.min} onChange={(v) => setLocal((x) => ({ ...x, min: v }))} placeholder="" />
+                </Field>
+                <Field label="Free over" hint="Optional">
+                  <MoneyInput value={local.freeOver} onChange={(v) => setLocal((x) => ({ ...x, freeOver: v }))} placeholder="" />
+                </Field>
+                <Field label="Delivery information" hint="Shown at checkout and in the order confirmation" className="sm:col-span-3">
+                  <TextInput value={local.note} maxLength={500} placeholder="We deliver Tuesdays and Fridays, between 17:00 and 20:00" onChange={(e) => setLocal((x) => ({ ...x, note: e.target.value }))} />
+                </Field>
+              </div>
+            ) : null}
+          </div>
+        )}
         {initial ? (
           <div className="py-3">
             <Toggle label="In use" description="Off to keep this location without shipping from it or offering pickup." checked={f.active} onChange={(v) => set({ active: v })} />
@@ -1351,10 +1419,13 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
           onClick={async () => {
             setBusy(true)
             setError(null)
-            const r = await api<{ location: Location }>(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: f })
+            const localDelivery = partner
+              ? { enabled: false, codes: [] }
+              : { enabled: local.enabled, codes: local.codes, priceCents: centsOf(local.price) ?? 0, minOrderCents: centsOf(local.min), freeOverCents: centsOf(local.freeOver), note: local.note }
+            const r = await api<{ location: Location; message?: string }>(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: { ...f, localDelivery } })
             setBusy(false)
             if (!r.ok) return setError(r.error)
-            onSaved(r.data.location)
+            onSaved(r.data.location, r.data.message ?? null)
           }}
         >
           {busy ? "Saving" : initial ? "Save location" : "Add location"}

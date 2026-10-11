@@ -158,6 +158,8 @@ export default function Link({ href, children, prefetch, onClick, ...rest }) {
       "--jsx=automatic",
       '--define:process.env.NODE_ENV="production"',
       "--define:process.env.NEXT_PUBLIC_MAIN_DOMAIN=undefined",
+      /* The Customer emails tab draws previews with the receipt's template, which reads this one (Next inlines it). */
+      "--define:process.env.NEXT_PUBLIC_APP_URL=undefined",
       "--alias:@=.",
       "--alias:@/lib/supabase/client=./.emails-probe/supabase-client.js",
       "--alias:next/navigation=./.emails-probe/navigation.js",

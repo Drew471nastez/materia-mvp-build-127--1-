@@ -39,12 +39,23 @@ interface Variant {
 }
 interface Data {
   product: { id: string; creatorId: string; title: string; slug: string; imageUrl: string | null }
+  /** What delivery costs and takes to the buyer's country, in lines (lib/physical/delivery-promise.ts). */
+  delivery?: { lines: string[] } | null
   options: { name: string; values: string[] }[]
   variants: Variant[]
 }
 
 function money(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`
+}
+
+/** The buyer's country as their browser names it, for the delivery line; empty when it can't tell. */
+function browserCountry(): string {
+  try {
+    return new Intl.Locale(navigator.language).maximize().region ?? ""
+  } catch {
+    return ""
+  }
 }
 
 export function PhysicalBuyBox({
@@ -77,7 +88,8 @@ export function PhysicalBuyBox({
   React.useEffect(() => {
     if (!enabled) return
     let gone = false
-    fetch(`/api/physical/storefront/product?productId=${encodeURIComponent(productId)}`, { cache: "no-store" })
+    const country = browserCountry()
+    fetch(`/api/physical/storefront/product?productId=${encodeURIComponent(productId)}${country ? `&country=${encodeURIComponent(country)}` : ""}`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: Data) => {
         if (gone) return
@@ -214,6 +226,14 @@ export function PhysicalBuyBox({
         <p className="text-[13.5px] font-medium" style={{ color: muted }}>
           Sold out
         </p>
+      ) : null}
+
+      {data.delivery?.lines.length ? (
+        <ul className="space-y-0.5 text-[13.5px] leading-5" style={{ color: muted }} data-delivery-promise="">
+          {data.delivery.lines.map((l) => (
+            <li key={l}>{l}</li>
+          ))}
+        </ul>
       ) : null}
 
       <div className="flex items-center gap-3">

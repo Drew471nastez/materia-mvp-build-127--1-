@@ -293,6 +293,20 @@ export function quoteDelivery(
   return { ok: true, required: true, options: options.sort((a, b) => a.priceCents - b.priceCents) }
 }
 
+/**
+ * WHAT THE BUYER IS TOLD WHEN SOMETHING CAN'T SHIP. A physical product can
+ * only be bought for delivery once the shop has a rate for the buyer's
+ * address; until then the checkout names what can't come and what to do,
+ * rather than "shipping isn't available".
+ */
+export function unshippableMessage(titles: string[], place: string | null, opts: { pickup?: boolean; noRatesAtAll?: boolean } = {}): string {
+  const names = [...new Set(titles.filter(Boolean))]
+  const what = names.length === 0 ? "Some items" : names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `${names[0]}, ${names[1]} and ${names.length - 2} more`
+  const where = opts.noRatesAtAll ? "" : place ? ` to ${place}` : " to this address"
+  const fix = opts.pickup ? "Choose pickup instead, or remove it from your order." : names.length > 1 ? "Remove them from your order to check out." : "Remove it from your order to check out."
+  return `${what} can't be shipped${where} yet. ${fix}`
+}
+
 /** Two rates with the same name in one zone: the buyer sees the cheaper one. */
 function dedupeByName(options: DeliveryOption[]): DeliveryOption[] {
   const seen = new Set<string>()

@@ -58,7 +58,7 @@ const PRODUCTS = [
   { id: "p-drums", title: "Lo-fi Drum Kit Vol. 2", lei: 89 },
   { id: "p-presets", title: "Lightroom Presets: Bucharest Nights", lei: 59 },
   { id: "p-notion", title: "Notion Creator OS", lei: 129 },
-  { id: "p-course", title: "Shopify Theme Basics (course)", lei: 349 },
+  { id: "p-course", title: "Store Theme Basics (course)", lei: 349 },
   { id: "p-samples", title: "Techno Samples: Warehouse", lei: 45 },
 ]
 

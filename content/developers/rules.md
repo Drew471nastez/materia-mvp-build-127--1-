@@ -14,13 +14,13 @@ Read this before you write or change any code on a Storelib site. It applies to 
 ## 2. Know the framework first
 
 - Read [Building with AI agents](/developers/ai) and the full reference at [/llms-full.txt](/llms-full.txt). Call `storelib_site` to learn what this website sells, what it is called, and how it looks.
-- A section is one file with four blocks: `<template>`, `<style>`, an optional `<script>`, and `<schema>`. The template language is `{{ }}`, `{% if %}`, `{% for %}` and filters. It is not Vue, JSX or Liquid.
+- A section is one file with four blocks: `<template>`, `<style>`, an optional `<script>`, and `<schema>`. The template language is `{{ }}`, `{% if %}`, `{% for %}` and filters. It is not Vue or JSX.
 - Every value the creator might change is a **setting** in the schema. Every repeated thing is a **block**. A template reads only what its schema declares.
 - Compile before you save (`storelib_compile`). Fix the exact line the compiler names; don't rewrite the file.
 
 ## 3. Everything the creator sees must be editable
 
-The creator edits a section in the builder's sidebar, as they would in Shopify. If a word, a picture or a link is typed straight into the markup, they cannot change it.
+The creator edits a section in the builder's sidebar. If a word, a picture or a link is typed straight into the markup, they cannot change it.
 
 - **Text** is a `text`, `textarea` or `richtext` setting. Print `richtext` with `| raw`; everything else is escaped for you.
 - **Pictures** are `image_picker` settings, never a `text` or `url` setting holding an address. The creator gets the image picker with an address box under it. Never put a URL to a picture in a default.

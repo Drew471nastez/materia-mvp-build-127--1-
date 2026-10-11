@@ -247,7 +247,7 @@ export function agentsGuide(opts: { siteName: string; branch: string; root: stri
   const shopify = opts.kind === "shopify"
   return `# ${opts.siteName} on Storelib
 
-${where === "this repository" ? "This repository" : `The folder ${where}`} is a Storelib website${shopify ? " imported from a Shopify theme" : ""},
+${where === "this repository" ? "This repository" : `The folder ${where}`} is a Storelib website${shopify ? " imported from another store's theme" : ""},
 the whole theme: settings, pages, sections, blocks${shopify ? ", snippets, layout and the theme's own files under \`shopify/\`" : ""}.
 README.md says what each folder is and which ones Storelib reads back.
 
@@ -316,8 +316,8 @@ same way.
 
 The full reference is at https://storelib.com/developers, and all of it as one
 text file is at https://storelib.com/llms-full.txt. Read it before writing.
-${shopify ? `This theme's own sections are Shopify Liquid inside \`<template compat="shopify">\`,
-drawn by Storelib's Liquid engine: what it supports is at
+${shopify ? `This theme's own sections are the theme's original template code inside \`<template compat="shopify">\`,
+drawn by Storelib's theme engine: what it supports is at
 https://storelib.com/developers/imported-shopify-themes. A new section here is
 written the same way: start from a copy of one of the theme's own section
 files. The Storelib format below is for Storelib themes.
@@ -325,7 +325,7 @@ files. The Storelib format below is for Storelib themes.
 
 - A section file has \`<template>\`, \`<style scoped>\`, \`<schema>\` and an
   optional \`<script>\`. The template language is \`{{ }}\`, \`{% if %}\`,
-  \`{% for %}\` and filters. It is not Vue, React, JSX or Liquid.
+  \`{% for %}\` and filters. It is not Vue, React or JSX.
 - Every name the template or CSS reads must be declared in the schema.
 - Colours come from \`--scheme-*\` variables and the root reads
   \`data-scheme="{{ settings.color_scheme }}"\`.

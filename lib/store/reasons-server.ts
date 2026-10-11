@@ -71,7 +71,7 @@ async function done(db: Db, creatorId: string, kind: ReasonKind): Promise<Done> 
 
 export async function addReason(db: Db, creatorId: string, kind: ReasonKind, input: unknown): Promise<Done> {
   const read = readReason(input)
-  if (!read.ok) return { ok: false, error: read.error, status: 400 }
+  if (read.ok === false) return { ok: false, error: read.error, status: 400 }
   const rows = await rowsOf(db, creatorId, kind)
   if (!rows.ok) return rows
   if (rows.reasons.length >= MAX_REASONS) return { ok: false, error: `A list holds up to ${MAX_REASONS} reasons.`, status: 400 }
@@ -92,7 +92,7 @@ export async function addReason(db: Db, creatorId: string, kind: ReasonKind, inp
 export async function updateReason(db: Db, creatorId: string, kind: ReasonKind, value: unknown, input: unknown): Promise<Done> {
   if (!isReasonValue(value)) return { ok: false, error: "That reason was not found.", status: 404 }
   const read = readReason(input)
-  if (!read.ok) return { ok: false, error: read.error, status: 400 }
+  if (read.ok === false) return { ok: false, error: read.error, status: 400 }
   const rows = await rowsOf(db, creatorId, kind)
   if (!rows.ok) return rows
   if (!rows.reasons.some((r) => r.value === value)) return { ok: false, error: "That reason was not found.", status: 404 }

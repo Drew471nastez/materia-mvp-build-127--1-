@@ -310,7 +310,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           {/* Something shipped: what is to send, each shipment and its tracking, returns (components/physical/order-panel.tsx), while physical commerce is on. */}
           {physicalOrder && physicalCommerce ? (
             <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
-              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} />
+              <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} onRefund={refundable.length > 0 ? () => setDialog("refund") : null} />
               {digitalLines.length > 0 ? (
                 <FulfillmentCard order={order} lines={digitalLines} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
               ) : null}

@@ -53,6 +53,7 @@ export function pickupInfo(l: Location): PickupInfo {
     address: addressLines({ line1: l.addressLine1 ?? "", line2: l.addressLine2, city: l.city ?? "", region: l.region, postalCode: l.postalCode, country: l.country ?? "" }),
     instructions: l.pickupInstructions,
     ready: l.pickupReady,
+    hours: l.pickupHours ?? null,
   }
 }
 

@@ -268,7 +268,7 @@ async function shopifyZip(): Promise<JSZip> {
   check("a section's values are under the builder's ids", main?.settings.padding_top === 48 && main?.settings.heading === "Hello")
   check("a dynamic source is kept, to be read where it is drawn", main?.blocks?.find((b) => b.id === "b2")?.settings.title === "{{ product.title }}")
   check("blocks keep their order", main?.blocks?.map((b) => b.id).join() === "b1,b2,b3")
-  check("a picture from the Shopify store's Files is named in the report", report.notes.some((n) => /shop_images|store's Files/.test(n.message)))
+  check("a picture from the Shopify store's Files is named in the report", report.notes.some((n) => /shop_images|store's files/i.test(n.message)))
   const settings = theme.settings
   check("the install says it is an imported theme", settings.compat.kind === "shopify" && settings.compat.theme === "Test Shop Theme")
   check("the theme's settings are carried whole, objects included", settings.shopify.show_badges === true && settings.shopify.page_width === 1200 && typeof settings.shopify.color_schemes === "object")

@@ -203,7 +203,7 @@ The built-in cart drawer is a choice, not a requirement. Any section can add pro
 
 ## Above the header
 
-An announcement bar, or anything else that belongs above the header on every page, sits in the **header group**. Its schema says so, the way a Shopify theme does:
+An announcement bar, or anything else that belongs above the header on every page, sits in the **header group**. Its schema says so:
 
 ```json
 { "type": "promo_strip", "name": "Promo strip", "category": "announcement", "enabled_on": { "groups": ["header"] } }
