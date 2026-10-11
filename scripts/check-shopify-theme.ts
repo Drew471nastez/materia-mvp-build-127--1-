@@ -289,12 +289,17 @@ const guard = async (what: string, label: string, run: () => Promise<void>) => {
   try { await run() } catch (e) { check(`${label}: the ${what} checks ran to the end`, false, String(e).slice(0, 160)) }
 }
 
+/* Where the header is, and where the Overlay group's bars (a phone tab bar) are. */
+const HEADER_SCOPE = ".shopify-section-group-header-group, #shopify-section-header, [id^='shopify-section-'][id$='__header'], header"
+const OVERLAY_SCOPE = ".shopify-section-group-overlay-group"
+const linksOf = (scope: string) => scope.split(",").map((x) => `${x.trim()} a[href]`).join(", ")
+
 /* What a header link is, read in the page: its address, and a mark to find it again. */
 type HeaderLink = { href: string; text: string; shown: boolean }
 
 /** Every link of the header group's that goes somewhere on this site (the cart aside: the theme's drawer has its own check). */
-const headerLinksIn = (frame: Frame) => frame.evaluate(() => {
-  const groups = [...document.querySelectorAll(".shopify-section-group-header-group, #shopify-section-header, [id^='shopify-section-'][id$='__header'], header")]
+const headerLinksIn = (frame: Frame, scope = HEADER_SCOPE) => frame.evaluate((scope: string) => {
+  const groups = [...document.querySelectorAll(scope)]
   const seen = new Map<string, { href: string; text: string; shown: boolean }>()
   /* In the canvas the page is a srcdoc frame, with no address of its own: its links are read against the site's. */
   const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
@@ -317,7 +322,7 @@ const headerLinksIn = (frame: Frame) => frame.evaluate(() => {
     }
   }
   return [...seen.values()]
-})
+}, scope)
 
 /*
   REACHING A LINK AS A VISITOR DOES. Visible and on top: pressed. Otherwise
@@ -329,11 +334,12 @@ const headerLinksIn = (frame: Frame) => frame.evaluate(() => {
   one, at the middle of what is pressed, so a popup or a bar over the header
   that eats the press fails the same way it would for a visitor.
 */
-async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: boolean): Promise<{ pressed: boolean; trail: string[] }> {
+async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: boolean, scope = HEADER_SCOPE): Promise<{ pressed: boolean; trail: string[] }> {
+  const linkSel = linksOf(scope)
   const trail: string[] = []
   const tried = new Set<string>()
   for (let round = 0; round < 6; round++) {
-    const step = await frame.evaluate((want: string, phone: boolean, tried: string[]) => {
+    const step = await frame.evaluate((want: string, phone: boolean, tried: string[], linkSel: string, scope: string) => {
       const W = window as unknown as { __probeId?: number }
       const shown = (el: Element) => {
         const r = el.getBoundingClientRect()
@@ -350,14 +356,14 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
       const mark = (el: Element) => { if (!el.hasAttribute("data-probe-id")) el.setAttribute("data-probe-id", String((W.__probeId = (W.__probeId ?? 0) + 1))); return el.getAttribute("data-probe-id")! }
       const name = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${el.className && typeof el.className === "string" ? `.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}` : ""}`
       const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
-      const links = [...document.querySelectorAll<HTMLAnchorElement>(".shopify-section-group-header-group a[href], #shopify-section-header a[href], header a[href]")].filter((a) => { try { const u = new URL(a.getAttribute("href") ?? "", here); return `${u.pathname}${u.search}` === want } catch { return false } })
+      const links = [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].filter((a) => { try { const u = new URL(a.getAttribute("href") ?? "", here); return `${u.pathname}${u.search}` === want } catch { return false } })
       const ready = links.find((a) => shown(a) && onTop(a))
       if (ready) return { kind: "press", id: mark(ready), what: name(ready) }
       const covered = links.find((a) => shown(a))
       if (covered) {
         const r = covered.getBoundingClientRect()
         const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
-        if (hit && !hit.closest(".shopify-section-group-header-group, header")) return { kind: "covered", id: "", what: `${name(covered)} under ${hit ? name(hit) : "nothing"}` }
+        if (hit && !hit.closest(scope)) return { kind: "covered", id: "", what: `${name(covered)} under ${hit ? name(hit) : "nothing"}` }
       }
       /* What would open one of the links. */
       const openers: { el: Element; how: "click" | "hover" }[] = []
@@ -375,7 +381,7 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
           for (let e: Element | null = a.parentElement; e && e !== document.body; e = e.parentElement) if (shown(e)) { const top = e.querySelector(":scope > a, :scope > summary, :scope > button, :scope > div > a, :scope > menu-item > a") ?? e; openers.push({ el: top, how: "hover" }); break }
         }
       }
-      for (const g of document.querySelectorAll(".shopify-section-group-header-group, header")) for (const t of g.querySelectorAll("summary, button[aria-expanded], [aria-controls], [class*='hamburger' i], [class*='menu-toggle' i], [class*='menu-drawer' i] summary, [class*='mobile-menu' i] button, [class*='nav-toggle' i], [data-action*='menu' i], [aria-label*='menu' i]")) openers.push({ el: t, how: "click" })
+      for (const g of document.querySelectorAll(scope)) for (const t of g.querySelectorAll("summary, button[aria-expanded], [aria-controls], [class*='hamburger' i], [class*='menu-toggle' i], [class*='menu-drawer' i] summary, [class*='mobile-menu' i] button, [class*='nav-toggle' i], [data-action*='menu' i], [aria-label*='menu' i]")) openers.push({ el: t, how: "click" })
       for (const o of openers) {
         if (!shown(o.el) || !onTop(o.el)) continue
         const id = mark(o.el)
@@ -383,7 +389,7 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
         return { kind: o.how, id, what: name(o.el) }
       }
       return { kind: "none", id: "", what: links.length ? `${links.length} links, none shown` : "no such link" }
-    }, href, phone, [...tried])
+    }, href, phone, [...tried], linkSel, scope)
     if (step.kind === "none" || step.kind === "covered") { trail.push(`${step.kind}: ${step.what}`); return { pressed: false, trail } }
     tried.add(`${step.kind}:${step.id}`)
     trail.push(`${step.kind} ${step.what}`)
@@ -403,16 +409,16 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
     /* A drawer slides in: up to 1.6s for the link to come into view. */
     for (let t = 0; t < 8; t++) {
       await new Promise((r) => setTimeout(r, 200))
-      const there = await frame.evaluate((want: string) => {
+      const there = await frame.evaluate((want: string, linkSel: string) => {
         const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
-        return [...document.querySelectorAll<HTMLAnchorElement>("header a[href], .shopify-section-group-header-group a[href], #shopify-section-header a[href]")].some((a) => {
+        return [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].some((a) => {
           try { const u = new URL(a.getAttribute("href") ?? "", here); if (`${u.pathname}${u.search}` !== want) return false } catch { return false }
           const r = a.getBoundingClientRect()
           if (r.width < 2 || r.height < 2 || r.top >= innerHeight || r.left >= innerWidth || r.right <= 0 || r.bottom <= 0) return false
           const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
           return !!hit && (a === hit || a.contains(hit))
         })
-      }, href).catch(() => false)
+      }, href, linkSel).catch(() => false)
       if (there) break
     }
   }
@@ -460,6 +466,23 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
         }
       }
       check(`${where}, ${label}, from ${from}: every header link opens its page`, links.length > 0 && failed.length === 0, `${ok} of ${links.length}${failed.length ? `; ${failed.slice(0, 4).join(" | ")}` : ""}${optional.length ? `; not reached, kept hidden at this width: ${optional.slice(0, 3).join(" | ")}` : ""}`)
+      /* The Overlay group's bars (a phone tab bar, a back to top): each link shown on the page opens its page too. */
+      if (from === "/") {
+        await go(page, at(from))
+        const bar = (await headerLinksIn(frameOf(), OVERLAY_SCOPE)).filter((l) => l.shown)
+        const barFailed: string[] = []
+        for (const l of bar) {
+          await go(page, at(from))
+          await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+          const before = loadCount(page)
+          const r = await pressHeaderLink(page, frameOf(), l.href, phone, OVERLAY_SCOPE)
+          const want = l.href.split("?")[0]
+          const got = !r.pressed ? "" : where === "the website" ? await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$|^/account|^/collections/all|^/wishlist`), false, before) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          const ok = r.pressed && (got.split(/\s/).some((g) => g.split("?")[0] === want) || (/^\/account/.test(want) && /\/account/.test(got)) || (/wishlist/.test(want) && /wishlist/.test(got)) || (want === "/products" && /\/collections\/all|\/products/.test(got)))
+          if (!ok) barFailed.push(`${l.text || l.href} ${l.href}: ${got || "nothing"} [${r.trail.join(" > ")}]`)
+        }
+        if (bar.length) check(`${where}, ${label}: the Overlay group's bar links open their pages`, barFailed.length === 0, `${bar.length - barFailed.length} of ${bar.length}${barFailed.length ? `; ${barFailed.slice(0, 3).join(" | ")}` : ""}`)
+      }
       /* Scrolled down the page and a little back up, as a visitor reaches for the menu: a header that stays (sticky, or shown again on the way up) still opens its links. */
       if (from === "/") {
         await go(page, at("/products/linen-shirt-2"))
