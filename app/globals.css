@@ -4258,6 +4258,17 @@ html.capacitor.has-page-layer {
   html.capacitor.has-phone-page-layer {
     background-color: #f8f9fa;
   }
+  /* MENU OVER A PAGE LAYER. The product editor (52) keeps the pill (55) and
+     hides the header, so the menu the pill opens (50 elsewhere,
+     components/app/sidebar-mobile-nav.tsx) goes between the two, from the
+     top of the screen, its first row clear of the clock. Under 52 the
+     button turned into an X over an editor that did not change. The class
+     alone, no :has(), so opening the menu restyles nothing else. */
+  html.has-phone-page-layer #app-mobile-menu {
+    z-index: 54;
+    top: 0;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }
 /* ── The OnePage editor, full screen on a phone ────────────────────────────
    Under 768px its own white bar is the top of the screen, padded into the
