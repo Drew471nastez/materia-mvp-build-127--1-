@@ -475,7 +475,7 @@ function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
     </p>
   )
   if (commerce?.showStockLeft === false) return <EditorNote ctx={ctx}>Stock is hidden in Website settings › Commerce</EditorNote>
-  /* 0 (the new default): the product's own low stock line, else the shop's (Settings › Locations). */
+  // 0 (the new default): the product's own low stock line, else the shop's (Settings › Locations).
   const threshold = lowStockThreshold(s.threshold, ctx.product.low_stock_at)
   const own = str(s.text)
   const text = own && own !== DEFAULT_LOW_STOCK_TEXT ? own : commerce?.lowStockText || DEFAULT_LOW_STOCK_TEXT

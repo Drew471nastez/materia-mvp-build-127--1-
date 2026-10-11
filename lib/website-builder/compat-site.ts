@@ -394,7 +394,7 @@ async function storeReturnFacts(admin: ReturnType<typeof createAdminClient>, cre
  */
 async function compatStock<T extends { id: string; settings: Record<string, unknown> }>(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: T): Promise<T> {
   try {
-    const { data: product } = await admin.from("products").select("track_inventory, continue_selling, low_stock_threshold").eq("id", card.id).eq("creator_id", creatorId).maybeSingle()
+    const { data: product } = await admin.from("products").select("track_inventory, continue_selling, low_stock_threshold").eq("id", card.id).eq("creator_id", creatorId).eq("status", "published").maybeSingle()
     const { data: variants } = await admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", card.id)
     const list = (variants ?? []) as StockVariant[]
     if (!product || list.length === 0) return card
