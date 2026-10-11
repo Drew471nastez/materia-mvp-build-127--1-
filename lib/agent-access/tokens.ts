@@ -17,9 +17,9 @@ import { timingSafeEqual } from "node:crypto"
 import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
-import { hashToken, looksLikeToken } from "./token-format"
+import { hashToken, keyExpired, looksLikeToken, scopesCanWrite } from "./token-format"
 
-export { TOKEN_PREFIX, hashToken, looksLikeToken, mintToken } from "./token-format"
+export { TOKEN_PREFIX, hashToken, looksLikeToken, mintToken, READ_ONLY_REFUSAL, DEFAULT_KEY_DAYS, keyExpired, scopesCanWrite, expiryFor } from "./token-format"
 
 export interface AgentIdentity {
   tokenId: string
@@ -29,7 +29,12 @@ export interface AgentIdentity {
   name: string
   /** The site's own name, read in the same query as the token. */
   siteName?: string
+  /** False for a read only key: it can look at the site and change nothing. Absent means it can write. */
+  canWrite?: boolean
+  /** When the key stops working, or null for never. */
+  expiresAt?: string | null
 }
+
 
 /**
  * Wrong tokens, counted per address. A token is 256 random bits, so guessing
@@ -89,14 +94,23 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
     token_hash: string
     revoked_at: string | null
     last_used_at: string | null
+    expires_at?: string | null
+    scopes?: string[] | null
     install: { creator_id?: string; name?: string } | { creator_id?: string; name?: string }[] | null
   }
-  const COLUMNS = "id, install_id, creator_id, name, token_hash, revoked_at, last_used_at"
-  let { data: row, error } = (await db
-    .from("theme_agent_tokens")
-    .select(`${COLUMNS}, install:store_theme_installs!inner(creator_id, name)`)
-    .eq("token_hash", hash)
-    .maybeSingle()) as { data: TokenRow | null; error: { message?: string } | null }
+  /* expires_at and scopes arrived with part 132; before it, a key is read as it always was. */
+  let COLUMNS = "id, install_id, creator_id, name, token_hash, revoked_at, last_used_at, expires_at, scopes"
+  const first = async () =>
+    (await db
+      .from("theme_agent_tokens")
+      .select(`${COLUMNS}, install:store_theme_installs!inner(creator_id, name)`)
+      .eq("token_hash", hash)
+      .maybeSingle()) as { data: TokenRow | null; error: { message?: string } | null }
+  let { data: row, error } = await first()
+  if (error && /expires_at|scopes/.test(error.message ?? "")) {
+    COLUMNS = "id, install_id, creator_id, name, token_hash, revoked_at, last_used_at"
+    ;({ data: row, error } = await first())
+  }
 
   /*
     A schema cache that has not learnt the relationship yet answers the join
@@ -141,6 +155,10 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
   if (!row || !matches || row.revoked_at || !owned) {
     return refused(request, "This connection token is not valid, or it was disconnected.")
   }
+  /* A key past its day: said plainly, with where to make a new one. */
+  if (keyExpired(row.expires_at)) {
+    return refused(request, `This connection key expired on ${String(row.expires_at).slice(0, 10)}. Make a new one in Website settings, Connections.`)
+  }
 
   /* Per connection: generous for an agent at work, useless for a script
      hammering a creator's site with writes. */
@@ -162,5 +180,13 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
     })
   }
 
-  return { tokenId: row.id, installId: row.install_id, creatorId: row.creator_id, name: row.name, siteName: site?.name ?? undefined }
+  return {
+    tokenId: row.id,
+    installId: row.install_id,
+    creatorId: row.creator_id,
+    name: row.name,
+    siteName: site?.name ?? undefined,
+    canWrite: scopesCanWrite(row.scopes),
+    expiresAt: row.expires_at ?? null,
+  }
 }

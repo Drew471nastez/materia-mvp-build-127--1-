@@ -12,17 +12,29 @@
  *           { action: "pull" }     take every section file on the branch now
  *           { action: "settings", pushOnSave?, pullOnPush? }  the two switches
  *           { action: "change-repo" }  back to the repository picker
+ *           { action: "reset-override", path }  a built-in section or block
+ *           this site has its own copy of goes back to Storelib's version
+ *
+ * GET also says what the last sync did, file by file (each one a push could
+ * not bring in, with its fix), and which built-in files this site has its own
+ * copy of, so the builder can mark them Edited in GitHub.
  *   DELETE  unlink. The repository and its files are left as they are.
  *
  * Signed in, and only for a site that is this creator's. A repository is
  * accepted only if the app's installation can reach it; nothing the browser
  * sends is taken on its word.
  */
-import { NextResponse } from "next/server"
+import { NextResponse, after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { githubConfig, installationRepos, installationToken, GitHubError } from "@/lib/github-sync/github"
 import { normalizeRoot, validBranch, validRepoName } from "@/lib/github-sync/core"
-import { SyncError, exportSite, pullNow, type GitHubLink } from "@/lib/github-sync/sync"
+import { SyncError, exportSite, pullNow, type GitHubLink, type LastSync } from "@/lib/github-sync/sync"
+import { explainFailure, failureLine } from "@/lib/github-sync/errors"
+import { overridesOf } from "@/lib/github-sync/layout"
+import { referenceSchemas } from "@/lib/github-sync/snapshot"
+import { mirrorToGitHub } from "@/lib/github-sync/mirror"
+import { compatOf } from "@/lib/storelib-theme/compat/install"
+import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 import { linksNotSetUp, ownInstall } from "@/lib/github-sync/own-install"
 import { rateLimit } from "@/lib/api/rate-limit"
 
@@ -37,16 +49,44 @@ const SELECT = `${BASE_SELECT}, push_on_save, pull_on_push`
 
 type Db = ReturnType<typeof createAdminClient>
 
-/** The link, read with the two switches, or without them on a database that ran the first SQL. */
+/** The link, read with the two switches and the sync state, or without them on a database that ran older SQL. */
 async function readLink(db: Db, installId: string) {
+  const newest = await db.from("theme_github_links").select(`${SELECT}, sync_state`).eq("install_id", installId).maybeSingle()
+  if (!newest.error || !/sync_state/.test(newest.error.message)) return newest
   const full = await db.from("theme_github_links").select(SELECT).eq("install_id", installId).maybeSingle()
   if (!full.error || !/push_on_save|pull_on_push/.test(full.error.message)) return full
   return db.from("theme_github_links").select(BASE_SELECT).eq("install_id", installId).maybeSingle()
 }
 
+/**
+ * The built-in files this site has its own copy of, and where each came
+ * from: a push from GitHub, or the builder's code editor. Small reads: the
+ * install's settings for whether it is imported, and its rows at built-in
+ * paths. An imported theme has no Storelib built-ins.
+ */
+async function editedBuiltIns(db: Db, installId: string, fromGitHub: Set<string>) {
+  const { data: settingsRow } = await db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle()
+  const settings = (settingsRow?.draft_settings ?? settingsRow?.settings ?? {}) as Record<string, unknown>
+  if (compatOf(settings)) return []
+  const refs = referenceSchemas()
+  const paths = [...Object.keys(DEFAULT_THEME_SOURCES).filter((p) => /^(sections|blocks)\//.test(p)), ...Object.keys(refs).map((t) => `sections/${t}.storelib`)]
+  const { data } = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).in("path", paths)
+  const files: Record<string, string> = {}
+  for (const r of (data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]) {
+    const text = r.draft_content ?? r.content
+    if (typeof text === "string" && text.trim() !== "") files[r.path] = text
+  }
+  return overridesOf({ files, defaults: DEFAULT_THEME_SOURCES as Record<string, string>, referenceSchemas: refs, compat: false }).map((o) => ({
+    ...o,
+    from: fromGitHub.has(o.path) ? ("github" as const) : ("builder" as const),
+  }))
+}
+
 function publicLink(link: GitHubLink | null) {
   if (!link) return null
+  const last = (link.sync_state?.last ?? null) as LastSync | null
   return {
+    last: last ? { at: last.at, direction: last.direction, ok: last.ok, commit: last.commit, saved: last.saved.length, failed: last.failed.slice(0, 50), notes: last.notes.slice(0, 30), skipped: (last.skipped ?? []).slice(0, 30) } : null,
     account: link.account_login,
     repo: link.repo_full_name,
     branch: link.branch,
@@ -59,13 +99,9 @@ function publicLink(link: GitHubLink | null) {
   }
 }
 
-function explain(e: unknown): string {
-  if (e instanceof GitHubError) {
-    if (e.status === 403) return "GitHub refused. The Storelib app needs Contents: read and write on this repository."
-    if (e.status === 404) return "GitHub could not find that repository or branch."
-    if (e.status === 409) return "GitHub reported a conflict on that branch. Try again in a moment."
-    return `GitHub: ${e.message}`
-  }
+function explain(e: unknown, link?: Pick<GitHubLink, "repo_full_name" | "branch"> | null): string {
+  /* What happened and what to do, never GitHub's own words as they are (lib/github-sync/errors.ts). */
+  if (e instanceof GitHubError) return failureLine(explainFailure(e, { repo: link?.repo_full_name, branch: link?.branch }))
   /* Only messages written for the creator. A network or database error's
      own words name internals and are not shown. */
   if (e instanceof SyncError) return e.message
@@ -101,7 +137,7 @@ export async function GET(_req: Request, { params }: Params) {
       const token = await installationToken(cfg, link.installation_id)
       repos = (await installationRepos(token)).map((r) => ({ fullName: r.full_name, defaultBranch: r.default_branch, private: r.private }))
     } catch (e) {
-      reposError = explain(e)
+      reposError = explain(e, link)
     }
   }
   /* What went each way lately, newest first. */
@@ -115,7 +151,17 @@ export async function GET(_req: Request, { params }: Params) {
       .limit(8)
     events = (rows ?? []) as typeof events
   }
-  return NextResponse.json({ configured: Boolean(cfg), ready: true, link: publicLink(link), repos, reposError, accounts, events })
+  /* Built-in files this site has its own copy of, for Edited in GitHub and Reset. Only once a repository is linked. */
+  let overrides: { path: string; type: string; kind: string; from: "github" | "builder" }[] = []
+  if (link?.repo_full_name) {
+    try {
+      const fromGitHub = new Set(Object.keys(link.sync_state?.files ?? {}))
+      overrides = await editedBuiltIns(db, own.installId, fromGitHub)
+    } catch {
+      overrides = []
+    }
+  }
+  return NextResponse.json({ configured: Boolean(cfg), ready: true, link: publicLink(link), repos, reposError, accounts, events, overrides })
 }
 
 export async function POST(req: Request, { params }: Params) {
@@ -200,13 +246,32 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ ok: true })
   }
 
+  /*
+    RESET TO STORELIB'S VERSION. The site's own copy of a built-in section or
+    block is deleted, so the built-in draws again here as on every other site,
+    and the repository gets Storelib's text back (or the file removed, for a
+    section Storelib draws itself). Only a built-in path: a section of the
+    creator's own is never deleted from here.
+  */
+  if (body.action === "reset-override") {
+    const path = typeof body.path === "string" ? body.path : ""
+    const fromGitHub = new Set(Object.keys(link.sync_state?.files ?? {}))
+    const edited = await editedBuiltIns(db, own.installId, fromGitHub)
+    if (!edited.some((o) => o.path === path)) return NextResponse.json({ error: "That file is not an edited built-in on this site" }, { status: 404 })
+    const { error: delErr } = await db.from("store_theme_custom_files").delete().eq("install_id", own.installId).eq("path", path)
+    if (delErr) return NextResponse.json({ error: "Could not reset it just now. Try again." }, { status: 500 })
+    const shipped = (DEFAULT_THEME_SOURCES as Record<string, string>)[path]
+    after(() => mirrorToGitHub(own.installId, typeof shipped === "string" ? { kind: "save", path, content: shipped } : { kind: "delete", path }))
+    return NextResponse.json({ ok: true })
+  }
+
   if (body.action === "pull") {
     if (!link.repo_full_name) return NextResponse.json({ error: "Pick a repository first" }, { status: 409 })
     try {
-      const r = await pullNow(db, cfg, link)
+      const r = await pullNow(db, cfg, link, own.name)
       return NextResponse.json({ ok: true, ...r })
     } catch (e) {
-      return NextResponse.json({ error: explain(e) }, { status: 502 })
+      return NextResponse.json({ error: explain(e, link) }, { status: 502 })
     }
   }
 
@@ -218,7 +283,7 @@ export async function POST(req: Request, { params }: Params) {
       token = await installationToken(cfg, link.installation_id)
       repo = (await installationRepos(token)).find((r) => r.full_name.toLowerCase() === String(body.repo).toLowerCase())
     } catch (e) {
-      return NextResponse.json({ error: explain(e) }, { status: 502 })
+      return NextResponse.json({ error: explain(e, link) }, { status: 502 })
     }
     if (!repo) return NextResponse.json({ error: "Storelib cannot reach that repository. Give the app access to it on GitHub." }, { status: 403 })
     const branch = body.branch === undefined || body.branch === "" ? repo.default_branch : body.branch
@@ -238,8 +303,9 @@ export async function POST(req: Request, { params }: Params) {
     const sha = await exportSite(db, cfg, link, own.name)
     return NextResponse.json({ ok: true, commit: sha, upToDate: sha === null, link: publicLink({ ...link, last_synced_sha: sha ?? link.last_synced_sha, last_synced_at: new Date().toISOString(), last_error: null }) })
   } catch (e) {
-    const message = explain(e)
-    await db.from("theme_github_links").update({ last_error: message, updated_at: new Date().toISOString() }).eq("install_id", own.installId)
+    /* exportSite has written the reason to the link and the activity list already. */
+    const message = explain(e, link)
+    if (!(e instanceof SyncError)) await db.from("theme_github_links").update({ last_error: message, updated_at: new Date().toISOString() }).eq("install_id", own.installId)
     return NextResponse.json({ error: message, link: publicLink({ ...link, last_error: message }) }, { status: 502 })
   }
 }

@@ -2,20 +2,24 @@
 
 import * as React from "react"
 
-import { AREA_LABEL, AREAS, MIN_RATE_BASE, MIN_SAMPLES, type Area } from "@/lib/perf/config"
+import { AREA_LABEL, AREAS, CLIENT_SAMPLE_RATE, MIN_RATE_BASE, MIN_SAMPLES, PROVISIONAL_SHARE, STEPS, STEP_ROUTES, type Area } from "@/lib/perf/config"
 import { WINDOWS, type PerfReport, type ScoreDay, type WindowId } from "@/lib/perf/report"
 import {
   MIN_MEASURES,
   MIN_SUB_SCORES,
   METRIC_LINES,
   SUB_SCORES,
+  confidenceOf,
   errorsPer100,
   findAggregate,
   formatValue,
+  provisionalFloor,
   rateValue,
   scoreBand,
   type Aggregate,
+  type Confidence,
   type MeasureResult,
+  type Provisional,
   type Rating,
   type SubScoreResult,
   type Unit,
@@ -41,8 +45,13 @@ import { Banner, Button, C, DataList, Filters, Panel, cx, type Column } from "..
  *   6. How the score is worked out, printed from the rules the code runs.
  *
  * A figure with too few samples says "Insufficient data" where the number
- * would be. Nothing is drawn from a default or an estimate.
+ * would be. Between a quarter of what the official rule asks and all of it,
+ * the measured number is shown marked provisional, with how sure it is
+ * (lib/perf/scoring.ts rule 6). Nothing is drawn from a default or an
+ * estimate.
  */
+
+const SURE_WORD: Record<Confidence, string> = { high: "High confidence", medium: "Medium confidence", low: "Low confidence" }
 
 const RATING_WORD: Record<Rating, string> = { good: "Good", "needs-improvement": "Needs work", poor: "Poor" }
 
@@ -67,6 +76,21 @@ const plural = (n: number, one: string, many: string) => `${num(n)} ${n === 1 ? 
 /* ── One measured figure, or the honest absence of one ─────────────────── */
 
 function Figure({ unit, value, samples, min, good, poor, compact }: { unit: Unit; value: number | null; samples: number; min: number; good: number; poor: number; compact?: boolean }) {
+  if (value !== null && samples < min && samples >= provisionalFloor(min)) {
+    /* Rule 6: measured, on fewer samples than the official figure needs. */
+    const rating = rateValue(value, good, poor)
+    const sure = confidenceOf(samples, min) ?? "low"
+    return (
+      <span className="block min-w-0" data-figure-provisional="" title={`Provisional: ${num(samples)} of ${min} samples. ${SURE_WORD[sure]}.`}>
+        <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-[#c9c9d1]">
+          <Dot rating={rating} />
+          {formatValue(unit, value)}
+          {compact ? <span className="text-[11px] text-[#6b6b76]">*</span> : null}
+        </span>
+        {!compact ? <span className="block text-[11px] tabular-nums text-[#6b6b76]">Provisional, {num(samples)} of {min}</span> : null}
+      </span>
+    )
+  }
   if (value === null || samples < min) {
     return (
       <span className="block min-w-0" data-figure-empty="">
@@ -134,7 +158,19 @@ function ScoreHistory({ history, today }: { history: ScoreDay[]; today: string }
       <div className="flex min-h-[20px] items-baseline justify-between gap-3">
         <p className="text-[12px] tabular-nums text-[#9b9ba6]">{shown ? label(shown.day) : "Last 30 days"}</p>
         <p className="text-[13px] font-medium text-[#ededf0]">
-          {shown?.row ? shown.row.score === null ? <Insufficient /> : <span className="tabular-nums">{shown.row.score}</span> : shown ? <span className="text-[#6b6b76]">No score that day</span> : null}
+          {shown?.row ? (
+            shown.row.score !== null ? (
+              <span className="tabular-nums">{shown.row.score}</span>
+            ) : shown.row.provisional ? (
+              <span className="tabular-nums text-[#c9c9d1]">
+                {shown.row.provisional.score} <span className="text-[12px] font-normal text-[#d4a72c]">provisional</span>
+              </span>
+            ) : (
+              <Insufficient />
+            )
+          ) : shown ? (
+            <span className="text-[#6b6b76]">No score that day</span>
+          ) : null}
         </p>
       </div>
       <div className="relative mt-2 h-[96px]" role="img" aria-label="Official daily Health Index, last 30 days" onMouseLeave={() => setFocus(null)}>
@@ -147,6 +183,7 @@ function ScoreHistory({ history, today }: { history: ScoreDay[]; today: string }
         <div className="absolute inset-0 right-5 flex items-end gap-[2px]">
           {slots.map((s) => {
             const score = s.row?.score ?? null
+            const rough = score === null ? s.row?.provisional?.score ?? null : null
             const on = s.day === (focus ?? latest)
             return (
               <button
@@ -155,14 +192,14 @@ function ScoreHistory({ history, today }: { history: ScoreDay[]; today: string }
                 onMouseEnter={() => setFocus(s.day)}
                 onFocus={() => setFocus(s.day)}
                 onTouchStart={() => setFocus(s.day)}
-                aria-label={`${label(s.day)}: ${score !== null ? score : s.row ? "insufficient data" : "no score"}`}
+                aria-label={`${label(s.day)}: ${score !== null ? score : rough !== null ? `${rough}, provisional` : s.row ? "insufficient data" : "no score"}`}
                 className="flex h-full min-w-0 flex-1 items-end justify-center outline-none focus-visible:bg-white/[0.04]"
               >
                 <span
                   className="block w-full max-w-[24px] rounded-t-[4px]"
                   style={{
-                    height: score !== null ? `${Math.max(2, score)}%` : "2px",
-                    background: score !== null ? (on ? "#a78bfa" : C.accent) : on ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.1)",
+                    height: score !== null ? `${Math.max(2, score)}%` : rough !== null ? `${Math.max(2, rough)}%` : "2px",
+                    background: score !== null ? (on ? "#a78bfa" : C.accent) : rough !== null ? (on ? "rgba(167,139,250,0.5)" : "rgba(139,92,246,0.28)") : on ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.1)",
                   }}
                 />
               </button>
@@ -180,12 +217,31 @@ function ScoreHistory({ history, today }: { history: ScoreDay[]; today: string }
           {[...history].reverse().map((d) => (
             <li key={d.day} className="flex justify-between border-b border-white/[0.04] py-1">
               <span>{label(d.day)}</span>
-              <span className="text-[#ededf0]">{d.score === null ? "Insufficient data" : d.score}</span>
+              <span className="text-[#ededf0]">{d.score !== null ? d.score : d.provisional ? `${d.provisional.score}, provisional` : "Insufficient data"}</span>
             </li>
           ))}
         </ul>
       </details>
     </div>
+  )
+}
+
+/** Rule 6: the index on fewer samples than the official one needs, said as such. */
+function ProvisionalIndex({ p, used, of }: { p: Provisional; used: number; of: number }) {
+  return (
+    <>
+      <p className="text-[56px] font-semibold leading-[60px] tracking-[-0.03em] text-[#c9c9d1]" data-health-score-provisional="">
+        {p.score}
+        <span className="ml-1 text-[18px] font-normal tracking-normal text-[#6b6b76]">/ 100</span>
+      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        {bandLabel(p.score)}
+        <span className="text-[12px] text-[#d4a72c]">Provisional · {SURE_WORD[p.confidence].toLowerCase()}</span>
+      </div>
+      <p className="mt-1.5 text-[12px] leading-5 text-[#6b6b76]">
+        From {p.used} of {of} sub scores, some on few samples. The official index needs {MIN_SUB_SCORES} sub scores that meet the sample rules; {used} do now.
+      </p>
+    </>
   )
 }
 
@@ -213,6 +269,8 @@ function HealthPanel({ report }: { report: PerfReport }) {
                 <span className="text-[12px] text-[#6b6b76]">from {health.used} of {health.subs.length} sub scores</span>
               </div>
             </>
+          ) : health.provisional ? (
+            <ProvisionalIndex p={health.provisional} used={health.used} of={health.subs.length} />
           ) : (
             <>
               <p className="text-[28px] font-semibold leading-[60px] tracking-[-0.02em] text-[#9b9ba6]" data-health-score-empty="">
@@ -279,14 +337,20 @@ function MeasureRow({ m }: { m: MeasureResult }) {
             <Dot rating={m.rating} />
             {formatValue(m.unit, m.value)}
           </span>
+        ) : m.pscore !== null && m.value !== null && m.confidence ? (
+          <span className="inline-flex flex-wrap items-center gap-x-1.5 text-[13px] tabular-nums text-[#c9c9d1]" data-measure-provisional="">
+            <Dot rating={rateValue(m.value, m.good, m.poor)} />
+            {formatValue(m.unit, m.value)}
+            <span className="text-[11px] text-[#d4a72c]">provisional, {num(m.base)} of {m.need}</span>
+          </span>
         ) : (
-          <Insufficient />
+          <Insufficient note={m.base ? `${num(m.base)} of ${m.need}` : undefined} />
         )}
         <p className="text-[11px] tabular-nums text-[#6b6b76]">
           good {formatValue(m.unit, m.good)}, poor past {formatValue(m.unit, m.poor)}
         </p>
       </div>
-      <p className="hidden text-right text-[13px] tabular-nums text-[#c9c9d1] sm:block">{m.score ?? ""}</p>
+      <p className="hidden text-right text-[13px] tabular-nums text-[#c9c9d1] sm:block">{m.score ?? (m.pscore !== null ? <span className="text-[#6b6b76]">{m.pscore}*</span> : "")}</p>
     </li>
   )
 }
@@ -311,11 +375,23 @@ function SubScores({ subs }: { subs: SubScoreResult[] }) {
                   <span className="block text-[13px] leading-[18px] text-[#ededf0]">{s.label}</span>
                   <span className="block text-[11px] tabular-nums text-[#6b6b76]">
                     {s.used} of {s.measures.length} measured{s.score === null ? `, needs ${needed}` : ""}
+                    {s.score === null && s.provisional ? `; ${s.provisional.used} on few samples` : ""}
                   </span>
                 </span>
-                <span className="col-span-2 row-start-2 mt-1.5 block sm:col-span-1 sm:row-start-auto sm:mt-0">{s.score !== null ? <Meter score={s.score} /> : <span aria-hidden className="block h-1.5 w-full rounded-full bg-white/[0.04]" />}</span>
+                <span className="col-span-2 row-start-2 mt-1.5 block sm:col-span-1 sm:row-start-auto sm:mt-0">
+                  {s.score !== null ? <Meter score={s.score} /> : s.provisional ? <span className="block opacity-50"><Meter score={s.provisional.score} /></span> : <span aria-hidden className="block h-1.5 w-full rounded-full bg-white/[0.04]" />}
+                </span>
                 <span className="text-right">
-                  {s.score !== null ? <span className="text-[20px] font-semibold leading-6 text-[#ededf0]">{s.score}</span> : <span className="whitespace-nowrap text-[12px] leading-4 text-[#6b6b76]" data-insufficient="">Insufficient data</span>}
+                  {s.score !== null ? (
+                    <span className="text-[20px] font-semibold leading-6 text-[#ededf0]">{s.score}</span>
+                  ) : s.provisional ? (
+                    <span className="block leading-4" data-sub-provisional="">
+                      <span className="text-[20px] font-semibold leading-6 text-[#9b9ba6]">{s.provisional.score}</span>
+                      <span className="block whitespace-nowrap text-[11px] text-[#d4a72c]">{s.provisional.confidence === "low" ? "Provisional, low" : "Provisional"}</span>
+                    </span>
+                  ) : (
+                    <span className="whitespace-nowrap text-[12px] leading-4 text-[#6b6b76]" data-insufficient="">Insufficient data</span>
+                  )}
                 </span>
               </button>
               {isOpen ? (
@@ -476,6 +552,7 @@ function AreasPanel({ aggs }: { aggs: Aggregate[] }) {
           </li>
         ))}
       </ul>
+      <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] leading-5 text-[#6b6b76]">* Provisional: fewer samples than the official figure needs.</p>
     </Panel>
   )
 }
@@ -523,15 +600,45 @@ function ErrorsPanel({ report }: { report: PerfReport }) {
     { key: "last", label: "Last", width: "80px", align: "right", render: (e) => ago(e.lastAt) },
   ]
   return (
-    <Panel title="JavaScript errors" meta="In sampled page views">
+    <Panel title="JavaScript errors" meta="In measured page views">
       {rows === null ? (
         <p className="px-4 py-6 text-[13px]"><Insufficient /></p>
       ) : (
-        <DataList columns={columns} rows={rows} rowKey={(e) => `${e.area}${e.route}${e.detail}`} empty="No JavaScript error in the sampled page views of this window." label="JavaScript errors" />
+        <DataList columns={columns} rows={rows} rowKey={(e) => `${e.area}${e.route}${e.detail}`} empty="No JavaScript error in this window." label="JavaScript errors" />
       )}
       <p className="border-t border-white/[0.08] px-4 py-2.5 text-[12px] leading-5 text-[#6b6b76]">
         Crashes that reach an error screen are also counted in full under <a href="/admin?view=system" className="text-[#c9c9d1] underline decoration-white/20 underline-offset-2 hover:text-[#ededf0]">Health</a>.
       </p>
+    </Panel>
+  )
+}
+
+/** The flow steps (lib/perf/mark.ts), each its own figure: how long it took, and how often it failed. */
+function StepsPanel({ aggs }: { aggs: Aggregate[] }) {
+  return (
+    <Panel title="Steps people wait on" meta="Timed in the browser, 75th percentile">
+      <ul className="divide-y divide-white/[0.06]" data-steps="">
+        {STEP_ROUTES.map((route) => {
+          const st = STEPS[route]
+          const done = findAggregate(aggs, st.area, "step", "*", route)
+          const fails = findAggregate(aggs, st.area, "fail", "*", route)?.samples ?? 0
+          const tries = (done?.samples ?? 0) + fails
+          return (
+            <li key={route} className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 px-4 py-2.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]" data-step={route}>
+              <span className="min-w-0">
+                <span className="block text-[13px] text-[#ededf0]">{st.label}</span>
+                <span className="block text-[11px] text-[#6b6b76]">{AREA_LABEL[st.area]} · good {formatValue("ms", st.good)}</span>
+              </span>
+              <span className="min-w-0 text-right sm:text-left">
+                <Figure unit="ms" value={done?.p75 ?? null} samples={done?.samples ?? 0} min={MIN_SAMPLES} good={st.good} poor={st.poor} />
+              </span>
+              <span className="col-span-2 mt-1 min-w-0 text-[12px] tabular-nums text-[#9b9ba6] sm:col-span-1 sm:mt-0 sm:text-right">
+                {tries === 0 ? <span className="text-[#6b6b76]">No attempts yet</span> : fails === 0 ? `None failed of ${num(tries)}` : `${num(fails)} of ${num(tries)} failed`}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
     </Panel>
   )
 }
@@ -596,7 +703,9 @@ function DatabasePanel({ report }: { report: PerfReport }) {
 }
 
 function InfraPanel({ report }: { report: PerfReport }) {
-  const { jobs, supabase, vercel } = report
+  const { jobs, supabase, vercel, aggs } = report
+  const runs = findAggregate(aggs, "infra", "job")
+  const hooks = findAggregate(aggs, "infra", "api")
   const line = (label: string, sub: string, value: React.ReactNode) => (
     <div className="flex items-start justify-between gap-4 px-4 py-2.5">
       <dt className="min-w-0 text-[13px] text-[#9b9ba6]">
@@ -619,6 +728,27 @@ function InfraPanel({ report }: { report: PerfReport }) {
               {jobs.late === 0 ? `All ${jobs.known} on time` : `${jobs.late} of ${jobs.known} late`}
             </span>
           ),
+        )}
+        {line(
+          "Scheduled job runs",
+          "Every run, timed, and the ones that answered 5xx",
+          !runs ? <Insufficient /> : (
+            <span className="block tabular-nums">
+              <span className="inline-flex items-center gap-1.5">
+                <Dot rating={runs.bad === 0 ? "good" : runs.bad / runs.samples > 0.05 ? "poor" : "needs-improvement"} />
+                {runs.bad === 0 ? `${num(runs.samples)} runs, none failed` : `${num(runs.bad)} of ${num(runs.samples)} runs failed`}
+              </span>
+              {runs.p50 !== null ? <span className="block text-[11px] text-[#6b6b76]">{formatValue("ms", runs.p50)} at the median</span> : null}
+            </span>
+          ),
+        )}
+        {line(
+          "Webhooks",
+          "Stripe, Mailgun and Airwallex, answer time at the 75th percentile",
+          <span className="block">
+            <Figure unit="ms" value={hooks?.p75 ?? null} samples={hooks?.samples ?? 0} min={MIN_SAMPLES} good={METRIC_LINES.api.good} poor={METRIC_LINES.api.poor} />
+            {hooks && hooks.bad ? <span className="block text-[11px] tabular-nums text-[#f47067]">{num(hooks.bad)} answered 5xx</span> : null}
+          </span>,
         )}
         {line(
           "Supabase",
@@ -711,7 +841,12 @@ function RulesPanel() {
           {SUB_SCORES.map((s) => `${s.label.toLowerCase()} ${s.weight}`).join(", ")}.
         </li>
         <li>The official score of a day is worked out the night after, from that day&apos;s measurements, and kept. 90 and over reads as good, under 50 as poor.</li>
-        <li>Measured in one page load in five on storelib.com and one API request in five; the other loads send nothing. Raw samples are kept 8 days, daily rollups 120.</li>
+        <li>
+          Short of rule 3, a figure with at least {Math.round(PROVISIONAL_SHARE * 100)}% of the samples it needs is shown as provisional, with how sure it is: low, or medium from half. Sub scores and the index are then worked out the same way from those, marked provisional. They never replace an official score.
+        </li>
+        <li>
+          {CLIENT_SAMPLE_RATE >= 1 ? "Every page load and every timed API call is measured" : `${Math.round(CLIENT_SAMPLE_RATE * 100)}% of page loads are measured`}, with caps per page load and per route so a long session or a busy route cannot cost more. Raw samples are kept 31 days, daily rollups 120.
+        </li>
       </ol>
       <details className="border-t border-white/[0.08]">
         <summary className="flex min-h-[44px] cursor-pointer select-none items-center px-4 text-[13px] text-[#9b9ba6] hover:text-[#ededf0]">The lines for each measurement</summary>
@@ -780,7 +915,7 @@ export function PerformanceAdmin({ initial }: { initial: PerfReport }) {
         <div className="mb-4 min-w-0">
           <h1 className="text-[20px] font-semibold tracking-[-0.015em] sm:text-[22px]">Performance and health</h1>
           <p className="mt-0.5 text-[13px] text-[#9b9ba6]">
-            Measured in browsers on storelib.com and on Storelib&apos;s own API. Read {ago(report.generatedAt)}.
+            Measured on {report.sampling.client >= 1 ? "every page load" : `${Math.round(report.sampling.client * 100)}% of page loads`} on storelib.com, in the apps, on OnePages and on published websites, and on Storelib&apos;s own API. Read {ago(report.generatedAt)}.
           </p>
         </div>
 
@@ -813,6 +948,7 @@ export function PerformanceAdmin({ initial }: { initial: PerfReport }) {
           <VitalsPanel aggs={report.aggs} />
           <AreasPanel aggs={report.aggs} />
           <ApiPanel aggs={report.aggs} />
+          <StepsPanel aggs={report.aggs} />
           <div className="grid min-w-0 items-start gap-3 lg:grid-cols-2">
             <CheckoutPanel report={report} />
             <InfraPanel report={report} />

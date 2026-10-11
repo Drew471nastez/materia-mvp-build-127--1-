@@ -34,6 +34,8 @@
 import { accessStateOf, formatMoney, isPlausibleToken, lineMoney, normaliseCurrency, orderNumberOf, overallState, type AccessState } from "@/lib/receipts/rules"
 import { isMissingColumn, UUID, type Db } from "./db"
 import type { CustomerRow } from "./customers"
+import { carrierTrackingUrl } from "@/lib/physical/carriers"
+import { orderPagePath } from "@/lib/physical/order-link"
 
 export interface CustomerOrderItem {
   title: string
@@ -67,11 +69,33 @@ export interface CustomerOrder {
   action_label: string
   /** The order's receipt on storelib.com, which is also where its files are. */
   action_url: string
+  /**
+   * Something that ships: where it is, as the order page says it (unfulfilled,
+   * processing, partially_fulfilled, fulfilled, delivered, cancelled), its
+   * parcels, and the order's own page on this website, where the status, the
+   * carrier and the tracking are (app/checkout/physical/order). Left out for
+   * an order with nothing to ship.
+   */
+  fulfillment_status?: string
+  delivery_method?: string
+  tracking?: CustomerTracking[]
+  order_url?: string
   /* The first item and the total, under the names a template written before orders had items reads. */
   title: string
   image: string
   url: string
   price: string
+}
+
+/** One parcel of an order, as the buyer follows it. */
+export interface CustomerTracking {
+  /** "UPS", or "" when the seller named none. */
+  company: string
+  number: string
+  /** The carrier's own tracking page, or "" for a carrier with none we know. */
+  url: string
+  /** In words: Shipped, In transit, Out for delivery, Delivered, Ready for pickup, Picked up. */
+  status: string
 }
 
 export interface CustomerObject {
@@ -95,7 +119,7 @@ export interface CustomerObject {
 /** Rows a customer is shown: paid, and paid then refunded or disputed. Never a payment that failed. */
 const SHOWN = ["completed", "refunded", "partially_refunded", "disputed"]
 
-const ORDER_COLUMNS = "id, product_id, variant_name, amount_cents, tip_cents, currency, status, created_at, receipt_token, stripe_session_id, paypal_order_id, refund_amount_cents, shipped_at, delivered_at"
+const ORDER_COLUMNS = "id, product_id, variant_name, amount_cents, tip_cents, currency, status, created_at, receipt_token, stripe_session_id, paypal_order_id, refund_amount_cents, shipped_at, delivered_at, checkout_id"
 
 interface OrderRow {
   id: string
@@ -112,6 +136,8 @@ interface OrderRow {
   refund_amount_cents?: number | null
   shipped_at?: string | null
   delivered_at?: string | null
+  /** The physical checkout it was paid in (supabase/sql/run-now/78), whose order page follows it. */
+  checkout_id?: string | null
 }
 
 interface ProductRow {
@@ -170,15 +196,94 @@ async function readOrders(db: Db, creatorId: string, email: string): Promise<Ord
   return loose.error ? [] : ((loose.data ?? []) as OrderRow[])
 }
 
-function statusWords(state: AccessState, rows: OrderRow[], physical: boolean, refundedCents: number): string {
+function statusWords(state: AccessState, rows: OrderRow[], physical: boolean, refundedCents: number, ship: ShipFacts | null = null): string {
   if (state === "pending") return "Processing"
   if (state === "refunded") return "Refunded"
   if (state === "held" || state === "failed") return "On hold"
+  /* Something that ships: where the parcel is says more than a part refund does. */
+  if (physical && ship) return shipWords(ship)
   if (refundedCents > 0) return "Partly refunded"
   if (!physical) return "Complete"
   if (rows.some((r) => r.delivered_at)) return "Delivered"
   if (rows.some((r) => r.shipped_at)) return "Shipped"
   return "Confirmed"
+}
+
+/* ─── What ships: the checkout's own status and its parcels ─────────────── */
+
+interface ShipFacts {
+  /** The order page's key (commerce_checkouts.receipt_token). */
+  token: string | null
+  fulfillment: string
+  method: string
+  cancelled: boolean
+  tracking: CustomerTracking[]
+}
+
+const PARCEL_WORDS: Record<string, [string, string]> = {
+  shipped: ["Shipped", "Ready for pickup"],
+  in_transit: ["In transit", "Ready for pickup"],
+  out_for_delivery: ["Out for delivery", "Ready for pickup"],
+  delivered: ["Delivered", "Picked up"],
+  failed: ["Delivery problem", "Delivery problem"],
+  submitted: ["Sent to be shipped", "Being prepared"],
+  pending: ["Being prepared", "Being prepared"],
+}
+
+/** The order as its buyer reads it, from the checkout's fulfilment status (lib/physical/status). */
+export function shipWords(f: Pick<ShipFacts, "fulfillment" | "method" | "cancelled">): string {
+  const pickup = f.method === "pickup"
+  if (f.cancelled || f.fulfillment === "cancelled") return "Cancelled"
+  switch (f.fulfillment) {
+    case "processing":
+      return "Processing"
+    case "partially_fulfilled":
+      return pickup ? "Partly ready" : "Partly shipped"
+    case "fulfilled":
+      return pickup ? "Ready for pickup" : "Shipped"
+    case "delivered":
+      return pickup ? "Picked up" : "Delivered"
+    default:
+      return "Confirmed"
+  }
+}
+
+/** The checkouts these orders were paid in, this creator's only, with their parcels. Empty before physical commerce's tables exist. */
+async function shippingFacts(db: Db, creatorId: string, checkoutIds: string[]): Promise<Map<string, ShipFacts>> {
+  const out = new Map<string, ShipFacts>()
+  const ids = [...new Set(checkoutIds.filter((id) => UUID.test(id)))].slice(0, 200)
+  if (ids.length === 0) return out
+  try {
+    const { data, error } = await db.from("commerce_checkouts").select("id, creator_id, receipt_token, fulfillment_status, delivery_method, cancelled_at").in("id", ids).eq("creator_id", creatorId)
+    if (error || !Array.isArray(data)) return out
+    for (const c of data as { id: string; creator_id?: string; receipt_token?: string | null; fulfillment_status?: string | null; delivery_method?: string | null; cancelled_at?: string | null }[]) {
+      if (c.creator_id && c.creator_id !== creatorId) continue
+      out.set(c.id, {
+        token: orderPagePath(c.receipt_token) ? (c.receipt_token as string) : null,
+        fulfillment: String(c.fulfillment_status ?? "unfulfilled"),
+        method: String(c.delivery_method ?? "ship"),
+        cancelled: !!c.cancelled_at,
+        tracking: [],
+      })
+    }
+    if (out.size === 0) return out
+    const parcels = await db.from("fulfillments").select("checkout_id, status, carrier, tracking_number, tracking_url, created_at").in("checkout_id", [...out.keys()]).order("created_at", { ascending: true })
+    if (parcels.error || !Array.isArray(parcels.data)) return out
+    for (const f of parcels.data as { checkout_id: string; status?: string | null; carrier?: string | null; tracking_number?: string | null; tracking_url?: string | null }[]) {
+      const facts = out.get(f.checkout_id)
+      if (!facts || f.status === "cancelled") continue
+      const number = typeof f.tracking_number === "string" ? f.tracking_number.trim() : ""
+      const pickup = facts.method === "pickup"
+      /* A pickup has no parcel to follow; a shipment sent without a number still says it shipped, on the status. */
+      if (pickup || !number) continue
+      const saved = typeof f.tracking_url === "string" && /^https:\/\/[^\s"'<>]+$/.test(f.tracking_url) ? f.tracking_url : ""
+      const words = PARCEL_WORDS[String(f.status ?? "shipped")] ?? PARCEL_WORDS.shipped
+      facts.tracking.push({ company: (f.carrier ?? "").trim(), number, url: saved || carrierTrackingUrl(f.carrier, number) || "", status: words[0] })
+    }
+  } catch {
+    /* Drawn from the order rows alone. */
+  }
+  return out
 }
 
 /**
@@ -220,6 +325,9 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
     groups.set(key, list)
   }
 
+  /* Something that ships: its checkout's status, parcels and order page (lib/physical). */
+  const ships = await shippingFacts(db, scope.creatorId, rows.map((r) => r.checkout_id ?? "").filter(Boolean))
+
   const orders = [...groups.values()].map((list) => {
     const lines = [...list].sort((a, b) => String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) || a.id.localeCompare(b.id))
     const first = lines[0]
@@ -244,6 +352,9 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
       { total: 0, refunded: 0 },
     )
     const physical = types.some((t) => t === "physical")
+    const shipFacts = physical ? (lines.map((r) => (r.checkout_id ? ships.get(r.checkout_id) : undefined)).find(Boolean) ?? null) : null
+    /* The order's own page: on whatever host this account is drawn on (the website's, or storelib.com), it is the same page. */
+    const orderPage = shipFacts ? orderPagePath(shipFacts.token) : null
     const open = state === "open"
     /* An order that ships is followed on its own page: status, carrier and tracking (app/checkout/physical/order), the way a shop's own account does it. */
     const shipsOnly = physical && types.every((t) => t === "physical")
@@ -266,7 +377,7 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         number: orderNumberOf(first.id),
         date: orderDate(first.created_at),
         created_at: String(first.created_at ?? ""),
-        status: statusWords(state, lines, physical, money.refunded),
+        status: statusWords(state, lines, physical, money.refunded, shipFacts),
         state,
         total,
         total_cents: money.total,
@@ -275,7 +386,22 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         item_count: items.length,
         action_label,
         /* A download on a website whose account draws order pages (an imported theme's): that page, on the website, where each file downloads (./order-files.ts). */
-        action_url: opts.orderPages && action_label === "Download" ? `/account/orders/${first.id}` : token ? `${platform}/${shipsOnly ? "checkout/physical/order" : "receipt"}/${encodeURIComponent(token)}` : "",
+        /*
+          Something that only ships opens its order page, keyed by its
+          checkout's token (the order rows' own tokens are receipts, which
+          send a parcel on to that same page: lib/receipts/physical-order).
+        */
+        action_url:
+          opts.orderPages && action_label === "Download"
+            ? `/account/orders/${first.id}`
+            : shipsOnly && orderPage
+              ? orderPage
+              : token
+                ? `${platform}/receipt/${encodeURIComponent(token)}`
+                : "",
+        ...(shipFacts
+          ? { fulfillment_status: shipFacts.cancelled ? "cancelled" : shipFacts.fulfillment, delivery_method: shipFacts.method, tracking: shipFacts.tracking, order_url: orderPage ?? "" }
+          : {}),
         title: label,
         image: items.find((i) => i.image)?.image ?? "",
         url: items[0]?.url ?? "",

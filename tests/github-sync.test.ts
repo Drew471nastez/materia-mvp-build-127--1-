@@ -30,7 +30,6 @@ import {
   branchOf,
   changedFiles,
   changedFromCompare,
-  exportPlan,
   isOwnPush,
   normalizeRoot,
   pushedBy,
@@ -44,6 +43,10 @@ import {
   verifyState,
 } from "@/lib/github-sync/core"
 import { changesFor, describeChange } from "@/lib/github-sync/core"
+import { themeFiles, gitBlobSha, roleOf, readsBack } from "@/lib/github-sync/layout"
+import { compatSchemaChange } from "@/lib/github-sync/sync"
+import { travels } from "@/lib/github-sync/mirror"
+import { wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
 
 let passed = 0
 let failed = 0
@@ -119,11 +122,12 @@ function main() {
     { added: ["sections/faq.storelib", "README.md"], modified: ["sections/hero.storelib"] },
     { removed: ["sections/hero.storelib"], added: ["sections/pricing.storelib"] },
     { modified: ["sections/faq.storelib", "templates/home.json", "sections/Bad Name.storelib"] },
-  ], "")
-  check("only section files are taken", !pushed.changed.includes("README.md") && !pushed.changed.includes("templates/home.json"))
+  ], "", (p) => readsBack(roleOf(p, { compat: false })))
+  /* Changed on purpose (round Z): the whole theme travels, so a page file is taken too; anything else in the repository is still the owner's. */
+  check("theme files are taken, and only those", !pushed.changed.includes("README.md") && pushed.changed.includes("templates/home.json"))
   check("a name the site would refuse is ignored, not tried", !pushed.changed.some((p) => /Bad/.test(p)))
   check("a file changed and then removed in one push is removed", pushed.removed.includes("sections/hero.storelib") && !pushed.changed.includes("sections/hero.storelib"))
-  check("and the rest are changed, once each", pushed.changed.sort().join() === "sections/faq.storelib,sections/pricing.storelib")
+  check("and the rest are changed, once each", pushed.changed.sort().join() === "sections/faq.storelib,sections/pricing.storelib,templates/home.json")
 
   const inFolder = changedFiles([{ added: ["site/sections/faq.storelib", "sections/faq.storelib", "other/sections/x.storelib"] }], "site/")
   check("in a folder, only that folder's sections count", inFolder.changed.join() === "sections/faq.storelib")
@@ -154,11 +158,19 @@ function main() {
 
   console.log("\nWhat is written into the repository")
 
-  const plan = exportPlan(
-    [{ path: "sections/faq.storelib", source: "<template/>" }, { path: "templates/home.json", source: "{}" }, { path: "sections/hero.storelib", source: "h" }],
-    { siteName: "Astrid", branch: "main", root: "" },
-  )
-  check("the site's section files, and only those", plan.filter((f) => f.path.startsWith("sections/")).length === 2 && !plan.some((f) => f.path.startsWith("templates/")))
+  // Changed on purpose: the repository is the whole theme now, not its section files (tests/github-theme-sync.test.ts runs it end to end).
+  const guides = () => ({ readme: "r", agents: agentsGuide({ siteName: "Astrid", branch: "main", root: "" }), claude: CLAUDE_MD })
+  const plan = themeFiles(
+    { name: "Astrid", compat: false, settings: { a: 1 }, pages: [{ page_key: "home", sections: [{ id: "x", type: "hero", settings: {} }] }], files: { "sections/faq.storelib": "<template/>", "templates/home.json": "{}" }, defaults: { "sections/hero.storelib": "h" } },
+    guides,
+  ).files
+  check("the whole theme: sections, settings and pages, the pages from the builder rather than a saved row",
+    plan.filter((f) => /^sections\/.*\.storelib$/.test(f.path)).length === 2 && plan.some((f) => f.path === "config/settings.json") && JSON.parse(plan.find((f) => f.path === "templates/home.json")!.text!).order[0] === "x")
+  check("and nothing that is not a theme file: a saved row outside the theme's folders stays out",
+    (() => {
+      const p = themeFiles({ name: "A", compat: false, settings: {}, pages: [], files: { "package.json": "{}", "blocks/_card.storelib": "b" }, defaults: {} }, guides).files.map((f) => f.path)
+      return p.includes("blocks/_card.storelib") && !p.includes("package.json")
+    })())
   check("with an AGENTS.md and a CLAUDE.md", plan.some((f) => f.path === "AGENTS.md") && plan.some((f) => f.path === "CLAUDE.md"))
   check("CLAUDE.md pulls in AGENTS.md, so there is one text to keep right", /@AGENTS\.md/.test(CLAUDE_MD))
   const guide = agentsGuide({ siteName: "Astrid", branch: "main", root: "" })
@@ -166,26 +178,57 @@ function main() {
   check("and where the full reference is", /storelib\.com\/developers/.test(guide) && /llms-full\.txt/.test(guide))
   check("that a removed file does not remove a section", /Deleting a section file here does not remove/.test(guide))
   check("and has no em dash", !/\u2014/.test(guide))
-  check("in a folder, everything is written into it", exportPlan([{ path: "sections/a.storelib", source: "" }], { siteName: "A", branch: "main", root: "site/" }).every((f) => f.path.startsWith("site/")))
+  check("in a folder, everything is written into it", /repoPathFor|`\$\{root\}\$\{f\.path\}`/.test(read("lib/github-sync/sync.ts")) && repoPathFor("site/", "sections/a.storelib") === "site/sections/a.storelib")
   check("a status line fits GitHub's 140 characters", statusLine("x".repeat(500)).length === 140 && statusLine("  a   b ") === "a b")
 
   console.log("\nSaving what a push brought")
 
   const sync = read("lib/github-sync/sync.ts")
-  check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, path, source\)/.test(sync))
-  check("a file already saved with the same text is skipped, so a redelivered webhook changes nothing",
-    /current\.get\(path\) === source/.test(sync) && /out\.unchanged\.push\(path\)/.test(sync))
+  check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, f\.path, text\)/.test(sync))
+  // Changed on purpose: "the same" is now the same bytes, by git blob sha, against what GitHub and Storelib last agreed on.
+  check("a file Storelib already has is skipped, so a redelivered webhook changes nothing",
+    /agreed\[f\.path\] === f\.sha \|\| currentSha\.get\(f\.path\) === f\.sha/.test(sync) && /out\.unchanged\.push\(f\.path\)/.test(sync))
   check("what the site has now is read once for the whole push, not once per file",
-    /current = await sectionSources\(db, link\.install_id, paths\)/.test(sync) && !/await readFile\(/.test(sync))
-  check("sending to GitHub reads every section in one query, not a list and a read each",
-    /all = await sectionSources\(db, link\.install_id\)/.test(sync) && !/listFiles\(/.test(sync))
+    /snap = await readSnapshot\(db, link\.install_id/.test(sync) && !/await readFile\(/.test(sync))
+  check("sending to GitHub reads the whole theme in one snapshot, not a list and a read each",
+    /snap = await readSnapshot\(db, link\.install_id, \{ name: siteName/.test(sync) && !/listFiles\(/.test(sync))
   check("a database's own words never go into a commit status", /publicError\(saved\.status, saved\.error\)/.test(sync))
-  check("an open builder hears about it through the same activity log agents write",
-    /from\("theme_agent_activity"\)\.insert\(/.test(sync) && /token_id: null/.test(sync))
+  /* From round Z's apply.ts, kept when the two whole-theme syncs became one (sync.ts): each kind through the door the builder uses. */
+  check("a page through the same cleaning and limits the page save runs", /sanitizeSections\(page\.sections/.test(sync) && /LIMITS\.sectionsPerTemplate/.test(sync) && /blockTreeProblem/.test(sync) && /draft_sections: sections/.test(sync))
+  check("the settings through the same cleaning the settings save runs, as a draft", /next = sanitizeThemeSettings\(next\)/.test(sync) && /update\(\{ draft_settings: next \}\)/.test(sync))
+  check("Pull fetches only what differs, by Git's own file ids", /known\[path\] === entry\.sha/.test(sync) && /currentShas\(snap, link\)/.test(sync))
+  check("an open builder hears about it through the same activity log agents write, a page as a page",
+    /from\("theme_agent_activity"\)\.insert\(/.test(sync) && /token_id: null/.test(sync) && /path: `pages\/\$\{page\.page_key\}`/.test(sync) && /replaced: true/.test(sync))
+  check("and reads a replaced page or the settings again, keeping an edit not saved yet", /if \(replacedHere\)/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /Your unsaved edit is kept/.test(read("app/website-builder/editor/[installId]/page.tsx")))
   check(`at most ${MAX_FILES_PER_PUSH} files from one push`, /changed\.length > MAX_FILES_PER_PUSH/.test(sync))
   check("the commit gets a Storelib status either way", /setStatus\(token, repo, after/.test(sync) && /context: "Storelib"/.test(gh))
   check("a deleted branch is not a push to sync", /payload\.deleted/.test(sync))
   check("nothing is ever deleted from a site by a push", !/\.delete\(\)/.test(sync))
+
+  console.log("\nThe whole theme, both ways")
+  /* Changed on purpose: round Z's tracked()/trackedFor() and W3's layout did the same job; one stayed (lib/github-sync/layout.ts, roleOf). */
+  const storelib = { compat: false }
+  check("a theme file is read back, and a repository's own files are not",
+    ["sections/faq.storelib", "blocks/_card.storelib", "templates/about.json", "sections/header-group.json", "config/settings.json", "assets/base.css", "locales/en.default.json"].every((p) => readsBack(roleOf(p, storelib))) &&
+      !["README.md", "package.json", ".github/workflows/x.yml", "sections/Bad Name.storelib", "../x.json"].some((p) => readsBack(roleOf(p, storelib))))
+  check("an imported theme's own files are read back under shopify/, and a shopify/ folder in a Storelib theme is the owner's",
+    readsBack(roleOf("shopify/layout/theme.liquid", { compat: true })) && roleOf("shopify/layout/theme.liquid", storelib) === "outside")
+  check("Git's id for a file's bytes, computed here the way Git computes it", gitBlobSha("hello\n") === "ce013625030ba8dba906f756967f9e9ca394464a" && gitBlobSha("") === "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391")
+  {
+    const g = agentsGuide({ siteName: "Maya", branch: "main", root: "", kind: "shopify" })
+    check("an imported theme's repository says what it holds and what comes back", /shopify\//.test(g) && /<template compat="shopify">/.test(g) && /schema block/.test(g) && /`main`/.test(g) && /Publish/.test(g) && !/\u2014/.test(g))
+  }
+  {
+    /* Round Z's rule, kept: an imported section's markup comes back from GitHub, its settings (the schema) do not. */
+    const markup = "<div class=\"x\">{{ section.settings.title }}</div>"
+    const theirs = { name: "Hero", settings: [{ type: "text", id: "title", label: "Title" }] }
+    const stored = `${wrapCompatTemplate(markup)}\n\n<schema>\n${JSON.stringify({ name: "Hero", settings: [{ type: "text", id: "title", label: "Title" }], shopify: theirs }, null, 2)}\n</schema>\n`
+    check("an imported section sent back unchanged is taken", compatSchemaChange("sections/hero.storelib", stored, stored) === null)
+    check("a markup change is taken with the settings kept", compatSchemaChange("sections/hero.storelib", stored, stored.replace("class=\"x\"", "class=\"y\"")) === null)
+    check("  and key order or spacing in the schema is not a change", compatSchemaChange("sections/hero.storelib", stored, stored.replace(/<schema>[\s\S]*<\/schema>/, `<schema>${JSON.stringify({ shopify: theirs, settings: [{ label: "Title", id: "title", type: "text" }], name: "Hero" })}</schema>`)) === null)
+    check("a settings change is refused and said so", /settings/.test(compatSchemaChange("sections/hero.storelib", stored, stored.split("\"Title\"").join("\"Headline\"")) ?? ""))
+    check("a schema that is not JSON is said so", /not valid JSON/.test(compatSchemaChange("sections/hero.storelib", stored, stored.replace(/<schema>[\s\S]*<\/schema>/, "<schema>{nope</schema>")) ?? ""))
+  }
 
   console.log("\nThe table")
 
@@ -258,7 +301,10 @@ function main() {
       && del.length === 1 && "delete" in del[0] && del[0].path === "site/sections/faq.storelib"
       && ren.length === 2 && "delete" in ren[0] && ren[0].path === "sections/a.storelib" && "content" in ren[1] && ren[1].path === "sections/b.storelib"
   })())
-  check("only section files travel", changesFor("", { kind: "save", path: "templates/home.json", content: "{}" }).length === 0)
+  /* Changed on purpose: every theme file travels as itself (W3's travels(), an imported theme's own files too); pages and settings go whole on Push and Publish. */
+  check("a theme file travels as itself, a page or the settings never on their own", changesFor("", { kind: "save", path: "templates/home.json", content: "{}" }, travels).length === 0 &&
+    changesFor("", { kind: "save", path: "blocks/_card.storelib", content: "b" }, travels).length === 1 && changesFor("", { kind: "save", path: "shopify/assets/base.css", content: "b" }, travels).length === 1 && /changesFor\(root, change, travels\)/.test(read("lib/github-sync/mirror.ts")))
+  check("and a publish sends the whole theme", /after\(\(\) => mirrorWholeTheme\(installId, "Published in the builder"\)\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
   check("the change is described in words", describeChange({ kind: "rename", from: "sections/a.storelib", to: "sections/b.storelib", content: "" }) === "Renamed a to b in the builder")
   const mirror = read("lib/github-sync/mirror.ts")
   check("only when the site is linked and sends changes", /link\.push_on_save === false\) return/.test(mirror))
@@ -283,7 +329,7 @@ function main() {
   check("a site with incoming changes switched off is left alone", /\(l\) => l\.pull_on_push !== false &&/.test(sync2))
   check("and so is a link made through another installation than the one that sent the push",
     /Number\(l\.installation_id\) === from/.test(sync2) && /const from = Number\(payload\.installation\?\.id\)/.test(sync2))
-  check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /takeFiles\(db, token, link, link\.repo_full_name, tree\.sha/.test(sync2))
+  check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /applyFiles\(db, link, snap, read\.incoming, "GitHub"/.test(sync2))
   check("each way is written to the activity list", (sync2.match(/recordEvent\(db/g) ?? []).length >= 3)
   const route = read("app/api/website-builder/themes/[installId]/github/route.ts")
   check("the route takes pull, settings and change-repo", /body\.action === "pull"/.test(route) && /body\.action === "settings"/.test(route) && /body\.action === "change-repo"/.test(route))
@@ -306,7 +352,7 @@ function main() {
   console.log("\nGitHub, safely")
   check("an error that is not GitHub's own, or written for the creator, is not shown as it is",
     /if \(e instanceof SyncError\) return e\.message/.test(route) && !/return e instanceof Error \? e\.message/.test(route))
-  check("  including in what a failed commit writes to the activity list", /const why = e instanceof GitHubError \? e\.message : "GitHub did not answer"/.test(mirror))
+  check("  including in what a failed commit writes to the activity list", /const why = e instanceof GitHubError \? failureLine\(explainFailure\(e/.test(mirror))
   check("Pull, Push and linking are rate limited per site", /bucket: "github-sync"/.test(route) && /subjects: \[`install:\$\{own\.installId\}`\]/.test(route))
   check("the webhook refuses an oversized body before reading it",
     hook.indexOf('req.headers.get("content-length")') > 0 && hook.indexOf('req.headers.get("content-length")') < hook.indexOf("await req.text()"))

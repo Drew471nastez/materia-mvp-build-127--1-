@@ -27,6 +27,7 @@ import { loadTaxForCheckout } from "@/lib/tax/server"
 import { checkoutTaxFor } from "@/lib/tax/rules"
 import { createAdminClient as checkoutAdmin } from "@/lib/supabase/admin"
 import type { CommunityCheckoutTerms } from "@/components/community/membership/checkout-policy"
+import { rowsOwn } from "@/lib/checkout/owned"
 
 interface CheckoutPageProps {
   searchParams: Promise<{ productId?: string; variantId?: string; customPrice?: string; return?: string; cancel?: string; site?: string; interval?: string }>
@@ -169,16 +170,9 @@ async function CheckoutContent({ searchParams }: CheckoutPageProps) {
     their library now, where it is used.
   */
   const OWNED = `/account/library/products/${encodeURIComponent(product.id)}`
+  /* Owned per option, the one rule every checkout uses (lib/checkout/owned): THIS option, or the whole product (a purchase without an option, which the downloads read as every option). Owning another option still lets this one be bought. */
   if (user && existingEntitlements && existingEntitlements.length > 0) {
-    if (variantId) {
-      // Check if user specifically owns THIS variant
-      if (existingEntitlements.some((e) => e.variant_id === variantId)) redirect(OWNED)
-      // User owns other variants but not this one - allow purchase
-    } else {
-      // No variant specified: for non-variant products, any entitlement without a variant means they own it
-      if (existingEntitlements.some((e) => !e.variant_id)) redirect(OWNED)
-      // User owns specific variants but not the base product - allow purchase
-    }
+    if (rowsOwn(existingEntitlements.map((e) => ({ product_id: product.id, variant_id: e.variant_id })), product.id, variantId || null)) redirect(OWNED)
   }
 
   /* A product with options is bought as one of them (the server refuses it
@@ -298,6 +292,14 @@ async function membershipCheckoutContent({ product, interval, returnTo = null, c
   ])
   const creator = creatorRead.data
   const user = userRead.data.user
+  /* Already a member: Manage, not a second subscription (the route refuses one anyway, app/api/memberships/checkout). */
+  if (user) {
+    const [{ grantsAccess }, { MEMBERSHIP_COLUMNS }] = await Promise.all([import("@/lib/memberships/state"), import("@/lib/memberships/server")])
+    const { data: mine } = await checkoutAdmin().from("memberships").select(MEMBERSHIP_COLUMNS).eq("product_id", product.id).eq("buyer_id", user.id).order("created_at", { ascending: false }).limit(5)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const current = ((mine ?? []) as any[]).find((m) => grantsAccess(m))
+    if (current?.id) redirect(`/account/library/memberships/${encodeURIComponent(current.id)}`)
+  }
   const { data: profile } = creator ? await supabase.from("profiles").select("display_name, avatar_url, username").eq("id", creator.user_id).single() : { data: null }
   const plan = planRead.data as { monthly_price_cents: number | null; yearly_price_cents: number | null; trial_days: number | null; benefits: unknown; currency?: string | null } | null
   return (

@@ -3,6 +3,8 @@ import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorForRequest, currentUserForRequest } from "@/lib/auth/request-scope"
 import { missingColumn } from "@/lib/reviews/store"
+import { readPhotos, sellerView, type ReviewPhoto } from "@/lib/reviews/app-settings"
+import { loadReviewsApp } from "@/lib/reviews/app-server"
 
 /**
  * The signed in creator's reviews, every product, newest first, hidden ones
@@ -20,7 +22,16 @@ export interface SellerReview {
   content: string
   created_at: string
   edited_at: string | null
-  status: "published" | "hidden"
+  /* On the store's website (app-settings sellerView): pending waits for the store (Storelib Reviews, part 134); hidden was hidden by the store or a report (hidden_by). */
+  status: "published" | "hidden" | "pending"
+  hidden_by: string | null
+  /* Shown on Explore and the product page. A verified buyer's review stays there whatever the store does on its website. */
+  on_storelib: boolean
+  title: string | null
+  photos: ReviewPhoto[]
+  featured: boolean
+  verified: boolean
+  source: string
   reviewer_name: string | null
   seller_reply: string | null
   seller_reply_at: string | null
@@ -46,7 +57,10 @@ export async function loadSellerReviews() {
   const read = (columns: string) =>
     admin.from("reviews").select(columns).eq("creator_id", creator.id).order("created_at", { ascending: false }).limit(LIMIT)
   const buyer = "buyer:profiles!buyer_id(display_name, avatar_url)"
-  let res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, ${buyer}`)
+  /* With Storelib Reviews' columns (part 134); without them, as part 52 left the table; before that, the oldest shape. */
+  let res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, title, photos, featured, verified, source, hidden_by, site_status, ${buyer}`)
+  const appReady = !(res.error && missingColumn(res.error))
+  if (!appReady) res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, ${buyer}`)
   /* Before run-now part 52: no status, reply or name columns. The list still shows, without replies. */
   const ready = !(res.error && missingColumn(res.error))
   if (!ready) res = await read(`id, product_id, rating, content, created_at, ${buyer}`)
@@ -59,7 +73,12 @@ export async function loadSellerReviews() {
       content: r.content ?? "",
       created_at: r.created_at,
       edited_at: r.edited_at ?? null,
-      status: r.status === "hidden" ? "hidden" : "published",
+      ...sellerView(r),
+      title: r.title ?? null,
+      photos: readPhotos(r.photos),
+      featured: r.featured === true,
+      verified: r.verified !== false,
+      source: typeof r.source === "string" ? r.source : "storelib",
       reviewer_name: r.reviewer_name ?? null,
       seller_reply: r.seller_reply ?? null,
       seller_reply_at: r.seller_reply_at ?? null,
@@ -72,8 +91,11 @@ export async function loadSellerReviews() {
     ? await admin.from("products").select("id, title, slug, thumbnail_url").in("id", ids)
     : { data: [] as SellerProduct[] }
 
+  const app = await loadReviewsApp(admin, creator.id).catch(() => null)
   return {
     state: "ready" as const,
+    /* Storelib Reviews: on or off, and whether its database part has run (moderation, featured, photos, import). */
+    app: { enabled: app?.settings.enabled === true, ready: appReady && app?.ready !== false },
     reviews: rows,
     products: ((products ?? []) as SellerProduct[]).sort((a, b) => (a.title || "").localeCompare(b.title || "")),
     /* Replies and reports need part 52. */

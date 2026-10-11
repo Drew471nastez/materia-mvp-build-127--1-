@@ -782,7 +782,7 @@ section("The cover")
         client.indexOf("seedCover(id, cover)") < client.indexOf("setIncoming((c) => (c ? { ...c, phase: \"working\", installId: id } : c))"))
     check("  a pending one is looked for (GET, every 2s, backing off, about 30s) rather than taken twice, then asked for if it never came",
       /export const WATCH_STEPS_MS = \[2000, 2000, 2000, 3000, 3000, 4000, 4000, 5000, 5000\]/.test(refresh) &&
-        /await fetch\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}\)/.test(refresh) &&
+        /await fetchWithin\(`\/api\/website-builder\/themes\/\$\{encodeURIComponent\(installId\)\}\/cover`, \{ cache: "no-store" \}, LOOK_WAIT_MS\)/.test(refresh) &&
         /\(data\.cover_pending \? await watchCover\(id\) : null\) \?\? \(await requestCover\(id\)\)/.test(client) && /asked\.current\.add\(id\)/.test(client))
     check("  and crossfades to it once decoded", /if \(got\?\.url\) await showCover\(id, got\)/.test(client) && /await decodedFirst\(cover\.url\)\s*setFresh/.test(client))
   }
@@ -851,8 +851,22 @@ section("The cover")
   const shot = read("lib/website-builder/cover-shot.ts")
   check("the screenshots are a laptop's screen and a phone's",
     /DESKTOP = \{ width: 1440, height: 900 \}/.test(shot) && /PHONE = \{ width: 390, height: 844 \}/.test(shot))
-  check("and are taken once the network has gone quiet, the fonts are in and the pictures decoded",
-    /waitUntil: "networkidle0"/.test(shot) && /document\.fonts\?\.ready/.test(shot) && /img\.decode\(\)/.test(shot))
+  /*
+    EVERY WAIT ENDS. It waited for networkidle0, which a page that keeps
+    something open never reaches, and for every picture to decode with no
+    limit: "Preparing preview" for good. Now each wait is bounded, the whole
+    is inside SHOT_BUDGET_MS, and what is there when they run out is taken.
+  */
+  check("and are taken once the page has loaded, the network has gone quiet, the fonts are in and the pictures decoded, each for a bounded time",
+    /waitUntil: "domcontentloaded"/.test(shot) && !/networkidle0/.test(shot) &&
+      /waitForNetworkIdle\(\{ idleTime: 500, timeout: left\(deadline, QUIET_MS\)/.test(shot) &&
+      /document\.fonts\?\.ready/.test(shot) && /img\.decode\(\)/.test(shot) &&
+      /Promise\.race\(\[settle\(\), new Promise\(\(r\) => setTimeout\(r, most\)\)\]\)/.test(shot) &&
+      /export const SHOT_BUDGET_MS = 42_000/.test(shot))
+  check("  each picture on a page of its own: a phone viewport on an open page reloads it outside every wait",
+    /const shoot = async[^\n]*\n\s*const page = await browser\.newPage\(\)/.test(shot))
+  check("  and a phone picture that does not fit leaves the desktop one kept",
+    /mobile: Buffer \| null/.test(shot) && /if \(deadline - Date\.now\(\) > 4_000\)/.test(shot))
   check("on Vercel with the serverless Chromium, anywhere else with the one CHROMIUM_PATH names",
     /@sparticuz\/chromium/.test(shot) && /process\.env\.CHROMIUM_PATH/.test(shot))
   const config = read("next.config.mjs")
@@ -984,7 +998,8 @@ section("Add Section is derived from the files, one card per preset")
   /* And Breadcrumbs, in Content, for any page but home (lib/products/breadcrumbs.ts). */
   /* And Collection list, Featured collection (Products) and Page content (Content): Shopify's sections for collections and pages. */
   /* And Back to top, Phone tab bar and Popup, in Overlay: what floats over every page (the Overlay group). */
-  check("the library is forty three sections across eleven categories, About with the contact form", ADDABLE_SECTIONS.length === 43 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 11 && STORELIB_SCHEMAS.contact?.category === "about", `${ADDABLE_SECTIONS.length} sections`)
+  /* And Storelib Reviews' four, in a Reviews category of their own: Product reviews, Star rating, Reviews carousel, All reviews. */
+  check("the library is forty seven sections across twelve categories, About with the contact form", ADDABLE_SECTIONS.length === 47 && new Set(ADDABLE_SECTIONS.map((t) => STORELIB_SCHEMAS[t]?.category)).size === 12 && STORELIB_SCHEMAS.contact?.category === "about" && STORELIB_SCHEMAS.reviews_product?.category === "reviews", `${ADDABLE_SECTIONS.length} sections`)
   check("every one of them is a .storelib file with a preset", ADDABLE_SECTIONS.every((t) => STORELIB_SCHEMAS[t] && (STORELIB_SCHEMAS[t].presets?.length ?? 0) > 0))
   check("the sections it retired still render, so no page using one goes blank", RETIRED_SECTIONS.length > 0 && RETIRED_SECTIONS.every((t) => !!SECTION_SCHEMAS[t]) && !RETIRED_SECTIONS.some((t) => ADDABLE_SECTIONS.includes(t)))
   /* "'Created by you' should be called 'Created' only." */

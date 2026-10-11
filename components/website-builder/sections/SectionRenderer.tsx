@@ -204,6 +204,7 @@ export default memo(SectionRendererInner, (prev, next) => {
     prev.insideEditor === next.insideEditor &&
     (prev as any).wrapperId === (next as any).wrapperId &&
     prev.boxClassName === next.boxClassName &&
+    prev.pageIndex === next.pageIndex &&
     (prev as any).canvasRoundedTopPx === (next as any).canvasRoundedTopPx &&
     (prev as any).canvasRoundedBottomPx === (next as any).canvasRoundedBottomPx
   )

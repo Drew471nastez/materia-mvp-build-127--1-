@@ -20,6 +20,7 @@ import { checkCouponLines, findCoupon, normaliseCode, validateCoupon, type Coupo
 import { adminCodeCheck } from "./admin-code"
 import type { PackedItem } from "./cart-items"
 import { MAX_LINES, MAX_QUANTITY } from "@/lib/website-builder/cart"
+import { ownedKey, ownedLines } from "./owned"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -213,6 +214,9 @@ export async function priceOrder(db: Db, req: PriceRequest, productSelect = "*")
  * Lines that cannot be bought are left out and named, never charged: a
  * product that is not published, an option of another product, something
  * the buyer already owns, and anything free (a download, not a payment).
+ * What is left out for being owned is also listed on its own (`owned`), so
+ * a checkout can say "already yours" with the way to it rather than "can't
+ * be bought" (lib/checkout/owned: per option, physical goods never).
  */
 
 export interface CartProduct {
@@ -242,6 +246,8 @@ export type PricedCart =
       dropped: string[]
       /** Something was left out because the buyer owns it. */
       ownedAny: boolean
+      /** The lines left out because the buyer owns them (their titles are in `dropped` too). */
+      owned: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[]
       /**
        * The whole cart, as asked for, when anything in it ships. It belongs
        * to the physical checkout, which takes digital lines beside shipped
@@ -266,6 +272,12 @@ export interface CartRequest {
   couponCode?: unknown
   /** The signed in buyer, whose products are left out. */
   buyerId?: string | null
+  /**
+   * An email the buyer PROVED (a website's customer account, signed in with
+   * a code): its completed orders count as owned too. Never an email typed
+   * into the checkout (lib/checkout/owned).
+   */
+  ownerEmail?: string | null
   /**
    * Physical commerce is on, so a cart that ships is handed to the physical
    * checkout (`ships`). False while it is off: the shipped lines are only
@@ -309,12 +321,15 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   if (!products || products.length === 0) return { ok: false, status: 400, error: "Nothing in the cart is on sale any more" }
 
   /* Already owned is dropped rather than charged for. A digital product is
-     one entitlement per buyer, so paying twice buys nothing. */
-  let owned = new Set<string>()
-  if (req.buyerId) {
-    const { data: entitlements } = await db.from("entitlements").select("product_id").eq("buyer_id", req.buyerId).in("product_id", productIds)
-    owned = new Set((entitlements ?? []).map((e: any) => e.product_id))
-  }
+     one entitlement per buyer, so paying twice buys nothing. Per option:
+     owning one option of a product does not stop buying another, and a
+     physical product is never "owned" (lib/checkout/owned). */
+  const typeOf = new Map<string, string>((products as CartProduct[]).map((p) => [p.id, p.type]))
+  const owned = await ownedLines(
+    db,
+    { userId: req.buyerId ?? null, provenEmail: req.ownerEmail ?? null },
+    [...wanted].map(([key, want]) => ({ productId: key.split("::")[0], variantId: want.variantId, type: typeOf.get(key.split("::")[0]) ?? "physical" })),
+  )
 
   /* A line's option is the database's, checked against its product and
      priced from itself. The client's variantId used to be kept as sent and
@@ -337,7 +352,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const byId = new Map<string, CartProduct>((products as CartProduct[]).map((p) => [p.id, p]))
   const lines: CartPricedLine[] = []
   const dropped: string[] = []
-  let ownedAny = false
+  const ownedList: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] = []
   const shipsAny = (products as CartProduct[]).some((p) => p.type === "physical")
   const ships = shipsAny && req.handOff !== false
     ? [...wanted].map(([key, want]) => {
@@ -352,7 +367,11 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
     if (!product) { dropped.push(productId); continue }
     /* A physical product goes through the physical checkout (lib/physical), never this one. */
     if (product.type === "physical") { dropped.push(product.title); continue }
-    if (owned.has(productId)) { dropped.push(product.title); ownedAny = true; continue }
+    if (owned.has(ownedKey(productId, want.variantId))) {
+      dropped.push(product.title)
+      ownedList.push({ productId, variantId: want.variantId, title: product.title, thumbnailUrl: product.thumbnail_url ?? null })
+      continue
+    }
 
     const variant = want.variantId ? variantsById.get(want.variantId) : null
     if (want.variantId && (!variant || variant.product_id !== productId)) { dropped.push(product.title); continue }
@@ -378,7 +397,7 @@ export async function priceCart(db: Db, req: CartRequest): Promise<PricedCart> {
   const subtotalCents = lines.reduce((n, l) => n + l.item.priceCents * l.item.quantity, 0)
   const priced = (coupon: CouponRow | null, couponLabel: string | null) => {
     const discountCents = lines.reduce((n, l) => n + l.item.discountCents, 0)
-    return { ok: true as const, lines, dropped, ownedAny, ships, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
+    return { ok: true as const, lines, dropped, ownedAny: ownedList.length > 0, owned: ownedList, ships, creatorIds, subtotalCents, discountCents, totalCents: subtotalCents - discountCents, coupon, couponLabel }
   }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null

@@ -10,7 +10,7 @@ import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { buyerCustomer, buyerMessageFor, createSubscription, ensurePrice, intentOf, membershipFee, refusalReason } from "@/lib/memberships/billing"
 import { syncSubscription } from "@/lib/memberships/sync"
 import { grantsAccess, type BillingInterval } from "@/lib/memberships/state"
-import { MEMBERSHIP_COLUMNS, NOT_SET_UP, PLAN_COLUMNS, UUID, tableMissing, type MembershipRow, type PlanRow } from "@/lib/memberships/server"
+import { MEMBERSHIP_COLUMNS, NOT_SET_UP, PLAN_COLUMNS, UUID, ownerFilter, tableMissing, type MembershipRow, type PlanRow } from "@/lib/memberships/server"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 
@@ -31,8 +31,10 @@ export const runtime = "nodejs"
  *
  * Checked as the one time checkout checks (app/api/checkout/stripe-session):
  * the price from the database, the seller able to take payments, the rate
- * limit for payment routes. And three things of its own: a buyer who is
- * already a member is sent to their library instead of paying twice; a
+ * limit for payment routes. And three things of its own: a signed in buyer
+ * who is already a member is sent to their library instead of paying twice
+ * (a guest is never told, by email, who is a member: a second membership is
+ * cancelled and refunded after payment, lib/memberships/duplicates); a
  * second press after a declined card continues the same subscription
  * rather than making another; and a free trial is for a first membership of
  * this product only.
@@ -105,10 +107,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
 
-  /* Every membership this address or account has had of this product: a current one, one to continue, a used trial. */
-  const owner = user ? `buyer_id.eq.${user.id},buyer_email.eq."${email.replace(/["\\,()]/g, "")}"` : `buyer_email.eq."${email.replace(/["\\,()]/g, "")}"`
-  const { data: history } = await admin.from("memberships").select(MEMBERSHIP_COLUMNS).eq("product_id", productId).or(owner).order("created_at", { ascending: false }).limit(20)
-  const rows = (history as MembershipRow[] | null) ?? []
+  /*
+    WHAT THIS BUYER ALREADY HAS, ASKED ONLY OF SOMEBODY PROVEN. A signed in
+    account: its own memberships of this product (its id, or the address the
+    account confirmed; lib/memberships/server ownerFilter), never a typed
+    email. A guest is not looked up by the email they type: answering "you
+    are already a member" to whatever address is typed told anybody who is a
+    member of what. A guest's second membership is settled after payment
+    instead (lib/memberships/duplicates: cancelled, refunded, told by email).
+  */
+  const rows: MembershipRow[] = []
+  if (user) {
+    const owner = ownerFilter({ id: user.id, email: (user.email ?? "").toLowerCase() || null, emailConfirmed: !!user.email_confirmed_at })
+    const { data: history } = await admin.from("memberships").select(MEMBERSHIP_COLUMNS).eq("product_id", productId).or(owner).order("created_at", { ascending: false }).limit(20)
+    rows.push(...((history as MembershipRow[] | null) ?? []))
+  } else if (typeof body.previousMembershipId === "string" && UUID.test(body.previousMembershipId)) {
+    /* A guest's own last try, named by the page that made it (a declined card): only that row, only for the same email. */
+    const { data: own } = await admin.from("memberships").select(MEMBERSHIP_COLUMNS).eq("id", body.previousMembershipId).eq("product_id", productId).maybeSingle()
+    const mine = own as MembershipRow | null
+    if (mine && mine.buyer_email === email && mine.status === "incomplete") rows.push(mine)
+  }
   if (rows.some((m) => grantsAccess(m))) {
     return NextResponse.json({ error: "You are already a member. It is in your library under Memberships.", code: "already_member" }, { status: 409 })
   }
@@ -127,6 +145,7 @@ export async function POST(request: Request) {
     }
   }
 
+  /* A free trial is for a first membership of this product. Known for a signed in account; a guest's email is not asked (it would say whether that address was ever a member). */
   const hadTrial = rows.some((m) => m.status !== "incomplete")
   const trialDays = !hadTrial && plan.trial_days > 0 ? plan.trial_days : 0
   const name = `${firstName} ${lastName}`.trim()

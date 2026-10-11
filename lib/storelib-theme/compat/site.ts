@@ -13,7 +13,8 @@
  *   checkout          /cart with `checkout`, /checkout: straight on to
  *                     the website's own checkout on this same host, with
  *                     the lines (/checkout?items=, lib/checkout/site-checkout)
- *   products as data  /products/<handle>.js  .json
+ *   products as data  /products/<handle>.js  .json  /products.json
+ *                     /collections/<handle>/products.json
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
  *   forms             /contact (contact and newsletter): Storelib's own
@@ -45,6 +46,7 @@ import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
+import { ownedBanner } from "./owned-banner"
 
 type O = Record<string, unknown>
 
@@ -72,6 +74,8 @@ export interface SiteData {
   extraHead?: string
   /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
+  /** Storelib Reviews for a page: the shop's, and the product's on its page (lib/reviews/storefront.ts). Absent: none. */
+  reviews?: (product: { id: string; title: string } | null) => Promise<O | null>
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -101,6 +105,8 @@ export interface SiteRequest {
   referer?: string
   /** Who is visiting, from the website's own session cookie (the route reads it; lib/site-accounts/session.ts). */
   account?: SiteAccount
+  /** What the signed in visitor already owns of a product (lib/site-accounts/owned-products): its page says so (owned-banner.ts). */
+  owned?: (productId: string) => Promise<{ whole: boolean; options: string[] } | null>
   /**
    * Sends a contact message or a newsletter sign up through Storelib's own
    * endpoints, which carry the spam checks and the rate limits (the route
@@ -181,6 +187,21 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   if (method === "POST" && path === "/localization") return redirect(safeReturn(req.body?.return_to) ?? "/")
 
   /* ── products as data ── */
+  /*
+    THE SHOP'S PRODUCTS AS A LIST, /products.json and
+    /collections/<handle>/products.json, Shopify's public feed: a theme's
+    script builds a row of cards from it (recently viewed, "you may also
+    like"). `limit` (at most 250) and `page`, as Shopify reads them.
+  */
+  const feed = method === "GET" ? path.match(/^(?:\/collections\/([^/]+))?\/products\.json$/) : null
+  if (feed) {
+    const handle = feed[1]
+    const list = !handle || handle === "all" ? site.products : site.collections.find((c) => c.handle === handle || c.id === handle)?.products ?? null
+    if (!list) return json({ status: 404, message: "Not found" }, 404)
+    const limit = Math.min(250, Math.max(1, Math.floor(Number(req.query.get("limit") ?? 30)) || 30))
+    const pageNo = Math.max(1, Math.floor(Number(req.query.get("page") ?? 1)) || 1)
+    return json({ products: list.slice((pageNo - 1) * limit, pageNo * limit).map((c) => productFeedJson(productObject(c))) })
+  }
   const productData = path.match(/^\/products\/([^/]+)\.(js|json)$/)
   if (productData) {
     const card = await findProduct(site, productData[1])
@@ -235,7 +256,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: route.bodyEnd ? `${site.extraBodyEnd ?? ""}${route.bodyEnd}` : site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -290,6 +311,8 @@ interface Route {
   redirect?: string
   /** Put in this page's head only: its share picture and whether it may be listed (seoHead). */
   head?: string
+  /** Put at the end of this page's body only: "You already own this" on a product the visitor owns (owned-banner.ts). */
+  bodyEnd?: string
 }
 
 const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
@@ -365,6 +388,12 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
   }
   if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order that ships: its order page on this website, with the status and the tracking (app/checkout/physical/order). */
+  const shipped = path.match(/^\/account\/orders\/([^/]+)\/?$/)
+  if (shipped) {
+    const own = (customer.orders ?? []).find((o) => o.id === shipped[1])
+    if (own?.order_url && own.action_label === "Track order") return { ...shell(site, req, path, "Account", ""), redirect: own.order_url }
+  }
   /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
   if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
     const o = req.account.order
@@ -553,13 +582,34 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head }
     return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head }
   }
-  if (path === "/" || path === "") return at("home", { title: site.shop.name })
+  /* Storelib Reviews, for the page's Storelib Reviews section and the app blocks a theme kept (./storelib-reviews.ts). Never stops a page. */
+  const reviewsFor = async (p: { id: string; title: string } | null) => (site.reviews ? await site.reviews(p).catch(() => null) : null)
+  if (path === "/" || path === "") return at("home", { title: site.shop.name, reviews: await reviewsFor(null) })
 
   const product = path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)$/)
   if (product) {
     const card = await findProduct(site, product[1])
     if (!card) return null
-    return at("product", { product: card, selectedVariantId: req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values")), title: String(card.settings.title ?? "") })
+    const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
+    const route = at("product", { product: card, selectedVariantId, title: String(card.settings.title ?? ""), reviews: await reviewsFor({ id: card.id, title: String(card.settings.title ?? "") }) })
+    /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
+    const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
+    if (route && owned) {
+      const first = (productObject(card).selected_or_first_available_variant as O | null)?.id
+      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null))
+    }
+    return route
+  }
+
+  /* /reviews: every review of the shop in the theme's header and footer, until the creator makes a page of that name (Storelib Reviews). */
+  if ((path === "/reviews" || path === "/pages/reviews") && !site.pages.reviews) {
+    const reviews = await reviewsFor(null)
+    if (!reviews || (reviews as { enabled?: unknown }).enabled !== true) return null
+    const chrome = (sectionsOf(site, "home") ?? []).filter((x) => x.group === "header" || x.group === "footer" || x.group === "overlay")
+    const head = chrome.filter((x) => x.group === "header")
+    const rest = chrome.filter((x) => x.group !== "header")
+    const main: StoredSection = { id: "storelib-reviews-page", type: "storelib-reviews", settings: { heading: "Reviews", per_page: 12 } }
+    return { page: basePage(site, req, { template: "page", path, title: "Reviews", reviews }), sections: [...head, main, ...rest] }
   }
 
   if (path === "/collections") return at("collections", { title: "Collections" })
@@ -610,7 +660,8 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const handle = pageMatch[1]
     const title = handle.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase())
     const pageObject = { title, content: "", handle, url: `/pages/${handle}` }
-    return at(handle, { pageObject, title }) ?? (path.startsWith("/pages/") ? at("page", { pageObject, title }) : null)
+    const reviews = site.pages[handle] ? await reviewsFor(null) : null
+    return at(handle, { pageObject, title, reviews }) ?? (path.startsWith("/pages/") ? at("page", { pageObject, title }) : null)
   }
 
   if (/^\/blogs\/[^/]+$/.test(path)) return at("blog", { title: "Blog" })
@@ -642,11 +693,19 @@ function sectionsAnswer(site: SiteData, page: CompatPage, sections: StoredSectio
     if (at >= 0) {
       const s = sections[at]
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
-      return drawSection(site.theme, ctx, s, at, group).html
+      /* Drawn alone, as the Section Rendering API draws: no section.index (-1). */
+      return drawSection(site.theme, ctx, s, -1, group).html
     }
     const type = site.theme.typeOf(id)
-    if (!/^[A-Za-z0-9_-]+$/.test(type) || site.theme.files[`sections/${type}.storelib`] === undefined) return null
-    return drawSection(site.theme, ctx, { id, type, settings: {} }).html
+    if (/^[A-Za-z0-9_-]+$/.test(type) && site.theme.files[`sections/${type}.storelib`] !== undefined) return drawSection(site.theme, ctx, { id, type, settings: {} }, -1).html
+    /*
+      A section of another page, by its own id: a recently viewed section on
+      the product page asks the search page for itself (`/search?q=id:…
+      &section_id={{ section.id }}`) and reads its products out of the
+      answer. Drawn with its own settings, about this page's results.
+    */
+    const elsewhere = Object.values(site.pages).flat().find((s) => s.id === id && !s.group && !s.hidden)
+    return elsewhere ? drawSection(site.theme, ctx, elsewhere, -1).html : null
   }
   if (!many) {
     const out = one(ids[0])
@@ -767,6 +826,18 @@ export function productJson(p: O): O {
     id: p.id, title: p.title, handle: p.handle, description: p.description, url: p.url, vendor: p.vendor, type: p.type, tags: p.tags,
     price: p.price, price_min: p.price_min, price_max: p.price_max, price_varies: p.price_varies, compare_at_price: p.compare_at_price,
     available: p.available, variants, images, featured_image: images[0] ?? null, media: ((p.media as O[]) ?? []).map((m) => ({ id: m.id, media_type: "image", src: m.src, alt: m.alt, position: m.position, preview_image: { src: m.src } })),
+    options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
+  }
+}
+
+/** A product as Shopify's /products.json lists it: prices as "40.00", pictures as objects. */
+export function productFeedJson(p: O): O {
+  const dollars = (c: unknown) => (typeof c === "number" ? (c / 100).toFixed(2) : null)
+  const images = ((p.images as O[]) ?? []).map((i, n) => ({ id: i.id, position: n + 1, src: i.src, width: i.width, height: i.height, alt: i.alt ?? null, variant_ids: [] }))
+  return {
+    id: p.id, title: p.title, handle: p.handle, body_html: p.description, vendor: p.vendor, product_type: p.type, tags: p.tags, published_at: p.published_at,
+    variants: ((p.variants as O[]) ?? []).map((v, n) => ({ id: v.id, title: v.title, option1: v.option1, option2: v.option2, option3: v.option3, sku: v.sku, requires_shipping: v.requires_shipping, taxable: true, featured_image: v.featured_image ? { src: (v.featured_image as O).src } : null, available: v.available, price: dollars(v.price), compare_at_price: dollars(v.compare_at_price), position: n + 1, product_id: p.id })),
+    images,
     options: ((p.options_with_values as O[]) ?? []).map((o) => ({ name: o.name, position: o.position, values: ((o.values as O[]) ?? []).map((x) => x.name) })),
   }
 }

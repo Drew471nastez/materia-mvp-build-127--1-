@@ -28,6 +28,7 @@ import {
 import type { OpResult } from "./operations"
 import type { BoundOps } from "./mcp"
 import type { AgentIdentity } from "./tokens"
+import { READ_ONLY_REFUSAL } from "./token-format"
 
 export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
   /**
@@ -43,6 +44,9 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
     const { data: install } = await db.from("store_theme_installs").select("name").eq("id", who.installId).maybeSingle()
     siteName = install?.name ?? undefined
   }
+  /* A read only key (part 132's scopes) reads and checks, and every write answers why not. */
+  const readOnly = who.canWrite === false
+  const refuse = async () => ({ ok: false as const, status: 403, error: READ_ONLY_REFUSAL })
   return {
     siteName: siteName || "your site",
     agentName: who.name,
@@ -50,6 +54,7 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
     read: (path) => readFile(db, who.installId, path),
     compile: (path, source) => compileOnly(path, source),
     write: async (path, source, base) => {
+      if (readOnly) return refuse()
       const r = await writeSection(db, who, path, source, base)
       /* A linked repository gets the same change, after the answer. */
       if (r.ok === true) after(() => mirrorToGitHub(who.installId, { kind: "save", path, content: source }))
@@ -63,12 +68,12 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
       readPage: (a) => readPage(db, who, a.page),
       readSelectedSection: (a) => readSelectedSection(db, who, a),
       searchComponents: (a) => findComponents(db, who, a.query, a.limit),
-      createSection: (a) => createSection(db, who, a, mirror),
-      editSection: (a) => editSection(db, who, a, mirror),
-      patchSection: (a) => patchSection(db, who, a, mirror),
-      updateStyles: async (a) => asText(await updateStyles(db, who, a)),
-      createPage: async (a) => asText(await createPage(db, who, a)),
-      createSafePatch: async (a) => asText(await applyPatch(db, who, { page: a.page, ops: a.ops, label: a.label })),
+      createSection: (a) => (readOnly ? refuse() : createSection(db, who, a, mirror)),
+      editSection: (a) => (readOnly ? refuse() : editSection(db, who, a, mirror)),
+      patchSection: (a) => (readOnly ? refuse() : patchSection(db, who, a, mirror)),
+      updateStyles: async (a) => (readOnly ? refuse() : asText(await updateStyles(db, who, a))),
+      createPage: async (a) => (readOnly ? refuse() : asText(await createPage(db, who, a))),
+      createSafePatch: async (a) => (readOnly ? refuse() : asText(await applyPatch(db, who, { page: a.page, ops: a.ops, label: a.label }))),
       runTests: (a) => runTests(db, who, a),
       runPreview: (a) => runPreview(db, who, a),
     },

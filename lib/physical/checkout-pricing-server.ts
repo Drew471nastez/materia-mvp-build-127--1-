@@ -18,6 +18,7 @@ import "server-only"
  */
 
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
+import { ownedKey, ownedLines } from "@/lib/checkout/owned"
 import { couponCovers, couponLabel, couponStanding, findCoupon, lineDiscounts, normaliseCode, type CouponRow } from "@/lib/checkout/coupons"
 import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
@@ -76,6 +77,8 @@ export type PricedCheckout =
       creatorId: string
       lines: PricedLine[]
       dropped: string[]
+      /** Digital lines left out because the buyer owns them (lib/checkout/owned); their titles are in `dropped` too. */
+      owned?: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[]
       stockIssues: StockIssue[]
       coupon: CouponRow | null
       couponLabel: string | null
@@ -124,7 +127,8 @@ interface ProductRow {
 
 export async function priceCheckout(
   db: Db,
-  req: { items: CheckoutItem[]; couponCode?: unknown; buyerId?: string | null; buyerEmail?: string | null; shopId?: string | null },
+  /* `buyerEmail` is the address typed (a code's per customer limit); `ownerEmail` one the buyer proved, whose orders count as owned (lib/checkout/owned). */
+  req: { items: CheckoutItem[]; couponCode?: unknown; buyerId?: string | null; buyerEmail?: string | null; ownerEmail?: string | null; shopId?: string | null },
 ): Promise<PricedCheckout> {
   if (req.items.length === 0) return { ok: false, status: 400, error: "Your cart is empty." }
   const productIds = [...new Set(req.items.map((i) => i.productId))]
@@ -146,11 +150,13 @@ export async function priceCheckout(
   const creatorId = creatorIds[0]
   const byId = new Map(rows.map((p) => [p.id, p]))
 
-  let owned = new Set<string>()
-  if (req.buyerId) {
-    const { data: ent } = await db.from("entitlements").select("product_id").eq("buyer_id", req.buyerId).in("product_id", productIds)
-    owned = new Set(((ent ?? []) as { product_id: string }[]).map((e) => e.product_id))
-  }
+  /* What the buyer already owns, per option; a physical product never is (lib/checkout/owned). */
+  const owned = await ownedLines(
+    db,
+    { userId: req.buyerId ?? null, provenEmail: req.ownerEmail ?? null },
+    req.items.map((i) => ({ productId: i.productId, variantId: i.variantId ?? null, type: byId.get(i.productId)?.type ?? "physical" })),
+  )
+  const ownedList: { productId: string; variantId: string | null; title: string; thumbnailUrl: string | null }[] = []
 
   /* The variants of the physical products asked for, all of them: a line with no variant chosen takes the only one. */
   const physicalIds = rows.filter((p) => p.type === "physical").map((p) => p.id)
@@ -199,8 +205,9 @@ export async function priceCheckout(
       continue
     }
     if (p.type !== "physical") {
-      if (owned.has(p.id)) {
+      if (owned.has(ownedKey(p.id, item.variantId ?? null))) {
         dropped.push(p.title)
+        ownedList.push({ productId: p.id, variantId: item.variantId ?? null, title: p.title, thumbnailUrl: p.thumbnail_url ?? null })
         continue
       }
       const v = item.variantId ? digitalVariants.get(item.variantId) : null
@@ -307,7 +314,7 @@ export async function priceCheckout(
   const { offers } = await loadOffers(db, creatorId, { activeOnly: true })
   const fromOffers = applyOffers(lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity })), offers)
   fromOffers.discounts.forEach((d, i) => (lines[i].discountCents = d))
-  const base = { ok: true as const, creatorId, lines, dropped, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
+  const base = { ok: true as const, creatorId, lines, dropped, owned: ownedList, stockIssues, settings, tax, requiresShipping: lines.some((l) => l.requiresShipping), locations, available, offers: fromOffers.applied, suggestions: suggestionsFor(lines, offers) }
 
   const typed = typeof req.couponCode === "string" && req.couponCode.trim() ? req.couponCode : null
   if (!typed || lines.length === 0) return { ...base, coupon: null, couponLabel: null, freeShipping: false }

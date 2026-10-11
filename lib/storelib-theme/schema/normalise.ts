@@ -26,7 +26,7 @@
  *
  * PURE. The same answer in the editor, on the server and in a test.
  */
-import { resolveControlType } from "../controls/registry"
+import { resolveControlType } from "../controls/types"
 import type { SettingDefinition } from "../types"
 
 /* ── pictures declared as text ─────────────────────────────────────────── */

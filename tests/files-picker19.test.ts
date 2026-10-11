@@ -75,7 +75,8 @@ check("the list is kept for the session and shown at once", /const kept: Record<
 check("a pill only hides tiles, it never rebuilds them", /hidden=\{at === undefined\}/.test(lib) && /files\.map\(\(f\) =>/.test(lib))
 check("the tiles on screen are copied over the grid before it changes", /crossFade\(\)\s*\n\s*setSource\(s\)/.test(lib))
 check("the copy fades out and the grid fades in, opacity only", /\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(lib) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(lib) && !/translate|scale\(/.test(lib.slice(lib.indexOf("const crossFade"), lib.indexOf("const chooseSource"))))
-check("the pill's fill changes over 200ms", /transition-\[background-color,border-color,color\] duration-200/.test(lib))
+/* Round W6: the pills are Storelib's segmented control (Support, Analytics), one white mark sliding under the chosen one rather than a black fill blinking from pill to pill. */
+check("the pills' mark slides over 200ms, on the compositor, every pill the same height", /data-files-pill-mark=""/.test(lib) && /transition-\[translate,width\] duration-200/.test(lib) && /translate: `\$\{mark\.x\}px 0`/.test(lib) && /inline-flex h-8 shrink-0 items-center rounded-lg/.test(lib))
 check("reduced motion: no fade", /prefers-reduced-motion: reduce/.test(lib))
 
 console.log("\nCopy")

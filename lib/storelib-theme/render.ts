@@ -187,6 +187,7 @@ export function renderSection(input: RenderInput): Rendered {
     creator: data.creator,
     product: data.product ?? null,
     collection: data.collection ?? null,
+    reviews: data.reviews ?? null,
     request: {
       page_type: input.page.template,
       path: typeof input.page.path === "string" ? input.page.path : "",

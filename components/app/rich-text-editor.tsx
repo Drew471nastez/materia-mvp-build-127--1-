@@ -1011,7 +1011,10 @@ export function RichTextEditor({
         /* While the text has the focus the border darkens a little and a soft
            grey halo comes up: no blue ring. The link form's own fields draw
            theirs, so the two never stack. */
-        "has-[.rich-text-content:focus]:border-[#c9ccd3] has-[.rich-text-content:focus]:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]",
+        /* `focus-within`, never `:has(:focus)`: a focus state inside a :has()
+           restyled the whole document on every focus change in the app
+           (lib/press-mark.ts says why). */
+        "focus-within:border-[#c9ccd3] focus-within:shadow-[0_0_0_3px_rgba(17,17,19,0.06)]",
         className,
       )}
     >

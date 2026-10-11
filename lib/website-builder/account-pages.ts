@@ -73,6 +73,16 @@ export function contactSections(homeSections: SectionInstance[]): SectionInstanc
 }
 
 /**
+ * /reviews (Storelib Reviews): every review of the shop, in the All reviews
+ * section, between the header and the footer. Served by
+ * app/(site)/w/[username]/reviews; a page the creator made called "reviews"
+ * is served there instead once saved.
+ */
+export function reviewsSections(homeSections: SectionInstance[]): SectionInstance[] {
+  return page(homeSections, main("storelib-reviews", "reviews_all", "All reviews", homeSections))
+}
+
+/**
  * THE PASSWORD PAGE stands on its own, the way Shopify's does: no header,
  * no footer, nothing to click through to, because everything behind those
  * links is behind the password too. One section, on the site's own ground.
@@ -96,6 +106,8 @@ export function accountPageSections(key: string, homeSections: SectionInstance[]
       return wishlistSections(homeSections)
     case "contact":
       return contactSections(homeSections)
+    case "reviews":
+      return reviewsSections(homeSections)
     default:
       return null
   }

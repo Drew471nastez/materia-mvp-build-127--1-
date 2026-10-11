@@ -237,8 +237,11 @@ export interface ActivityEvent {
    * A page change carries its operations, the same ones Storelib AI streams
    * (lib/website-builder/agent/operations.ts). A new file an agent already
    * placed on a page carries placed, so the builder does not place it twice.
+   * A page or the settings rewritten whole (a push to the linked GitHub
+   * repository) carries replaced and no operations: the builder reads it
+   * again from the draft.
    */
-  detail?: { placed?: boolean; page?: string; ops?: ThemeOp[] } | null
+  detail?: { placed?: boolean; page?: string; ops?: ThemeOp[]; replaced?: boolean } | null
 }
 
 /**
@@ -280,6 +283,9 @@ export function describeChange(event: ActivityEvent, nameOf: (type: string) => s
   }
   if (!type) {
     if (/settings/i.test(event.path)) return "Theme settings changed"
+    /* A page's template from a GitHub push (lib/github-sync/sync.ts). */
+    const template = /^templates\/([A-Za-z0-9_.-]+)\.json$/.exec(event.path)?.[1]
+    if (template) return event.action === "created" ? `New page: ${titleFromType(template)}` : `${template === "home" ? "Home page" : titleFromType(template)} changed`
     return `${event.path} changed`
   }
   const name = (nameOf(type) ?? titleFromType(type)).trim()

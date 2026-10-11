@@ -9,8 +9,12 @@
  *
  * WHAT IS KEPT: the area, the route pattern, phone or computer (decided on
  * the server from the user agent, which is then dropped), the metric and its
- * number, and for a JavaScript error its message with addresses, ids and
- * numbers taken out. No address, no cookie, no user, no query string.
+ * number, for a JavaScript error its message with addresses, ids and
+ * numbers taken out, and for a failed flow step a short code. No address,
+ * no cookie, no user, no query string.
+ *
+ * A flow step (`step`, `fail`) passes only under a route listed in STEPS
+ * and only in that step's own area.
  *
  * Pure. app/api/perf/beacon uses it; tests/perf-health18.test.ts holds it.
  */
@@ -21,10 +25,13 @@ import {
   MAX_BATCH,
   MAX_ERRORS_PER_PAGE,
   ROUTE_PATTERN,
+  SERVER_AREAS,
+  STEPS,
   type Area,
   type ClientMetric,
   type Device,
   type Metric,
+  type ServerArea,
 } from "./config"
 
 /** A row as part 126's perf_ingest takes it. */
@@ -59,7 +66,7 @@ export function maskDetail(message: string): string {
 
 function cleanValue(metric: ClientMetric, raw: unknown): number | null {
   if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0) return null
-  if (metric === "view" || metric === "js_error") return 1
+  if (metric === "view" || metric === "js_error" || metric === "fail") return 1
   if (metric === "cls") return raw > MAX_CLS ? null : Math.round(raw * 10_000) / 10_000
   return raw > MAX_MS ? null : Math.round(raw)
 }
@@ -81,6 +88,10 @@ export function cleanBatch(raw: unknown, device: Device): PerfRow[] {
     if (typeof m !== "string" || !(CLIENT_METRICS as readonly string[]).includes(m)) continue
     if (typeof a !== "string" || !CLIENT_AREAS.includes(a)) continue
     if (typeof r !== "string" || !ROUTE_PATTERN.test(r)) continue
+    const isStep = m === "step" || m === "fail"
+    const step = Object.prototype.hasOwnProperty.call(STEPS, r) ? STEPS[r as keyof typeof STEPS] : null
+    /* A step is one of the listed ones, in its own area; a step's route is never a page's. */
+    if (isStep ? !step || step.area !== a : r.startsWith("/step/")) continue
     const value = cleanValue(m as ClientMetric, v)
     if (value === null) continue
     if (m === "js_error") {
@@ -91,14 +102,20 @@ export function cleanBatch(raw: unknown, device: Device): PerfRow[] {
       out.push({ a, r, d: device, m: "js_error", v: 1, x: detail })
       continue
     }
+    if (m === "fail") {
+      /* A short code ("network", "load", "api_error"), never a message. */
+      const code = typeof x === "string" ? x.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, 32) : ""
+      out.push({ a, r, d: device, m: "fail", v: 1, x: code || null })
+      continue
+    }
     out.push({ a: a as Area, r, d: device, m: m as Metric, v: value })
   }
   return out
 }
 
-/** A server timing row, checked the same way (lib/perf/server-timing.ts). */
-export function serverRow(area: Area, route: string, device: Device, ms: number, status: number): PerfRow | null {
-  if (!(AREAS as readonly string[]).includes(area) || !ROUTE_PATTERN.test(route)) return null
+/** A server timing row, checked the same way (lib/perf/server-timing.ts). `job` is a scheduled job's run. */
+export function serverRow(area: ServerArea, route: string, device: Device, ms: number, status: number, metric: "api" | "job" = "api"): PerfRow | null {
+  if (!(SERVER_AREAS as readonly string[]).includes(area) || !ROUTE_PATTERN.test(route)) return null
   if (!Number.isFinite(ms) || ms < 0) return null
-  return { a: area, r: route, d: device, m: "api", v: Math.min(Math.round(ms), 600_000), s: Math.max(0, Math.min(999, Math.trunc(status))) }
+  return { a: area, r: route, d: device, m: metric, v: Math.min(Math.round(ms), 600_000), s: Math.max(0, Math.min(999, Math.trunc(status))) }
 }

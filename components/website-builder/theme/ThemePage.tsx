@@ -406,7 +406,7 @@ export function ThemePage({
    * editor uses it for the selected section's outline; every other caller
    * ignores it.
    */
-  renderSection?: (section: SectionInstance, role: SectionRole, atTop: boolean) => ReactNode
+  renderSection?: (section: SectionInstance, role: SectionRole, atTop: boolean, pageIndex?: number) => ReactNode
   /**
    * What to draw in the gaps BETWEEN body sections, and after the last one.
    *
@@ -442,7 +442,7 @@ export function ThemePage({
 
   const render =
     renderSection ??
-    ((section: SectionInstance) => (
+    ((section: SectionInstance, _role: SectionRole, _atTop: boolean, pageIndex?: number) => (
       /**
        * A STABLE ID PER SECTION, so `/#section-<id>` reaches it. The published
        * page had none at all — only the editor put ids on its sections — so a
@@ -454,6 +454,7 @@ export function ThemePage({
         wrapperId={`section-${section.id}`}
         section={section}
         theme={theme}
+        pageIndex={pageIndex}
       />
     ))
 
@@ -590,7 +591,7 @@ export function ThemePage({
       {body.map((section, i) => (
         <Fragment key={`slot-${section.id}`}>
           {renderGap?.(i)}
-          {render(section, "body", false)}
+          {render(section, "body", false, i)}
         </Fragment>
       ))}
       {/* And below the last one, so a page can be added to at the end. */}

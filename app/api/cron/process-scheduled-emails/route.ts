@@ -11,6 +11,7 @@ import { runCampaignQueue } from "@/lib/email-campaigns/queue"
 import { runAbandonedSweep } from "@/lib/automations/abandoned-run"
 import { recordCronRun } from "@/lib/observability/report"
 import { runCourseEmails } from "@/lib/courses/emails"
+import { sweepReviewRequests } from "@/lib/reviews/requests-server"
 
 /**
  * ===========================================================================
@@ -65,6 +66,9 @@ const LEGACY_ATTEMPTS = 3
  * stop by COURSE_DEADLINE_MS whatever that was.
  */
 const COURSE_BUDGET_MS = 30_000
+/** Storelib Reviews' request emails, before the course emails, never past this into the run. */
+const REVIEWS_BUDGET_MS = 25_000
+const REVIEWS_DEADLINE_MS = 255_000
 const COURSE_DEADLINE_MS = 290_000
 
 // Create admin client
@@ -171,6 +175,14 @@ async function runJob(request: Request) {
 
   const legacy = await drainLegacyQueue(Math.min(Date.now() + LEGACY_BUDGET_MS, started + LEGACY_DEADLINE_MS))
 
+  /* Storelib Reviews: each store's own review request emails and reminders (lib/reviews/requests-server.ts). */
+  let reviews: Awaited<ReturnType<typeof sweepReviewRequests>> | { error: true } = { error: true }
+  try {
+    reviews = await sweepReviewRequests({ budgetMs: Math.max(0, Math.min(REVIEWS_BUDGET_MS, started + REVIEWS_DEADLINE_MS - Date.now())) })
+  } catch (err) {
+    console.error("[cron/scheduled-emails] Review requests failed:", errorText(err))
+  }
+
   let courses: Awaited<ReturnType<typeof runCourseEmails>> | { available: false; error: true } = { available: false, error: true }
   try {
     courses = await runCourseEmails(supabaseAdmin, Math.min(Date.now() + COURSE_BUDGET_MS, started + COURSE_DEADLINE_MS))
@@ -183,12 +195,13 @@ async function runJob(request: Request) {
     () => ({ data: null }),
   )
 
-  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy, courses })
+  console.log("[cron/scheduled-emails] Done:", { campaigns, abandoned, engine, legacy, reviews, courses })
   return NextResponse.json({
     campaigns,
     abandoned,
     engine,
     legacy,
+    reviews,
     courses,
     health: Array.isArray(health) ? health[0] ?? null : null,
   })

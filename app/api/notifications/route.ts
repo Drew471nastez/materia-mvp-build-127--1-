@@ -2,6 +2,7 @@ import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { COVERS_PAYMENT_SETUP } from "@/lib/notifications/rules"
 import { notExpiredFilter, pageOf, parseListParams } from "@/lib/notifications/center"
+import { timed } from "@/lib/perf/server-timing"
 
 /**
  * ===========================================================================
@@ -65,7 +66,7 @@ const NO_STORE = { "Cache-Control": "private, no-store" }
 */
 type Schema = "expiry" | "engine" | "legacy"
 
-export async function GET(request: NextRequest) {
+async function handleGET(request: NextRequest) {
   const supabase = await createClient()
   const { searchParams } = new URL(request.url)
   const { limit, offset, before, unreadOnly } = parseListParams(searchParams)
@@ -277,3 +278,6 @@ export async function PATCH(request: NextRequest) {
     updatedIds: ids,
   })
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const GET = timed("app", "/api/notifications", handleGET)

@@ -901,9 +901,11 @@ export async function sendReceiptCopyEmail(
   const identity = params.creatorId ? await resolveCreatorIdentity(admin, params.creatorId) : null
   const fromName = identity?.fromName || PLATFORM_BRAND_NAME
   const replyTo = normalizeEmail(params.sellerReplyTo || "") || identity?.sellerEmail || identity?.replyTo || DEFAULT_SUPPORT
+  /* A website's own address for the receipt link, when the copy is sent from that website (lib/checkout/access-link), as sendBuyerDownloadEmail takes it. */
+  const siteBase = typeof params.receiptBaseUrl === "string" && /^https:\/\/[a-z0-9.-]+(:\d+)?$/i.test(params.receiptBaseUrl) ? params.receiptBaseUrl : null
   const model = await receiptEmailModel(admin, {
     receiptToken: params.receiptToken,
-    receiptLink: buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
+    receiptLink: siteBase ? new URL(`/receipt/${encodeURIComponent(params.receiptToken)}`, siteBase).toString() : buildUrl(`/receipt/${encodeURIComponent(params.receiptToken)}`, params.baseUrl),
     buyerFirstName: params.buyerFirstName,
     sellerName: fromName,
     supportEmail: replyTo,

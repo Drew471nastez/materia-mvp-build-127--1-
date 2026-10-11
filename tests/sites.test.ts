@@ -5067,13 +5067,14 @@ check(
   (() => {
     const proxy = readFileSync(join(process.cwd(), "proxy.ts"), "utf8")
     const at = proxy.indexOf('url.pathname.startsWith("/website-builder/code/")')
-    const block = at > 0 ? proxy.slice(at, at + 500) : ""
+    // Changed on purpose (W4a's cover thumbnails): the cover page's rule adds a sandbox, so the rule is chosen first and then appended; a wider window for that line.
+    const block = at > 0 ? proxy.slice(at, at + 1000) : ""
     return (
       at > 0 &&
       /searchParams\.get\("embedded"\) === "1"/.test(block) &&
-      /frame-ancestors 'self'/.test(block) &&
+      /const rule = [^\n]*"sandbox allow-scripts; frame-ancestors 'self'" : "frame-ancestors 'self'"/.test(block) &&
       // Appended, not replaced: the Capacitor CSP may already be on it.
-      /existing \? `\$\{existing\}; frame-ancestors 'self'`/.test(block)
+      /existing \? `\$\{existing\}; \$\{rule\}` : rule/.test(block)
     )
   })(),
 )

@@ -51,6 +51,11 @@ export function storelibAssetUrl(path: string): string {
   return `${STORELIB_ORIGIN}${path}`
 }
 
+/** The email-sized logo as the full address, for an email's header (lib/account/reset-email.ts). */
+export function storelibEmailLogoUrl(): string {
+  return storelibAssetUrl(STORELIB_EMAIL_LOGO)
+}
+
 /** The logo as the full address: the Organization logo Google reads, and anything else outside the page. */
 export function storelibLogoUrl(): string {
   return storelibAssetUrl(STORELIB_LOGO_PNG)

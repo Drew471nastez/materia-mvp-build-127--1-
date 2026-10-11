@@ -4,6 +4,7 @@ import crypto from "crypto"
 import { ignoreError } from "@/lib/supabase/ignore-error"
 import { supabaseNotifyStore } from "@/lib/notify/store"
 import { handleMailgunWebhook } from "@/lib/notify/webhook"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -112,7 +113,7 @@ function masked(email: string): string {
  *   turned off, and an unsubscribe from an engine email turning off that
  *   email's category.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     const body: any = await readDelivery(request)
     if (!body) return NextResponse.json({ error: "Send JSON" }, { status: 400 })
@@ -294,3 +295,6 @@ async function unsubscribeEmail(email: string) {
     console.error(`[mailgun-webhook] Error unsubscribing ${masked(email)}:`, err instanceof Error ? err.message : "unknown error")
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("infra", "/api/webhooks/mailgun", handlePOST)
