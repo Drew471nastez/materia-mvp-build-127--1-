@@ -294,6 +294,17 @@ function OrdersFrom({ locations, value, onSaved }: { locations: Location[] | nul
         <a href="/app/settings?tab=locations" className={BTN_SECONDARY}>
           Add a location
         </a>
+      ) : locations.length === 1 ? (
+        /* One location is the only place orders can ship from: a picker with one choice asks nothing. */
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-[#e5e7eb] px-4 py-3">
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{locations[0].name}</p>
+            <p className="text-[13px] text-[#6b7280]">Your only location, so every order ships from here.</p>
+          </div>
+          <a href="/app/settings?tab=locations" className="shrink-0 text-[13px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+            Add another
+          </a>
+        </div>
       ) : (
         <div className="space-y-3">
           <Field label="Default location" htmlFor="store-location">

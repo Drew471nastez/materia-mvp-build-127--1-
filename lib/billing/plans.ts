@@ -217,7 +217,9 @@ export function offeredPlan(id: OfferedPlanId): OfferedPlan {
 }
 
 /**
- * The small print under the cards. True for every plan. The rule for the
+ * The small print under the cards on the public pricing (components/marketing/pricing-section).
+ * Settings > Plan and the in-app upgrade page do not show it: the owner asked for it gone there.
+ * True for every plan. The rule for the
  * fixed $0.25 (orders of $4.00 or more, lib/billing/fee-calculator) is how
  * the fee is worked out, not something to read under a price: the owner
  * asked for the standard line.

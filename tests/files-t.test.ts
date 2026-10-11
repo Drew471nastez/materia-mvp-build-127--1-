@@ -161,6 +161,7 @@ async function main() {
   check("each tile has a menu: Use, Download, Copy link, Open in Files, Delete (asked first)", ["\"Use\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Delete\""].every((l) => lib.includes(`label: ${l}`)) && /data-file-confirm/.test(lib))
   check("  shown on hover with a mouse and always on a phone", /\[@media\(hover:hover\)\]:opacity-0 group-hover\/tile:opacity-100/.test(lib))
   check("Delete goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
+  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /label="Choose from your files"/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("every image field offers Choose from your files", /Choose from your files/.test(picker) && /<FilesLibraryChooser/.test(picker))
   check("  inside the field: Upload and Your files in an empty one, a Change menu on a filled one, no text link under it", /data-wb-image-library=""/.test(picker) && /Your files/.test(picker) && /data-wb-image-change=""/.test(picker) && !/underline-offset-2[^"]*"\s*\n\s*data-wb-image-library/.test(picker))

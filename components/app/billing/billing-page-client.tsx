@@ -14,7 +14,9 @@ import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { createPortal } from "react-dom"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { CancelPlanDialog } from "@/components/app/billing/cancel-plan-dialog"
+import type { CancelReason } from "@/lib/billing/cancel-reasons"
+import { formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
@@ -50,6 +52,15 @@ interface BillingPageClientProps {
   embedded?: boolean
 }
 
+/**
+ * ONE COLUMN FOR THE WHOLE TAB. The plan cards are a 720px pair
+ * (components/billing/plan-cards); the overview and the history used to run
+ * the settings column's full width under them, so the tab had two right
+ * edges and the cards looked like they floated. Now all three sit in the
+ * cards' column, from the same left edge as every other settings panel.
+ */
+const PLAN_COLUMN = "w-full max-w-[720px]"
+
 export function BillingPageClient({ initialData, embedded = false }: BillingPageClientProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -63,6 +74,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const [showUpgradeModal, setShowUpgradeModal] = useState<{ planId: string; planName: string; priceCents: number } | null>(null)
   const [upgradeLoading, setUpgradeLoading] = useState(false)
   const [showAllInvoices, setShowAllInvoices] = useState(false)
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const [cancelError, setCancelError] = useState<string | null>(null)
+  const [resumeBusy, setResumeBusy] = useState(false)
   const [upgradePreview, setUpgradePreview] = useState<{ amountDueTodayCents: number; nextBillingDate: string; nextAmountCents: number; type: "upgrade" | "downgrade" } | null>(null)
 
   // Refs for auto-scrolling tab navigation on mobile
@@ -203,20 +218,50 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
     }
   }
 
-  const handleCancelSubscription = async () => {
-    setPortalLoading(true)
+  /*
+    CANCEL PLAN: at the end of the period paid for, through Stripe
+    (app/api/billing/subscription/cancel), with the reason from the dialog.
+    The overview turns to "Pro until <date>" with Resume plan at once; the
+    refresh after it reads Stripe again.
+  */
+  const confirmCancel = async (feedback: { reason: CancelReason | null; note: string }) => {
+    setCancelBusy(true)
+    setCancelError(null)
     try {
-      const response = await fetch("/api/billing/customer-portal", { method: "POST" })
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.error || "Failed to open portal")
-      }
-      const { url } = await response.json()
-      window.location.href = url
+      const response = await fetch("/api/billing/subscription/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: feedback.reason, note: feedback.note }),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || "Could not cancel. Nothing changed.")
+      const endsAt = liveSubscription?.current_period_end || result.cancelAt || null
+      setLiveSubscription((prev: any) => (prev ? { ...prev, cancel_at_period_end: true, pending_plan_id: null, current_period_end: endsAt ?? prev.current_period_end } : prev))
+      setCancelOpen(false)
+      showNotification("success", endsAt ? `${currentPlan.name} until ${formatDate(endsAt)}` : "Plan cancelled")
+      setTimeout(() => refreshBillingData(), 1000)
     } catch (error: any) {
-      showNotification("error", error.message || "Could not open billing. Try again.")
+      setCancelError(error.message || "Could not cancel. Nothing changed.")
     } finally {
-      setPortalLoading(false)
+      setCancelBusy(false)
+    }
+  }
+
+  /* RESUME PLAN: undoes the cancel, same subscription, nothing charged now (app/api/billing/subscription/resume). */
+  const resumePlan = async () => {
+    setResumeBusy(true)
+    try {
+      const response = await fetch("/api/billing/subscription/resume", { method: "POST" })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || "Could not resume. Try again.")
+      setLiveSubscription((prev: any) => (prev ? { ...prev, cancel_at_period_end: false } : prev))
+      const renews = result.renewsAt || liveSubscription?.current_period_end
+      showNotification("success", renews ? `${currentPlan.name} renews on ${formatDate(renews)}` : `${currentPlan.name} is back on`)
+      setTimeout(() => refreshBillingData(), 1000)
+    } catch (error: any) {
+      showNotification("error", error.message || "Could not resume. Try again.")
+    } finally {
+      setResumeBusy(false)
     }
   }
 
@@ -287,6 +332,9 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
   const pendingPlanId = subscription?.pending_plan_id || null
   const plans = initialData.plans.map(withPlanLabel)
   const pendingPlan = pendingPlanId && pendingPlanId !== currentPlan.id ? plans.find((p: any) => p.id === pendingPlanId) : null
+  /* Cancel plan is for a paid plan that is running and not already set to end. Free has nothing to cancel. */
+  const canCancel = Boolean(isSubscribed && !subscription.cancel_at_period_end && currentPlan.price_cents > 0)
+  const isEnding = Boolean(isSubscribed && subscription.cancel_at_period_end)
 
   /* What a plan includes is on the plan cards (components/billing/plan-cards), not repeated here. */
 
@@ -335,7 +383,8 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
 
         {/* Notification is now a fixed toast at top of screen - rendered at end of component */}
 
-        <div className="space-y-6">
+        {/* Three sections, the same distance apart, in one column (PLAN_COLUMN). 40px on a phone, 48 from 640: room for the plan cards' shadow before the next heading. */}
+        <div data-billing-column="" className={cn(PLAN_COLUMN, "space-y-10 sm:space-y-12")}>
 
           {/* ---- FIRST: the plans, the same cards the plans page shows. What you could be on comes before what you are on (the owner's order: plans, then the overview, the card and the history). ---- */}
           <PricingTiers
@@ -348,6 +397,7 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             router={router}
             onUpgradeClick={(planId, planName, priceCents) => openUpgradeModal(planId, planName, priceCents)}
             pendingPlanId={pendingPlanId}
+            onCancelClick={canCancel ? () => { setCancelError(null); setCancelOpen(true) } : undefined}
           />
 
           {/*
@@ -359,9 +409,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
             forward and white for the rest. No uppercase labels, no badge
             for a plan that is simply on.
           */}
-          <div>
+          <div data-billing-overview="">
             <h2 className="text-[17px] font-bold text-[#1a1a2e] mb-4">Subscription Overview</h2>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-5">
+            {/* Side by side from 768px, where the plan cards pair up too, with the same 20px between them. */}
+            <div data-billing-overview-grid="" className="grid grid-cols-1 gap-5 md:grid-cols-2">
 
               {/* Left: Current Plan */}
               <div data-billing-plan="" className={cn(CARD, "flex flex-col app-card-x py-5")}>
@@ -403,10 +454,10 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   ) : null}
                 </dl>
 
-                {/* Cancel-at-period-end notice: the plan is on until its last day. */}
-                {isSubscribed && subscription.cancel_at_period_end && (
-                  <p className="mt-4 rounded-xl bg-[#fff8e6] px-3.5 py-3 text-[13px] leading-5 text-[#7a5200]">
-                    Your plan stays on until {formatDate(subscription.current_period_end)}. Nothing more is charged.
+                {/* Cancelled at the period's end: the plan is on until its last day, then Free. Resume plan below undoes it. */}
+                {isEnding && (
+                  <p data-billing-ends="" className="mt-4 rounded-xl bg-[#fff8e6] px-3.5 py-3 text-[13px] leading-5 text-[#7a5200]">
+                    <span className="font-semibold">{currentPlan.name} until {formatDate(subscription.current_period_end)}</span>, then Free. Nothing more is charged.
                   </p>
                 )}
                 {/* Fully canceled subscription notice */}
@@ -419,19 +470,31 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
                   </p>
                 )}
 
-                <div className="mt-auto flex flex-wrap gap-2.5 pt-5">
-                  {(currentPlan.id === "free" || (isSubscribed && subscription.cancel_at_period_end) || subscription?.status === "canceled") && (
-                    <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline max-sm:flex-1")}>
-                      {subscription?.status === "canceled" || subscription?.cancel_at_period_end ? "Keep Pro" : "Upgrade to Pro"}
+                {/* On a phone the buttons are one full width column; from 640 a row that shares the width, each on its own line when two do not fit. */}
+                <div className="mt-auto flex flex-col gap-2.5 pt-5 sm:flex-row sm:flex-wrap">
+                  {(currentPlan.id === "free" || subscription?.status === "canceled") && !isSubscribed && (
+                    <Link href="/app/settings/billing/upgrade" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] no-underline sm:flex-1")}>
+                      {subscription?.status === "canceled" ? "Start Pro again" : "Upgrade to Pro"}
                     </Link>
+                  )}
+                  {isEnding && (
+                    <button type="button" onClick={resumePlan} disabled={resumeBusy} aria-busy={resumeBusy} data-billing-resume="" className={cn(primaryDepth, "h-10 rounded-xl px-4 text-[14px] sm:flex-1")}>
+                      {resumeBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : null}
+                      Resume plan
+                    </button>
                   )}
                   {/* Pro (id "growth") is the top plan on sale, so there is nothing to upgrade to from it. */}
                   {isSubscribed && (
-                    <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] max-sm:flex-1")}>
+                    <button type="button" onClick={openCustomerPortal} disabled={portalLoading} className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] whitespace-nowrap sm:flex-1")}>
                       {portalLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                       Manage subscription
                     </button>
                   )}
+                  {canCancel ? (
+                    <button type="button" onClick={() => { setCancelError(null); setCancelOpen(true) }} data-billing-cancel="" className={cn(secondaryDepth, "h-10 rounded-xl px-4 text-[14px] text-[#b42318] whitespace-nowrap sm:flex-1")}>
+                      Cancel plan
+                    </button>
+                  ) : null}
                 </div>
               </div>
 
@@ -603,6 +666,16 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
           </div>
         )}
       </BottomSheet>
+
+      <CancelPlanDialog
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        planName={currentPlan.name}
+        endsAt={subscription?.current_period_end ?? null}
+        busy={cancelBusy}
+        error={cancelError}
+        onConfirm={confirmCancel}
+      />
 
       {/* Upgrade Confirmation Modal */}
       {/* Fixed notification toast */}
@@ -897,11 +970,13 @@ function UpgradeConfirmModal({ planId, planName, priceCents, currentPlan, subscr
 /* ============================================================
    Pricing Tiers
    ============================================================ */
-function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, showNotification, router, onUpgradeClick, pendingPlanId }: {
+function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, showNotification, router, onUpgradeClick, pendingPlanId, onCancelClick }: {
   plans: any[]; currentPlan: any; subscription: any; loading: string | null; setLoading: (v: string | null) => void
   showNotification: (type: "success" | "error", message: string) => void; router: any
   onUpgradeClick: (planId: string, planName: string, priceCents: number) => void
   pendingPlanId?: string | null
+  /** On a running paid plan, Downgrade to Free opens the Cancel plan dialog rather than the upgrade page. */
+  onCancelClick?: () => void
 }) {
   const handlePlanAction = () => {
     // Every plan change happens on the upgrade page, which knows how to
@@ -931,7 +1006,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
 
     return {
       label,
-      onClick: handlePlanAction,
+      onClick: isFree && !isCurrentPlan && onCancelClick ? onCancelClick : handlePlanAction,
       settled: isCurrentPlan || (isCanceling && isFree) || (isPendingPlan && !isUpgrade),
       current: isCurrentPlan,
       disabled: loading !== null,
@@ -940,7 +1015,7 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
   }
 
   return (
-    <div>
+    <div data-billing-plans="">
       {/*
         A CENTRED HEADER OVER THE PLANS (round R1). "The left aligned Plans
         heading goes." It now reads like the plans page (upgrade-page-client
@@ -957,7 +1032,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
         actions={{ free: actionFor("free"), growth: actionFor("growth") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
       />
-      <p className="mt-4 text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
     </div>
   )
 }
