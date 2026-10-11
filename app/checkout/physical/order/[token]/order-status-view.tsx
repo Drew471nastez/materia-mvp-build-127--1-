@@ -40,7 +40,14 @@ interface Props {
   canReturn: boolean
 }
 
-const money = (c: number) => `$${(c / 100).toFixed(2)}`
+/* In the currency the order was charged in (commerce_checkouts.currency, the platform's: RON or USD), never a bare dollar sign. */
+const moneyIn = (c: number, currency?: string) => {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "USD").toUpperCase() }).format(c / 100)
+  } catch {
+    return `${(c / 100).toFixed(2)} ${(currency || "").toUpperCase()}`.trim()
+  }
+}
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "")
 
 const RETURN_TEXT: Record<string, string> = {
@@ -71,6 +78,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
 }
 
 export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help }: Props) {
+  const money = (c: number) => moneyIn(c, order.totals.currency)
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
@@ -211,7 +219,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
             {order.totals.discount ? <Row label="Discount" value={`-${money(order.totals.discount)}`} /> : null}
             {needsShipping ? <Row label={pickup ? "Pickup" : "Shipping"} value={order.totals.shipping ? money(order.totals.shipping) : "Free"} /> : null}
             {order.totals.tax ? <Row label={order.totals.taxIncluded ? includedTaxLabel(order.totals.taxLabel) : order.totals.taxLabel || "Tax"} value={money(order.totals.tax)} /> : null}
-            <Row label="Total" value={`${order.totals.currency ? `${order.totals.currency.toUpperCase()} ` : ""}${money(order.totals.total)}`} strong />
+            <Row label="Total" value={`${money(order.totals.total)}${order.totals.currency && order.totals.currency.toUpperCase() === "USD" ? " USD" : ""}`} strong />
             {order.totals.refunded ? <Row label="Refunded" value={`-${money(order.totals.refunded)}`} /> : null}
           </dl>
         </section>

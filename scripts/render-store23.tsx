@@ -185,7 +185,7 @@ export function boot(render: (el: React.ReactElement) => void) {
             delivery: { name: "Standard", priceCents: 500, minDays: 3, maxDays: 5 },
             pickup: null,
             processing: false,
-            totals: { subtotal: 4000, discount: 0, shipping: 500, tax: 760, taxIncluded: false, taxLabel: "VAT 19%", total: 5260, refunded: 0, currency: "USD" },
+            totals: { subtotal: 4000, discount: 0, shipping: 500, tax: 760, taxIncluded: false, taxLabel: "VAT 19%", total: 5260, refunded: 0, currency: "RON" },
             lines: [{ orderId: "o1", title: "Stoneware mug", variantName: null, imageUrl: null, quantity: 2, cents: 4000, type: "physical", receiptToken: null, returnable: 0 }],
             shipments: [],
             returns: [],

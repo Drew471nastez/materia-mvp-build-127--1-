@@ -93,7 +93,15 @@ const server = createServer((req, res) => {
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
 const origin = `http://127.0.0.1:${server.address().port}`
+/* SERVE_ONLY=1: build and serve the cases, to open them by hand. */
+if (process.env.SERVE_ONLY) {
+  console.log(`serving ${origin}/?case=site`)
+  await new Promise(() => {})
+}
 
+/* ONLY=receipt,order to look at some of them. */
+const only = process.env.ONLY ? new Set(process.env.ONLY.split(",")) : null
+const want = (which) => !only || only.has(which)
 let broken = 0
 const expect = (ok, what, got) => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${what}${ok || got === undefined ? "" : `   (${typeof got === "string" ? got.slice(0, 300) : JSON.stringify(got).slice(0, 300)})`}`)
@@ -112,7 +120,12 @@ async function open(viewport, which) {
     await cdp.send("Emulation.setCPUThrottlingRate", { rate: 4 })
   }
   await p.goto(`${origin}/?case=${which}`, { waitUntil: "load", timeout: 180000 })
-  await p.waitForSelector(`[data-case="${which}"]`, { timeout: 180000 })
+  try {
+    await p.waitForSelector(`[data-case="${which}"]`, { timeout: 180000 })
+  } catch (e) {
+    console.log(`  FAIL  ${which} did not draw`, JSON.stringify(await p.evaluate(() => window.__errors || [])).slice(0, 800))
+    throw e
+  }
   await sleep(viewport.isMobile ? 1200 : 600)
   return p
 }
@@ -121,10 +134,12 @@ const sideways = (p) => p.evaluate(() => document.documentElement.scrollWidth - 
 const shot = async (p, name) => p.screenshot({ path: join(shots, `${name}.png`), fullPage: true })
 const errors = (p) => p.evaluate(() => (window.__errors || []).filter((e) => !/Stripe|stripe|Failed to load resource|placeholder\.supabase/.test(e)))
 
-for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 1440", LAPTOP]]) {
+/* SIZES=1440 or SIZES=390 for one of them. */
+const sizes = [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 1440", LAPTOP]].filter(([, vp]) => !process.env.SIZES || process.env.SIZES.split(",").includes(String(vp.width)))
+for (const [label, vp] of sizes) {
   const tag = vp.isMobile ? "390" : "1440"
   console.log(`\n${label}`)
-  {
+  if (want("site-gate")) {
     const p = await open(vp, "site-gate")
     const t = await text(p)
     expect(/Sign in to check out/.test(t) && !!(await p.$('[data-checkout-account="sign-in"] a[href^="/account/login"]')), "the website's own checkout (custom domains, imported themes): Sign in to check out, to the site's own sign in", t.slice(0, 200))
@@ -132,7 +147,7 @@ for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 
     await shot(p, `site-gate-${tag}`)
     await p.close()
   }
-  {
+  if (want("site")) {
     const p = await open(vp, "site")
     const t = await text(p)
     const fields = await p.evaluate(() => [...document.querySelectorAll("input,select")].map((i) => (i.getAttribute("aria-label") || i.getAttribute("placeholder") || i.getAttribute("name") || i.id || "") + (i.required ? "*" : "")))
@@ -146,14 +161,14 @@ for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 
     await shot(p, `site-form-${tag}`)
     await p.close()
   }
-  {
+  if (want("physical-gate")) {
     const p = await open(vp, "physical-gate")
     const t = await text(p)
     expect(/sign in/i.test(t), "Storelib's cart checkout: sign in first", t.slice(0, 200))
     await shot(p, `physical-gate-${tag}`)
     await p.close()
   }
-  {
+  if (want("physical")) {
     const p = await open(vp, "physical")
     await sleep(900)
     /* On a phone the order sits behind Show order summary. */
@@ -166,7 +181,7 @@ for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 
     await shot(p, `physical-form-${tag}`)
     await p.close()
   }
-  {
+  if (want("digital")) {
     const p = await open(vp, "digital")
     const t = await text(p)
     expect(t.includes("VAT 19%") && t.includes("9.31") && t.includes("58.31"), "the single product checkout: VAT 19%, 9.31 on 49.00, 58.31 due", t.match(/.*(VAT|Tax|\$).*/g))
@@ -174,7 +189,7 @@ for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 
     await shot(p, `digital-${tag}`)
     await p.close()
   }
-  {
+  if (want("receipt")) {
     const p = await open(vp, "receipt")
     const t = await text(p)
     expect(t.includes("VAT 19%") && t.includes("9.31"), "the receipt: VAT 19%", t.match(/.*(VAT|Tax).*/g))
@@ -183,16 +198,16 @@ for (const [label, vp] of [["phone 390, touch, 4x slower CPU", PHONE], ["laptop 
     await shot(p, `receipt-${tag}`)
     await p.close()
   }
-  {
+  if (want("order")) {
     const p = await open(vp, "order")
     const t = await text(p)
-    expect(t.includes("VAT 19%") && /USD\s*\$52\.60/.test(t), "the order page: VAT 19% and the total with its currency", t.match(/.*(VAT|Total|USD).*/g))
+    expect(t.includes("VAT 19%") && /RON\s52\.60/.test(t) && !t.includes("$"), "the order page: VAT 19% and every amount in the charged currency (RON), no bare dollar sign", t.match(/.*(VAT|Total|USD).*/g))
     expect(t.includes("Oct 11, 2026") && t.includes("Sold by Bread Studio SRL") && t.includes("VAT number RO12345678"), "  its date, and who sold it", t.match(/.*(Order|Sold by).*/g))
     expect((await sideways(p)) <= 0, "  nothing scrolls sideways", await sideways(p))
     await shot(p, `order-${tag}`)
     await p.close()
   }
-  {
+  if (want("store")) {
     const p = await open(vp, "store")
     await sleep(500)
     const t = await text(p)

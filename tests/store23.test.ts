@@ -148,6 +148,7 @@ async function receipts(db: ReturnType<typeof pgDb>) {
   const osv = read("app/checkout/physical/order/[token]/order-status-view.tsx")
   check("logo, name, email, phone, website and the business, from storeIdentity", /shop=\{\{ name: store\.name, avatar: store\.logoUrl, email: store\.email, phone: store\.phone, websiteUrl: store\.websiteUrl, legal: store\.legal \}\}/.test(page))
   check("  its tax line by name, its currency, its date, and Sold by", /taxLabel: order\.taxLabel/.test(page) && /currency: order\.currency/.test(page) && /order\.totals\.taxLabel \|\| "Tax"/.test(osv) && /\{day\(order\.createdAt\)\}/.test(osv) && /data-order-seller/.test(osv))
+  check("  every amount in the currency it was charged in (the platform's RON), never a bare $", /const money = \(c: number\) => moneyIn\(c, order\.totals\.currency\)/.test(osv) && !/`\$\$\{\(c \/ 100\)/.test(osv))
 }
 
 async function checkoutGates() {
