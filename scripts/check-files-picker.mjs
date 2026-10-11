@@ -120,7 +120,7 @@ const server = createServer(async (req, res) => {
 await new Promise((r) => server.listen(0, r))
 const base = `http://127.0.0.1:${server.address().port}`
 
-const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true })
+const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox"], headless: true, protocolTimeout: 600000 })
 
 /* The resized copies, made by the browser from the originals, as the optimizer would. */
 {
@@ -309,9 +309,11 @@ async function greyAfterSwitch(page, pill) {
 const results = []
 const report = (r) => { results.push(r); console.log(`  ${r.name.padEnd(22)} frames ${String(r.frames).padStart(3)}  worst gap ${String(r.worstGapMs).padStart(3)}ms  >20ms ${r.over20}  >34ms ${r.over34}  shift ${r.shift}${r.extra ? "  " + r.extra : ""}`) }
 
+/* ONLY=phone or ONLY=computer runs that part alone. */
+const ONLY = process.env.ONLY ?? ""
 /* ── Phone ── */
 console.log(`\nPHONE 390x844, CPU ${THROTTLE}x slower`)
-{
+if (!ONLY || ONLY === "phone") {
   const s = await session(true)
   const { page, cdp } = s
   const touch = (type, x, y) => {
@@ -420,7 +422,7 @@ console.log(`\nPHONE 390x844, CPU ${THROTTLE}x slower`)
 
 /* ── Computer ── */
 console.log(`\nCOMPUTER 1440x900`)
-{
+if (!ONLY || ONLY === "computer") {
   const s = await session(false)
   const { page } = s
   /* The screencast itself costs frames on a computer-sized page, so open and close are timed once without it first. */
@@ -509,7 +511,7 @@ console.log(`\nCOMPUTER 1440x900`)
 
 /* ── Several at once ── */
 console.log(`\nSEVERAL AT ONCE`)
-for (const phone of [false, true]) {
+for (const phone of ONLY ? [] : [false, true]) {
   const where = phone ? "phone" : "computer"
   const s = await session(phone, "/?multi=3")
   const { page } = s
@@ -553,7 +555,7 @@ for (const phone of [false, true]) {
 }
 
 /* ── Files, Select ── */
-{
+if (!ONLY) {
   const s = await session(false, "/?manage=1")
   const { page } = s
   await page.waitForSelector("[data-files-grid] img[data-loaded]", { timeout: 30000 })
