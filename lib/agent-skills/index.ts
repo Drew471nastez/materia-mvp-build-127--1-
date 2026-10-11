@@ -317,7 +317,7 @@ export const SKILLS: Skill[] = [
       "A section takes them with \"blocks\": [{ \"type\": \"@theme\" }] and draws them with {% content_for \"blocks\" %}, and declares no blocks of its own.",
       "A new block is blocks/<type>.storelib: template, style and schema, no script. Prefix its classes and take colours from the section's --s-* properties.",
       "A row or column is a group holding blocks. A block the template places itself is static: {% content_for \"block\", type: \"heading\", id: \"title\" %}.",
-      "Presets the Shopify way: blocks keyed by id with block_order, every non static key listed. storelib_compile, then storelib_run_tests.",
+      "Presets with blocks keyed by id with block_order, every non static key listed. storelib_compile, then storelib_run_tests.",
     ],
     tools: ["storelib_list_files", "storelib_read_file", "storelib_write_section", "storelib_compile", "storelib_run_tests"],
     topics: ["theme-blocks"],

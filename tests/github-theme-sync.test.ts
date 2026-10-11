@@ -357,7 +357,7 @@ async function main() {
     check("the picture is fetched from storage and committed", Buffer.compare(gh.filesAt(REPO, "main")["shopify/assets/hero.jpg"], Buffer.from(jpeg)) === 0)
     check("the settings keep the compat marker", JSON.parse(gh.text(REPO, "main", "config/settings.json")!).compat.kind === "shopify")
     const agents = gh.text(REPO, "main", "AGENTS.md")!
-    check("AGENTS.md says every section is the theme's own and keeps the compat line", /imported from a Shopify theme/.test(agents) && /Every section here is the theme's own/.test(agents) && /<template compat="shopify">/.test(agents))
+    check("AGENTS.md says every section is the theme's own and keeps the compat line", /imported from another store's theme/.test(agents) && !/Shopify|Liquid/.test(agents) && /Every section here is the theme's own/.test(agents) && /<template compat="shopify">/.test(agents))
     check("the manifest calls it a shopify theme", JSON.parse(gh.text(REPO, "main", "storelib.json")!).kind === "shopify")
 
     const slideshow = gh.text(REPO, "main", "sections/slideshow.storelib")!

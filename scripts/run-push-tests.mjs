@@ -34,6 +34,7 @@ const SUITES = [
   "tests/perf-collect.test.ts",
   "tests/profile-display-name.test.ts",
   "tests/new-tab-links.test.ts",
+  "tests/publish-tap-away.test.ts",
   "tests/lean-images.test.ts",
   "tests/buy-buttons-checkout.test.ts",
   "tests/integrations-settings-sheet.test.ts",

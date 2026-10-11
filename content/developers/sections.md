@@ -21,7 +21,7 @@ A section is one file, `sections/<type>.storelib`, that describes a section type
 
 ## The template language
 
-The template is HTML plus output, conditions, loops and comments. It is **not** Vue, React, JSX or Liquid, although it looks like Liquid: `v-if`, `@click`, `:class` and JSX braces are refused by the compiler. It is compiled to a tree and walked, with no `eval` anywhere in it, which keeps rendering deterministic: the same file and the same settings always give the same markup, in the builder and on the live site.
+The template is HTML plus output, conditions, loops and comments. It is **not** Vue, React or JSX, although it looks like other store template languages: `v-if`, `@click`, `:class` and JSX braces are refused by the compiler. It is compiled to a tree and walked, with no `eval` anywhere in it, which keeps rendering deterministic: the same file and the same settings always give the same markup, in the builder and on the live site.
 
 ```storelib
 <h2>{{ settings.heading }}</h2>

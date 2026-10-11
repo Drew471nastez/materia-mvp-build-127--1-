@@ -396,7 +396,7 @@ function main() {
 
   console.log("\nDocumented where people and agents look")
   const doc = read("content/developers/blocks.md")
-  check("the developer hub explains theme blocks, content_for, static blocks and keyed presets", ["## Theme blocks", '{% content_for "blocks" %}', "## Static blocks", "block_order", "@[theme-blocks]", "## From Shopify"].every((s) => doc.includes(s)))
+  check("the developer hub explains theme blocks, content_for, static blocks and keyed presets", ["## Theme blocks", '{% content_for "blocks" %}', "## Static blocks", "block_order", "@[theme-blocks]", "## From an imported theme"].every((s) => doc.includes(s)))
   check("Ask AI's reference has a topic for them", ALL_TOPICS.some((t) => t.id === "theme-blocks" && /content_for/.test(t.text)))
   check("the manual covers them", /### 9\.1 Theme blocks/.test(read("docs/storelib-manual.md")))
   for (const word of ["unlock", "elevate", "seamless", "powerful", "effortlessly", "supercharge", "transform", "—"]) {

@@ -16,7 +16,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Added**
 
-- [Imported Shopify themes](/developers/imported-shopify-themes): a page on what a theme imported from Shopify can use on Storelib, from Liquid and the AJAX cart to accounts, the canvas and what does not come across.
+- [Imported themes](/developers/imported-shopify-themes): a page on what an imported theme can use on Storelib, from its template code and the AJAX cart to accounts, the canvas and what does not come across.
 - In an imported theme: sign in, sign up and the account page on the website's own host with an emailed code, in the theme's own `customers/*` templates when it has them; the theme's hearts kept in step with the website's wishlist; contact and newsletter forms that reach the creator; a blog page drawn with its title and no posts.
 - In the builder's canvas, an imported theme's Add to cart, cart drawer and quantity changes work against a cart the builder keeps; checkout says it opens on the live site.
 - In an imported theme, `/account` lists the visitor's downloads, `/account/orders/<id>` is an order's own page in the theme, and its files download from the website itself; account pages draw in the builder's canvas.
@@ -41,7 +41,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 
 **Changed**
 
-- A schema default written as a `t:` key (an imported Shopify theme's) is drawn as the word in the theme's schema locale, on the live site, in the canvas and in Add a section.
+- A schema default written as a `t:` key (an imported theme's) is drawn as the word in the theme's schema locale, on the live site, in the canvas and in Add a section.
 - Add a section never shows a blank card: a section drawn hidden until a script reveals it is shown, and one that draws nothing until it has content is named.
 - A save the server refuses says what happened and what to do, in one line with one action, instead of the raw error.
 
@@ -73,7 +73,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - [Filtering the shop](/developers/selling#filtering-the-shop): `page.filters` on the shop and search pages, from the address.
 - [Breadcrumbs](/developers/selling#breadcrumbs): `page.breadcrumbs` on every page but home, `page.title`, and a Breadcrumbs section.
 - `products` carry `category` and, for a product that ships, `options`.
-- [Where a section may go](/developers/schema#where-a-section-may-go): `enabled_on` and `disabled_on` with section groups (`header`, `footer`, `template`), Shopify's spelling, and `"category": "announcement"` meaning the header group.
+- [Where a section may go](/developers/schema#where-a-section-may-go): `enabled_on` and `disabled_on` with section groups (`header`, `footer`, `template`), the usual spelling, and `"category": "announcement"` meaning the header group.
 - [A header of your own](/developers/header-and-footer#a-header-of-your-own): `"kind": "header"` (or `"footer"`) makes one section the site's header in place of the built-in one. One of each per theme.
 - [A section's own animation](/developers/schema#a-sections-own-animation): a `select` with the id `animation` and the values `theme`, `none`, `fade`, `fade_up` and `zoom` overrides the theme's animation for that section.
 - [The theme's general settings](/developers/dynamic-values#the-themes-general-settings) as a section reads them: `theme.logo`, `theme.favicon`, `theme.buttons`, `theme.layout`, `theme.animation` and `theme.socials`, each with Theme settings' default.
@@ -88,10 +88,10 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - A `range` with no default starts at its `min`, not at 0.
 - New compile warnings: numbered link pairs, a range with no default, an unknown animation value, an `<img>` with no `alt`. Schema errors say which key is missing or of the wrong kind, in words.
 
-- [Theme blocks](/developers/blocks#theme-blocks), the way Shopify has them: a file each in `blocks/`, accepted by a section with `{ "type": "@theme" }` or by name, drawn with `{% content_for "blocks" %}`, private when the file name starts with `_`. Heading, Text, Button, Image, Video, Spacer and Group ship with every theme.
+- [Theme blocks](/developers/blocks#theme-blocks): a file each in `blocks/`, accepted by a section with `{ "type": "@theme" }` or by name, drawn with `{% content_for "blocks" %}`, private when the file name starts with `_`. Heading, Text, Button, Image, Video, Spacer and Group ship with every theme.
 - Blocks inside blocks, eight levels deep: a theme block that accepts blocks draws them with the same tag. Group makes rows and columns out of any blocks.
 - [Static blocks](/developers/blocks#static-blocks), placed by the template with `{% content_for "block", type: "…", id: "…" %}`: edited and hidden, never moved or deleted.
-- [Presets](/developers/blocks#presets) in Shopify's keyed form, `blocks` by id with `block_order`, nested, with `static` and a `category` that files the card in Add section. A theme block's presets are its entries in Add block.
+- [Presets](/developers/blocks#presets) in the keyed form, `blocks` by id with `block_order`, nested, with `static` and a `category` that files the card in Add section. A theme block's presets are its entries in Add block.
 - Two sections built from theme blocks: Section, which takes any of them, and Image grid, which takes pictures and places its title as a static block.
 - A block can be hidden from the sidebar's eye, and is kept.
 - Agents may write theme blocks: `blocks/<type>.storelib` is writable over MCP, the agent API and GitHub, except the ones Storelib ships. Page tools take `parent_block_id` to add inside a block, and a block's path (`outer/inner`) as its id.
@@ -113,7 +113,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 **Added**
 
 - Eight setting types: `inline_richtext`, `html`, `color_background`, `datetime`, `focal_point`, `video_url`, `product_list` and `link_list`. See [Schema](/developers/schema#every-control-type).
-- `visible_if` on a setting, written as Shopify writes it, so the panel shows a setting only when it matters. See [Showing a setting only when it matters](/developers/schema#showing-a-setting-only-when-it-matters).
+- `visible_if` on a setting, written the usual way, so the panel shows a setting only when it matters. See [Showing a setting only when it matters](/developers/schema#showing-a-setting-only-when-it-matters).
 - Shop data in a setting: `{{ shop.name }}`, `{{ creator.avatar }}`, `{{ product.price }}` and the rest of a closed list, filled in on the server. See [Shop data in a setting](/developers/schema#shop-data-in-a-setting).
 - `shop`, `creator` and `product` in a template, beside `settings` and `blocks`.
 - A `product_picker` carries the product's title, price and picture as well as its address.
@@ -122,7 +122,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - Three sections: Plans, Rows and Course Outline.
 - The 404 page: every site draws its own inside its header and footer for an address it does not have, and a creator can arrange it in the builder like the shop and search pages.
 - The Product Grid can show products the creator chooses from the shop.
-- [Coming from Shopify](/developers/shopify).
+- [Coming from another platform](/developers/shopify).
 - [Themes](/developers/themes): what a theme holds, the website library, every theme setting key, colour schemes and typography, and the package format with `theme.json`, `manifest.json` and `templates/*.json`.
 - [Pages and page settings](/developers/pages), [Sharing themes](/developers/sharing-themes), [Publishing and checks](/developers/publishing), [Dynamic values](/developers/dynamic-values) and [Data model](/developers/data-model).
 - The hub is grouped the way it is used: Get started, Themes, Sections, Data and logic, Tools and AI, and Reference. Every page keeps its address.

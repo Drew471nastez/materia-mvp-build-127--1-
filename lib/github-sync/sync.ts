@@ -441,11 +441,11 @@ export async function applyFiles(
     if (role === "source") {
       const isCompat = isCompatSource(text)
       if (snap.compat && !isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: this is an imported Shopify theme, so its files start with <template compat="shopify">. Copy that line and the schema layout from another file in the same folder.`, kind: "wrong-kind" })
+        out.failed.push({ path: f.path, error: `${f.path}: this is an imported theme, so its files start with <template compat="shopify">. Copy that line and the schema layout from another file in the same folder.`, kind: "wrong-kind" })
         continue
       }
       if (!snap.compat && isCompat) {
-        out.failed.push({ path: f.path, error: `${f.path}: <template compat="shopify"> is for imported Shopify themes. Write it as a Storelib section (https://storelib.com/developers/sections).`, kind: "wrong-kind" })
+        out.failed.push({ path: f.path, error: `${f.path}: <template compat="shopify"> is for imported themes. Write it as a Storelib section (https://storelib.com/developers/sections).`, kind: "wrong-kind" })
         continue
       }
       const allowed = repoMayWrite(f.path, compat)

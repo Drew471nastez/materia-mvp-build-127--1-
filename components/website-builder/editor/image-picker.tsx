@@ -71,6 +71,7 @@ export function WbImagePicker({
   layout = "box",
   onAddMany,
   max,
+  library = true,
 }: {
   value: string | undefined
   onChange: (url: string | null) => void
@@ -82,6 +83,11 @@ export function WbImagePicker({
   onAddMany?: (urls: string[]) => void
   /** How many more the list takes. */
   max?: number
+  /**
+   * Whether the store's files are offered beside Upload. Website settings'
+   * favicon turns it off: that field takes an upload only.
+   */
+  library?: boolean
   label?: string
   aspectRatio?: "square" | "video" | "logo" | "favicon"
   /**
@@ -288,6 +294,7 @@ export function WbImagePicker({
     on the grid rather than on a wait (components/files/files-library.tsx).
   */
   useEffect(() => {
+    if (!library) return
     const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
     const id = ric ? ric(() => void prefetchLibrary("image"), { timeout: 3000 }) : window.setTimeout(() => void prefetchLibrary("image"), 1500)
     return () => {
@@ -295,8 +302,8 @@ export function WbImagePicker({
       if (ric && cancel) cancel(id)
       else window.clearTimeout(id)
     }
-  }, [])
-  const warmLibrary = () => void prefetchLibrary("image", { warmFirst: true })
+  }, [library])
+  const warmLibrary = () => { if (library) void prefetchLibrary("image", { warmFirst: true }) }
   /* A picture picked from the library: on screen at once from the copy the grid already decoded (or the file just uploaded), and the stored one fades over it. */
   const picked = (url: string, hint?: PickHint) => {
     if (hint?.file) showFile(hint.file)
@@ -307,7 +314,7 @@ export function WbImagePicker({
   /* What "Change" offers on a picture already there. */
   const changeItems: ActionMenuItem[] = [
     { label: "Upload a new one", icon: <Upload className="h-4 w-4" />, onClick: pick },
-    { label: "Choose from your files", icon: <FolderOpen className="h-4 w-4" />, onClick: choose },
+    ...(library ? [{ label: "Choose from your files", icon: <FolderOpen className="h-4 w-4" />, onClick: choose }] : []),
   ]
 
   const emptyAspectClass =
@@ -339,7 +346,7 @@ export function WbImagePicker({
         className="hidden"
         onChange={e => { const list = Array.from(e.target.files ?? []); if (list.length) void handleFiles(list); e.target.value = "" }}
       />
-      <FilesLibraryChooser
+      {library && <FilesLibraryChooser
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
         selectedUrl={url ?? null}
@@ -348,11 +355,17 @@ export function WbImagePicker({
         multiple={!!onAddMany && !url}
         max={max}
         onPickMany={picks => onAddMany?.(picks.map(p => p.url))}
-      />
+      />}
     </>
   )
   /* The menu on a picture already there: Upload a new one, or Choose from your files. */
-  const changeMenu = (className: string, iconClass: string) => (
+  const changeMenu = (className: string, iconClass: string) => !library ? (
+    /* Upload only: Change opens the file dialog straight away, no one item menu. */
+    <button type="button" disabled={uploading} onClick={pick} className={className} data-wb-image-change="">
+      <RefreshCw className={iconClass} />
+      Change
+    </button>
+  ) : (
     <ResponsiveActionMenu
       title="Change image"
       menuWidth="w-56"
@@ -390,7 +403,7 @@ export function WbImagePicker({
         <Upload className="h-3 w-3" />
         Upload
       </button>
-      <button
+      {library && <button
         type="button"
         disabled={uploading}
         onClick={e => { e.stopPropagation(); choose() }}
@@ -404,7 +417,7 @@ export function WbImagePicker({
       >
         <FolderOpen className="h-3 w-3" />
         Your files
-      </button>
+      </button>}
     </span>
   )
 
