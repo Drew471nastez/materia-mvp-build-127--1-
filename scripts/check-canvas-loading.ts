@@ -225,7 +225,7 @@ async function main() {
       }
       await sleep(1200)
       await page.evaluate(() => {
-        const w = window as unknown as { probeFrames: { still: boolean; stillOpacity: number; pageOpacity: number; types: string }[]; probeStop: boolean }
+        const w = window as unknown as { probeFrames: { still: boolean; stillOpacity: number; pageOpacity: number; types: string; t: number }[]; probeStop: boolean }
         w.probeFrames = []
         w.probeStop = false
         const tick = () => {
@@ -237,6 +237,7 @@ async function main() {
             stillOpacity: still ? Number(getComputedStyle(still).opacity) : 0,
             pageOpacity: page ? Number(getComputedStyle(page).opacity) : 0,
             types: [...(root?.querySelectorAll("[data-section-box]") ?? [])].map((b) => b.getAttribute("data-section-type")).join(","),
+            t: performance.now(),
           })
           if (!w.probeStop) requestAnimationFrame(tick)
         }
@@ -250,8 +251,8 @@ async function main() {
         el?.click()
         return el ? "About" : null
       })
-      await sleep(2000)
-      const frames = await page.evaluate(() => { const w = window as unknown as { probeFrames: { still: boolean; stillOpacity: number; pageOpacity: number; types: string }[]; probeStop: boolean }; w.probeStop = true; return w.probeFrames })
+      await sleep(3500)
+      const frames = await page.evaluate(() => { const w = window as unknown as { probeFrames: { still: boolean; stillOpacity: number; pageOpacity: number; types: string; t: number }[]; probeStop: boolean }; w.probeStop = true; return w.probeFrames })
       const first = frames[0]?.types ?? ""
       const last = frames[frames.length - 1]?.types ?? ""
       const switched = frames.findIndex((f) => f.types !== first)
@@ -261,7 +262,9 @@ async function main() {
       check("the builder's own theme: a page opened from the switcher changes the page", !!picked && last !== first && /about_image/.test(last), `${picked ?? "nothing"}: ${first} to ${last}`)
       check("  the page being left is held over it, whole, on the frame it changes", heldAtSwitch, switched >= 0 ? JSON.stringify(frames[switched]) : "never switched")
       check("  the canvas is never faded toward white", faintest > 0.95, `least opaque frame ${faintest.toFixed(2)}`)
-      check("  and the copy is gone afterwards", !frames[frames.length - 1].still)
+      const held = frames.filter((f) => f.still)
+      const heldMs = held.length ? Math.round(held[held.length - 1].t - held[0].t) : 0
+      check("  and the copy is gone afterwards", !frames[frames.length - 1].still, `held for ${heldMs}ms`)
       /* A page whose sections answer 500: said, and the page on screen stays. */
       await page.evaluate(() => { (window as unknown as { PROBE_PAGES: Record<string, string[]> }).PROBE_PAGES.contact = ["about_image"] })
       await page.setRequestInterception(false)

@@ -159,7 +159,7 @@ import { MenusEditor } from "@/components/website-builder/editor/controls/menus-
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
 import { fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
-import { CanvasProblem } from "@/components/website-builder/canvas-problem"
+import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
@@ -2640,7 +2640,8 @@ const loadThemeChat = () => import("@/components/website-builder/theme-chat")
 const loadProjectSettings = () => import("@/components/website-builder/project-settings")
 /* An imported Shopify theme's canvas: only such a site needs it, and its code is asked for with the theme's files (warmCompat). */
 const loadCompatCanvas = () => import("@/components/website-builder/compat/compat-canvas")
-const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false })
+/* Until its code is in: the outline the canvas itself starts with, never a white page (canvas-problem.tsx). */
+const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false, loading: () => <CompatCanvasWaiting /> })
 function warmCompat(installId: string) {
   void loadCompatFiles(installId)
   void loadCompatCanvas().catch(() => {})

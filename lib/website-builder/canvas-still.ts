@@ -30,7 +30,7 @@ import { copyFor, copyLiveState } from "@/lib/navigation/leaving-still"
 /** The cross fade itself. */
 export const STILL_FADE_MS = 200
 /** The longest the old page is held for the new one's first pictures. */
-export const STILL_WAIT_MS = 450
+export const STILL_WAIT_MS = 350
 /** The longest the new page is waited for at all, after which the copy goes whatever has happened. */
 export const STILL_ARRIVE_MS = 1500
 export const STILL_ATTR = "data-canvas-still"

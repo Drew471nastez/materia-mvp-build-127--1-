@@ -35,7 +35,7 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { useLiveSections } from "@/lib/website-builder/live-settings"
 import { reportLoadProblem } from "@/lib/website-builder/load-guard"
-import { CanvasProblem } from "@/components/website-builder/canvas-problem"
+import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 
 export interface CompatCanvasProps {
@@ -692,7 +692,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
   and it fades once the page under it has painted.
 */
 function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }) {
-  const bar = "rounded-md bg-[#f1f2f4]"
   return (
     <div
       aria-hidden={hidden || undefined}
@@ -702,31 +701,7 @@ function CanvasPlaceholder({ hidden, label }: { hidden: boolean; label: string }
       className="pointer-events-none absolute inset-0 z-[1] overflow-hidden bg-white transition-opacity duration-[220ms] ease-out"
       style={{ opacity: hidden ? 0 : 1, visibility: hidden ? "hidden" : "visible", transitionProperty: "opacity, visibility" }}
     >
-      <div className="flex h-16 items-center gap-6 border-b border-[#f3f4f6] px-[4%]">
-        <div className={`${bar} h-5 w-24`} />
-        <div className="hidden gap-4 sm:flex">
-          <div className={`${bar} h-3 w-14`} />
-          <div className={`${bar} h-3 w-14`} />
-          <div className={`${bar} h-3 w-14`} />
-        </div>
-        <div className="ml-auto flex gap-3">
-          <div className={`${bar} h-5 w-5 rounded-full`} />
-          <div className={`${bar} h-5 w-5 rounded-full`} />
-        </div>
-      </div>
-      <div className="px-[4%] pt-6">
-        <div className={`${bar} h-[42vh] max-h-[460px] min-h-[220px] w-full rounded-xl`} />
-        <div className={`${bar} mt-8 h-5 w-48`} />
-        <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i}>
-              <div className={`${bar} aspect-[4/5] w-full rounded-lg`} />
-              <div className={`${bar} mt-3 h-3 w-3/4`} />
-              <div className={`${bar} mt-2 h-3 w-1/3`} />
-            </div>
-          ))}
-        </div>
-      </div>
+      <PageOutline />
     </div>
   )
 }
