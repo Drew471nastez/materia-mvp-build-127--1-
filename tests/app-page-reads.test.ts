@@ -116,15 +116,19 @@ section("Who is signed in: asked once per request")
 section("The layout: everything that needs only the user, together")
 {
   const layout = code("app/app/layout.tsx")
-  const first = batchAfter(layout, /const \[gateCheck, creator/)
+  /* Changed on purpose (round AA, Team): the account's own creator row is
+     ownCreator, and a team member's store (lib/team/server teamStoreForRequest,
+     checked against the membership in the database) is read in the same batch. */
+  const first = batchAfter(layout, /const \[gateCheck, ownCreator/)
   check("the gates, the creator row and the OnePage are one batch",
-    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first))
+    /profileForRequest\(user\.id\)/.test(first) && /creatorForRequest\(user\.id\)/.test(first) && /\.from\("onepages"\)/.test(first) && /teamStoreForRequest\(user\.id\)/.test(first))
   /* The header's photo is the profile's own (lib/account/avatar): the store
      header was read only to fall back to its photo, so it is not read at all. */
   check("and the store header is not read for a photo any more", !/store_builder_configs/.test(layout) && /profileAvatar\(profile\?\.avatar_url\)/.test(layout))
   /* Changed on purpose: there is no creator or buyer question any more, so no role gate; seller access (lib/account/seller-access.ts) sends anybody without it to /sell. */
   check("and the redirects are still decided in their order: verified, then seller access",
-    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!creator \|\| !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\)/.test(layout))
+    /* Changed on purpose (round AA, Team): a member working in a store has the store's seller access. */
+    /if \(!gateCheck\?\.email_verified\)[\s\S]*if \(!creator \|\| \(!teamStore && !hasSellerAccess\(sellerAccessFrom\(\{ creator, profile: gateCheck \}\)\)\)\)/.test(layout))
   check("on the caller's own client only", !/createAdminClient/.test(layout))
 }
 
@@ -219,9 +223,15 @@ section("Customers, Coupons, Analytics, Orders")
   check("Customers reads its customers while the orders' product ids come back", /\.from\("customers"\)/.test(batch) && /readOrders\(\)/.test(batch))
   check("its creator row is the layout's, on the caller's own client, as it was", /const creator = await creatorForRequest\(user\.id\)/.test(customers))
   check("Coupons' creator row is the layout's too", /const creator = await creatorForRequest\(user\.id\)/.test(code("app/app/coupons/load-coupons.ts")))
-  for (const f of ["app/app/analytics/page.tsx", "app/app/orders/sales/page.tsx"]) {
+  for (const f of ["app/app/analytics/page.tsx"]) {
     check(`${f} keeps its service role reads by the creator found from the user`, /\.from\("creators"\)[\s\S]{0,80}\.eq\("user_id", user\.id\)/.test(code(f)))
   }
+  /* Changed on purpose (round AA, Team): Orders finds the creator from the user through
+     lib/team/server creatorFor, which reads it by user_id for the owner, or the store a
+     team member works in after checking the membership in the database. */
+  check("app/app/orders/sales/page.tsx keeps its service role reads by the creator found from the user",
+    /creatorFor<[^>]+>\(admin, user\.id, "orders", "id, stripe_onboarding_status"\)/.test(code("app/app/orders/sales/page.tsx"))
+      && /\.from\("creators"\)\.select\(columns\)\.eq\("user_id", userId\)\.maybeSingle\(\)/.test(code("lib/team/server.ts")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed\n`)

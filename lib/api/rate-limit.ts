@@ -230,6 +230,8 @@ export const LIMITS = {
    * of stolen keys would use this as a free checker.
    */
   aiKey: [{ limit: 6, seconds: 600 }, { limit: 20, seconds: 86400 }],
+  /** Inviting someone to a store's team sends an email: a few at a time, and not dozens a day. */
+  teamInvite: [{ limit: 10, seconds: 600 }, { limit: 40, seconds: 86400 }],
   /** Setting up payments: starting, sending details, a payout account. Each one writes, and nobody needs dozens. */
   paymentsSetup: [{ limit: 20, seconds: 600 }, { limit: 100, seconds: 86400 }],
   /*

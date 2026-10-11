@@ -324,14 +324,15 @@ const routes = walk("app/api/physical").filter((f) => f.endsWith("route.ts"))
 const ungated = routes.filter((f) => {
   const src = code(f)
   if (f.endsWith("checkout/complete/route.ts")) return false
-  return !/await physicalCaller\(\)/.test(src) && !/await physicalApiGate\(\)/.test(src)
+  /* Changed on purpose (round AA, Team): an orders route names its area, physicalCaller("orders"). */
+  return !/await physicalCaller\(("orders")?\)/.test(src) && !/await physicalApiGate\(\)/.test(src)
 })
 check(`every /api/physical route answers 404 while it is off (${routes.length} routes)`, routes.length >= 20 && ungated.length === 0, ungated)
 check("money already taken is still written when it is off: the return and the webhook", !/physicalApiGate|physicalCaller/.test(code("app/api/physical/checkout/complete/route.ts")) && /physical_checkout_id/.test(code("app/api/stripe/webhook/route.ts")))
 check("the cron does nothing while it is off", /if \(!\(await isPhysicalCommerceEnabled\(\)\)\)/.test(code("app/api/cron/physical/route.ts")))
 /* partner-tracking is a fulfilment partner's, proven by the shop's webhook secret or a link signed for one order (lib/physical/partner-link.ts), never a session. */
 const merchant = routes.filter((f) => !/checkout\/|order-status|storefront|partner-tracking/.test(f))
-check("merchant routes resolve the caller's own shop before reading anything", merchant.every((f) => /const c = await physicalCaller\(\)\s*if \(c instanceof NextResponse\) return c/.test(code(f))))
+check("merchant routes resolve the caller's own shop before reading anything", merchant.every((f) => /const c = await physicalCaller\(("orders")?\)\s*if \(c instanceof NextResponse\) return c/.test(code(f))))
 check("and every query they make is filtered by that shop", merchant.every((f) => !/\.from\("(inventory_locations|shipping_\w+|commerce_\w+|inventory_\w+|product_collections)"\)\.(update|delete)\([^)]*\)\.eq\("id", id\)(?!\.eq\("creator_id")/.test(code(f))))
 
 console.log("\nThe digital checkout is untouched and never sells a physical product")

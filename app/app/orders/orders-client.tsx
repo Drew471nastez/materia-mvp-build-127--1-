@@ -77,6 +77,8 @@ interface OrdersClientProps {
   rows: OrderRow[]
   products: Array<{ id: string; title: string }>
   stripeConnected: boolean
+  /** The owner refunds; a team member working in the store does not (lib/team). */
+  canRefund?: boolean
   hiddenColumns: ColumnKey[]
   /** The range remembered from last time (a cookie), serialized. */
   initialRange: string | null
@@ -605,6 +607,7 @@ export function OrdersClient(props: OrdersClientProps) {
             onAction={onAction}
             onNotice={onNotice}
             onShipping={onShipping}
+            canRefund={props.canRefund !== false}
           />
         </div>
       ) : null}

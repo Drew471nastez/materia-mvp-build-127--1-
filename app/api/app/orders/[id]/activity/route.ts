@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { currentCreatorId } from "@/lib/creators/current"
+import { storeIdFor } from "@/lib/team/server"
 import { ownedOrderLines } from "@/lib/orders/owned"
 import type { OrderActivity } from "@/lib/orders/timeline"
 
@@ -17,8 +17,10 @@ const TYPES = ["receipt_resent", "email_changed_by_creator", "email_updated"] as
  * addresses in its record, and neither is sent.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const creatorId = await currentCreatorId()
-  if (!creatorId) return NextResponse.json({ error: "Sign in again to see this." }, { status: 401 })
+  /* The store's, for its owner or a team member whose role has orders (lib/team). */
+  const store = await storeIdFor("orders")
+  if (store.ok === false) return NextResponse.json({ error: store.error }, { status: store.status })
+  const creatorId = store.creatorId
 
   const { id } = await params
   const admin = createAdminClient()
