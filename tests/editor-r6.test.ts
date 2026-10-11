@@ -17,6 +17,7 @@ import { canvasInsets } from "../lib/storelib-theme/compat/canvas-network"
 import { themeSchemeList } from "../lib/storelib-theme/compat/scheme-list"
 import { fontHandle, shopifyFont } from "../components/website-builder/editor/controls/font-picker-control"
 import { canSaveBeforeLeaving, leaveLines } from "../components/website-builder/leave-confirm"
+import { typedValue } from "../lib/storelib-theme/compat/objects"
 
 let passed = 0
 let failed = 0
@@ -147,6 +148,10 @@ async function main() {
   const editor = read("app/website-builder/editor/[installId]/page.tsx")
   check("  the editor hands an imported theme's schemes to the controls", /colorSchemes: compatSchemes/.test(editor) && /themeSchemeList\(compatShopify\)/.test(editor))
   check("Storelib's own design panel (its schemes, heading and body style, animation) is not offered for an imported section, which reads none of it", /\{!compatInstall && <SectionDesignPanel/.test(editor) && /filter\(f => compatInstall \|\|/.test(editor))
+  const r = { products: [], collections: [], menus: {}, schemes: {}, imageUrl: (v: string) => v, currentPath: "/" } as unknown as Parameters<typeof typedValue>[2]
+  const picked = typedValue("page", "/pages/about-us", r) as { handle?: string; url?: string; title?: string } | null
+  check("a page setting is the page at that address, picked in the sidebar or saved by the theme", picked?.handle === "about-us" && picked.url === "/pages/about-us" && picked.title === "About us" && (typedValue("page", "shopify://pages/faq", r) as { handle?: string })?.handle === "faq" && typedValue("page", "", r) === null, picked)
+  check("  and the sidebar's page picker shows a theme's saved handle as the page it names", /options\.some\(t => t\.href === `\/pages\/\$\{saved\}`\)/.test(editor))
   check("a Shopify font handle reads as its family, and a family picked keeps its weight and style", JSON.stringify(shopifyFont("work_sans_i7")) === JSON.stringify({ family: "Work Sans", variant: "i7" }) && fontHandle("Playfair Display", "n7") === "playfair_display_n7" && shopifyFont("Inter") === null)
 
   console.log("\nLeaving")

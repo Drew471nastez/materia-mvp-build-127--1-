@@ -912,7 +912,9 @@ function FieldControl({
   if (kind === "page_picker") {
     const want = "page"
     const options = targets.filter(t => t.kind === want)
-    const current = typeof raw === "string" ? raw : ""
+    /* An imported theme saves a page by its handle ("about"): it is the page at /pages/about. */
+    const saved = typeof raw === "string" ? raw : ""
+    const current = saved && !saved.startsWith("/") && options.some(t => t.href === `/pages/${saved}`) ? `/pages/${saved}` : saved
     return (
       <div className="relative">
         <select
