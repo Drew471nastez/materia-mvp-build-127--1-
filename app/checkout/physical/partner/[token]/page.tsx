@@ -3,7 +3,7 @@ import { notFound } from "next/navigation"
 import { Check } from "lucide-react"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { loadOrder } from "@/lib/physical/orders-server"
-import { partnerView, verifyPartnerLink } from "@/lib/physical/partner-server"
+import { partnerLinkHolds, partnerView, verifyPartnerLink } from "@/lib/physical/partner-server"
 import { addressLines } from "@/lib/physical/address"
 import { CARRIERS, SHIPMENT_LABEL } from "@/lib/physical/status"
 import { storeIdentity } from "@/lib/store/identity-server"
@@ -40,10 +40,13 @@ export default async function PartnerTrackingPage({ params, searchParams }: { pa
   const link = verifyPartnerLink(decodeURIComponent(token))
   const admin = createAdminClient()
   const co = link ? (await admin.from("commerce_checkouts").select("id, creator_id").eq("id", link.c).maybeSingle()).data : null
-  const loc = co && link ? (await admin.from("inventory_locations").select("id, name").eq("id", link.l).eq("creator_id", co.creator_id).maybeSingle()).data : null
+  const found = co && link ? (await admin.from("inventory_locations").select("id, name, email, forwarding").eq("id", link.l).eq("creator_id", co.creator_id).maybeSingle()).data : null
+  /* Sent to an email the location no longer uses: closed, said as expired (lib/physical/partner-link.ts). */
+  const revoked = !!(link && found && !partnerLinkHolds(link, found))
+  const loc = revoked ? null : found
   const order = co && loc ? await loadOrder(admin, { creatorId: co.creator_id, checkoutId: co.id }) : null
   if (!link || !co || !loc || !order) {
-    if (!link) {
+    if (!link || revoked) {
       return (
         <main className="mx-auto min-h-dvh w-full max-w-[460px] bg-[#f8f9fa] px-5 pb-16 pt-12">
           <h1 className="text-[24px] font-semibold text-[#1a1a2e]">This link has expired</h1>

@@ -1,4 +1,4 @@
-import { STORELIB_EMAIL_LOGO, storelibAssetUrl } from "@/lib/brand/logo"
+import { storelibEmailLogoUrl } from "@/lib/brand/logo"
 import { emailButton } from "@/lib/mail-document"
 
 /**
@@ -28,7 +28,7 @@ export function resetPasswordEmail(input: { resetUrl: string; minutes?: number }
   const url = input.resetUrl
   const when = minutes % 60 === 0 ? `${minutes / 60} hour${minutes === 60 ? "" : "s"}` : `${minutes} minutes`
   const subject = "Reset your Storelib password"
-  const logoUrl = escapeHtml(storelibAssetUrl(STORELIB_EMAIL_LOGO))
+  const logoUrl = escapeHtml(storelibEmailLogoUrl())
   const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
   const html = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8f9fa;">
   <tr>
@@ -76,5 +76,36 @@ export function resetPasswordEmail(input: { resetUrl: string; minutes?: number }
     "",
     "Storelib",
   ].join("\n")
+  return { subject, html, text }
+}
+
+/**
+ * A reset asked for an account that signs in with Google and has no
+ * password. The page answers every address the same way (so it never says
+ * which ones have an account), and this email is how the owner learns what
+ * to do instead.
+ */
+export function googleSignInEmail(input: { loginUrl: string; provider?: "Google" | "Apple" }): { subject: string; html: string; text: string } {
+  const provider = input.provider ?? "Google"
+  const subject = `You sign in to Storelib with ${provider}`
+  const logoUrl = escapeHtml(storelibEmailLogoUrl())
+  const font = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+  const lead = `Someone asked to reset the password for your Storelib account. Your account has no password: you sign in with ${provider}. Press the button and choose Continue with ${provider}.`
+  const html = `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#f8f9fa;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:480px;background-color:#ffffff;border:1px solid #e6e8eb;border-radius:16px;">
+        <tr><td align="center" style="padding:28px 32px 4px;font-family:${font};"><img src="${logoUrl}" width="40" height="40" alt="Storelib" style="display:block;width:40px;height:40px;border:0;border-radius:7px;" /></td></tr>
+        <tr><td style="padding:12px 32px 8px;font-family:${font};">
+          <h1 style="margin:0 0 10px;font-size:22px;font-weight:700;letter-spacing:-0.03em;line-height:1.25;color:#1a1a2e;">Sign in with ${escapeHtml(provider)}</h1>
+          <p style="margin:0 0 20px;font-size:15px;line-height:1.55;color:#4b5563;">${escapeHtml(lead)}</p>
+        </td></tr>
+        <tr><td style="padding:0 32px 8px;font-family:${font};">${emailButton({ href: input.loginUrl, label: "Go to sign in", fill: "#1a1a2e", padding: "12px 22px", radius: 10, text: "font-size:15px;font-weight:600;" })}</td></tr>
+        <tr><td style="padding:16px 32px 28px;font-family:${font};"><p style="margin:0;font-size:13px;line-height:1.55;color:#6b7280;">Want a password as well? Sign in, then add one in Settings. If you didn't ask for this, ignore this email.</p></td></tr>
+      </table>
+    </td>
+  </tr>
+</table>`
+  const text = [`Sign in with ${provider}`, "", lead, "", input.loginUrl, "", "Want a password as well? Sign in, then add one in Settings. If you didn't ask for this, ignore this email.", "", "Storelib"].join("\n")
   return { subject, html, text }
 }

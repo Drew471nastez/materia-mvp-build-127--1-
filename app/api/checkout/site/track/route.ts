@@ -64,8 +64,8 @@ export async function POST(request: Request) {
         orders: [{ number: found.number, date: found.date, url: `${site.origin}${found.path}`, status: found.status }],
         brand: { logoUrl: brand.logoUrl ?? store.logoUrl, email: store.email, phone: store.phone, websiteUrl: site.origin },
       })
-      /* Asked for this minute: transactional, so it leaves at once with no tracking rewriting the link. */
-      await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true })
+      /* Asked for this minute: transactional, so it leaves at once with no tracking rewriting the link. Anybody can type an email here, so its bounce record is kept (keepBounce). */
+      await sendMailgunEmail({ to: email, subject: mail.subject, html: mail.html, text: mail.text, from: buildMailgunFromHeader(brand.name), replyTo: brand.replyTo || undefined, tags: ["order-lookup"], transactional: true, keepBounce: true })
     } catch (e) {
       console.error("[order-lookup] failed:", e instanceof Error ? e.message : "unknown")
     }

@@ -19,10 +19,10 @@ import { CARRIERS, trackingUrl } from "@/lib/physical/status"
 import { isOrderNumberOf, orderPagePath, originSiteHost, readOrderNumber } from "@/lib/physical/order-link"
 import { findOrderFor } from "@/lib/physical/order-lookup-server"
 import { orderLinkEmail, supplierOrderEmail } from "@/lib/physical/email-templates"
-import { resetPasswordEmail } from "@/lib/account/reset-email"
+import { googleSignInEmail, resetPasswordEmail } from "@/lib/account/reset-email"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { siteSubdomainForWallets } from "@/lib/custom-domains/payment-hosts"
-import { openItemsAt, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, PARTNER_LINK_TTL_MS } from "@/lib/physical/partner-link"
+import { openItemsAt, partnerLinkHolds, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, PARTNER_LINK_TTL_MS } from "@/lib/physical/partner-link"
 
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key-for-partner-links-0123456789"
 
@@ -138,11 +138,18 @@ async function main() {
     const CO = "3f2a9c1b-0000-4000-8000-000000000001"
     const LOC = "11111111-0000-4000-8000-000000000001"
     const now = Date.now()
-    const token = signPartnerLink(CO, LOC, now)!
+    const place = { id: LOC, email: "orders@print.test", forwarding: "email" }
+    const token = signPartnerLink(CO, place, now)!
     check("a link names one order and one location", verifyPartnerLink(token, now)?.c === CO && verifyPartnerLink(token, now)?.l === LOC)
     check("  for 60 days", verifyPartnerLink(token, now + PARTNER_LINK_TTL_MS - 1000) !== null && verifyPartnerLink(token, now + PARTNER_LINK_TTL_MS + 1000) === null)
+    const link = verifyPartnerLink(token, now)!
+    check("  it holds while the location sends to the same email", partnerLinkHolds(link, { ...place, email: " Orders@Print.test " }))
+    check("  changing the supplier's email, or how it forwards, closes every link sent before", !partnerLinkHolds(link, { ...place, email: "new@print.test" }) && !partnerLinkHolds(link, { ...place, forwarding: "none" }) && !partnerLinkHolds(link, { ...place, id: "22222222-0000-4000-8000-000000000002" }))
+    const routeSrc = read("app/api/physical/partner-tracking/route.ts")
+    const pageSrc = read("app/checkout/physical/partner/[token]/page.tsx")
+    check("  the page and the route both check it", /!partnerLinkHolds\(link, loc\)\) return back\("error=link"\)/.test(routeSrc) && /partnerLinkHolds\(link, found\)/.test(pageSrc))
     const [body, sig] = token.split(".")
-    const forged = Buffer.from(JSON.stringify({ c: CO, l: "22222222-0000-4000-8000-000000000002", e: now + 1e9 })).toString("base64url")
+    const forged = Buffer.from(JSON.stringify({ c: CO, l: "22222222-0000-4000-8000-000000000002", e: now + 1e9, v: link.v })).toString("base64url")
     check("  changed by a letter, or pointed at another location, it is nothing", verifyPartnerLink(`${body}.${sig.slice(0, -1)}${sig.endsWith("A") ? "B" : "A"}`, now) === null && verifyPartnerLink(`${forged}.${sig}`, now) === null && verifyPartnerLink("x", now) === null)
     const secret = "whsec_test_partner"
     const raw = JSON.stringify({ order_id: CO, carrier: "UPS", tracking_number: "1Z999AA10123456784" })
@@ -161,7 +168,7 @@ async function main() {
     const mail = supplierOrderEmail({ shopName: "Shop", orderNumber: "#3F2A9C1B", locationName: "Print Co", lines: [{ title: "Tee", variantName: "M", quantity: 1, cents: 0, imageUrl: null, sku: "TEE-M" }], address: { name: "Ana", line1: "1 Main St", city: "Cluj", country: "RO" }, buyerEmail: null, deliveryName: null, note: null, trackingLink: "https://storelib.com/checkout/physical/partner/tok" })
     check("the supplier's email carries Add tracking, and still no prices", /href="https:\/\/storelib\.com\/checkout\/physical\/partner\/tok"/.test(mail.html) && /Add tracking/.test(mail.html) && /checkout\/physical\/partner\/tok/.test(mail.text) && !/\$\d/.test(mail.html))
     const jobs = read("lib/physical/jobs-server.ts")
-    check("  signed for that order and location; the webhook names where to report back", /trackingLink: partnerPageUrl\(co\.id, loc\.id\)/.test(jobs) && /tracking_endpoint: `https:\/\/\$\{getMainDomain\(\)\}\/api\/physical\/partner-tracking`/.test(jobs) && /location_id: p\.locationId \?\? null/.test(jobs))
+    check("  signed for that order and location; the webhook names where to report back", /trackingLink: partnerPageUrl\(co\.id, loc\)/.test(jobs) && /tracking_endpoint: `https:\/\/\$\{getMainDomain\(\)\}\/api\/physical\/partner-tracking`/.test(jobs) && /location_id: p\.locationId \?\? null/.test(jobs))
     const route = read("app/api/physical/partner-tracking/route.ts")
     check("the endpoint: an unknown order and a bad signature get the same answer", (route.match(/return denied\(\)/g) ?? []).length >= 3 && /webhookSignatureOk\(secret, request\.headers\.get\("x-storelib-timestamp"\), request\.headers\.get\("x-storelib-signature"\), raw\)/.test(route))
     check("  a location must be the shop's own; the form must be the page's own and carry its signed token", /eq\("creator_id", co\.creator_id\)/.test(route) && /sameOriginForm\(request, host\)/.test(route) && /verifyPartnerLink\(token\)/.test(route))
@@ -179,6 +186,20 @@ async function main() {
       const src = read(p)
       check(`${p}: the shared email, transactional`, /resetPasswordEmail\(\{ resetUrl, minutes: 60 \}\)/.test(src) && /transactional: true/.test(src) && /https:\/\/storelib\.com\/reset-password\?code=/.test(src))
     }
+    const forgot = read("app/api/auth/request-password-reset/route.ts")
+    const post = forgot.slice(forgot.indexOf("export async function POST"), forgot.indexOf("async function sendReset"))
+    check("forgot password: one answer for every address, the lookup and the email after it", /after\(\(\) => sendReset\(cleanEmail, carry\)\)\s*return NextResponse\.json\(SENT\)/.test(post) && !/findAuthUserByEmail|google_only|status: 409|password_reset_requests/.test(post))
+    check("  the only other answers come before any lookup: the limit on the caller and the typed address, the same for every address", post.indexOf("rateLimit(") < post.indexOf("after(") && /subjects: \[addressSubject\(request\), emailSubject\(email\)\]/.test(post))
+    check("  a Google or Apple account is emailed how to get in; one over its three an hour gets nothing", /googleSignInEmail\(/.test(forgot) && /recentRequests\.length >= 3\) return\b/.test(forgot))
+    check("  and the email keeps the address's bounce record: anybody can type an address there", (forgot.match(/keepBounce: true/g) ?? []).length === 2)
+    check("the signed-in reset (Settings) is the owner asking, so it may clear a stale bounce", !/keepBounce/.test(read("app/api/auth/reset-password/route.ts")))
+    check("the order lookup keeps bounce records too", /transactional: true, keepBounce: true/.test(read("app/api/checkout/site/track/route.ts")))
+    const mailgun = read("lib/mailgun.ts")
+    check("Mailgun clears a bounce only for a transactional send that does not keep it", /if \(options\.transactional && !options\.keepBounce\) await clearBounce\(options\.to\)/.test(mailgun) && /keepBounce: options\.keepBounce/.test(read("lib/mail.ts")))
+    const g = googleSignInEmail({ loginUrl: "https://storelib.com/login" })
+    check("the Google email says there is no password and links to sign in", /no password/.test(g.text) && g.html.includes('href="https://storelib.com/login"') && g.subject === "You sign in to Storelib with Google")
+    const page = read("app/(auth)/request/page.tsx")
+    check("the page no longer tells Google accounts apart", !/google_only|googleOnly/.test(page) && /If there&apos;s an account for/.test(page))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
