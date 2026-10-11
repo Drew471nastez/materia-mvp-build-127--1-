@@ -29,6 +29,8 @@
  *                        hosted verification, or Stripe Identity where it is there
  *                        (lib/payments/stripe/hosted-verification)
  *   POST identity-status where that check has got to
+ *   POST app-sheet       { form: "setup" | "bank" } the address of Stripe's form in the
+ *                        apps' browser sheet, with a signed link for this creator
  *   POST hosted-setup    { inApp } Stripe's own setup page for this account, for the
  *                        phone app when the embedded form would ask for a Stripe sign in
  *
@@ -40,6 +42,7 @@ import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, callerAddress, rateLimit } from "@/lib/api/rate-limit"
 import { addBank, detailsForm, submitDetails, uploadDocument } from "@/lib/payments/stripe/own-form"
+import { signSheetLink } from "@/lib/payments/stripe/app-sheet-link"
 import { startHostedSetup, startVerification, verificationStatus } from "@/lib/payments/stripe/hosted-verification"
 import {
   addPayoutAccount,
@@ -116,7 +119,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
 
   const moves = action === "payout"
   /* Reads the flow makes on its own (polling for Stripe's answer) must not spend the budget for writes. */
-  const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component" || action === "hosted-setup"
+  const reads = action === "details-form" || action === "identity-status" || action === "refresh" || action === "component" || action === "hosted-setup" || action === "app-sheet"
   const limited = await rateLimit({
     bucket: moves ? "payout" : reads ? "payments-read" : "payments-setup",
     subjects: [creator.id],
@@ -157,6 +160,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ ac
             : null
         if (!purpose) return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
         return NextResponse.json(await componentAuth(creator, purpose), { headers: NO_STORE })
+      }
+      case "app-sheet": {
+        if (provider !== "stripe") return NextResponse.json({ error: "Not found." }, { status: 404, headers: NO_STORE })
+        const form = body.form === "bank" ? "bank" : "setup"
+        const token = signSheetLink({ c: creator.id, u: creator.userId, f: form })
+        if (!token) return NextResponse.json({ error: "Try again in a moment." }, { status: 503, headers: NO_STORE })
+        return NextResponse.json({ url: `${originOf(request)}/payouts-sheet#f=${form}&t=${encodeURIComponent(token)}` }, { headers: NO_STORE })
       }
       case "form-status": {
         await noteFormStatus(creator, body.status)
