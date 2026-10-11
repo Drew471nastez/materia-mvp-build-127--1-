@@ -14,7 +14,7 @@ import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { ComparePlans } from "@/components/billing/compare-plans"
 import { PlanFaq } from "@/components/billing/plan-faq"
-import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
+import { formatPlanPrice, offeredPlan, planHighlights, type OfferedPlanId } from "@/lib/billing/plans"
 
 /** Where Back goes: the Billing tab this page was opened from. */
 const BILLING_HREF = "/app/settings?tab=billing"
@@ -305,8 +305,6 @@ export function UpgradePageClient({
           actions={{ free: actionFor("free"), growth: actionFor("growth") }}
           lead={currentPlanId === "free" ? "growth" : undefined}
         />
-
-        <p className="mt-6 text-center text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
 
         {/* The plans side by side, row by row, and the questions people ask before choosing. */}
         <div className="mt-16 space-y-16 sm:mt-24 sm:space-y-24">

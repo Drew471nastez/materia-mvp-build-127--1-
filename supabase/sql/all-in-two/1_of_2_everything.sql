@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 126: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 128: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3155,6 +3155,11 @@ CREATE OR REPLACE FUNCTION public.perf_slow_queries(p_limit integer DEFAULT 20, 
 REVOKE ALL ON FUNCTION public.perf_slow_queries(integer, double precision, integer) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.perf_slow_queries(integer, double precision, integer) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('126', '126_perf_health.sql', '1d0ed8ad5f10b6509b14db32878baea26f532499e0c43e298fb612ae8f12d10b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 128_plan_cancellations.sql
+/* Why a creator cancelled Pro, run after the subscription billing tables (creators, subscriptions). A new server only table `plan_cancellations` keeps one row per cancellation made from Settings > Plan: the creator, the Stripe subscription, the plan it was, the reason chosen (one of a short list, or none) and an optional note of at most 500 characters, the day Pro ends, and when the cancellation was undone with Resume plan. Only the service role reads or writes it: no policy for visitors or signed in users. Changes no existing row. Until it runs, cancelling and resuming work as before and the reason is kept on the Stripe subscription only. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.creators') IS NULL THEN RAISE NOTICE 'plan cancellations: there is no creators table, run the billing parts first.'; RETURN; END IF; CREATE TABLE IF NOT EXISTS public.plan_cancellations (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), creator_id uuid NOT NULL REFERENCES public.creators(id) ON DELETE CASCADE, user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL, stripe_subscription_id text, plan_id text, reason text, note text, ends_at timestamptz, resumed_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), CONSTRAINT plan_cancellations_reason_check CHECK (reason IS NULL OR reason IN ('too_expensive', 'not_selling', 'missing_features', 'switching', 'taking_break', 'other')), CONSTRAINT plan_cancellations_note_check CHECK (note IS NULL OR char_length(note) <= 500)); CREATE INDEX IF NOT EXISTS plan_cancellations_creator_idx ON public.plan_cancellations (creator_id, created_at DESC); ALTER TABLE public.plan_cancellations ENABLE ROW LEVEL SECURITY; REVOKE ALL ON public.plan_cancellations FROM PUBLIC, anon, authenticated; GRANT SELECT, INSERT, UPDATE, DELETE ON public.plan_cancellations TO service_role; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('128', '128_plan_cancellations.sql', '55d887cf001c2b4b6802988ae1139825368cfb2c59bb6c86876473ab317d4238') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;
