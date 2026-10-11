@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
   const address = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip")
   if (!allowedBeacon(address ?? null, now, BEACONS_PER_MINUTE, hits)) return quiet()
 
+  /* A body that says it is too big is refused before it is read into memory. */
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) return quiet()
   let raw: unknown
   try {
     const text = await req.text()
