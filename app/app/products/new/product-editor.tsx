@@ -68,6 +68,7 @@ import { CustomFieldsCard } from "./custom-fields-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
 import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MediaGrid, type PendingMedia } from "./media-grid"
+import { FilesLibraryChooser, prefetchLibrary, type PickMany } from "@/components/files/files-library"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
 import { CourseEditor } from "./course-editor"
@@ -373,6 +374,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   // YouTube inline input (bottom sheet on mobile)
   const [showYoutubeInput, setShowYoutubeInput] = useState(false)
+  /* "Your files": photos the store already has (components/files/files-library), several at once. */
+  const [choosingFiles, setChoosingFiles] = useState(false)
   const [youtubeInput, setYoutubeInput] = useState("")
 
   // CTA bottom sheet for mobile
@@ -1292,6 +1295,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     setMediaItems(prev => [...prev, newItem])
     setYoutubeInput("")
     setShowYoutubeInput(false)
+    setError(null)
+  }
+
+  /* Photos ticked in Your files, in the order ticked, as far as there is room. */
+  const addFromFiles = (picks: PickMany) => {
+    setMediaItems(prev => {
+      const room = MAX_PHOTOS - prev.filter(m => m.type === "image").length - pendingMedia.length
+      const fresh = picks.filter(p => !prev.some(m => m.url === p.url)).slice(0, Math.max(0, room))
+      return [...prev, ...fresh.map((p, i) => ({ id: `files-${Date.now()}-${i}`, type: "image" as const, url: p.url }))]
+    })
     setError(null)
   }
 
@@ -2245,6 +2258,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1 sm:mr-1.5" />
                         Upload
                       </Button>
+                      <button
+                        type="button"
+                        className="mt-2 text-xs sm:text-sm font-medium text-gray-600 hover:text-[#1a1a2e] pointer-events-auto"
+                        onPointerEnter={() => void prefetchLibrary("image", { warmFirst: true })}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setChoosingFiles(true)
+                        }}
+                        data-product-media-files=""
+                      >
+                        Choose from your files
+                      </button>
 
                       {/* YouTube add — inline toggle */}
                       {!showYoutubeInput ? (
@@ -2340,6 +2365,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <p className="text-xs text-gray-400">
                   {existingImages}/{MAX_PHOTOS} images · {existingYouTube}/{MAX_YOUTUBE_VIDEOS} YouTube videos
                 </p>
+                <FilesLibraryChooser
+                  open={choosingFiles}
+                  onClose={() => setChoosingFiles(false)}
+                  multiple
+                  max={Math.max(0, MAX_PHOTOS - existingImages - pendingMedia.length)}
+                  onPickMany={addFromFiles}
+                />
 
               </div>
 

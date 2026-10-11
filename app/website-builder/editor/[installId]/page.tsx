@@ -891,6 +891,8 @@ function FieldControl({
 
   if (kind === "image_gallery") {
     const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []
+    /* The registry's ceiling for a gallery (lib/storelib-theme/controls/registry.ts), or the setting's own `max` under it. */
+    const cap = Math.min(typeof field.max === "number" && field.max > 0 ? field.max : 60, 60)
     return (
       <div className="space-y-2">
         {list.map((url, i) => (
@@ -903,7 +905,16 @@ function FieldControl({
             layout="row"
           />
         ))}
-        <WbImagePicker value={undefined} onChange={next => { if (next) onChange([...list, next]) }} aspectRatio="video" folder="sections" layout="row" />
+        {/* The add field takes several at once: ticked in Your files, or chosen or dropped together, up to the setting's `max`. */}
+        <WbImagePicker
+          value={undefined}
+          onChange={next => { if (next) onChange([...list, next].slice(0, cap)) }}
+          onAddMany={urls => onChange([...list, ...urls].slice(0, cap))}
+          max={Math.max(0, cap - list.length)}
+          aspectRatio="video"
+          folder="sections"
+          layout="row"
+        />
       </div>
     )
   }
