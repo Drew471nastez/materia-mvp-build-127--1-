@@ -35,7 +35,7 @@ const STATIC_WORDS = new Set([
   "learn", "library", "links", "members", "membership", "memberships", "moderation", "navigation", "new", "notifications", "offers", "onepage",
   "orders", "payments", "payouts", "physical", "post", "posts", "preferences", "products", "receipt", "receipts", "reviews", "sales", "saved",
   "search", "sections", "settings", "sites", "space", "spaces", "stripe", "support", "themes", "upgrade", "website-builder", "wishlist", "demo",
-  "creator-page", "order", "site", "cart", "thanks", "success", "wallet-return",
+  "creator-page", "order", "site", "cart", "thanks", "success", "wallet-return", "editor",
 ])
 
 const BUILDER_IN_APP = new Set(["website-builder", "onepage", "creator-page", "sites"])

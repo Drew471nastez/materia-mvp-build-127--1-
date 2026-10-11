@@ -24,6 +24,7 @@ const SUITES = [
   "tests/files-picker19.test.ts",
   "tests/perf-speed18.test.ts",
   "tests/perf-health18.test.ts",
+  "tests/perf-collect.test.ts",
   "tests/profile-display-name.test.ts",
   "tests/new-tab-links.test.ts",
   "tests/lean-images.test.ts",

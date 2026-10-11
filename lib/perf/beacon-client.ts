@@ -67,7 +67,8 @@ const TAP_WINDOW_MS = 3000
 
 type Item = [ClientMetric, string, string, number] | [ClientMetric, string, string, number, string]
 type Pending = ["step" | "fail", StepRoute, number, string?]
-type PerfWindow = Window & { __slPerf?: Pending[] & { take?: (item: Pending) => void }; __slPerfScreenStart?: number }
+type PerfQueue = Pending[] & { take?: (item: Pending) => void }
+type PerfWindow = Window & { __slPerf?: PerfQueue; __slPerfScreenStart?: number }
 
 type LcpEntry = PerformanceEntry & { renderTime?: number; loadTime?: number }
 type ShiftEntry = PerformanceEntry & { value: number; hadRecentInput: boolean }
@@ -175,7 +176,7 @@ export function startPerfBeacon(): void {
     }
   }
   const w = window as PerfWindow
-  const waiting = (w.__slPerf ??= [] as Pending[])
+  const waiting: PerfQueue = (w.__slPerf ??= [])
   for (const p of waiting.splice(0, waiting.length)) takeStep(p)
   waiting.take = takeStep
 

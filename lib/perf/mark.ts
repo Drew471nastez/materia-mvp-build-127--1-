@@ -22,7 +22,8 @@ import type { StepRoute } from "./config"
 
 type Pending = ["step" | "fail", StepRoute, number, string?]
 
-type PerfWindow = Window & { __slPerf?: Pending[] & { take?: (item: Pending) => void }; __slPerfScreenStart?: number }
+type PerfQueue = Pending[] & { take?: (item: Pending) => void }
+type PerfWindow = Window & { __slPerf?: PerfQueue; __slPerfScreenStart?: number }
 
 const MAX_PENDING = 60
 
@@ -30,7 +31,7 @@ function queue(item: Pending) {
   try {
     if (typeof window === "undefined") return
     const w = window as PerfWindow
-    const q = (w.__slPerf ??= [] as Pending[])
+    const q: PerfQueue = (w.__slPerf ??= [])
     if (q.take) return q.take(item)
     if (q.length < MAX_PENDING) q.push(item)
   } catch {

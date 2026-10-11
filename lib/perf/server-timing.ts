@@ -132,6 +132,11 @@ export function timedJob(job: string, ms: number, status: number): void {
   }
 }
 
+/** Writes what is waiting now, for a script or a test that runs outside a request (where `after` never runs). */
+export function flushTimings(): Promise<void> {
+  return flush()
+}
+
 /** For the tests: what is waiting to be written. */
 export function pendingTimings(): readonly PerfRow[] {
   return buffer
