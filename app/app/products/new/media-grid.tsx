@@ -4,7 +4,10 @@
  * ===========================================================================
  *  THE PHOTOS AND VIDEOS, IN THE ORDER A BUYER SEES THEM
  * ===========================================================================
- * Two to a row, 16:9 each. The first is the product's thumbnail. The order
+ * 16:9 tiles, two to a row on a phone and three wider; a physical
+ * product's square tiles four to a row on a phone and six wider, the first
+ * (the cover) two by two, about 190px across in the editor as Shopify's
+ * are. The first is the product's thumbnail. The order
  * changes by holding a tile and moving it; the rules for mouse, finger and
  * keyboard are ./hold-to-drag.ts, the same as the questions'.
  *
@@ -55,8 +58,8 @@ const kindOf = (item: MediaItem | undefined) => (item?.type === "youtube" ? "vid
   the rest wait until they are scrolled to.
 */
 const TILE_FILES = [256, 384, 640, 750]
-const TILE_BOX = 360
-const TILE_SIZES = "(max-width: 767px) 45vw, 360px"
+const TILE_BOX = 256
+const TILE_SIZES = "(max-width: 767px) 45vw, 240px"
 /** Tiles loaded straight away; the rest when they are scrolled near. */
 const TILES_EAGER = 2
 
@@ -143,13 +146,13 @@ export function MediaGrid({
           data-media-grid=""
           data-media-shape={shape}
           data-dragging={activeId != null ? "" : undefined}
-          className={shape === "square" ? "grid grid-cols-3 gap-2.5 sm:grid-cols-4 sm:gap-3" : "grid grid-cols-2 gap-3 sm:gap-4"}
+          className={shape === "square" ? "grid grid-cols-4 gap-2 sm:grid-cols-6 sm:gap-2.5" : "grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3"}
         >
           {items.map((item, index) => (
             <MediaTile key={item.id} item={item} index={index} onRemove={onRemove} shape={shape} />
           ))}
-          {pending.map((p) => (
-            <PendingTile key={p.id} pending={p} shape={shape} />
+          {pending.map((p, i) => (
+            <PendingTile key={p.id} pending={p} shape={shape} cover={items.length === 0 && i === 0} />
           ))}
         </div>
       </SortableContext>
@@ -264,10 +267,11 @@ function MediaTile({ item, index, onRemove, shape }: { item: MediaItem; index: n
  * along its foot that fills with them. No spinner and no box: the tile is
  * already where the photo will sit, so when it lands nothing moves.
  */
-function PendingTile({ pending, shape = "wide" }: { pending: PendingMedia; shape?: MediaShape }) {
+function PendingTile({ pending, shape = "wide", cover = false }: { pending: PendingMedia; shape?: MediaShape; cover?: boolean }) {
   const p = Math.max(0, Math.min(100, pending.progress)) / 100
   return (
-    <div data-media-pending="" className="relative animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none">
+    /* The first photo of a product lands as the cover, two by two: it is drawn that size while it uploads, so nothing jumps when it lands. */
+    <div data-media-pending="" className={cn("relative animate-in fade-in zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none", shape === "square" && cover && "col-span-2 row-span-2")}>
       <div className={cn("relative overflow-hidden rounded-lg border border-gray-200 select-none", shape === "square" ? "aspect-square bg-[#f8f9fa]" : "aspect-video bg-[#f3f4f6]")}>
         <img
           src={pending.preview}

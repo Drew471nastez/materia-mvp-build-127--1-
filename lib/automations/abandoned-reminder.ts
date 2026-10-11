@@ -57,8 +57,31 @@ async function whatWasLeft(db: Db, s: CheckoutStart): Promise<{ lines: EmailLine
   }
 }
 
+/**
+ * Already told: a declined payment from this buyer at this store since the
+ * checkout started queued its own email (Payment failed, lib/physical/
+ * jobs-server queuePaymentFailedEmail), which links back to the same cart.
+ * One email about one cart, not two. A read that fails says no.
+ */
+async function toldOfFailedPayment(db: Db, s: CheckoutStart): Promise<boolean> {
+  try {
+    const { data } = await db
+      .from("commerce_jobs")
+      .select("id")
+      .eq("creator_id", s.creator_id)
+      .like("idempotency_key", "email:payment_failed:%")
+      .eq("payload->>buyerEmail", s.email.trim().toLowerCase())
+      .gte("created_at", new Date(Date.parse(s.created_at) - 60 * 60 * 1000).toISOString())
+      .limit(1)
+    return Array.isArray(data) && data.length > 0
+  } catch {
+    return false
+  }
+}
+
 export async function sendCheckoutReminder(db: Db, s: CheckoutStart, unsubscribeToken: string): Promise<boolean> {
   if (!unsubscribeToken) return false
+  if (await toldOfFailedPayment(db, s)) return false
   const left = await whatWasLeft(db, s)
   if (!left) return false
   const [identity, store, saved] = await Promise.all([

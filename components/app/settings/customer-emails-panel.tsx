@@ -3,8 +3,9 @@
 /**
  * SETTINGS › CUSTOMER EMAILS: every email a buyer gets from the store
  * (lib/emails/customer-catalog.ts), grouped like Shopify's Customer
- * notifications, each with when it goes. The ones about shipping, pickup
- * and returns show while physical commerce is on.
+ * notifications, each with when it goes: a download's receipt under Digital
+ * products, an order that ships under Orders, Payments, Shipping, Local
+ * pickup and Returns, which show while physical commerce is on.
  *
  * OPENS AT ONCE. The preview is drawn here, in the browser, by the very
  * template that sends the email, from the store's name, logo and contact
@@ -30,10 +31,9 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { BTN_GHOST, BTN_PRIMARY, Card, FIELD, Field, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
-import { GROUP_NAMES, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail, type CustomerEmailGroup } from "@/lib/emails/customer-catalog"
+import { GROUP_NAMES, GROUP_ORDER, previewCustomerEmail, visibleCustomerEmails, type CustomerEmail } from "@/lib/emails/customer-catalog"
 import { COPY_FIELDS, COPY_LIMITS, DEFAULT_COPY, PLACEHOLDERS, readCopy, type CopyField, type CustomerEmailsCopy, type EmailCopy } from "@/lib/emails/customer-custom"
 
-const GROUP_ORDER: CustomerEmailGroup[] = ["orders", "shipping", "pickup", "returns", "marketing"]
 const PATH = "/api/store/emails"
 
 interface Shop {

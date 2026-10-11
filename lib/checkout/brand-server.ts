@@ -20,6 +20,7 @@ import "server-only"
  * as a round avatar beside the name. Every read fails soft to less: a
  * checkout never breaks over its header.
  */
+import { cache } from "react"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { getMainDomain } from "@/lib/url-helpers"
 import { ASSET_MAP_PATH, compatOf, compatValues } from "@/lib/storelib-theme/compat/install"
@@ -32,6 +33,10 @@ export interface CheckoutBrand {
   imageUrl: string | null
   /** A logo is drawn as it is; a photo is round, beside the name. */
   kind: "logo" | "photo" | null
+  /** The browser tab's icon: the website's favicon, else its logo, else the person's photo (as the live site does, lib/website-builder/site-icon). */
+  iconUrl?: string | null
+  /** The picture a shared checkout link shows: the website's share image, else its logo (not an SVG, which share cards cannot draw), else the photo. */
+  shareImageUrl?: string | null
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
@@ -87,17 +92,39 @@ export async function checkoutBrand(db: Db, creatorId: string): Promise<Checkout
   const themeRow = Array.isArray(install?.store_theme_settings) ? install?.store_theme_settings[0] : install?.store_theme_settings
   const theme = ((themeRow as { settings?: Record<string, unknown> } | null)?.settings ?? {}) as Record<string, unknown>
   let websiteLogo: string | null = null
+  let websiteIcon: string | null = null
+  let websiteShare: string | null = null
   if (compatOf(theme)) {
-    const value = str(compatValues(theme).logo)
-    if (value && install?.id) websiteLogo = await compatLogo(db, install.id, value)
+    const values = compatValues(theme)
+    const value = str(values.logo)
+    const favicon = str(values.favicon)
+    ;[websiteLogo, websiteIcon] = await Promise.all([
+      value && install?.id ? compatLogo(db, install.id, value) : Promise.resolve(null),
+      favicon && install?.id ? compatLogo(db, install.id, favicon) : Promise.resolve(null),
+    ])
   } else {
     websiteLogo = absolute(str(theme.logo_url))
+    websiteIcon = absolute(str(theme.favicon_url))
+    websiteShare = absolute(str(theme.seo_og_image))
   }
 
   const name =
     str(settings?.store_name) || str(profile?.display_name) || str(creator?.display_name) || str(profile?.username) || str(creator?.username) || "Checkout"
   const logo = websiteLogo ?? absolute(str((settings as { logo_url?: string | null } | null)?.logo_url))
-  if (logo) return { name, imageUrl: logo, kind: "logo" }
   const photo = absolute(str(profile?.avatar_url) || str(creator?.avatar_url))
-  return { name, imageUrl: photo, kind: photo ? "photo" : null }
+  const drawable = (v: string | null) => (v && !/\.svg(?:\?|$)/i.test(v) ? v : null)
+  const iconUrl = websiteIcon ?? logo ?? photo
+  const shareImageUrl = websiteShare ?? drawable(logo) ?? photo
+  if (logo) return { name, imageUrl: logo, kind: "logo", iconUrl, shareImageUrl }
+  return { name, imageUrl: photo, kind: photo ? "photo" : null, iconUrl, shareImageUrl }
 }
+
+/**
+ * The same, once per request for a website's checkout: its page and its
+ * metadata (the tab's title and icon, the share card) both ask, and the
+ * second is answered from the first (app/checkout/site/layout.tsx).
+ */
+export const checkoutBrandOf = cache(async (creatorId: string): Promise<CheckoutBrand> => {
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  return checkoutBrand(createAdminClient(), creatorId)
+})

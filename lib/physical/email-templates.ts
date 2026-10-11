@@ -358,8 +358,8 @@ export interface ShipmentEmailModel {
   trackingUrl: string | null
   address: Partial<Address> | null
   statusUrl: string
-  /** tracking: the parcel already left and its tracking number changed. */
-  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking"
+  /** tracking: the parcel already left and its tracking number changed. issue: the carrier could not deliver it. */
+  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking" | "issue"
   /** How it is coming, as the buyer chose it at checkout ("Standard, 3 to 5 business days"). */
   deliveryName?: string | null
   /** Some items of the order, not all: say so, so the buyer isn't left waiting on the rest by surprise. */
@@ -376,7 +376,9 @@ export interface ShipmentEmailModel {
  */
 export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: string; text: string } {
   const own =
-    m.kind === "delivered"
+    m.kind === "issue"
+      ? "There's a problem with your delivery"
+      : m.kind === "delivered"
       ? "Your order was delivered"
       : m.kind === "out_for_delivery"
         ? "Your order is out for delivery"
@@ -386,17 +388,21 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
             ? "Part of your order is on the way"
             : "Your order is on the way"
   const heading = m.copy?.heading ?? own
-  const subject = m.copy?.subject ?? (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
+  const subject =
+    m.copy?.subject ??
+    (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : m.kind === "issue" ? `A problem delivering order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
   const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
   const intro = m.copy?.introHtml ?? (
-    m.kind === "delivered"
+    m.kind === "issue"
+      ? `${hi ? `${hi}the` : "The"} carrier couldn't deliver your package. We're looking into it and will email you as soon as we know more. Nothing is needed from you yet; if you have a question, reply to this email.`
+      : m.kind === "delivered"
       ? `${hi ? `${hi}your` : "Your"} package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
       : m.kind === "out_for_delivery"
         ? `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
         : m.kind === "tracking"
           ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
           : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
-  const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
+  const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" || m.kind === "issue" ? 2 : 1
   const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, m.copy?.button && m.kind === "delivered" ? m.copy.button : "View your order")
   const info: { label: string; html: string }[] = []
   if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
@@ -428,7 +434,7 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
 export function returnEmail(m: {
   shopName: string
   orderNumber: string
-  status: "approved" | "rejected" | "received" | "completed"
+  status: "requested" | "approved" | "rejected" | "received" | "completed"
   note: string | null
   refundedCents: number
   currency: string
@@ -445,12 +451,22 @@ export function returnEmail(m: {
   text: string
 } {
   const own =
-    m.status === "approved" ? "Your return was approved" : m.status === "rejected" ? "About your return" : m.status === "received" ? "We received your return" : "Your return is complete"
+    m.status === "requested"
+      ? "We got your return request"
+      : m.status === "approved"
+        ? "Your return was approved"
+        : m.status === "rejected"
+          ? "About your return"
+          : m.status === "received"
+            ? "We received your return"
+            : "Your return is complete"
   const heading = m.copy?.heading ?? own
   /* A refund is said whatever the store wrote above it. */
   const refundLine = m.status === "completed" && m.refundedCents > 0 ? `A refund of ${esc(formatMoney(m.refundedCents, m.currency))} is on its way to your original payment method. Banks usually take 5 to 10 business days to show it.` : ""
   const stock =
-    m.status === "approved"
+    m.status === "requested"
+      ? "The store will look at your request and email you what happens next. Please don't send anything back until it's approved."
+      : m.status === "approved"
       ? m.returnAddress?.length
         ? "Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives."
         : "Pack the items securely and follow the store's note below. Keep the shipping receipt until your refund arrives."
@@ -557,6 +573,73 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
     `Unsubscribe: ${m.unsubscribeUrl}`,
   ].join("\n")
   return { subject, html: shell(m.shopName, heading, intro, body, subject, { footer, brand: m.brand ? { ...m.brand, helpUrl: null } : undefined }), text }
+}
+
+/**
+ * ORDER UPDATED: the store changed something on an order after it was
+ * placed. Today that is the shipping address, before anything shipped
+ * (lib/physical/orders-server updateAddress); the email says what it is now,
+ * so a buyer who did not ask for it can say so.
+ */
+export function orderUpdatedEmail(m: {
+  shopName: string
+  orderNumber: string
+  buyerFirstName: string | null
+  change: "address"
+  address: Partial<Address> | null
+  lines: EmailLine[]
+  statusUrl: string
+  brand?: EmailBrand
+  copy?: ResolvedCopy
+}): { subject: string; html: string; text: string } {
+  const subject = m.copy?.subject ?? `Order ${m.orderNumber} was updated`
+  const heading = m.copy?.heading ?? "Your order was updated"
+  const intro =
+    m.copy?.introHtml ??
+    `${m.buyerFirstName ? `${esc(m.buyerFirstName)}, the` : "The"} shipping address on your order was changed. It will be sent to the address below. If that doesn't look right, reply to this email before it ships.`
+  const lines = addressLines(m.address ?? {})
+  const body = [
+    lines.length ? addressBlock("Shipping to", null, lines.map(esc).join("<br>")) : "",
+    button(m.statusUrl, m.copy?.button ?? "View your order"),
+    m.lines.length ? sectionHeading("In your order") + linesTable(m.lines, "USD", false, false) : "",
+  ].join("")
+  const text = [
+    `${m.shopName}: ${subject}`,
+    "",
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
+    ...(lines.length ? ["", "Shipping to:", ...lines] : []),
+    "",
+    `View your order: ${m.statusUrl}`,
+    ...brandText(m.brand),
+  ].join("\n")
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { aside: `Order ${m.orderNumber}`, brand: m.brand }), text }
+}
+
+/**
+ * PAYMENT FAILED: the buyer pressed Pay, their bank declined it, and they
+ * left without paying another way. Sent once, a while later and only while
+ * the order is still unpaid (lib/physical/jobs-server), with the way back to
+ * the same checkout. Nothing was charged, and it says so.
+ */
+export function paymentFailedEmail(m: { shopName: string; buyerFirstName: string | null; lines: EmailLine[]; checkoutUrl: string; brand?: EmailBrand; copy?: ResolvedCopy }): { subject: string; html: string; text: string } {
+  const subject = m.copy?.subject ?? `Your payment to ${m.shopName} didn't go through`
+  const heading = m.copy?.heading ?? "Your payment didn't go through"
+  const intro =
+    m.copy?.introHtml ??
+    `${m.buyerFirstName ? `Hi ${esc(m.buyerFirstName)}, your` : "Your"} bank declined the payment, so nothing was charged and your order wasn't placed. Your cart is saved: try again with the same card or another one.`
+  const label = m.copy?.button ?? "Try again"
+  const body = [button(m.checkoutUrl, label), m.lines.length ? sectionHeading("In your cart") + linesTable(m.lines, "USD", false, false) : ""].join("")
+  const text = [
+    `${m.shopName}: ${subject}`,
+    "",
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
+    "",
+    ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
+    "",
+    `${label}: ${m.checkoutUrl}`,
+    ...brandText(m.brand),
+  ].join("\n")
+  return { subject, html: shell(m.shopName, heading, intro, body, subject, { brand: m.brand ? { ...m.brand, helpUrl: null } : undefined }), text }
 }
 
 /** The order a supplier or dropshipper is asked to ship: what, how many, to whom. No prices. */

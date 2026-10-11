@@ -29,6 +29,7 @@ import * as React from "react"
 import { Check, ClipboardCopy, Clock, Copy, ExternalLink, MapPin, MoreHorizontal, Package, PackageCheck, Printer, Truck, Undo2, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
+import { countryName } from "@/lib/checkout/countries"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { CARRIERS, RETURN_LABEL, guessCarrier, orderNumber, trackingUrl as trackingLink } from "@/lib/physical/status"
 import { METHODS, shippedByLabel } from "@/lib/physical/fulfillment"
@@ -476,11 +477,25 @@ function LineRow({ line, quantity, currency }: { line: PhysicalLine; quantity: n
 /* ─── Side column: where it goes ─────────────────────────────────────── */
 
 /** The shipping address, copied in one press, and the delivery the buyer chose and paid for. */
-export function ShippingCard({ order, onNotice, className }: { order: PhysicalOrder | null; onNotice?: (m: string) => void; className?: string }) {
+export function ShippingCard({
+  order,
+  onNotice,
+  onEditAddress,
+  className,
+}: {
+  order: PhysicalOrder | null
+  onNotice?: (m: string) => void
+  /** Change the address before anything ships (lib/physical/orders-server updateAddress); null where the page can't. */
+  onEditAddress?: ((address: Record<string, string>, notifyBuyer: boolean) => Promise<string | null>) | null
+  className?: string
+}) {
+  const [editing, setEditing] = React.useState(false)
   if (!order) return <section className={cn(card, "h-[148px] animate-pulse", className)} aria-busy="true" />
   const pickup = order.deliveryMethod === "pickup"
   const lines = addressLines(order.address as any)
   const paid = order.shippingCents - order.shippingDiscountCents
+  /* Only while nothing has gone out: after that the parcel is the carrier's to redirect. */
+  const editable = !!onEditAddress && !pickup && !order.cancelledAt && !order.shipments.some((x) => x.status !== "cancelled") && order.lines.some((l) => l.requiresShipping)
   return (
     <section className={cn(card, "px-4 py-3.5", className)} data-shipping-card="">
       {pickup && order.pickup ? (
@@ -499,18 +514,25 @@ export function ShippingCard({ order, onNotice, className }: { order: PhysicalOr
         <>
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-[13px] font-semibold text-[#1a1a2e]">Shipping address</h2>
+            <span className="-mr-1.5 flex items-center">
+            {editable ? (
+              <button type="button" onClick={() => setEditing(true)} className="h-7 rounded-md px-2 text-[12.5px] font-medium text-[#4b5563] transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e]" data-edit-address="">
+                Edit
+              </button>
+            ) : null}
             {lines.length ? (
               <button
                 type="button"
                 aria-label="Copy shipping address"
                 title="Copy shipping address"
-                className={cn(iconButton, "-mr-1.5 h-7 w-7")}
+                className={cn(iconButton, "h-7 w-7")}
                 onClick={async () => onNotice?.((await copyText(lines.join("\n"))) ? "Address copied" : "Could not copy the address")}
                 data-copy-address=""
               >
                 <ClipboardCopy className="h-3.5 w-3.5" />
               </button>
             ) : null}
+            </span>
           </div>
           {lines.length ? (
             <address className="mt-1.5 text-[13px] not-italic leading-[19px] text-[#303036]">
@@ -544,7 +566,127 @@ export function ShippingCard({ order, onNotice, className }: { order: PhysicalOr
         </p>
         {!pickup && order.delivery && deliveryEstimate(order.delivery) ? <p className="text-[12px] text-[#6b7280]">{deliveryEstimate(order.delivery)}</p> : null}
       </div>
+      {editable && onEditAddress ? (
+        <AddressEditor
+          open={editing}
+          address={(order.address ?? {}) as Record<string, unknown>}
+          onClose={() => setEditing(false)}
+          onSave={async (address, notify) => {
+            const problem = await onEditAddress(address, notify)
+            if (!problem) {
+              setEditing(false)
+              onNotice?.(notify ? "Address saved. The buyer was emailed." : "Address saved")
+            }
+            return problem
+          }}
+        />
+      ) : null}
     </section>
+  )
+}
+
+/**
+ * EDIT SHIPPING ADDRESS. The fields the checkout asked, filled with what the
+ * buyer typed; the country is shown, not changed (shipping and tax were
+ * priced for it). "Email the buyer" is on: they are told the new address
+ * (Order updated), so a change they didn't ask for is caught before it ships.
+ */
+function AddressEditor({
+  open,
+  address,
+  onClose,
+  onSave,
+}: {
+  open: boolean
+  address: Record<string, unknown>
+  onClose: () => void
+  onSave: (address: Record<string, string>, notifyBuyer: boolean) => Promise<string | null>
+}) {
+  const start = React.useCallback(
+    () => ({
+      name: String(address.name ?? ""),
+      company: String(address.company ?? ""),
+      line1: String(address.line1 ?? ""),
+      line2: String(address.line2 ?? ""),
+      city: String(address.city ?? ""),
+      region: String(address.region ?? ""),
+      postalCode: String(address.postalCode ?? ""),
+      phone: String(address.phone ?? ""),
+      country: String(address.country ?? ""),
+    }),
+    [address],
+  )
+  const [form, setForm] = React.useState(start)
+  const [notify, setNotify] = React.useState(true)
+  const [busy, setBusy] = React.useState(false)
+  const [error, setError] = React.useState<string | null>(null)
+  React.useEffect(() => {
+    if (open) {
+      setForm(start())
+      setError(null)
+      setNotify(true)
+    }
+  }, [open, start])
+  const set = (k: keyof ReturnType<typeof start>) => (e: React.ChangeEvent<HTMLInputElement>) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const save = async () => {
+    setBusy(true)
+    setError(null)
+    const problem = await onSave(form, notify)
+    setBusy(false)
+    if (problem) setError(problem)
+  }
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Edit shipping address"
+      footer={
+        <div className="flex justify-end gap-2">
+          <button type="button" className={BTN_SECONDARY} onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className={BTN_PRIMARY} disabled={busy} onClick={() => void save()} data-save-address="">
+            {busy ? "Saving" : "Save"}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-3" data-address-editor="">
+        <Field label="Name">
+          <TextInput value={form.name} onChange={set("name")} autoComplete="off" maxLength={120} />
+        </Field>
+        {form.company || address.company ? (
+          <Field label="Company">
+            <TextInput value={form.company} onChange={set("company")} autoComplete="off" maxLength={120} />
+          </Field>
+        ) : null}
+        <Field label="Address">
+          <TextInput value={form.line1} onChange={set("line1")} autoComplete="off" maxLength={200} />
+        </Field>
+        <Field label="Apartment, suite, etc.">
+          <TextInput value={form.line2} onChange={set("line2")} autoComplete="off" maxLength={200} />
+        </Field>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label="City">
+            <TextInput value={form.city} onChange={set("city")} autoComplete="off" maxLength={120} />
+          </Field>
+          <Field label="Region">
+            <TextInput value={form.region} onChange={set("region")} autoComplete="off" maxLength={120} />
+          </Field>
+          <Field label="Postal code">
+            <TextInput value={form.postalCode} onChange={set("postalCode")} autoComplete="off" maxLength={20} />
+          </Field>
+        </div>
+        <Field label="Phone">
+          <TextInput value={form.phone} onChange={set("phone")} autoComplete="off" inputMode="tel" maxLength={40} />
+        </Field>
+        <p className="text-[12.5px] text-[#6b7280]">
+          Country: {form.country ? countryName(form.country) : "Not recorded"}. It stays the same: shipping and tax were worked out for it at checkout.
+        </p>
+        <Toggle label="Email the buyer the new address" checked={notify} onChange={setNotify} />
+        {error ? <Notice>{error}</Notice> : null}
+      </div>
+    </Modal>
   )
 }
 

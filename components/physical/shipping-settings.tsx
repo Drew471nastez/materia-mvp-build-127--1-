@@ -896,6 +896,7 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
   const [maxDays, setMaxDays] = React.useState(initial?.maxDays?.toString() ?? "")
   const [active, setActive] = React.useState(initial?.active ?? true)
   const [error, setError] = React.useState<string | null>(null)
+  const [priceMissing, setPriceMissing] = React.useState(false)
   const [busy, setBusy] = React.useState(false)
   const tiered = kind === "price" || kind === "weight" || kind === "item_weight"
   /* "Free over" is offered where it adds something: a flat price, or weight steps. Price steps do it with a $0 step. */
@@ -930,26 +931,53 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
           </div>
         </Field>
       </div>
-      <div role="radiogroup" aria-label="Rate type" className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
-        {(legacy ? [...RATE_KINDS_OFFERED, initial!.kind] : RATE_KINDS_OFFERED).map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="radio"
-            aria-checked={kind === k}
-            onClick={() => changeKind(k)}
-            className={cn("rounded-xl border px-3 py-2 text-left transition-colors", kind === k ? "border-[#1a1a2e] bg-white shadow-[0_0_0_1px_#1a1a2e]" : "border-[#e5e7eb] bg-white hover:bg-[#f8f9fa]")}
-          >
-            <span className="block text-[13.5px] font-medium text-[#1a1a2e]">{RATE_KIND_LABEL[k]}</span>
-            <span className="block text-[12px] leading-[16px] text-[#6b7280]">{RATE_KIND_LINE[k]}</span>
-          </button>
-        ))}
+      {/*
+        HOW IT IS PRICED: one list, a radio dot a row, the picked row on a
+        light ground. Five bordered cards, the picked one ringed in ink, read
+        as five buttons fighting for the eye; this reads as one question.
+      */}
+      <div className="space-y-1.5">
+        <p className="text-[13px] font-medium text-[#1a1a2e]">How it's priced</p>
+        <div role="radiogroup" aria-label="How it's priced" className="overflow-hidden rounded-xl border border-[#e5e7eb] bg-white" data-rate-kinds="">
+          {(legacy ? [...RATE_KINDS_OFFERED, initial!.kind] : RATE_KINDS_OFFERED).map((k) => {
+            const on = kind === k
+            return (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => changeKind(k)}
+                className={cn(
+                  "flex w-full items-start gap-3 border-b border-[#f0f1f3] px-3.5 py-2.5 text-left outline-none transition-colors duration-150 last:border-b-0 focus-visible:bg-[#f4f5f7] [-webkit-tap-highlight-color:transparent]",
+                  on ? "bg-[#f8f9fa]" : "hover:bg-[#fafafb]",
+                )}
+                data-rate-kind={k}
+              >
+                <span aria-hidden className={cn("mt-[3px] grid h-4 w-4 shrink-0 place-items-center rounded-full border transition-colors duration-150", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#c9ccd2] bg-white")}>
+                  <span className={cn("h-1.5 w-1.5 rounded-full bg-white transition-transform duration-150", on ? "scale-100" : "scale-0")} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[13.5px] font-medium leading-5 text-[#1a1a2e]">{RATE_KIND_LABEL[k]}</span>
+                  <span className="block text-[12.5px] leading-[17px] text-[#6b7280]">{RATE_KIND_LINE[k]}</span>
+                </span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {kind === "flat" ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="Price">
-            <MoneyInput value={price} onChange={setPrice} />
+          <Field label="Price" hint="0 makes it free" error={priceMissing ? "Enter the price, or 0 for free." : null}>
+            <MoneyInput
+              value={price}
+              onChange={(v) => {
+                setPrice(v)
+                setPriceMissing(false)
+              }}
+              aria-invalid={priceMissing || undefined}
+            />
           </Field>
           <Field label="Free over" hint="Optional: free once the order reaches this">
             <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
@@ -1033,7 +1061,9 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
 
       <Toggle label="Offered at checkout" checked={active} onChange={setActive} />
       {error ? <Notice>{error}</Notice> : null}
-      <div className="flex justify-end gap-2">
+      <div className="flex items-center justify-end gap-2">
+        {/* A rate being written is not one buyers can use: said, so a closed tab is not taken for a saved rate. */}
+        {!initial ? <p className="mr-auto text-[12.5px] text-[#9ca3af]" data-rate-unsaved="">Not saved until you press Add rate</p> : null}
         <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
           Cancel
         </button>
@@ -1053,7 +1083,7 @@ function RateForm({ initial, system, first = false, onCancel, onSave }: { initia
               }
               tierBody = tierBody.sort((a, b) => a.from - b.from)
             }
-            if (kind === "flat" && centsOf(price) === null) return setError("Enter the price. 0 is fine for free.")
+            if (kind === "flat" && centsOf(price) === null) return setPriceMissing(true)
             setBusy(true)
             const problem = await onSave({
               kind,

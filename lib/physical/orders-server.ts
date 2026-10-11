@@ -18,7 +18,8 @@ import "server-only"
 import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
-import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
+import { queueCancelledEmail, queueOrderUpdatedEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
+import { addressLines, readAddress } from "./address"
 import { canMoveShipment, fulfillmentStatusOf, mergeItemQuantities, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import { normaliseTrackingNumber } from "./carriers"
@@ -447,6 +448,8 @@ export async function updateShipment(
   }
   if (input.notifyBuyer !== false && f.notify_buyer !== false) {
     if (to === "delivered" || to === "out_for_delivery") await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, to)
+    /* The carrier couldn't deliver it: the buyer hears it from the store before they wonder (Delivery issue). Once per shipment. */
+    else if (to === "failed") await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, "issue")
     else if (trackingChanged && !to && patch.tracking_number && patch.tracking_number !== f.tracking_number) {
       /* A first number on a shipment sent without one reads as "on the way"; a changed one says it changed. */
       await queueShipmentEmail(db, f.checkout_id, creatorId, fulfillmentId, f.tracking_number ? "tracking" : "shipped", `email:tracking:${fulfillmentId}:${patch.tracking_number}`)
@@ -469,6 +472,46 @@ export async function markProcessing(db: Db, creatorId: string, checkoutId: stri
   const now = new Date().toISOString()
   await db.from("commerce_checkouts").update({ processing_at: on ? now : null, updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: on ? "order.processing" : "order.unprocessing", message: on ? "Marked as processing" : "Back to unfulfilled", actor: "creator" })
+  const updated = await restate(db, creatorId, checkoutId)
+  return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * CHANGE THE SHIPPING ADDRESS, before anything has shipped: the buyer wrote
+ * to say they mistyped it, as Shopify's "Edit shipping address". In the
+ * same country only: the shipping price and the tax were worked out for
+ * that country at checkout, and a new one could change both. Checked like
+ * the checkout checks it (./address readAddress), kept on the order, put on
+ * its timeline with the old address, and the buyer is emailed the new one
+ * (Order updated), unless the store unticks that.
+ */
+export async function updateAddress(db: Db, creatorId: string, checkoutId: string, input: { address: unknown; notifyBuyer?: boolean }): Promise<Outcome> {
+  const order = await loadOrder(db, { creatorId, checkoutId })
+  if (!order) return { ok: false, error: "Order not found.", status: 404 }
+  if (order.cancelledAt) return { ok: false, error: "This order was cancelled." }
+  if (order.deliveryMethod === "pickup") return { ok: false, error: "This order is picked up, so it has no shipping address." }
+  if (!order.lines.some((l) => l.requiresShipping)) return { ok: false, error: "Nothing in this order ships." }
+  if (order.shipments.some((x) => x.status !== "cancelled")) return { ok: false, error: "Part of this order has shipped, so its address can't change here. Contact the carrier to redirect it." }
+  const read = readAddress(input.address, { nameFields: "last_only", company: "optional", phone: "optional", address2: "optional" })
+  if (read.ok === false) return { ok: false, error: read.error }
+  const before = (order.address ?? {}) as Record<string, unknown>
+  const from = typeof before.country === "string" ? before.country.toUpperCase() : null
+  if (from && read.address.country !== from) return { ok: false, error: "Keep the same country: shipping and tax were worked out for it at checkout. To send it abroad, cancel and refund the order and ask the buyer to order again." }
+  const was = addressLines(before as never).join(", ")
+  const now = addressLines(read.address).join(", ")
+  if (was === now) return { ok: true, order }
+  const at = new Date().toISOString()
+  const { error } = await db.from("commerce_checkouts").update({ shipping_address: read.address, updated_at: at }).eq("id", checkoutId).eq("creator_id", creatorId)
+  if (error) return { ok: false, error: "The address could not be saved." }
+  await addOrderEvent(db, {
+    checkoutId,
+    creatorId,
+    kind: "order.address_changed",
+    message: "Shipping address changed",
+    detail: { from: was.slice(0, 500), to: now.slice(0, 500) },
+    actor: "creator",
+  })
+  if (input.notifyBuyer !== false) await queueOrderUpdatedEmail(db, checkoutId, creatorId, now.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 120))
   const updated = await restate(db, creatorId, checkoutId)
   return updated ? { ok: true, order: updated } : { ok: false, error: "Order not found." }
 }
@@ -661,7 +704,8 @@ export async function openReturn(
     actor: input.by,
     key: `return:${r.id}`,
   })
-  if (input.by === "creator") await queueReturnEmail(db, checkoutId, input.creatorId, r.id, "approved")
+  /* Opened by the store, it is approved at once and says so; asked for by the buyer, they hear their request arrived (Return requested). */
+  await queueReturnEmail(db, checkoutId, input.creatorId, r.id, input.by === "creator" ? "approved" : "requested")
   const updated = await restate(db, input.creatorId, checkoutId)
   return updated ? { ok: true, order: updated, returnId: r.id } : { ok: false, error: "Order not found." }
 }
