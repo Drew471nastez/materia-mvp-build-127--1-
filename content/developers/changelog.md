@@ -19,6 +19,7 @@ Every change since 1.0 has been additive. Nothing a section could do on 11 Septe
 - [Imported Shopify themes](/developers/imported-shopify-themes): a page on what a theme imported from Shopify can use on Storelib, from Liquid and the AJAX cart to accounts, the canvas and what does not come across.
 - In an imported theme: sign in, sign up and the account page on the website's own host with an emailed code, in the theme's own `customers/*` templates when it has them; the theme's hearts kept in step with the website's wishlist; contact and newsletter forms that reach the creator; a blog page drawn with its title and no posts.
 - In the builder's canvas, an imported theme's Add to cart, cart drawer and quantity changes work against a cart the builder keeps; checkout says it opens on the live site.
+- In an imported theme, a product's custom fields as `product.metafields.custom.<key>` and its questions as `product.metafields.storelib.faqs`, and a counted variant's `inventory_quantity` once few are left.
 - Live websites cross-fade between pages, with the next page fetched while the pointer rests on its link ([between pages](/developers/imported-shopify-themes#between-pages-on-the-live-site)).
 
 **Changed**

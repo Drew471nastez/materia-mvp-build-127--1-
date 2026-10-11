@@ -47,7 +47,11 @@ The engine reads Liquid itself. It is lenient where Shopify is: a tag that does 
 
 `shop.name` is the website's brand name from Theme settings, else the store's name from Settings › Store details. `shop.policies` and `shop.refund_policy` (and the other three) are the creator's own policy pages. `shop.enabled_payment_types` lists what Storelib's checkout takes: Visa, Mastercard, American Express, Apple Pay and Google Pay.
 
-A value Storelib does not have is present and empty, so a theme's `{% if %}` around it reads false: metafields, metaobjects, vendors, blogs and articles, gift cards. A blog page draws the theme's blog template with its title and no posts.
+**Metafields.** A product's custom fields from the product editor are `product.metafields.custom.<key>`, each printing as its value and with `.value`, `.key` and `.type`, so `{{ product.metafields.custom.material }}` and `.material.value` both work. The product's questions are `product.metafields.storelib.faqs.value`, a list of `{ question, answer }`.
+
+**Stock.** A variant Storelib counts, once it is at its low stock line, has `inventory_management` set and `inventory_quantity` as the number left, so a theme's "Only 3 left" shows (Website settings › Commerce › Show how many are left can turn it off). Otherwise `inventory_quantity` only says whether it can be bought.
+
+A value Storelib does not have is present and empty, so a theme's `{% if %}` around it reads false: other metafields, metaobjects, vendors, blogs and articles, gift cards. A blog page draws the theme's blog template with its title and no posts.
 
 ## Sections, blocks and groups
 
@@ -152,7 +156,7 @@ A live website, imported or native, goes from page to page by loading the next p
 | Shopify | On Storelib |
 | --- | --- |
 | Apps and app blocks | Not run. Their markup has nothing to draw. |
-| Metafields and metaobjects, dynamic sources that read them | Empty |
+| Metafields other than a product's custom fields and questions, metaobjects | Empty |
 | Blog posts and articles | A blog page shows its title and no posts |
 | Shop Pay, PayPal and other wallet buttons | Not shown; checkout takes cards, Apple Pay and Google Pay |
 | Gift cards, selling plans, B2B prices | Not available |

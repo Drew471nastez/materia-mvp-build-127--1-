@@ -19,7 +19,7 @@
  */
 import { execFileSync } from "node:child_process"
 import { createServer } from "node:http"
-import { mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import puppeteer from "puppeteer-core"
 import sharp from "sharp"
@@ -66,6 +66,9 @@ const server = createServer((req, res) => {
   const p = req.url.split("?")[0]
   if (p.startsWith("/media/") && mediaDir && /^[\w.-]+$/.test(p.slice(7))) { try { res.writeHead(200, { "content-type": "font/woff2" }); return res.end(readFileSync(join(mediaDir, p.slice(7)))) } catch { res.writeHead(404); return res.end() } }
   if (p === "/probe.js") { res.writeHead(200, { "content-type": "text/javascript" }); return res.end(bundle) }
+  /* The site's own public files the screens ask for: the flags sprite, the integrations' marks. */
+  const file = join(root, "public", p)
+  if (/^\/(flags|integrations)\/[\w.-]+$/.test(p) && existsSync(file)) { res.writeHead(200, { "content-type": p.endsWith(".svg") ? "image/svg+xml" : "image/png" }); return res.end(readFileSync(file)) }
   res.writeHead(200, { "content-type": "text/html" }); res.end(html)
 })
 await new Promise((r) => server.listen(0, "127.0.0.1", r))
@@ -116,7 +119,18 @@ const SHOTS = [
   { name: "product-inventory", view: "product", width: 820, clip: cards("Inventory") },
   { name: "product-variants", view: "product", width: 820, clip: cards("Variants") },
   { name: "product-shipping", view: "product", width: 820, clip: cards("Shipping") },
-  { name: "product-fulfillment", view: "product", width: 820, clip: cards("Fulfillment") },
+  /* Who ships the product: its own card, or (since the editor follows the store's answer) the Fulfilment part of Advanced with its own answer turned on. */
+  {
+    name: "product-fulfillment", view: "product", width: 820,
+    act: [async (p) => {
+      if (await p.evaluate(() => !!window.__card("Fulfillment"))) return
+      await p.evaluate(() => document.querySelector("#physical-advanced > button[aria-expanded=false]")?.click())
+      await wait(400)
+      await p.evaluate(() => { const l = [...document.querySelectorAll("label")].find((x) => x.textContent.includes("Fulfil this product differently")); if (l) l.click() })
+      await wait(500)
+    }],
+    clip: (p) => p.evaluate(() => window.__rect([window.__card("Fulfillment") ?? document.querySelector("#physical-advanced-fulfilment")])),
+  },
   { name: "order-unfulfilled", view: "order", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 3))) },
   { name: "order-mark-shipped", view: "order", width: 1100, act: [press("Mark as shipped"), async (p) => { await p.select("[role=dialog] select", "USPS"); await wait(200); await p.type("[role=dialog] input:not([aria-label])", "9400100000000000000000"); await p.evaluate(() => document.activeElement.blur()); await wait(200) }], clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[role=dialog]")], 0)) },
   { name: "order-shipped", view: "order", q: "order=shipped", width: 820, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
@@ -152,6 +166,8 @@ const SHOTS = [
   },
   { name: "upsells-and-bundles", view: "offers", width: 1100, height: 760, clip: viewport(760) },
   { name: "website-commerce", view: "website-commerce", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
+  /* Website settings › Commerce › On this website (stock left, the low stock message, the free shipping banner, the return policy in the cart). */
+  { name: "website-on-this-website", view: "website-commerce", width: 1280, height: 860, settle: 2500, act: [async (p) => { await p.evaluate(() => window.__card("On this website")?.scrollIntoView({ block: "center" })); await wait(400) }], clip: cards("On this website") },
   { name: "website-policies", view: "website-policies", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
   { name: "website-domains", view: "website-domains", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
 ]

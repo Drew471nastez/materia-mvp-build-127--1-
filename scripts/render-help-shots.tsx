@@ -75,6 +75,11 @@ const physicalSettings = () => ({
   packages: [{ id: "pk1", name: "Mug box", kind: "box", lengthMm: 150, widthMm: 150, heightMm: 150, weightGrams: 180, isDefault: true }],
   taxRates: [],
   integrations: [],
+  shippingProducts: [
+    { id: PRODUCT, title: "Speckled mug", imageUrl: MUG_SAND, profileId: null },
+    { id: "p-bowl", title: "Serving bowl", imageUrl: BOWL, profileId: null },
+    { id: "p-apron", title: "Linen apron", imageUrl: APRON, profileId: null },
+  ],
 })
 
 const options = [
