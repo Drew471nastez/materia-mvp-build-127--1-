@@ -38,6 +38,7 @@ import { openSecret } from "./secrets"
 import { orderPageUrl } from "./order-link-server"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
+import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
@@ -236,9 +237,9 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
     case "webhook_delivery":
       return deliverWebhook(db, job.payload)
     case "forward_fulfillment":
-      return forwardToProvider(db, job.payload)
+      return forwardToProvider(db, job.payload, realForwardDeps)
     case "tracking_sync":
-      return syncProviderTracking(db, job.payload)
+      return syncProviderTracking(db, job.payload, realForwardDeps)
     default:
       throw new Error("This kind of job is not available yet.")
   }

@@ -457,7 +457,7 @@ console.log("\nThe job queue sends orders to connected providers\n")
   const jobs = read("lib/physical/jobs-server.ts")
   check("a location forwarding to a connected Printful or Printify queues forward_fulfillment", /loc\.forwarding === "provider" && loc\.integration_id && \(await providerTakesOrders\(db, creatorId, loc\.integration_id\)\)/.test(jobs) && /kind: "forward_fulfillment", key: `provider:\$\{checkoutId\}:\$\{loc\.id\}`/.test(jobs))
   check("  otherwise the order is still marked to send by hand", /is set to forward through a provider that is not connected/.test(jobs))
-  check("the queue runs both jobs, with backoff and a dead letter said on the order", /case "forward_fulfillment":\s*return forwardToProvider/.test(jobs) && /case "tracking_sync":\s*return syncProviderTracking/.test(jobs) && /could not be sent to your print partner/.test(jobs))
+  check("the queue runs both jobs, with backoff and a dead letter said on the order", /case "forward_fulfillment":\s*return forwardToProvider\(db, job\.payload, realForwardDeps\)/.test(jobs) && /case "tracking_sync":\s*return syncProviderTracking/.test(jobs) && /could not be sent to your print partner/.test(jobs))
   check("tracking is checked for about three weeks, then left to the seller", nextCheckDelayMs(1) === 2 * 3600_000 && nextCheckDelayMs(10) === 6 * 3600_000)
 }
 

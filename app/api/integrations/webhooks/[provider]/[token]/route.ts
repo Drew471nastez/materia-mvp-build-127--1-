@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { connectorFor, handleProviderWebhook, readWebhookToken } from "@/lib/integrations/fulfilment/forward-server"
+import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -43,6 +44,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ pro
   if (!creatorId) return json({ error: "Not found." }, 404)
   const raw = await request.text().catch(() => "")
   if (!raw || raw.length > 64_000) return json({ error: "Send a JSON body under 64 KB." }, 400)
-  const out = await handleProviderWebhook(createAdminClient(), { provider, creatorId, raw, signature: request.headers.get("x-pfy-signature") })
+  const out = await handleProviderWebhook(createAdminClient(), { provider, creatorId, raw, signature: request.headers.get("x-pfy-signature") }, realForwardDeps)
   return json(out.body, out.status)
 }

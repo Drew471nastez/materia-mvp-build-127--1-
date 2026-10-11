@@ -32,10 +32,6 @@ import "server-only"
  */
 
 import { createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto"
-import type { Db } from "@/lib/physical/auth"
-import { addOrderEvent as addOrderEventReal } from "@/lib/physical/events-server"
-import { loadOrder as loadOrderReal, type PhysicalOrder } from "@/lib/physical/orders-server"
-import { partnerShipped as partnerShippedReal } from "@/lib/physical/partner-server"
 import { orderNumber } from "@/lib/physical/status"
 import { regionCode } from "@/lib/physical/regions"
 import { carrierOf } from "@/lib/physical/carriers"
@@ -46,25 +42,56 @@ import { printful } from "./printful"
 import { printify } from "./printify"
 import type { ConnectorCredential, FulfilmentConnector, ProviderOrderInput, ProviderOrderState } from "./types"
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
 export const CONNECTORS: Record<string, FulfilmentConnector> = { printify, printful }
 
 export function connectorFor(provider: string | null | undefined): FulfilmentConnector | null {
   return provider && Object.prototype.hasOwnProperty.call(CONNECTORS, provider) ? CONNECTORS[provider] : null
 }
 
-/** What these functions reach outside themselves, so a test can watch them. */
-export interface ForwardDeps {
-  loadOrder: typeof loadOrderReal
-  partnerShipped: typeof partnerShippedReal
-  addOrderEvent: typeof addOrderEventReal
-  now: () => number
+/*
+  WHAT AN ORDER IS, AS FAR AS THIS FILE NEEDS: the shape lib/physical/orders-server.ts loadOrder returns, written
+  here rather than imported, so this file (and Settings' connect path through it) does not pull the whole order
+  engine in. The real functions are handed in by ./forward-deps-server.ts; a test hands in its own.
+*/
+export interface ForwardOrderLine {
+  orderId: string
+  title: string
+  variantName: string | null
+  sku: string | null
+  quantity: number
+  fulfilled: number
+  requiresShipping: boolean
+  locationId: string | null
 }
-/* Each one looked up when called: jobs-server imports this file and orders-server imports jobs-server, so at load they may not be there yet. */
-const REAL: ForwardDeps = {
-  loadOrder: (...a) => loadOrderReal(...a),
-  partnerShipped: (...a) => partnerShippedReal(...a),
-  addOrderEvent: (...a) => addOrderEventReal(...a),
-  now: () => Date.now(),
+export interface ForwardOrder {
+  id: string
+  status: string
+  cancelledAt: string | null
+  buyerEmail: string | null
+  buyerName: string | null
+  buyerPhone: string | null
+  address: Record<string, any> | null
+  lines: ForwardOrderLine[]
+}
+export interface ShipInput {
+  creatorId: string
+  checkoutId: string
+  locationId: string | null
+  carrier?: unknown
+  trackingNumber?: unknown
+  trackingUrl?: unknown
+  status?: unknown
+  partner: { provider: string; name: string }
+}
+/** What these functions reach outside themselves (./forward-deps-server.ts), so a test can watch them. */
+export interface ForwardDeps {
+  loadOrder: (db: Db, where: { creatorId: string; checkoutId: string }) => Promise<ForwardOrder | null>
+  partnerShipped: (db: Db, input: ShipInput) => Promise<{ ok: boolean; kind?: string }>
+  addOrderEvent: (db: Db, e: { checkoutId: string; creatorId: string | null; kind: string; message: string; detail?: Record<string, unknown> | null; key?: string | null }) => Promise<void>
+  now: () => number
 }
 
 /* ── the webhook address: a token only Storelib can make ──────────────── */
@@ -230,7 +257,7 @@ async function integrationById(db: Db, creatorId: string, integrationId: string)
 }
 
 /** The items still to ship from one location, as the provider takes them. */
-export function providerOrderFor(order: PhysicalOrder, locationId: string, autoConfirm: boolean): ProviderOrderInput | { error: string } {
+export function providerOrderFor(order: ForwardOrder, locationId: string, autoConfirm: boolean): ProviderOrderInput | { error: string } {
   const open = order.lines.filter((l) => l.requiresShipping && l.locationId === locationId && l.quantity - l.fulfilled > 0)
   if (open.length === 0) return { error: "" }
   const noSku = open.filter((l) => !l.sku || !String(l.sku).trim())
@@ -259,7 +286,7 @@ export function providerOrderFor(order: PhysicalOrder, locationId: string, autoC
 }
 
 /** The forward_fulfillment job. Throws only for what is worth trying again. */
-export async function forwardToProvider(db: Db, payload: Record<string, any>, deps: ForwardDeps = REAL): Promise<void> {
+export async function forwardToProvider(db: Db, payload: Record<string, any>, deps: ForwardDeps): Promise<void> {
   const checkoutId = String(payload.checkoutId ?? "")
   const locationId = String(payload.locationId ?? "")
   const creatorId = String(payload.creatorId ?? "")
@@ -329,7 +356,7 @@ export async function applyProviderState(
   db: Db,
   ctx: { creatorId: string; checkoutId: string; locationId: string | null; provider: string; name: string },
   state: ProviderOrderState,
-  deps: ForwardDeps = REAL,
+  deps: ForwardDeps,
 ): Promise<{ finished: boolean; shipped: number }> {
   const { creatorId, checkoutId, locationId, name } = ctx
   if (state.stage === "cancelled") {
@@ -362,7 +389,7 @@ export async function applyProviderState(
 }
 
 /** The tracking_sync job. Throws only for what is worth trying again. */
-export async function syncProviderTracking(db: Db, payload: Record<string, any>, deps: ForwardDeps = REAL): Promise<void> {
+export async function syncProviderTracking(db: Db, payload: Record<string, any>, deps: ForwardDeps): Promise<void> {
   const creatorId = String(payload.creatorId ?? "")
   const integration = await integrationById(db, creatorId, String(payload.integrationId ?? ""))
   const c = connectorFor(integration?.provider)
@@ -384,7 +411,7 @@ export async function syncProviderTracking(db: Db, payload: Record<string, any>,
 export async function handleProviderWebhook(
   db: Db,
   input: { provider: string; creatorId: string; raw: string; signature: string | null },
-  deps: ForwardDeps = REAL,
+  deps: ForwardDeps,
 ): Promise<{ status: number; body: Record<string, unknown> }> {
   const c = connectorFor(input.provider)
   if (!c) return { status: 404, body: { error: "Not found." } }
