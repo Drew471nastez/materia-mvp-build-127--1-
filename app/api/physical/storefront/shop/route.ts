@@ -2,8 +2,7 @@ import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { isUuid, physicalCaller } from "@/lib/physical/auth"
-import { loadProfiles } from "@/lib/physical/config-server"
-import { freeShippingFrom } from "@/lib/physical/rates"
+import { shopFacts } from "@/lib/physical/storefront-facts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -34,24 +33,10 @@ export async function GET(request: Request) {
     if (!isUuid(shopId)) return NextResponse.json({ error: "Not found." }, { status: 404 })
     creatorId = shopId
   }
-  const db = createAdminClient()
-  const [{ data: settings }, { data: store }, profiles] = await Promise.all([
-    db.from("commerce_settings").select("returns_enabled, return_window_days, default_location_id").eq("creator_id", creatorId).maybeSingle(),
-    db.from("store_settings").select("default_country").eq("creator_id", creatorId).maybeSingle(),
-    loadProfiles(db as never, creatorId).catch(() => []),
-  ])
-  let country: string | null = (store as { default_country?: string | null } | null)?.default_country ?? null
-  if (!country && settings?.default_location_id) {
-    const { data: loc } = await db.from("inventory_locations").select("country").eq("id", settings.default_location_id).eq("creator_id", creatorId).maybeSingle()
-    country = (loc as { country?: string | null } | null)?.country ?? null
-  }
-  const general = profiles.find((p) => p.isDefault) ?? profiles[0] ?? null
+  /* The same facts an imported theme's banner and cart line read (lib/physical/storefront-facts.ts). */
+  const facts = await shopFacts(createAdminClient(), creatorId)
   return NextResponse.json(
-    {
-      /* Null until the shop has set up physical selling: nothing is said about returns it never chose. */
-      returns: settings ? { enabled: settings.returns_enabled !== false, windowDays: Number(settings.return_window_days ?? 30) } : null,
-      freeShippingFromCents: freeShippingFrom(general, country),
-    },
+    facts,
     { headers: { "Cache-Control": owner ? "private, no-store" : "public, max-age=0, s-maxage=60, stale-while-revalidate=300" } },
   )
 }

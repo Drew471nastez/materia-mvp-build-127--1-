@@ -48,6 +48,7 @@ import {
   type ProductSectionData,
   type ProductVariantData,
 } from "@/lib/products/product-page-model"
+import { deliveryLine, pickupLine } from "@/lib/physical/delivery-lines"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
 import { useStorefront } from "../../../theme/storefront-context"
 
@@ -504,6 +505,46 @@ function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
   return <EditorNote ctx={ctx}>Shows when {threshold} or fewer are left</EditorNote>
 }
 
+/**
+ * DELIVERY AND PICKUP: what it costs to have one delivered at home and how
+ * long it takes, and where the chosen option can be picked up, from the
+ * shop's own rates and locations (lib/physical/storefront-facts.ts). The
+ * pickup line follows the variant picker: an option no pickup point holds
+ * is not said to be there. Shopify draws pickup under its buy buttons;
+ * here it is a block of its own, so it can be moved or taken out.
+ */
+function Delivery({ s, ctx }: { s: S; ctx: ProductCtx }) {
+  if (ctx.product.type !== "physical" && !ctx.sample) return <EditorNote ctx={ctx}>Only a product that ships has delivery</EditorNote>
+  const d = ctx.product.delivery ?? null
+  const ink = colorOf(s.color, ctx.palette, "text")
+  const muted = ctx.palette.text_muted ?? ctx.palette.paragraph
+  const variantId = ctx.variant?.id ?? ctx.product.variants?.[0]?.id ?? null
+  const ship = on(s.show_delivery, true) ? deliveryLine(d?.ship ?? null, ctx.money) : null
+  const freeOver = on(s.show_delivery, true) && d?.ship && d.ship.priceCents > 0 && d.ship.freeFromCents ? `Free over ${ctx.money(d.ship.freeFromCents)}` : null
+  const points = on(s.show_pickup, true) && variantId ? d?.pickup?.[variantId] : undefined
+  const pickup = pickupLine(points)
+  if (!ship && !pickup) {
+    return <EditorNote ctx={ctx}>{ctx.sample ? "Delivery and pickup show here for a product that ships" : "Set up rates in Settings, Shipping and delivery, or pickup in Locations"}</EditorNote>
+  }
+  const row = (icon: string, text: string, sub: string | null, key: string) => (
+    <div className="flex items-start gap-2.5" data-delivery-line={key}>
+      <span className="mt-[1px] shrink-0" style={{ color: ink }}>
+        <DynamicIcon name={icon} className="h-[18px] w-[18px]" />
+      </span>
+      <span className="min-w-0 text-[14px] leading-5" style={{ color: ink }}>
+        {text}
+        {sub ? <span className="block text-[13px]" style={{ color: muted }}>{sub}</span> : null}
+      </span>
+    </div>
+  )
+  return (
+    <div className="flex flex-col gap-2.5" data-delivery="">
+      {ship ? row("truck", ship, freeOver, "ship") : null}
+      {pickup ? row("store", pickup, points?.[0]?.ready ?? null, "pickup") : null}
+    </div>
+  )
+}
+
 /** The description as safe markup: the server's cleaned copy, or cleaned here from the raw text. */
 function useDescriptionHtml(p: ProductSectionData): string {
   return useMemo(() => {
@@ -766,6 +807,7 @@ const BLOCKS: Record<string, (props: { s: S; ctx: ProductCtx }) => JSX.Element |
   quantity: Quantity,
   buy_buttons: BuyButtons,
   low_stock: LowStock,
+  delivery: Delivery,
   description: Description,
   collapsible_tab: CollapsibleTab,
   product_faq: ProductFaq,
