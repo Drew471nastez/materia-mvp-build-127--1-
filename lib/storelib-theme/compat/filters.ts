@@ -65,6 +65,22 @@ const arith = (a: unknown, b: unknown, f: (x: number, y: number) => number) => {
   return isInt(a) && isInt(b) ? Math.trunc(r) : flt(r)
 }
 
+/* Base64 of the text's UTF-8 bytes, in the page and on the server alike (no Buffer in a browser). */
+function toBase64(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  let bin = ""
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  return btoa(bin)
+}
+function fromBase64(b64: string): string {
+  try {
+    const bin = atob(b64.replace(/\s+/g, ""))
+    return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)))
+  } catch {
+    return ""
+  }
+}
+
 export function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;")
 }
@@ -426,6 +442,11 @@ const F: Record<string, FilterFn> = {
   escape_once: (v) => escapeOnce(str(v)),
   url_encode: (v) => encodeURIComponent(str(v)).replace(/%20/g, "+"),
   url_decode: (v) => { try { return decodeURIComponent(str(v).replace(/\+/g, " ")) } catch { return str(v) } },
+  /* An icon written as a data URI (url("data:image/svg+xml;base64,{{ svg | base64_encode }}")) needs these: an unknown filter would leave the markup as it was, and the icon would not draw. */
+  base64_encode: (v) => toBase64(str(v)),
+  base64_decode: (v) => fromBase64(str(v)),
+  base64_url_safe_encode: (v) => toBase64(str(v)).replace(/\+/g, "-").replace(/\//g, "_"),
+  base64_url_safe_decode: (v) => fromBase64(str(v).replace(/-/g, "+").replace(/_/g, "/")),
   url_escape: (v) => encodeURI(str(v)),
   url_param_escape: (v) => encodeURIComponent(str(v)),
   remove: (v, [a]) => str(v).split(str(a)).join(""),

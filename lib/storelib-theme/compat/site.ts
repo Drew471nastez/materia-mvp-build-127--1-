@@ -41,6 +41,7 @@ import { renderString } from "./runtime"
 import { facet } from "./facets"
 import { CLEAR_CART_PARAM, basketCheckoutHref } from "@/lib/checkout/basket-link"
 import { getMainDomain } from "@/lib/url-helpers"
+import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
@@ -1017,17 +1018,19 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
       return { type: "text/css; charset=utf-8", body: opts.scss(filled) }
     }
   }
+  /* A stylesheet, with a button's label never painting a box of its own (./css-fixes.ts). */
+  const css = (body: string) => (/^text\/css/.test(type) ? fixThemeCss(body) : body)
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)
-    return { type, body: bytes ?? text }
+    return { type, body: bytes ?? css(text) }
   }
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
+      return { type, body: css(renderString(liquid, settingsCtx(), { lax: true })) }
     } catch {
-      return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
+      return { type, body: css(liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "")) }
     }
   }
   return null
