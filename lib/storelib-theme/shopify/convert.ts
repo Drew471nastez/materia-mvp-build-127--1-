@@ -48,6 +48,7 @@ import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
 import { splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 import { floatsOverPage } from "../section-groups"
+import { isReviewsAppBlock } from "../compat/storelib-reviews"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -486,6 +487,8 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const schemaSettings = parseJson(src.text.get("config/settings_schema.json") ?? "")
   const info = Array.isArray(schemaSettings) ? (schemaSettings.find((g) => g && typeof g === "object" && (g as Tree).name === "theme_info") as Tree | undefined) : undefined
   const values = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
+  const embeds = values.blocks && typeof values.blocks === "object" ? Object.values(values.blocks as Record<string, Tree>).filter((b) => b && typeof b === "object" && b.disabled !== true).map((b) => ({ type: String(b.type ?? "") })) : []
+  noteAppBlocks(embeds, report, "config/settings_data.json", "switches on")
   for (const [k, v] of Object.entries(values)) {
     if (typeof v === "string" && v.startsWith("shopify://shop_images/")) {
       report.note("config/settings_data.json", `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; choose it again in Theme settings`)
@@ -1000,7 +1003,33 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     out.push(section)
   }
   if (missing.size) report.note(path, `It names sections the theme does not have, which were left off: ${[...missing].join(", ")}`)
+  noteAppBlocks(out.flatMap((s) => s.blocks ?? []), report, path, "places")
   return out
+}
+
+/*
+  A SHOPIFY APP'S BLOCK, placed on a page (a review badge, an upsell) or
+  switched on for the whole theme as an app embed (settings_data.json's
+  `blocks`), comes with the theme's files but not the app: Shopify draws it
+  from the app's own code. A review app's is drawn by Storelib Reviews; any
+  other draws nothing, and the report says which, so the store owner knows
+  what the page no longer has.
+*/
+const APP_BLOCK = /^shopify:\/\/apps\/([^/]+)\/blocks\/([^/]+)/
+function noteAppBlocks(blocks: { type: string; blocks?: { type: string; blocks?: unknown[] }[] }[], report: Report, path: string, verb: "places" | "switches on"): void {
+  const reviews = new Set<string>()
+  const other = new Set<string>()
+  const walk = (list: { type: string; blocks?: unknown[] }[]) => {
+    for (const b of list) {
+      const m = b.type.match(APP_BLOCK)
+      if (m) (isReviewsAppBlock(b.type) ? reviews : other).add(`${m[1]} (${m[2]})`)
+      if (Array.isArray(b.blocks)) walk(b.blocks as { type: string; blocks?: unknown[] }[])
+    }
+  }
+  walk(blocks)
+  const what = verb === "places" ? "app blocks" : "app embeds"
+  if (other.size) report.note(path, `It ${verb} Shopify ${what} that come with their app, not the theme, and draw nothing on Storelib: ${[...other].join(", ")}`)
+  if (reviews.size) report.note(path, `It ${verb} review ${what} (${[...reviews].join(", ")}); Storelib Reviews draws them with the shop's own reviews`)
 }
 
 function blockList(blocks: Record<string, Tree> | undefined, order: unknown, depth: number): ImportedBlock[] {
