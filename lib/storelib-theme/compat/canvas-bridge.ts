@@ -278,6 +278,22 @@ export const CANVAS_BRIDGE = `
   }, true);
   document.addEventListener("mouseleave", giveBack);
   /*
+    WHERE THE POINTER IS GOING. A link the mouse rests on, or a finger lands
+    on, is told to the builder before the click, so it can ask for that
+    page's sections ahead (the editor's prefetchPageSections): a page switch
+    then starts with what it needs. Once per link until another is touched.
+  */
+  var intended = null;
+  var intent = function (e) {
+    var a = e.target && e.target.closest ? e.target.closest("a[href]") : null;
+    if (!a || a === intended) return;
+    intended = a;
+    var h = a.getAttribute("data-sl-href") || a.getAttribute("href") || "";
+    if (h.charAt(0) === "/" && h.charAt(1) !== "/") post({ type: "intent", href: h });
+  };
+  document.addEventListener("pointerover", function (e) { if (e.pointerType === "mouse") intent(e); }, true);
+  document.addEventListener("pointerdown", intent, true);
+  /*
     A LINK THE THEME TAKES IS THE THEME'S. The header's cart is a link to
     /cart that the theme's own script turns into "open the drawer" (it calls
     preventDefault). Opened as a page here as well, the drawer slid in and
@@ -789,14 +805,24 @@ export const CANVAS_BRIDGE = `
     } else if (m.type === "inspect") {
       setInspect(m.on);
     } else if (m.type === "scroll") {
-      scrollTo({ top: m.top || 0 });
+      /* A page behind, about to come forward: put where it should stand, and said once that is drawn (two frames), so it comes forward there and not a frame before. */
+      if (m.settle) {
+        /* Already there (another page, at its top): drawn there too, so said at once. */
+        if (Math.abs(scrollY - (m.top || 0)) < 1) { post({ type: "settled", scrollY: scrollY }); return; }
+        scrollTo({ top: m.top || 0, behavior: "instant" });
+        requestAnimationFrame(function () { requestAnimationFrame(function () { post({ type: "settled", scrollY: scrollY }); }); });
+      } else scrollTo({ top: m.top || 0 });
     }
   });
   var ready = function () { post({ type: "ready", scrollY: scrollY }); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready); else ready();
-  /* Drawn, its pictures in: a page drawn behind the one on screen takes its place at this, not before. */
-  var loaded = function () { post({ type: "loaded", scrollY: scrollY }); };
-  if (document.readyState === "complete") setTimeout(loaded, 0); else addEventListener("load", loaded);
+  /*
+    "loaded" (its first screen drawn, pictures in, entrance done) is said by
+    canvas-network.ts, CANVAS_SHOWN, at the head of the page. It was said here
+    as well, at the window's load, which is whenever the slowest file of the
+    page arrived (an app's script, a picture far down): the page behind came
+    forward at whichever was first, drawn or not.
+  */
   addEventListener("scroll", function () { post({ type: "scrolled", scrollY: scrollY }); }, { passive: true });
 })();
 `.trim()
