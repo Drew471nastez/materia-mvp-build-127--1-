@@ -45,6 +45,9 @@ import {
 
 /* ── The channel ───────────────────────────────────────────────────────── */
 
+/** The least time between two reads asked for by the person coming back (focus, the pointer). */
+const WAKE_GAP_MS = 3_000
+
 export function useSiteActivity({
   installId,
   recheck,
@@ -134,19 +137,26 @@ export function useSiteActivity({
       delay = nextPollDelay(delay, arrived)
       schedule(delay)
     }
+    let woke = 0
     const wake = () => {
       if (document.visibilityState !== "visible") return
+      /* At most once every few seconds: the pointer coming back over the editor is a moment to look, not a stream of reads. */
+      if (Date.now() - woke < WAKE_GAP_MS) return
+      woke = Date.now()
       delay = POLL_BASE_MS
       schedule(0)
     }
     document.addEventListener("visibilitychange", wake)
     window.addEventListener("focus", wake)
+    /* Back from the terminal or GitHub in a window beside this one: no focus change, but the pointer comes back. */
+    document.documentElement.addEventListener("pointerenter", wake)
     schedule(delay)
     return () => {
       stopped = true
       if (timer) clearTimeout(timer)
       document.removeEventListener("visibilitychange", wake)
       window.removeEventListener("focus", wake)
+      document.documentElement.removeEventListener("pointerenter", wake)
     }
   }, [connected, installId])
 

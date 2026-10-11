@@ -2775,6 +2775,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * one is a hit.
    */
   const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
+  /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
+  const [compatFilesVersion, setCompatFilesVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
@@ -6253,6 +6255,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
   const handleAgentEvents = async (events: ActivityEvent[]) => {
     let replacedHere = false
+    /*
+      EVERYTHING AN AGENT OR A PUSH WRITES IS A DRAFT (a section file's
+      draft_content, a page's draft_sections, the draft settings), so the
+      site now differs from what is live: Publish says so, as it does for an
+      edit made here.
+    */
+    if (events.length > 0) setUnpublished(true)
+    /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
+    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
     const files = await loadStorelibSources()
     const custom = files ? customSectionSchemas(files) : {}
     /* One poll can hold two writers; each gets its own run of lines. */
@@ -9726,6 +9737,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 /* An imported Shopify theme: drawn by the same function its website is (components/website-builder/compat/compat-canvas.tsx). */
                 <CompatCanvas
                   installId={installId}
+                  filesVersion={compatFilesVersion}
                   sources={storelibSources}
                   theme={canvasThemeSettings as Record<string, unknown>}
                   pageKey={currentPage}

@@ -7,6 +7,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { POLL_MAX_MS, nextPollDelay } from "@/lib/agent-access/connection-mark"
 import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { COVER_SCRIPT_HOSTS, COVER_STILL_CSS, COVER_STILL_POLICY, withStillStyle } from "@/lib/website-builder/cover-still"
 
@@ -55,6 +56,16 @@ console.log("\nThe editor follows the site's links as the live site does")
   check("the page that is open goes to its top, smoothly, instead of nothing", /if \(decision\.key === currentPageRef\.current && !decision\.anchor\) \{\s*document\.getElementById\("wb-preview-root"\)\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/.test(editor))
   const section = read("components/website-builder/sections/StorelibSection.tsx")
   check("a .storelib section says when its link is the site's navigation", section.includes(`const fromNav = chrome || !!a.closest("nav, [role='navigation']")`) && section.includes(`section.group === "header" || section.group === "footer"`) && section.includes(`onEditorNavigate(a.getAttribute("href") ?? "#", fromNav)`))
+}
+
+console.log("\nA push to GitHub reaches an open editor")
+{
+  check("an idle editor asks at least every ten seconds", nextPollDelay(POLL_MAX_MS, false) === 10_000)
+  const hook = read("components/website-builder/site-connections.tsx")
+  check("  and at once when the pointer comes back over it, at most every few seconds", /addEventListener\("pointerenter", wake\)/.test(hook) && /removeEventListener\("pointerenter", wake\)/.test(hook) && /if \(Date\.now\(\) - woke < WAKE_GAP_MS\) return/.test(hook))
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("what arrives is a draft, so Publish says the site has changes", /const handleAgentEvents = async[\s\S]{0,900}?if \(events\.length > 0\) setUnpublished\(true\)/.test(editor))
+  check("an imported theme reads its files again, keeping the page drawn meanwhile", /setCompatFilesVersion\(\(n\) => n \+ 1\)/.test(editor) && /filesVersion=\{compatFilesVersion\}/.test(editor) && /if \(readVersion\.current !== filesVersion\) \{\s*readVersion\.current = filesVersion\s*forgetCompatFiles\(installId\)/.test(read("components/website-builder/compat/compat-canvas.tsx")))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

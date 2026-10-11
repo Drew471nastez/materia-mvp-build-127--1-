@@ -99,7 +99,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     const filesCode = code("components/website-builder/compat/compat-files.ts")
     check("its files are tried again and each try has an end", /retrying\(/.test(filesCode) && /deadline\(/.test(filesCode) && /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`, \{\}, FILES_WAIT_MS\)/.test(filesCode))
     check("a theme that cannot be read, or a first page that cannot be drawn, is said with Try again", /setFailure\("files"\)/.test(canvas) && /setFailure\("draw"\)/.test(canvas) && /<CanvasProblem kind=/.test(canvas) && /onRetry=\{retry\}/.test(canvas))
-    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt\]/.test(canvas) && /accountPath, attempt\]/.test(canvas))
+    // Changed on purpose (round AA): the files are also read again when a push to GitHub changed them (filesVersion).
+    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt(, filesVersion)?\]/.test(canvas) && /accountPath, attempt\]/.test(canvas))
     check("the frame's own load event shows it, whatever the page said, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) setPainted\(true\)/.test(canvas))
     check("a frame that says nothing is shown as it is after FRAME_CAP_MS", /const FRAME_CAP_MS = 6_000/.test(canvas) && /\}, FRAME_CAP_MS\)/.test(canvas))
     check("a page behind that never says it loaded still comes forward", /window\.setTimeout\(\(\) => promote\(slot\.n\), BEHIND_CAP_MS\)/.test(canvas))
