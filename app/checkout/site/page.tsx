@@ -36,7 +36,10 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
  *
  * Priced by the server for the first frame (lib/checkout/site-quote-server),
  * branded with the website's logo (lib/checkout/brand-server), and Settings ›
- * Checkout read for who may pay and what is asked (siteGate).
+ * Checkout read for who may pay and what is asked (siteGate). A customer
+ * signed in to the website is not charged for what they already own: the
+ * page says "You already own this" with the website's own downloads
+ * (/account), never storelib.com.
  */
 export default async function SiteCheckoutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams
@@ -96,7 +99,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
   const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
-  const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }) : null
+  /* Priced for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
+  const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, buyer ? { email: buyer.email } : null) : null
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
   if (answer && answer.ok && answer.quote.totals.totalCents > 0 && !ready) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Checkout is closed" message={BUYER_UNAVAILABLE} />
@@ -116,6 +120,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}
       buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
+      accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
     />

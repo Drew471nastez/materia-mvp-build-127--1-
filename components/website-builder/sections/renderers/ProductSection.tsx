@@ -197,6 +197,35 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     window.location.href = checkoutHrefWithOrigin(buyNowHref(product, variant, pwyw.cents), pageOrigin(), window.location.href)
   }, [inEditor, sample, canBuy, unavailable, pwyw, physical, storefront.creatorId, product, variant, qty])
 
+  /* ── Already theirs ──
+     Signed in to this website (its sl_signed_in hint) and owning this
+     download: the buttons become the way to the files. Asked of the
+     website's own session (/api/site-account/owned), never storelib.com's,
+     and never for a physical product or a membership. */
+  const [owned, setOwned] = useState<{ whole: boolean; options: string[] } | null>(null)
+  useEffect(() => {
+    setOwned(null)
+    if (inEditor || sample || !product.id || product.type === "physical" || product.type === "membership") return
+    let signedIn = false
+    try {
+      signedIn = /(?:^|;\s*)sl_signed_in=1(?:;|$)/.test(document.cookie)
+    } catch {
+      signedIn = false
+    }
+    if (!signedIn) return
+    let live = true
+    fetch(`/api/site-account/owned?ids=${encodeURIComponent(product.id)}`, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d: { owned?: Record<string, { whole: boolean; options: string[] }> } | null) => {
+        if (live) setOwned(d?.owned?.[product.id] ?? null)
+      })
+      .catch(() => undefined)
+    return () => {
+      live = false
+    }
+  }, [inEditor, sample, product.id, product.type])
+  const ownedNow = !!owned && (owned.whole || (!!variant && owned.options.includes(variant.id)))
+
   const saved = !!product.id && wishlistStore.has(product.id)
   const ctx: ProductCtx = {
     product,
@@ -215,7 +244,7 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     palette,
     inEditor,
     inert: isEditing === true,
-    buy: { add, now, added, unavailable },
+    buy: { add, now, added, unavailable, owned: ownedNow ? "/account" : null },
     wishlist: { saved, toggle: () => { if (product.id) wishlistStore.toggle(product.id) } },
     radius,
     buttonRadius,

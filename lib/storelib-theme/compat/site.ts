@@ -45,6 +45,7 @@ import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
+import { ownedBanner } from "./owned-banner"
 
 type O = Record<string, unknown>
 
@@ -101,6 +102,8 @@ export interface SiteRequest {
   referer?: string
   /** Who is visiting, from the website's own session cookie (the route reads it; lib/site-accounts/session.ts). */
   account?: SiteAccount
+  /** What the signed in visitor already owns of a product (lib/site-accounts/owned-products): its page says so (owned-banner.ts). */
+  owned?: (productId: string) => Promise<{ whole: boolean; options: string[] } | null>
   /**
    * Sends a contact message or a newsletter sign up through Storelib's own
    * endpoints, which carry the spam checks and the rate limits (the route
@@ -235,7 +238,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: route.bodyEnd ? `${site.extraBodyEnd ?? ""}${route.bodyEnd}` : site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -290,6 +293,8 @@ interface Route {
   redirect?: string
   /** Put in this page's head only: its share picture and whether it may be listed (seoHead). */
   head?: string
+  /** Put at the end of this page's body only: "You already own this" on a product the visitor owns (owned-banner.ts). */
+  bodyEnd?: string
 }
 
 const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
@@ -559,7 +564,15 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
   if (product) {
     const card = await findProduct(site, product[1])
     if (!card) return null
-    return at("product", { product: card, selectedVariantId: req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values")), title: String(card.settings.title ?? "") })
+    const selectedVariantId = req.query.get("variant") ?? variantForOptionValues(card, req.query.get("option_values"))
+    const route = at("product", { product: card, selectedVariantId, title: String(card.settings.title ?? "") })
+    /* Signed in and already theirs: said at the foot of the page, with the way to the downloads. */
+    const owned = route && req.account?.customer && req.owned ? await req.owned(card.id).catch(() => null) : null
+    if (route && owned) {
+      const first = (productObject(card).selected_or_first_available_variant as O | null)?.id
+      route.bodyEnd = ownedBanner(owned, selectedVariantId ?? (typeof first === "string" ? first : null))
+    }
+    return route
   }
 
   if (path === "/collections") return at("collections", { title: "Collections" })
