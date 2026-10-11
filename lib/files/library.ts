@@ -48,6 +48,11 @@ async function list(admin: Admin, bucket: LibraryBucket, prefix: string): Promis
 
 const isFolder = (e: Entry) => e.id === null && !e.metadata
 const IMAGE = /\.(jpe?g|png|gif|webp|avif)$/i
+/* What the builder's video field uploads (components/website-builder/editor/controls/video-picker-control.tsx). */
+const VIDEO = /\.(mp4|webm|mov|m4v)$/i
+
+/** Pictures, or the videos a video setting can play. */
+export type LibraryKind = "image" | "video"
 
 function toFile(admin: Admin, bucket: LibraryBucket, path: string, e: Entry, source: string): LibraryFile {
   const { data } = admin.storage.from(bucket).getPublicUrl(path)
@@ -64,14 +69,17 @@ function toFile(admin: Admin, bucket: LibraryBucket, path: string, e: Entry, sou
   }
 }
 
-/** Every picture the store has, newest first. */
-export async function listLibrary(admin: Admin, owner: { userId: string; creatorId: string }): Promise<LibraryFile[]> {
+/** Every picture the store has (or every video, with `kind`), newest first. */
+export async function listLibrary(admin: Admin, owner: { userId: string; creatorId: string }, kind: LibraryKind = "image"): Promise<LibraryFile[]> {
   const out: LibraryFile[] = []
+  const wanted = kind === "video" ? VIDEO : IMAGE
   const builderFolders = (await list(admin, "store-builder-images", owner.userId)).filter(isFolder)
   const builder = await Promise.all(builderFolders.slice(0, 40).map(async (f) => ({ folder: f.name, entries: await list(admin, "store-builder-images", `${owner.userId}/${f.name}`) })))
   for (const { folder, entries } of builder) {
-    for (const e of entries) if (!isFolder(e) && IMAGE.test(e.name)) out.push(toFile(admin, "store-builder-images", `${owner.userId}/${folder}/${e.name}`, e, folder === LIBRARY_FOLDER ? "Library" : "Website"))
+    for (const e of entries) if (!isFolder(e) && wanted.test(e.name)) out.push(toFile(admin, "store-builder-images", `${owner.userId}/${folder}/${e.name}`, e, folder === LIBRARY_FOLDER ? "Library" : "Website"))
   }
+  /* Product photos are pictures only: the product-images bucket holds no video. */
+  if (kind === "video") return out.sort((a, b) => (b.createdAt ?? "").localeCompare(a.createdAt ?? "")).slice(0, MAX_LIBRARY_FILES)
   const productFolders = (await list(admin, "product-images", owner.creatorId)).filter(isFolder)
   const products = await Promise.all(productFolders.slice(0, 120).map(async (f) => ({ folder: f.name, entries: await list(admin, "product-images", `${owner.creatorId}/${f.name}`) })))
   for (const { folder, entries } of products) {

@@ -37,13 +37,14 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { ImageIcon, RefreshCw, Trash2 } from "lucide-react"
+import { ChevronDown, FolderOpen, ImageIcon, RefreshCw, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { cn } from "@/lib/utils"
-import { FilesLibraryChooser } from "@/components/files/files-library"
+import { FilesLibraryChooser, prefetchLibrary, type PickHint } from "@/components/files/files-library"
+import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 
 /** How long the uploaded copy takes to replace what is already on screen. */
 export const IMAGE_FADE_MS = 260
@@ -97,9 +98,9 @@ export function WbImagePicker({
    */
   const [preview, setPreview] = useState<string | null>(null)
   const previewRef = useRef<string | null>(null)
-  const showFile = useCallback((file: File | null) => {
-    if (previewRef.current) URL.revokeObjectURL(previewRef.current)
-    previewRef.current = file ? URL.createObjectURL(file) : null
+  const showFile = useCallback((file: File | string | null) => {
+    if (previewRef.current?.startsWith("blob:")) URL.revokeObjectURL(previewRef.current)
+    previewRef.current = file === null ? null : typeof file === "string" ? file : URL.createObjectURL(file)
     setPreview(previewRef.current)
     /*
       A replacement starts the whole sequence again. Without this the box
@@ -108,7 +109,7 @@ export function WbImagePicker({
     */
     if (file) { setReadyUrl(null); setFadedUrl(null) }
   }, [])
-  useEffect(() => () => { if (previewRef.current) URL.revokeObjectURL(previewRef.current) }, [])
+  useEffect(() => () => { if (previewRef.current?.startsWith("blob:")) URL.revokeObjectURL(previewRef.current) }, [])
 
   /**
    * Which URL has actually decoded. Comparing it to the current one is what
@@ -223,6 +224,36 @@ export function WbImagePicker({
   }, [bucket, folder, onChange, showFile])
 
   const pick = () => { if (!uploading) inputRef.current?.click() }
+  const choose = () => { if (!uploading) setLibraryOpen(true) }
+  /*
+    THE LIBRARY IS ASKED FOR BEFORE IT IS OPENED. Once, when the editor is
+    idle after a picture field first shows (a second field asks nothing:
+    the list is kept), and again with its first screen of pictures on a
+    hover or a focus of the field's own "Your files", so the window opens
+    on the grid rather than on a wait (components/files/files-library.tsx).
+  */
+  useEffect(() => {
+    const ric = (window as unknown as { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback
+    const id = ric ? ric(() => void prefetchLibrary("image"), { timeout: 3000 }) : window.setTimeout(() => void prefetchLibrary("image"), 1500)
+    return () => {
+      const cancel = (window as unknown as { cancelIdleCallback?: (id: number) => void }).cancelIdleCallback
+      if (ric && cancel) cancel(id)
+      else window.clearTimeout(id)
+    }
+  }, [])
+  const warmLibrary = () => void prefetchLibrary("image", { warmFirst: true })
+  /* A picture picked from the library: on screen at once from the copy the grid already decoded (or the file just uploaded), and the stored one fades over it. */
+  const picked = (url: string, hint?: PickHint) => {
+    if (hint?.file) showFile(hint.file)
+    else if (hint?.thumb) showFile(hint.thumb)
+    else showFile(null)
+    onChange(url)
+  }
+  /* What "Change" offers on a picture already there. */
+  const changeItems: ActionMenuItem[] = [
+    { label: "Upload a new one", icon: <Upload className="h-4 w-4" />, onClick: pick },
+    { label: "Choose from your files", icon: <FolderOpen className="h-4 w-4" />, onClick: choose },
+  ]
 
   const emptyAspectClass =
     aspectRatio === "favicon" ? "min-h-[60px]"
@@ -237,9 +268,11 @@ export function WbImagePicker({
     : "h-[96px]"
 
   /*
-    Under every state of the field: the store's Files (/app/files), so a
-    picture already uploaded once, for a product or another section, is
-    chosen again rather than uploaded again.
+    THE STORE'S FILES ARE PART OF THE FIELD, not a line of text under it
+    (round R6, the owner: "Choose from your files belongs inside the image
+    picker"). An empty field offers Upload and Your files side by side in
+    its own box; a filled one has Change, a menu with the same two. What is
+    left here is the hidden file input and the chooser itself.
   */
   const fileInput = (
     <>
@@ -250,22 +283,69 @@ export function WbImagePicker({
         className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }}
       />
-      <button
-        type="button"
-        disabled={uploading}
-        onClick={() => setLibraryOpen(true)}
-        className="text-[12px] font-medium text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline disabled:opacity-40 max-sm:min-h-9"
-        data-wb-image-library=""
-      >
-        Choose from your files
-      </button>
       <FilesLibraryChooser
         open={libraryOpen}
         onClose={() => setLibraryOpen(false)}
         selectedUrl={url ?? null}
-        onPick={picked => { showFile(null); onChange(picked) }}
+        onPick={picked}
       />
     </>
+  )
+  /* The menu on a picture already there: Upload a new one, or Choose from your files. */
+  const changeMenu = (className: string, iconClass: string) => (
+    <ResponsiveActionMenu
+      title="Change image"
+      menuWidth="w-56"
+      align="start"
+      items={changeItems}
+      trigger={
+        <button
+          type="button"
+          disabled={uploading}
+          onPointerEnter={warmLibrary}
+          onFocus={warmLibrary}
+          className={className}
+          data-wb-image-change=""
+        >
+          <RefreshCw className={iconClass} />
+          Change
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      }
+    />
+  )
+  /* Upload and Your files, side by side: the two ways a picture gets into an empty field. */
+  const emptyActions = (size: "row" | "box") => (
+    <span className={cn("flex items-center gap-1.5", size === "box" && "justify-center")}>
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={e => { e.stopPropagation(); pick() }}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]",
+          size === "row" ? "h-7 px-2 text-[12px] max-sm:h-9 max-sm:px-3" : "h-8 px-2.5 text-[12.5px] max-sm:h-10 max-sm:px-3.5",
+        )}
+        data-wb-image-upload=""
+      >
+        <Upload className="h-3 w-3" />
+        Upload
+      </button>
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={e => { e.stopPropagation(); choose() }}
+        onPointerEnter={warmLibrary}
+        onFocus={warmLibrary}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-white font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.06] dark:hover:bg-white/[0.1]",
+          size === "row" ? "h-7 px-2 text-[12px] max-sm:h-9 max-sm:px-3" : "h-8 px-2.5 text-[12.5px] max-sm:h-10 max-sm:px-3.5",
+        )}
+        data-wb-image-library=""
+      >
+        <FolderOpen className="h-3 w-3" />
+        Your files
+      </button>
+    </span>
   )
 
   /*
@@ -334,15 +414,7 @@ export function WbImagePicker({
             <div className="min-w-0 flex-1">
               {broken ? <p className="text-[12.5px] font-medium text-foreground">This picture could not be loaded</p> : null}
               <div className={cn("flex flex-wrap items-center gap-1", broken && "mt-1")}>
-                <button
-                  type="button"
-                  disabled={uploading}
-                  onClick={pick}
-                  className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-9"
-                >
-                  <RefreshCw className="h-3 w-3" />
-                  Replace
-                </button>
+                {changeMenu("inline-flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-40 max-sm:h-9 data-[state=open]:bg-muted", "h-3 w-3")}
                 <button
                   type="button"
                   disabled={uploading}
@@ -363,18 +435,16 @@ export function WbImagePicker({
       <div className="space-y-2" data-wb-image-picker="empty">
         {label && <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-widest">{label}</p>}
         <div
-          role="button"
-          tabIndex={0}
+          role="group"
           aria-label="Add image"
           data-wb-image-box=""
           className={cn(
-            "wb-dropzone-row flex h-16 w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
+            "wb-dropzone-row flex min-h-16 w-full cursor-pointer items-center gap-3 rounded-lg border border-dashed px-2 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-900/15",
             dragOver
               ? "border-foreground/40 bg-muted"
               : "border-neutral-300 bg-[#fafafa] hover:border-neutral-400 hover:bg-muted/60 dark:border-white/15 dark:bg-white/[0.03]",
           )}
           onClick={pick}
-          onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick() } }}
           onDragOver={e => { e.preventDefault(); setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
@@ -382,9 +452,9 @@ export function WbImagePicker({
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-black/[0.06] bg-white text-muted-foreground/70 dark:bg-white/[0.05]">
             <ImageIcon className="h-[18px] w-[18px]" />
           </span>
-          <span className="min-w-0">
+          <span className="min-w-0 space-y-1.5">
             <span className="block text-[13px] font-medium text-foreground">Add image</span>
-            <span className="block truncate text-[11.5px] text-muted-foreground">Upload or drop a file</span>
+            {emptyActions("row")}
           </span>
         </div>
         {fileInput}
@@ -413,7 +483,7 @@ export function WbImagePicker({
           {broken ? (
             <span data-wb-image-layer="missing" className="flex flex-col items-center gap-1.5 px-4 text-center">
               <ImageIcon className="h-5 w-5 text-muted-foreground/50" aria-hidden />
-              <span className="text-[12.5px] text-muted-foreground">This picture could not be loaded. Replace it or remove it.</span>
+              <span className="text-[12.5px] text-muted-foreground">This picture could not be loaded. Change it or remove it.</span>
             </span>
           ) : !faded && (
             preview
@@ -452,15 +522,7 @@ export function WbImagePicker({
           44px on a phone, because that is the smallest thing a thumb hits.
         */}
         <div className="grid grid-cols-2 overflow-hidden rounded-lg border border-border">
-          <button
-            type="button"
-            disabled={uploading}
-            className="flex h-11 items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs"
-            onClick={pick}
-          >
-            <RefreshCw className="h-3.5 w-3.5 md:h-3 md:w-3" />
-            Replace
-          </button>
+          {changeMenu("flex h-11 w-full items-center justify-center gap-1.5 text-[13px] font-medium transition-colors hover:bg-muted/60 disabled:opacity-40 md:h-9 md:text-xs data-[state=open]:bg-muted/60", "h-3.5 w-3.5 md:h-3 md:w-3")}
           <button
             type="button"
             disabled={uploading}
@@ -496,8 +558,9 @@ export function WbImagePicker({
         onDrop={e => { e.preventDefault(); setDragOver(false); if (uploading) return; const f = e.dataTransfer.files[0]; if (f) handleFile(f) }}
       >
         <ImageIcon className="h-5 w-5 text-muted-foreground/50" />
-        <p className="text-[13px] font-medium text-muted-foreground">Add Image</p>
-        <p className="text-[10px] text-muted-foreground/70">Click to upload or drag &amp; drop</p>
+        <p className="text-[13px] font-medium text-muted-foreground">Add image</p>
+        {emptyActions("box")}
+        <p className="text-[10px] text-muted-foreground/70">or drop a picture here</p>
       </div>
       {fileInput}
     </div>
