@@ -35,6 +35,7 @@ export const CUSTOMER_EMAILS: CustomerEmail[] = [
   { id: "tracking_changed", name: "Tracking number changed", group: "shipping", sentWhen: "When you change the tracking number on a shipment that already went out.", physical: true },
   { id: "out_for_delivery", name: "Out for delivery", group: "shipping", sentWhen: "When the carrier says it's out for delivery.", physical: true },
   { id: "delivered", name: "Delivered", group: "shipping", sentWhen: "When it's marked delivered.", physical: true },
+  { id: "delivery_problem", name: "Delivery problem", group: "shipping", sentWhen: "When the carrier, or your own delivery, can't deliver it.", physical: true },
   { id: "ready_for_pickup", name: "Ready for pickup", group: "pickup", sentWhen: "When you mark a pickup order ready.", physical: true },
   { id: "picked_up", name: "Picked up", group: "pickup", sentWhen: "When you mark it collected.", physical: true },
   { id: "order_cancelled", name: "Order cancelled", group: "orders", sentWhen: "When you cancel an order before it ships.", physical: true },
@@ -122,9 +123,10 @@ export function previewCustomerEmail(
     case "shipping_confirmation":
     case "tracking_changed":
     case "out_for_delivery":
-    case "delivered": {
-      const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id
-      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate })
+    case "delivered":
+    case "delivery_problem": {
+      const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id === "delivery_problem" ? "failed" : id
+      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate, problem: kind === "failed" ? "Address not found" : null })
       return { subject: m.subject, html: m.html }
     }
     case "ready_for_pickup":

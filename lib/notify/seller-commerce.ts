@@ -42,6 +42,7 @@ export const FULFIL_LABEL: Record<string, string> = {
   dropship: "Supplier ships it (dropshipping)",
   print_on_demand: "Print on demand",
   pickup: "Local pickup",
+  local: "You deliver it (local delivery)",
 }
 
 /** What the seller does next, by who fulfils it. */
@@ -51,6 +52,7 @@ const NEXT_STEP: Record<string, string> = {
   dropship: "It was emailed to your supplier with the address. Add their tracking to the order when they ship it, and the buyer is emailed.",
   print_on_demand: "It was sent to your print partner. Add their tracking to the order when they ship it, and the buyer is emailed.",
   pickup: "Get it ready, then open the order and press Mark ready for pickup. The buyer is emailed where and when to collect it.",
+  local: "You deliver this order yourself. Press Fulfill items when it leaves, then Mark as delivered when it's handed over.",
 }
 
 export interface PhysicalSaleFacts {
@@ -95,9 +97,12 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
   if (!co || typeof co !== "object") return null
   const rawLines = Array.isArray(co.lines) ? (co.lines as Record<string, unknown>[]).filter((l) => l && typeof l === "object") : []
   const pickup = co.delivery_method === "pickup"
+  const rateRow = (co.shipping_rate && typeof co.shipping_rate === "object" ? co.shipping_rate : null) as Record<string, unknown> | null
+  /* Local delivery (part 154): the store brings it; no carrier, the store's own note says when. */
+  const local = !pickup && rateRow?.kind === "local"
   const shipped = rawLines.filter((l) => l.requires_shipping !== false && (l.type === "physical" || l.requires_shipping === true))
   if (!pickup && shipped.length === 0 && co.delivery_method !== "ship") return null
-  const methodOf = (l: Record<string, unknown>) => (pickup ? "pickup" : typeof l.fulfillment_method === "string" && FULFIL_LABEL[l.fulfillment_method] ? l.fulfillment_method : "self")
+  const methodOf = (l: Record<string, unknown>) => (pickup ? "pickup" : local ? "local" : typeof l.fulfillment_method === "string" && FULFIL_LABEL[l.fulfillment_method] ? l.fulfillment_method : "self")
   const lines = rawLines.slice(0, 50).map((l) => {
     const quantity = Math.max(1, Math.round(Number(l.quantity) || 1))
     const unit = cents(l.unit_cents) ?? 0
@@ -115,7 +120,7 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
   const minDays = cents(rate?.min_days)
   const maxDays = cents(rate?.max_days)
   const days = minDays !== null && maxDays !== null ? (minDays === maxDays ? `${minDays} business ${minDays === 1 ? "day" : "days"}` : `${minDays} to ${maxDays} business days`) : ""
-  const method = pickup ? "Local pickup" : [str(rate?.name, 80), days].filter(Boolean).join(", ")
+  const method = pickup ? "Local pickup" : local ? [str(rate?.name, 80) || "Local delivery", str(rate?.local_note, 160)].filter(Boolean).join(", ") : [str(rate?.name, 80), days].filter(Boolean).join(", ")
   const place = (co.pickup && typeof co.pickup === "object" ? co.pickup : null) as Record<string, unknown> | null
   const address = (co.shipping_address && typeof co.shipping_address === "object" ? co.shipping_address : null) as Record<string, unknown> | null
   const shipping = cents(co.shipping_cents)
@@ -146,8 +151,10 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
  * and the `fulfil` block the template draws. Data that does not add up
  * keeps what the order rows said.
  */
-export function withPhysicalSale(data: Record<string, unknown>, facts: PhysicalSaleFacts | null): Record<string, unknown> {
+export function withPhysicalSale(data: Record<string, unknown>, facts: PhysicalSaleFacts | null, nextStep?: string | null): Record<string, unknown> {
   if (!facts) return data
+  /* The order's own next step when it was read (lib/physical/orders-server.ts sellerNextStepFor: who ships each part and how they hear of it). */
+  if (nextStep && nextStep.trim()) facts = { ...facts, nextStep: str(nextStep, 600) }
   const fulfil = {
     kind: facts.kind,
     shipTo: facts.shipTo,

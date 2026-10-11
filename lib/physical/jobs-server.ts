@@ -63,7 +63,7 @@ export async function queueOrderConfirmation(db: Db, checkoutId: string, creator
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:confirmation:${checkoutId}`, payload: { template: "confirmation", checkoutId } })
 }
 
-export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking", key?: string): Promise<void> {
+export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking" | "failed", key?: string): Promise<void> {
   await enqueueJob(db, { creatorId, kind: "send_email", key: key ?? `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
 }
 
@@ -228,6 +228,22 @@ export async function queueSellerEmail(db: Db, e: { checkoutId: string; creatorI
   if (!sellerKindForEvent(e.kind)) return
   const key = `email:seller:${e.kind}:${e.key ?? e.checkoutId}`.slice(0, 200)
   await enqueueJob(db, { creatorId: e.creatorId, kind: "send_email", key, payload: { template: "seller", event: e.kind, checkoutId: e.checkoutId, message: e.message.slice(0, 300), detail: e.detail ?? null } })
+}
+
+/**
+ * A SHIPMENT THAT COULD NOT BE DELIVERED (its status moved to failed, by the
+ * seller or a partner's tracking; lib/physical/events-server.ts calls this
+ * for the "fulfillment.failed" entry). The newest failed shipment of the
+ * order: the buyer is told what happened (Settings › Customer emails ›
+ * Delivery problem) and the seller is told to act, each once per time it
+ * fails (keyed by the shipment and when it changed).
+ */
+export async function queueDeliveryProblem(db: Db, checkoutId: string, creatorId: string, message: string): Promise<void> {
+  const { data: f } = await db.from("fulfillments").select("id, status, updated_at, carrier, tracking_number, notify_buyer").eq("checkout_id", checkoutId).eq("status", "failed").order("updated_at", { ascending: false }).limit(1).maybeSingle()
+  if (!f?.id) return
+  const at = String(f.updated_at ?? "")
+  if (f.notify_buyer !== false) await enqueueJob(db, { creatorId, kind: "send_email", key: `email:failed:${f.id}:${at}`.slice(0, 200), payload: { template: "shipment", kind: "failed", checkoutId, fulfillmentId: f.id } })
+  await queueSellerEmail(db, { checkoutId, creatorId, kind: "delivery.exception", message, detail: { carrier: f.carrier ?? null, trackingNumber: f.tracking_number ?? null }, key: `failed:${f.id}:${at}` })
 }
 
 function backoffSeconds(attempts: number): number {
@@ -482,7 +498,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const shipped = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
     const pickup = pickupOf(co)
     if (pickup) {
-      if (p.kind === "out_for_delivery" || p.kind === "tracking") return
+      if (p.kind === "out_for_delivery" || p.kind === "tracking" || p.kind === "failed") return
       mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand, copy: copyFor(emailIdForJob("shipment", p.kind, null, true), shipped), orderDate })
     } else {
       /* Part of the order: what still has to ship after every live shipment so far. */
@@ -502,6 +518,10 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         partial: p.kind === "shipped" && owed > 0 && sent < owed,
         statusUrl: orderUrl,
         kind: p.kind,
+        /* Brought by the store itself (part 154): worded as its own delivery, with its note. */
+        local: co.shipping_rate?.kind === "local",
+        localNote: co.shipping_rate?.kind === "local" ? (co.shipping_rate.local_note ?? null) : null,
+        problem: p.kind === "failed" && typeof p.problem === "string" ? p.problem.slice(0, 200) : null,
         brand,
         copy: copyFor(emailIdForJob("shipment", p.kind, null, false), shipped),
         orderDate,
@@ -563,6 +583,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
                 ? "Out for delivery email sent to the buyer"
                 : p.kind === "tracking"
                   ? "New tracking number emailed to the buyer"
+                  : p.kind === "failed"
+                    ? "Delivery problem emailed to the buyer"
                   : "Shipping email sent to the buyer"
           : p.template === "cancelled"
             ? "Cancellation emailed to the buyer"

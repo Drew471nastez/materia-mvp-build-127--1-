@@ -727,8 +727,10 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
         .eq("id", checkoutId)
         .eq("creator_id", params.creatorId)
         .maybeSingle()
-      const { physicalSaleFacts, withPhysicalSale } = await import("@/lib/notify/seller-commerce")
-      data = withPhysicalSale(data, physicalSaleFacts(co))
+      const [{ physicalSaleFacts, withPhysicalSale }, { sellerNextStepFor }] = await Promise.all([import("@/lib/notify/seller-commerce"), import("@/lib/physical/orders-server")])
+      /* What to do next, worded by who ships each part and how that place hears of it (lib/physical/fulfillment.ts sellerNextStep). */
+      const next = await sellerNextStepFor(admin, params.creatorId, checkoutId).catch(() => null)
+      data = withPhysicalSale(data, physicalSaleFacts(co), next)
     } catch (e) {
       console.error("[email] sale email: the order's delivery was not read:", e instanceof Error ? e.message : e)
     }

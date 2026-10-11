@@ -246,7 +246,7 @@ function seed(db: FakeDb, saved: Record<string, unknown> = {}) {
   db.tables.inventory_locations = [{ id: "l1", creator_id: CREATOR, name: "Studio", kind: "warehouse", address_line1: "Strada Lipscani 12", city: "Bucharest", postal_code: "030031", country: "RO", active: true }]
 }
 
-const ALL_IDS = ["order_confirmation", "shipping_confirmation", "tracking_changed", "out_for_delivery", "delivered", "ready_for_pickup", "picked_up", "order_cancelled", "refund", "return_approved", "return_received", "return_completed"]
+const ALL_IDS = ["order_confirmation", "shipping_confirmation", "tracking_changed", "out_for_delivery", "delivered", "delivery_problem", "ready_for_pickup", "picked_up", "order_cancelled", "refund", "return_approved", "return_received", "return_completed"]
 
 async function main() {
   const { enqueueJob, runJobs, queueOrderConfirmation, queueShipmentEmail, queueCancelledEmail, queueRefundEmail, queueReturnEmail, BUYER_EMAILS_PER_ORDER_PER_DAY, legalOf } = await import("@/lib/physical/jobs-server")
@@ -263,7 +263,7 @@ async function main() {
 
   /* Every email in the list has a word of its own for each of the four parts; the Button is never empty. */
   console.log("\nEvery email in Settings has its four parts, the Button included\n")
-  check("fourteen emails are listed, each with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 14 && CUSTOMER_EMAILS.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
+  check("fifteen emails are listed (Delivery problem among them), each with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 15 && CUSTOMER_EMAILS.some((e) => e.id === "delivery_problem") && CUSTOMER_EMAILS.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
   check("every button has words by default (the owner's screenshot had an empty Button)", CUSTOMER_EMAILS.every((e) => DEFAULT_COPY[e.id].button.trim().length > 0), CUSTOMER_EMAILS.filter((e) => !DEFAULT_COPY[e.id].button).map((e) => e.id))
   check("each previews with the sample order's date", CUSTOMER_EMAILS.filter((e) => e.id !== "checkout_reminder").every((e) => previewCustomerEmail(e.id, { name: "Astrid" })!.html.includes(SAMPLE_DATE)))
 
@@ -287,6 +287,11 @@ async function main() {
   sentFor.tracking_changed = (await take(() => queueShipmentEmail(db as any, CHECKOUT, CREATOR, "f1", "tracking")))[0]
   sentFor.out_for_delivery = (await take(() => queueShipmentEmail(db as any, CHECKOUT, CREATOR, "f1", "out_for_delivery")))[0]
   sentFor.delivered = (await take(() => queueShipmentEmail(db as any, CHECKOUT, CREATOR, "f1", "delivered")))[0]
+  /* A delivery problem comes from the shipment's status moving to failed: the timeline entry queues it. */
+  db.tables.fulfillments[0].status = "failed"
+  db.tables.fulfillments[0].updated_at = "2026-10-11T08:00:00Z"
+  sentFor.delivery_problem = (await take(() => addOrderEvent(db as any, { checkoutId: CHECKOUT, creatorId: CREATOR, kind: "fulfillment.failed", message: "Shipment failed", actor: "webhook" }))).find((m) => m.to === "maria@example.com")!
+  db.tables.fulfillments[0].status = "shipped"
   sentFor.order_cancelled = (await take(() => queueCancelledEmail(db as any, CHECKOUT, CREATOR)))[0]
   sentFor.refund = (await take(() => queueRefundEmail(db as any, CHECKOUT, CREATOR, 3200, 3200)))[0]
   sentFor.return_approved = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "approved")))[0]
@@ -350,6 +355,16 @@ async function main() {
     check("pickup ready: the place, its opening hours and the store's instructions", sentFor.ready_for_pickup.html.includes("Strada Lipscani 12") && sentFor.ready_for_pickup.html.includes("Opening hours: Mon to Fri, 10:00 to 18:00") && sentFor.ready_for_pickup.html.includes("Ring the bell at the side door."))
     check("the pickup order confirmation says where and when to collect", pickupConfirmation.html.includes("Pick up at") && pickupConfirmation.html.includes("Opening hours: Mon to Fri, 10:00 to 18:00") && !pickupConfirmation.html.includes("Shipping address"))
     check("return approved: the store's instructions and where to send it", sentFor.return_approved.html.includes("Put a note with your order number in the box.") && sentFor.return_approved.html.includes("Send it to"))
+    check("delivery problem: the buyer is told, and so is the seller, once each", sentFor.delivery_problem?.html.includes("problem") && outbox.filter((m) => m.subject.startsWith("Delivery problem with order")).length === 1)
+    /* Local delivery (part 154): the store brings it itself. */
+    const ldb = new FakeDb()
+    seed(ldb)
+    ldb.tables.commerce_checkouts[0].shipping_rate = { name: "Local delivery", kind: "local", local_note: "Thursdays after 17:00" }
+    const [loc] = await takeFrom(ldb, () => queueShipmentEmail(ldb as any, CHECKOUT, CREATOR, "f1", "shipped"))
+    check("local delivery: worded as the store's own delivery, with its note, and no carrier tracking", !!loc && loc.html.includes("delivering it to you ourselves") && loc.html.includes("Thursdays after 17:00") && !loc.html.includes("Track your package"), loc?.subject)
+    const [lconf] = await takeFrom(ldb, () => queueOrderConfirmation(ldb as any, CHECKOUT, CREATOR))
+    check("local delivery: the order confirmation carries the store's delivery note", !!lconf && lconf.html.includes("Thursdays after 17:00"))
+    check("a physical refund reaches the buyer once: Stripe's sync leaves the buyer's email to the order's own", /buyerEmail: shipped \? undefined/.test(read("lib/stripe/refund-sync.ts")))
     check("return complete and refund: the amount refunded", sentFor.return_completed.html.includes("$32.00") && sentFor.refund.html.includes("$32.00") && sentFor.refund.text.includes("This refund: $32.00"))
   }
 
@@ -421,6 +436,8 @@ async function main() {
     const pick = renderEmail("NEW_SALE", withPhysicalSale({ orderId: "o1", orderNumber: "1043", productTitle: "Honey", amountCents: 3200, currency: "usd" }, physicalSaleFacts({ ...db.tables.commerce_checkouts[0], delivery_method: "pickup", pickup: { name: "Studio", address: ["Strada Lipscani 12"] } })), { baseUrl: "https://storelib.com" })
     check("pickup to prepare: its heading, where it is collected, Prepare order", pick.html.includes("Pickup order to prepare") && pick.html.includes("Collect at") && pick.html.includes("Prepare order"))
     check("a digital sale keeps its own email (no fulfil block)", !renderEmail("NEW_SALE", { orderId: "o9", productTitle: "Presets", amountCents: 900, currency: "usd" }, { baseUrl: "https://storelib.com" }).html.includes("Fulfil order"))
+    const withStep = withPhysicalSale({ orderId: "o1", productTitle: "Honey", amountCents: 100, currency: "usd" }, facts, "Print Co was emailed this order with the address.")
+    check("the next step is the order's own, worded by who fulfils it (sellerNextStepFor)", ((withStep.fulfil as Record<string, unknown>).nextStep as string) === "Print Co was emailed this order with the address." && /sellerNextStepFor\(admin, params\.creatorId, checkoutId\)/.test(read("lib/email.tsx")))
     check("the sale email reads the checkout behind a physical order", /physicalSaleFacts, withPhysicalSale/.test(read("lib/email.tsx")) && /from\("commerce_checkouts"\)/.test(read("lib/email.tsx")))
 
     /* A return asked for by the buyer: the event, the job, the email. */

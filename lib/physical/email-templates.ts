@@ -461,8 +461,13 @@ export interface ShipmentEmailModel {
   trackingUrl: string | null
   address: Partial<Address> | null
   statusUrl: string
-  /** tracking: the parcel already left and its tracking number changed. */
-  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking"
+  /** tracking: the parcel already left and its tracking number changed. failed: the carrier (or the store's own delivery) could not deliver it. */
+  kind: "shipped" | "delivered" | "out_for_delivery" | "tracking" | "failed"
+  /** Brought by the store itself (local delivery, part 154): no carrier or tracking, and the store's note for when. */
+  local?: boolean
+  localNote?: string | null
+  /** What went wrong, as the carrier or the store said it, for a failed delivery. */
+  problem?: string | null
   /** How it is coming, as the buyer chose it at checkout ("Standard, 3 to 5 business days"). */
   deliveryName?: string | null
   /** Some items of the order, not all: say so, so the buyer isn't left waiting on the rest by surprise. */
@@ -479,6 +484,9 @@ export interface ShipmentEmailModel {
  * in it. A part-shipment says the rest follows.
  */
 export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: string; text: string } {
+  const failed = m.kind === "failed"
+  /* Brought by the store itself (local delivery): no carrier, no tracking, the store's own words for when. */
+  const local = !!m.local
   const own =
     m.kind === "delivered"
       ? "Your order was delivered"
@@ -486,44 +494,59 @@ export function shipmentEmail(m: ShipmentEmailModel): { subject: string; html: s
         ? "Your order is out for delivery"
         : m.kind === "tracking"
           ? "Your tracking number changed"
-          : m.partial
-            ? "Part of your order is on the way"
-            : "Your order is on the way"
+          : failed
+            ? "There's a problem with your delivery"
+            : m.partial
+              ? "Part of your order is on the way"
+              : "Your order is on the way"
   const heading = m.copy?.heading ?? own
-  const subject = m.copy?.subject ?? (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
+  const subject =
+    m.copy?.subject ??
+    (m.kind === "tracking" ? `New tracking number for order ${m.orderNumber}` : failed ? `A problem delivering order ${m.orderNumber}` : own.replace("your order", `order ${m.orderNumber}`).replace("Your order", `Order ${m.orderNumber}`))
   const hi = m.buyerFirstName ? `${esc(m.buyerFirstName)}, ` : ""
-  const intro = m.copy?.introHtml ?? (
-    m.kind === "delivered"
-      ? `${hi ? `${hi}your` : "Your"} package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
+  const note = local && m.localNote ? ` ${esc(m.localNote)}` : ""
+  const intro =
+    m.copy?.introHtml ??
+    (m.kind === "delivered"
+      ? `${hi ? `${hi}your` : "Your"} ${local ? "order was handed over" : "package was delivered"}. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.`
       : m.kind === "out_for_delivery"
-        ? `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
+        ? local
+          ? `${hi ? `${hi}we're` : "We're"} bringing your order to you today.${note}`
+          : `${hi ? `${hi}your` : "Your"} package is with the driver and should arrive today.`
         : m.kind === "tracking"
           ? "The carrier gave your package a new tracking number. Use this one to follow it from now on."
-          : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
+          : failed
+            ? `${hi ? `${hi}the` : "The"} ${local ? "delivery of your order" : "carrier"} ran into a problem${local ? "" : " delivering your package"}${m.problem ? `: ${esc(m.problem)}` : ""}. We're on it and will be in touch. If something about the address is wrong, reply to this email.`
+            : local
+              ? `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}Your order is on its way. We're delivering it to you ourselves.${note}`
+              : `${m.buyerFirstName ? `Good news, ${esc(m.buyerFirstName)}. ` : ""}${m.partial ? "Some of your items have shipped. The rest follow in another package, and we'll email you when they do." : "Your order has shipped."}${m.trackingUrl ? " Track it any time with the link below." : ""}`)
   const at: 0 | 1 | 2 | 3 = m.kind === "delivered" ? 3 : m.kind === "out_for_delivery" ? 2 : 1
-  const primary = m.trackingUrl && m.kind !== "delivered" ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order") : button(m.statusUrl, m.copy?.button ?? "View your order")
+  const primary =
+    m.trackingUrl && m.kind !== "delivered" && !local
+      ? button(m.trackingUrl, m.copy?.button ?? "Track your package") + textLink(m.statusUrl, "View your order")
+      : button(m.statusUrl, m.copy?.button ?? "View your order")
   const info: { label: string; html: string }[] = []
-  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
-  if (m.deliveryName) info.push({ label: "Shipping method", html: esc(m.deliveryName) })
+  if (m.address?.line1) info.push({ label: m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to", html: addressLines(m.address).map(esc).join("<br>") })
+  if (m.deliveryName) info.push({ label: local ? "Delivery" : "Shipping method", html: esc(m.deliveryName) })
   const body = [
-    progressBar(at),
-    m.kind === "delivered" ? "" : trackingBox(m.carrier, m.trackingNumber, m.trackingUrl),
+    failed ? "" : progressBar(at),
+    m.kind === "delivered" || local ? "" : trackingBox(m.carrier, m.trackingNumber, m.trackingUrl),
     primary,
-    sectionHeading(m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : "Items in this shipment"),
+    sectionHeading(m.kind === "delivered" ? "In your package" : m.partial ? "Items in this package" : failed ? "Items in this delivery" : "Items in this shipment"),
     linesTable(m.lines, "USD", false, false),
     info.length ? sectionHeading("Delivery") + infoGrid(info) : "",
   ].join("")
-  const tracking = m.trackingNumber ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
+  const tracking = m.trackingNumber && !local ? `${m.carrier ? `${m.carrier} ` : ""}tracking number ${m.trackingNumber}` : null
   const text = [
     `${m.shopName}: ${subject}`,
     "",
-    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&"),
+    m.copy?.introText ?? intro.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&#39;/g, "'"),
     "",
     ...m.lines.map((l) => `${l.quantity} x ${l.title}${l.variantName ? ` (${l.variantName})` : ""}`),
     ...(tracking ? ["", tracking] : []),
-    ...(m.trackingUrl ? [`Track: ${m.trackingUrl}`] : []),
-    ...(m.address?.line1 ? ["", `${m.kind === "delivered" ? "Delivered to" : "Shipping to"}:`, ...addressLines(m.address)] : []),
-    ...(m.deliveryName ? [`Shipping method: ${m.deliveryName}`] : []),
+    ...(m.trackingUrl && !local ? [`Track: ${m.trackingUrl}`] : []),
+    ...(m.address?.line1 ? ["", `${m.kind === "delivered" ? "Delivered to" : local ? "Delivering to" : "Shipping to"}:`, ...addressLines(m.address)] : []),
+    ...(m.deliveryName ? [`${local ? "Delivery" : "Shipping method"}: ${m.deliveryName}`] : []),
     "",
     `View your order: ${m.statusUrl}`,
     ...brandText(m.brand),
