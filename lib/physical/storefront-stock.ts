@@ -12,9 +12,13 @@
 /** "Only N left" is said from this many down; above it a buyer just sees In stock. */
 export const SAY_LEFT_FROM = 10
 
+import { cappedQuantity, orderLimits } from "./order-limit"
+
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
 export interface StockProduct {
+  /** With the id, the product's Limit sales is read too and the most one order may take stops at it (./order-limit.ts). */
+  id?: string
   creator_id: string
   track_inventory?: boolean | null
   continue_selling?: boolean | null
@@ -87,11 +91,13 @@ export async function physicalStock(db: Db, product: StockProduct, variants: Sto
     /* Read as nothing in stock below, which is what an empty warehouse says. */
   }
   const lowAt = lowStockLine(product.low_stock_threshold, shopLine)
+  const limit = product.id ? ((await orderLimits(db, [product.id])).get(product.id) ?? null) : null
   const out = new Map<string, VariantStock>()
   for (const v of live) {
     const tracked = v.track_inventory ?? product.track_inventory ?? true
     const keepSelling = v.inventory_policy === "continue" || product.continue_selling === true
-    out.set(v.id, variantStock(available.get(v.id) ?? 0, { tracked, keepSelling, lowAt }))
+    const s = variantStock(available.get(v.id) ?? 0, { tracked, keepSelling, lowAt })
+    out.set(v.id, { ...s, maxQuantity: cappedQuantity(s.maxQuantity, limit) })
   }
   return out
 }

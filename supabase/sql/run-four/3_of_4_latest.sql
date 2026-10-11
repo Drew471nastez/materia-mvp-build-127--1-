@@ -2853,5 +2853,12 @@ ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_included boolean NOT NULL
 DO $do$ BEGIN IF to_regclass('public.checkout_starts') IS NULL THEN RAISE NOTICE 'checkout reminder: checkout_starts is not there yet (RUN_CHECKOUT_CONTACTS.sql).'; RETURN; END IF; ALTER TABLE public.checkout_starts ADD COLUMN IF NOT EXISTS return_path text; ALTER TABLE public.checkout_starts DROP CONSTRAINT IF EXISTS checkout_starts_return_path_check; ALTER TABLE public.checkout_starts ADD CONSTRAINT checkout_starts_return_path_check CHECK (return_path IS NULL OR (length(return_path) <= 1500 AND return_path ~ '^/checkout/(physical|cart)[?]')); END $do$;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('129', '129_customer_email_words_and_tax_on_receipts.sql', 'aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 131_products_max_per_order.sql
+/* Limit sales for things that ship: `products.max_per_order`, the most one order may take of a physical product (a limited drop sold "up to 2 per order"), set under Settings in the product editor. The product page's quantity stops at it and the checkout refuses a cart over it with the reason. A whole number from 1 to 999, or null for no limit; no rows change. Needs nothing else. Until it runs, the editor saves everything else and says a typed limit needs this part, and nothing is limited. Safe to run again. */
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS max_per_order integer;
+ALTER TABLE public.products DROP CONSTRAINT IF EXISTS products_max_per_order_check;
+ALTER TABLE public.products ADD CONSTRAINT products_max_per_order_check CHECK (max_per_order IS NULL OR (max_per_order >= 1 AND max_per_order <= 999));
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('131', '131_products_max_per_order.sql', '6d2388941730e3490474a62561f5224313ced2db03639b34684edf4b2c055453') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

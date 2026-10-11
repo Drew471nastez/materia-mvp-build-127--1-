@@ -108,13 +108,21 @@ export function deleteQuestion(name: string, kind: DeleteKind): { title: string;
 const KEPT_MS = 6 * 60_000
 
 const deleted = new Set<string>()
+/* Products this tab made that a list drawn before them would not have (a draft saved on the way to Settings). */
+const created = new Map<string, number>()
 const patched = new Map<string, { status: string; archived: boolean; at: number }>()
 let notice: string | null = null
 
 /** A product this tab deleted. */
 export function rememberDeleted(id: string): void {
   deleted.add(id)
+  created.delete(id)
   patched.delete(id)
+}
+
+/** A product this tab made: a list copy without it is out of date. */
+export function rememberCreated(id: string): void {
+  created.set(id, Date.now())
 }
 
 /** A product this tab archived, or restored: the row as the database answered. */
@@ -146,6 +154,10 @@ export function withChanges<T extends Listed>(products: readonly T[]): T[] {
 
 /** Was this copy of the list drawn before a change this tab made? Then the router's kept pages are out of date too. */
 export function isStale(products: readonly Listed[]): boolean {
+  for (const [id, at] of created) {
+    if (Date.now() - at > KEPT_MS) created.delete(id)
+    else if (!products.some((p) => p.id === id)) return true
+  }
   return products.some((p) => {
     if (deleted.has(p.id)) return true
     const patch = livePatch(p.id)
