@@ -30,6 +30,7 @@ import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { useModalPhone } from "@/components/physical/ui"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
+import { takeTraversal } from "@/lib/ui/app-navigation"
 import { discardAllUnsaved, hasUnsaved, requestLeave, saveAllUnsaved, setLeaveAsker, subscribeUnsaved } from "@/lib/settings/unsaved-guard"
 
 /** The extra history entry's mark (see Back, above). */
@@ -95,14 +96,23 @@ export function SettingsLeaveGuard() {
     }
   }, [dirty])
   React.useEffect(() => {
+    /*
+      The extra entry has the same address as Settings, so its Back lands on
+      no new page: the stage is told it was not a traversal (lib/ui/
+      app-navigation markTraversal, read on the next commit), or the next
+      real visit would be taken for a Back and put at an old scroll.
+    */
+    const notATraversal = () => window.setTimeout(() => takeTraversal(), 0)
     const onPop = () => {
       if (ignorePop.current) {
         ignorePop.current = false
+        notATraversal()
         return
       }
       if (!guarded.current) return
       /* The extra entry is gone: Back was pressed. */
       guarded.current = false
+      notATraversal()
       if (!hasUnsaved()) return
       requestLeave(() => {
         ignorePop.current = false

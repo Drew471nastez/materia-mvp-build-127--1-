@@ -12,6 +12,7 @@ import {
 import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { createPortal } from "react-dom"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
 import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
@@ -573,12 +574,14 @@ export function BillingPageClient({ initialData, embedded = false }: BillingPage
         </div>
       </div>
 
-      {/* Invoice Detail Modal (Desktop) */}
-      {selectedInvoice && (
-        <div className="hidden sm:block">
-          <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
-        </div>
-      )}
+      {/* Invoice Detail Modal (Desktop). On the body: inside Settings' page (640 to 1023px, a layer under the app's header) it was drawn under the header. */}
+      {selectedInvoice && typeof document !== "undefined" &&
+        createPortal(
+          <div className="hidden sm:block">
+            <InvoiceModal invoice={selectedInvoice} onClose={() => setSelectedInvoice(null)} formatDate={formatDate} formatAmount={formatAmount} getStatusBadge={getStatusBadge} currentPlan={currentPlan} />
+          </div>,
+          document.body,
+        )}
 
       {/* Invoice Detail Bottom Sheet (Mobile). Always mounted, so it can
           slide out after the invoice is cleared: the sheet keeps what it was

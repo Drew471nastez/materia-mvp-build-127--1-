@@ -53,7 +53,15 @@ type Row = { id: number; created_at: string; actor: ActivityEntry["actor"]; acti
 export async function loadActivity(db: Db, creatorId: string, opts: { before?: number | null; prefix?: string | null } = {}): Promise<{ entries: ActivityEntry[]; more: boolean; missing: boolean }> {
   let q = db.from("store_activity_log").select("id, created_at, actor, action, subject_type, subject_id, subject_label, meta").eq("creator_id", creatorId)
   if (opts.before) q = q.lt("id", opts.before)
-  if (opts.prefix) q = opts.prefix === "settings." ? q.not("action", "like", "product.%").not("action", "like", "order.%").not("action", "like", "file.%") : q.like("action", `${opts.prefix}%`)
+  /*
+    The same groups the page draws (lib/activity/actions groupOf): an offer is
+    a Products change, and Settings is everything that is not a product, an
+    offer, an order or a file. Offers used to come back under Settings here
+    and under Products on the page.
+  */
+  if (opts.prefix === "settings.") q = q.not("action", "like", "product.%").not("action", "like", "offer.%").not("action", "like", "order.%").not("action", "like", "file.%")
+  else if (opts.prefix === "product.") q = q.or("action.like.product.%,action.like.offer.%")
+  else if (opts.prefix) q = q.like("action", `${opts.prefix}%`)
   const { data, error } = await q.order("id", { ascending: false }).limit(ACTIVITY_PAGE + 1)
   if (error) {
     const missing = error.code === "42P01" || error.code === "PGRST205"

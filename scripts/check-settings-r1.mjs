@@ -252,6 +252,7 @@ async function framesAfter(page, press, read, ms = 700) {
   say(after.rows.some((r) => r.includes("Keep product names short")), "the memory is added to the list")
   say(after.nav.saves === savesBefore && after.nav.refresh === JSON.parse(navBefore).refresh && after.nav.back === 0 && after.nav.push.length === 0, "nothing is saved to the profile, refreshed or navigated")
   say(wide.input >= wide.card - 80 && wide.h >= 60, "the box takes the card's width and a few lines")
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/r1-ai-memory-1440.png` })
   /* Enter keeps it too. */
   await page.focus("[data-ai-memory-input]")
   await page.keyboard.type("Ship on Mondays")
@@ -340,6 +341,7 @@ async function framesAfter(page, press, read, ms = 700) {
   await page.waitForSelector("[data-plans-header]", { timeout: 4000 }).catch(() => null)
   const plan = await page.evaluate(() => { const h = document.querySelector("[data-plans-header]"); if (!h) return null; const r = h.querySelector("h2").getBoundingClientRect(); const p = document.querySelector("[data-plan-cards]").getBoundingClientRect(); return { text: h.querySelector("h2").textContent, align: getComputedStyle(h).textAlign, centre: Math.round(r.left + r.width / 2), cards: Math.round(p.left + p.width / 2) } })
   console.log(`    ${JSON.stringify(plan)}`)
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/r1-plan-1440.png` })
   say(!!plan && plan.text === "Plans and pricing" && plan.align === "center" && Math.abs(plan.centre - plan.cards) <= 2, "a centred Plans and pricing over the cards")
 
   say(errors.length === 0, `no page errors${errors.length ? `: ${errors.join(" | ")}` : ""}`)
@@ -478,6 +480,17 @@ async function framesAfter(page, press, read, ms = 700) {
     say(firstShown >= 0 && firstShown <= 2 && blank === 0, `${name}: shown at once, never blank`)
   }
 
+  if (SHOTS) await page.screenshot({ path: `${SHOTS}/r1-activity-390.png` })
+  if (SHOTS) {
+    await page.evaluate(() => document.querySelector('[data-settings-tab="integrations"]').click())
+    await page.waitForSelector("[data-integration-card]")
+    await wait(300)
+    await page.evaluate(() => document.querySelector("[data-integration-card]").click())
+    await wait(600)
+    await page.screenshot({ path: `${SHOTS}/r1-integration-page-390.png` })
+    await page.evaluate(() => document.querySelector("[data-integration-back]").click())
+    await wait(900)
+  }
   console.log("\n  Store details")
   const f = await framesAfter(page, () => page.evaluate(() => document.querySelector('[data-settings-tab="store"]').click()), () => ({ panel: document.querySelector("[data-settings-panel]")?.getAttribute("data-settings-panel"), busy: !!document.querySelector('[data-settings-panel] [aria-busy="true"]'), ready: !!document.querySelector("[data-store-details]") }), 500)
   const at = f.findIndex((x) => x.panel === "store") - Math.max(0, f.clickAt)

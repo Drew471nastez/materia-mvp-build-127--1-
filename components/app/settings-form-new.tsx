@@ -4,6 +4,7 @@ import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
+import { createPortal } from "react-dom"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -302,9 +303,10 @@ function DesktopSettingsModal({
     return () => window.removeEventListener("keydown", onKey)
   }, [isOpen, onClose])
 
-  if (!isVisible) return null
+  if (!isVisible || typeof document === "undefined") return null
 
-  return (
+  /* On the body: inside Settings' page (640 to 1023px, a layer under the app's header) it was drawn under the header. */
+  return createPortal(
     <div data-app-sheet="open" className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label={title}>
       <div
         className="absolute inset-0 bg-black/50 transition-opacity"
@@ -335,7 +337,8 @@ function DesktopSettingsModal({
           <div className="p-4 max-h-[70vh] overflow-y-auto overscroll-contain">{shownRef.current}</div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -917,7 +920,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       url.searchParams.set("tab", newTab)
       url.searchParams.delete("section")
       url.searchParams.delete("integration")
-      window.history.replaceState(window.history.state, "", url.toString())
+      window.history.replaceState({}, "", url.toString())
     })
   }
 
@@ -2107,7 +2110,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                 </div>
               </div>
 
-              {showCurrencyPicker && !isMobileViewport && (
+              {showCurrencyPicker && !isMobileViewport && createPortal(
+                /* On the body, so Settings' own layer (under the app's header below 1024px) does not hold it under the header. */
                 <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4" onClick={() => setShowCurrencyPicker(false)}>
                   <div className="w-full max-w-[420px] rounded-2xl bg-white border border-[#e5e7eb] p-4 sm:p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
                     <h4 className="text-[16px] font-semibold text-[#1a1a2e] mb-1">Select payout currency</h4>
@@ -2121,7 +2125,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                       ))}
                     </div>
                   </div>
-                </div>
+                </div>,
+                document.body,
               )}
 
               <MobileBottomSheet

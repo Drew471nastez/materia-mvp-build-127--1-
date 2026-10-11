@@ -387,9 +387,9 @@ const DOT: Record<Tone, string> = { gray: "bg-[#9ca3af]", green: "bg-[#12b76a]",
  *                   it stands as a dot and two words (Connected, Not
  *                   connected, Needs attention...) with what that means. The
  *                   one action that matters sits at the header's right on a
- *                   computer and under it on a phone: Set up, Manage,
- *                   Tell me when it's ready. It takes you to the setup card and
- *                   puts the cursor in its field.
+ *                   computer (on a phone the setup card is right under it):
+ *                   Set up, Manage, Tell me when it's ready. It takes you to
+ *                   the setup card and puts the cursor in its field.
  *   SET UP          first, because it is why the page was opened: the
  *                   field and Install / Save / Remove for a pixel, the
  *                   provider's own Connect, Manage and Disconnect, or Tell me
@@ -448,9 +448,7 @@ function IntegrationPage({
       <header className={cn(DEPTH, "p-4 sm:p-6")} data-integration-header="">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
           <div className="flex min-w-0 flex-1 items-start gap-4">
-            <span className="grid shrink-0 place-items-center rounded-[18px] border border-[#eceef1] bg-[#f8f9fa] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
-              <Mark item={item} size={48} />
-            </span>
+            <Mark item={item} size={56} />
             <div className="min-w-0 flex-1">
               <h2 className="text-[20px] font-bold leading-tight tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]">{item.name}</h2>
               <p className="mt-1 text-[14px] leading-[20px] text-[#6b7280]">{item.summary}</p>
@@ -464,7 +462,8 @@ function IntegrationPage({
             </div>
           </div>
           {action ? (
-            <button type="button" onClick={toSetup} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "h-11 w-full shrink-0 rounded-xl px-5 sm:h-10 sm:w-auto")} data-integration-action="">
+            /* On a phone the setup card is the very next thing on the screen, so the header keeps to the name and the status there. */
+            <button type="button" onClick={toSetup} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "hidden h-10 shrink-0 rounded-xl px-5 sm:inline-flex")} data-integration-action="">
               {action}
               {!installed && !notifyOnly ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
             </button>
