@@ -162,7 +162,7 @@ import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-buil
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
-import { fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { LoadTimeout, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
 import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
 import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
@@ -2641,6 +2641,8 @@ const INSPECT_FADE_MS = 200
 const COMPAT_PAINT_CAP_MS = 8000
 /** The longest one request for the website or a page's sections is waited for before it counts as failed. */
 const SECTIONS_WAIT_MS = 20_000
+/** How long Publish may take before the editor says so instead of spinning: the server writes it all in one step and moves the bookkeeping after its answer. */
+const PUBLISH_MS = 45_000
 /** The longest the canvas is held for a product opened from the address. */
 const CANVAS_HOLD_CAP_MS = 6000
 /** The longest the sections panel keeps the page being left's list while an imported theme's canvas draws the next page. */
@@ -2775,6 +2777,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
   /* The first read of them has answered (or failed): an imported theme's canvas draws from them, so it waits for this (CompatCanvas sourcesReady). */
   const [storelibSourcesRead, setStorelibSourcesRead] = useState(false)
+  /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
+  const [compatFilesVersion, setCompatFilesVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
   const loadStorelibSources = useCallback(async (): Promise<Record<string, string> | null> => {
     try {
@@ -4650,6 +4654,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       case "page":
+        /* The page that is already open, with no section named: what a browser
+           does on a same page link, which is go to the top, as "top" does for
+           home. Opening it again would only throw the scroll away. */
+        if (decision.key === currentPageRef.current && !decision.anchor) {
+          document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "smooth" })
+          return
+        }
         /* Opened at its top as always, then taken to the section the hash
            names once it is drawn: see the effect after "you arrive at the top". */
         pendingAnchor.current = decision.anchor ?? null
@@ -5580,7 +5591,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (!headerGroup && !footerGroup && !overlayGroup) return
 
     // Fetch all pages for this install
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections/sync-global`, {
+    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections/sync-global`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -5592,8 +5603,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         current_page: currentPage,
         mode,
       }),
-    })
-    if (!res.ok) {
+    }, 20_000).catch(() => null)
+    if (!res?.ok) {
       console.warn("Failed to sync header/footer to other pages")
     }
   }
@@ -5675,16 +5686,23 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const publishChanges = async () => {
     setPublishing(true)
     try {
-      // 1. Save current editor state as draft (settings + current page sections)
-      const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
+      /*
+        1. Save what is in the editor: the settings, this page, and the
+           header, footer and overlay groups onto every other page. Three
+           writes to different rows, so at the same time rather than one
+           after another; each one ends (lib/website-builder/save-request).
+      */
+      const [settingsRes, sectionsRes] = await Promise.all([
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft }),
+        putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" }),
+        syncHeaderFooterToAllPages("draft"),
+      ])
       if (!settingsRes.ok) {
         const d = await settingsRes.json().catch(() => ({}))
         setSaveProblem(explainSaveProblem(settingsRes.status, d))
         setPublishing(false)
         return
       }
-
-      const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
         const d = await sectionsRes.json().catch(() => ({}))
         setSaveProblem(explainSaveProblem(sectionsRes.status, d, sectionsForSave(sections)))
@@ -5692,19 +5710,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         return
       }
 
-      // 1b. Sync header/footer to all other pages before publish
-      await syncHeaderFooterToAllPages("draft")
-
-      // 2. Publish — promotes ALL pages' draft_sections → sections
-      //    and draft_settings → settings atomically
-      const res = await fetch(`/api/website-builder/themes/${installId}/publish`, {
+      /*
+        2. Publish: every page's draft, the settings, the saved section files
+           and the live switch, in one step on the server. It ends too: a
+           publish that has not answered in PUBLISH_MS is said, not spun on
+           forever, and pressing Publish again is safe (the server writes it
+           all or nothing).
+      */
+      const res = await fetchWithin(`/api/website-builder/themes/${installId}/publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "publish" }),
-      })
+      }, PUBLISH_MS)
 
       if (!res.ok) {
-        const d = await res.json()
+        const d = await res.json().catch(() => ({}))
         showNotification(d.error ?? "Failed to publish", "error")
         setPublishing(false)
         return
@@ -5720,8 +5740,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       setHasPublished(true)
       snapshotAfterSave()
       showNotification("Changes saved and published")
-    } catch {
-      showNotification("Failed to publish", "error")
+    } catch (e) {
+      showNotification(
+        e instanceof LoadTimeout
+          ? "Publishing is taking longer than it should. Your edits are saved. Press Publish again in a moment."
+          : "Failed to publish",
+        "error",
+      )
     }
     setPublishing(false)
   }
@@ -6239,6 +6264,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
   const handleAgentEvents = async (events: ActivityEvent[]) => {
     let replacedHere = false
+    /*
+      EVERYTHING AN AGENT OR A PUSH WRITES IS A DRAFT (a section file's
+      draft_content, a page's draft_sections, the draft settings), so the
+      site now differs from what is live: Publish says so, as it does for an
+      edit made here.
+    */
+    if (events.length > 0) setUnpublished(true)
+    /* An imported theme draws from its own files too: a file changed there is read again (CompatCanvas filesVersion). */
+    if (compatInstall && events.some((ev) => !ev.path.startsWith("pages/") && ev.path !== "settings")) setCompatFilesVersion((n) => n + 1)
     const files = await loadStorelibSources()
     const custom = files ? customSectionSchemas(files) : {}
     /* One poll can hold two writers; each gets its own run of lines. */
@@ -9712,6 +9746,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 /* An imported Shopify theme: drawn by the same function its website is (components/website-builder/compat/compat-canvas.tsx). */
                 <CompatCanvas
                   installId={installId}
+                  filesVersion={compatFilesVersion}
                   sources={storelibSources}
                   theme={canvasThemeSettings as Record<string, unknown>}
                   pageKey={currentPage}
@@ -10127,6 +10162,15 @@ function SectionToolbar({
    */
   const lastBox = useRef<{ top: number; right: number } | null>(null)
   if (box) lastBox.current = box
+  /*
+    PLACED IN WHAT IT IS PLACED IN. It is positioned in the canvas area,
+    and its place was read against the scrolling page: the same box at
+    Desktop, but in the phone preview the page is a narrower frame in the
+    middle and the toolbar stood out at the canvas's right edge, 24px high.
+    Read against its own containing box once it is in the page.
+  */
+  const barRef = useRef<HTMLDivElement>(null)
+  const measureNow = useRef<() => void>(() => {})
   const present = box !== null
   const [mounted, setMounted] = useState(false)
   const [visible, setVisible] = useState(false)
@@ -10177,8 +10221,11 @@ function SectionToolbar({
         return
       }
       const top = Math.max(r.top + 10, s.top + 10)
-      setBox({ top: top - s.top, right: s.right - r.right + 10 })
+      const host = (barRef.current?.offsetParent as HTMLElement | null) ?? scroller
+      const h = host.getBoundingClientRect()
+      setBox({ top: top - h.top, right: h.right - Math.min(r.right, s.right) + 10 })
     }
+    measureNow.current = measure
     // Coalesced into a frame: a scroll fires far more often than the screen
     // is painted, and a measurement per event is a measurement thrown away.
     const onScroll = () => {
@@ -10200,6 +10247,8 @@ function SectionToolbar({
       mo?.disconnect()
     }
   }, [sectionId])
+  /* Read again the moment it is in the page, against its own containing box. */
+  useLayoutEffect(() => { if (mounted) measureNow.current() }, [mounted])
 
   /**
    * The last place it was, so a toolbar on its way out has somewhere to
@@ -10255,6 +10304,7 @@ function SectionToolbar({
             // toolbar anybody should be able to press.
             "pointer-events-none -translate-y-1 scale-[0.97] opacity-0",
       )}
+      ref={barRef}
       style={{ top: draw.top, right: draw.right }}
       onClick={(e) => e.stopPropagation()}
     >

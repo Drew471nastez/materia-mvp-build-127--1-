@@ -1,0 +1,57 @@
+{%- comment -%}
+  The product page the way PostureX draws it: the picture on the left and, on
+  the right, a rating, the title, the price, a two column list of benefits,
+  the app's bundle widget under "Save more" and the product form. Every
+  block carries its own shopify_attributes, as a Shopify theme's do.
+{%- endcomment -%}
+<div class="main-product product-info">
+  <div class="product-info__media"><div class="product-info__picture"></div></div>
+  <div class="product-info__details">
+    {%- for block in section.blocks -%}
+      {%- case block.type -%}
+        {%- when 'rating' -%}
+          <div class="product-info__rating" {{ block.shopify_attributes }}><span class="stars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span>Rated {{ block.settings.score }} / 5</span></div>
+        {%- when 'title' -%}
+          <div class="product-info__title" {{ block.shopify_attributes }}><h1>{{ product.title | default: 'PostureX Pro Corrector' }}</h1></div>
+        {%- when 'price' -%}
+          <div class="product-info__price" {{ block.shopify_attributes }}><span class="price">{{ product.price | money | default: '$39.00' }}</span></div>
+        {%- when 'benefits' -%}
+          <ul class="product-info__benefits" {{ block.shopify_attributes }}>
+            {%- for i in (1..4) -%}{%- capture key -%}benefit_{{ i }}{%- endcapture -%}{%- if block.settings[key] != blank -%}<li><span class="tick" aria-hidden="true"></span>{{ block.settings[key] }}</li>{%- endif -%}{%- endfor -%}
+          </ul>
+        {%- when 'bundle' -%}
+          <div class="bundle" {{ block.shopify_attributes }}>
+            <p class="bundle__heading"><span>{{ block.settings.heading | upcase }}</span></p>
+            <label class="bundle__option"><input type="radio" name="bundle" value="one"><span class="bundle__thumb"></span><b>{{ product.title | default: 'PostureX Pro Corrector' }}</b></label>
+            <label class="bundle__option bundle__option--best"><span class="bundle__badge">BEST</span><input type="radio" name="bundle" value="two" checked><b>Bundle &amp; Save</b>
+              <span class="bundle__item"><span class="bundle__thumb"></span>{{ product.title | default: 'PostureX Pro Corrector' }}</span>
+              <span class="bundle__item"><span class="bundle__thumb"></span>Free travel strap</span>
+            </label>
+          </div>
+        {%- when 'stock' -%}
+          <p class="product-info__stock" {{ block.shopify_attributes }}><span class="dot"></span>In stock, order today to receive it by October 16</p>
+        {%- when 'buy_buttons' -%}
+          <form class="product-form" action="/cart/add" method="post" {{ block.shopify_attributes }}>
+            <input type="hidden" name="id" value="{{ product.id }}">
+            <div class="product-form__row"><input class="product-form__qty" type="number" name="quantity" value="1" min="1"><button type="submit" name="add" class="product-form__add">Add to cart</button></div>
+          </form>
+      {%- endcase -%}
+    {%- endfor -%}
+  </div>
+</div>
+{% schema %}
+{ "name": "Product information", "blocks": [
+  { "type": "rating", "name": "Rating", "limit": 1, "settings": [ { "type": "text", "id": "score", "label": "Score", "default": "4.9" } ] },
+  { "type": "title", "name": "Title", "limit": 1, "settings": [] },
+  { "type": "price", "name": "Price", "limit": 1, "settings": [] },
+  { "type": "benefits", "name": "Benefits", "settings": [
+    { "type": "text", "id": "benefit_1", "label": "Benefit 1", "default": "Stand taller" },
+    { "type": "text", "id": "benefit_2", "label": "Benefit 2", "default": "Instant correction" },
+    { "type": "text", "id": "benefit_3", "label": "Benefit 3", "default": "Reduces pain" },
+    { "type": "text", "id": "benefit_4", "label": "Benefit 4", "default": "Improves looks" }
+  ] },
+  { "type": "bundle", "name": "Bundle", "settings": [ { "type": "text", "id": "heading", "label": "Heading", "default": "Save more" } ] },
+  { "type": "stock", "name": "Stock", "settings": [] },
+  { "type": "buy_buttons", "name": "Buy buttons", "limit": 1, "settings": [] }
+] }
+{% endschema %}

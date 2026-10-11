@@ -46,8 +46,9 @@ import { LIMITS } from "../types"
 import { CompatSyntaxError, lex } from "../compat/lexer"
 import { parseCompat } from "../compat/parser"
 import { COMPAT_PREFIX, compatPageKey, type CompatSettings } from "../compat/install"
-import { splitCompatFile, wrapCompatTemplate } from "../compat/theme"
+import { SECTION_CSS_KEY, splitCompatFile, wrapCompatTemplate } from "../compat/theme"
 import { floatsOverPage } from "../section-groups"
+import { isReviewsAppBlock } from "../compat/storelib-reviews"
 
 // ── Shapes ──────────────────────────────────────────────────────────────────
 
@@ -157,7 +158,8 @@ export function conversionSummary(report: ConversionReport): string {
   const count = (re: RegExp) => report.converted.filter((f) => re.test(f)).length
   const sections = count(/^sections\/[^/]+\.liquid$/)
   const blocks = count(/^blocks\//)
-  const pages = count(/^templates\/[^/]+\.json$/)
+  /* A page from a JSON template or from one written in Liquid (Skeleton, an older theme): both are pages of the website. */
+  const pages = count(/^templates\/[^/]+\.(json|liquid)$/)
   const parts = [`${sections} section${sections === 1 ? "" : "s"}`]
   if (blocks) parts.push(`${blocks} block${blocks === 1 ? "" : "s"}`)
   parts.push(`${pages} page${pages === 1 ? "" : "s"}`)
@@ -413,8 +415,9 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     (below it) under its own name, so it is selected and edited like any
     other; the engine draws the page's copy where the tag stands.
   */
+  const currentValues = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
   const staticValues = (() => {
-    const v = themeValues(parseJson(src.text.get("config/settings_data.json") ?? "")).sections
+    const v = currentValues.sections
     return v && typeof v === "object" ? (v as Record<string, Tree>) : {}
   })()
   for (const { name, afterContent, afterFooter } of drawn.sections) {
@@ -445,6 +448,23 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       const key = compatPageKey(name)
       if (key && !pages.some((p) => p.page_key === key) && !src.text.has(`templates/${name}.json`)) {
         checkSyntax(text, (msg) => report.note(path, msg))
+        /*
+          AN OLDER THEME'S HOME PAGE (Debut, Brooklyn, Slate's starter):
+          templates/index.liquid writes {{ content_for_index }}, and the
+          sections it stands for are settings_data.json's `content_for_index`,
+          in that order, their values beside the static ones in `sections`.
+          They are the home page's sections, edited in the builder like a
+          JSON template's; the template still draws around them.
+        */
+        const homeIds = name === "index" && /\bcontent_for_index\b/.test(text) ? indexSectionIds(currentValues) : []
+        if (homeIds.length) {
+          const all = (currentValues.sections ?? {}) as Record<string, Tree>
+          const home = templateSections({ sections: Object.fromEntries(homeIds.filter((id) => all[id]).map((id) => [id, all[id]])), order: homeIds }, sectionTypes, report, "config/settings_data.json")
+          pages.push({ page_key: key, template: name, sections: [...groups.header, ...home, ...groups.footer, ...groups.overlay] })
+          report.converted.push(path)
+          report.note(path, `Its home page sections (content_for_index in settings_data.json) are the page's sections, edited in the builder`)
+          continue
+        }
         pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer, ...groups.overlay] })
         report.converted.push(path)
         report.note(path, `A template written in Liquid rather than JSON draws as written; it has no sections to edit in the builder`)
@@ -486,6 +506,8 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const schemaSettings = parseJson(src.text.get("config/settings_schema.json") ?? "")
   const info = Array.isArray(schemaSettings) ? (schemaSettings.find((g) => g && typeof g === "object" && (g as Tree).name === "theme_info") as Tree | undefined) : undefined
   const values = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
+  const embeds = values.blocks && typeof values.blocks === "object" ? Object.values(values.blocks as Record<string, Tree>).filter((b) => b && typeof b === "object" && b.disabled !== true).map((b) => ({ type: String(b.type ?? "") })) : []
+  noteAppBlocks(embeds, report, "config/settings_data.json", "switches on")
   for (const [k, v] of Object.entries(values)) {
     if (typeof v === "string" && v.startsWith("shopify://shop_images/")) {
       report.note("config/settings_data.json", `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; choose it again in Theme settings`)
@@ -994,13 +1016,42 @@ function templateSections(t: Tree, types: Map<string, string>, report: Report, p
     const ownName = typeof s.name === "string" && s.name.trim() ? (SECTION_WORDS.get(types)?.(s.name, "") ?? (s.name.startsWith("t:") ? "" : s.name)) : ""
     section.name = (ownName || SECTION_NAMES.get(types)?.get(type) || humanise(String(s.type))).slice(0, 80)
     if (s.disabled === true) section.hidden = true
+    /* The section's Custom CSS from Shopify's editor, kept with its settings and drawn for that section alone (compat/theme.ts sectionCss). */
+    const customCss = (Array.isArray(s.custom_css) ? (s.custom_css as unknown[]) : []).filter((x): x is string => typeof x === "string").join("\n").trim()
+    if (customCss) section.settings[SECTION_CSS_KEY] = customCss.slice(0, 20000)
     const blocks = blockList(s.blocks as Record<string, Tree> | undefined, s.block_order, 1)
     if (blocks.length) section.blocks = blocks
     noteShopifyValues(section.settings, report, path)
     out.push(section)
   }
   if (missing.size) report.note(path, `It names sections the theme does not have, which were left off: ${[...missing].join(", ")}`)
+  noteAppBlocks(out.flatMap((s) => s.blocks ?? []), report, path, "places")
   return out
+}
+
+/*
+  A SHOPIFY APP'S BLOCK, placed on a page (a review badge, an upsell) or
+  switched on for the whole theme as an app embed (settings_data.json's
+  `blocks`), comes with the theme's files but not the app: Shopify draws it
+  from the app's own code. A review app's is drawn by Storelib Reviews; any
+  other draws nothing, and the report says which, so the store owner knows
+  what the page no longer has.
+*/
+const APP_BLOCK = /^shopify:\/\/apps\/([^/]+)\/blocks\/([^/]+)/
+function noteAppBlocks(blocks: { type: string; blocks?: { type: string; blocks?: unknown[] }[] }[], report: Report, path: string, verb: "places" | "switches on"): void {
+  const reviews = new Set<string>()
+  const other = new Set<string>()
+  const walk = (list: { type: string; blocks?: unknown[] }[]) => {
+    for (const b of list) {
+      const m = b.type.match(APP_BLOCK)
+      if (m) (isReviewsAppBlock(b.type) ? reviews : other).add(`${m[1]} (${m[2]})`)
+      if (Array.isArray(b.blocks)) walk(b.blocks as { type: string; blocks?: unknown[] }[])
+    }
+  }
+  walk(blocks)
+  const what = verb === "places" ? "app blocks" : "app embeds"
+  if (other.size) report.note(path, `It ${verb} Shopify ${what} that come with their app, not the theme, and draw nothing on Storelib: ${[...other].join(", ")}`)
+  if (reviews.size) report.note(path, `It ${verb} review ${what} (${[...reviews].join(", ")}); Storelib Reviews draws them with the shop's own reviews`)
 }
 
 function blockList(blocks: Record<string, Tree> | undefined, order: unknown, depth: number): ImportedBlock[] {
@@ -1092,6 +1143,12 @@ function settingsPanel(schema: unknown, current: Record<string, unknown>, tr: (v
     if (settings.length) out.push({ name: tr(g.name, humanise(String(g.name ?? "Settings"))).slice(0, 60), settings })
   }
   return out
+}
+
+/** The ids of an older theme's home page sections, in order: settings_data.json's `content_for_index`. */
+function indexSectionIds(current: Record<string, unknown>): string[] {
+  const ids = Array.isArray(current.content_for_index) ? (current.content_for_index as unknown[]) : []
+  return [...new Set(ids.filter((id): id is string => typeof id === "string" && id !== ""))]
 }
 
 /** settings_data.json's current values, as the theme's settings, whole. */

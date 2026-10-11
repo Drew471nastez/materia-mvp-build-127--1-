@@ -277,7 +277,19 @@ export function StorelibSection({
     const a = (e.target as HTMLElement).closest("a")
     if (!a) return
     e.preventDefault()
-    onEditorNavigate(a.getAttribute("href") ?? "#")
+    /*
+      THE SITE'S NAVIGATION IS NAVIGATION, WITH THE INSPECTOR ON TOO. The
+      React header told the editor so; this one did not, so in the default
+      theme (whose header is a .storelib file) the logo and every menu link
+      were taken for a tap meant to select the header, and nothing moved in
+      the editor where the live site went to the page. A link in the header
+      or footer group, or in a <nav>, is followed, as the live site does
+      (lib/website-builder/editor-navigation.ts).
+    */
+    /* The section's group as the theme reads it (groupOf), written out here: nothing of the engine is imported in this file (tests/theme-code-editor). */
+    const chrome = section.group === "header" || section.group === "footer" || (!section.group && (section.type === "header" || section.type === "footer"))
+    const fromNav = chrome || !!a.closest("nav, [role='navigation']")
+    onEditorNavigate(a.getAttribute("href") ?? "#", fromNav)
   }
 
   /**

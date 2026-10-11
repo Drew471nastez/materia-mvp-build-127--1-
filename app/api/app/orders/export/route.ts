@@ -1,3 +1,4 @@
+import { creatorFor } from "@/lib/team/server"
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -32,8 +33,11 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "Sign in again to export." }, { status: 401 })
 
   const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  if (!creator) return NextResponse.json({ error: "Sign in again to export." }, { status: 401 })
+  /* The store's, for its owner or a team member whose role has orders (lib/team). */
+  const found = await creatorFor(admin, user.id, "orders")
+  if (found.kind === "denied") return NextResponse.json({ error: "Your role on this store's team does not include this." }, { status: 403 })
+  if (found.kind === "none") return NextResponse.json({ error: "Sign in again to export." }, { status: 401 })
+  const creator = found.creator
 
   const body = await request.json().catch(() => null)
   const runs = typeof body?.numbers === "string" ? body.numbers : ""

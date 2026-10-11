@@ -79,9 +79,10 @@ function main() {
   const idle: number[] = []
   for (let i = 0; i < 8; i++) idle.push((d = nextPollDelay(d, false)))
   check("idle, it slows down", idle.every((x, i) => i === 0 || x >= idle[i - 1]), idle.join(","))
-  check("to one small read every twenty seconds and no slower", idle[idle.length - 1] === POLL_MAX_MS && POLL_MAX_MS === 20_000)
+  // Changed on purpose (round AA): a GitHub push sat unseen for up to twenty seconds; the owner asked for it to show without waiting.
+  check("to one small read every ten seconds and no slower", idle[idle.length - 1] === POLL_MAX_MS && POLL_MAX_MS === 10_000)
   check("changes arriving bring it back to every three seconds", nextPollDelay(POLL_MAX_MS, true) === POLL_ACTIVE_MS && POLL_ACTIVE_MS === 3_000)
-  check("an hour idle is at most 190 reads, where it was 720", Math.ceil(3_600_000 / POLL_MAX_MS) + 10 <= 190)
+  check("an hour idle is at most 370 small reads, where it was 720 at the start", Math.ceil(3_600_000 / POLL_MAX_MS) + 10 <= 370)
 
   console.log("\nThe notice's lines, in words")
   const name = (t: string) => ({ hero: "Hero", pricing: "Pricing", faq_section: "FAQ section" } as Record<string, string>)[t]

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { storeIdFor } from "@/lib/team/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { ownedOrderLines, type OwnedLine } from "@/lib/orders/owned"
 import { signOrderLink, verifyOrderLink } from "@/lib/orders/signed-link"
@@ -35,15 +35,10 @@ export const runtime = "nodejs"
 
 type Disposition = "inline" | "attachment"
 
+/* The store's, for its owner or a team member whose role has orders (lib/team). */
 async function signedInCreator(): Promise<string | null> {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) return null
-  const admin = createAdminClient()
-  const { data: creator } = await admin.from("creators").select("id").eq("user_id", user.id).maybeSingle()
-  return (creator as { id: string } | null)?.id ?? null
+  const store = await storeIdFor("orders")
+  return store.ok ? store.creatorId : null
 }
 
 export async function POST(request: Request) {

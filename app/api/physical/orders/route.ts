@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 const FULFILLMENT = new Set(["unfulfilled", "processing", "partially_fulfilled", "fulfilled", "delivered", "cancelled", "not_required"])
 
 export async function GET(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("orders")
   if (c instanceof NextResponse) return c
   const url = new URL(request.url)
   const f = url.searchParams.get("fulfillment")

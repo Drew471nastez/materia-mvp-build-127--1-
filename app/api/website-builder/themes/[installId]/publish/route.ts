@@ -150,14 +150,14 @@ export async function POST(req: Request, { params }: Params) {
       p_settings_draft: settingsRow?.draft_settings ?? null,
       p_pages: pages,
     })
+    let movedFiles: { path: string; content: string }[] = []
     if (oneStep.error && !publishStepMissing(oneStep.error)) {
       return failed("Could not publish. Nothing changed: the website that was live still is.", oneStep.error.message)
     }
     if (!oneStep.error) {
       touchedLive = true
-      /* Each section file that went live, in its history, as the step by step path records it. */
-      const moved = ((oneStep.data as { files?: { path: string; content: string }[] } | null)?.files ?? [])
-      for (const file of moved) await recordVersion(admin, installId, file.path, file.content, "publish")
+      /* Each section file that went live goes in its history after the answer, below. */
+      movedFiles = (oneStep.data as { files?: { path: string; content: string }[] } | null)?.files ?? []
     } else {
       if (settingsRow?.draft_settings) {
         const { error: settingsErr } = await admin
@@ -228,30 +228,35 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
-    // Audit log
-    const { data: settings } = await admin
-      .from("store_theme_settings")
-      .select("settings")
-      .eq("install_id", installId)
-      .maybeSingle()
-
-    /* A record of the publish, not the publish: the site is live by now, so a failure here is logged, not returned. */
-    const { error: historyErr } = await admin.from("theme_publish_history").insert({
-      install_id: installId,
-      creator_id: creator.id,
-      action: "published",
-      snapshot: settings?.settings ?? {},
+    /*
+      THE RECORD OF IT, AFTER THE ANSWER. The site is live by now: the
+      publish history row, the backup to go back to and each section file's
+      version are housekeeping, and none of them may make the person wait or
+      fail the publish. They run once the answer has gone (`after`), with
+      the same failures logged and nothing else.
+    */
+    const creatorId = creator.id
+    after(async () => {
+      for (const file of movedFiles) await recordVersion(admin, installId, file.path, file.content, "publish").catch(() => false)
+      const { data: settings } = await admin
+        .from("store_theme_settings")
+        .select("settings")
+        .eq("install_id", installId)
+        .maybeSingle()
+      const { error: historyErr } = await admin.from("theme_publish_history").insert({
+        install_id: installId,
+        creator_id: creatorId,
+        action: "published",
+        snapshot: settings?.settings ?? {},
+      })
+      if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
+      /* A publish is a moment worth being able to go back to (RUN_THEME_BACKUPS.sql). */
+      try {
+        await takeBackup(admin, installId, { label: "Published", source: "publish" })
+      } catch {
+        /* logged nowhere on purpose: nothing sensitive, nothing actionable */
+      }
     })
-    if (historyErr) console.error("[publish] the publish history row was not written:", historyErr.message)
-
-    // A publish is a moment worth being able to go back to. Never allowed to
-    // fail the publish itself: the table is created by RUN_THEME_BACKUPS.sql
-    // and a site going live must not depend on a housekeeping row.
-    try {
-      await takeBackup(admin, installId, { label: "Published", source: "publish" })
-    } catch {
-      /* logged nowhere on purpose: nothing sensitive, nothing actionable */
-    }
 
     /**
      * THE LAST THING, AND NOT OPTIONAL. The published site is held in a

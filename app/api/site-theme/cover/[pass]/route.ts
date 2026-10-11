@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server"
 import { readCoverPass } from "@/lib/website-builder/cover-pass"
 import { compatDraftHome } from "@/lib/website-builder/compat-site"
+import { COVER_STILL_POLICY, withStillStyle } from "@/lib/website-builder/cover-still"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -21,13 +22,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ pass: st
     it, and in a sandbox with no origin: this is storelib.com, and nothing a
     theme carries may act in it.
   */
-  return new NextResponse(html, {
+  /* Still, and nothing from servers the picture does not need (lib/website-builder/cover-still.ts). */
+  return new NextResponse(withStillStyle(html), {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "private, no-store",
       "X-Robots-Tag": "noindex",
       /* Framed only by this origin, and only when asked to be (the Website page's live miniature, ?embedded=1); never by anybody else. */
-      "Content-Security-Policy": new URL(req.url).searchParams.get("embedded") === "1" ? "sandbox allow-scripts; frame-ancestors 'self'" : "sandbox allow-scripts",
+      "Content-Security-Policy": `${new URL(req.url).searchParams.get("embedded") === "1" ? "sandbox allow-scripts; frame-ancestors 'self'" : "sandbox allow-scripts"}, ${COVER_STILL_POLICY}`,
     },
   })
 }

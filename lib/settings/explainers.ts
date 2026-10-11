@@ -132,9 +132,9 @@ export const EXPLAINERS = {
     title: "How the team works",
     art: "team",
     lines: [
-      "Invite people by email. They get a link, sign in with their own Storelib account, and see your store in their dashboard.",
-      "A Manager runs the store day to day: products, orders, customers and emails. Staff build: products, the website and content.",
-      "Billing, payouts, the team and deleting the store stay with you, the owner.",
+      "Invite people by email. They get a link, sign in with their own Storelib account, and open your store from their dashboard.",
+      "A Manager works in your Orders: fulfils and ships them, handles returns and notes, and sends receipts and invoices.",
+      "Refunds, payouts, billing, products, the website, the team and deleting the store stay with you, the owner.",
     ],
   },
   store: {

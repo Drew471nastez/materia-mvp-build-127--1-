@@ -99,7 +99,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     const filesCode = code("components/website-builder/compat/compat-files.ts")
     check("its files are tried again and each try has an end", /retrying\(/.test(filesCode) && /deadline\(/.test(filesCode) && /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`, \{\}, FILES_WAIT_MS\)/.test(filesCode))
     check("a theme that cannot be read, or a first page that cannot be drawn, is said with Try again", /setFailure\("files"\)/.test(canvas) && /setFailure\("draw"\)/.test(canvas) && /<CanvasProblem kind=/.test(canvas) && /onRetry=\{retry\}/.test(canvas))
-    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt\]/.test(canvas) && /accountPath, attempt, holdForData\]/.test(canvas))
+    // Changed on purpose (round AA): the files are also read again when a push to GitHub changed them (filesVersion). Round G: the first draw also waits for the shop's cards (holdForData).
+    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt(, filesVersion)?\]/.test(canvas) && /accountPath, attempt, holdForData\]/.test(canvas))
     /* Round G: not at once. The load event does not wait for a picture the theme loads lazily, so a page shown at it landed with its hero empty; a page that has said it is ready is shown by its own "loaded" or FIRST_PAINT_MS. */
     check("the frame's own load event shows a page that has said nothing, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) \{\s*if \(!slot\.ready\) window\.setTimeout\(\(\) => setPainted\(true\), 400\)/.test(canvas))
     check("a frame that says nothing is shown as it is after FRAME_CAP_MS", /const FRAME_CAP_MS = 6_000/.test(canvas) && /\}, FRAME_CAP_MS\)/.test(canvas))
