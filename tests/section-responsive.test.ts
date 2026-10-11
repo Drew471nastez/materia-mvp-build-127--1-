@@ -2913,7 +2913,8 @@ check(
    *
    * `node scripts/check-leaving-glass.mjs`
    */
-  /\.wb-editor-leaving \{\s*\n\s*transform: scale\(0\.985\);/.test(editorCss) &&
+  /* Round 23: and it no longer shrinks under it either: it takes no presses while it goes, and that is all. */
+  /\.wb-editor-leaving \{\s*\n\s*pointer-events: none;\s*\n\}/.test(editorCss) &&
     !/\.wb-editor-leaving \{\s*\n\s*opacity:/.test(editorCss) &&
     // The minifier collapses a prefixed/unprefixed pair down to the prefix
     // alone for these targets, which leaves Firefox with no blur at all.

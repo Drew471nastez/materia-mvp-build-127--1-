@@ -6,7 +6,7 @@ import { flushSync } from "react-dom"
 import { cn } from "@/lib/utils"
 import { HtmlClassScript } from "@/components/platform/html-class"
 import { routerStartCount } from "@/lib/ui/router-starts"
-import { getAppNavigation } from "@/lib/ui/app-navigation"
+import { getAppNavigation, holdLanding } from "@/lib/ui/app-navigation"
 import { LAYER_ATTR, openLayer, sweepLayers } from "@/lib/ui/layers"
 
 /**
@@ -1187,6 +1187,14 @@ export function PageLayer({
     releasePresses()
     /* React's move at this commit, or, where it cannot make one, ours on this box. */
     if (!markReactMotion("enter")) riseByHand(box.current)
+    /*
+      AND WITH NO MOVE, A WHOLE SCREEN LAYER IS SIMPLY THERE (round 23). The stage's landing faded it in from nothing,
+      and over the whole screen its first frame was empty: the page gone, the layer not yet drawn. Where it covers the
+      screen (a phone, or a layer at every width) it is drawn whole on its first frame, and so is the page it goes back
+      to. From 768px a phone only layer is a page in the shell and lands like one.
+    */
+    const whole = () => !LAYER_MOVES && (!phoneOnly || !!window.matchMedia?.(LAYER_PHONE).matches)
+    if (whole()) holdLanding()
     /* A layer standing in for the one before it (holdLayerLanding): from the next frame the stage lands pages again. */
     if (html.dataset.layerMotion === "stay") {
       requestAnimationFrame(() => {
@@ -1195,6 +1203,7 @@ export function PageLayer({
     }
     return () => {
       release()
+      if (whole()) holdLanding()
       /* ...or it has gone, and the page under it is in the same commit: a way back of our own drops a still of it now, before this frame is painted. */
       releasePresses()
       if (!dropAtCommit()) markReactMotion("leave")
