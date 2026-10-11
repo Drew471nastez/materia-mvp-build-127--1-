@@ -65,11 +65,13 @@ for (const label of ["Preview", "Copy link", "Download", "Delete", "Use this pic
 check("no Rename: a file's name is its address", !/label: "Rename"/.test(lib))
 check("Delete asks first", /Delete this picture\?/.test(lib) && /setConfirming\(f\)/.test(lib))
 check("Delete is the existing owner only endpoint", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib) && /shopCaller\(\)/.test(route) && /deleteLibraryFile/.test(route))
-check("Download saves through the shared helper (a blob in a browser, the system browser in the app)", /saveFile\(\{/.test(lib) && /savedMessage\(outcome, "Picture"\)/.test(lib))
+/* "Picture" or "Video" (a video setting's chooser lists videos), named by noun(f). */
+check("Download saves through the shared helper (a blob in a browser, the system browser in the app)", /saveFile\(\{/.test(lib) && /savedMessage\(outcome, noun\(f\)\)/.test(lib) && /isVideo\(f\) \? "Video" : "Picture"/.test(lib))
 check("a dropdown held against moving dots closes on a scroll", /addEventListener\("scroll", close/.test(lib))
 
 console.log("\nA switch: cached, no empty frame, a short cross fade")
-check("the list is kept for the session and shown at once", /let kept: LibraryFile\[\] \| null = null/.test(lib) && /useState<LibraryFile\[\] \| null>\(\(\) => kept\)/.test(lib))
+/* Kept per kind (pictures, videos), so the video chooser has its own list. */
+check("the list is kept for the session and shown at once", /const kept: Record<LibraryKind, LibraryFile\[\] \| null> = \{ image: null, video: null \}/.test(lib) && /useState<LibraryFile\[\] \| null>\(\(\) => kept\[kind\]\)/.test(lib))
 check("a pill only hides tiles, it never rebuilds them", /hidden=\{at === undefined\}/.test(lib) && /files\.map\(\(f\) =>/.test(lib))
 check("the tiles on screen are copied over the grid before it changes", /crossFade\(\)\s*\n\s*setSource\(s\)/.test(lib))
 check("the copy fades out and the grid fades in, opacity only", /\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(lib) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(lib) && !/translate|scale\(/.test(lib.slice(lib.indexOf("const crossFade"), lib.indexOf("const chooseSource"))))

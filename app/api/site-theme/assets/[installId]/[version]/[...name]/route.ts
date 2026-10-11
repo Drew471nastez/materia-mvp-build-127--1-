@@ -19,6 +19,7 @@ import { isOptimizableImage } from "@/lib/images/optimized-url"
 import { installFiles, compatThemeFor } from "@/lib/website-builder/compat-site"
 import { themeAsset } from "@/lib/storelib-theme/compat/site"
 import { compileScss } from "@/lib/storelib-theme/compat/scss"
+import { fixThemeCss } from "@/lib/storelib-theme/compat/css-fixes"
 
 export const runtime = "nodejs"
 
@@ -88,7 +89,9 @@ export async function GET(_req: Request, { params }: Params) {
   const text = plain ? (draft ? plain.draft_content ?? plain.content : plain.content) : null
   if (typeof text === "string" && text !== "") {
     const bytes = binaryOf(text)
-    return new NextResponse(bytes ? new Blob([bytes as BlobPart]) : text, { headers: { ...cors, "Content-Type": type, "Cache-Control": cache } })
+    /* A stylesheet as the page draws its own (lib/storelib-theme/compat/css-fixes.ts). */
+    const body = bytes ? new Blob([bytes as BlobPart]) : /^text\/css/.test(type) ? fixThemeCss(text) : text
+    return new NextResponse(body, { headers: { ...cors, "Content-Type": type, "Cache-Control": cache } })
   }
   if (!rows.some((r) => r.path.endsWith(".liquid"))) return new NextResponse("Not found", { status: 404, headers: cors })
   /* A `.css.liquid` asset is drawn with the theme's settings, which needs the theme. */

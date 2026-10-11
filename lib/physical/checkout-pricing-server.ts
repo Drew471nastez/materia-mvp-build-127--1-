@@ -118,6 +118,7 @@ interface ProductRow {
   tags?: string[] | null
   vendor?: string | null
   created_at?: string
+  category?: string | null
 }
 
 export async function priceCheckout(
@@ -129,7 +130,7 @@ export async function priceCheckout(
   const { data: products, error } = await db
     .from("products")
     .select(
-      "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at",
+      "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at, category",
     )
     .in("id", productIds)
     .eq("status", "published")
@@ -321,7 +322,7 @@ export async function priceCheckout(
       if (col.kind !== "smart") continue
       const rules = readRules(col.rules)
       for (const p of rows) {
-        const rp: RuleProduct = { id: p.id, title: p.title, type: p.type, tags: p.tags ?? [], vendor: p.vendor ?? null, priceCents: p.price_cents, compareAtCents: p.compare_at_price_cents ?? null, inventory: null, weightGrams: p.weight_grams ?? null, createdAt: p.created_at }
+        const rp: RuleProduct = { id: p.id, title: p.title, type: p.type, tags: p.tags ?? [], vendor: p.vendor ?? null, priceCents: p.price_cents, compareAtCents: p.compare_at_price_cents ?? null, inventory: null, weightGrams: p.weight_grams ?? null, createdAt: p.created_at, category: p.category ?? null }
         if (inSmartCollection(rules, col.match, rp)) inCollections.add(p.id)
       }
     }
@@ -404,7 +405,7 @@ export async function quoteCheckout(db: Db, priced: Extract<PricedCheckout, { ok
     : priced.lines
   const taxPlace = pickupLocation ? { country: pickupLocation.country, region: pickupLocation.region } : { country: address?.country ?? null, region: address?.region ?? null }
   const totals = physicalTotals(
-    lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable })),
+    lines.map((l) => ({ productId: l.productId, unitCents: l.unitCents, quantity: l.quantity, discountCents: l.discountCents, taxable: l.taxable, digital: l.type !== "physical" })),
     { shippingCents: option?.priceCents ?? 0, freeShipping: priced.freeShipping, tax: priced.tax, country: taxPlace.country ?? null, region: taxPlace.region ?? null },
   )
   return { quote, pickups, option, totals, lines }

@@ -170,3 +170,15 @@ export const CARRIERS = ["USPS", "UPS", "FedEx", "DHL Express", "Royal Mail", "C
 export function orderNumber(checkoutId: string): string {
   return `#${checkoutId.replace(/-/g, "").slice(0, 8).toUpperCase()}`
 }
+
+/**
+ * Whether a refund puts the order's stock back: refunded in full, nothing
+ * out for delivery (every shipment cancelled or none made), not cancelled
+ * already, and something physical in it. A partial refund, or one after
+ * shipping, leaves stock to the return flow.
+ */
+export function refundReleasesStock(o: { totalCents: number; refundedCents: number; cancelledAt: string | null; shipments: { status: string }[]; lines: { type: string }[] }): boolean {
+  if (o.cancelledAt || o.totalCents <= 0 || o.refundedCents < o.totalCents) return false
+  if (o.shipments.some((s) => s.status !== "cancelled")) return false
+  return o.lines.some((l) => l.type === "physical")
+}

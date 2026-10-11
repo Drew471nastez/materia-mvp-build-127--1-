@@ -29,6 +29,13 @@ export type HelpBlock =
   | { type: "note"; text: string }
   /** A drawn picture of the screen being explained (components/help/help-figures). */
   | { type: "figure"; figure: string; caption: string }
+  /**
+   * A screenshot of the real screen, a WebP under public/help/, taken at 2x
+   * from the real components with made up demo data (see the note in
+   * lib/help/physical-shots.ts). `width` and `height` are its size in CSS
+   * pixels, so the page keeps its space while it loads.
+   */
+  | { type: "image"; src: string; alt: string; caption?: string; width: number; height: number }
 
 export interface HelpCategory {
   slug: string
@@ -46,6 +53,8 @@ export interface HelpArticle {
   summary: string
   /** Words people search with that the text itself may not use. */
   keywords?: string[]
+  /** A group inside a big topic (the physical products guide), shown as a heading on the topic's page. */
+  section?: string
   body: HelpBlock[]
 }
 
@@ -756,6 +765,21 @@ export function helpArticlesFor(physical: boolean): HelpArticle[] {
   return physical ? ALL_HELP_ARTICLES : HELP_ARTICLES
 }
 
+/**
+ * A topic's articles in their groups, in the order the groups first appear.
+ * A topic without groups is one group with no title.
+ */
+export function helpSectionsIn(category: string): { title: string | null; articles: HelpArticle[] }[] {
+  const out: { title: string | null; articles: HelpArticle[] }[] = []
+  for (const a of helpArticlesIn(category)) {
+    const title = a.section ?? null
+    const group = out.find((g) => g.title === title)
+    if (group) group.articles.push(a)
+    else out.push({ title, articles: [a] })
+  }
+  return out
+}
+
 /** Whether a topic may be shown now. */
 export function helpVisible(category: HelpCategory | undefined, physical: boolean): boolean {
   return !!category && (physical || !category.physical)
@@ -793,6 +817,7 @@ export function articleText(a: HelpArticle): string {
     else if (b.type === "steps" || b.type === "list") parts.push(...b.items.map(sentence))
     else if (b.type === "table") parts.push(...b.rows.map((r) => sentence(r.filter(Boolean).join(", "))))
     else if (b.type === "figure") parts.push(sentence(b.caption))
+    else if (b.type === "image") parts.push(sentence(b.caption ?? b.alt))
   }
   return parts.map(plainText).join(" ")
 }

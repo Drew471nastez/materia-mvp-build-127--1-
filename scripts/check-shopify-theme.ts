@@ -22,6 +22,15 @@
  *   canvas-cart.ts): Add to cart fills the builder's cart with no request
  *   to the network, and Buy it now says checkout is on the live site
  *   nothing is requested from Shopify's servers
+ *   every icon draws: no empty <svg>, no <use> without its symbol, no
+ *   broken SVG asset (home, a collection, a product)
+ *   no button label wears a box of its own, at rest or on hover (the
+ *   product form, the drawer's buttons)
+ *   the product page holds still as it loads: layout shift under 0.1
+ *   the header's cart opens the drawer or the cart page, never both, on
+ *   the website and in the canvas
+ *   in the canvas, /account, /account/login and /account/register draw in
+ *   the theme, and sending a sign in form says it works on the live site
  *
  * Measurements, not opinions: each line prints what it measured. Exits 1 on
  * any failure. Screenshots go to $OUT (default /tmp/shopify-theme-check).
@@ -36,7 +45,7 @@ import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
-import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
+import { answer, canvasAccountPage, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "../lib/storelib-theme/compat/canvas-cart"
 
@@ -131,10 +140,12 @@ async function serve(zipPath: string) {
     /* The builder's canvas, as compat-canvas.tsx draws it: the page in a sandboxed frame, what its scripts ask answered by the parent. */
     if (url.pathname === "/__canvas") {
       const path = url.searchParams.get("path") ?? "/"
-      const drawn = await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+      /* An account page, as the builder's canvas draws it (compat-canvas.tsx, site.ts canvasAccountPage). */
+      const account = /^\/account/.test(path) ? canvasAccountPage({ ...site, designMode: true }, path, { extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }) : null
+      const drawn = account ? { body: account.html } : await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
       const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed={};</script>${CANVAS_HEAD}`)
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type==="navigate")(window.__nav=window.__nav||[]).push(m.href);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
       return
     }
     if (url.pathname === "/__canvas-answer") {
@@ -210,8 +221,12 @@ async function run(zipPath: string) {
       if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || m.type() === "warn") console.log("    console:", m.text().slice(0, 200)) })
       await page.setRequestInterception(true)
       let checkoutHits = 0
+      /* While the header's cart is pressed: a page load it starts is held and counted, so whether the drawer ALSO opened can be seen. */
+      let holdNavigation = false
+      const heldNavigations: string[] = []
       page.on("request", (r) => {
         const u = r.url()
+        if (holdNavigation && r.isNavigationRequest() && r.frame() === page.mainFrame()) { heldNavigations.push(u.slice(base.length)); return r.abort() }
         /* Anything on its way to checkout: /checkout, the basket checkout, or the cart posted with \`checkout\`. */
         if (u.startsWith(base) && (/^\/(checkout|cart\/checkout|api\/checkout)/.test(u.slice(base.length)) || (r.method() === "POST" && /^\/cart/.test(u.slice(base.length)) && /(^|&|name="|\b)checkout/.test(r.postData() ?? "")))) checkoutHits++
         /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
@@ -233,10 +248,64 @@ async function run(zipPath: string) {
         }))
       }
 
+      /*
+        ICONS: every <svg> has something to draw, every <use> points at a
+        symbol the page has, and every icon from the theme's own SVG assets
+        loads. An icon that came through as an empty box is how an unknown
+        filter, a sprite file the frame cannot fetch or a missing snippet
+        shows.
+      */
+      const icons = () => page.evaluate(() => {
+        const live = (el: Element) => !el.closest("template, noscript, [hidden]")
+        const svgs = [...document.querySelectorAll("svg")].filter(live)
+        const empty = svgs.filter((s) => !s.closest("symbol, defs") && !s.querySelector("path, circle, rect, line, polyline, polygon, ellipse, use, text, image, g, foreignObject")).map((s) => `${s.getAttribute("class") ?? "svg"} in ${(s.parentElement?.className?.toString?.() ?? "").slice(0, 40)}`)
+        const missing = [...document.querySelectorAll("use")].filter(live).map((u) => u.getAttribute("href") ?? u.getAttribute("xlink:href") ?? "").filter((h) => !h.startsWith("#") || !document.getElementById(h.slice(1)))
+        const broken = [...document.images].filter((i) => /\/api\/site-theme\/assets\/[^?#]+\.svg/i.test(i.currentSrc || i.src) && i.complete && i.naturalWidth === 0).map((i) => i.src.split("/").pop())
+        return { svgs: svgs.length, empty, missing: [...new Set(missing)], broken }
+      })
+      /*
+        A BUTTON'S LABEL NEVER WEARS A BOX OF ITS OWN: no text inside a button
+        paints a background other than the button's, at rest or with the
+        pointer on it (Posturex's drawer Check out did, on hover).
+      */
+      const labelBoxes = async (selector: string) => {
+        const read = () => page.evaluate((sel) => {
+          const out: string[] = []
+          for (const b of document.querySelectorAll<HTMLElement>(sel)) {
+            const r = b.getBoundingClientRect()
+            if (!r.width || !r.height) continue
+            const bg = getComputedStyle(b).backgroundColor
+            if (bg === "rgba(0, 0, 0, 0)") continue
+            for (const d of b.querySelectorAll<HTMLElement>("span, strong, em, b, small")) {
+              const c = getComputedStyle(d)
+              if (!/^inline/.test(c.display) || !(d.textContent ?? "").trim() || c.backgroundColor === "rgba(0, 0, 0, 0)" || c.backgroundColor === bg) continue
+              out.push(`"${(d.textContent ?? "").trim().slice(0, 16)}" ${c.backgroundColor} on ${bg}`)
+            }
+          }
+          return out
+        }, selector)
+        const atRest = await read()
+        const target = await page.$$(selector)
+        let hovered: string[] = []
+        for (const h of target.slice(0, 4)) {
+          const box = await h.boundingBox().catch(() => null)
+          if (!box || box.width === 0) continue
+          await h.hover().catch(() => {})
+          await new Promise((r) => setTimeout(r, 450))
+          hovered = hovered.concat(await read())
+        }
+        await page.mouse.move(1, 1)
+        return [...new Set([...atRest, ...hovered])]
+      }
+
       for (const path of ["/", "/collections/all", "/collections/summer?sort_by=price-descending", "/search?q=linen", "/pages/contact", "/no-such-page"]) {
         const m = await visit(path)
         check(`${path} draws`, m.sections > 0 && errors.length === 0, `${m.sections} sections, ${errors.length} script errors${errors[0] ? `: ${errors[0]}` : ""}`)
         check(`${path} no sideways scroll`, m.overflow <= 1, `${m.overflow}px`)
+        if (path === "/" || path === "/collections/all") {
+          const ic = await icons()
+          check(`${path} every icon draws`, ic.svgs > 0 && ic.empty.length === 0 && ic.missing.length === 0 && ic.broken.length === 0, `${ic.svgs} svgs; empty: ${ic.empty.slice(0, 3).join(" | ") || "none"}; missing: ${ic.missing.slice(0, 3).join(" ") || "none"}; broken: ${ic.broken.join(" ") || "none"}`)
+        }
       }
       await page.screenshot({ path: `${OUT}/${name}-${label}-home.png` })
 
@@ -269,9 +338,18 @@ async function run(zipPath: string) {
       await page.screenshot({ path: `${OUT}/${name}-${label}-filtered.png` })
 
       /* A product, its options and the cart. */
+      /* The product page holds still as it loads: layout shift (CLS) under 0.1, Google's line for "good". */
+      await page.evaluateOnNewDocument(() => { (window as unknown as { __cls: number }).__cls = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) (window as unknown as { __cls: number }).__cls += e.value }).observe({ type: "layout-shift", buffered: true }) } catch {} })
       await visit("/products/linen-shirt-2")
+      await new Promise((r) => setTimeout(r, 1200))
+      const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls)
+      check("the product page holds still as it loads (layout shift under 0.1)", cls < 0.1, cls.toFixed(4))
       await page.screenshot({ path: `${OUT}/${name}-${label}-product.png` })
       check("product page has no script errors", errors.length === 0, errors[0] ?? "")
+      const productIcons = await icons()
+      check("product page: every icon draws", productIcons.empty.length === 0 && productIcons.missing.length === 0 && productIcons.broken.length === 0, `${productIcons.svgs} svgs; empty: ${productIcons.empty.slice(0, 3).join(" | ") || "none"}; missing: ${productIcons.missing.slice(0, 3).join(" ") || "none"}`)
+      const addBoxes = await labelBoxes("form[action='/cart/add'] button[type='submit'], form[action='/cart/add'] button[name='add'], .product-form__submit, [data-storelib-buy-now]")
+      check("product page: no button label wears a box of its own, at rest or on hover", addBoxes.length === 0, addBoxes.slice(0, 3).join(" | ") || "none")
       const pictures = await page.evaluate(() => {
         const imgs = [...document.querySelectorAll<HTMLImageElement>("[data-section-type=\"product-information\"] img, [data-section-type=\"main-product\"] img")].filter((i) => { const r = i.getBoundingClientRect(); return r.width > 40 && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0 && getComputedStyle(i).visibility !== "hidden" && !!i.offsetParent })
         return { shown: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, missing: imgs.filter((i) => !(i.complete && i.naturalWidth > 0)).map((i) => `${i.className} ${i.currentSrc || i.src}`.slice(0, 120)) }
@@ -336,6 +414,13 @@ async function run(zipPath: string) {
       }
       check(`the theme's cart drawer or notification opens with the product in it (${how})`, opened.ok, opened.what)
       await page.screenshot({ path: `${OUT}/${name}-${label}-added.png` })
+      if (opened.ok) {
+        /* Its buttons with any terms box ticked, as a buyer sees them. */
+        await page.evaluate(() => { for (const box of document.querySelectorAll<HTMLInputElement>("input[type=checkbox]")) if ((box.required || /terms|agree/i.test(box.name + box.id)) && !box.checked && box.getBoundingClientRect().width > 0) box.click() })
+        await new Promise((r) => setTimeout(r, 300))
+        const drawerBoxes = await labelBoxes("cart-drawer [name='checkout'], cart-notification [name='checkout'], cart-drawer-component [name='checkout'], #CartDrawer [name='checkout'], .cart-drawer [name='checkout'], dialog[open] [name='checkout'], [form='minicart'][name='checkout'], cart-drawer .button, cart-notification .button, dialog[open] .button, .minicart__wrapper .btn-outline, .minicart__wrapper .btn-primary")
+        check("the drawer: no button label wears a box of its own, at rest or on hover", drawerBoxes.length === 0, drawerBoxes.slice(0, 3).join(" | ") || "none")
+      }
       /* Its own Check out, as a visitor presses it: any terms box in it ticked first (Posturex draws one). */
       if (opened.ok) {
         checkoutHits = 0
@@ -357,6 +442,35 @@ async function run(zipPath: string) {
         check("the drawer's own Check out reaches checkout", pressed === "pressed" && checkoutHits > 0, `${pressed}, ${checkoutHits} checkout requests`)
       }
 
+      /*
+        THE HEADER'S CART: the theme's drawer, or the cart page, never both.
+        A drawer that slides in while the page leaves for /cart is the bug a
+        click handler of Storelib's that ignores the theme's preventDefault
+        makes. Pressed with something in the cart; a page load it starts is
+        held, so the drawer can still be looked at.
+      */
+      await visit("/products/linen-shirt-3")
+      const cartIcon = await page.evaluate(() => {
+        const icon = [...document.querySelectorAll<HTMLElement>("header cart-icon, header .header__icon--cart, header [ref='cartIcon'], header a[href='/cart'], #cart-icon-bubble, header button[aria-controls*='cart' i], .header-actions__cart-icon")].find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+        const target = (icon?.closest("button, a") as HTMLElement | null) ?? icon ?? null
+        target?.setAttribute("data-probe-cart", "")
+        return !!target
+      })
+      let liveCartOpensDrawer: boolean | null = null
+      if (cartIcon) {
+        /* A theme that keeps its drawer open from page to page (Horizon, after its Check out was pressed) has it closed first: the press is to open it. */
+        if ((await findOpen()).ok) { await page.keyboard.press("Escape"); await new Promise((r) => setTimeout(r, 700)) }
+        heldNavigations.length = 0
+        holdNavigation = true
+        await page.click("[data-probe-cart]").catch(() => {})
+        await new Promise((r) => setTimeout(r, 1500))
+        holdNavigation = false
+        const drawer = await findOpen()
+        const went = heldNavigations.filter((u) => /^\/cart(\?|$)/.test(u))
+        liveCartOpensDrawer = drawer.ok
+        check("the header's cart opens the drawer or the cart page, never both", drawer.ok !== went.length > 0, `drawer ${drawer.ok ? "open" : "closed"}, page loads: ${went.join(" ") || "none"}`)
+      }
+
       await visit("/cart")
       await page.screenshot({ path: `${OUT}/${name}-${label}-cart.png` })
       const lines = await page.evaluate(() => document.body.innerText.includes("Linen shirt 2"))
@@ -374,11 +488,12 @@ async function run(zipPath: string) {
       /* Buy it now: that item alone, straight to checkout; the cart is left as it was. */
       await visit("/products/linen-shirt-3")
       lastCheckout = null
-      /* The site's /checkout answers with a redirect to Storelib's branded checkout (lib/checkout/basket-link): its lines ride in the address. */
+      /* Buy it now lands on the site's own checkout (lib/checkout/site-checkout siteCheckoutHref): its lines ride in the address. */
       const onBasket = (r: { url(): string }) => {
         try {
           const u = new URL(r.url())
-          if (u.pathname === "/checkout/cart" && u.searchParams.get("items")) lastCheckout = { items: readBasketParams(u.searchParams).items }
+          /* The first one: the probe has no proxy, so its own /checkout answers again with the whole cart, where the live site rewrites it to the checkout page (proxy.ts). */
+          if (!lastCheckout && (u.pathname === "/checkout" || u.pathname === "/checkout/cart") && u.searchParams.get("items")) lastCheckout = { items: readBasketParams(u.searchParams).items }
         } catch {}
       }
       page.on("request", onBasket)
@@ -441,7 +556,55 @@ async function run(zipPath: string) {
       const addInCanvas = await pressIn("form[data-type='add-to-cart-form'] button[type='submit'], form[action='/cart/add'] button[name='add'], form[action='/cart/add'] button[type='submit']:not([name='checkout'])")
       await new Promise((r) => setTimeout(r, 2500))
       check("in the canvas, Add to cart fills the builder's cart, with nothing sent to the network", addInCanvas && canvasCart.cart.length >= 1 && canvasLeaks.length === 0 && errors.length === 0, `pressed ${addInCanvas}, ${canvasCart.cart.length} lines, leaks: ${canvasLeaks.join(" ") || "none"}${errors[0] ? `, ${errors[0]}` : ""}`)
+      /* The header's cart in the canvas does what it does on the website: the drawer the theme opens, and no cart page under it; the cart page where the theme's cart is a plain link. */
+      if (liveCartOpensDrawer !== null) {
+        await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+        const pressedCart = await frame!.evaluate(() => {
+          const icon = [...document.querySelectorAll<HTMLElement>("header cart-icon, header .header__icon--cart, header [ref='cartIcon'], header a[href='/cart'], #cart-icon-bubble, header button[aria-controls*='cart' i], .header-actions__cart-icon")].find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+          const target = (icon?.closest("button, a") as HTMLElement | null) ?? icon ?? null
+          if (!target) return false
+          target.click()
+          return true
+        })
+        await new Promise((r) => setTimeout(r, 1200))
+        const nav = await page.evaluate(() => ((window as unknown as { __nav?: string[] }).__nav ?? []).join(" "))
+        const toCart = /(^|\s)\/cart(\?|\s|$)/.test(nav)
+        check(`in the canvas, the header's cart ${liveCartOpensDrawer ? "opens the drawer and not the cart page" : "opens the cart page"}, as on the website`, pressedCart && (liveCartOpensDrawer ? !toCart : toCart), `pressed ${pressedCart}, navigations: ${nav || "none"}`)
+      }
       await page.screenshot({ path: `${OUT}/${name}-${label}-canvas.png` })
+
+      /* The account pages in the canvas: drawn by the theme, so they can be seen and styled; sending one says sign in works on the live site, and nothing leaves. */
+      for (const at of ["/account/login", "/account/register", "/account"]) {
+        canvasLeaks.length = 0
+        errors.length = 0
+        await page.goto(`${base}/__canvas?path=${encodeURIComponent(at)}`, { waitUntil: "networkidle0", timeout: 60_000 })
+        await new Promise((r) => setTimeout(r, 600))
+        const accFrame = page.frames().find((f) => f !== page.mainFrame())!
+        const drawn = await accFrame.evaluate(() => {
+          const shown = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
+          const form = [...document.querySelectorAll<HTMLFormElement>("form")].find((f) => shown(f) && !!f.querySelector("input[type=email], input[name='customer[email]'], input[name=email]"))
+          const email = form?.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")
+          return { header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
+        })
+        if (at === "/account") {
+          check("in the canvas, /account draws the theme's account page, about a sample customer", drawn.header && drawn.footer && drawn.account && errors.length === 0, JSON.stringify(drawn))
+          continue
+        }
+        const sent = await accFrame.evaluate(() => {
+          const form = document.querySelector<HTMLFormElement>("[data-probe-account]")
+          if (!form) return false
+          const email = form.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")!
+          email.value = "visitor@example.com"
+          form.querySelectorAll<HTMLInputElement>("input[required]").forEach((i) => { if (!i.value) i.value = i.type === "password" ? "x" : "x" })
+          const button = form.querySelector<HTMLElement>("button[type=submit], input[type=submit], button:not([type])")
+          if (button) button.click()
+          else form.requestSubmit()
+          return true
+        })
+        await new Promise((r) => setTimeout(r, 800))
+        const said = await page.evaluate(() => (window as unknown as { __events: string[] }).__events.join())
+        check(`in the canvas, ${at} draws in the theme, and sending it says sign in works on the live site, with nothing sent`, drawn.header && drawn.footer && drawn.form && sent && /account/.test(said) && canvasLeaks.length === 0, `${JSON.stringify(drawn)}, said "${said}", leaks: ${canvasLeaks.join(" ") || "none"}`)
+      }
 
       check("nothing was asked of Shopify's servers", shopifyHits.length === 0, shopifyHits[0] ?? "")
       await page.deleteCookie({ name: CART_COOKIE, url: base })

@@ -320,6 +320,7 @@ async function main() {
       "lib/onepage/live-products.ts": { count: 1, why: "reads the status and the flag and applies isPubliclyVisible to each row" },
       "lib/seo/announce.ts": { count: 2, why: "tells search engines an address changed; an archived one then answers 404" },
       "lib/site-accounts/account-data.ts": { count: 2, why: "a website customer's own orders, which they keep" },
+      "lib/site-accounts/order-files.ts": { count: 1, why: "the creator of one of a website customer's own orders, to keep it to that website" },
       "lib/website-builder/site-performance-read.ts": { count: 1, why: "the creator's own speed report" },
     }
     const reads = new Map<string, number>()

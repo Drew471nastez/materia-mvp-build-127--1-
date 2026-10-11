@@ -136,7 +136,9 @@ async function main() {
     ["a paid checkout (the webhook and the browser)", "lib/checkout/fulfil-payment.ts", /basis: m\.email_opt_in === "true" \? "ticked" : "none"/],
     /* Changed on purpose (round T): "none" unless the physical checkout's news box was ticked (Settings › Checkout). */
     ["a basket on a creator's site", "lib/checkout/fulfil-cart-item.ts", /basis: "ticked" \| "none" = "none"\) \{[\s\S]*?\n    basis,\n/],
-    ["a free claim", "app/api/checkout/process/route.ts", /basis: body\.emailOptIn === true \? "ticked" : "none"/],
+    /* Changed on purpose (round R4): a yes only for a box the store shows (Settings › Checkout's news box). */
+    ["a free claim", "app/api/checkout/process/route.ts", /basis: config\.marketingOptIn && body\.emailOptIn === true \? "ticked" : "none"/],
+    ["a website's own checkout, at Pay", "app/api/checkout/site/route.ts", /basis: "ticked", bought: false/],
     ["a OnePage free download", "app/api/checkout/quick-free/route.ts", /basis: "notice"/],
     ["an older Stripe session", "app/api/stripe/webhook/route.ts", /basis: metadata\.email_opt_in === "true" \? "ticked" : "none"/],
     ["a checkout that reached Pay", "app/api/checkout/stripe-session/route.ts", /basis: "ticked", bought: false/],

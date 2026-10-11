@@ -165,6 +165,12 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     await new Promise((r) => setTimeout(r, delays[one] ?? 0))
     return json({ product: (probeGlobals.PROBE_PRODUCTS ?? []).find((x) => x.id === one) ?? null })
   }
+  /* PROBE_LIBRARY: the store's files, as /api/files answers (components/files/files-library.tsx); a delete is kept for the probe to read. */
+  if (/^\/api\/files/.test(url)) {
+    const lib = (window as unknown as { PROBE_LIBRARY?: unknown[]; probeDeleted?: unknown[] })
+    if (init?.method === "DELETE") { lib.probeDeleted = [...(lib.probeDeleted ?? []), JSON.parse(String(init.body))]; return json({ ok: true }) }
+    return json({ files: /kind=video/.test(url) ? [] : lib.PROBE_LIBRARY ?? [] })
+  }
   if (/\/products/.test(url)) return json({ products: probeGlobals.PROBE_PRODUCTS ?? [] })
   if (/\/setup/.test(url)) return json({ setup: {} })
   return json({})

@@ -84,6 +84,29 @@ async function readOrders(
   return ((loose.data ?? []) as any[]).map(pick)
 }
 
+/**
+ * Settings › Taxes: the tax inside each order (SQL part 110 `tax_cents`) and
+ * whether it was part of the price (part 129 `tax_included`). Its own read,
+ * so a database without either column shows the receipt as before, with no
+ * tax line.
+ */
+async function readTax(admin: SupabaseClient, ids: string[]): Promise<Map<string, { cents: number; included: boolean }>> {
+  const out = new Map<string, { cents: number; included: boolean }>()
+  if (ids.length === 0) return out
+  try {
+    let res = await admin.from("orders").select("id, tax_cents, tax_included").in("id", ids)
+    if (res.error) res = (await admin.from("orders").select("id, tax_cents").in("id", ids)) as typeof res
+    if (res.error) return out
+    for (const r of (res.data ?? []) as { id: string; tax_cents?: number | null; tax_included?: boolean | null }[]) {
+      const cents = Math.max(0, Math.round(Number(r.tax_cents) || 0))
+      if (cents > 0) out.set(r.id, { cents, included: r.tax_included === true })
+    }
+  } catch {
+    /* No tax line. */
+  }
+  return out
+}
+
 export interface LoadedReceipt {
   view: ReceiptView
   /** Kept on the server: whose account each line is on. */
@@ -113,7 +136,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   const productIds = [...new Set(rows.map((r) => r.product_id).filter(Boolean))]
   const variantIds = [...new Set(rows.map((r) => r.variant_id).filter(Boolean) as string[])]
 
-  const [productsRes, assetsRes, mappingRes, variantsRes, policiesRes] = await Promise.all([
+  const [productsRes, assetsRes, mappingRes, variantsRes, policiesRes, taxOf] = await Promise.all([
     admin.from("products").select("id, title, slug, thumbnail_url, type, creator_id").in("id", productIds),
     admin
       .from("digital_assets")
@@ -133,6 +156,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
       .from("products")
       .select("id, refund_policy_enabled, refund_policy_type, refund_policy_fine_print")
       .in("id", productIds),
+    readTax(admin, rows.map((r) => r.id)),
   ])
 
   const products = new Map<string, any>(((productsRes as any).data ?? []).map((p: any) => [p.id, p]))
@@ -188,6 +212,9 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     const product = products.get(r.product_id)
     const state = accessStateOf(r)
     const money = lineMoney(r)
+    /* Tax added on top is in the amount: the line shows its price, the tax has its own row below. */
+    const lineTax = taxOf.get(r.id)
+    if (lineTax && !lineTax.included) money.subtotalCents = Math.max(0, money.subtotalCents - lineTax.cents)
     const all = filesByProduct.get(r.product_id) ?? []
     const files =
       state === "open" && !(mappingUnknown && r.variant_id)
@@ -247,6 +274,9 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   }
 
   const totals = sumMoney(rows)
+  const taxCents = [...taxOf.values()].reduce((n, t) => n + t.cents, 0)
+  const taxIncluded = taxCents > 0 && [...taxOf.values()].every((t) => t.included)
+  if (taxCents > 0 && !taxIncluded) totals.subtotalCents = Math.max(0, totals.subtotalCents - taxCents)
   const sent = rows.some((r) => !!r.buyer_notified_at)
   const failed = !sent && rows.some((r) => (r.buyer_email_last_error ?? "").toString().trim() !== "")
 
@@ -257,6 +287,8 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     state: overallState(items.map((i) => i.state)),
     items,
     ...totals,
+    taxCents,
+    taxIncluded,
     payment: {
       method: (first.payment_method as string) ?? null,
       brand: (first.card_brand as string) ?? null,

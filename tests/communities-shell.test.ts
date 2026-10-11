@@ -754,7 +754,8 @@ async function main() {
     check("a combobox: the field says which result is chosen, the list is a listbox of options", /role="combobox"/.test(client) && /aria-activedescendant=/.test(client) && /role="listbox"/.test(client) && /role: "option" as const/.test(client))
     check("the arrows, Enter, Escape, and / to focus", /e\.key === "ArrowDown" \|\| e\.key === "ArrowUp"/.test(client) && /e\.key === "Enter" && active >= 0/.test(client) && /e\.key === "Escape"/.test(client) && /e\.key !== "\/"/.test(client))
     check("it asks once typing pauses, never under two letters, and drops a stale answer", SEARCH_DEBOUNCE_MS === 180 && SEARCH_MIN_CHARS === SEARCH_MIN && /if \(ctrl\.signal\.aborted \|\| latest\.current !== term\) return/.test(client))
-    check("on a phone: the whole screen, drawn inside the tap so the keyboard comes up, 16px so iOS does not zoom", /flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(client) && /fixed inset-0 z-\[80\]/.test(client) && /text-\[16px\]/.test(client) && /createPortal\(/.test(client))
+    /* Round R8: drawn at SEARCH_SCREEN_Z (136), over an opened post, where it was z-[80] (tests/community-mobile-r8.test.ts). */
+    check("on a phone: the whole screen, drawn inside the tap so the keyboard comes up, 16px so iOS does not zoom", /flushSync\(\(\) => setOpen\(true\)\)\s*input\.current\?\.focus\(\)/.test(client) && /fixed inset-0 flex flex-col bg-white/.test(client) && /style=\{\{ zIndex: SEARCH_SCREEN_Z \}\}/.test(client) && /text-\[16px\]/.test(client) && /createPortal\(/.test(client))
   }
 
   /* ── Copy and boundaries ─────────────────────────────────────────────── */

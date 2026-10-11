@@ -139,7 +139,7 @@ export async function siteMetadata(
     is not a full address, or is an SVG, is passed over: the networks that
     draw share cards cannot fetch the one or draw the other.
   */
-  const hasShareImage = typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== ""
+  const hasShareImage = !!own.image || (typeof settings.seo_og_image === "string" && settings.seo_og_image.trim() !== "")
   const logo =
     typeof settings.logo_url === "string" && /^https?:\/\//i.test(settings.logo_url.trim()) && !/\.svg(?:\?|$)/i.test(settings.logo_url.trim())
       ? settings.logo_url.trim()
@@ -156,7 +156,8 @@ export async function siteMetadata(
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
     // nothing, so "noindex" was a setting somebody trusted and did not have.
-    ...themeMetadata(settings, { title: rawTitle, description, url, image: shareImage }),
+    /* A page's own share picture (Website settings › Pages) over the site's (lib/website-builder/page-seo.ts). */
+    ...themeMetadata(own.image ? { ...settings, seo_og_image: own.image } : settings, { title: rawTitle, description, url, image: shareImage }),
     /* A page kept out of search on its own, whatever the site's setting. */
     ...(own.hidden ? { robots: { index: false, follow: true } } : {}),
     /*
@@ -236,7 +237,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages) }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its

@@ -76,7 +76,7 @@ export async function POST(request: Request) {
           selectedId: q.option?.id ?? null,
           needsCountry: priced.requiresShipping && !country,
         }
-      : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false },
+      : { ok: false, error: q.quote.error, options: [], selectedId: q.option?.kind === "pickup" ? q.option.id : null, needsCountry: false, needsRegion: q.quote.needsRegion === true },
     pickups: q.pickups.map((o) => ({
       id: o.id,
       name: o.pickup?.name ?? o.name,

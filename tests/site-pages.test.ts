@@ -146,7 +146,7 @@ function main() {
        the creator makes their own (lib/website-builder/account-pages). */
     check("and a contact page nobody made previews as the generated one", /pageKey === "contact" \? contactSections\(/.test(renderer))
     check("the sections a visitor gets are cleaned", /sanitizeSections\(/.test(renderer))
-    check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))? \}\}/.test(renderer))
+    check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)? \}\}/.test(renderer))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

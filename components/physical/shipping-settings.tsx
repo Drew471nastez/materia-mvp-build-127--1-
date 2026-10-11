@@ -29,11 +29,12 @@ import * as React from "react"
 import { Check, MapPin, Pencil, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
+import { CountryFlag } from "@/components/app/settings/country-picker"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
 import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
-import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
+import { dimensionUnitFor, formatSize, fromGrams, fromMm, smallWeightUnitFor, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
 
@@ -77,6 +78,13 @@ interface Integration {
   lastSyncAt: string | null
   lastError: string | null
 }
+interface ShippingProduct {
+  id: string
+  title: string
+  imageUrl: string | null
+  /** Null: the general profile. */
+  profileId: string | null
+}
 interface Data {
   settings: Settings
   locations: Location[]
@@ -84,6 +92,7 @@ interface Data {
   packages: Pack[]
   taxRates: TaxRow[]
   integrations: Integration[]
+  shippingProducts?: ShippingProduct[]
 }
 
 const MODELS: { id: FulfillmentModel; title: string; line: string }[] = [
@@ -225,7 +234,7 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
       ) : null}
       {part === "locations" ? (
         <>
-          <Locations data={data} reload={load} />
+          <Locations data={data} reload={load} setData={setData} />
           <StockAlerts data={data} reload={load} />
         </>
       ) : null}
@@ -233,7 +242,7 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
 
       <p className="text-[13px] text-[#6b7280]">
         New to selling physical products?{" "}
-        <a href="/help/physical-products/how-physical-products-work" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+        <a href="/help/physical-products/zero-to-100" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
           Read the step by step guide
         </a>
       </p>
@@ -289,8 +298,16 @@ function Onboarding({ onDone }: { onDone: () => void }) {
 function Delivery({ data, reload, setData }: { data: Data; reload: () => void; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
   const [newProfile, setNewProfile] = React.useState<string | null>(null)
   const [error, setError] = React.useState<string | null>(null)
+  /* Zones made in this visit open their first rate at once: a zone without a rate ships nothing. */
+  const [freshZones, setFreshZones] = React.useState<string[]>([])
   const profiles = [...data.profiles].sort((a, b) => Number(b.isDefault) - Number(a.isDefault))
-  const updateProfiles = (p: ShippingProfile[]) => setData((d) => (d ? { ...d, profiles: p } : d))
+  const products = data.shippingProducts ?? []
+  const updateProfiles = (p: ShippingProfile[], extra?: { shippingProducts?: ShippingProduct[] }) => {
+    const before = new Set(data.profiles.flatMap((x) => x.zones.map((z) => z.id)))
+    const made = p.flatMap((x) => x.zones.map((z) => z.id)).filter((id) => !before.has(id))
+    if (made.length) setFreshZones((f) => [...f, ...made])
+    setData((d) => (d ? { ...d, profiles: p, ...(extra?.shippingProducts ? { shippingProducts: extra.shippingProducts } : {}) } : d))
+  }
   const noRates = data.profiles.every((p) => p.zones.every((z) => z.rates.length === 0))
 
   React.useEffect(() => {
@@ -300,6 +317,7 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
 
   const system = data.settings.unitSystem ?? "metric"
   const setSystem = async (unitSystem: UnitSystem) => {
+    if (unitSystem === system) return
     setData((d) => (d ? { ...d, settings: { ...d.settings, unitSystem } } : d))
     const r = await api("/api/physical/settings", { method: "PUT", body: { unitSystem } })
     if (!r.ok) {
@@ -310,8 +328,8 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
 
   return (
     <div className="space-y-4">
-      <Card title="Units" description="What new products and weight based rates are typed in.">
-        <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label="Units">
+      <Card title="Units" description="How weights and sizes are typed and shown here, on new products and in packages. Rates keep working when you switch.">
+        <div className="flex w-fit gap-1 rounded-xl bg-[#f1f2f4] p-1" role="radiogroup" aria-label="Units" data-unit-system={system}>
           {(
             [
               { id: "metric", label: "Metric (kg, cm)" },
@@ -333,7 +351,7 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
       </Card>
       {noRates ? <Notice tone="amber">Buyers can't check out a physical product until it has a rate for their address. Add a zone and a rate below.</Notice> : null}
       {profiles.map((p) => (
-        <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} system={system} onProfiles={updateProfiles} onError={setError} />
+        <ProfileCard key={p.id} profile={p} allProfiles={data.profiles} products={products} system={system} freshZones={freshZones} onProfiles={updateProfiles} onError={setError} />
       ))}
       {error ? <Notice>{error}</Notice> : null}
       {newProfile === null ? (
@@ -342,7 +360,7 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
           Custom shipping profile
         </button>
       ) : (
-        <Card title="New shipping profile" description="For products that ship differently, like heavy or fragile items.">
+        <Card title="New shipping profile" description="For products that ship differently, like heavy or fragile items. Next you pick its products, then where it ships and for how much.">
           <div className="flex flex-col gap-2 sm:flex-row">
             <TextInput autoFocus placeholder="Heavy items" value={newProfile} maxLength={80} onChange={(e) => setNewProfile(e.target.value)} className="flex-1" />
             <div className="flex gap-2">
@@ -373,42 +391,108 @@ function Delivery({ data, reload, setData }: { data: Data; reload: () => void; s
   )
 }
 
-function ProfileCard({ profile, allProfiles, system, onProfiles, onError }: { profile: ShippingProfile; allProfiles: ShippingProfile[]; system: UnitSystem; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+function ProfileCard({
+  profile,
+  allProfiles,
+  products,
+  system,
+  freshZones,
+  onProfiles,
+  onError,
+}: {
+  profile: ShippingProfile
+  allProfiles: ShippingProfile[]
+  products: ShippingProduct[]
+  system: UnitSystem
+  freshZones: string[]
+  onProfiles: (p: ShippingProfile[], extra?: { shippingProducts?: ShippingProduct[] }) => void
+  onError: (e: string | null) => void
+}) {
   const [addingZone, setAddingZone] = React.useState(false)
-  const taken = allProfiles.find((p) => p.id === profile.id)?.zones.flatMap((z) => z.countries) ?? []
-  const takenRegions = allProfiles.find((p) => p.id === profile.id)?.zones.flatMap((z) => z.regions ?? []) ?? []
+  const [renaming, setRenaming] = React.useState<string | null>(null)
+  const taken = profile.zones.flatMap((z) => z.countries)
+  const takenRegions = profile.zones.flatMap((z) => z.regions ?? [])
   const hasRow = profile.zones.some((z) => z.restOfWorld)
+  const custom = new Set(allProfiles.filter((p) => !p.isDefault).map((p) => p.id))
+  /* The general profile ships every product not in a custom one (or in one that was deleted). */
+  const mine = profile.isDefault ? products.filter((p) => !p.profileId || !custom.has(p.profileId)) : products.filter((p) => p.profileId === profile.id)
+  const home = storeCountry()
+  const startHome = async () => {
+    const r = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/zones", { body: { profileId: profile.id, name: countryName(home), countries: [home], regions: [] } })
+    if (!r.ok) return onError(r.error)
+    onProfiles(r.data.profiles)
+  }
   return (
     <Card
       title={
-        <span className="flex items-center gap-2">
-          {profile.name}
-          {profile.isDefault ? <Pill tone="gray">Default</Pill> : null}
-        </span>
+        renaming !== null ? (
+          <span className="flex items-center gap-2">
+            <TextInput autoFocus value={renaming} maxLength={80} aria-label="Profile name" onChange={(e) => setRenaming(e.target.value)} className="h-9 max-w-[260px]" />
+            <button
+              type="button"
+              className={cn(BTN_PRIMARY, "h-9")}
+              disabled={!renaming.trim()}
+              onClick={async () => {
+                const r = await api<{ profiles: ShippingProfile[]; shippingProducts: ShippingProduct[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "PATCH", body: { name: renaming } })
+                if (!r.ok) return onError(r.error)
+                onProfiles(r.data.profiles, { shippingProducts: r.data.shippingProducts })
+                setRenaming(null)
+              }}
+            >
+              Save
+            </button>
+            <button type="button" className={cn(BTN_GHOST, "h-9")} onClick={() => setRenaming(null)}>
+              Cancel
+            </button>
+          </span>
+        ) : (
+          <span className="flex items-center gap-2">
+            {profile.name}
+            {profile.isDefault ? <Pill tone="gray">Default</Pill> : null}
+          </span>
+        )
       }
-      description={profile.isDefault ? "Every physical product uses these rates, unless you give it a custom profile." : "Only products set to this profile use these rates. Pick it in the product's Shipping card."}
+      description={profile.isDefault ? `Every physical product uses these rates, unless it's in a custom profile.` : "Only the products below use these rates."}
       action={
-        profile.isDefault ? null : (
-          <button
-            type="button"
-            className={BTN_GHOST}
-            aria-label={`Delete ${profile.name}`}
-            onClick={async () => {
-              if (!window.confirm(`Delete ${profile.name}? Its products will use the default rates.`)) return
-              const r = await api<{ profiles: ShippingProfile[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "DELETE" })
-              if (!r.ok) return onError(r.error)
-              onProfiles(r.data.profiles)
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+        renaming !== null ? null : (
+          <div className="flex gap-1">
+            <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`Rename ${profile.name}`} onClick={() => setRenaming(profile.name)}>
+              <Pencil className="h-4 w-4" />
+            </button>
+            {profile.isDefault ? null : (
+              <button
+                type="button"
+                className={cn(BTN_GHOST, "w-9 px-0")}
+                aria-label={`Delete ${profile.name}`}
+                onClick={async () => {
+                  if (!window.confirm(`Delete ${profile.name}? Its products will use the default rates.`)) return
+                  const r = await api<{ profiles: ShippingProfile[]; shippingProducts: ShippingProduct[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "DELETE" })
+                  if (!r.ok) return onError(r.error)
+                  onProfiles(r.data.profiles, { shippingProducts: r.data.shippingProducts })
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         )
       }
     >
-      <div className="space-y-3">
-        {profile.zones.length === 0 && !addingZone ? <p className={MUTED}>No zones yet. A zone is a group of countries or states you ship to with the same rates.</p> : null}
+      <div className="space-y-3" data-shipping-profile={profile.isDefault ? "default" : "custom"}>
+        <ProfileProducts profile={profile} mine={mine} all={products} profiles={allProfiles} onProfiles={onProfiles} onError={onError} />
+        {profile.zones.length === 0 && !addingZone ? (
+          <div className="rounded-xl border border-dashed border-[#e5e7eb] px-3 py-3">
+            <p className={MUTED}>No zones yet. A zone is a group of countries or states you ship to at the same rates.</p>
+            {home ? (
+              <button type="button" className={cn(BTN_SECONDARY, "mt-2")} onClick={startHome} data-start-home={home}>
+                <CountryFlag code={home} className="h-[12px] w-[18px]" />
+                Start with {countryName(home)}
+              </button>
+            ) : null}
+          </div>
+        ) : null}
         {profile.zones.map((z) => (
-          <ZoneBlock key={z.id} zone={z} taken={taken} takenRegions={takenRegions} system={system} onProfiles={onProfiles} onError={onError} />
+          <ZoneBlock key={z.id} zone={z} taken={taken} takenRegions={takenRegions} system={system} fresh={freshZones.includes(z.id)} onProfiles={onProfiles} onError={onError} />
         ))}
         {addingZone ? (
           <ZoneForm
@@ -435,6 +519,100 @@ function ProfileCard({ profile, allProfiles, system, onProfiles, onError }: { pr
   )
 }
 
+/**
+ * WHICH PRODUCTS A PROFILE SHIPS. The general one lists what it covers and
+ * points to the custom ones; a custom one picks its products here (or in
+ * the product's own Shipping card, which writes the same column). Moving a
+ * product out puts it back on the general rates.
+ */
+function ProfileProducts({
+  profile,
+  mine,
+  all,
+  profiles,
+  onProfiles,
+  onError,
+}: {
+  profile: ShippingProfile
+  mine: ShippingProduct[]
+  all: ShippingProduct[]
+  profiles: ShippingProfile[]
+  onProfiles: (p: ShippingProfile[], extra?: { shippingProducts?: ShippingProduct[] }) => void
+  onError: (e: string | null) => void
+}) {
+  const [picking, setPicking] = React.useState(false)
+  const [query, setQuery] = React.useState("")
+  const [busy, setBusy] = React.useState(false)
+  const nameOf = (id: string | null) => profiles.find((p) => p.id === id && !p.isDefault)?.name ?? null
+  const move = async (add: string[], remove: string[]) => {
+    setBusy(true)
+    const r = await api<{ profiles: ShippingProfile[]; shippingProducts: ShippingProduct[] }>(`/api/physical/shipping/profiles/${profile.id}`, { method: "PATCH", body: { addProductIds: add, removeProductIds: remove } })
+    setBusy(false)
+    if (!r.ok) return onError(r.error)
+    onProfiles(r.data.profiles, { shippingProducts: r.data.shippingProducts })
+  }
+  const summary = mine.length === 0 ? "No products" : mine.length <= 2 ? mine.map((p) => p.title).join(", ") : `${mine.slice(0, 2).map((p) => p.title).join(", ")} and ${mine.length - 2} more`
+  if (profile.isDefault) {
+    return (
+      <p className="text-[13px] text-[#6b7280]" data-profile-products={mine.length}>
+        {all.length === 0 ? "No physical products yet." : `${mine.length} of ${all.length} ${all.length === 1 ? "product" : "products"}: ${summary}.`}
+      </p>
+    )
+  }
+  const q = query.trim().toLowerCase()
+  const list = all.filter((p) => !q || p.title.toLowerCase().includes(q))
+  return (
+    <div className="rounded-xl border border-[#eceef1] bg-white" data-profile-products={mine.length}>
+      <div className="flex items-center justify-between gap-3 px-3 py-2.5">
+        <div className="min-w-0">
+          <p className="text-[13.5px] font-medium text-[#1a1a2e]">
+            {mine.length} {mine.length === 1 ? "product" : "products"}
+          </p>
+          <p className="truncate text-[12.5px] text-[#6b7280]">{mine.length ? summary : "Add the products that ship at these rates."}</p>
+        </div>
+        <button type="button" className={cn(BTN_SECONDARY, "shrink-0")} onClick={() => setPicking((v) => !v)} aria-expanded={picking}>
+          {picking ? "Done" : mine.length ? "Change" : "Add products"}
+        </button>
+      </div>
+      {picking ? (
+        <div className="space-y-2 border-t border-[#eceef1] p-3">
+          {all.length === 0 ? (
+            <p className={MUTED}>No physical products yet.</p>
+          ) : (
+            <>
+              <TextInput value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search products" aria-label="Search products" />
+              <ul className="max-h-[260px] overflow-y-auto rounded-lg border border-[#eceef1]">
+                {list.map((p) => {
+                  const on = p.profileId === profile.id
+                  const other = !on ? nameOf(p.profileId) : null
+                  return (
+                    <li key={p.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        aria-pressed={on}
+                        onClick={() => void move(on ? [] : [p.id], on ? [p.id] : [])}
+                        className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-[#1a1a2e] hover:bg-[#f7f7f8] disabled:opacity-60"
+                      >
+                        <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")}>{on ? <Check className="h-3 w-3 text-white" strokeWidth={3} /> : null}</span>
+                        {p.imageUrl ? <img src={p.imageUrl} alt="" className="h-7 w-7 shrink-0 rounded-md object-cover" /> : <span className="h-7 w-7 shrink-0 rounded-md bg-[#f1f2f4]" />}
+                        <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                        {other ? <span className="shrink-0 text-[12px] text-[#9ca3af]">In {other}</span> : null}
+                      </button>
+                    </li>
+                  )
+                })}
+                {list.length === 0 ? <li className="px-3 py-3 text-[13.5px] text-[#6b7280]">No product matches.</li> : null}
+              </ul>
+              <p className="text-[12px] text-[#6b7280]">Picking a product in another profile moves it here.</p>
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function ZoneForm({
   initial,
   taken,
@@ -458,52 +636,87 @@ function ZoneForm({
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const otherRegions = takenRegions.filter((r) => !initial?.regions?.includes(r))
-  const defaultName = () => (row ? "Rest of world" : countries.length === 1 && regions.length === 0 ? countryName(countries[0]) : regions.length === 1 && countries.length === 0 ? regionLabel(regions[0]) : "Zone")
+  const otherCountries = taken.filter((c) => !initial?.countries.includes(c))
+  const defaultName = () => {
+    if (row) return "Rest of world"
+    if (countries.length === 1 && regions.length === 0) return countryName(countries[0])
+    const of = [...new Set(regions.map((r) => r.split("-")[0]))]
+    if (countries.length === 0 && regions.length === 1) return regionLabel(regions[0])
+    /* States of one country: "Canada" when all, "Canada, 3 provinces" when some. */
+    if (countries.length === 0 && of.length === 1) {
+      const total = regionsOf(of[0]).length
+      return regions.length >= total ? countryName(of[0]) : `${countryName(of[0])}, ${regions.length} ${of[0] === "CA" ? "provinces" : "states"}`
+    }
+    return "Zone"
+  }
+  const statesOf = (cc: string) => regionsOf(cc).map((r) => `${cc}-${r.code}`)
+  const freeStates = statesFor ? statesOf(statesFor).filter((k) => !otherRegions.includes(k)) : []
+  const allStatesOn = freeStates.length > 0 && freeStates.every((k) => regions.includes(k))
   return (
-    <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
+    <div className="space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-zone-form="">
       <Field label="Zone name" hint="Only you see this">
-        <TextInput value={name} maxLength={80} placeholder={row ? "Rest of world" : "Europe"} onChange={(e) => setName(e.target.value)} />
+        <TextInput value={name} maxLength={80} placeholder={row ? "Rest of world" : defaultName() === "Zone" ? "Europe" : defaultName()} onChange={(e) => setName(e.target.value)} />
       </Field>
-      {canRestOfWorld || initial?.restOfWorld ? <Toggle label="Rest of world" description="Every country not in another zone of this profile." checked={row} onChange={setRow} disabled={!!initial} /> : null}
-      {!row ? <CountryPicker value={countries} onChange={setCountries} taken={taken.filter((c) => !initial?.countries.includes(c))} /> : null}
+      {canRestOfWorld || initial?.restOfWorld ? <Toggle label="Rest of world" description="Every country not in another zone of this profile. Countries where you picked only some states stay out." checked={row} onChange={setRow} disabled={!!initial} /> : null}
+      {!row ? <CountryPicker value={countries} onChange={(next) => {
+        setCountries(next)
+        /* A country chosen whole covers its states: their own picks are dropped. */
+        setRegions((prev) => prev.filter((r) => !next.includes(r.split("-")[0])))
+      }} taken={otherCountries} /> : null}
       {!row ? (
-        <div className="rounded-xl border border-[#eceef1] bg-white p-3">
+        <div className="rounded-xl border border-[#eceef1] bg-white p-3" data-zone-states="">
           <p className="text-[13.5px] font-medium text-[#1a1a2e]">Only some states or provinces</p>
-          <p className="mt-0.5 text-[12.5px] text-[#6b7280]">For a separate rate to, say, Alaska and Hawaii. A country chosen above is covered whole.</p>
+          <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pick a country here instead of above to ship to part of it, like the lower 48. States you leave out aren't shipped to, unless another zone has them.</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {Object.keys(REGIONS).map((cc) => (
-              <button
-                key={cc}
-                type="button"
-                onClick={() => setStatesFor(statesFor === cc ? null : cc)}
-                aria-pressed={statesFor === cc}
-                disabled={countries.includes(cc)}
-                className={cn("h-8 rounded-lg border px-2.5 text-[13px] font-medium disabled:opacity-40", statesFor === cc ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e5e7eb] text-[#4b5563] hover:bg-[#f7f7f8]")}
-              >
-                {countryName(cc)}
-                {regions.filter((r) => r.startsWith(`${cc}-`)).length ? ` (${regions.filter((r) => r.startsWith(`${cc}-`)).length})` : ""}
-              </button>
-            ))}
+            {Object.keys(REGIONS).map((cc) => {
+              const count = regions.filter((r) => r.startsWith(`${cc}-`)).length
+              return (
+                <button
+                  key={cc}
+                  type="button"
+                  onClick={() => setStatesFor(statesFor === cc ? null : cc)}
+                  aria-pressed={statesFor === cc}
+                  disabled={countries.includes(cc) || otherCountries.includes(cc)}
+                  className={cn("inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[13px] font-medium disabled:opacity-40", statesFor === cc ? "border-[#1a1a2e] text-[#1a1a2e]" : "border-[#e5e7eb] text-[#4b5563] hover:bg-[#f7f7f8]")}
+                >
+                  <CountryFlag code={cc} className="h-[12px] w-[18px]" />
+                  {countryName(cc)}
+                  {count ? ` (${count})` : ""}
+                </button>
+              )
+            })}
           </div>
           {statesFor && !countries.includes(statesFor) ? (
-            <div className="mt-3 grid max-h-[220px] grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto sm:grid-cols-3">
-              {regionsOf(statesFor).map((r) => {
-                const key = `${statesFor}-${r.code}`
-                const takenHere = otherRegions.includes(key)
-                return (
-                  <label key={key} className={cn("flex items-center gap-2 py-1 text-[13px]", takenHere ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
-                    <input
-                      type="checkbox"
-                      disabled={takenHere}
-                      checked={regions.includes(key)}
-                      onChange={(e) => setRegions((prev) => (e.target.checked ? [...prev, key] : prev.filter((x) => x !== key)))}
-                      className="h-4 w-4 rounded border-[#d1d5db] accent-[#1a1a2e]"
-                    />
-                    {r.name}
-                  </label>
-                )
-              })}
-            </div>
+            <>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <p className="text-[12.5px] text-[#6b7280]">{regions.filter((r) => r.startsWith(`${statesFor}-`)).length} of {regionsOf(statesFor).length} chosen</p>
+                <button
+                  type="button"
+                  className={cn(BTN_GHOST, "h-8 px-2.5")}
+                  onClick={() => setRegions((prev) => (allStatesOn ? prev.filter((r) => !r.startsWith(`${statesFor}-`)) : [...new Set([...prev, ...freeStates])]))}
+                >
+                  {allStatesOn ? "Clear" : "Select all"}
+                </button>
+              </div>
+              <div className="mt-1 grid max-h-[220px] grid-cols-2 gap-x-3 gap-y-1 overflow-y-auto sm:grid-cols-3">
+                {regionsOf(statesFor).map((r) => {
+                  const key = `${statesFor}-${r.code}`
+                  const takenHere = otherRegions.includes(key)
+                  return (
+                    <label key={key} className={cn("flex items-center gap-2 py-1 text-[13px]", takenHere ? "text-[#9ca3af]" : "text-[#1a1a2e]")}>
+                      <input
+                        type="checkbox"
+                        disabled={takenHere}
+                        checked={regions.includes(key)}
+                        onChange={(e) => setRegions((prev) => (e.target.checked ? [...prev, key] : prev.filter((x) => x !== key)))}
+                        className="h-4 w-4 rounded border-[#d1d5db] accent-[#1a1a2e]"
+                      />
+                      {r.name}
+                    </label>
+                  )
+                })}
+              </div>
+            </>
           ) : null}
         </div>
       ) : null}
@@ -518,21 +731,22 @@ function ZoneForm({
           disabled={busy || (!row && countries.length === 0 && regions.length === 0)}
           onClick={async () => {
             setBusy(true)
+            setError(null)
             const problem = await onSave({ name: name.trim() || defaultName(), countries, regions: regions.filter((r) => !countries.includes(r.split("-")[0])), restOfWorld: row })
             setBusy(false)
             if (problem) setError(problem)
           }}
         >
-          {initial ? "Save zone" : "Add zone"}
+          {busy ? "Saving" : initial ? "Save zone" : "Add zone"}
         </button>
       </div>
     </div>
   )
 }
 
-function ZoneBlock({ zone, taken, takenRegions, system, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
+function ZoneBlock({ zone, taken, takenRegions, system, fresh, onProfiles, onError }: { zone: ShippingZone; taken: string[]; takenRegions: string[]; system: UnitSystem; fresh?: boolean; onProfiles: (p: ShippingProfile[]) => void; onError: (e: string | null) => void }) {
   const [editing, setEditing] = React.useState(false)
-  const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(null)
+  const [rateForm, setRateForm] = React.useState<ShippingRate | "new" | null>(() => (fresh && zone.rates.length === 0 ? "new" : null))
   const label = zonePlaces(zone)
   if (editing) {
     return (
@@ -552,12 +766,22 @@ function ZoneBlock({ zone, taken, takenRegions, system, onProfiles, onError }: {
       />
     )
   }
+  const flags = zone.restOfWorld ? [] : [...new Set([...zone.countries, ...(zone.regions ?? []).map((r) => r.split("-")[0])])].slice(0, 4)
   return (
-    <div className="rounded-xl border border-[#eceef1]">
+    <div className="rounded-xl border border-[#eceef1]" data-zone={zone.id}>
       <div className="flex items-center justify-between gap-3 border-b border-[#eceef1] px-3 py-2.5">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{zone.name}</p>
-          <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p>
+        <div className="flex min-w-0 items-center gap-2.5">
+          {flags.length ? (
+            <span className="flex shrink-0 -space-x-1.5" aria-hidden>
+              {flags.map((c) => (
+                <CountryFlag key={c} code={c} className="ring-2 ring-white" />
+              ))}
+            </span>
+          ) : null}
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-semibold text-[#1a1a2e]">{zone.name}</p>
+            <p className="truncate text-[12.5px] text-[#6b7280]">{label}</p>
+          </div>
         </div>
         <div className="flex shrink-0 gap-1">
           <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`Edit ${zone.name}`} onClick={() => setEditing(true)}>
@@ -578,6 +802,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, onProfiles, onError }: {
           </button>
         </div>
       </div>
+      {zone.rates.length === 0 && rateForm === null ? <p className="px-3 pt-2.5 text-[12.5px] text-[#b45309]">No rate yet, so nothing ships here.</p> : null}
       <ul className="divide-y divide-[#f1f2f4]">
         {zone.rates.map((r) =>
           rateForm !== null && rateForm !== "new" && rateForm.id === r.id ? (
@@ -624,6 +849,7 @@ function ZoneBlock({ zone, taken, takenRegions, system, onProfiles, onError }: {
         {rateForm === "new" ? (
           <RateForm
             system={system}
+            first={zone.rates.length === 0}
             onCancel={() => setRateForm(null)}
             onSave={async (body) => {
               const res = await api<{ profiles: ShippingProfile[] }>("/api/physical/shipping/rates", { body: { zoneId: zone.id, ...body } })
@@ -649,11 +875,12 @@ interface TierDraft {
   price: string
 }
 
-function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
+function RateForm({ initial, system, first = false, onCancel, onSave }: { initial?: ShippingRate; system: UnitSystem; first?: boolean; onCancel: () => void; onSave: (body: Record<string, unknown>) => Promise<string | null> }) {
   const unit = weightUnitFor(system)
   const legacy = initial?.kind === "quantity" || initial?.kind === "carrier"
   const [kind, setKind] = React.useState<RateKind>(initial?.kind ?? "flat")
-  const [name, setName] = React.useState(initial?.name ?? "Standard")
+  /* A zone's first rate is Standard; a second one is usually the faster one. */
+  const [name, setName] = React.useState(initial?.name ?? (first ? "Standard" : "Express"))
   const [price, setPrice] = React.useState(initial ? dollarsOf(initial.priceCents) : "")
   const isWeight = (k: RateKind) => k === "weight" || k === "item_weight"
   const valueText = (k: RateKind, n: number | null | undefined) => (n === null || n === undefined ? "" : k === "price" ? (n / 100).toFixed(2) : isWeight(k) ? String(fromGrams(n, unit) ?? "") : String(n))
@@ -671,6 +898,8 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(false)
   const tiered = kind === "price" || kind === "weight" || kind === "item_weight"
+  /* "Free over" is offered where it adds something: a flat price, or weight steps. Price steps do it with a $0 step. */
+  const canFreeOver = kind === "flat" || kind === "weight" || kind === "item_weight"
   const toValue = (k: RateKind, t: string): number | null => {
     if (!t.trim()) return null
     if (k === "price") return centsOf(t)
@@ -775,9 +1004,17 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
           <p className="text-[12px] text-[#6b7280]">
             {kind === "item_weight"
               ? `Each item pays the price of the step its weight reaches. Two 0.5 ${unit} items at a 0 ${unit} step of $3 pay $6.`
-              : "The order pays the price of the last step it reaches. The first step starts from 0."}
+              : kind === "weight"
+                ? "The order pays the price of the last step its weight reaches, products plus your default package. The first step starts from 0."
+                : "The order pays the price of the last step it reaches. The first step starts from 0. A $0 step is free shipping from there."}
           </p>
         </div>
+      ) : null}
+
+      {tiered && canFreeOver ? (
+        <Field label="Free over" hint="Optional: free once the order reaches this price" className="sm:max-w-[280px]">
+          <MoneyInput value={freeOver} onChange={setFreeOver} placeholder="" />
+        </Field>
       ) : null}
 
       {kind === "quantity" ? (
@@ -816,6 +1053,7 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
               }
               tierBody = tierBody.sort((a, b) => a.from - b.from)
             }
+            if (kind === "flat" && centsOf(price) === null) return setError("Enter the price. 0 is fine for free.")
             setBusy(true)
             const problem = await onSave({
               kind,
@@ -824,7 +1062,7 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
               tiers: tierBody,
               minValue: kind === "free" ? centsOf(min) : kind === "quantity" ? toValue(kind, min) : null,
               maxValue: tiered || kind === "quantity" ? toValue(kind, max) : null,
-              freeOverCents: kind === "flat" ? centsOf(freeOver) : null,
+              freeOverCents: canFreeOver ? centsOf(freeOver) : null,
               minDays: minDays || null,
               maxDays: maxDays || null,
               active,
@@ -833,7 +1071,7 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
             if (problem) setError(problem)
           }}
         >
-          {initial ? "Save rate" : "Add rate"}
+          {busy ? "Saving" : initial ? "Save rate" : "Add rate"}
         </button>
       </div>
     </div>
@@ -842,10 +1080,26 @@ function RateForm({ initial, system, onCancel, onSave }: { initial?: ShippingRat
 
 /* ── Locations ─────────────────────────────────────────────────────────── */
 
-function Locations({ data, reload }: { data: Data; reload: () => void }) {
+function Locations({ data, reload, setData }: { data: Data; reload: () => void; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
   const [editing, setEditing] = React.useState<Location | "new" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [notice, setNotice] = React.useState<string | null>(null)
+  const [savedId, setSavedId] = React.useState<string | null>(null)
+  const listRef = React.useRef<HTMLUListElement>(null)
+  /*
+    SAVED, BACK TO THE LIST. The form closes on the location as the server
+    kept it, drawn in its place at once (not the old row until a reload
+    lands), scrolled into view if the form was long, and marked Saved for a
+    moment so the eye finds it.
+  */
+  const saved = (l: Location) => {
+    setData((d) => (d ? { ...d, locations: d.locations.some((x) => x.id === l.id) ? d.locations.map((x) => (x.id === l.id ? l : x)) : [...d.locations, l] } : d))
+    setEditing(null)
+    setSavedId(l.id)
+    requestAnimationFrame(() => listRef.current?.querySelector(`[data-location="${l.id}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" }))
+    window.setTimeout(() => setSavedId((id) => (id === l.id ? null : id)), 2200)
+    reload()
+  }
   const makeDefault = async (id: string) => {
     const r = await api("/api/physical/settings", { method: "PUT", body: { defaultLocationId: id } })
     if (!r.ok) return setError(r.error)
@@ -856,16 +1110,16 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
       <Card title="Locations" description="Where you keep stock, where orders ship from, and where buyers can pick up." help="locations" action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add location</button> : null}>
         {notice ? <Notice tone="gray" className="mb-3">{notice}</Notice> : null}
         {error ? <Notice className="mb-3">{error}</Notice> : null}
-        {editing === "new" ? <LocationForm startCountry={storeCountry()} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} /> : null}
+        {editing === "new" ? <LocationForm startCountry={storeCountry()} onCancel={() => setEditing(null)} onSaved={saved} /> : null}
         {data.locations.length === 0 && editing === null ? <Empty title="No locations yet">Add the place your stock is kept, even if it's your home.</Empty> : null}
-        <ul className="space-y-2">
+        <ul className="space-y-2" ref={listRef}>
           {data.locations.map((l) =>
             editing !== null && editing !== "new" && editing.id === l.id ? (
               <li key={l.id}>
-                <LocationForm initial={l} onCancel={() => setEditing(null)} onSaved={() => { setEditing(null); reload() }} />
+                <LocationForm initial={l} onCancel={() => setEditing(null)} onSaved={saved} />
               </li>
             ) : (
-              <li key={l.id} className={cn("flex items-start justify-between gap-3 rounded-xl border border-[#eceef1] px-3 py-3", !l.active && "opacity-60")}>
+              <li key={l.id} data-location={l.id} className={cn("flex items-start justify-between gap-3 rounded-xl border px-3 py-3 transition-colors duration-500", savedId === l.id ? "border-[#1a1a2e]/30 bg-[#f6f7f9]" : "border-[#eceef1]", !l.active && "opacity-60")}>
                 <div className="min-w-0">
                   <p className="flex flex-wrap items-center gap-2 text-[14px] font-semibold text-[#1a1a2e]">
                     {l.name}
@@ -873,6 +1127,12 @@ function Locations({ data, reload }: { data: Data; reload: () => void }) {
                     {!l.active ? <Pill tone="gray">Off</Pill> : null}
                     {l.forwarding === "email" ? <Pill tone="blue">Emails orders</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">Webhook</Pill> : l.forwarding === "provider" ? <Pill tone="amber">Provider not connected</Pill> : null}
                     {l.pickupEnabled && l.active ? <Pill tone="green">Local pickup</Pill> : null}
+                    {savedId === l.id ? (
+                      <span className="inline-flex items-center gap-1 text-[12.5px] font-medium text-[#047857]">
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                        Saved
+                      </span>
+                    ) : null}
                   </p>
                   <p className="text-[13px] text-[#6b7280]">{[KIND_LABEL[l.kind], [l.city, l.country ? countryName(l.country) : null].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}</p>
                   {l.pickupEnabled && l.active ? <p className="mt-0.5 text-[12.5px] text-[#6b7280]">Pickup ready in {PICKUP_READY_SHORT[l.pickupReady]}</p> : null}
@@ -915,7 +1175,7 @@ function storeCountry(): string {
   return peekGet<{ settings?: { defaultCountry?: string | null } }>("/api/store/settings")?.settings?.defaultCountry ?? ""
 }
 
-function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initial?: Location; startCountry?: string; onCancel: () => void; onSaved: () => void }) {
+function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initial?: Location; startCountry?: string; onCancel: () => void; onSaved: (l: Location) => void }) {
   const [f, setF] = React.useState({
     name: initial?.name ?? "",
     kind: initial?.kind ?? ("home" as LocationKind),
@@ -1012,7 +1272,8 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
             <option value="none">I do, from here</option>
             <option value="email">A partner: email each order to them</option>
             <option value="webhook">My own system: send each order to my webhook</option>
-            <option value="provider">A fulfillment provider (not connected yet)</option>
+            {/* Kept readable on a location that already has it; not offered, since no provider takes orders yet. */}
+            {initial?.forwarding === "provider" ? <option value="provider">A fulfillment provider (not connected yet)</option> : null}
           </SelectInput>
         </Field>
         {/* The email is only asked for when it's used: orders are emailed there. */}
@@ -1090,13 +1351,13 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
           onClick={async () => {
             setBusy(true)
             setError(null)
-            const r = await api(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: f })
+            const r = await api<{ location: Location }>(initial ? `/api/physical/locations/${initial.id}` : "/api/physical/locations", { method: initial ? "PATCH" : "POST", body: f })
             setBusy(false)
             if (!r.ok) return setError(r.error)
-            onSaved()
+            onSaved(r.data.location)
           }}
         >
-          {initial ? "Save location" : "Add location"}
+          {busy ? "Saving" : initial ? "Save location" : "Add location"}
         </button>
       </div>
     </div>
@@ -1105,91 +1366,155 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
 
 /* ── Packages ──────────────────────────────────────────────────────────── */
 
+/**
+ * THE BOXES AN ORDER GOES IN. The default one's empty weight is added to
+ * every parcel for weight based rates (lib/physical/rates.ts quoteDelivery,
+ * once per shipping profile in the cart), so a 300 g book in a 200 g box
+ * prices as 500 g. Sizes and weights are typed in the shop's units and kept
+ * in millimetres and grams.
+ */
 function Packages({ data, setData }: { data: Data; setData: React.Dispatch<React.SetStateAction<Data | null>> }) {
-  const [adding, setAdding] = React.useState(false)
-  const [f, setF] = React.useState({ name: "", kind: "box", l: "", w: "", h: "", weight: "" })
+  const system = data.settings.unitSystem ?? "metric"
+  const [editing, setEditing] = React.useState<Pack | "new" | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const put = (packages: Pack[]) => setData((d) => (d ? { ...d, packages } : d))
+  const small = smallWeightUnitFor(system)
   return (
-    <Card title="Packages" description="The boxes and mailers you ship in. Used for labels and package weight." help="packages" action={!adding ? <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(true)}><Plus className="h-4 w-4" />Add package</button> : null}>
-      {adding ? (
-        <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Name">
-              <TextInput autoFocus value={f.name} maxLength={80} placeholder="Small box" onChange={(e) => setF({ ...f, name: e.target.value })} />
-            </Field>
-            <Field label="Type">
-              <SelectInput value={f.kind} onChange={(v) => setF({ ...f, kind: v })}>
-                <option value="box">Box</option>
-                <option value="envelope">Envelope</option>
-                <option value="soft_package">Soft package</option>
-              </SelectInput>
-            </Field>
-          </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-            <Field label="Length">
-              <DecimalInput value={f.l} onChange={(v) => setF({ ...f, l: v })} suffix="cm" />
-            </Field>
-            <Field label="Width">
-              <DecimalInput value={f.w} onChange={(v) => setF({ ...f, w: v })} suffix="cm" />
-            </Field>
-            <Field label="Height">
-              <DecimalInput value={f.h} onChange={(v) => setF({ ...f, h: v })} suffix="cm" />
-            </Field>
-            <Field label="Empty weight">
-              <DecimalInput value={f.weight} onChange={(v) => setF({ ...f, weight: v })} suffix="g" />
-            </Field>
-          </div>
-          {error ? <Notice>{error}</Notice> : null}
-          <div className="flex justify-end gap-2">
-            <button type="button" className={BTN_SECONDARY} onClick={() => setAdding(false)}>
-              Cancel
-            </button>
-            <button
-              type="button"
-              className={BTN_PRIMARY}
-              onClick={async () => {
-                const r = await api<{ packages: Pack[] }>("/api/physical/packages", {
-                  body: { name: f.name, kind: f.kind, lengthMm: Math.round(Number(f.l) * 10), widthMm: Math.round(Number(f.w) * 10), heightMm: Math.round(Number(f.h) * 10), weightGrams: Math.round(Number(f.weight) || 0) },
-                })
-                if (!r.ok) return setError(r.error)
-                put(r.data.packages)
-                setAdding(false)
-                setF({ name: "", kind: "box", l: "", w: "", h: "", weight: "" })
-              }}
-            >
-              Add package
-            </button>
-          </div>
-        </div>
-      ) : null}
-      {data.packages.length === 0 && !adding ? <Empty title="No packages yet">Add the box or mailer you use most.</Empty> : null}
+    <Card
+      title="Packages"
+      description="The boxes and mailers you ship in. The default one's weight is added to the order for weight based rates."
+      help="packages"
+      action={editing === null ? <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")}><Plus className="h-4 w-4" />Add package</button> : null}
+    >
+      {error ? <Notice className="mb-3">{error}</Notice> : null}
+      {editing === "new" ? <PackageForm system={system} first={data.packages.length === 0} onCancel={() => setEditing(null)} onSaved={(p) => { put(p); setEditing(null) }} /> : null}
+      {data.packages.length === 0 && editing === null ? <Empty title="No packages yet">Add the box or mailer you use most. Without one, weight based rates count the products alone.</Empty> : null}
       <ul className="space-y-2">
-        {data.packages.map((p) => (
-          <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#eceef1] px-3 py-2.5">
-            <div className="min-w-0">
-              <p className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                {p.name}
-                {p.isDefault ? <Pill tone="gray">Default</Pill> : null}
-              </p>
-              <p className="text-[12.5px] text-[#6b7280]">
-                {p.lengthMm / 10} × {p.widthMm / 10} × {p.heightMm / 10} cm{p.weightGrams ? `, ${p.weightGrams} g` : ""}
-              </p>
-            </div>
-            <div className="flex shrink-0 gap-1">
-              {!p.isDefault ? (
-                <button type="button" className={BTN_GHOST} onClick={async () => { const r = await api<{ packages: Pack[] }>(`/api/physical/packages/${p.id}`, { method: "PATCH", body: { makeDefault: true } }); if (r.ok) put(r.data.packages) }}>
-                  Make default
+        {data.packages.map((p) =>
+          editing !== null && editing !== "new" && editing.id === p.id ? (
+            <li key={p.id}>
+              <PackageForm system={system} initial={p} onCancel={() => setEditing(null)} onSaved={(list) => { put(list); setEditing(null) }} />
+            </li>
+          ) : (
+            <li key={p.id} className="flex items-center justify-between gap-3 rounded-xl border border-[#eceef1] px-3 py-2.5" data-package={p.id}>
+              <div className="min-w-0">
+                <p className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+                  {p.name}
+                  {p.isDefault ? <Pill tone="gray">Default</Pill> : null}
+                </p>
+                <p className="text-[12.5px] text-[#6b7280]">
+                  {PACKAGE_KIND[p.kind]} · {formatSize(p.lengthMm, p.widthMm, p.heightMm, system)}
+                  {p.weightGrams ? ` · ${fromGrams(p.weightGrams, small)} ${small} empty` : ""}
+                </p>
+              </div>
+              <div className="flex shrink-0 gap-1">
+                {!p.isDefault ? (
+                  <button type="button" className={BTN_GHOST} onClick={async () => { const r = await api<{ packages: Pack[] }>(`/api/physical/packages/${p.id}`, { method: "PATCH", body: { makeDefault: true } }); if (r.ok) put(r.data.packages); else setError(r.error) }}>
+                    Make default
+                  </button>
+                ) : null}
+                <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`Edit ${p.name}`} onClick={() => setEditing(p)}>
+                  <Pencil className="h-4 w-4" />
                 </button>
-              ) : null}
-              <button type="button" className={cn(BTN_GHOST, "w-9 px-0")} aria-label={`Delete ${p.name}`} onClick={async () => { const r = await api<{ packages: Pack[] }>(`/api/physical/packages/${p.id}`, { method: "DELETE" }); if (r.ok) put(r.data.packages) }}>
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </li>
-        ))}
+                <button
+                  type="button"
+                  className={cn(BTN_GHOST, "w-9 px-0")}
+                  aria-label={`Delete ${p.name}`}
+                  onClick={async () => {
+                    if (!window.confirm(`Delete ${p.name}?`)) return
+                    const r = await api<{ packages: Pack[] }>(`/api/physical/packages/${p.id}`, { method: "DELETE" })
+                    if (r.ok) put(r.data.packages)
+                    else setError(r.error)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </li>
+          ),
+        )}
       </ul>
     </Card>
+  )
+}
+
+const PACKAGE_KIND: Record<Pack["kind"], string> = { box: "Box", envelope: "Envelope", soft_package: "Soft package" }
+
+/** A common starting size per kind, in the shop's units, so a first package is one tap from done. */
+const PACKAGE_START: Record<UnitSystem, Record<Pack["kind"], { l: string; w: string; h: string; weight: string }>> = {
+  metric: { box: { l: "30", w: "20", h: "10", weight: "200" }, envelope: { l: "32", w: "23", h: "0", weight: "20" }, soft_package: { l: "35", w: "25", h: "5", weight: "30" } },
+  imperial: { box: { l: "12", w: "8", h: "4", weight: "7" }, envelope: { l: "12.5", w: "9.5", h: "0", weight: "1" }, soft_package: { l: "14", w: "10", h: "2", weight: "1" } },
+}
+
+function PackageForm({ system, initial, first = false, onCancel, onSaved }: { system: UnitSystem; initial?: Pack; first?: boolean; onCancel: () => void; onSaved: (packages: Pack[]) => void }) {
+  const dim = dimensionUnitFor(system)
+  const small = smallWeightUnitFor(system)
+  const start = PACKAGE_START[system].box
+  const [f, setF] = React.useState(() =>
+    initial
+      ? { name: initial.name, kind: initial.kind as Pack["kind"], l: String(fromMm(initial.lengthMm, dim) ?? ""), w: String(fromMm(initial.widthMm, dim) ?? ""), h: String(fromMm(initial.heightMm, dim) ?? ""), weight: String(fromGrams(initial.weightGrams, small) ?? "") }
+      : { name: first ? "Standard box" : "", kind: "box" as Pack["kind"], ...start },
+  )
+  const [error, setError] = React.useState<string | null>(null)
+  const [busy, setBusy] = React.useState(false)
+  const setKind = (kind: Pack["kind"]) =>
+    setF((x) => {
+      /* Untouched sizes follow the kind; typed ones stay. */
+      const was = PACKAGE_START[system][x.kind]
+      const untouched = x.l === was.l && x.w === was.w && x.h === was.h && x.weight === was.weight
+      return untouched && !initial ? { ...x, kind, ...PACKAGE_START[system][kind] } : { ...x, kind }
+    })
+  return (
+    <div className="mb-3 space-y-3 rounded-xl border border-[#eceef1] bg-[#fcfcfd] p-3" data-package-form="">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Name" hint="Only you see this">
+          <TextInput autoFocus={!initial} value={f.name} maxLength={80} placeholder="Small box" onChange={(e) => setF({ ...f, name: e.target.value })} />
+        </Field>
+        <Field label="Type">
+          <SelectInput value={f.kind} onChange={(v) => setKind(v as Pack["kind"])}>
+            <option value="box">Box</option>
+            <option value="envelope">Envelope</option>
+            <option value="soft_package">Soft package</option>
+          </SelectInput>
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        <Field label="Length">
+          <DecimalInput value={f.l} onChange={(v) => setF({ ...f, l: v })} suffix={dim} />
+        </Field>
+        <Field label="Width">
+          <DecimalInput value={f.w} onChange={(v) => setF({ ...f, w: v })} suffix={dim} />
+        </Field>
+        <Field label="Height">
+          <DecimalInput value={f.h} onChange={(v) => setF({ ...f, h: v })} suffix={dim} />
+        </Field>
+        <Field label="Empty weight">
+          <DecimalInput value={f.weight} onChange={(v) => setF({ ...f, weight: v })} suffix={small} />
+        </Field>
+      </div>
+      {error ? <Notice>{error}</Notice> : null}
+      <div className="flex justify-end gap-2">
+        <button type="button" className={BTN_SECONDARY} onClick={onCancel}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          className={BTN_PRIMARY}
+          disabled={busy}
+          onClick={async () => {
+            setError(null)
+            const body = { name: f.name, kind: f.kind, lengthMm: toMm(f.l, dim), widthMm: toMm(f.w, dim), heightMm: toMm(f.h || "0", dim), weightGrams: toGrams(f.weight || "0", small) ?? 0 }
+            setBusy(true)
+            const r = await api<{ packages: Pack[] }>(initial ? `/api/physical/packages/${initial.id}` : "/api/physical/packages", { method: initial ? "PATCH" : "POST", body })
+            setBusy(false)
+            if (!r.ok) return setError(r.error)
+            onSaved(r.data.packages)
+          }}
+        >
+          {busy ? "Saving" : initial ? "Save package" : "Add package"}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -1275,12 +1600,19 @@ function StockAlerts({ data, reload }: { data: Data; reload: () => void }) {
   const [alerts, setAlerts] = React.useState(data.settings.lowStockAlerts !== false)
   const { state, error, save } = useSettingsSave(reload)
   return (
-    <Card title="Low stock" description="So you reorder before something sells out.">
+    <Card title="Low stock" description="So you reorder before something sells out, and buyers see when few are left.">
       <div className="space-y-4">
-        <Toggle label="Email me when stock runs low" description="One email a day at most, listing what sold down to its low stock line." checked={alerts} onChange={setAlerts} />
-        <Field label="Low stock line" hint="For products without their own. At or below it is low.">
-          <NumberInput value={low} onChange={setLow} />
+        <Field label="Low stock line" hint="At or below it is low, for every product without its own line (set in the product's Inventory card).">
+          <NumberInput value={low} onChange={setLow} className="max-w-[160px]" />
         </Field>
+        <Toggle label="Email me when stock runs low" description="One email a day at most, listing what sold down to its low stock line." checked={alerts} onChange={setAlerts} />
+        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
+          The same line drives the Low filter in{" "}
+          <a href="/app/inventory?filter=low" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+            Inventory
+          </a>{" "}
+          and Only {Number(low || 0) > 0 ? Number(low) : "N"} left on your website&apos;s product pages (Website settings, Commerce).
+        </p>
         {error ? <Notice>{error}</Notice> : null}
         <div className="flex justify-end">
           <SaveButton state={state} onClick={() => save({ lowStockDefault: Number(low || 0), lowStockAlerts: alerts })} />
@@ -1305,6 +1637,7 @@ function ReturnsPolicy({ data, reload }: { data: Data; reload: () => void }) {
             <NumberInput value={days} onChange={setDays} />
           </Field>
         ) : null}
+        <p className="text-[12.5px] leading-[18px] text-[#6b7280]">Your website&apos;s refund policy page ends with this, kept up to date for you. Website settings, Commerce can add it to the cart too.</p>
         {error ? <Notice>{error}</Notice> : null}
         <div className="flex justify-end">
           <SaveButton state={state} onClick={() => save({ returnsEnabled: enabled, returnWindowDays: Number(days || 0) })} />

@@ -69,6 +69,7 @@ import { SmartLink } from "@/components/smart-link"
 import { EmbeddedNavigation } from "@/components/storefront/embedded-navigation"
 import { EmbeddedBackBar } from "@/components/storefront/embedded-back-bar"
 import { RichDescriptionContent } from "@/components/store-builder/description-rich-editor"
+import { shownCustomFields } from "@/lib/products/custom-fields"
 
 import { productPageTone } from "@/lib/store-builder/product-page-tone"
 import { resolveStorefrontChrome } from "@/lib/store-builder/storefront-chrome"
@@ -830,9 +831,12 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
 
   // Priority: product FAQs > config FAQs > default FAQs
   // If product has FAQs, use those. Otherwise use config FAQs (if any) + defaults
+  /* A thing that ships gets no download answers: its own questions, or the page's, or no FAQ at all. */
   const displayFaqs = productFaqs.length > 0
     ? productFaqs
-    : (configFaqs.length > 0 ? [...configFaqs, ...defaultFaqs] : defaultFaqs)
+    : product.type === "physical"
+      ? configFaqs
+      : (configFaqs.length > 0 ? [...configFaqs, ...defaultFaqs] : defaultFaqs)
 
   const reviews = await reviewsPromise
 
@@ -866,6 +870,8 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     if (product.whats_included && product.whats_included.length > 0) {
       return product.whats_included.map((item: string) => item.replace(/\*\*/g, ""))
     }
+    /* A thing that ships has no download and no "lifetime access": its photos, options and description say what it is. */
+    if (product.type === "physical") return []
 
     const items: string[] = []
 
@@ -885,6 +891,9 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
     items.push("Lifetime access")
     return items
   }
+  const includedItems: string[] = getWhatsIncluded()
+  /* Details the creator chose to show (Custom fields in the editor, lib/products/custom-fields.ts): Material, Care, Size. */
+  const detailFields = shownCustomFields((product as { custom_fields?: unknown }).custom_fields)
 
   // Use the profile username (the field that /u/[username] routes look up by).
   // Do NOT fall back to creator.slug — it may differ from the profile username
@@ -1206,6 +1215,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                 }
               />
 
+              {includedItems.length > 0 ? (
               <div
                 className="mt-4 border-t pt-4"
                 style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
@@ -1217,7 +1227,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   What&apos;s included
                 </h3>
                 <ul className="mt-3 space-y-2">
-                  {getWhatsIncluded().map((item: string, idx: number) => (
+                  {includedItems.map((item: string, idx: number) => (
                     <li
                       key={idx}
                       className="flex items-start gap-2 text-sm"
@@ -1229,6 +1239,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
                   ))}
                 </ul>
               </div>
+              ) : null}
 
               {/*
                 =====================================================================
@@ -1338,6 +1349,32 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
           </div>
         )}
 
+        {detailFields.length > 0 ? (
+          <div className="mt-8 sm:mt-10" data-details-section>
+            <h2
+              className="mb-3 text-lg font-semibold"
+              style={{ color: themeColors.textColor || "var(--foreground)" }}
+            >
+              Details
+            </h2>
+            <dl className="divide-y" style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}>
+              {detailFields.map((f) => (
+                <div key={f.key} className="grid gap-1 py-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,2fr)] sm:gap-4" style={{ borderColor: themeColors.faqBorderColor || "var(--border)" }}>
+                  <dt className="text-sm font-medium" style={{ color: themeColors.textColor || "var(--foreground)" }}>{f.label}</dt>
+                  <dd className="whitespace-pre-line text-sm" style={{ color: themeColors.textColor ? `${themeColors.textColor}cc` : "var(--muted-foreground)" }}>
+                    {f.type === "url" ? (
+                      <a href={f.value} target="_blank" rel="nofollow noopener noreferrer" className="break-all underline underline-offset-2">{f.value.replace(/^https?:\/\//, "")}</a>
+                    ) : (
+                      f.value
+                    )}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        ) : null}
+
+        {displayFaqs.length > 0 ? (
         <div className="mt-8 sm:mt-10" data-faq-section>
           <h2
             className="mb-4 text-lg font-semibold"
@@ -1369,6 +1406,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             </Accordion>
           </div>
         </div>
+        ) : null}
       </div>
 
       {/*
@@ -1536,6 +1574,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
             }
           />
 
+          {includedItems.length > 0 ? (
           <div
             className="mt-4 border-t pt-4"
             style={{ borderColor: themeColors.cardBorderColor || "var(--border)" }}
@@ -1547,7 +1586,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               What&apos;s included
             </h3>
             <ul className="mt-3 space-y-2">
-              {getWhatsIncluded().map((item: string, idx: number) => (
+              {includedItems.map((item: string, idx: number) => (
                 <li
                   key={idx}
                   className="flex items-start gap-2 text-sm"
@@ -1559,6 +1598,7 @@ export default async function ProductPage({ params, searchParams }: ProductPageP
               ))}
             </ul>
           </div>
+          ) : null}
 
         </div>
       </div>

@@ -64,14 +64,14 @@ async function main() {
     check("the basket route sends a shipping cart to the physical checkout with its url", /if \(priced\.ships\.length > 0\)/.test(decide) && /decision\.kind === "ships"/.test(route) && /physicalCheckoutHref\(creatorId, decision\.items/.test(route) && /ships: true/.test(route))
     check("  and the old refusal is gone, with named items when something really can't be bought", !/"Nothing in the cart can be bought right now"/.test((route + decide).replace(/\/\*[\s\S]*?\*\//g, "")) && /can't be bought right now/.test(decide))
     check("  a code on a shipping cart is added on the next page, not refused", /Something in this cart ships/.test(read("app/api/coupons/validate/route.ts")))
-    check("  an imported theme's checkout goes straight to the branded basket checkout, in one redirect", /return redirect\(\s*basketCheckoutHref\(/.test(read("lib/storelib-theme/compat/site.ts")) && !/location\.replace\(x\.b\.url\)/.test(read("lib/storelib-theme/compat/site.ts")))
+    check("  an imported theme's checkout goes straight to the website's own checkout on its host, in one redirect", /return redirect\(\s*siteCheckoutHref\(/.test(read("lib/storelib-theme/compat/site.ts")) && !/location\.replace\(x\.b\.url\)/.test(read("lib/storelib-theme/compat/site.ts")))
   }
 
   console.log("\nSettings opens at the top and holds the page still\n")
   {
     const form = read("components/app/settings-form-new.tsx")
     /* Round V: on a phone the pill row stays put and a section opens just under it; anywhere else, at the very top. */
-    check("a section opens at its top (under the pill row on a phone), and the old height pin is cleared", /EVERY SECTION OPENS AT ITS TOP/.test(form) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(form) && /: 0\n/.test(form) && /scroller\.scrollTo\(\{ top: target, behavior: "instant"/.test(form) && !/form\.style\.minHeight = `\$\{Math\.max/.test(form))
+    check("a section opens at its top (under the pill row on a phone), and the old height pin is cleared", /EVERY SECTION OPENS AT ITS TOP/.test(form) && /formRef\.current\.style\.minHeight = held \? `\$\{scroller!\.clientHeight\}px` : ""/.test(form) && /: 0\n/.test(form) && /if \(scroller && scroller\.scrollTop > target\) scroller\.scrollTop = target/.test(form) && !/form\.style\.minHeight = `\$\{Math\.max/.test(form))
     check("  a little wider on a computer", /lg:max-w-\[1200px\]/.test(form) && /lg:grid-cols-\[232px_minmax\(0,1fr\)\]/.test(form))
     const sheet = read("components/app/settings-sheet.tsx")
     check("the window is held while the sheet is up, its scroll bar's room kept", /html\.style\.overflow = "hidden"/.test(sheet) && /setProperty\("scrollbar-gutter", "stable"\)/.test(sheet) && /window\.innerWidth - html\.clientWidth/.test(sheet))
@@ -95,7 +95,7 @@ async function main() {
     check("  a custom physical one stays out while physical commerce is off", !applyCatalogOverrides(visibleIntegrations(false), rows.filter((r): r is NonNullable<typeof r> => !!r), false).some((i) => i.id === "sendcloud"))
     check("  an icon is an https image or a file of ours, never a script address", safeLogoUrl("javascript:alert(1)") === null && safeLogoUrl("/integrations/x.svg") === "/integrations/x.svg" && safeLogoUrl("http://x.com/a.png") === null)
     const ui = read("components/app/settings/integrations-directory.tsx")
-    check("the directory: real statuses, Storelib's own mark, Tell me when it's ready, Back where you were", /function StatusBadge/.test(ui) && /data-integration-mark="storelib"/.test(read("components/app/settings/integration-mark.tsx")) /* the mark has its own file now, shared with the provider cards and /admin */ && /Tell me when it's ready/.test(ui) && /listScroll\.current/.test(ui) && /data-integration-grid=""/.test(ui) && !/active:scale/.test(ui))
+    check("the directory: real statuses, Storelib's own mark, Tell me when it's ready, Back where you were", /function StatusBadge/.test(ui) && /data-integration-mark="storelib"/.test(read("components/app/settings/integration-mark.tsx")) /* the mark has its own file now, shared with the provider cards and /admin */ && /Tell me when it's ready/.test(ui) && /* Changed on purpose (round R1): Back glides to the top of the list ("not leave you mid scroll"), it no longer returns to where the list was. */ /glideScrollTop\(box, to, release\)/.test(ui) && /data-integration-grid=""/.test(ui) && !/active:scale/.test(ui))
     const req = read("app/api/store/integrations/request/route.ts")
     check("a request says sent only once it is kept, and never shows a store the SQL part", /return physicalJson\(\{ ok: true \}\)/.test(req) && !/Run SQL part/.test(req) && /already: true/.test(req))
     const admin = read("app/api/admin/integrations/route.ts")

@@ -84,10 +84,16 @@ export interface ProductSectionData {
   variants?: ProductVariantData[]
   /** Stock of a product without variants: null when it is not counted. */
   inventory_left?: number | null
+  /** The product's low stock line (its own, else the shop's): "Only N left" shows at or under it. Physical products only. */
+  low_stock_at?: number | null
   /** ISO date it was created, for the New badge. */
   created_at?: string | null
   /** The product's category, when it has one. */
   category?: string | null
+  /** The product's own questions and answers (the editor's FAQ card), plain text. */
+  faqs?: { question: string; answer: string }[]
+  /** The custom fields the creator shows to buyers, in order (lib/products/custom-fields.ts shownCustomFields). */
+  details?: { key: string; label: string; value: string; type: "text" | "multiline" | "number" | "url" }[]
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */
@@ -332,6 +338,20 @@ export function suggestedAmounts(setting: string, minCents: number, suggestedCen
 export function stockLeft(p: ProductSectionData, variant: ProductVariantData | null): number | null {
   if (variant) return typeof variant.left === "number" ? variant.left : null
   return typeof p.inventory_left === "number" ? Math.max(0, p.inventory_left) : null
+}
+
+/** What the low stock line says when nobody wrote their own. */
+export { DEFAULT_LOW_STOCK_TEXT } from "@/lib/website-builder/site-commerce"
+
+/**
+ * The line a low stock block shows from: its own number when it was given
+ * one (older blocks saved 5), else the product's low stock line (its own,
+ * else the shop's, Settings › Locations), else 5.
+ */
+export function lowStockThreshold(blockValue: unknown, productLine: number | null | undefined): number {
+  const own = typeof blockValue === "number" ? blockValue : typeof blockValue === "string" && blockValue.trim() !== "" ? Number(blockValue) : NaN
+  if (Number.isFinite(own) && own > 0) return Math.floor(own)
+  return typeof productLine === "number" && Number.isFinite(productLine) && productLine > 0 ? Math.floor(productLine) : 5
 }
 
 /** Whether the low stock line shows: counted, more than none, at or under the threshold. */

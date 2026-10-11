@@ -191,23 +191,33 @@ async function main() {
   }
 
   console.log("\nThe route and the page, read")
+  /*
+    Changed on purpose (round R4): the page a website's cart is paid on is the
+    website's own checkout at https://<site host>/checkout (app/checkout/site),
+    with Storelib's card form, not storelib.com/checkout/cart with Stripe's
+    embedded form. storelib.com/checkout/cart only sends old links on. What
+    this section protected is pinned on the new page: the server's prices,
+    one shop, something that ships handled, readiness, Back held to the shop.
+  */
   const route = code("app/api/checkout/cart/route.ts")
-  const page = code("app/checkout/cart/page.tsx")
-  const client = code("app/checkout/cart/basket-checkout.tsx")
-  check("the website's own request gets the branded checkout's address, after every check and before any Stripe session", route.indexOf("basketCheckoutHref({") > route.indexOf("checkoutReadyForCreator(creator.id as string)") && route.indexOf("basketCheckoutHref({") < route.indexOf("stripe.checkout.sessions.create"))
+  const oldPage = code("app/checkout/cart/page.tsx")
+  const page = code("app/checkout/site/page.tsx")
+  const quote = code("lib/checkout/site-quote-server.ts")
+  const client = code("app/checkout/site/site-checkout.tsx")
+  check("the website's own request gets its own checkout's address, after every check and before any Stripe session", route.lastIndexOf("siteCheckoutHref({") > route.indexOf("checkoutReadyForCreator(creator.id as string)") && route.lastIndexOf("siteCheckoutHref({") < route.indexOf("stripe.checkout.sessions.create"))
+  check("  a cart that ships from the site goes to that same checkout, which asks for the address", route.indexOf("siteCheckoutHref({") > route.indexOf('decision.kind === "ships"') && /items: decision\.items/.test(route))
   check("  carrying only the lines that priced", /kept\.has\(`\$\{i\.productId\}::\$\{i\.variantId \?\? ""\}`\)/.test(route))
-  check("the branded page's session is Stripe's form inside the page, paid back to the basket's completion", /ui_mode: "embedded" as const,\s*return_url: successUrl/.test(route) && /clientSecret: session\.client_secret/.test(route))
+  check("  an embedded session made before the change still completes to the basket's return", /ui_mode: "embedded" as const,\s*return_url: successUrl/.test(route) && /clientSecret: session\.client_secret/.test(route))
   check("  and only Stripe's hosted page keeps a cancel address", /: \{ success_url: successUrl, cancel_url: `\$\{siteOrigin\}\$\{returnPath\}` \}/.test(route))
   check("  the site it names is taken only when it is this shop's own", /const namedOrigin = named \? await safeReturnOrigin\(named\.origin, creatorId\) : null/.test(route))
   check("  the session keeps its guards: server prices, the readiness rule, one shop, coupon places, the fee", /unit_amount: part\.unitCents/.test(route) && /checkoutReadyForCreator\(creator\.id as string\)/.test(route) && /basketDecision\(priced\)/.test(route) && /holdCouponUse\(admin, coupon\.id, holder\)/.test(route) && /application_fee_amount: fee\.platformFeeCents/.test(route))
   check("  a call that makes a session is rate limited", /const limited = ui \|\| body\.buyer/.test(route) && /bucket: "payment"/.test(route))
-  check("the page prices again and decides as the route does, for the shop the link names", /priceCart\(admin, \{ items: params\.items/.test(page) && /basketDecision\(priced, \{ shopId: params\.shopId \}\)/.test(page))
-  check("  something that ships goes on to the physical checkout", /if \(decision\.kind === "ships"\) redirect\(physicalCheckoutHref\(params\.shopId, decision\.items, back\)\)/.test(page))
-  check("  Back is the shop's own site, checked on the server", /checkoutReturns\(\{ creatorId: params\.shopId, cancel: params\.back \}\)/.test(page))
-  check("  a shop that cannot take payments is said on the page, never sent to Stripe", /checkoutReadyForCreator\(decision\.creatorId\)/.test(page) && /BUYER_UNAVAILABLE/.test(page))
-  check("the client asks for the embedded session with the lines, the site page and the visit", /ui, returnUrl: backTo, wholeCart, origin: checkoutOrigin\(shopId\)/.test(client) && /<EmbeddedCheckoutProvider/.test(client))
-  check("  and in the app's shell, Stripe's own page", /setNative\(isCapacitorShell\(\)\)/.test(client) && /ask\("hosted"\)/.test(client))
-  check("  a failure is a styled message with the way back to the cart and Try again", /Back to cart/.test(client) && /Try again/.test(client))
+  check("the old page draws nothing: an old link goes on to the shop's own site, Back checked on the server", !/EmbeddedCheckout|priceCart/.test(oldPage) && /checkoutReturns\(\{ creatorId: shop, cancel: back \}\)/.test(oldPage) && /redirect\(legacyBasketTarget\(origin, q/.test(oldPage))
+  check("the site's page prices again for the HOST's shop, deciding as the route does", /siteQuote\(admin, site\.creatorId, \{ items, couponCode: params\.couponCode \}\)/.test(page) && /priceCart\(db, \{ items: body\.items/.test(quote) && /basketDecision\(priced, \{ shopId: creatorId \}\)/.test(quote))
+  check("  something that ships is priced by the physical checkout, on the same page", /if \(decision\.kind === "ships"\) return shippedQuote\(db, creatorId, body\)/.test(quote))
+  check("  a shop that cannot take payments is said on the page, never sent to Stripe", /checkoutReadyForCreator\(site\.creatorId\)/.test(page) && /BUYER_UNAVAILABLE/.test(page))
+  check("the client pays in Storelib's own form with the lines, never Stripe's embedded or hosted page", /<StripePay/.test(client) && !/EmbeddedCheckout/.test(client) && /action: "intent", \.\.\.body/.test(client) && /origin: checkoutOrigin\(shopId\)/.test(client))
+  check("  a cart that cannot be paid is a styled message with the way back to the shop", /title="This cart can't be paid for yet"/.test(client) && /Continue shopping/.test(client))
 
   console.log("\nThe physical checkout, branded and paid in the page")
   const phys = code("lib/physical/checkout-server.ts")

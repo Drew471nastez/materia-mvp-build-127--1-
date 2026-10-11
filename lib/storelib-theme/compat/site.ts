@@ -11,8 +11,8 @@
  *   the cart          /cart.js  /cart/add(.js)  /cart/change(.js)
  *                     /cart/update(.js)  /cart/clear(.js)   a cookie holds it
  *   checkout          /cart with `checkout`, /checkout: straight on to
- *                     Storelib's branded basket checkout, with the lines
- *                     (storelib.com/checkout/cart, lib/checkout/basket-link)
+ *                     the website's own checkout on this same host, with
+ *                     the lines (/checkout?items=, lib/checkout/site-checkout)
  *   products as data  /products/<handle>.js  .json
  *   search box        /search/suggest(.json)?q=  with section_id
  *   recommendations   /recommendations/products?product_id=&section_id=
@@ -40,9 +40,10 @@ import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
 import { facet } from "./facets"
 import { linkFactsOf, siteLink } from "./links"
-import { CLEAR_CART_PARAM, basketCheckoutHref } from "@/lib/checkout/basket-link"
-import { getMainDomain } from "@/lib/url-helpers"
-import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
+import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
+import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { fixThemeCss } from "./css-fixes"
+import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
 type O = Record<string, unknown>
@@ -69,6 +70,8 @@ export interface SiteData {
   extraBodyEnd?: string
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
+  /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
+  seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -232,7 +235,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -285,6 +288,19 @@ interface Route {
   content?: string
   /** Not a page: the visitor belongs elsewhere (signed in at the sign in page, a guest at the account). */
   redirect?: string
+  /** Put in this page's head only: its share picture and whether it may be listed (seoHead). */
+  head?: string
+}
+
+const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
+
+/** A page's share picture and its noindex, for a theme whose own head says neither. */
+function seoHead(seo: { image?: string; noindex?: boolean } | null | undefined): string | undefined {
+  if (!seo) return undefined
+  let out = ""
+  if (seo.noindex) out += `<meta name="robots" content="noindex, follow" data-storelib-seo>`
+  if (seo.image) out += `<meta property="og:image" content="${attr(seo.image)}" data-storelib-seo><meta name="twitter:image" content="${attr(seo.image)}" data-storelib-seo>`
+  return out || undefined
 }
 
 const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -343,19 +359,59 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     const notice = req.query.get("profile") === "saved" ? "Saved." : req.query.get("profile") === "error" ? "That name could not be saved. Try again." : req.query.get("deleted") === "no" ? "Your account could not be deleted. Try again." : null
     const edit = req.query.get("edit")
     if (!edit && !notice) {
-      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras())
+      const own = themeAccountTemplate(site, req, "customers/account", path, "Account", null, accountExtras(customer))
       if (own) return own
     }
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
   }
   if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
+  if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
+    const o = req.account.order
+    return shell(site, req, path, `Order #${o.number}`, orderContent(o, { notice: downloadNotice(req.query.get("download")) }), "customers/order")
+  }
   /* An order's own page is its receipt, which each order on the account page links to. */
   return { ...shell(site, req, path, "Account", ""), redirect: "/account" }
 }
 
+/** The account pages the builder's canvas can open, as a visitor reaches them. */
+export const CANVAS_ACCOUNT_PATHS = ["/account", "/account/login", "/account/register", "/account/addresses"] as const
+
+/** A customer the builder shows the account page about: no orders, plainly a sample. */
+const SAMPLE_CUSTOMER = { name: "Sample customer", first_name: "Sample", email: "customer@example.com", orders: [], orders_count: 0, addresses: [] }
+
+/**
+ * AN ACCOUNT PAGE IN THE BUILDER'S CANVAS, drawn by the theme exactly as the
+ * website draws it (accountPage above): sign in and Create account as a
+ * guest sees them, the account page about a sample customer. Nothing here
+ * signs anybody in; the canvas says that works on the live site when a form
+ * on it is sent (canvas-bridge.ts). Null for any other address.
+ */
+export function canvasAccountPage(site: SiteData, path: string, opts: { extraHead?: string; extraBodyEnd?: string } = {}): { path: string; html: string } | null {
+  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (!(CANVAS_ACCOUNT_PATHS as readonly string[]).includes(clean)) return null
+  const signIn = /^\/account\/(login|register)$/.test(clean)
+  const req: SiteRequest = { method: "GET", path: clean, query: new URLSearchParams(), body: null, cart: [], account: { customer: signIn ? null : SAMPLE_CUSTOMER } }
+  const route = accountPage({ ...site, designMode: true }, req, clean)
+  if (route.redirect) return null
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: opts.extraHead, extraBodyEnd: opts.extraBodyEnd, content: route.content })
+  return { path: clean, html: drawn.html }
+}
+
 /** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */
-function accountExtras(): string {
-  return `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
+function accountExtras(customer: SiteAccount["customer"]): string {
+  /*
+    A theme's order table says Paid and a total; what was bought to download
+    is a step further in. Each order with files is listed here too, each
+    opening its page on this website, where the files are.
+  */
+  const downloads = (customer?.orders ?? []).filter((o) => o.action_label === "Download" && o.action_url.startsWith("/account/orders/"))
+  const list = downloads.length
+    ? `<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:24px 20px 0"><h2 style="margin:0 0 8px;font-size:1.15em">Downloads</h2><ul style="list-style:none;margin:0;padding:0">${downloads
+        .map((o) => `<li style="display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-bottom:1px solid color-mix(in srgb,currentColor 12%,transparent)"><span style="min-width:0;overflow-wrap:anywhere">${escapeText(o.items.map((i) => i.title).join(", "))} <span style="opacity:.7;font-size:.9em">${escapeText(o.date)}</span></span><a href="${escapeText(o.action_url)}" style="color:inherit;text-decoration:underline;text-underline-offset:4px;flex:none">Download</a></li>`)
+        .join("")}</ul></div>`
+    : ""
+  return `${list}<div style="box-sizing:border-box;max-width:var(--page-width,1200px);margin:0 auto;padding:8px 20px 56px;display:flex;flex-wrap:wrap;gap:8px 24px;align-items:center"><a href="/account?edit=name#profile" style="color:inherit;text-decoration:underline;text-underline-offset:4px">Edit name</a><a href="/account?edit=delete#delete" style="color:inherit;text-decoration:underline;text-underline-offset:4px;opacity:.75">Delete account</a></div>`
 }
 
 /**
@@ -489,9 +545,13 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const sections = sectionsOf(site, key)
     if (!sections) return null
     const { template, suffix } = templateOfPage(key)
+    /* The page's own title and description from Website settings, as the theme's page_title and page_description. */
+    const seo = site.seo?.(key) ?? null
+    const told: Partial<CompatPage> = { ...(seo?.title ? { title: seo.title } : {}), ...(seo?.description ? { description: seo.description } : {}) }
+    const head = seoHead(seo)
     const alternate = viewOf(site, req, template, sections)
-    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra }), sections: alternate.sections, status }
-    return { page: basePage(site, req, { template, suffix, path, ...extra }), sections, status }
+    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head }
+    return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head }
   }
   if (path === "/" || path === "") return at("home", { title: site.shop.name })
 
@@ -919,32 +979,20 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
 }
 
 /**
- * CHECKOUT IS STORELIB'S, AND THE SHOP'S. The lines go straight on to
- * Storelib's branded basket checkout on storelib.com (app/checkout/cart): the
- * shop's logo and name across the top, Back to this site's cart, Stripe's
- * form inside the page. One redirect, answered here without reading
- * anything, so the press lands on the checkout with nothing in between. It
- * used to be a page that said "Opening checkout…", posted the lines to
- * /api/checkout/cart and went on to Stripe's own hosted page, unbranded.
- * The checkout prices every line again from the database; the theme never
- * sees a price it could set. `whole`: the whole cart (emptied after paying),
- * not a Buy it now of one item.
+ * CHECKOUT IS ON THIS SITE. The lines go straight on to the website's own
+ * checkout at this same address (/checkout, app/checkout/site): the shop's
+ * logo across the top, Back to this site's cart, Storelib's own card form.
+ * One redirect, answered here without reading anything, so the press lands
+ * on the checkout with nothing in between. It used to go to storelib.com,
+ * where the buyer was a stranger and the address was the platform's. The
+ * checkout prices every line again from the database and takes the shop
+ * from this host; the theme never sees a price it could set. `whole`: the
+ * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
   if (!items.length) return redirect("/cart")
-  const host = site.host.replace(/[^a-z0-9.:-]/gi, "")
-  const back = host ? `https://${host}/cart` : null
-  return redirect(
-    basketCheckoutHref({
-      base: `https://${getMainDomain()}`,
-      shopId: site.creatorId,
-      items,
-      back,
-      wholeCart: whole,
-      origin: { site: host || null },
-    }),
-  )
+  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole }))
 }
 
 /**
@@ -1037,17 +1085,19 @@ export function themeAsset(theme: CompatTheme, name: string, settingsCtx: () => 
       return { type: "text/css; charset=utf-8", body: opts.scss(filled) }
     }
   }
+  /* A stylesheet, with a button's label never painting a box of its own (./css-fixes.ts). */
+  const css = (body: string) => (/^text\/css/.test(type) ? fixThemeCss(body) : body)
   const text = theme.files[`assets/${name}`]
   if (text !== undefined) {
     const bytes = binaryOf(text)
-    return { type, body: bytes ?? text }
+    return { type, body: bytes ?? css(text) }
   }
   const liquid = theme.files[`assets/${name}.liquid`]
   if (liquid !== undefined) {
     try {
-      return { type, body: renderString(liquid, settingsCtx(), { lax: true }) }
+      return { type, body: css(renderString(liquid, settingsCtx(), { lax: true })) }
     } catch {
-      return { type, body: liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "") }
+      return { type, body: css(liquid.replace(/\{%[\s\S]*?%\}|\{\{[\s\S]*?\}\}/g, "")) }
     }
   }
   return null

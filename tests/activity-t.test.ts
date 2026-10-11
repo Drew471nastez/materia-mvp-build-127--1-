@@ -40,7 +40,7 @@ const throwDb = { from: () => { throw new Error("down") } }
 function fakeRead(rows: unknown[], calls: string[]) {
   const q: Record<string, unknown> = {}
   const chain = (name: string) => (...args: unknown[]) => (calls.push(`${name}:${args.map(String).join(",")}`), q)
-  for (const n of ["select", "eq", "lt", "like", "not", "order"]) q[n] = chain(n)
+  for (const n of ["select", "eq", "lt", "like", "not", "or", "order"]) q[n] = chain(n)
   q.limit = async (n: number) => (calls.push(`limit:${n}`), { data: rows, error: null })
   return { from: () => q }
 }
@@ -69,7 +69,11 @@ async function main() {
   const page = await loadActivity(fakeRead(rows, calls), "c1", { before: 500, prefix: "settings." })
   check("40 at a time, and it knows there are more", page.entries.length === 40 && page.more && !page.missing)
   check("only the store's own, older than the last one shown", calls.includes("eq:creator_id,c1") && calls.includes("lt:id,500"))
-  check("Settings is everything but products, orders and files", calls.filter((c) => c.startsWith("not:action,like,")).length === 3)
+  /* Changed on purpose (round R1): offers are Products on the page (groupOf), so they are left out of Settings here too. */
+  check("Settings is everything but products, offers, orders and files", calls.filter((c) => c.startsWith("not:action,like,")).length === 4 && calls.includes("not:action,like,offer.%"))
+  const pcalls: string[] = []
+  await loadActivity(fakeRead(rows, pcalls), "c1", { prefix: "product." })
+  check("Products is products and offers, as the page groups them", pcalls.includes("or:action.like.product.%,action.like.offer.%"))
 
   console.log("\nThe SQL")
   const sql = read("supabase/sql/run-now/113_store_activity.sql")

@@ -54,6 +54,8 @@ import {
 } from "./objects"
 import { formatMoney, type CompatRegisters } from "./filters"
 import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
+import { fixInlineStyles, fixThemeCss } from "./css-fixes"
+import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
 import { linkFactsOf, siteLink } from "./links"
 
@@ -334,7 +336,7 @@ export class CompatTheme {
       const css = t?.stylesheet.replace(/<\/?style\b[^>]*>/gi, "").trim()
       if (css) parts.push(`/* ${path} */\n${css}`)
     }
-    return parts.join("\n")
+    return fixThemeCss(parts.join("\n"))
   }
 
   /**
@@ -558,7 +560,14 @@ export class CompatTheme {
 
   /** The page with Shopify's CDN taken out of it, each address it named kept in the diagnostics. */
   finish(html: string): string {
-    return withoutShopifyCdn(html, (url) => this.diagnostics.add(`A script or stylesheet from Shopify's servers was left out: ${url}`))
+    /* And a button's label never painted a box of its own (./css-fixes.ts). */
+    const out = fixInlineStyles(withoutShopifyCdn(html, (url) => this.diagnostics.add(`A script or stylesheet from Shopify's servers was left out: ${url}`)))
+    /* An icon from one of the theme's own sprite files, drawn in place (./icons.ts). */
+    return inlineSpriteFiles(out, (url) => {
+      const name = assetNameOf(url)
+      if (!name || (this.opts.assetUrl(name) ?? "").split("?")[0] !== url.split("?")[0]) return null
+      return this.opts.assetText?.(name) ?? null
+    })
   }
 
   /** The type a section is stored under: Shopify's `header` is Storelib's `theme-header`. */

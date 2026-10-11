@@ -559,7 +559,7 @@ export function ReceiptView({
           </div>
 
           <dl data-receipt-totals="" className="space-y-1.5 border-t border-[#eef0f3] bg-[#fbfbfc] px-4 py-4 text-[14px] sm:px-5">
-            {receipt.tipCents > 0 || discount > 0 || receipt.items.length > 1 ? (
+            {receipt.tipCents > 0 || discount > 0 || receipt.items.length > 1 || (receipt.taxCents ?? 0) > 0 ? (
               <Row label="Subtotal" value={money(beforeDiscount)} />
             ) : null}
             {discount > 0 ? (
@@ -569,7 +569,9 @@ export function ReceiptView({
               />
             ) : null}
             {receipt.tipCents > 0 ? <Row label="Tip" value={money(receipt.tipCents)} /> : null}
+            {(receipt.taxCents ?? 0) > 0 && !receipt.taxIncluded ? <Row label="Tax" value={money(receipt.taxCents ?? 0)} /> : null}
             <Row label="Total" value={receipt.totalCents === 0 ? "Free" : money(receipt.totalCents)} strong />
+            {(receipt.taxCents ?? 0) > 0 && receipt.taxIncluded ? <Row label="Including tax" value={money(receipt.taxCents ?? 0)} /> : null}
             {receipt.refundedCents > 0 ? <Row label="Refunded" value={`−${money(receipt.refundedCents)}`} tone="text-[#b42318]" /> : null}
             {(cardLine && receipt.totalCents > 0 && paid) || (receipt.invoice && paid) ? (
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1.5 text-[13px]">

@@ -55,18 +55,38 @@ export interface Destination {
 export type Quote =
   | { ok: true; required: false; options: [] }
   | { ok: true; required: true; options: DeliveryOption[] }
-  | { ok: false; error: string; unshippableProfileIds: string[] }
+  | { ok: false; error: string; unshippableProfileIds: string[]; needsRegion?: boolean }
 
+/**
+ * The zone an address falls in, for one profile:
+ *
+ *   1. a zone naming the address's state ("US-AK")
+ *   2. a zone naming the whole country ("US")
+ *   3. nothing, when the profile names only some states of that country:
+ *      "only some provinces" means the others are not shipped to, the way
+ *      Shopify reads it, so Rest of world never picks them up
+ *   4. Rest of world
+ */
 export function zoneFor(profile: ShippingProfile, destination: string | Destination): ShippingZone | null {
   const d = typeof destination === "string" ? { country: destination, region: null } : destination
-  const code = d.country.toUpperCase()
+  const code = (d.country ?? "").trim().toUpperCase()
+  if (!code) return null
   const state = regionKey(code, d.region ?? null)
-  return (
-    (state ? profile.zones.find((z) => !z.restOfWorld && (z.regions ?? []).includes(state)) : null) ??
-    profile.zones.find((z) => !z.restOfWorld && z.countries.some((c) => c.toUpperCase() === code)) ??
-    profile.zones.find((z) => z.restOfWorld) ??
-    null
-  )
+  const named = (state ? profile.zones.find((z) => !z.restOfWorld && (z.regions ?? []).includes(state)) : null) ?? profile.zones.find((z) => !z.restOfWorld && z.countries.some((c) => c.toUpperCase() === code))
+  if (named) return named
+  if (partOfCountry(profile, code)) return null
+  return profile.zones.find((z) => z.restOfWorld) ?? null
+}
+
+/** Whether the profile ships to only some states of this country (and not the whole of it). */
+export function partOfCountry(profile: ShippingProfile, country: string): boolean {
+  const code = country.toUpperCase()
+  return profile.zones.some((z) => !z.restOfWorld && (z.regions ?? []).some((r) => r.split("-")[0] === code)) && !profile.zones.some((z) => !z.restOfWorld && z.countries.some((c) => c.toUpperCase() === code))
+}
+
+/** The profile ships to some states of the country and the address has no state we can read yet. */
+function needsRegion(profile: ShippingProfile, d: Destination): boolean {
+  return partOfCountry(profile, d.country) && !regionKey(d.country, d.region ?? null)
 }
 
 /** The price of the tier a value falls in: the last tier whose `from` it reached. Null below the first tier. */
@@ -221,6 +241,12 @@ export function quoteDelivery(
     perProfile.push({ profileId: profile.id, rates })
   }
   if (unshippable.length) {
+    const d: Destination = typeof destination === "string" ? { country: destination, region: null } : destination
+    const askState = unshippable.some((id) => {
+      const profile = profiles.find((p) => p.id === id)
+      return profile ? needsRegion(profile, d) : false
+    })
+    if (askState) return { ok: false, error: "Choose your state or province to see shipping.", unshippableProfileIds: unshippable, needsRegion: true }
     return { ok: false, error: "Shipping isn't available to this address for some items in your cart.", unshippableProfileIds: unshippable }
   }
 
@@ -292,4 +318,31 @@ export function deliveryEstimate(o: Pick<DeliveryOption, "minDays" | "maxDays">)
   if (o.maxDays !== null) return `Up to ${o.maxDays} business days`
   if (o.minDays !== null) return `From ${o.minDays} business days`
   return ""
+}
+
+/**
+ * The order value from which shipping costs nothing, for the shop's home
+ * country: what a "Spend $X more for free shipping" banner counts towards.
+ * From the rates themselves, so the banner and the checkout never disagree:
+ * a Free rate (from its minimum), any rate's "free over", a price step at $0,
+ * or a $0 flat rate. Null when no rate there is ever free; 0 when one always is.
+ */
+export function freeShippingFrom(profile: ShippingProfile | null | undefined, country: string | null | undefined): number | null {
+  if (!profile) return null
+  const cc = (country ?? "").trim().toUpperCase()
+  const zone = cc
+    ? (zoneFor(profile, cc) ?? profile.zones.find((z) => !z.restOfWorld && (z.regions ?? []).some((r) => r.startsWith(`${cc}-`))) ?? null)
+    : (profile.zones.find((z) => !z.restOfWorld) ?? profile.zones[0] ?? null)
+  if (!zone) return null
+  let best: number | null = null
+  for (const r of zone.rates) {
+    if (!r.active || r.kind === "carrier") continue
+    let at: number | null = null
+    if (r.kind === "free") at = r.minValue ?? 0
+    else if (r.freeOverCents !== null && r.freeOverCents > 0) at = r.freeOverCents
+    else if (r.kind === "price") at = [...r.tiers].sort((a, b) => a.from - b.from).find((t) => t.priceCents === 0)?.from ?? null
+    else if (r.kind === "flat" && r.priceCents === 0) at = 0
+    if (at !== null && (best === null || at < best)) best = at
+  }
+  return best
 }

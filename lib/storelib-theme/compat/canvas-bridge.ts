@@ -46,45 +46,127 @@ export const CANVAS_BRIDGE = `
   };
   var boxes = null;
   /*
-    A FIXED BAR AT THE FOOT OR THE TOP OF THE SCREEN (a phone tab bar, a
-    sticky header) is drawn over the page, and an outline of something
-    scrolling under it was drawn over the bar: a blue line straight through
-    Home and Account. The part of the screen such a bar covers is cut from
-    the outline, unless what is outlined is in that bar.
+    ONLY WHAT CAN BE SEEN IS OUTLINED. The boxes sit above everything, so a
+    menu drawer, a cart drawer or a pop-up the theme opened over the selected
+    section had the blue ring drawn straight across it (a header selected,
+    then its phone menu opened: the ring stayed over the menu). Each box is
+    now cut to the part of its element that is actually on top at that spot,
+    read with elementsFromPoint down the element: a drawer, a backdrop or a
+    sticky bar over it hides or shortens the ring, and it comes back when
+    they go. Something of the theme's own that is fixed inside the section
+    (its drawer, a modal) counts as covering it; a see-through layer that
+    paints nothing does not.
   */
-  var barAt = function (x, y) {
-    var hit = document.elementFromPoint(x, y);
-    for (var el = hit; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
-      if (el.hasAttribute && el.hasAttribute("data-sl-box")) return null;
-      var pos = getComputedStyle(el).position;
-      if (pos !== "fixed" && pos !== "sticky") continue;
-      var r = el.getBoundingClientRect();
-      if (r.width < innerWidth * 0.6 || r.height > innerHeight * 0.35 || r.height < 1) return null;
-      return { el: el, top: r.top, bottom: r.bottom };
-    }
-    return null;
+  var styleCache = null, fadeCache = null;
+  var styleOf = function (n) {
+    if (!styleCache) styleCache = new Map();
+    var cs = styleCache.get(n);
+    if (!cs) { cs = getComputedStyle(n); styleCache.set(n, cs); }
+    return cs;
   };
-  var place = function (box, el, inset) {
-    if (!el || !el.isConnected) { box.style.display = "none"; return null; }
-    var r = el.getBoundingClientRect();
-    if (r.width === 0 && r.height === 0) { box.style.display = "none"; return null; }
-    var lo = 0, hi = innerHeight;
-    var foot = barAt(innerWidth / 2, innerHeight - 2);
-    if (foot && !foot.el.contains(el) && !el.contains(foot.el) && foot.top > innerHeight / 2) hi = Math.min(hi, foot.top);
-    var head = barAt(innerWidth / 2, 1);
-    if (head && !head.el.contains(el) && !el.contains(head.el) && head.bottom < innerHeight / 2) lo = Math.max(lo, head.bottom);
-    var top = Math.max(r.top + inset, lo), bottom = Math.min(r.bottom - inset, hi);
-    if (bottom <= top) { box.style.display = "none"; return null; }
+  var opacityOf = function (n) {
+    if (!fadeCache) fadeCache = new Map();
+    if (!n || n.nodeType !== 1) return 1;
+    var v = fadeCache.get(n);
+    if (v === undefined) { v = parseFloat(styleOf(n).opacity || "1") * opacityOf(n.parentElement); fadeCache.set(n, v); }
+    return v;
+  };
+  var clearBg = function (bg) {
+    if (!bg || bg === "transparent") return true;
+    var m = /rgba?\\(([^)]*)\\)/.exec(bg);
+    if (!m) return false;
+    var parts = m[1].split(m[1].indexOf(",") >= 0 ? "," : "/");
+    return parts.length > 3 && parseFloat(parts[3]) === 0;
+  };
+  /* Whether an element draws anything where it is: a see-through wrapper the size of the screen does not cover what is under it. */
+  var paints = function (n) {
+    if (opacityOf(n) < 0.05) return false;
+    if (/^(IMG|VIDEO|CANVAS|IFRAME|INPUT|TEXTAREA|SELECT|BUTTON|PICTURE|svg|SVG)$/.test(n.tagName)) return true;
+    var cs = styleOf(n);
+    if (cs.backgroundImage && cs.backgroundImage !== "none") return true;
+    if (!clearBg(cs.backgroundColor)) return true;
+    if (cs.backdropFilter && cs.backdropFilter !== "none") return true;
+    for (var c = n.firstChild; c; c = c.nextSibling) if (c.nodeType === 3 && c.data.trim()) return true;
+    return false;
+  };
+  var fixedBetween = function (n, el) {
+    for (; n && n !== el; n = n.parentElement) {
+      if (n.tagName === "DIALOG" && n.open) return true;
+      if (styleOf(n).position === "fixed") return true;
+    }
+    return false;
+  };
+  /* Is the element itself what is seen at this point? \`loose\`: its own content is fixed (a phone tab bar), so that is it, not something over it. */
+  var owns = function (el, x, y, loose) {
+    var stack = document.elementsFromPoint(x, y);
+    for (var i = 0; i < stack.length; i++) {
+      var c = stack[i];
+      if (c.hasAttribute && c.hasAttribute("data-sl-box")) continue;
+      var inside = c === el || el.contains(c);
+      if (inside && (loose || !fixedBetween(c, el))) return true;
+      if (c === document.body || c === document.documentElement) return false;
+      if (paints(c)) return false;
+    }
+    return false;
+  };
+  /* An element with no box of its own (its content is all fixed, like a tab bar): the box of what it holds. */
+  var contentBox = function (el) {
+    var l = Infinity, t = Infinity, r = -Infinity, b = -Infinity;
+    var walk = function (n, depth) {
+      for (var c = n.firstElementChild; c; c = c.nextElementSibling) {
+        if (c.tagName === "SCRIPT" || c.tagName === "STYLE") continue;
+        var q = c.getBoundingClientRect();
+        if (q.width >= 1 && q.height >= 1) { l = Math.min(l, q.left); t = Math.min(t, q.top); r = Math.max(r, q.right); b = Math.max(b, q.bottom); }
+        else if (depth < 3) walk(c, depth + 1);
+      }
+    };
+    walk(el, 0);
+    return r > l && b > t ? { left: l, top: t, right: r, bottom: b, width: r - l, height: b - t } : null;
+  };
+  var leaving = false;
+  /* The part of an element on top and on screen, or null when none of it is. */
+  var visibleRect = function (el, inset) {
+    if (!el || !el.isConnected || leaving) return null;
+    var r = el.getBoundingClientRect(), loose = false;
+    if (r.width < 1 || r.height < 1) { r = contentBox(el); loose = true; if (!r) return null; }
     /* A block as wide as the screen is outlined just inside it: two pixels out, its sides were off the page and only a line under it showed. */
     var left = Math.max(r.left + inset, 0), right = Math.min(r.right - inset, document.documentElement.clientWidth || innerWidth);
-    if (right <= left) { box.style.display = "none"; return null; }
-    var want = { left: left, top: top, width: right - left, height: bottom - top };
+    var top = Math.max(r.top + inset, 0), bottom = Math.min(r.bottom - inset, innerHeight);
+    if (right - left < 1 || bottom - top < 1) return null;
+    var xs = [left + (right - left) * 0.15, (left + right) / 2, left + (right - left) * 0.85];
+    var seen = function (y) {
+      for (var i = 0; i < xs.length; i++) if (owns(el, Math.min(Math.max(xs[i], 0.5), innerWidth - 0.5), y, loose)) return true;
+      return false;
+    };
+    var rows = Math.max(3, Math.min(6, Math.round((bottom - top) / 80)));
+    var step = (bottom - top) / rows, first = -1, last = -1;
+    for (var i = 0; i < rows; i++) if (seen(top + step * (i + 0.5))) { if (first < 0) first = i; last = i; }
+    if (first < 0) return null;
+    var lo, hi, k;
+    var from = top, to = bottom;
+    /* A whole pixel in from each edge: a hit test reads whole pixels, and half a pixel past the foot is the next section. */
+    if (!seen(top + 1)) {
+      lo = top + 1; hi = top + step * (first + 0.5);
+      for (k = 0; k < 7; k++) { var m1 = (lo + hi) / 2; if (seen(m1)) hi = m1; else lo = m1; }
+      from = Math.round(hi);
+    }
+    if (!seen(bottom - 1)) {
+      lo = top + step * (last + 0.5); hi = bottom - 1;
+      for (k = 0; k < 7; k++) { var m2 = (lo + hi) / 2; if (seen(m2)) lo = m2; else hi = m2; }
+      to = Math.round(lo);
+    }
+    if (to - from < 2) return null;
+    return { left: left, width: right - left, top: from, bottom: to, cutTop: from > r.top + inset + 0.5, cutBottom: to < r.bottom - inset - 0.5 };
+  };
+  var place = function (box, el, inset) {
+    var v = visibleRect(el, inset);
+    if (!v) { box.style.display = "none"; return null; }
     box.style.display = "block";
-    box.style.width = want.width + "px";
-    box.style.height = want.height + "px";
-    /* Something cut off by the screen or a bar has no line on that side. */
-    box.style.borderTopWidth = r.top + inset < lo ? "0" : "";
-    box.style.borderBottomWidth = r.bottom - inset > hi ? "0" : "";
+    box.style.width = v.width + "px";
+    box.style.height = (v.bottom - v.top) + "px";
+    /* Cut by the edge of the screen or by something over it: no line there. */
+    box.style.borderTopWidth = v.cutTop ? "0" : "";
+    box.style.borderBottomWidth = v.cutBottom ? "0" : "";
     /*
       FIXED IS NOT ALWAYS THE SCREEN. A theme that puts a transform, a filter
       or \`contain\` on <html> or <body> (a page fade, a drawer that slides the
@@ -93,60 +175,34 @@ export const CANVAS_BRIDGE = `
       out, so it is always on the element.
     */
     var dx = box.__dx || 0, dy = box.__dy || 0;
-    box.style.left = (want.left - dx) + "px";
-    box.style.top = (want.top - dy) + "px";
+    box.style.left = (v.left - dx) + "px";
+    box.style.top = (v.top - dy) + "px";
     var got = box.getBoundingClientRect();
-    var ex = got.left - want.left, ey = got.top - want.top;
+    var ex = got.left - v.left, ey = got.top - v.top;
     if (Math.abs(ex) > 0.5 || Math.abs(ey) > 0.5) {
       box.__dx = dx + ex; box.__dy = dy + ey;
-      box.style.left = (want.left - box.__dx) + "px";
-      box.style.top = (want.top - box.__dy) + "px";
+      box.style.left = (v.left - box.__dx) + "px";
+      box.style.top = (v.top - box.__dy) + "px";
     }
-    return want.left + "," + want.top + "," + want.width + "," + want.height;
+    return v;
   };
   var drawFrame = 0;
-  var lastDrawn = "";
   var drawBoxes = function () {
     drawFrame = 0;
+    styleCache = null;
+    fadeCache = null;
     if (!boxes) boxes = { hover: boxOf("hover"), section: boxOf("section"), block: boxOf("block") };
     var hov = document.querySelector("[data-sl-hover]");
     var sec = document.querySelector("[data-sl-selected]");
     var blk = document.querySelector("[data-sl-selected-block]");
-    /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring would be a second box round the same thing. */
-    var a = place(boxes.hover, hov && hov !== sec ? hov : null, 0);
+    place(boxes.hover, hov && hov !== sec ? hov : null, 0);
+    /* ONE SELECTION AT A TIME: a block that is selected is the outline; its section's own ring round it was a second box, wider than the block and off to one side of it while either moved. */
     var b = place(boxes.block, blk, -2);
-    var c = place(boxes.section, b ? null : sec, 0);
-    var now = a + "|" + b + "|" + c;
-    var moved = now !== lastDrawn;
-    lastDrawn = now;
-    return moved;
+    place(boxes.section, b ? null : sec, 0);
   };
-  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); follow(); };
-  /*
-    THE OUTLINE FOLLOWS THE ELEMENT, NOT ONLY THE SCROLL. A slideshow that
-    moves to the picked slide by transform, a section that rises into place
-    as it is scrolled to, a header that shrinks: none of these is a scroll
-    or a resize, and the outline stayed where the element was when it was
-    picked, a box at the left edge and another wider than the hero. While
-    anything is outlined it is measured every frame until it has stood still
-    for half a second, and again whenever an animation or a transition starts.
-  */
-  var following = 0, still = 0;
-  var follow = function () {
-    still = 0;
-    if (following) return;
-    var tick = function () {
-      following = 0;
-      if (!document.querySelector("[data-sl-hover],[data-sl-selected],[data-sl-selected-block]")) return;
-      if (drawFrame) { cancelAnimationFrame(drawFrame); drawFrame = 0; }
-      if (drawBoxes()) { still = 0; if (!boxFrame) boxFrame = requestAnimationFrame(report); } else still++;
-      if (still < 30) following = requestAnimationFrame(tick);
-    };
-    following = requestAnimationFrame(tick);
-  };
+  var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
   addEventListener("scroll", redraw, { passive: true, capture: true });
   addEventListener("resize", redraw);
-  ["transitionrun", "animationstart"].forEach(function (n) { document.addEventListener(n, function (e) { if (e.target && e.target.hasAttribute && !e.target.hasAttribute("data-sl-box")) follow(); }, true); });
   if (typeof ResizeObserver !== "undefined") new ResizeObserver(redraw).observe(document.documentElement);
   /*
     THE INSPECTOR, ON OR OFF. Off, this page is the website: nothing under
@@ -221,20 +277,66 @@ export const CANVAS_BRIDGE = `
     lent = a;
   }, true);
   document.addEventListener("mouseleave", giveBack);
-  document.addEventListener("click", function (e) {
-    giveBack();
-    var s = sectionOf(e.target);
-    var link = e.target.closest && e.target.closest("a[href]");
-    if (link) {
-      e.preventDefault();
+  /*
+    A LINK THE THEME TAKES IS THE THEME'S. The header's cart is a link to
+    /cart that the theme's own script turns into "open the drawer" (it calls
+    preventDefault). Opened as a page here as well, the drawer slid in and
+    the canvas went to the cart page under it. So the builder hears about a
+    link only once every listener of the theme's has had the click, at the
+    window, last: a click the theme prevented is left to the theme. The frame
+    itself never follows a link either way. A theme that stops the click
+    going further (stopPropagation) is asked the same thing as soon as that
+    listener returns.
+  */
+  var taken = null;
+  /* A theme that takes every link to play its own exit and then opens the page itself (location.href): the page it opened, as the builder would. */
+  addEventListener("pagehide", function () {
+    if (taken && Date.now() - taken.at < 3000) post({ type: "navigate", href: taken.href, chrome: taken.chrome });
+  });
+  var follow = function (e, link) {
+    var themeTook = false;
+    var settled = false;
+    var own = e.preventDefault;
+    e.preventDefault = function () { themeTook = true; return own.call(e); };
+    var decide = function () {
+      if (settled) return;
+      settled = true;
+      removeEventListener("click", last);
+      if (!e.defaultPrevented) own.call(e);
       /*
         The builder decides whether a link opens its page: the header's, the
         footer's and the Overlay group's (a phone tab bar, a menu drawer)
         always do, as the site's own navigation.
       */
       var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
-      post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
-    }
+      var href = link.getAttribute("href") || "";
+      if (themeTook) { taken = { href: href, chrome: chrome, at: Date.now() }; return; }
+      taken = null;
+      post({ type: "navigate", href: href, chrome: chrome });
+      /* Off to another page: nothing of this one stays outlined while it goes. Back after a moment if the builder kept this page. */
+      if (/^(\\/|https?:)/i.test(href) && !/^\\/?#/.test(href)) {
+        leaving = true;
+        drawBoxes();
+        report();
+        setTimeout(function () { leaving = false; redraw(); reportSoon(); }, 1500);
+      }
+    };
+    var last = function (ev) { if (ev === e) decide(); };
+    addEventListener("click", last);
+    ["stopPropagation", "stopImmediatePropagation"].forEach(function (n) {
+      var stop = e[n];
+      e[n] = function () {
+        stop.call(e);
+        /* Not now: the same listener may prevent it on its next line. Still inside the click, before the browser would follow it. */
+        if (!settled) { own.call(e); Promise.resolve().then(decide); }
+      };
+    });
+  };
+  document.addEventListener("click", function (e) {
+    giveBack();
+    var s = sectionOf(e.target);
+    var link = e.target.closest && e.target.closest("a[href]");
+    if (link && !e.defaultPrevented) follow(e, link);
     if (!s || !inspect) return;
     /* The block and every block around it, outermost first: the path the sidebar's tree reads. */
     var path = [];
@@ -246,8 +348,8 @@ export const CANVAS_BRIDGE = `
       heading inside a slide inside a slideshow, and the first tap takes the
       innermost block under it. Tapped again in the same place, the block
       around it is selected, then the section, and then the innermost again
-      (with the section selected, a tap is a first tap).
-      A mouse, which can point at the section's own edge, picks exactly.
+      (with the section selected, a tap is a first tap). A mouse, which can
+      point at the section's own edge, picks exactly.
     */
     var where = touching && !link && selected.section === id && selected.block ? path.indexOf(selected.block) : -1;
     if (where >= 0) path = path.slice(0, where);
@@ -257,16 +359,55 @@ export const CANVAS_BRIDGE = `
   var selected = { section: null, block: null };
   /* Where the selected section is on screen, for the builder's toolbar over the canvas. */
   var boxFrame = 0;
+  /* The part of it that can be seen, as the outline has it: covered by a drawer, there is nothing for the toolbar to point at. Sent only when it changed. */
+  var lastBox = "";
   var report = function () {
     boxFrame = 0;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
-    if (!el) { post({ type: "box", id: null }); return; }
-    var r = el.getBoundingClientRect();
-    post({ type: "box", id: selected.section, top: r.top, left: r.left, width: r.width, height: r.height });
+    var v = el ? visibleRect(el, 0) : null;
+    var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
+    var key = JSON.stringify(m);
+    if (key === lastBox) return;
+    lastBox = key;
+    post(m);
   };
   var reportSoon = function () { if (!boxFrame) boxFrame = requestAnimationFrame(report); if (typeof redraw === "function") redraw(); };
   addEventListener("scroll", reportSoon, { passive: true });
   addEventListener("resize", reportSoon);
+  /*
+    SOMETHING OPENED, CLOSED OR MOVED. A drawer is a class or a style changed
+    and a transition after it, with no scroll to say so: for the next 700ms
+    after any change on the page the outlines and the toolbar's box are read
+    again, every 80ms rather than every frame (a theme's carousel changes
+    the page all the time, and this runs in the editor's own process), and
+    once more when a transition or an animation ends.
+  */
+  var burstEnd = 0, bursting = false;
+  var burst = function () {
+    if (!selected.section && !hovered) return;
+    burstEnd = Date.now() + 700;
+    if (bursting) return;
+    bursting = true;
+    var tick = function () {
+      drawBoxes();
+      report();
+      if (Date.now() < burstEnd) setTimeout(function () { requestAnimationFrame(tick); }, 80); else bursting = false;
+    };
+    requestAnimationFrame(tick);
+  };
+  if (typeof MutationObserver !== "undefined") {
+    new MutationObserver(function (records) {
+      for (var i = 0; i < records.length; i++) {
+        var t = records[i].target;
+        if (t && t.nodeType === 1 && t.hasAttribute("data-sl-box")) continue;
+        burst();
+        return;
+      }
+    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
+  }
+  var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } };
+  addEventListener("transitionend", settled, true);
+  addEventListener("animationend", settled, true);
   /* Every selection outline off the page; what is selected, for the theme, is unchanged. */
   var unmark = function () {
     document.querySelectorAll("[data-sl-selected],[data-sl-selected-block]").forEach(function (el) { el.removeAttribute("data-sl-selected"); el.removeAttribute("data-sl-selected-block"); });
@@ -361,11 +502,142 @@ export const CANVAS_BRIDGE = `
         setTimeout(release, 3000);
       }
       if (scrollY !== y) scrollTo(0, y);
+      drawn[id] = html;
       fire(next, "shopify:section:load", { sectionId: id, load: true });
       if (selected.section === id) mark(selected.section, selected.block, false);
       reportSoon();
     });
   };
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     A VALUE CHANGED IS CHANGED WHERE IT IS, NOT DRAWN AGAIN
+    ═══════════════════════════════════════════════════════════════════════
+    A slider dragged in the sidebar sends the section a dozen times a
+    second, and each one was a swap: a new element in the old one's place,
+    so every picture in it decoded again, every entrance animation the theme
+    has played again, its carousel went back to the first slide and its
+    reveal-on-scroll pieces started hidden. The section flashed on every
+    step ("it glitches and refreshes every time while dragging").
+
+    Most edits change values, not shape: a padding in the section's own
+    <style>, a number in a class, a heading's words. So the markup the
+    section was last drawn from is compared with the markup it should be
+    now, and only what differs between those two is written into the page:
+    an attribute, a class, a style property, a text. What the theme's own
+    scripts did to the page since (a class it added, a slide it moved to) is
+    left alone, because it is the same in both and so never touched. When
+    the shape differs (a block added, a picture taken away), or the page no
+    longer matches what was drawn, it is swapped as before.
+
+    A change to something a script reads once (a data- attribute, a custom
+    element's attribute, a script's JSON) is drawn in place too, and the
+    section is swapped once, quietly, when the changes stop, so the theme's
+    script starts again with the new value.
+  */
+  var drawn = {};
+  var settleTimers = {};
+  var skipNode = function (n) {
+    if (n.nodeType === 8) return true;
+    if (n.nodeType !== 1) return false;
+    if (n.tagName === "LINK" && (n.getAttribute("rel") || "").toLowerCase() === "stylesheet") return true;
+    return n.hasAttribute("data-sl-box");
+  };
+  var childrenOf = function (n) {
+    var out = [];
+    for (var c = n.firstChild; c; c = c.nextSibling) if (!skipNode(c)) out.push(c);
+    return out;
+  };
+  var declarations = function (s) {
+    var o = {};
+    (s || "").split(";").forEach(function (d) {
+      var i = d.indexOf(":");
+      if (i <= 0) return;
+      var k = d.slice(0, i).trim();
+      if (!k) return;
+      if (k.indexOf("--") !== 0) k = k.toLowerCase();
+      o[k] = d.slice(i + 1).trim();
+    });
+    return o;
+  };
+  var words = function (s) { return (s || "").split(/\\s+/).filter(Boolean); };
+  var plan = function (live, a, b, ops) {
+    if (a.nodeType !== b.nodeType || live.nodeType !== a.nodeType) return false;
+    if (a.nodeType === 3) {
+      if (a.data !== b.data) ops.push(function () { live.data = b.data; });
+      return true;
+    }
+    if (a.nodeType !== 1) return true;
+    if (a.tagName !== b.tagName || live.tagName !== a.tagName) return false;
+    var tag = a.tagName, names = {}, i;
+    for (i = 0; i < a.attributes.length; i++) names[a.attributes[i].name] = 1;
+    for (i = 0; i < b.attributes.length; i++) names[b.attributes[i].name] = 1;
+    Object.keys(names).forEach(function (n) {
+      var va = a.getAttribute(n), vb = b.getAttribute(n);
+      if (va === vb) return;
+      if (n.indexOf("data-") === 0 || tag.indexOf("-") > 0) ops.restart = true;
+      if (n === "class") {
+        var wa = words(va), wb = words(vb);
+        var gone = wa.filter(function (w) { return wb.indexOf(w) < 0; }), added = wb.filter(function (w) { return wa.indexOf(w) < 0; });
+        ops.push(function () { gone.forEach(function (w) { live.classList.remove(w); }); added.forEach(function (w) { live.classList.add(w); }); });
+      } else if (n === "style" && va !== null && vb !== null) {
+        var da = declarations(va), db = declarations(vb);
+        ops.push(function () {
+          Object.keys(da).forEach(function (k) { if (!(k in db)) live.style.removeProperty(k); });
+          Object.keys(db).forEach(function (k) {
+            if (da[k] === db[k]) return;
+            var v = db[k], important = /!important$/i.test(v);
+            live.style.setProperty(k, important ? v.replace(/\\s*!important$/i, "") : v, important ? "important" : "");
+          });
+        });
+      } else if (vb === null) {
+        ops.push(function () { live.removeAttribute(n); });
+      } else {
+        ops.push(function () { live.setAttribute(n, vb); });
+      }
+    });
+    if (tag === "SCRIPT") { if (a.textContent !== b.textContent) ops.restart = true; return true; }
+    if (tag === "STYLE" || tag === "TEXTAREA" || tag === "TITLE") {
+      if (a.textContent !== b.textContent) ops.push(function () { live.textContent = b.textContent; });
+      return true;
+    }
+    if (tag === "TEMPLATE") {
+      if (a.innerHTML !== b.innerHTML) { ops.restart = true; ops.push(function () { live.innerHTML = b.innerHTML; }); }
+      return true;
+    }
+    var ka = childrenOf(a), kb = childrenOf(b), kl = childrenOf(live);
+    if (ka.length !== kb.length || kl.length !== ka.length) return false;
+    for (i = 0; i < ka.length; i++) if (!plan(kl[i], ka[i], kb[i], ops)) return false;
+    return true;
+  };
+  var morph = function (id, html, prev) {
+    var el = document.getElementById("shopify-section-" + id);
+    var before = drawn[id] || prev;
+    if (!el || typeof before !== "string" || typeof html !== "string") return false;
+    if (before === html) return true;
+    var ta = document.createElement("template"), tb = document.createElement("template");
+    ta.innerHTML = before;
+    tb.innerHTML = html;
+    var a = ta.content.firstElementChild, b = tb.content.firstElementChild;
+    if (!a || !b) return false;
+    var ops = [];
+    if (!plan(el, a, b, ops)) return false;
+    Array.prototype.forEach.call(b.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { keep(l.getAttribute("href")); });
+    var y = scrollY;
+    ops.forEach(function (op) { op(); });
+    if (scrollY !== y) scrollTo(0, y);
+    drawn[id] = html;
+    clearTimeout(settleTimers[id]);
+    if (ops.restart) {
+      settleTimers[id] = setTimeout(function () {
+        queue = queue.then(function () { if (drawn[id] === html) return swap(id, html); }).catch(function () {});
+      }, 700);
+    }
+    if (selected.section === id) mark(selected.section, selected.block, false, true);
+    reportSoon();
+    return true;
+  };
+  /* The newest change asked for each section: one waiting behind a newer one is skipped. */
+  var asked = {};
   /*
     THE PAGE CHANGED SHAPE OR STYLE, AND IS CHANGED IN PLACE. The builder
     compared the page it would draw now with this one and sends only what
@@ -429,6 +701,7 @@ export const CANVAS_BRIDGE = `
       if (!el) return;
       fire(el, "shopify:section:unload", { sectionId: id, load: true });
       el.remove();
+      delete drawn[id];
     });
     /* A selected section taken off keeps its selection: shown again, it is outlined again and the toolbar comes back to it. */
     reportSoon();
@@ -443,6 +716,7 @@ export const CANVAS_BRIDGE = `
         if (!it.html) return reload("missing " + it.id);
         el = fresh(it.html);
         if (!el) continue;
+        drawn[it.id] = it.html;
         added.push(el);
       }
       /* Placed after the section before it in its group, or else before the one after it. */
@@ -499,9 +773,16 @@ export const CANVAS_BRIDGE = `
       /* After the section swaps already asked for, in order. */
       queue = queue.then(function () { patch(m); }).catch(function (err) { reload(String(err)); });
     } else if (m.type === "section") {
-      /* In order: a swap that waits for a stylesheet holds the ones after it. */
-      queue = queue.then(function () { return swap(m.id, m.html); }).catch(function () {});
+      /* In order: a swap that waits for a stylesheet holds the ones after it. Changed in place when it can be (morph); only the newest of a burst is drawn. */
+      var n = (asked[m.id] = (asked[m.id] || 0) + 1);
+      queue = queue.then(function () {
+        if (asked[m.id] !== n) return;
+        var done = false;
+        try { done = morph(m.id, m.html, m.prev); } catch (err) { done = false; }
+        if (!done) return swap(m.id, m.html);
+      }).catch(function () {});
     } else if (m.type === "select") {
+      leaving = false;
       if ("inspect" in m) setInspect(m.inspect);
       /* Off, nothing is outlined whatever was asked (setInspect takes the marks off after their fade); on, the same selection again is only outlined. */
       if (inspect) mark(m.sectionId || null, m.blockId || null, m.scroll !== false, (m.sectionId || null) === selected.section && (m.blockId || null) === selected.block);
@@ -700,8 +981,23 @@ export const CANVAS_REQUESTS = `
     opened, as the website would. One the theme handles (it prevents the
     submit and adds by fetch) is left to it.
   */
+  /*
+    SIGNING IN IS THE LIVE SITE'S. The account pages draw here, in the
+    theme, so they can be seen and styled; sending one of their forms (sign
+    in, Create account, a code, a password reset) says that works on the
+    live site, and nothing is sent. A newsletter form posted to /account is
+    the newsletter, and is left alone.
+  */
+  var accountPost = function (path, data) {
+    if (path === null) return false;
+    var p = String(path).split(/[?#]/)[0].replace(/\\/+$/, "");
+    if (/^\\/api\\/site-account\\//.test(p)) return true;
+    if (/^\\/account\\/(login|register|recover|reset|activate)(\\/|$)/.test(p)) return true;
+    return p === "/account" && !(data && data.form_type === "customer");
+  };
   var postForm = function (method, action, data) {
     var path = routed(action || pagePath) || pagePath;
+    if (method === "POST" && accountPost(path, data)) { liveOnly("account"); return; }
     if (data && data.checkout !== undefined || checkoutPath(path)) { liveOnly("checkout"); return; }
     if (method !== "POST") { post({ type: "navigate", href: path, chrome: false }); return; }
     ask("POST", path, data, false).then(function (r) {
@@ -718,6 +1014,12 @@ export const CANVAS_REQUESTS = `
       e.preventDefault();
       e.stopImmediatePropagation();
       liveOnly("checkout");
+      return;
+    }
+    if (String(form.getAttribute("method") || "GET").toUpperCase() === "POST" && accountPost(routed(form.getAttribute("action") || pagePath), data)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      liveOnly("account");
       return;
     }
     /* After every other listener: whether the theme took the submit for itself. */

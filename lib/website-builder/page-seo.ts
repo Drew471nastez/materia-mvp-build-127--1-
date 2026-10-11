@@ -22,6 +22,8 @@
 export interface PageSeo {
   title?: string
   description?: string
+  /** The picture a shared link to this page shows (og:image), over the site's own (round R6). */
+  image?: string
   /** Kept out of search engines: `noindex` on the page, and not in the sitemap. */
   hidden?: boolean
 }
@@ -37,6 +39,13 @@ function text(value: unknown, max: number): string | undefined {
   if (typeof value !== "string") return undefined
   const t = value.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim()
   return t ? t.slice(0, max) : undefined
+}
+
+/** A picture address a crawler can fetch: https, or a path on the site. */
+function picture(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined
+  const t = value.trim()
+  return t.length <= 1000 && /^(https:\/\/|\/(?!\/))\S+$/i.test(t) ? t : undefined
 }
 
 function map(settings: Record<string, unknown> | null | undefined): Record<string, unknown> {
@@ -55,6 +64,8 @@ export function pageSeoOf(settings: Record<string, unknown> | null | undefined, 
   const description = text(r.description, STORE_DESCRIPTION_MAX)
   if (title) out.title = title
   if (description) out.description = description
+  const image = picture(r.image)
+  if (image) out.image = image
   if (r.hidden === true) out.hidden = true
   return out
 }
@@ -80,6 +91,8 @@ export function withPageSeo(
   /* A field set to "" is cleared, not stored as nothing. */
   if (typeof merged.title === "string" && merged.title.trim()) clean.title = merged.title.slice(0, STORE_TITLE_MAX)
   if (typeof merged.description === "string" && merged.description.trim()) clean.description = merged.description.slice(0, STORE_DESCRIPTION_MAX)
+  const image = picture(merged.image)
+  if (image) clean.image = image
   if (merged.hidden === true) clean.hidden = true
   if (Object.keys(clean).length) next[pageKey] = clean
   else delete next[pageKey]
@@ -92,12 +105,48 @@ export function hiddenPages(settings: Record<string, unknown> | null | undefined
 }
 
 /** What the fields hold as typed, for the inputs: not trimmed, so a space being typed stays. */
-export function typedPageSeo(settings: Record<string, unknown> | null | undefined, pageKey: string): { title: string; description: string; hidden: boolean } {
+export function typedPageSeo(settings: Record<string, unknown> | null | undefined, pageKey: string): { title: string; description: string; image: string; hidden: boolean } {
   const raw = map(settings)[pageKey]
   const r = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {}
   return {
     title: typeof r.title === "string" ? r.title : "",
     description: typeof r.description === "string" ? r.description : "",
+    image: typeof r.image === "string" ? r.image : "",
     hidden: r.hidden === true,
+  }
+}
+
+/** Pages whose title is the thing they show (a product, a collection, a search), not one the creator names. */
+const DRAWN_TITLES = new Set(["product", "collection", "search", "cart"])
+
+/**
+ * ===========================================================================
+ *  WHAT ONE PAGE TELLS A SEARCH ENGINE, FOR A THEME THAT DRAWS ITS OWN HEAD
+ * ===========================================================================
+ * Storelib's own pages take their title, description and share picture from
+ * Next's metadata (app/(site)/w/[username]/render-site.tsx). A theme
+ * imported from Shopify draws its own <head> from `page_title` and
+ * `page_description`, and read neither the site's SEO & Social nor a page's
+ * own: every page of an imported site said the theme's defaults (round R6,
+ * the owner: "editing SEO for specific pages must actually work").
+ *
+ * This is the same reading for that route (lib/website-builder/compat-site.ts):
+ * the page's own title and description when it has them (home's are the
+ * site's), the site's description and share picture otherwise, and whether
+ * it is kept out of search, by the page or by the whole site. A product's
+ * or a collection's title stays its own.
+ */
+export function pageSeoForSite(settings: Record<string, unknown> | null | undefined, pageKey: string): { title?: string; description?: string; image?: string; noindex: boolean } {
+  const s = settings ?? {}
+  const own = pageSeoOf(s, pageKey)
+  const siteTitle = text(s.seo_title, STORE_TITLE_MAX)
+  const siteDescription = text(s.seo_description, STORE_DESCRIPTION_MAX)
+  const robots = s.seo_robots
+  const siteHidden = robots === false || (typeof robots === "string" && /noindex/i.test(robots))
+  return {
+    title: DRAWN_TITLES.has(pageKey) ? undefined : pageKey === "home" ? siteTitle : own.title,
+    description: own.description ?? siteDescription,
+    image: own.image ?? picture(s.seo_og_image),
+    noindex: siteHidden || own.hidden === true,
   }
 }

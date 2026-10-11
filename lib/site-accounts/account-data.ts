@@ -19,9 +19,12 @@
  * (lib/receipts/load.ts); so does this, with the same money rules
  * (lib/receipts/rules.ts), so the total here is the total on the receipt.
  *
- * THE FILES STAY ON STORELIB.COM, behind the receipt's own token: each
- * order's button opens its receipt, which is also its download page
- * (lib/receipts/rules.ts, step 4) and needs no Storelib login.
+ * THE FILES. On a website whose account draws an order's own page (an
+ * imported theme's, `orderPages`), a download's button opens
+ * /account/orders/<id> on the website, and each file downloads there
+ * (./order-files.ts). Otherwise it opens the receipt, behind the receipt's
+ * own token, which is also its download page (lib/receipts/rules.ts, step 4)
+ * and needs no Storelib login.
  *
  * Shaped for the template engine, which reads it as `customer`: plain
  * strings and lists, dates written out, money formatted, links absolute. A
@@ -183,7 +186,7 @@ function statusWords(state: AccessState, rows: OrderRow[], physical: boolean, re
  * payment, newest first. `platform` is "https://storelib.com", where the
  * receipts are.
  */
-export async function customerOrders(db: Db, scope: { creatorId: string; email: string }, platform: string): Promise<CustomerOrder[]> {
+export async function customerOrders(db: Db, scope: { creatorId: string; email: string }, platform: string, opts: OrderLinks = {}): Promise<CustomerOrder[]> {
   if (!UUID.test(scope.creatorId) || !scope.email) return []
   let rows: OrderRow[] = []
   try {
@@ -271,7 +274,8 @@ export async function customerOrders(db: Db, scope: { creatorId: string; email: 
         items,
         item_count: items.length,
         action_label,
-        action_url: token ? `${platform}/${shipsOnly ? "checkout/physical/order" : "receipt"}/${encodeURIComponent(token)}` : "",
+        /* A download on a website whose account draws order pages (an imported theme's): that page, on the website, where each file downloads (./order-files.ts). */
+        action_url: opts.orderPages && action_label === "Download" ? `/account/orders/${first.id}` : token ? `${platform}/${shipsOnly ? "checkout/physical/order" : "receipt"}/${encodeURIComponent(token)}` : "",
         title: label,
         image: items.find((i) => i.image)?.image ?? "",
         url: items[0]?.url ?? "",
@@ -346,10 +350,15 @@ export async function customerAddresses(db: Db, scope: { creatorId: string; emai
   }
 }
 
+/** How an order's button links: `orderPages`, to the order's own page on the website, for a download. */
+export interface OrderLinks {
+  orderPages?: boolean
+}
+
 /** The `customer` object for one customer on one creator's website. */
-export async function siteCustomer(db: Db, customer: CustomerRow, platform: string): Promise<CustomerObject> {
+export async function siteCustomer(db: Db, customer: CustomerRow, platform: string, opts: OrderLinks = {}): Promise<CustomerObject> {
   const name = (customer.name ?? "").trim()
   const scope = { creatorId: customer.creator_id, email: customer.email }
-  const [orders, addresses] = await Promise.all([customerOrders(db, scope, platform), customerAddresses(db, scope)])
+  const [orders, addresses] = await Promise.all([customerOrders(db, scope, platform, opts), customerAddresses(db, scope)])
   return { name, first_name: firstName(name), email: customer.email, orders, orders_count: orders.length, addresses, sample: false }
 }

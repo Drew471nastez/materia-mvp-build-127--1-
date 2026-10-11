@@ -299,6 +299,11 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
     await step("tax", async () => {
       const { error: taxError } = await admin.from("orders").update({ tax_cents: Math.min(taxCents, total), tax_country: /^[A-Z]{2}$/.test(m.tax_country || "") ? m.tax_country : null }).eq("id", order.id)
       if (taxError) throw new Error(taxError.message)
+      /* Part of the price or on top (SQL part 129), for the receipt's Tax row: its own write, so an older database loses only this. */
+      if (m.tax_included === "true") {
+        const { error: inError } = await admin.from("orders").update({ tax_included: true }).eq("id", order.id)
+        if (inError) throw new Error(inError.message)
+      }
     })
   }
 
@@ -445,7 +450,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
 }
 
-function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
+export function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
   if (typeof expected !== "string" || typeof given !== "string" || expected.length !== given.length) return false
   let diff = 0
   for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i)

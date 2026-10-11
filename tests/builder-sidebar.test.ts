@@ -71,8 +71,9 @@ function main() {
     /if \(opts\.length > 3\) \{/.test(editor) && /if \(options\.length > 3\) \{/.test(editor) && /"flex gap-1 p-1 bg-neutral-100 rounded-lg"/.test(editor))
   check("the slider is the black one, drawn from its own state and sending once a frame",
     /<Slider\s+value=\{\[shown\]\}/.test(slider) && /onValueCommit=\{\(\) => flush\(\)\}/.test(slider) && /className="wb-black-slider"/.test(slider) && /useFrameCommit\(onChange\)/.test(slider))
-  check("the image box says Add Image, with a spinner over the picture while it uploads",
-    />Add Image</.test(picker) && /Click to upload or drag &amp; drop/.test(picker) && /animate-spin/.test(picker) && !/MediaField|progressbar/.test(picker))
+  /* Round R6: the empty box offers Upload and Your files inside it (the store's Files), and still takes a dropped picture. */
+  check("the image box says Add image, offers Upload and Your files in it, with a spinner over the picture while it uploads",
+    />Add image</.test(picker) && /or drop a picture here/.test(picker) && /data-wb-image-upload=""/.test(picker) && /data-wb-image-library=""/.test(picker) && /animate-spin/.test(picker) && !/MediaField|progressbar/.test(picker))
   /* A video file is uploaded or linked, and shown (controls/video-picker-control.tsx). */
   check("a video is uploaded or linked, and the box shows the video",
     /case "video_picker":\s*\n\s*return <VideoPickerControl/.test(read("components/website-builder/editor/controls/index.tsx")) &&

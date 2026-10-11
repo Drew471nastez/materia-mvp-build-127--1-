@@ -24,7 +24,7 @@ import { ChevronRight, Plus, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { regionsOf } from "@/lib/physical/regions"
-import { percentText } from "@/lib/tax/rules"
+import { TAX_REGION_RULES, percentText } from "@/lib/tax/rules"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, Field, Modal, Notice, SelectInput, TextInput, Toggle, api, peekGet } from "@/components/physical/ui"
@@ -193,6 +193,7 @@ export function TaxesPanel() {
           </ul>
         )}
         {error ? <Notice className="mt-3">{error}</Notice> : null}
+        <RegionsExplained physical={physical} />
       </Card>
 
       <CreateRegion
@@ -204,6 +205,35 @@ export function TaxesPanel() {
         }}
         taken={setup.regions}
       />
+    </div>
+  )
+}
+
+/**
+ * HOW TAX REGIONS WORK, in plain words, always in view under the regions:
+ * which address picks the region at each checkout and what a buyer
+ * elsewhere pays. It says what lib/tax/rules.ts and lib/physical/totals.ts
+ * do, and tests/tax-settings-wiring.test.ts holds the two to each other.
+ */
+function RegionsExplained({ physical }: { physical: boolean }) {
+  const lines = [TAX_REGION_RULES.what, ...(physical ? [TAX_REGION_RULES.physical] : []), TAX_REGION_RULES.digital, TAX_REGION_RULES.elsewhere]
+  return (
+    <div className="mt-4 rounded-xl bg-[#f8f9fa] px-3.5 py-3" data-tax-regions-explained="">
+      <p className="text-[13px] font-semibold text-[#1a1a2e]">How tax regions work</p>
+      <ul className="mt-1.5 space-y-1 text-[12.5px] leading-[18px] text-[#4b5563]">
+        {lines.map((l) => (
+          <li key={l} className="flex gap-2">
+            <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#9ca3af]" />
+            <span>{l}</span>
+          </li>
+        ))}
+      </ul>
+      {/* The full guide, with worked examples. It lives in the physical products part of the Help Center, which is only there while physical commerce is on. */}
+      {physical ? (
+        <a href="/help/physical-products/taxes" target="_blank" rel="noreferrer" className="mt-2 inline-block text-[12.5px] font-medium text-[#1a1a2e] underline underline-offset-2" data-tax-guide="">
+          Read the tax guide
+        </a>
+      ) : null}
     </div>
   )
 }

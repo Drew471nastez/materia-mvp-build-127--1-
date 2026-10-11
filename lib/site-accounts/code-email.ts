@@ -1,8 +1,9 @@
 /**
  * The email a creator's website sends with a sign in code. From the store,
- * by name (lib/site-accounts/brand.ts), so the visitor recognises the shop
- * they were on; the same words whether the address has an account there or
- * not, so the email never says which.
+ * by name and with its logo (lib/site-accounts/site-brand.ts, the same
+ * store its receipts and order emails sign with), so the visitor recognises
+ * the shop they were on; the same words whether the address has an account
+ * there or not, so the email never says which.
  *
  * Pure, so tests/site-accounts.test.ts reads exactly what is sent.
  */
@@ -25,10 +26,19 @@ function oneLine(value: string): string {
   return value.replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "this store"
 }
 
-export function codeEmail(input: { store: string; code: string; host: string; minutes: number }): CodeEmail {
+/** A logo the email may show: an https address with no quotes or markup in it. */
+function logoOf(url: string | null | undefined): string | null {
+  if (typeof url !== "string") return null
+  const u = url.trim()
+  if (!/^https:\/\/[^\s"'<>]+$/i.test(u) || u.length > 1000) return null
+  return u
+}
+
+export function codeEmail(input: { store: string; code: string; host: string; minutes: number; logoUrl?: string | null }): CodeEmail {
   const store = oneLine(input.store)
   const code = input.code.replace(/\D/g, "").slice(0, 6)
   const site = input.host.split(":")[0].replace(/^www\./, "")
+  const logo = logoOf(input.logoUrl)
   const subject = `${code} is your code for ${store}`
   const text = [
     `Your code to sign in to ${store}:`,
@@ -46,6 +56,7 @@ export function codeEmail(input: { store: string; code: string; host: string; mi
     <tr><td align="center" style="padding:32px 16px;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:440px;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;">
         <tr><td style="padding:28px 28px 8px;">
+          ${logo ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(store)}" height="40" style="display:block;height:40px;width:auto;max-width:200px;margin:0 0 12px;border:0;outline:none;">` : ""}
           <p style="margin:0 0 16px;font-size:15px;font-weight:600;">${escapeHtml(store)}</p>
           <p style="margin:0;font-size:15px;line-height:1.5;color:#374151;">Your code to sign in:</p>
         </td></tr>

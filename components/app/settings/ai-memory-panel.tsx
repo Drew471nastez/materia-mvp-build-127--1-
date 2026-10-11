@@ -21,6 +21,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
+import { api, peekGet } from "@/components/physical/ui"
 
 const CARD = "bg-white rounded-2xl app-card-x py-4 sm:py-6 shadow-sm border border-[#e5e7eb]"
 const MAX = 500
@@ -34,8 +35,17 @@ interface Memory {
 
 type Load = { state: "loading" } | { state: "error" } | { state: "ready"; memories: Memory[]; setUp: boolean }
 
+/*
+  DRAWN AT ONCE FROM WHAT SETTINGS FETCHED AHEAD (components/physical/ui
+  peekGet, TAB_DATA in components/app/settings-form-new.tsx), and read again
+  behind it. It used to open on two grey rows every time, then the list.
+*/
+const PATH = "/api/ai-memory"
+type Answer = { memories: Memory[]; ready: boolean }
+const fromAnswer = (a: Answer | null): Load => (a ? { state: "ready", memories: a.memories, setUp: a.ready } : { state: "loading" })
+
 export function AiMemoryPanel() {
-  const [load, setLoad] = useState<Load>({ state: "loading" })
+  const [load, setLoad] = useState<Load>(() => fromAnswer(peekGet<Answer>(PATH)))
   const [draft, setDraft] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -45,15 +55,10 @@ export function AiMemoryPanel() {
   const [saving, setSaving] = useState(false)
 
   const read = useCallback(async () => {
-    setLoad({ state: "loading" })
-    try {
-      const res = await fetch("/api/ai-memory", { cache: "no-store" })
-      if (!res.ok) throw new Error(String(res.status))
-      const data = (await res.json()) as { memories: Memory[]; ready: boolean }
-      setLoad({ state: "ready", memories: data.memories, setUp: data.ready })
-    } catch {
-      setLoad({ state: "error" })
-    }
+    setLoad((l) => (l.state === "ready" ? l : { state: "loading" }))
+    const r = await api<Answer>(PATH)
+    if (r.ok) setLoad(fromAnswer(r.data))
+    else setLoad((l) => (l.state === "ready" ? l : { state: "error" }))
   }, [])
   useEffect(() => {
     void read()
@@ -65,15 +70,18 @@ export function AiMemoryPanel() {
     setBusy(true)
     setError(null)
     try {
-      const res = await fetch("/api/ai-memory", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) })
-      const data = (await res.json().catch(() => null)) as { memory?: Memory; duplicate?: boolean; error?: string } | null
-      if (!res.ok || !data?.memory) {
-        setError(data?.error ?? "That could not be kept. Try again.")
+      /* Through api(), so the list Settings keeps is read again after it (refreshAfterWrite). */
+      const r = await api<{ memory?: Memory; duplicate?: boolean }>(PATH, { method: "POST", body: { content } })
+      const data = r.ok ? r.data : null
+      if (!r.ok || !data?.memory) {
+        setError((!r.ok && r.error) || "That could not be kept. Try again.")
         return
       }
       const kept = data.memory
       setLoad((l) => (l.state === "ready" ? { ...l, memories: data.duplicate ? l.memories : [kept, ...l.memories] } : l))
       setDraft("")
+      const box = document.getElementById("ai-memory-new")
+      if (box) box.style.height = ""
     } catch {
       setError("That could not be kept. Try again.")
     } finally {
@@ -85,8 +93,8 @@ export function AiMemoryPanel() {
     setRemoving(id)
     setError(null)
     try {
-      const res = await fetch(`/api/ai-memory/${encodeURIComponent(id)}`, { method: "DELETE" })
-      if (!res.ok) throw new Error(String(res.status))
+      const r = await api(`${PATH}/${encodeURIComponent(id)}`, { method: "DELETE" })
+      if (!r.ok) throw new Error(r.error)
       setLoad((l) => (l.state === "ready" ? { ...l, memories: l.memories.filter((m) => m.id !== id) } : l))
     } catch {
       setError("That could not be deleted. Try again.")
@@ -102,10 +110,10 @@ export function AiMemoryPanel() {
     setSaving(true)
     setError(null)
     try {
-      const res = await fetch(`/api/ai-memory/${encodeURIComponent(editing.id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content }) })
-      const data = (await res.json().catch(() => null)) as { memory?: Memory; error?: string } | null
-      if (!res.ok || !data?.memory) {
-        setError(data?.error ?? "That could not be kept. Try again.")
+      const r = await api<{ memory?: Memory }>(`${PATH}/${encodeURIComponent(editing.id)}`, { method: "PATCH", body: { content } })
+      const data = r.ok ? r.data : null
+      if (!r.ok || !data?.memory) {
+        setError((!r.ok && r.error) || "That could not be kept. Try again.")
         return
       }
       const kept = data.memory
@@ -145,28 +153,60 @@ export function AiMemoryPanel() {
         </p>
       ) : (
         <>
+          {/*
+            THE WHOLE WIDTH OF THE CARD, AND A FEW LINES TALL. It was a single
+            40px line beside its button, narrow for a sentence and narrower on
+            a phone. Now a box that grows with what is typed (up to six lines),
+            16px on a phone so iOS does not zoom into it, with how much room
+            is left and Remember under it. Enter keeps it, Shift and Enter
+            starts a new line.
+
+            Remember used to close Settings: this form sat inside the one form
+            Settings drew around every section, and its submit reached that
+            form too, which saved the profile and refreshed the route.
+            Settings has no form around its sections now
+            (components/app/settings-form-new.tsx), and this submit stops here.
+          */}
           <form
-            className="mt-4 flex flex-col gap-2 sm:flex-row"
+            className="mt-4 rounded-xl border border-[#e5e7eb] bg-white transition-[border-color,box-shadow] focus-within:border-[#1a1a2e]/40 focus-within:ring-2 focus-within:ring-[#1a1a2e]/10"
+            data-ai-memory-form=""
             onSubmit={(e) => {
               e.preventDefault()
+              e.stopPropagation()
               void add()
             }}
           >
             <label htmlFor="ai-memory-new" className="sr-only">
               Something to remember
             </label>
-            <input
+            <textarea
               id="ai-memory-new"
               value={draft}
               maxLength={MAX}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="Prices in euros. No gradients."
-              className="h-11 min-w-0 flex-1 rounded-xl border border-[#e5e7eb] bg-white px-3.5 text-[14px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] focus:border-[#1a1a2e]/40 focus:ring-2 focus:ring-[#1a1a2e]/10 sm:h-10"
+              rows={2}
+              onChange={(e) => {
+                setDraft(e.target.value)
+                const t = e.currentTarget
+                t.style.height = "auto"
+                t.style.height = `${Math.min(t.scrollHeight, 6 * 22 + 20)}px`
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault()
+                  void add()
+                }
+              }}
+              placeholder="Prices in euros. No gradients. Keep product names short."
+              className="block min-h-[64px] w-full resize-none rounded-t-xl bg-transparent px-3.5 pb-1 pt-3 text-[16px] leading-[22px] text-[#1a1a2e] outline-none placeholder:text-[#9ca3af] sm:text-[14.5px]"
               disabled={load.state !== "ready" || busy}
+              data-ai-memory-input=""
             />
-            <button type="submit" disabled={!draft.trim() || busy || load.state !== "ready"} className={cn(primaryDepth, "h-11 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-10")}>
-              {busy ? "Saving" : "Remember"}
-            </button>
+            <div className="flex items-center justify-between gap-3 px-2 pb-2 pl-3.5">
+              <span className="text-[12px] tabular-nums text-[#9ca3af]">{draft.length > MAX - 80 ? `${MAX - draft.length} left` : "Enter to keep it"}</span>
+              <button type="submit" disabled={!draft.trim() || busy || load.state !== "ready"} className={cn(primaryDepth, "h-10 rounded-xl px-5 text-[14px] disabled:cursor-not-allowed disabled:opacity-60 sm:h-9")} data-ai-memory-remember="">
+                {busy ? "Saving" : "Remember"}
+              </button>
+            </div>
           </form>
           {error ? (
             <p role="alert" className="mt-2 text-[13px] text-[#b42318]">
@@ -191,6 +231,7 @@ export function AiMemoryPanel() {
                       className="min-w-0 flex-1"
                       onSubmit={(e) => {
                         e.preventDefault()
+                        e.stopPropagation()
                         void save()
                       }}
                     >
@@ -208,7 +249,7 @@ export function AiMemoryPanel() {
                             void save()
                           }
                         }}
-                        className="w-full resize-none rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-[14px] leading-[1.45] text-[#1a1a2e] outline-none focus:border-[#1a1a2e]"
+                        className="w-full resize-none rounded-xl border border-[#e5e7eb] bg-white px-3 py-2 text-[16px] leading-[1.45] text-[#1a1a2e] outline-none focus:border-[#1a1a2e] sm:text-[14px]"
                       />
                       <div className="mt-2 flex gap-2">
                         <button type="submit" disabled={saving || !editing.text.trim()} className={cn(primaryDepth, "h-9 rounded-xl px-4 text-[13px] disabled:opacity-60")}>

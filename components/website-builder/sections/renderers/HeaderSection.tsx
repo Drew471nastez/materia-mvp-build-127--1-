@@ -25,6 +25,7 @@ import { SHOP_PATH } from "@/lib/website-builder/live-links"
 import { followSectionLink } from "@/lib/website-builder/section-motion"
 import { useSiteCart } from "../../site-cart"
 import { useStorefront } from "../../theme/storefront-context"
+import { CartReturnsNote } from "../../theme/shop-commerce"
 import { lineKey } from "@/lib/website-builder/cart"
 import { drawerCheckout } from "@/lib/website-builder/cart-checkout"
 import { headerIconOn } from "@/lib/website-builder/header-icons"
@@ -992,6 +993,8 @@ function CartDrawerInner({
             >
               View cart
             </a>
+            {/* Website settings › Commerce › Returns line in the cart. */}
+            <CartReturnsNote className="mt-1 text-center text-[12.5px] opacity-70" />
           </div>
         )}
       </aside>

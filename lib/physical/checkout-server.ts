@@ -61,6 +61,10 @@ import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { recordCheckoutStart } from "@/lib/automations/abandoned"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { physicalCheckoutHref } from "./cart-link"
+import { methodsFrom } from "@/lib/checkout/payment-methods"
 
 export const HOLD_MINUTES = 35
 const STRIPE_PAGE_MINUTES = 31
@@ -96,10 +100,21 @@ export interface StartInput {
    */
   embedded?: boolean
   shopName?: string | null
+  /**
+   * Storelib's own card form (Stripe's Payment Element) on the website's
+   * checkout (app/checkout/site): a PaymentIntent for the total, not a
+   * Checkout Session, so no Stripe page is ever shown. The same row, the
+   * same stock hold, the same completion (completePhysicalIntent).
+   */
+  intent?: boolean
+  /** The ways to pay the form loaded with (lib/checkout/payment-methods). */
+  paymentMethods?: unknown
+  /** Signed in to the website's own customer account (lib/site-accounts), which counts as an account here. */
+  buyerSignedIn?: boolean
 }
 
 export type StartResult =
-  | { ok: true; url: string; checkoutId: string; free: boolean; clientSecret?: string | null }
+  | { ok: true; url: string; checkoutId: string; free: boolean; clientSecret?: string | null; paymentIntentId?: string | null; receiptToken?: string | null }
   | { ok: false; status: number; error: string; field?: string; stock?: { title: string; available: number }[] }
 
 function clean(value: unknown, max: number): string {
@@ -133,7 +148,7 @@ export type LineSnapshot = ReturnType<typeof snapshotLine>
 export async function startCheckout(db: Db, input: StartInput): Promise<StartResult> {
   const config = input.config ?? DEFAULT_CHECKOUT
   /* Settings › Checkout, checked here as well as on the page: an account first, and a confirmed one. */
-  if (config.requireAccount && !input.buyerId) return { ok: false, status: 401, error: "Sign in or create an account to check out.", field: "account" }
+  if (config.requireAccount && !input.buyerId && !input.buyerSignedIn) return { ok: false, status: 401, error: "Sign in or create an account to check out.", field: "account" }
   if (config.requireConfirmedEmail && !input.buyerEmailConfirmed) return { ok: false, status: 403, error: "Confirm your email address to check out. We sent you a link when you signed up.", field: "account" }
   const email = clean(input.email, 254).toLowerCase()
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { ok: false, status: 400, error: "Enter your email address.", field: "email" }
@@ -196,12 +211,23 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   /* The same press again: the checkout it made, and its page while it is open. */
   const { data: existing } = await db
     .from("commerce_checkouts")
-    .select("id, status, stripe_session_id, total_cents, expires_at")
+    .select("id, status, stripe_session_id, stripe_payment_intent_id, total_cents, expires_at")
     .eq("creator_id", priced.creatorId)
     .eq("client_key", clientKey)
     .maybeSingle()
   if (existing) {
     if (existing.status === "paid") return { ok: false, status: 409, error: "This order has already been paid." }
+    /* The card form's second press (a declined card, a bank's check abandoned): the same payment, while it can still be paid. */
+    if (input.intent && existing.status === "pending" && existing.stripe_payment_intent_id && existing.total_cents === totals.totalCents && new Date(existing.expires_at).getTime() > Date.now()) {
+      try {
+        const pi = await stripe.paymentIntents.retrieve(existing.stripe_payment_intent_id)
+        if (["requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status) && pi.client_secret) {
+          return { ok: true, url: "", clientSecret: pi.client_secret, paymentIntentId: pi.id, checkoutId: existing.id, free: false }
+        }
+      } catch {
+        /* Made again below under a new key. */
+      }
+    }
     if (existing.status === "pending" && existing.stripe_session_id && existing.total_cents === totals.totalCents) {
       try {
         const s = await stripe.checkout.sessions.retrieve(existing.stripe_session_id)
@@ -314,7 +340,11 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (free) {
     const done = await completeCheckout(db, { checkoutId, sessionId: `free_${randomBytes(18).toString("base64url")}`, paymentIntentId: null, facts: null, baseUrl: input.platformOrigin })
     if (!done.ok) return { ok: false, status: 500, error: "The order could not be saved. Try again in a moment." }
-    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: true }
+    return { ok: true, url: `${input.platformOrigin}/checkout/physical/order/${encodeURIComponent(receiptToken)}`, checkoutId, free: true, receiptToken }
+  }
+
+  if (input.intent) {
+    return startPhysicalIntent(db, { checkoutId, priced, totals, address, fee: fee!, creator, chargeCurrency, methods: input.paymentMethods, holder, receiptToken })
   }
 
   const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = q.lines.flatMap((l) =>
@@ -422,6 +452,28 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     }
     await db.from("commerce_checkouts").update({ stripe_session_id: session.id, updated_at: new Date().toISOString() }).eq("id", checkoutId)
     await addOrderEvent(db, { checkoutId, creatorId: priced.creatorId, kind: "checkout.started", message: "Checkout started", actor: "buyer", key: `started:${checkoutId}` })
+    /*
+      Settings › Checkout › Abandoned checkouts: the cart reached Pay with an
+      address, written down as the single product checkout writes its own
+      (lib/automations/abandoned), one start per Stripe page, with the way
+      back to this checkout and its items. The hourly sweep reminds them an
+      hour later only if no order came of it and they ticked the news box or
+      are on the list. Off, nothing is written.
+    */
+    if (config.abandonedRecovery) {
+      await recordCheckoutStart(db, {
+        creatorId: priced.creatorId,
+        productId: q.lines[0].productId,
+        variantId: q.lines[0].variantId,
+        productTitle: q.lines.length > 1 ? `${q.lines[0].title} and ${q.lines.length - 1} more` : q.lines[0].title,
+        email,
+        firstName: (clean(input.name, 200) || address?.name || "").split(/\s+/)[0] || null,
+        paymentIntentId: session.id,
+        optedIn: config.marketingOptIn && input.emailOptIn === true,
+        source: contactSourceOfOrder(input.origin, q.lines[0].productId),
+        returnPath: physicalCheckoutHref(priced.creatorId, q.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })), input.backUrl),
+      }).catch(() => false)
+    }
     return { ok: true, url: session.url ?? "", clientSecret: session.client_secret ?? null, checkoutId, free: false }
   } catch (e) {
     console.error("[physical] Stripe page could not be made:", (e as { code?: string })?.code ?? "")
@@ -429,6 +481,118 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     if (holder && priced.coupon) await releaseCouponHold(db, priced.coupon.id, holder)
     return { ok: false, status: 500, error: "Could not start the payment. Try again in a moment." }
   }
+}
+
+/**
+ * The payment for a held checkout, made for Storelib's own card form: a
+ * destination charge for the server's total, the delivery address on it, and
+ * the checkout's id in its metadata (`physical_intent`, so a Checkout
+ * Session's own PaymentIntent, which carries the id too, is never completed
+ * twice by two routes). Once per checkout, by an idempotency key.
+ */
+async function startPhysicalIntent(
+  db: Db,
+  c: {
+    checkoutId: string
+    priced: Extract<PricedCheckout, { ok: true }>
+    totals: { totalCents: number }
+    address: Address | null
+    fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
+    creator: Record<string, unknown>
+    chargeCurrency: string
+    methods: unknown
+    holder: string | null
+    receiptToken: string
+  },
+): Promise<StartResult> {
+  const account = String(c.creator.stripe_account_id)
+  const params: Stripe.PaymentIntentCreateParams = {
+    amount: c.totals.totalCents,
+    currency: c.chargeCurrency,
+    payment_method_types: methodsFrom(c.methods),
+    application_fee_amount: c.fee.platformFeeCents,
+    transfer_data: { destination: account },
+    ...statementParams({
+      account,
+      descriptor: (c.creator.statement_descriptor as string | null) || (c.creator.display_name as string | null) || "",
+      chargesEnabled: c.creator.charges_enabled as boolean | null,
+    }),
+    metadata: {
+      physical_checkout_id: c.checkoutId,
+      physical_intent: "1",
+      creator_id: c.priced.creatorId,
+      platform_fee_cents: String(c.fee.platformFeeCents),
+      plan_used: c.fee.planId,
+      pricing_tier: c.fee.pricingTier ?? "standard",
+      fee_rule_version: c.fee.feeRuleVersion ?? "",
+    },
+    ...(c.address
+      ? {
+          shipping: {
+            name: c.address.name,
+            phone: c.address.phone ?? undefined,
+            address: { line1: c.address.line1, line2: c.address.line2 ?? undefined, city: c.address.city, state: c.address.region ?? undefined, postal_code: c.address.postalCode ?? undefined, country: c.address.country },
+          },
+        }
+      : {}),
+  }
+  try {
+    let pi: Stripe.PaymentIntent
+    try {
+      pi = await stripe.paymentIntents.create(params, { idempotencyKey: `physical-intent:${c.checkoutId}` })
+    } catch (e) {
+      /* A refused statement part sells on Storelib's own line, as everywhere else (lib/payments/platform-descriptor). */
+      const said = `${(e as Error)?.message ?? ""} ${(e as { param?: string })?.param ?? ""}`
+      if (!/statement_descriptor|on_behalf_of/i.test(said) || (!params.statement_descriptor_suffix && !params.on_behalf_of)) throw e
+      delete params.statement_descriptor_suffix
+      delete params.on_behalf_of
+      pi = await stripe.paymentIntents.create(params, { idempotencyKey: `physical-intent:${c.checkoutId}:plain` })
+    }
+    await db.from("commerce_checkouts").update({ stripe_payment_intent_id: pi.id, updated_at: new Date().toISOString() }).eq("id", c.checkoutId)
+    await addOrderEvent(db, { checkoutId: c.checkoutId, creatorId: c.priced.creatorId, kind: "checkout.started", message: "Checkout started", actor: "buyer", key: `started:${c.checkoutId}` })
+    return { ok: true, url: "", clientSecret: pi.client_secret, paymentIntentId: pi.id, checkoutId: c.checkoutId, free: false, receiptToken: c.receiptToken }
+  } catch (e) {
+    console.error("[physical] payment could not be made:", (e as { code?: string })?.code ?? "")
+    await releaseCheckout(db, c.checkoutId, "failed", "Payment could not be started")
+    if (c.holder && c.priced.coupon) await releaseCouponHold(db, c.priced.coupon.id, c.holder)
+    return { ok: false, status: 500, error: "Could not start the payment. Try again in a moment." }
+  }
+}
+
+export function isPhysicalIntent(pi: Pick<Stripe.PaymentIntent, "metadata">): boolean {
+  return pi.metadata?.physical_intent === "1" && typeof pi.metadata?.physical_checkout_id === "string" && /^[0-9a-f-]{36}$/i.test(pi.metadata.physical_checkout_id)
+}
+
+/**
+ * A checkout paid in Storelib's own form becomes orders: from the buyer's
+ * browser (with the client secret only that page holds) and from the
+ * payment_intent.succeeded webhook, whichever comes first, each line once
+ * (completeCheckout). The PaymentIntent's id groups its lines.
+ */
+export async function completePhysicalIntent(db: Db, paymentIntentId: string, baseUrl: string, clientSecret?: string | null): Promise<CompleteResult> {
+  if (!/^pi_[A-Za-z0-9]+$/.test(paymentIntentId)) return { ok: false, status: 400, reason: "not_found" }
+  let pi: Stripe.PaymentIntent
+  try {
+    pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ["latest_charge", "latest_charge.transfer"] })
+  } catch (e) {
+    const code = (e as { statusCode?: number; type?: string })?.statusCode
+    if (code === 404 || (e as { type?: string })?.type === "StripeInvalidRequestError") return { ok: false, status: 404, reason: "not_found" }
+    return { ok: false, status: 503, reason: "failed" }
+  }
+  if (clientSecret !== undefined) {
+    const { sameSecret } = await import("@/lib/checkout/fulfil-payment")
+    if (!sameSecret(pi.client_secret, clientSecret)) return { ok: false, status: 404, reason: "not_found" }
+  }
+  if (!isPhysicalIntent(pi)) return { ok: false, status: 400, reason: "not_found" }
+  if (pi.status !== "succeeded") return { ok: false, status: 409, reason: "unpaid" }
+  return completeCheckout(db, {
+    checkoutId: pi.metadata.physical_checkout_id,
+    sessionId: pi.id,
+    paymentIntentId: pi.id,
+    facts: paymentFacts(pi),
+    paidTotal: pi.amount_received || pi.amount,
+    baseUrl,
+  })
 }
 
 /** The stock held for a checkout goes back, and the checkout is closed. */
@@ -452,8 +616,26 @@ export async function releaseCheckout(db: Db, checkoutId: string, status: "expir
 export async function abandonCheckout(db: Db, input: { shopId: string | null; clientKey: unknown }): Promise<boolean> {
   const clientKey = clean(input.clientKey, 120)
   if (!input.shopId || clientKey.length < 8) return false
-  const { data: c } = await db.from("commerce_checkouts").select("id, status, stripe_session_id").eq("creator_id", input.shopId).eq("client_key", clientKey).maybeSingle()
-  if (!c || c.status !== "pending" || !c.stripe_session_id) return false
+  const { data: c } = await db.from("commerce_checkouts").select("id, status, stripe_session_id, stripe_payment_intent_id, coupon_id, coupon_holder").eq("creator_id", input.shopId).eq("client_key", clientKey).maybeSingle()
+  if (!c || c.status !== "pending") return false
+  /* Paid in Storelib's own form: the PaymentIntent is cancelled first, so it can never be paid afterwards; one Stripe will not cancel (paid that very moment) is left alone. */
+  if (!c.stripe_session_id && c.stripe_payment_intent_id) {
+    let status = ""
+    try {
+      status = (await stripe.paymentIntents.cancel(c.stripe_payment_intent_id)).status
+    } catch {
+      try {
+        status = (await stripe.paymentIntents.retrieve(c.stripe_payment_intent_id)).status
+      } catch {
+        return false
+      }
+    }
+    if (status !== "canceled") return false
+    await releaseCheckout(db, c.id, "cancelled", "Buyer changed the order")
+    if (c.coupon_id && c.coupon_holder) await releaseCouponHold(db, c.coupon_id, c.coupon_holder)
+    return true
+  }
+  if (!c.stripe_session_id) return false
   let session: Stripe.Checkout.Session
   try {
     session = await stripe.checkout.sessions.expire(c.stripe_session_id)

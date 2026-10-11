@@ -298,7 +298,9 @@ console.log("\nThe help centre guide follows the switch")
   check("off: its pages are not found", !helpVisible(helpCategory("physical-products"), false) && helpVisible(helpCategory("physical-products"), true) && helpVisible(helpCategory("products"), false))
   check("off: search leaves it out; on: search finds it", searchHelp("local pickup", 8, { physical: false }).every((r) => r.article.category !== "physical-products") && searchHelp("local pickup", 8, { physical: true })[0]?.article.slug === "local-pickup")
   const figures = physical.flatMap((a) => a.body.filter((b) => b.type === "figure").map((b) => (b as { figure: string }).figure))
-  check("step by step, with pictures, every picture drawn", figures.length >= 12 && figures.every((f) => HELP_FIGURE_IDS.includes(f)) && physical.filter((a) => a.body.some((b) => b.type === "steps")).length >= 7)
+  /* Pictures are drawings (help-figures) or, since the guide was rewritten, screenshots of the real screens (tests/help-center.test.ts checks those files). */
+  const shots = physical.flatMap((a) => a.body.filter((b) => b.type === "image"))
+  check("step by step, with pictures, every drawing drawn", figures.length + shots.length >= 24 && figures.every((f) => HELP_FIGURE_IDS.includes(f)) && physical.filter((a) => a.body.some((b) => b.type === "steps")).length >= 7)
   const text = JSON.stringify(physical)
   check("plain words: no em dashes or filler", !/—|unlock|elevate|seamless|effortless|supercharge/i.test(text))
   for (const page of ["app/help/page.tsx", "app/help/[category]/page.tsx", "app/help/[category]/[article]/page.tsx", "app/help/search/page.tsx"]) {

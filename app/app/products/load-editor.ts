@@ -1,10 +1,12 @@
 import "server-only"
 
 import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/lib/auth/request-scope"
 import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow, LoadedProduct } from "./new/editor-form"
 import { paymentsReadyFrom } from "@/lib/home/progress"
 import { providerPaymentsReady } from "@/lib/payments/readiness"
+import { storeCurrencyOf } from "@/lib/store/currency"
 
 /**
  * ===========================================================================
@@ -106,6 +108,12 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   }
 
   if (!creatorRow) return { state: "no-creator" }
+  /* The store's currency, for every price field (lib/store/currency.ts), read beside the payments check. A failed read is US dollars, as before. */
+  const [paymentsReady, currencyRow] = await Promise.all([
+    providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
+    /* A private column of the signed-in creator's own row, read on the server as the Taxes tab reads it (app/api/store/taxes). */
+    readPayoutCurrency(creatorRow.id),
+  ])
   /* Only what the editor reads goes to the browser, not the whole shell row. */
   const creator: EditorCreator = {
     id: creatorRow.id,
@@ -114,7 +122,8 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     stripe_onboarding_status: creatorRow.stripe_onboarding_status,
     username: profileRow?.username ?? null,
     /* The editor's status line says when a live paid product cannot be bought yet. */
-    payments_ready: await providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
+    payments_ready: paymentsReady,
+    currency: storeCurrencyOf((currencyRow?.data as { payout_currency?: string | null } | null)?.payout_currency),
   }
 
   if (!productId) return { state: "ready", creator, loaded: null }
@@ -131,5 +140,14 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
       /* A table that is not there is no variants, as before; any other failure is "not read", and a save leaves the saved ones alone. */
       variantsUnread: !!variantsRead.error && variantsRead.error.code !== "42P01" && variantsRead.error.code !== "PGRST205",
     },
+  }
+}
+
+async function readPayoutCurrency(creatorId: string): Promise<{ data: { payout_currency?: string | null } | null }> {
+  try {
+    const { data } = await createAdminClient().from("creators").select("payout_currency").eq("id", creatorId).maybeSingle()
+    return { data: (data as { payout_currency?: string | null } | null) ?? null }
+  } catch {
+    return { data: null }
   }
 }

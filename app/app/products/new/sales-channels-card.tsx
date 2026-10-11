@@ -23,10 +23,14 @@ type Loaded = { channels: Channel[]; defaultKey: string | null; ready: boolean; 
 /*
   THINGS THAT SHIP SELL ON THE ONLINE STORE. The creator page and Explore
   list downloads, courses and memberships only (they check out with no
-  address), so for a physical product those two are shown as not applying,
-  with the reason, instead of a tick that would do nothing.
+  address, and Explore leaves physical products out), so a physical product
+  is not offered them at all: its card lists the Online store and the
+  store's own channels (a market stall, a wholesale list), nothing it could
+  never sell on. Their ticks are left as they were, so the API and the
+  stored listings do not change.
 */
 const DIGITAL_ONLY = new Set(["creator_page", "marketplace"])
+const forPhysical = (c: Channel) => !DIGITAL_ONLY.has(c.kind)
 
 export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { productId: string | null; cardClass: string; titleClass: string; onChange?: () => void; physical?: boolean }>(function SalesChannelsCard({ productId, cardClass, titleClass, onChange, physical = false }, ref) {
   const [loaded, setLoaded] = React.useState<Loaded | null>(null)
@@ -42,7 +46,9 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
         if (!live || !d || !Array.isArray(d.channels)) return
         setLoaded(d)
         const offIds = new Set(d.off ?? [])
-        setOn(productId ? new Set(d.channels.filter((c) => !(c.id && offIds.has(c.id))).map(channelKey)) : startingChannels(d.channels, d.defaultKey))
+        /* A new physical product starts where Settings says when that is a channel it sells on; on all of its channels otherwise, never on none. */
+        const starting = physical ? startingChannels(d.channels.filter(forPhysical), d.defaultKey) : startingChannels(d.channels, d.defaultKey)
+        setOn(productId ? new Set(d.channels.filter((c) => !(c.id && offIds.has(c.id))).map(channelKey)) : starting)
         /* A new product that starts on one channel has something to save even untouched. */
         dirty.current = !productId && !!d.defaultKey
       })
@@ -51,7 +57,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId])
+  }, [productId, physical])
 
   React.useImperativeHandle(
     ref,
@@ -83,36 +89,24 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
     })
     onChange?.()
   }
-  const applies = (c: Channel) => !(physical && DIGITAL_ONLY.has(c.kind))
-  const usable = loaded.channels.filter(applies)
-  const listedCount = usable.filter((c) => on.has(channelKey(c))).length
+  const shown = physical ? loaded.channels.filter(forPhysical) : loaded.channels
+  const listedCount = shown.filter((c) => on.has(channelKey(c))).length
+  const ownChannels = shown.filter((c) => c.kind === "custom").length
 
   return (
     <div className={cardClass} data-sales-channels="">
       <div>
         <h2 className={titleClass}>Sales channels</h2>
         <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-          {listedCount === 0 ? "Listed nowhere: sold by its link alone." : `Listed on ${listedCount} of ${usable.length}.`}
+          {listedCount === 0 ? "Listed nowhere: sold by its link alone." : shown.length === 1 ? "Where it's listed." : `Listed on ${listedCount} of ${shown.length}.`}
         </p>
       </div>
-      <ul className="-mx-1 space-y-0.5">
-        {loaded.channels.map((c) => {
+      <ul className="-mx-1 space-y-0.5" data-channel-list="">
+        {shown.map((c) => {
           const key = channelKey(c)
           const id = `channel-${key}`
-          if (!applies(c))
-            return (
-              <li key={key} data-channel-not-for-physical={c.kind}>
-                <div className="flex items-start gap-3 rounded-lg px-1 py-2">
-                  <span aria-hidden className="mt-0.5 h-4 w-4 shrink-0 rounded border border-[#e5e7eb] bg-[#f3f4f6]" />
-                  <span className="min-w-0">
-                    <span className="block text-[14px] font-medium leading-5 text-[#9ca3af]">{c.name}</span>
-                    <span className="block text-[12.5px] leading-[18px] text-[#9ca3af]">For downloads, courses and memberships. Things that ship sell on your Online store.</span>
-                  </span>
-                </div>
-              </li>
-            )
           return (
-            <li key={key}>
+            <li key={key} data-channel={c.kind}>
               <label htmlFor={id} className={cn("flex cursor-pointer items-start gap-3 rounded-lg px-1 py-2 transition-colors hover:bg-[#f8f9fa]", !c.enabled && "opacity-60")}>
                 <input id={id} type="checkbox" checked={on.has(key)} onChange={() => toggle(key)} className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-[#d1d5db] accent-[#1a1a2e]" />
                 <span className="min-w-0">
@@ -128,7 +122,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
         })}
       </ul>
       <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
-        Its link works wherever it&apos;s listed.{" "}
+        {physical && ownChannels === 0 ? "Sell it somewhere else too, like a market stall? Add that as a channel. " : "Its link works wherever it's listed. "}
         <Link href="/app/settings?tab=channels" prefetch={false} className="font-medium text-[#1a1a2e] underline underline-offset-2">
           Manage channels
         </Link>

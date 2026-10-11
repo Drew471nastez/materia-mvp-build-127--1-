@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Check, Loader2 } from "lucide-react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
 import { SITE_LANGUAGES, siteLanguage } from "@/lib/website-builder/site-language"
+import { faviconOf } from "@/lib/website-builder/favicon-sync"
 import { AddressValue, Badge, Card, ErrorNote, GOES_LIVE, PageTitle, Row, buttonClass, inputClass, textLinkClass } from "./parts"
 import type { SettingsContext } from "./types"
 import { cn } from "@/lib/utils"
@@ -40,7 +41,8 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
     }
   }
 
-  const favicon = typeof ctx.settings.favicon_url === "string" ? ctx.settings.favicon_url : undefined
+  /* The site's favicon, or an imported theme's own when the site has none yet (lib/website-builder/favicon-sync.ts). */
+  const favicon = faviconOf(ctx.settings as Record<string, unknown>) || undefined
   const language = siteLanguage(ctx.settings) ?? ""
 
   return (

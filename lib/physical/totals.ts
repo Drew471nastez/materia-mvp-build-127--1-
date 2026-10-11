@@ -27,6 +27,13 @@ export interface TotalsLine {
   quantity: number
   discountCents: number
   taxable: boolean
+  /**
+   * A download, course or membership sold beside shipped items. Taxed only
+   * when the store taxes digital products too (Settings › Taxes, "Charge tax
+   * on digital products", `TaxSettings.digital`), as the single product and
+   * basket checkouts tax them.
+   */
+  digital?: boolean
 }
 
 export interface TaxRate {
@@ -40,6 +47,8 @@ export interface TaxSettings {
   mode: "none" | "manual" | "provider"
   pricesIncludeTax: boolean
   taxOnShipping: boolean
+  /** Digital lines are taxed too (commerce_settings.tax_digital, SQL part 110). Off or absent: they are not. */
+  digital?: boolean
   rates: TaxRate[]
   /** A product's own rate in one region (commerce_tax_overrides). */
   overrides?: { taxRateId: string; productId: string; rateBps: number }[]
@@ -103,7 +112,7 @@ export function physicalTotals(
     const off = Math.min(gross, Math.max(0, Math.round(line.discountCents)))
     itemsSubtotalCents += gross
     discountCents += off
-    if (!line.taxable) continue
+    if (!line.taxable || (line.digital && tax.digital !== true)) continue
     taxableCents += gross - off
     const bps = line.productId && own.has(line.productId) ? (own.get(line.productId) as number) : taxRateBps
     byRate.set(bps, (byRate.get(bps) ?? 0) + gross - off)

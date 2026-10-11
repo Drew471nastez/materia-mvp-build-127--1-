@@ -24,6 +24,8 @@ import { resolveCreatorIdentity, resolveSellerEmail } from "@/lib/email"
 import { getMainDomain } from "@/lib/url-helpers"
 import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
+import { loadCustomerEmailCopy } from "@/lib/emails/customer-copy-server"
+import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
 import { lowStockEmail, orderCancelledEmail, orderConfirmationEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { addressLines } from "./address"
@@ -329,6 +331,10 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
   const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help` }
   let mail: { subject: string; html: string; text: string }
+  /* Settings › Customer emails: the store's own words for this one, if it changed any (lib/emails/customer-custom.ts). */
+  const saved = await loadCustomerEmailCopy(db, co.creator_id)
+  const copyFor = (id: string | null, lines: { title?: string | null }[]) =>
+    id ? resolveCopy(saved[id], { customer_name: firstName, order_number: number, shop_name: shopName, items: itemsText(lines.map((l) => l.title)) }) : undefined
 
   if (p.template === "confirmation") {
     /* How it was paid: optional, the email reads without it. */
@@ -358,6 +364,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       statusUrl: orderUrl,
       hasDownloads: co.lines.some((l) => l.type !== "physical"),
       pickup: pickupOf(co),
+      copy: copyFor("order_confirmation", co.lines),
     })
   } else if (p.template === "shipment") {
     const { data: f } = await db.from("fulfillments").select("id, carrier, tracking_number, tracking_url, notify_buyer, status").eq("id", p.fulfillmentId).maybeSingle()
@@ -367,7 +374,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const pickup = pickupOf(co)
     if (pickup) {
       if (p.kind === "out_for_delivery" || p.kind === "tracking") return
-      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand })
+      mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand, copy: copyFor(emailIdForJob("shipment", p.kind, null, true), shipped) })
     } else {
       /* Part of the order: what still has to ship after every live shipment so far. */
       const { data: all } = await db.from("fulfillments").select("id, status, fulfillment_items ( quantity )").eq("checkout_id", co.id)
@@ -387,6 +394,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         statusUrl: orderUrl,
         kind: p.kind,
         brand,
+        copy: copyFor(emailIdForJob("shipment", p.kind, null, false), shipped),
       })
     }
   } else if (p.template === "return") {
@@ -394,6 +402,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       db.from("commerce_returns").select("merchant_note, refunded_cents").eq("id", p.returnId).maybeSingle(),
       db.from("commerce_return_items").select("order_id, quantity").eq("return_id", p.returnId),
     ])
+    const returned = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
     mail = returnEmail({
       shopName,
       orderNumber: number,
@@ -402,15 +411,16 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       refundedCents: r?.refunded_cents ?? 0,
       currency: co.currency,
       statusUrl: orderUrl,
-      lines: await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[]),
+      lines: returned,
       returnAddress: p.status === "approved" ? await returnAddressOf(db, co.creator_id) : null,
       brand,
+      copy: copyFor(emailIdForJob("return", null, p.status), returned),
     })
   } else if (p.template === "cancelled") {
-    mail = orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand })
+    mail = orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines) })
   } else if (p.template === "refund") {
     const { data: paidRow } = await db.from("orders").select("payment_method, card_brand, card_last4").eq("checkout_id", co.id).limit(1).maybeSingle()
-    mail = refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand })
+    mail = refundEmail({ shopName, orderNumber: number, buyerFirstName: firstName, amountCents: Number(p.amountCents) || 0, refundedCents: Number(p.refundedCents) || 0, totalCents: co.total_cents, currency: co.currency, paymentLabel: paymentLabelOf(paidRow), statusUrl: orderUrl, brand, copy: copyFor("refund", co.lines) })
   } else {
     return
   }
