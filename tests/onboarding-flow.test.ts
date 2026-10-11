@@ -75,6 +75,8 @@ check("payout currency is not hardcoded", !/\b(EUR|RON|USD|GBP)\b/.test(steps))
 
 const ui = readFileSync("components/app/settings/storelib-payments-settings.tsx", "utf8")
 const flow = readFileSync("components/app/settings/payments-setup-flow.tsx", "utf8")
+const collection = readFileSync("lib/payments/stripe/setup-collection.ts", "utf8")
+const read = (path: string) => readFileSync(path, "utf8")
 /*
   Setup does not render this any more (see below), and nothing else does
   either. It is kept, with its rules, because Stripe can still force an
@@ -152,7 +154,7 @@ check("    and it asks again while it is open, becoming active by itself", /outc
 const idClient = readFileSync("lib/payments/identity-client.ts", "utf8")
 check("Stripe's hosted page still exists, and the step does not open it", /openHostedVerification/.test(idClient) && !/openHostedVerification|openIdentity/.test(flow))
 check("  setup is Stripe's embedded form, on this page", /data-id-embed/.test(flow) && /stripe_onboarding/.test(flow) && /stripe_management/.test(flow) && /StripeConnectEmbedded/.test(flow))
-check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",[\s\S]{0,500}?"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow))
+check("  it does not ask what kind of seller you are, or for a live selfie, an extra address document, or a bank-ownership file", /business_type",[\s\S]{0,500}?"individual\.verification\.proof_of_liveness",\s*"individual\.verification\.additional_document",\s*"documents\.bank_account_ownership_verification"/.test(flow + collection))
 check("  and the step never leaves for Stripe", !/location\.assign|window\.open|Verify with Stripe|Opening Stripe|openHostedVerification/.test(flow))
 /*
   Round 20, the owner: on iOS and Android the setup opens as a mobile bottom
@@ -160,9 +162,10 @@ check("  and the step never leaves for Stripe", !/location\.assign|window\.open|
   profession or what type of person you are, and it closes back to Storelib
   when it is finished. Browsers and big screens stay as they are.
 */
-check("round 20: in the apps setup is the app's BottomSheet, with Stripe's embed (not Storelib's own steps)", /const sheet = isNativeApp\(\)/.test(flow) && /const OWN_STEPS_IN_APP = false/.test(flow) && /if \(sheet\) \{[\s\S]{0,200}<BottomSheet/.test(flow))
+check("in the apps setup opens Stripe's embed on /payouts-sheet in the system browser sheet, never Safari", /const sheet = isNativeApp\(\)/.test(flow) && /const OWN_STEPS_IN_APP = false/.test(flow) && /if \(sheet && !inApp\) \{[\s\S]{0,200}<AppBrowserSetup/.test(flow) && /presentationStyle: "popover"/.test(flow) && /post<\{ url: string \}>\("app-sheet"/.test(flow) && /Browser\.close\(\)/.test(flow))
+check("  the sheet's page is signed in by a link in its #fragment, for one creator, checked again on the server", /payouts-sheet#f=\$\{form\}&t=/.test(read("app/api/payments/[action]/route.ts")) && /verifySheetLink\(body\.token\)/.test(read("app/api/payouts-sheet/route.ts")) && /row\.user_id !== link\.u/.test(read("app/api/payouts-sheet/route.ts")) && /replaceState/.test(read("app/payouts-sheet/payouts-sheet.tsx")))
 check("  a browser keeps the page it had", /<Panel open=\{open\} phone=\{phone\} onClose=\{onClose\} label=\{title\}>\s*\{bar\}\s*\{content\}/.test(flow))
-check("  Stripe is not asked for the website, the industry or what is sold", /"business_profile\.url",\s*"business_profile\.mcc",\s*"business_profile\.product_description"/.test(flow))
+check("  Stripe is not asked for the website, the industry or what is sold", /"business_profile\.url",\s*"business_profile\.mcc",\s*"business_profile\.product_description"/.test(collection))
 check("  and the account has them before the form is drawn", /fill\.business_profile = \{/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")) && /if \(!account\.business_type\) fill\.business_type = "individual"/.test(readFileSync("lib/payments/stripe/connect.ts", "utf8")))
 check("  payouts on: the done screen for a moment, then the sheet closes back to Storelib", /if \(!sheet \|\| !open \|\| ending !== "done"\) return[\s\S]{0,120}finishRef\.current\(\)/.test(flow))
 check("  a pull inside Stripe's form never closes the sheet", /data-payments-setup-panel="sheet" data-sheet-no-drag=""/.test(flow))

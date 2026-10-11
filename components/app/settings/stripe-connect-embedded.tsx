@@ -106,8 +106,15 @@ export function StripeConnectEmbedded({
   onStep,
   fallback,
   className,
+  session,
 }: {
   purpose: EmbeddedPurpose
+  /**
+   * Where the Account Session comes from. Default: the signed-in creator's
+   * own (/api/payments/component). The apps' browser sheet has no sign in and
+   * passes its signed link's instead (app/payouts-sheet).
+   */
+  session?: () => Promise<{ clientSecret: string; publishableKey: string }>
   collection?: CollectionOptions
   failedTitle?: string
   onExit?: () => void | Promise<void>
@@ -124,8 +131,8 @@ export function StripeConnectEmbedded({
   const [ready, setReady] = React.useState(false)
   const [failed, setFailed] = React.useState<string | null>(null)
   const [attempt, setAttempt] = React.useState(0)
-  const handlers = React.useRef({ onExit, onStep })
-  handlers.current = { onExit, onStep }
+  const handlers = React.useRef({ onExit, onStep, session })
+  handlers.current = { onExit, onStep, session }
   const collectionKey = JSON.stringify(collection ?? null)
 
   React.useEffect(() => {
@@ -141,7 +148,8 @@ export function StripeConnectEmbedded({
           and its controller frame navigated the web view out to the browser.
         */
         if (sealsStripeFrames()) keepStripeFramesInApp()
-        const [first, { loadConnectAndInitialize }] = await Promise.all([openSession(purpose), import("@stripe/connect-js/pure")])
+        const open = () => handlers.current.session?.() ?? openSession(purpose)
+        const [first, { loadConnectAndInitialize }] = await Promise.all([open(), import("@stripe/connect-js/pure")])
         if (gone) return
         let pending: string | null = first.clientSecret
         const connect = loadConnectAndInitialize({
@@ -152,7 +160,7 @@ export function StripeConnectEmbedded({
               pending = null
               return secret
             }
-            const next = await openSession(purpose)
+            const next = await open()
             if (next.publishableKey !== first.publishableKey) throw new Error(LOAD_FAILED)
             return next.clientSecret
           },

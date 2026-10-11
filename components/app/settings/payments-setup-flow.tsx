@@ -31,6 +31,7 @@ import { Camera, Check, ChevronDown, ChevronLeft, Clock, Info, Landmark, Lock, R
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { StorelibLogo } from "@/components/brand/storelib-logo"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { BANK_COLLECTION, SETUP_COLLECTION } from "@/lib/payments/stripe/setup-collection"
 import { Shimmer, ShimmerBlock } from "@/components/ui/shimmer"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { CountryPicker, CountryFlag } from "@/components/app/settings/country-picker"
@@ -881,6 +882,10 @@ export function PaymentsSetupFlow({
       </div>
   )
 
+  if (sheet && !inApp) {
+    return <AppBrowserSetup open={open} mode={mode} data={data} onData={onData} onClose={onClose} onFinished={onFinished} />
+  }
+
   if (sheet) {
     return (
       <BottomSheet
@@ -907,6 +912,139 @@ export function PaymentsSetupFlow({
       {bar}
       {content}
     </Panel>
+  )
+}
+
+/*
+ * SETUP IN THE APPS' BROWSER SHEET (the owner: "on iOS and Android it should
+ * not take me outside Storelib: a browser bottom sheet with the Stripe embed
+ * there"). Stripe's form inside the app's own web view opened its windows in
+ * Safari, which left the app. So the apps open the system's browser sheet
+ * over the app (SFSafariViewController on iOS, a Chrome Custom Tab on
+ * Android) on /payouts-sheet: Storelib's page with Stripe's embedded form,
+ * signed in by a link for this creator (lib/payments/stripe/app-sheet-link.ts).
+ * A real browser keeps Stripe's own windows inside it.
+ *
+ * While the sheet is up this page asks Stripe every few seconds; once payouts
+ * are on it closes the sheet itself and the creator is back where they were.
+ * Done in the sheet comes back the same way, and the page redraws from what
+ * Stripe says then.
+ */
+function AppBrowserSetup({
+  open,
+  mode,
+  data,
+  onData,
+  onClose,
+  onFinished,
+}: {
+  open: boolean
+  mode: SetupMode
+  data: Overview
+  onData: (next: Overview) => void
+  onClose: () => void
+  onFinished: () => void
+}) {
+  const [error, setError] = React.useState<string | null>(null)
+  const [attempt, setAttempt] = React.useState(0)
+  /* The small "opening" mark shows only until the sheet is up. */
+  const [launched, setLaunched] = React.useState(false)
+  const latest = React.useRef({ data, onData, onClose, onFinished })
+  latest.current = { data, onData, onClose, onFinished }
+
+  React.useEffect(() => {
+    setLaunched(false)
+    if (!open) return
+    let gone = false
+    let shown = false
+    let poll = 0
+    let listener: { remove: () => void } | null = null
+    const form = mode === "bank" ? "bank" : "setup"
+    /* A bank change starts with payouts already on: only Done ends that one. */
+    const closesWhenOn = form === "setup"
+
+    const settle = async (closeSheet: boolean) => {
+      if (gone) return
+      gone = true
+      window.clearInterval(poll)
+      listener?.remove()
+      if (closeSheet) await import("@capacitor/browser").then(({ Browser }) => Browser.close()).catch(() => {})
+      try {
+        const next = await post<Overview>("refresh")
+        latest.current.onData(next)
+        const outcome = outcomeOf(statusOf(next))
+        if (outcome === "done" || outcome === "checking") latest.current.onFinished()
+      } catch {
+        /* The page keeps what it had; opening Payouts again asks Stripe. */
+      }
+      latest.current.onClose()
+    }
+
+    void (async () => {
+      try {
+        const current = latest.current.data
+        if (form === "setup" && (current.beat ?? "personal") === "personal") {
+          latest.current.onData(
+            await post<Overview>("start", {
+              agree: true,
+              kind: "individual",
+              country: current.prefill?.country || current.payoutHint?.country || "",
+            }),
+          )
+        }
+        const { url } = await post<{ url: string }>("app-sheet", { form })
+        if (gone) return
+        const { Browser } = await import("@capacitor/browser")
+        listener = await Browser.addListener("browserFinished", () => void settle(false))
+        if (gone) {
+          listener.remove()
+          return
+        }
+        await Browser.open({ url, presentationStyle: "popover", toolbarColor: "#ffffff" })
+        shown = true
+        setLaunched(true)
+        if (closesWhenOn) {
+          poll = window.setInterval(async () => {
+            try {
+              const next = await post<Overview>("refresh")
+              if (gone) return
+              latest.current.onData(next)
+              if (outcomeOf(statusOf(next)) === "done") void settle(true)
+            } catch {
+              /* Asked again in a moment. */
+            }
+          }, 4000)
+        }
+      } catch (err) {
+        if (!gone) setError(safe(err instanceof Error ? err.message : "We could not start setup just now."))
+      }
+    })()
+
+    return () => {
+      gone = true
+      window.clearInterval(poll)
+      listener?.remove()
+      if (shown) void import("@capacitor/browser").then(({ Browser }) => Browser.close()).catch(() => {})
+    }
+  }, [open, mode, attempt])
+
+  return (
+    <>
+      {open && !error && !launched ? (
+        <div aria-live="polite" className="pointer-events-none fixed inset-0 z-[80] flex items-center justify-center">
+          <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white shadow-[0_8px_30px_rgba(16,24,40,0.12)]">
+            <span aria-label="Opening" className="h-5 w-5 animate-spin rounded-full border-2 border-[#1a1a2e]/10 border-t-[#1a1a2e]/60" />
+          </span>
+        </div>
+      ) : null}
+      <BottomSheet isOpen={open && !!error} onClose={() => { setError(null); onClose() }} label="Set up payouts" hideFrom={null} zIndex={PANEL_Z}>
+        <div className="flex flex-col items-center px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4 text-center">
+          <p className="text-[15px] font-semibold text-[#1a1a2e]">Couldn&apos;t open setup</p>
+          <p className="mt-1 text-[14px] text-[#6b7280]">{error}</p>
+          <button type="button" className={cn(SECONDARY, "mt-4")} onClick={() => { setError(null); setAttempt((n) => n + 1) }}>Try again</button>
+        </div>
+      </BottomSheet>
+    </>
   )
 }
 
@@ -938,22 +1076,6 @@ function SheetBar({ title, onClose }: { title: string; onClose: () => void }) {
 /** Storelib's own steps in the phone apps (round 19). Off since round 20: the apps run Stripe's embed in a sheet. */
 const OWN_STEPS_IN_APP = false
 
-const SETUP_COLLECTION = {
-  fields: "eventually_due" as const,
-  futureRequirements: "omit" as const,
-  requirements: {
-    exclude: [
-      "business_type",
-      /* Filled before the form is drawn (the store's address, digital goods, what is sold there): never asked. */
-      "business_profile.url",
-      "business_profile.mcc",
-      "business_profile.product_description",
-      "individual.verification.proof_of_liveness",
-      "individual.verification.additional_document",
-      "documents.bank_account_ownership_verification",
-    ],
-  },
-}
 
 function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview; onData: (next: Overview) => void; onExit: () => void | Promise<void>; bankOnly?: boolean }) {
   const existed = React.useRef((data.beat ?? "personal") !== "personal")
@@ -1004,7 +1126,7 @@ function SetupEmbed({ data, onData, onExit, bankOnly = false }: { data: Overview
       <StripeConnectEmbedded
         className="w-full px-3 sm:px-5"
         purpose={bankOnly ? "stripe_management" : "stripe_onboarding"}
-        collection={bankOnly ? { fields: "currently_due", futureRequirements: "omit", requirements: { only: ["external_account"] } } : SETUP_COLLECTION}
+        collection={bankOnly ? BANK_COLLECTION : SETUP_COLLECTION}
         onExit={() => void onExit()}
       />
     </div>
