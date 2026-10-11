@@ -930,7 +930,7 @@ async function run(zipPath: string) {
         return { shown: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, missing: imgs.filter((i) => !(i.complete && i.naturalWidth > 0)).map((i) => `${i.className} ${i.currentSrc || i.src}`.slice(0, 120)) }
       })
       check("product pictures load", pictures.shown > 0 && pictures.loaded === pictures.shown, `${pictures.loaded} of ${pictures.shown}${pictures.missing[0] ? `; not loaded: ${pictures.missing.join(" | ")}` : ""}`)
-      const priceBefore = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
+      const priceBefore = await page.evaluate(() => ((document.querySelector("main, #MainContent") ?? document).querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
       const picked = await page.evaluate(() => {
         const inputs = [...document.querySelectorAll<HTMLInputElement>("variant-picker input[type=radio], variant-selects input[type=radio], variant-picker select, variant-selects select")]
         const radio = inputs.find((i) => i instanceof HTMLInputElement && i.value === "Large" && !i.checked) as HTMLInputElement | undefined
@@ -940,7 +940,7 @@ async function run(zipPath: string) {
         return ""
       })
       await new Promise((r) => setTimeout(r, 1200))
-      const priceAfter = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
+      const priceAfter = await page.evaluate(() => ((document.querySelector("main, #MainContent") ?? document).querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
       /* A product template with no picker (a bundle selector instead, as Posturex's demo) has nothing to choose. */
       if (picked) check("choosing Large changes the price", priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
       else console.log("  --    this product template has no variant picker")
