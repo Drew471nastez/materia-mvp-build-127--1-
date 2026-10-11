@@ -66,6 +66,8 @@ export interface SiteData {
   extraBodyEnd?: string
   /** Put in every live page's head (lib/website-builder/live-navigation.ts: links fetched ahead, pages that cross-fade). */
   extraHead?: string
+  /** What a page tells a search engine, by page key (lib/website-builder/page-seo.ts pageSeoForSite): the theme's page_title and page_description, a share picture, noindex. */
+  seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -216,7 +218,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: site.extraBodyEnd, content: route.content })
   return html(drawn.html, route.status ?? 200)
 }
 
@@ -269,6 +271,19 @@ interface Route {
   content?: string
   /** Not a page: the visitor belongs elsewhere (signed in at the sign in page, a guest at the account). */
   redirect?: string
+  /** Put in this page's head only: its share picture and whether it may be listed (seoHead). */
+  head?: string
+}
+
+const attr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;")
+
+/** A page's share picture and its noindex, for a theme whose own head says neither. */
+function seoHead(seo: { image?: string; noindex?: boolean } | null | undefined): string | undefined {
+  if (!seo) return undefined
+  let out = ""
+  if (seo.noindex) out += `<meta name="robots" content="noindex, follow" data-storelib-seo>`
+  if (seo.image) out += `<meta property="og:image" content="${attr(seo.image)}" data-storelib-seo><meta name="twitter:image" content="${attr(seo.image)}" data-storelib-seo>`
+  return out || undefined
 }
 
 const escapeText = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
@@ -469,9 +484,13 @@ async function pageFor(site: SiteData, path: string, req: SiteRequest): Promise<
     const sections = sectionsOf(site, key)
     if (!sections) return null
     const { template, suffix } = templateOfPage(key)
+    /* The page's own title and description from Website settings, as the theme's page_title and page_description. */
+    const seo = site.seo?.(key) ?? null
+    const told: Partial<CompatPage> = { ...(seo?.title ? { title: seo.title } : {}), ...(seo?.description ? { description: seo.description } : {}) }
+    const head = seoHead(seo)
     const alternate = viewOf(site, req, template, sections)
-    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra }), sections: alternate.sections, status }
-    return { page: basePage(site, req, { template, suffix, path, ...extra }), sections, status }
+    if (alternate) return { page: basePage(site, req, { template, suffix: alternate.suffix, path, ...extra, ...told }), sections: alternate.sections, status, head }
+    return { page: basePage(site, req, { template, suffix, path, ...extra, ...told }), sections, status, head }
   }
   if (path === "/" || path === "") return at("home", { title: site.shop.name })
 

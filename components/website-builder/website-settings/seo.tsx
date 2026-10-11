@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
-import { Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, inputClass, textAreaClass } from "./parts"
+import { Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v : "")
@@ -40,11 +40,9 @@ export function SeoSettings({ ctx }: { ctx: SettingsContext }) {
       <PageTitle>SEO & Social</PageTitle>
 
       {/* What a search result looks like, drawn from the same fallbacks the
-          live page uses. Light, because a search results page is. */}
-      <div className="mt-5 rounded-2xl bg-white p-4 text-left md:mt-6 md:p-6" aria-label="Search result preview">
-        <p className="truncate text-[13px] text-[#4d5156]">{ctx.websiteUrlDisplay || "yourname.storelib.com"}</p>
-        <p className="mt-1 truncate text-[19px] leading-snug text-[#1a0dab]">{preview.title}</p>
-        <p className="mt-1 line-clamp-2 text-[13.5px] leading-snug text-[#4d5156]">{preview.description}</p>
+          live page uses, in a search page's own dark colours. */}
+      <div className="mt-5 md:mt-6">
+        <SearchResultPreview address={ctx.websiteUrlDisplay || "yourname.storelib.com"} title={preview.title} description={preview.description} />
       </div>
 
       <Card footer={GOES_LIVE}>
@@ -112,20 +110,21 @@ function SharePreview({ image, title, description, address }: { image?: string; 
   const [failed, setFailed] = useState<string | null>(null)
   const shown = image && failed !== image ? image : null
   return (
-    <div className="overflow-hidden rounded-2xl bg-white text-left" aria-label="Shared link preview">
-      <div className="relative aspect-[1200/630] w-full bg-[#f1f2f4]">
+    /* A shared link as a messaging app draws it in its dark theme, on the page's own dark (it was a white card). */
+    <div className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1c1c1e] text-left" aria-label="Shared link preview" data-share-preview="">
+      <div className="relative aspect-[1200/630] w-full bg-white/[0.04]">
         {shown ? (
           <img src={shown} alt="" className="absolute inset-0 h-full w-full object-cover" onError={() => setFailed(shown)} />
         ) : (
-          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-[#6b7280]">
+          <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-[12.5px] text-white/45">
             No picture yet. Your logo or first hero picture is used instead.
           </p>
         )}
       </div>
-      <div className="border-t border-black/[0.06] px-4 py-3">
-        <p className="truncate text-[11.5px] uppercase tracking-wide text-[#6b7280]">{address || "yourname.storelib.com"}</p>
-        <p className="mt-0.5 truncate text-[14px] font-semibold text-[#1a1a2e]">{title}</p>
-        <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-[#6b7280]">{description}</p>
+      <div className="border-t border-white/[0.06] px-4 py-3">
+        <p className="truncate text-[11.5px] uppercase tracking-wide text-white/40">{address || "yourname.storelib.com"}</p>
+        <p className="mt-0.5 truncate text-[14px] font-semibold text-white/90">{title}</p>
+        <p className="mt-0.5 line-clamp-2 text-[12.5px] leading-snug text-white/55">{description}</p>
       </div>
     </div>
   )

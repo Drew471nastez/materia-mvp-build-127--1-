@@ -210,3 +210,23 @@ export function ErrorNote({ children }: { children: React.ReactNode }) {
 
 /** Settings stored with the draft say so once, under their card. */
 export const GOES_LIVE = "Saved with your draft. Visitors see it after you publish."
+
+/**
+ * A search result, drawn the way Google draws one in its dark theme, on the
+ * page's own dark: it was a white card, the one light thing on the dark
+ * settings page (round R6, the owner: "in dark UI the SEO preview is white").
+ * The colours are a search page's, so it still reads as a result.
+ */
+export function SearchResultPreview({ address, title, description, compact = false }: { address: string; title: string; description: string; compact?: boolean }) {
+  return (
+    <div
+      className={cn("rounded-xl border border-white/[0.08] bg-[#171717] text-left", compact ? "p-4" : "rounded-2xl p-4 md:p-6")}
+      aria-label="Search result preview"
+      data-search-preview=""
+    >
+      <p className={cn("truncate text-[#bdc1c6]", compact ? "text-[12.5px]" : "text-[13px]")}>{address}</p>
+      <p className={cn("mt-0.5 truncate leading-snug text-[#8ab4f8]", compact ? "text-[17px]" : "mt-1 text-[19px]")}>{title}</p>
+      <p className={cn("mt-0.5 line-clamp-2 leading-snug text-[#bdc1c6]/85", compact ? "text-[13px]" : "mt-1 text-[13.5px]")}>{description}</p>
+    </div>
+  )
+}
