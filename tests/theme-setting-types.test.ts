@@ -89,7 +89,7 @@ section("Shopify's names validate, and Shopify types with nothing to point at sa
   check("collection is collection_picker", valid([{ type: "collection", id: "c", label: "C" }]))
   check("collection_list is its own control", valid([{ type: "collection_list", id: "c", label: "C", limit: 6 }]))
   check("liquid is html: kept, cleaned, never run", valid([{ type: "liquid", id: "l", label: "L" }]))
-  check("blog is still refused, with the reason", /Shopify type Storelib does not have\. A Storelib website has no blog/.test(errorsOf([{ type: "blog", id: "b", label: "B" }])), errorsOf([{ type: "blog", id: "b", label: "B" }]))
+  check("blog is still refused, with the reason", /is a type Storelib does not have\. A Storelib website has no blog/.test(errorsOf([{ type: "blog", id: "b", label: "B" }])), errorsOf([{ type: "blog", id: "b", label: "B" }]))
   check("and so is metaobject", /no metaobjects/.test(errorsOf([{ type: "metaobject", id: "m", label: "M" }])))
   check("a type that is simply wrong still lists the real ones", /not a Storelib control\. Use one of: text/.test(errorsOf([{ type: "txet", id: "t", label: "T" }])))
 }

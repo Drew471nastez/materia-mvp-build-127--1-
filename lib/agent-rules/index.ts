@@ -160,7 +160,7 @@ export const AGENT_RULE_GROUPS: RuleGroup[] = [
     id: "coding",
     title: "Coding standards",
     rules: [
-      "The template language is {{ }}, {% if %}, {% for %} and filters. It is not Vue, React, JSX or Liquid. Every name the template reads is declared in the schema.",
+      "The template language is {{ }}, {% if %}, {% for %} and filters. It is not Vue, React or JSX. Every name the template reads is declared in the schema.",
       "Every word, picture, link and button a visitor sees is a setting or a block so the creator can edit it. Every href goes through | url.",
       "No literal id=\"...\": build ids from {{ section.id }}. A section works when it is on a page twice. Scripts query inside root only.",
       "Prefer HTML and CSS (details, popover, :checked, scroll-snap) to script. A script cannot fetch, read storage or reach window or document.",

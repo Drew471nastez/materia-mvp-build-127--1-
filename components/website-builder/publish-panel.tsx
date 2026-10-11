@@ -659,11 +659,26 @@ export function PublishPanel(props: PublishPanelProps) {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onOpenChange(false)
     }
+    /*
+      A TAP ON AN IMPORTED THEME'S CANVAS IS A TAP AWAY TOO. That canvas is an
+      iframe, and a press inside it never reaches this document, so the
+      pointerdown above never heard it and the panel stayed open over the
+      page. What does reach this window is the focus leaving for the frame.
+      Closing does not stop a publish that is running: that is the editor's,
+      and the button keeps saying "Publishing" until it is done.
+    */
+    const onBlur = () => {
+      window.setTimeout(() => {
+        if (document.activeElement instanceof HTMLIFrameElement) onOpenChange(false)
+      }, 0)
+    }
     document.addEventListener("pointerdown", onDown)
     document.addEventListener("keydown", onKey)
+    window.addEventListener("blur", onBlur)
     return () => {
       document.removeEventListener("pointerdown", onDown)
       document.removeEventListener("keydown", onKey)
+      window.removeEventListener("blur", onBlur)
     }
   }, [open, mobile, onOpenChange, anchorRef])
 

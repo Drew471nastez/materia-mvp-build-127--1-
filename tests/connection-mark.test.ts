@@ -114,7 +114,7 @@ function main() {
   const route = read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")
   const follow = read("components/website-builder/site-connections.tsx")
   check("the follow read is one query on (install_id, id), twenty rows at most",
-    (route.split("if (after === null)")[1] ?? "").split("\n  }\n")[1]?.match(/\.from\(/g)?.length === 1 && /\.gt\("id", after\)/.test(route) && /\.limit\(20\)/.test(route))
+    /* Changed on purpose (round G): beside the log, one indexed read of the GitHub link's row, so a failed push (which writes no log line) still reaches the editor. */ (route.split("if (after === null)")[1] ?? "").split("\n  }\n")[1]?.match(/\.from\("theme_agent_activity"\)/g)?.length === 1 && /\.gt\("id", after\)/.test(route) && /\.limit\(20\)/.test(route))
   check("the brief is three small reads side by side, not one per connection", /await Promise\.all\(\[/.test(route) && /\.limit\(10\)/.test(route) && /\.maybeSingle\(\)/.test(route))
   check("and never carries a token, a prefix or a hash", !/token_hash|prefix/.test(route.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")))
   check("nothing connected, nothing followed", /const connected = ready && !!brief && \(brief\.agents\.length > 0 \|\| !!brief\.github\)/.test(follow) && /if \(!connected\) return/.test(follow))

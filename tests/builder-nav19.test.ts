@@ -141,9 +141,10 @@ async function main() {
   console.log("\nThe canvas\n")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    check("the page frames are drawn in the order they were made, so none is ever moved (a moved frame loads again)", /\[\.\.\.slots\]\.sort\(\(a, b\) => a\.n - b\.n\)/.test(canvas))
-    /* Round 20 (tests/canvas20.test.ts): no page is kept leaving any more; the one in front is taken out the moment the next comes forward, so nothing of it can come back. */
-    check("  and the page being left is gone the moment the next comes forward, so it cannot come back", /return at <= 0 \? prev : prev\.slice\(at\)/.test(canvas))
+    /* The page being left, while it fades off the next (round G), is drawn in its own place among them too. */
+    check("the page frames are drawn in the order they were made, so none is ever moved (a moved frame loads again)", /\[\.\.\.slots, handover\] : \[\.\.\.slots\]\)\.sort\(\(a, b\) => a\.n - b\.n\)/.test(canvas))
+    /* Round 20 (tests/canvas20.test.ts): the one in front is taken out of the pages the moment the next comes forward, so nothing of it can come back; round G only lets it fade off, as a frame that hears nothing. */
+    check("  and the page being left is no page the moment the next comes forward, so it cannot come back", /return i <= 0 \? prev : prev\.slice\(i\)/.test(canvas) && /const slot = slotsRef\.current\.find\(\(x\) => frames\.current\.get\(x\.n\)\?\.contentWindow === e\.source\)/.test(canvas))
     check("the canvas is told every page the site has", /pageKeys=\{rowPageKeys\}/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /pageKeys: pageKeys \?/.test(canvas))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("a link that opens nothing in the canvas says why", /Opens \$\{other\[1\]/.test(editor) && /No page at \$\{path\} yet/.test(editor))

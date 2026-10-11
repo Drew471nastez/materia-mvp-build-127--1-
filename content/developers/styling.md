@@ -194,7 +194,7 @@ A plain hex default works too, and an empty default (`""`) means the section wor
 
 ### A colour setting for each element
 
-A creator expects to change the colour of one heading, the way custom colours work in a Shopify theme, without changing the scheme every other section uses. So a section gives **every element it draws** a colour setting, each defaulting to the scheme colour it follows:
+A creator expects to change the colour of one heading, the way custom colours work in most store themes, without changing the scheme every other section uses. So a section gives **every element it draws** a colour setting, each defaulting to the scheme colour it follows:
 
 ```json
 { "type": "header", "id": "hdr_colours", "label": "Colours" },
