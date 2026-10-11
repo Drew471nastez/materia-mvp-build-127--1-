@@ -8,7 +8,7 @@ import { checkReviewInput, guestReviewerName } from "@/lib/reviews/rules"
 import { readPublishedReviews, refreshReviewStats, missingColumn } from "@/lib/reviews/store"
 import { accountForOrder, existingReview, orderByReceipt } from "@/lib/reviews/access"
 import { loadReviewsApp } from "@/lib/reviews/app-server"
-import { initialStatus } from "@/lib/reviews/app-settings"
+import { startingStatus } from "@/lib/reviews/app-settings"
 
 const ALREADY_REVIEWED = "You already reviewed this product."
 
@@ -199,9 +199,9 @@ async function save(
     return NextResponse.json({ error: "Product not found" }, { status: 404 })
   }
 
-  /* Storelib Reviews on with approval (lib/reviews/app-settings): a review from the receipt or the library waits like one from the app's own link. */
+  /* A buyer's review, so published for Storelib. With Storelib Reviews on and approval asked for (lib/reviews/app-settings startingStatus), it waits for the store on the store's own website only. */
   const app = await loadReviewsApp(admin, product.creator_id).catch(() => null)
-  const status = app?.settings.enabled ? initialStatus(app.settings, r.rating) : "published"
+  const siteStatus = app?.settings.enabled ? startingStatus(app.settings, r.rating, true).site_status : "shown"
   const row: Record<string, unknown> = {
     product_id: r.productId,
     creator_id: product.creator_id,
@@ -209,13 +209,19 @@ async function save(
     order_id: r.orderId,
     rating: r.rating,
     content: r.content,
-    status,
+    status: "published",
   }
   if (r.reviewerName) row.reviewer_name = r.reviewerName
+  if (siteStatus !== "shown") row.site_status = siteStatus
 
   const insert = (values: Record<string, unknown>) =>
     admin.from("reviews").insert(values).select(`*, buyer:profiles!buyer_id(id, display_name, avatar_url)`).single()
   let { data: review, error } = await insert(row)
+  /* Before run-now part 133 there is no site_status, and the app cannot be on. */
+  if (error && missingColumn(error) && "site_status" in row) {
+    delete row.site_status
+    ;({ data: review, error } = await insert(row))
+  }
   /* Run-now part 52 not run: no status or reviewer_name column. An account's review saves without them. */
   if (error && missingColumn(error) && r.buyerId) {
     delete row.reviewer_name

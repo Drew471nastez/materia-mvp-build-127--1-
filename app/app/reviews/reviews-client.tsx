@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { AppAvatar } from "@/components/app/app-avatar"
 import { ResponsiveActionMenu } from "@/components/ui/responsive-action-menu"
 import { Stars } from "@/components/reviews/stars"
+import { sellerView } from "@/lib/reviews/app-settings"
 import { MAX_REPLY_CHARS, REPORT_REASONS, RATING_WORDS, reviewerOf, summarize, type ReportReason } from "@/lib/reviews/rules"
 import { GUTTER, LIST_BAR, LIST_WIDTH, PaneBar, RowMenuButton, StatusBadge, buttonPrimary, buttonSecondary, card } from "../orders/order-parts"
 import { Pill, usePill } from "../coupons/coupon-parts"
@@ -34,11 +35,14 @@ import type { SellerProduct, SellerReview } from "./load-reviews"
  *
  * WITH STORELIB REVIEWS ON (Settings › Integrations, run-now part 133) the
  * store moderates as on Judge.me: a review that waits for approval is under
- * Pending with Publish and Hide beside it; any review can be hidden from the
- * store (kept, out of the rating), published again, featured (first in
- * Featured order and in the website's reviews carousel), have a photo taken
- * off, or be deleted. A review hidden by a report stays Storelib's to bring
- * back. Import takes a CSV of reviews from another app.
+ * Pending with Publish and Hide beside it; any review can be hidden (kept),
+ * published again, featured (first in Featured order and in the website's
+ * reviews carousel) or have a photo taken off. A verified buyer's review is
+ * hidden or approved on the store's own website only: it stays on Storelib
+ * and in its ratings, and it cannot be deleted (report it instead). A
+ * visitor's or an imported review is the store's own, hidden everywhere and
+ * deletable. A review hidden by a report stays Storelib's to bring back.
+ * Import takes a CSV of reviews from another app.
  *
  * `?review=<id>` (the bell and the new review email link here) brings that
  * review into view with a short grey tint.
@@ -164,7 +168,7 @@ export function ReviewsClient({
       say(data.error || "The report did not save.", "error")
       return false
     }
-    patch(review.id, { status: "hidden", hidden_by: "report" })
+    patch(review.id, { status: "hidden", hidden_by: "report", on_storelib: false })
     say("Reported. The review is hidden while Storelib looks at it.")
     router.refresh()
     return true
@@ -177,13 +181,12 @@ export function ReviewsClient({
     if (!res.ok) return say(data.error || "That did not save.", "error")
     const r = data.review ?? {}
     patch(review.id, {
-      status: r.status === "hidden" ? "hidden" : r.status === "pending" ? "pending" : "published",
-      hidden_by: r.hidden_by ?? null,
+      ...sellerView(r),
       featured: r.featured === true,
       ...(Array.isArray(r.photos) ? { photos: r.photos } : {}),
     })
     say(
-      action === "publish" ? "Published" : action === "hide" ? "Hidden from your store" : action === "feature" ? "Featured" : action === "unfeature" ? "No longer featured" : action === "remove_photo" ? "Photo removed" : "Photo back",
+      action === "publish" ? "Published" : action === "hide" ? (review.verified ? "Hidden on your website" : "Hidden from your store") : action === "feature" ? "Featured" : action === "unfeature" ? "No longer featured" : action === "remove_photo" ? "Photo removed" : "Photo back",
     )
   }
 
@@ -383,15 +386,19 @@ function ReviewRow({
   const pending = review.status === "pending"
   const reported = hidden && review.hidden_by !== "seller"
   const live = review.status === "published"
+  /* A verified buyer's review the store hid or has not approved on its website is still on Storelib: it can be answered and reported there, never deleted. */
+  const keptOnStorelib = review.verified && review.on_storelib && !live
+  const open = !hidden || keptOnStorelib
+  const canReport = ready && open && review.source !== "import"
   const items = [
-    ...(moderation && (pending || (hidden && !reported)) ? [{ label: "Publish", onClick: () => onModerate("publish") }] : []),
-    ...(moderation && !hidden ? [{ label: pending ? "Hide" : "Hide from store", onClick: () => onModerate("hide") }] : []),
+    ...(moderation && (pending || (hidden && !reported)) ? [{ label: review.verified ? "Show on your website" : "Publish", onClick: () => onModerate("publish") }] : []),
+    ...(moderation && !hidden ? [{ label: review.verified ? "Hide on your website" : pending ? "Hide" : "Hide from store", onClick: () => onModerate("hide") }] : []),
     ...(moderation && live ? [{ label: review.featured ? "Stop featuring" : "Feature", onClick: () => onModerate(review.featured ? "unfeature" : "feature") }] : []),
-    ...(ready && !hidden ? [{ label: review.seller_reply ? "Edit reply" : "Reply", onClick: onReply, separatorBefore: moderation }] : []),
+    ...(ready && open ? [{ label: review.seller_reply ? "Edit reply" : "Reply", onClick: onReply, separatorBefore: moderation }] : []),
     ...(ready && review.seller_reply ? [{ label: "Remove reply", onClick: onRemoveReply }] : []),
-    ...(product?.slug && live ? [{ label: "View on product page", href: `/p/${product.slug}#reviews`, target: "_blank" as const, separatorBefore: true }] : []),
-    ...(ready && !hidden && review.source !== "import" ? [{ label: "Report review", variant: "destructive" as const, separatorBefore: true, onClick: onReport }] : []),
-    ...(moderation && !reported ? [{ label: "Delete", variant: "destructive" as const, separatorBefore: !(ready && !hidden && review.source !== "import"), onClick: onDelete }] : []),
+    ...(product?.slug && review.on_storelib ? [{ label: "View on product page", href: `/p/${product.slug}#reviews`, target: "_blank" as const, separatorBefore: true }] : []),
+    ...(canReport ? [{ label: "Report review", variant: "destructive" as const, separatorBefore: true, onClick: onReport }] : []),
+    ...(moderation && !reported && !review.verified ? [{ label: "Delete", variant: "destructive" as const, separatorBefore: !canReport, onClick: onDelete }] : []),
   ]
   const photos = review.photos ?? []
 
@@ -404,8 +411,8 @@ function ReviewRow({
             <div className="min-w-0">
               <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
-                {pending ? <StatusBadge tone="attention">Waiting for approval</StatusBadge> : null}
-                {hidden ? <StatusBadge tone={reported ? "attention" : "neutral"}>{reported ? "Hidden, reported" : "Hidden"}</StatusBadge> : null}
+                {pending ? <StatusBadge tone="attention">{keptOnStorelib ? "Waiting for approval on your website" : "Waiting for approval"}</StatusBadge> : null}
+                {hidden ? <StatusBadge tone={reported ? "attention" : "neutral"}>{reported ? "Hidden, reported" : keptOnStorelib ? "Hidden on your website" : "Hidden"}</StatusBadge> : null}
                 {review.featured && live ? <StatusBadge tone="success">Featured</StatusBadge> : null}
               </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-[#6b7280]">
@@ -467,15 +474,25 @@ function ReviewRow({
               </p>
               <p className="mt-1 whitespace-pre-line text-[14px] leading-relaxed text-[#374151] [overflow-wrap:anywhere]">{review.seller_reply}</p>
             </div>
-          ) : ready && !hidden ? (
+          ) : ready && open ? (
             <button type="button" onClick={onReply} className={cn(buttonSecondary, "mt-3 max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
               Reply
             </button>
           ) : null}
 
           {reported ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your product page or in its rating while Storelib looks at your report.</p> : null}
-          {hidden && !reported ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store or in its rating. Publish it to show it again.</p> : null}
-          {pending ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store until you publish it.</p> : null}
+          {hidden && !reported && keptOnStorelib ? (
+            <p className="mt-2 text-[13px] text-[#6b7280]" data-review-kept="">
+              Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.
+            </p>
+          ) : null}
+          {hidden && !reported && !keptOnStorelib ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store or in its rating. Publish it to show it again.</p> : null}
+          {pending && keptOnStorelib ? (
+            <p className="mt-2 text-[13px] text-[#6b7280]" data-review-kept="">
+              Not on your website until you publish it. Already shown on Storelib because it&apos;s from a verified buyer.
+            </p>
+          ) : null}
+          {pending && !keptOnStorelib ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store until you publish it.</p> : null}
         </div>
       </div>
     </article>

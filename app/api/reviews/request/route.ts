@@ -3,12 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { addressSubject, rateLimit } from "@/lib/api/rate-limit"
 import { canDeliver } from "@/lib/receipts/rules"
 import { checkGuestReviewEligibility, checkReviewEligibility } from "@/lib/reviews/eligibility"
-import { canEditUntil, checkAppReviewInput } from "@/lib/reviews/app-settings"
+import { canEditUntil, checkAppReviewInput, initialStatus, readSiteStatus, websiteStatus } from "@/lib/reviews/app-settings"
 import { verifyRequest } from "@/lib/reviews/request-token"
 import { requestContext } from "@/lib/reviews/requests-server"
 import { insertAppReview, photoEntries } from "@/lib/reviews/write-server"
 import { refreshReviewStats } from "@/lib/reviews/store"
-import { initialStatus } from "@/lib/reviews/app-settings"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -108,24 +107,25 @@ export async function PATCH(request: NextRequest) {
   if (!canEditUntil(review.created_at, settings.editDays)) return answer({ error: "This review can no longer be changed from the link." }, 403)
   const input = checkAppReviewInput(body, { creatorId: creator.id, photos: settings.photos })
   if (!input.ok) return answer({ error: input.error }, 400)
-  /* A change is read again by the store's rule: a review lowered under the auto publish line waits again. One the store hid stays hidden. */
-  const status = review.status === "hidden" ? "hidden" : initialStatus(settings, input.rating)
+  /* A change is read again by the store's rule, on the store's website only: a review lowered under the auto publish line waits again there, and one the store hid there stays hidden there. For Storelib it is a verified buyer's and stays as Storelib has it (published, or hidden after a report). */
+  const status = review.status === "hidden" ? "hidden" : "published"
+  const site_status = readSiteStatus(review.site_status) === "hidden" ? "hidden" : initialStatus(settings, input.rating) === "pending" ? "pending" : "shown"
   const now = new Date().toISOString()
   const kept = Array.isArray(review.photos) ? (review.photos as { path?: string; status?: string }[]) : []
   const removedByStore = new Set(kept.filter((p) => p?.status === "removed").map((p) => p.path))
   const photos = photoEntries(db, input.photoPaths).map((p) => (removedByStore.has(p.path) ? { ...p, status: "removed" as const } : p))
   const { data: updated, error } = await db
     .from("reviews")
-    .update({ rating: input.rating, title: input.title || null, content: input.content, ...(input.name ? { reviewer_name: input.name } : {}), photos, status, edited_at: now, updated_at: now, ...(status === "published" && review.status !== "published" ? { published_at: now } : {}) })
+    .update({ rating: input.rating, title: input.title || null, content: input.content, ...(input.name ? { reviewer_name: input.name } : {}), photos, status, site_status, edited_at: now, updated_at: now, ...(status === "published" && review.status !== "published" ? { published_at: now } : {}) })
     .eq("id", review.id)
     .select("*")
     .single()
   if (error || !updated) return answer({ error: "The change did not save. Try again." }, 500)
   await refreshReviewStats(db, { productId: product.id, creatorId: creator.id, productSlug: product.slug })
-  return answer({ ok: true, status, review: publicShape(updated) })
+  return answer({ ok: true, status: websiteStatus(updated), review: publicShape(updated) })
 }
 
 /** What the page shows back: the review's own words and state, nothing about the order. */
 function publicShape(r: Record<string, unknown>) {
-  return { id: r.id, rating: r.rating, title: r.title ?? "", content: r.content, reviewer_name: r.reviewer_name ?? null, photos: r.photos ?? [], status: r.status, created_at: r.created_at, edited_at: r.edited_at ?? null }
+  return { id: r.id, rating: r.rating, title: r.title ?? "", content: r.content, reviewer_name: r.reviewer_name ?? null, photos: r.photos ?? [], status: websiteStatus(r), created_at: r.created_at, edited_at: r.edited_at ?? null }
 }

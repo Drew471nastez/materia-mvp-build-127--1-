@@ -27,7 +27,8 @@ import { join } from "node:path"
 import { pathToFileURL } from "node:url"
 import { build } from "esbuild"
 import { fakeDb } from "./_fake-db"
-import { REVIEWS_APP_DEFAULTS, canEditUntil, checkAppReviewInput, cleanReviewText, initialStatus, mergeReviewsApp, publicName, readReviewsApp, shownPhotos } from "../lib/reviews/app-settings"
+import { REVIEWS_APP_DEFAULTS, canEditUntil, checkAppReviewInput, cleanReviewText, initialStatus, isVerifiedReview, mergeReviewsApp, publicName, readReviewsApp, sellerView, shownPhotos, startingStatus, websiteStatus } from "../lib/reviews/app-settings"
+import { withRatings } from "../lib/website-builder/shop-products"
 import { signRequestWith, verifyRequestWith } from "../lib/reviews/request-token"
 import { DAY_MS, requestBlock, requestDueAt, reminderDueAt } from "../lib/reviews/request-schedule"
 import { reviewRequestBlock } from "../lib/reviews/request-rules"
@@ -90,6 +91,17 @@ function settingsAndRules() {
   realLog("\nA review's words and its author")
   check("auto publish: at or over the line goes up, under it waits", initialStatus({ publish: "auto", minStars: 4 }, 4) === "published" && initialStatus({ publish: "auto", minStars: 4 }, 3) === "pending")
   check("approve each one: everything waits", initialStatus({ publish: "manual", minStars: 1 }, 5) === "pending")
+  const waitV = startingStatus({ publish: "manual", minStars: 1 }, 5, true)
+  const waitU = startingStatus({ publish: "manual", minStars: 1 }, 5, false)
+  check("a verified buyer's review waits on the store's website only: Storelib publishes it as before", waitV.status === "published" && waitV.site_status === "pending", waitV)
+  check("  an unverified one waits everywhere", waitU.status === "pending" && waitU.site_status === "shown", waitU)
+  check("  over the line: shown both places", JSON.stringify(startingStatus({ publish: "auto", minStars: 3 }, 4, true)) === JSON.stringify({ status: "published", site_status: "shown" }))
+  check("the website reads both; a report's hide wins", websiteStatus({ status: "published", site_status: "hidden" }) === "hidden" && websiteStatus({ status: "published", site_status: "pending" }) === "pending" && websiteStatus({ status: "hidden", site_status: "shown" }) === "hidden" && websiteStatus({ status: "published" }) === "published")
+  check("a row without the column (before part 133) is a buyer's", isVerifiedReview({}) && isVerifiedReview({ verified: true }) && !isVerifiedReview({ verified: false }))
+  const kept = sellerView({ status: "published", site_status: "hidden", hidden_by: null })
+  const byReport = sellerView({ status: "hidden", site_status: "shown", hidden_by: null })
+  check("the store's list: hidden on its website by the store, still on Storelib", kept.status === "hidden" && kept.hidden_by === "seller" && kept.on_storelib === true, kept)
+  check("  hidden by a report: off Storelib, not the store's to bring back", byReport.status === "hidden" && byReport.hidden_by !== "seller" && byReport.on_storelib === false, byReport)
   check("Jane Doe shows as Jane D., one word as itself", publicName("Jane Doe") === "Jane D." && publicName("  mara  ") === "mara" && publicName("Ana Maria lópez") === "Ana L.")
   check("an address or a link is never a name", publicName("jane@example.com") === null && publicName("www.spam.example") === null && publicName("") === null)
   check("words keep their lines, lose control and direction characters", cleanReviewText("Great\r\n\r\n\r\nthing‮\u0007 ok", 100) === "Great\n\nthing ok")
@@ -345,10 +357,17 @@ async function routes() {
     const again = await request.POST(req("/api/reviews/request", "POST", { token, rating: 1, content: "Changed my mind." }))
     check("a second one from the same link: 409", again.status === 409 && d.tables.reviews.length === 1)
     const edit = await request.PATCH(req("/api/reviews/request", "PATCH", { token, rating: 2, content: "Wore out fast." }))
-    check("changed from the link: under the store's line it waits again, out of the rating", edit.status === 200 && d.tables.reviews[0].status === "pending" && !!d.tables.reviews[0].edited_at && d.tables.products[0].reviews_count === 0)
+    check("changed from the link: under the store's line it waits again on the website only, still on Storelib and in its rating", edit.status === 200 && (await json(edit)).status === "pending" && d.tables.reviews[0].status === "published" && d.tables.reviews[0].site_status === "pending" && !!d.tables.reviews[0].edited_at && d.tables.products[0].reviews_count === 1 && d.tables.products[0].reviews_average === 2, d.tables.reviews[0])
     d.tables.reviews[0].created_at = new Date(Date.now() - 40 * DAY_MS).toISOString()
     const late = await request.PATCH(req("/api/reviews/request", "PATCH", { token, rating: 5, content: "Back to great." }))
     check("after the edit window: refused", late.status === 403 && d.tables.reviews[0].rating === 2)
+  }
+  {
+    const d = db({ app: { publish: "manual" } })
+    reset(d)
+    const r = await request.POST(req("/api/reviews/request", "POST", { token, rating: 5, content: "Lovely apron." }))
+    const row = d.tables.reviews[0]
+    check("a store that approves each one: the buyer's review is on Storelib and in its rating now, waiting on the website", r.status === 200 && (await json(r)).status === "pending" && row?.status === "published" && row?.site_status === "pending" && !!row?.published_at && d.tables.products[0].reviews_count === 1 && d.tables.creators[0].reviews_count === 1, row)
   }
   {
     const d = db({ order: { status: "refunded", refund_amount_cents: 1200 } })
@@ -371,7 +390,7 @@ async function routes() {
     check("the field a person never sees, filled in: told it worked, nothing kept", trap.status === 200 && d.tables.reviews.length === 0)
     const r = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 2, content: "Seams came loose.", name: "Lee Park", email: "LEE@example.com" }))
     const row = d.tables.reviews[0]
-    check("a visitor's review: not verified, no buyer or order, waiting (under three stars)", r.status === 200 && row?.verified === false && row?.buyer_id === null && row?.order_id === null && row?.source === "site" && row?.status === "pending" && row?.reviewer_name === "Lee P.", row)
+    check("a visitor's review: not verified, no buyer or order, waiting (under three stars)", r.status === 200 && row?.verified === false && row?.buyer_id === null && row?.order_id === null && row?.source === "site" && row?.status === "pending" && row?.site_status === "shown" && row?.reviewer_name === "Lee P.", row)
     check("the address is kept apart from the public row, lower case", !("email" in row) && d.tables.review_authors[0]?.email === "lee@example.com" && d.tables.review_authors[0]?.ip_hash?.length === 32)
     const twice = await site.POST(req("/api/reviews/site", "POST", { productId: PRODUCT, rating: 5, content: "Second try.", name: "Lee", email: "lee@example.com" }))
     check("the same address again: 409", twice.status === 409 && d.tables.reviews.length === 1)
@@ -394,8 +413,9 @@ async function routes() {
   realLog("\nModeration")
   {
     const reviews = [
-      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1", product_id: PRODUCT, creator_id: CREATOR, order_id: null, buyer_id: null, rating: 2, content: "Meh.", status: "pending", photos: [{ path: `${CREATOR}/${"b".repeat(32)}.jpg`, url: "https://x/b.jpg", status: "approved" }] },
-      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2", product_id: PRODUCT, creator_id: CREATOR, order_id: null, buyer_id: null, rating: 1, content: "Abuse.", status: "hidden", hidden_by: "report" },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa1", product_id: PRODUCT, creator_id: CREATOR, order_id: null, buyer_id: null, rating: 2, content: "Meh.", status: "pending", site_status: "shown", verified: false, source: "site", photos: [{ path: `${CREATOR}/${"b".repeat(32)}.jpg`, url: "https://x/b.jpg", status: "approved" }] },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa2", product_id: PRODUCT, creator_id: CREATOR, order_id: null, buyer_id: null, rating: 1, content: "Abuse.", status: "hidden", site_status: "shown", hidden_by: "report", verified: false, source: "site" },
+      { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa3", product_id: PRODUCT, creator_id: CREATOR, order_id: ORDER, buyer_id: null, rating: 1, content: "Broke in a week.", status: "published", site_status: "shown", hidden_by: null, verified: true, source: "request" },
     ]
     const d = db({ reviews })
     const p = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -403,19 +423,49 @@ async function routes() {
     const theirs = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "publish" }), p(reviews[0].id))
     check("somebody who is not the store: 403, nothing changed", theirs.status === 403 && d.tables.reviews[0].status === "pending")
     reset(d, null)
-    check("signed out: 401", (await moderate.DELETE(req(`/api/app/reviews/${reviews[0].id}`, "DELETE"), p(reviews[0].id))).status === 401 && d.tables.reviews.length === 2)
+    check("signed out: 401", (await moderate.DELETE(req(`/api/app/reviews/${reviews[0].id}`, "DELETE"), p(reviews[0].id))).status === 401 && d.tables.reviews.length === 3)
     reset(d, { id: SELLER_USER })
     const pub = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "publish" }), p(reviews[0].id))
-    check("the store publishes a pending review: live, counted", pub.status === 200 && d.tables.reviews[0].status === "published" && !!d.tables.reviews[0].published_at && d.tables.products[0].reviews_count === 1)
+    check("the store publishes a pending review: live, counted", pub.status === 200 && d.tables.reviews[0].status === "published" && !!d.tables.reviews[0].published_at && d.tables.products[0].reviews_count === 2)
     await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "feature" }), p(reviews[0].id))
     await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "remove_photo", photo: `${CREATOR}/${"b".repeat(32)}.jpg` }), p(reviews[0].id))
     check("features it and takes a photo off", d.tables.reviews[0].featured === true && d.tables.reviews[0].photos[0].status === "removed")
     const hide = await moderate.PATCH(req(`/api/app/reviews/${reviews[0].id}`, "PATCH", { action: "hide" }), p(reviews[0].id))
-    check("hides it: kept, by the store, out of the rating", hide.status === 200 && d.tables.reviews[0].status === "hidden" && d.tables.reviews[0].hidden_by === "seller" && d.tables.products[0].reviews_count === 0)
+    check("an unverified review: hidden by the store everywhere, kept, out of the rating", hide.status === 200 && d.tables.reviews[0].status === "hidden" && d.tables.reviews[0].hidden_by === "seller" && d.tables.products[0].reviews_count === 1)
     const reported = await moderate.PATCH(req(`/api/app/reviews/${reviews[1].id}`, "PATCH", { action: "publish" }), p(reviews[1].id))
     check("a review hidden by a report stays Storelib's to bring back", reported.status === 409 && d.tables.reviews[1].status === "hidden")
-    const del = await moderate.DELETE(req(`/api/app/reviews/${reviews[0].id}`, "DELETE"), p(reviews[0].id))
-    check("deletes one for good", del.status === 200 && d.tables.reviews.length === 1)
+    const v = () => d.tables.reviews.find((r: any) => r.id === reviews[2].id)
+    const hideV = await moderate.PATCH(req(`/api/app/reviews/${reviews[2].id}`, "PATCH", { action: "hide" }), p(reviews[2].id))
+    check("a verified buyer's review: the store's hide is on its website only", hideV.status === 200 && v()?.site_status === "hidden" && v()?.status === "published" && v()?.hidden_by === null, v())
+    check("  still on Storelib: in the product's, the creator's and every Storelib rating", d.tables.products[0].reviews_count === 1 && d.tables.products[0].reviews_average === 1 && d.tables.creators[0].reviews_count === 1)
+    const shown = await moderate.PATCH(req(`/api/app/reviews/${reviews[2].id}`, "PATCH", { action: "publish" }), p(reviews[2].id))
+    check("  shown on the website again", shown.status === 200 && v()?.site_status === "shown" && v()?.status === "published")
+    const delV = await moderate.DELETE(req(`/api/app/reviews/${reviews[2].id}`, "DELETE"), p(reviews[2].id))
+    check("  never deleted by the store: 403, still there and counted", delV.status === 403 && /verified buyer/.test((await json(delV)).error ?? "") && !!v() && d.tables.products[0].reviews_count === 1)
+    const reportedV = { ...reviews[2], id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaa4", status: "hidden", hidden_by: null, order_id: null, buyer_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbb1" }
+    d.tables.reviews.push(reportedV)
+    const hideR = await moderate.PATCH(req(`/api/app/reviews/${reportedV.id}`, "PATCH", { action: "hide" }), p(reportedV.id))
+    const pubR = await moderate.PATCH(req(`/api/app/reviews/${reportedV.id}`, "PATCH", { action: "publish" }), p(reportedV.id))
+    check("  one a report hid stays Storelib's: hiding it changes nothing, publishing is refused", hideR.status === 200 && pubR.status === 409 && d.tables.reviews.find((r: any) => r.id === reportedV.id)?.status === "hidden")
+    const gone = reviews[0].id
+    const del = await moderate.DELETE(req(`/api/app/reviews/${gone}`, "DELETE"), p(gone))
+    check("an unverified review: deleted for good", del.status === 200 && d.tables.reviews.length === 3 && !d.tables.reviews.some((r: any) => r.id === gone))
+  }
+
+  realLog("\nStars on the website's cards")
+  {
+    const d = fakeDb({
+      store_settings: [{ creator_id: CREATOR, reviews: { enabled: true, display: { showCardRating: true } } }],
+      products: [{ id: PRODUCT, status: "published", reviews_count: 3, reviews_average: 3 }],
+      reviews: [
+        { id: "r1", product_id: PRODUCT, rating: 5, status: "published", site_status: "shown" },
+        { id: "r2", product_id: PRODUCT, rating: 1, status: "published", site_status: "hidden" },
+        { id: "r3", product_id: PRODUCT, rating: 3, status: "published", site_status: "pending" },
+        { id: "r4", product_id: PRODUCT, rating: 4, status: "hidden", site_status: "shown" },
+      ],
+    })
+    const [card] = await withRatings(d as any, CREATOR, [{ id: PRODUCT } as any])
+    check("counted from what the website shows, not Storelib's total (the store hid one there)", card.rating?.count === 1 && card.rating?.value === 5, card.rating)
   }
 }
 
@@ -433,6 +483,13 @@ function wiring() {
   const photo = read("lib/reviews/photos-server.ts")
   check("a photo: a picture by its bytes, the picture reader, the malware scan", /preparePublicImage\(/.test(photo) && /judgePicture\(/.test(photo) && /screenInBackground\(/.test(photo))
   check("the website's card ratings never import server code (the browser loads shop-products)", !/server-only|app-server/.test(read("lib/website-builder/shop-products.ts")))
+  check("part 133: the website's own say (site_status), and a check that a verified review is never pending or hidden by the store", /ADD COLUMN IF NOT EXISTS site_status text NOT NULL DEFAULT 'shown'/.test(sql) && /CHECK \(NOT verified OR \(status <> 'pending' AND hidden_by IS DISTINCT FROM 'seller'\)\) NOT VALID/.test(sql) && /column_name = 'site_status'/.test(read("supabase/sql/run-now/99_check_after.sql")))
+  const shopRead = read("lib/reviews/storefront-server.ts")
+  check("the website's review sections and its JSON-LD read only what the store shows there", (shopRead.match(/q\.eq\("site_status", "shown"\)/g) ?? []).length === 2)
+  const marketRead = read("lib/reviews/store.ts")
+  check("  Explore, the product page and the ratings never read it", !/site_status/.test(marketRead) && !/site_status/.test(read("supabase/sql/run-now/52_reviews_replies_reports_guests.sql")))
+  const ui = read("app/app/reviews/reviews-client.tsx")
+  check("the store's list says it plainly, and offers no delete for a verified buyer's review", ui.includes("Hidden on your website. Still shown on Storelib because it&apos;s from a verified buyer.") && /moderation && !reported && !review\.verified \? \[\{ label: "Delete"/.test(ui))
 }
 
 async function main() {

@@ -6,13 +6,16 @@ import "server-only"
  * ===========================================================================
  * The published reviews a website's review sections draw (./storefront.ts
  * says what they are handed). Read with the service role, filtered to one
- * creator and to status published, and held for a minute per creator under
+ * creator, to status published and to the ones the store shows on its
+ * website (site_status shown: a verified buyer's review the store hid or
+ * has not approved is still on Storelib, never here; ./app-settings), and
+ * held for a minute per creator under
  * the creator's tag, which every review change already clears
  * (lib/reviews/store forgetReviewPages). The product's own reviews are read
  * beside the shop's when the page is about one.
  *
- * Before run-now part 133 the new columns are not there; the read falls back
- * to the columns part 52 made, so reviews still show, without titles or
+ * Before run-now part 133 the new columns are not there (site_status
+ * neither); the read falls back to the columns part 52 made, so reviews still show, without titles or
  * photos. Never throws: a page whose reviews will not load draws without
  * them.
  */
@@ -34,15 +37,23 @@ const SHOP_LIMIT = 48
 const PRODUCT_LIMIT = 50
 
 async function readRows(db: Db, key: "creator_id" | "product_id", value: string, limit: number): Promise<StorefrontReviewRow[]> {
-  const run = (cols: string) => db.from("reviews").select(cols).eq(key, value).eq("status", "published").order("created_at", { ascending: false }).limit(limit)
-  let res = await run(COLUMNS)
-  if (res.error && missingColumn(res.error)) res = await run(OLD_COLUMNS)
+  const run = (cols: string, site: boolean) => {
+    const q = db.from("reviews").select(cols).eq(key, value).eq("status", "published")
+    return (site ? q.eq("site_status", "shown") : q).order("created_at", { ascending: false }).limit(limit)
+  }
+  let res = await run(COLUMNS, true)
+  if (res.error && missingColumn(res.error)) res = await run(OLD_COLUMNS, false)
   if (res.error) return []
   return (res.data ?? []) as StorefrontReviewRow[]
 }
 
 async function readRatings(db: Db, key: "creator_id" | "product_id", value: string): Promise<number[]> {
-  const res = await db.from("reviews").select("rating").eq(key, value).eq("status", "published").limit(5000)
+  const run = (site: boolean) => {
+    const q = db.from("reviews").select("rating").eq(key, value).eq("status", "published")
+    return (site ? q.eq("site_status", "shown") : q).limit(5000)
+  }
+  let res = await run(true)
+  if (res.error && missingColumn(res.error)) res = await run(false)
   if (res.error) return []
   return ((res.data ?? []) as { rating: number }[]).map((r) => Number(r.rating))
 }
