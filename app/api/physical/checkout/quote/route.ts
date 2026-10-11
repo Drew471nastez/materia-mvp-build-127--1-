@@ -49,7 +49,9 @@ export async function POST(request: Request) {
 
   const country = typeof body.country === "string" && COUNTRY_CODES.has(body.country.toUpperCase()) ? body.country.toUpperCase() : null
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
-  const q = await quoteCheckout(db, priced, country ? { country, region } : null, body.deliveryOptionId)
+  /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
+  const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
+  const q = await quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId)
   return physicalJson({
     creatorId: priced.creatorId,
     lines: priced.lines.map((l) => ({

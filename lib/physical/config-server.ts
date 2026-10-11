@@ -13,6 +13,7 @@ import "server-only"
 import { COUNTRY_CODES, countryName } from "@/lib/checkout/countries"
 import type { Db } from "./auth"
 import { readTiers } from "./rates"
+import { localDeliveryFromRow, readLocalDelivery } from "./local-delivery"
 import { regionLabel, regionList } from "./regions"
 import { FULFILLMENT_MODELS, LOCATION_KINDS, PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type ShippingProfile, type ShippingRate, type ShippingZone, type UnitSystem } from "./types"
 import type { TaxRate, TaxSettings } from "./totals"
@@ -110,6 +111,8 @@ export function locationFromRow(r: Record<string, any>): Location {
     pickupEnabled: r.pickup_enabled === true,
     pickupInstructions: r.pickup_instructions ?? null,
     pickupReady: (PICKUP_READY as readonly string[]).includes(r.pickup_ready) ? (r.pickup_ready as PickupReady) : "24h",
+    pickupHours: typeof r.pickup_hours === "string" && r.pickup_hours.trim() ? r.pickup_hours.trim() : null,
+    localDelivery: localDeliveryFromRow(r),
   }
 }
 
@@ -320,7 +323,12 @@ const KIND_NAMES: Record<LocationKind, string> = {
   custom: "Location",
 }
 
-export function readLocation(input: Record<string, unknown>): { ok: true; row: Record<string, unknown> } | { ok: false; error: string } {
+/**
+ * A location as sent, checked. `row` is what every database has (part 78);
+ * `extra` is pickup hours and local delivery (part 154), written apart so a
+ * database without them still saves the location (saveLocationExtra).
+ */
+export function readLocation(input: Record<string, unknown>): { ok: true; row: Record<string, unknown>; extra: Record<string, unknown> } | { ok: false; error: string } {
   const kind = (LOCATION_KINDS as readonly string[]).includes(String(input.kind)) ? (input.kind as LocationKind) : "home"
   const name = text(input.name, 80) ?? KIND_NAMES[kind]
   const country = input.country ? String(input.country).trim().toUpperCase() : null
@@ -332,8 +340,16 @@ export function readLocation(input: Record<string, unknown>): { ok: true; row: R
   const pickupEnabled = input.pickupEnabled === true
   if (pickupEnabled && (!text(input.addressLine1, 200) || !text(input.city, 120) || !country)) return { ok: false, error: "Add the street, city and country so buyers know where to pick up." }
   const pickupReady = (PICKUP_READY as readonly string[]).includes(String(input.pickupReady)) ? String(input.pickupReady) : "24h"
+  const local = readLocalDelivery(input.localDelivery)
+  if (local.ok === false) return local
+  if (local.row.local_delivery_enabled && !country) return { ok: false, error: "Choose the location's country: local delivery is to postal codes in it." }
+  const extra: Record<string, unknown> = {
+    ...("pickupHours" in input ? { pickup_hours: typeof input.pickupHours === "string" ? input.pickupHours.replace(/[\u0000-\u0008\u000b-\u001f\u007f<>]/g, "").trim().slice(0, 300) || null : null } : {}),
+    ...("localDelivery" in input ? local.row : {}),
+  }
   return {
     ok: true,
+    extra,
     row: {
       name,
       kind,
@@ -356,6 +372,20 @@ export function readLocation(input: Record<string, unknown>): { ok: true; row: R
       updated_at: new Date().toISOString(),
     },
   }
+}
+
+/**
+ * Pickup hours and local delivery, after the location itself saved. Null
+ * when written (or nothing asked); a sentence for the seller when the
+ * database is older than part 154 and something was set that it can't keep.
+ */
+export async function saveLocationExtra(db: Db, creatorId: string, locationId: string, extra: Record<string, unknown>): Promise<{ row: Record<string, any> | null; notice: string | null }> {
+  if (Object.keys(extra).length === 0) return { row: null, notice: null }
+  const { data, error } = await db.from("inventory_locations").update(extra).eq("id", locationId).eq("creator_id", creatorId).select("*").maybeSingle()
+  if (!error) return { row: (data as Record<string, any> | null) ?? null, notice: null }
+  const asked = extra.local_delivery_enabled === true || (typeof extra.pickup_hours === "string" && extra.pickup_hours.length > 0)
+  if (error.code !== "42703" && error.code !== "PGRST204") console.error("[physical] location extras not saved:", error.code)
+  return { row: null, notice: asked ? "The location was saved. Pickup hours and local delivery turn on after the database update (SQL part 154)." : null }
 }
 
 export const RATE_KINDS: RateKind[] = ["flat", "free", "price", "weight", "item_weight", "quantity", "carrier"]

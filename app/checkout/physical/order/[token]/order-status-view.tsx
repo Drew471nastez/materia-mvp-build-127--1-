@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { OrderHelp } from "@/components/support/order-help"
-import { Check, Download, ExternalLink, MapPin, Package, RefreshCw, Truck } from "lucide-react"
+import { AlertTriangle, Check, Download, ExternalLink, MapPin, Package, RefreshCw, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { addressLines } from "@/lib/physical/address"
 import { deliveryEstimate } from "@/lib/physical/rates"
@@ -26,20 +26,42 @@ interface Props {
     email: string | null
     name: string | null
     address: Record<string, any> | null
-    delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null } | null
+    /** `kind` local: the shop brings it itself, with its note. */
+    delivery: { name: string; priceCents: number; minDays: number | null; maxDays: number | null; kind?: "ship" | "local"; note?: string | null } | null
     /** Collected by the buyer instead of shipped. */
-    pickup: { name: string; address: string[]; instructions: string | null; ready: string } | null
+    pickup: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
     processing: boolean
     totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; total: number; refunded: number }
     lines: { orderId: string; title: string; variantName: string | null; imageUrl: string | null; quantity: number; cents: number; type: string; receiptToken: string | null; returnable: number }[]
-    shipments: { id: string; status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null; items: { orderId: string; quantity: number }[] }[]
-    returns: { id: string; status: string; createdAt: string }[]
+    /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
+    shipments: { id: string; status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null; items: { orderId: string; quantity: number }[]; updates?: { status: string; at: string }[] }[]
+    returns: { id: string; status: string; createdAt: string; reason?: string | null }[]
+    /** Settings > Returns and refunds, for this order: absent when the shop doesn't take returns. */
+    returnPolicy?: { days: number; endsAt: string | null; open: boolean } | null
   }
   canReturn: boolean
 }
 
 const money = (c: number) => `$${(c / 100).toFixed(2)}`
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "")
+const dayTime = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+
+/** A local delivery's steps, in the shop's own words: nobody else carries it. */
+function localLabel(status: string): string {
+  return status === "delivered" ? "Delivered" : status === "out_for_delivery" ? "On its way to you today" : status === "failed" ? "Delivery problem" : "Being prepared for delivery"
+}
+
+/**
+ * A shipment's updates as the buyer reads them: its statuses with when,
+ * newest first, each once in a row ("Tracking updated" keeps its status,
+ * so it never repeats a line), the shipped moment first of all.
+ */
+function buyerUpdates(s: Props["order"]["shipments"][number]): { status: string; at: string }[] {
+  const seen: { status: string; at: string }[] = []
+  for (const u of s.updates ?? []) if (u.status !== "pending" && u.status !== "submitted" && u.status !== "cancelled" && seen[seen.length - 1]?.status !== u.status) seen.push(u)
+  if (seen.length === 0 && s.shippedAt) seen.push({ status: "shipped", at: s.shippedAt })
+  return seen.reverse()
+}
 
 const RETURN_TEXT: Record<string, string> = {
   requested: "Return requested. The shop will reply by email.",
@@ -69,6 +91,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
 }
 
 export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help }: Props) {
+  const local = order.delivery?.kind === "local"
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
@@ -104,6 +127,8 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
               ? "Your order was cancelled"
               : justPaid
                 ? `Thank you${first ? `, ${first}` : ""}!`
+                : !delivered && order.shipments.some((s) => s.status === "failed")
+                  ? "There's a problem with your delivery"
                 : delivered
                   ? pickup
                     ? "Your order was picked up"
@@ -132,7 +157,8 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
               ))}
             </ol>
             {pickup && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{pickup.ready}. We'll email you when it's ready.</p> : null}
-            {!pickup && order.delivery && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{order.delivery.name}{deliveryEstimate(order.delivery) ? `, usually ${deliveryEstimate(order.delivery)} after it ships` : ""}.</p> : null}
+            {!pickup && local && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{shop.name} delivers this order to you.{order.delivery?.note ? ` ${order.delivery.note}` : ""}</p> : null}
+            {!pickup && !local && order.delivery && !shipped ? <p className="mt-4 text-[13.5px] text-[#6b7280]">{order.delivery.name}{deliveryEstimate(order.delivery) ? `, usually ${deliveryEstimate(order.delivery)} after it ships` : ""}.</p> : null}
           </section>
         ) : null}
 
@@ -145,6 +171,7 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
               <div className="min-w-0">
                 <p className="text-[15px] font-semibold text-[#1a1a2e]">Pick up at {pickup.name}</p>
                 <p className="mt-0.5 text-[14px] leading-[21px] text-[#4b5563]">{pickup.address.join(", ")}</p>
+                {pickup.hours ? <p className="mt-1 text-[13.5px] text-[#4b5563]" data-pickup-hours=""><span className="font-medium text-[#1a1a2e]">Open</span> {pickup.hours}</p> : null}
                 {pickup.instructions ? <p className="mt-2 whitespace-pre-line rounded-lg bg-[#f8f9fa] px-3 py-2 text-[13.5px] leading-5 text-[#4b5563]">{pickup.instructions}</p> : null}
                 <p className="mt-2 text-[13px] text-[#6b7280]">Bring your order number, {orderNumber(order.id)}.</p>
               </div>
@@ -152,27 +179,45 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
           </section>
         ) : null}
 
-        {pickup ? null : order.shipments.map((s) => (
-          <section key={s.id} className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <span className="grid h-10 w-10 place-items-center rounded-xl bg-[#f3f4f6]">
-                  <Truck className="h-5 w-5 text-[#1a1a2e]" />
-                </span>
-                <div>
-                  <p className="text-[15px] font-semibold text-[#1a1a2e]">{shipmentLabel(s.status as ShipmentStatus, false)?.label ?? "Shipped"}</p>
-                  <p className="text-[13px] text-[#6b7280]">{[s.carrier, s.trackingNumber].filter(Boolean).join(" ") || "Tracking not added yet"}</p>
+        {pickup ? null : order.shipments.map((s, i) => {
+          const problem = s.status === "failed"
+          const updates = buyerUpdates(s)
+          return (
+            <section key={s.id} className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6" data-shipment-status={s.status}>
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-xl", problem ? "bg-[#fee4e2]" : "bg-[#f3f4f6]")}>
+                    {problem ? <AlertTriangle className="h-5 w-5 text-[#b42318]" /> : <Truck className="h-5 w-5 text-[#1a1a2e]" />}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold text-[#1a1a2e]">
+                      {local ? localLabel(s.status) : (shipmentLabel(s.status as ShipmentStatus, false)?.label ?? "Shipped")}
+                      {order.shipments.length > 1 ? <span className="font-normal text-[#6b7280]"> · Package {i + 1} of {order.shipments.length}</span> : null}
+                    </p>
+                    <p className="text-[13px] text-[#6b7280]">{local ? "Delivered by the shop" : [s.carrier, s.trackingNumber].filter(Boolean).join(" ") || "Tracking not added yet"}</p>
+                  </div>
                 </div>
+                {s.trackingUrl && !local ? (
+                  <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white">
+                    Track package
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                ) : null}
               </div>
-              {s.trackingUrl ? (
-                <a href={s.trackingUrl} target="_blank" rel="noreferrer" className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-[#1a1a2e] px-4 text-[14px] font-medium text-white">
-                  Track package
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
+              {problem ? <p className="mt-3 rounded-lg bg-[#fef3f2] px-3 py-2 text-[13.5px] leading-5 text-[#b42318]">The carrier reported a problem delivering this package. {shop.name} will be in touch, or reply to your order email.</p> : null}
+              {updates.length > 1 ? (
+                <ol className="mt-4 space-y-2 border-t border-[#eef0f2] pt-3" data-shipment-updates="">
+                  {updates.map((u, j) => (
+                    <li key={`${u.status}:${u.at}`} className="flex items-baseline justify-between gap-3 text-[13.5px]">
+                      <span className={cn(j === 0 ? "font-medium text-[#1a1a2e]" : "text-[#6b7280]")}>{local ? localLabel(u.status) : (shipmentLabel(u.status as ShipmentStatus, false)?.label ?? u.status)}</span>
+                      <span className="shrink-0 tabular-nums text-[12.5px] text-[#9ca3af]">{dayTime(u.at)}</span>
+                    </li>
+                  ))}
+                </ol>
               ) : null}
-            </div>
-          </section>
-        ))}
+            </section>
+          )
+        })}
 
         <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
           <h2 className="mb-3 text-[16px] font-semibold text-[#1a1a2e]">Items</h2>
@@ -224,8 +269,9 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
               </p>
             </div>
             <div>
-              <h2 className="mb-1.5 text-[14px] font-semibold text-[#1a1a2e]">Shipping method</h2>
+              <h2 className="mb-1.5 text-[14px] font-semibold text-[#1a1a2e]">{local ? "Delivery" : "Shipping method"}</h2>
               <p className="text-[14px] text-[#4b5563]">{order.delivery?.name ?? "Standard"}</p>
+              {local && order.delivery?.note ? <p className="mt-1 text-[13px] leading-5 text-[#6b7280]">{order.delivery.note}</p> : null}
             </div>
           </section>
         ) : null}
@@ -233,15 +279,21 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
         {order.returns.length ? (
           <section className="rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6">
             <h2 className="mb-2 text-[16px] font-semibold text-[#1a1a2e]">Returns</h2>
-            {order.returns.map((r) => (
-              <p key={r.id} className="text-[14px] text-[#4b5563]">
-                {day(r.createdAt)}: {RETURN_TEXT[r.status] ?? r.status}
-              </p>
-            ))}
+            <ul className="space-y-2">
+              {order.returns.map((r) => (
+                <li key={r.id} className="text-[14px] leading-5 text-[#4b5563]" data-return-status={r.status}>
+                  <span className="text-[#6b7280]">{day(r.createdAt)}:</span> {RETURN_TEXT[r.status] ?? r.status}
+                  {r.reason ? <span className="block text-[13px] text-[#6b7280]">Reason: {r.reason}</span> : null}
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 
-        {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} reasons={reasons && reasons.length ? reasons : REASONS.map(([value, label]) => ({ value, label }))} /> : null}
+        {canReturn ? <ReturnRequest token={token} lines={order.lines.filter((l) => l.returnable > 0)} reasons={reasons && reasons.length ? reasons : REASONS.map(([value, label]) => ({ value, label }))} until={order.returnPolicy?.endsAt ?? null} /> : null}
+        {!canReturn && order.returnPolicy && !order.returnPolicy.open && order.returnPolicy.endsAt ? (
+          <p className="text-center text-[13px] text-[#6b7280]" data-return-closed="">The return window for this order closed on {day(order.returnPolicy.endsAt)}.</p>
+        ) : null}
 
         {help ? <OrderHelp kind="physical" token={token} storeName={shop.name} openCase={help.openCase} /> : null}
 
@@ -275,7 +327,7 @@ const REASONS = [
   ["other", "Other"],
 ] as const
 
-function ReturnRequest({ token, lines, reasons }: { token: string; lines: Props["order"]["lines"]; reasons: { value: string; label: string }[] }) {
+function ReturnRequest({ token, lines, reasons, until }: { token: string; lines: Props["order"]["lines"]; reasons: { value: string; label: string }[]; until: string | null }) {
   const [open, setOpen] = React.useState(false)
   const [qty, setQty] = React.useState<Record<string, number>>({})
   const [reason, setReason] = React.useState<string>(reasons[0]?.value ?? "other")
@@ -286,9 +338,10 @@ function ReturnRequest({ token, lines, reasons }: { token: string; lines: Props[
   if (!open) {
     return (
       <div className="text-center">
-        <button type="button" onClick={() => setOpen(true)} className="text-[14px] font-medium text-[#1a1a2e] underline underline-offset-4">
+        <button type="button" onClick={() => setOpen(true)} className="text-[14px] font-medium text-[#1a1a2e] underline underline-offset-4" data-return-button="">
           Return items
         </button>
+        {until ? <p className="mt-1 text-[12.5px] text-[#6b7280]">Until {day(until)}</p> : null}
       </div>
     )
   }
@@ -312,7 +365,7 @@ function ReturnRequest({ token, lines, reasons }: { token: string; lines: Props[
           </li>
         ))}
       </ul>
-      <label htmlFor="return-reason" className="sr-only">
+      <label htmlFor="return-reason" className="block text-[13.5px] font-medium text-[#1a1a2e]">
         Why are you returning this?
       </label>
       <select id="return-reason" data-return-reasons="" value={reason} onChange={(e) => setReason(e.target.value)} className="h-11 w-full rounded-[10px] border border-[#d9dce1] px-3 text-[15px]">
