@@ -21,6 +21,8 @@ import { listBusinesses } from "@/lib/businesses/server"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
+import { teamStoreForRequest } from "@/lib/team/server"
+import { TeamBar } from "@/components/app/team-bar"
 
 /**
  * One signed in person's own screens: never in a search index. robots.txt
@@ -127,7 +129,7 @@ export default async function AppLayout({
     so a page that reads them too with its own client is not a second trip.
     All of it on the caller's own client: row-level security as before.
   */
-  const [gateCheck, creator, { data: onepage }, businesses] = await Promise.all([
+  const [gateCheck, ownCreator, { data: onepage }, businesses, team] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
     supabase
@@ -138,8 +140,19 @@ export default async function AppLayout({
     /* The account menu's businesses (lib/businesses/server). In parallel with the rest, so the
        shell draws no later; an error reads as this business alone, as it always was. */
     listBusinesses(user.id).catch(() => []),
+    /* Working in a store they were invited to (lib/team): read from the database again on every request. */
+    teamStoreForRequest(user.id).catch(() => null),
   ])
   const profile = gateCheck
+  /*
+    A TEAM MEMBER'S DASHBOARD IS THE STORE'S. The chrome (its name, its
+    address, its plan) is the store they work in; who they are (their photo,
+    their name in the menu) is still them. Seller access is the store's, so a
+    member who has never sold anything of their own is not sent to /sell.
+  */
+  const teamStore = team?.store ?? null
+  const acting = team?.acting ?? null
+  const creator = teamStore ?? ownCreator
 
   // Gate 1: email must be verified
   if (!gateCheck?.email_verified) {
@@ -155,7 +168,7 @@ export default async function AppLayout({
     already read above, so it costs nothing. The old "role must be selected"
     gate went with the creator or buyer question it was about.
   */
-  if (!creator || !hasSellerAccess(sellerAccessFrom({ creator, profile: gateCheck }))) {
+  if (!creator || (!teamStore && !hasSellerAccess(sellerAccessFrom({ creator, profile: gateCheck })))) {
     redirect("/sell")
   }
 
@@ -247,7 +260,7 @@ export default async function AppLayout({
           {/* pb-[env(safe-area-inset-bottom)] removed — globals.css already applies it
               via html.capacitor .app-content-scroll to avoid double padding on iOS */}
           <div className="h-[calc(100svh_-_68px_-_env(safe-area-inset-top,_0px))] md:h-[calc(100svh-58px-env(safe-area-inset-top,_0px))] overflow-y-auto app-content-scroll">
-            {children}
+            {teamStore && acting ? <TeamBar store={acting.name} role={acting.role} ownStore={!!ownCreator}>{children}</TeamBar> : children}
           </div>
         </main>
         {/* Outside the page's scroll, so a drag on the sheet is never the page's pull to refresh. */}

@@ -62,7 +62,7 @@ export const profileForRequest = cache(async (userId: string): Promise<RequestPr
  * The columns of the creator row the /app shell reads (app/app/layout.tsx),
  * which cover what the pages that read it with their own client need too.
  */
-const SHELL_CREATOR_COLUMNS =
+export const SHELL_CREATOR_COLUMNS =
   "id, user_id, slug, username, display_name, avatar_url, bio, onboarding_completed, payouts_enabled, charges_enabled, store_published"
 
 /**
@@ -73,7 +73,7 @@ const SHELL_CREATOR_COLUMNS =
  * creator to /sell. They are read with the service role for the row the
  * caller's own client already returned, so nobody reads anyone else's.
  */
-const SHELL_PRIVATE_CREATOR_COLUMNS = "stripe_onboarding_status, stripe_account_id, subscription_plan_id, details_submitted, stripe_requirements, stripe_connected_at"
+export const SHELL_PRIVATE_CREATOR_COLUMNS = "stripe_onboarding_status, stripe_account_id, subscription_plan_id, details_submitted, stripe_requirements, stripe_connected_at"
 
 export interface RequestCreator {
   id: string
