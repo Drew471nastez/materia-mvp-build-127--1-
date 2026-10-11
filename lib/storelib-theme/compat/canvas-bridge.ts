@@ -137,7 +137,7 @@ export const CANVAS_BRIDGE = `
       for (var i = 0; i < xs.length; i++) if (owns(el, Math.min(Math.max(xs[i], 0.5), innerWidth - 0.5), y, loose)) return true;
       return false;
     };
-    var rows = Math.max(3, Math.min(9, Math.round((bottom - top) / 60)));
+    var rows = Math.max(3, Math.min(6, Math.round((bottom - top) / 80)));
     var step = (bottom - top) / rows, first = -1, last = -1;
     for (var i = 0; i < rows; i++) if (seen(top + step * (i + 0.5))) { if (first < 0) first = i; last = i; }
     if (first < 0) return null;
@@ -297,8 +297,9 @@ export const CANVAS_BRIDGE = `
     SOMETHING OPENED, CLOSED OR MOVED. A drawer is a class or a style changed
     and a transition after it, with no scroll to say so: for the next 700ms
     after any change on the page the outlines and the toolbar's box are read
-    again every frame, so the ring goes as the drawer arrives and comes back
-    as it leaves.
+    again, every 80ms rather than every frame (a theme's carousel changes
+    the page all the time, and this runs in the editor's own process), and
+    once more when a transition or an animation ends.
   */
   var burstEnd = 0, bursting = false;
   var burst = function () {
@@ -306,12 +307,12 @@ export const CANVAS_BRIDGE = `
     burstEnd = Date.now() + 700;
     if (bursting) return;
     bursting = true;
-    var loop = function () {
+    var tick = function () {
       drawBoxes();
       report();
-      if (Date.now() < burstEnd) requestAnimationFrame(loop); else bursting = false;
+      if (Date.now() < burstEnd) setTimeout(function () { requestAnimationFrame(tick); }, 80); else bursting = false;
     };
-    requestAnimationFrame(loop);
+    requestAnimationFrame(tick);
   };
   if (typeof MutationObserver !== "undefined") {
     new MutationObserver(function (records) {
@@ -323,8 +324,9 @@ export const CANVAS_BRIDGE = `
       }
     }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
   }
-  addEventListener("transitionend", burst, true);
-  addEventListener("animationend", burst, true);
+  var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } };
+  addEventListener("transitionend", settled, true);
+  addEventListener("animationend", settled, true);
   /* Every selection outline off the page; what is selected, for the theme, is unchanged. */
   var unmark = function () {
     document.querySelectorAll("[data-sl-selected],[data-sl-selected-block]").forEach(function (el) { el.removeAttribute("data-sl-selected"); el.removeAttribute("data-sl-selected-block"); });
