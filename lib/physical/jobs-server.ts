@@ -33,8 +33,10 @@ import { METHODS, readMethod } from "./fulfillment"
 import { PICKUP_READY_LABEL } from "./pickup"
 import type { PickupReady } from "./types"
 import { deliveryEstimate } from "./rates"
-import { orderNumber } from "./status"
+import { orderNumber, trackingUrl } from "./status"
 import { openSecret } from "./secrets"
+import { orderPageUrl } from "./order-link-server"
+import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
@@ -249,6 +251,8 @@ interface CheckoutForEmail {
   buyer_note: string | null
   delivery_method?: string | null
   pickup?: { name: string; address: string[]; instructions: string | null; ready: string } | null
+  /** Where it was placed (lib/orders/order-source OrderOrigin): a website's host in `site`. */
+  origin?: Record<string, unknown> | null
 }
 
 function pickupOf(co: CheckoutForEmail) {
@@ -278,9 +282,6 @@ function paymentLabelOf(row: { payment_method?: string | null; card_brand?: stri
   return named[row.payment_method] ?? row.payment_method.replace(/_/g, " ")
 }
 
-function statusUrl(token: string): string {
-  return `https://${getMainDomain()}/checkout/physical/order/${encodeURIComponent(token)}`
-}
 
 function emailLines(lines: Record<string, any>[]): EmailLine[] {
   return lines.map((l) => ({
@@ -327,7 +328,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const shopName = store.name || identity.fromName || "Storelib"
   const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
   const number = orderNumber(co.id)
-  const orderUrl = statusUrl(co.receipt_token)
+  /* On the store's own website when it has one (the one the order was placed on first), else storelib.com: ./order-link.ts. */
+  const orderUrl = await orderPageUrl(db, co)
   /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
   const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help` }
   let mail: { subject: string; html: string; text: string }
@@ -387,7 +389,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         lines: shipped,
         carrier: f.carrier,
         trackingNumber: f.tracking_number,
-        trackingUrl: f.tracking_url,
+        trackingUrl: f.tracking_url ?? trackingUrl(f.carrier, f.tracking_number),
         address: addressOf(co.shipping_address),
         deliveryName: co.shipping_rate?.name ?? null,
         partial: p.kind === "shipped" && owed > 0 && sent < owed,
@@ -473,6 +475,12 @@ async function sendLowStockEmail(db: Db, p: Record<string, any>): Promise<void> 
   if (!sent.success) throw new Error(sent.error || "Email not sent")
 }
 
+/** The partner's own page for this order, where tracking is added (./partner-server.ts), or null without a signing key. */
+function partnerPageUrl(checkoutId: string, locationId: string): string | null {
+  const token = signPartnerLink(checkoutId, locationId)
+  return token ? `https://${getMainDomain()}${PARTNER_PAGE_PREFIX}${token}` : null
+}
+
 async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   const { data: loc } = await db.from("inventory_locations").select("id, name, email").eq("id", p.locationId).eq("creator_id", co.creator_id).maybeSingle()
@@ -490,6 +498,7 @@ async function sendSupplierEmail(db: Db, p: Record<string, any>): Promise<void> 
     buyerEmail: null,
     deliveryName: co.shipping_rate?.name ?? null,
     note: co.buyer_note,
+    trackingLink: partnerPageUrl(co.id, loc.id),
   })
   const sent = await sendEmail({ from: buildFromHeader(shopName), to: loc.email, replyTo: identity.replyTo || identity.sellerEmail || undefined, subject: mail.subject, html: mail.html, text: mail.text })
   if (!sent.success) throw new Error(sent.error || "Email not sent")
@@ -533,6 +542,9 @@ async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
       shipping: co.shipping_rate ? { name: co.shipping_rate.name, price_cents: co.shipping_rate.price_cents } : null,
       address: addressOf(co.shipping_address),
       note: co.buyer_note,
+      /* Where this order went, and where to say it shipped: POST signed the same way, with your secret (lib/physical/partner-server.ts). */
+      location_id: p.locationId ?? null,
+      tracking_endpoint: `https://${getMainDomain()}/api/physical/partner-tracking`,
       lines: co.lines
         .filter((l) => !p.locationId || l.location_id === p.locationId)
         .map((l) => ({ product_id: l.product_id, variant_id: l.variant_id, title: l.title, variant: l.variant_name, sku: l.sku, quantity: l.quantity, requires_shipping: l.requires_shipping })),

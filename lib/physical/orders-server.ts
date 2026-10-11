@@ -21,6 +21,7 @@ import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
+import { normaliseTrackingNumber } from "./carriers"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -238,7 +239,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       carrier: f.carrier,
       service: f.service,
       trackingNumber: f.tracking_number,
-      trackingUrl: f.tracking_url,
+      /* A shipment saved before its carrier had a link still gets one when the carrier is known now. */
+      trackingUrl: f.tracking_url ?? trackingUrl(f.carrier, f.tracking_number),
       shippedAt: f.shipped_at,
       deliveredAt: f.delivered_at,
       createdAt: f.created_at,
@@ -301,7 +303,17 @@ export async function fulfilItems(
   db: Db,
   creatorId: string,
   checkoutId: string,
-  input: { items: { orderId: string; quantity: number }[]; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; notifyBuyer?: boolean; key?: unknown; locationId?: unknown },
+  input: {
+    items: { orderId: string; quantity: number }[]
+    carrier?: unknown
+    trackingNumber?: unknown
+    trackingUrl?: unknown
+    notifyBuyer?: boolean
+    key?: unknown
+    locationId?: unknown
+    /** Shipped by a partner who told us (lib/physical/partner-server.ts): their provider and name, on the shipment and the timeline. */
+    partner?: { provider: string; name: string }
+  },
 ): Promise<Outcome> {
   const order = await loadOrder(db, { creatorId, checkoutId })
   if (!order) return { ok: false, error: "Order not found.", status: 404 }
@@ -319,7 +331,7 @@ export async function fulfilItems(
   }
   const pickup = order.deliveryMethod === "pickup"
   const carrier = pickup ? null : cleanText(input.carrier, 40)
-  const tracking = pickup ? null : cleanText(input.trackingNumber, 60)
+  const tracking = pickup ? null : normaliseTrackingNumber(cleanText(input.trackingNumber, 80))
   if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
   let url = pickup ? null : cleanText(input.trackingUrl, 500)
   if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
@@ -336,7 +348,7 @@ export async function fulfilItems(
       creator_id: creatorId,
       location_id: locationId,
       status: "shipped",
-      provider: pickup ? "pickup" : "manual",
+      provider: pickup ? "pickup" : (input.partner?.provider ?? "manual"),
       carrier,
       tracking_number: tracking,
       tracking_url: url,
@@ -357,14 +369,16 @@ export async function fulfilItems(
     return { ok: false, error: "The fulfillment could not be saved." }
   }
   await db.rpc("physical_fulfill", { p_fulfillment: f.id })
-  await db.from("fulfillment_events").insert({ fulfillment_id: f.id, status: "shipped", message: pickup ? "Ready for pickup" : tracking ? `${carrier ?? "Carrier"} ${tracking}` : "Marked as shipped", source: "manual" })
+  await db.from("fulfillment_events").insert({ fulfillment_id: f.id, status: "shipped", message: pickup ? "Ready for pickup" : tracking ? `${carrier ?? "Carrier"} ${tracking}` : "Marked as shipped", source: input.partner ? "provider" : "manual" })
   const count = items.reduce((n, i) => n + i.quantity, 0)
   await addOrderEvent(db, {
     checkoutId,
     creatorId,
     kind: "fulfillment.created",
-    message: pickup ? `${count} ${count === 1 ? "item" : "items"} ready for pickup` : `${count} ${count === 1 ? "item" : "items"} shipped${tracking ? `, ${carrier ?? "tracking"} ${tracking}` : ""}`,
-    actor: "creator",
+    message: pickup
+      ? `${count} ${count === 1 ? "item" : "items"} ready for pickup`
+      : `${count} ${count === 1 ? "item" : "items"} shipped${input.partner ? ` by ${input.partner.name}` : ""}${tracking ? `, ${carrier ?? "tracking"} ${tracking}` : ""}`,
+    actor: input.partner ? "webhook" : "creator",
     key: `fulfilled:${f.id}`,
   })
   if (input.notifyBuyer !== false) await queueShipmentEmail(db, checkoutId, creatorId, f.id, "shipped")
@@ -376,7 +390,7 @@ export async function updateShipment(
   db: Db,
   creatorId: string,
   fulfillmentId: string,
-  input: { status?: unknown; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; notifyBuyer?: boolean },
+  input: { status?: unknown; carrier?: unknown; trackingNumber?: unknown; trackingUrl?: unknown; notifyBuyer?: boolean; partner?: { name: string } },
 ): Promise<Outcome> {
   const { data: f } = await db.from("fulfillments").select("*").eq("id", fulfillmentId).eq("creator_id", creatorId).maybeSingle()
   if (!f) return { ok: false, error: "Shipment not found.", status: 404 }
@@ -384,7 +398,7 @@ export async function updateShipment(
   const trackingChanged = "trackingNumber" in input || "carrier" in input || "trackingUrl" in input
   if (trackingChanged) {
     const carrier = "carrier" in input ? cleanText(input.carrier, 40) : f.carrier
-    const tracking = "trackingNumber" in input ? cleanText(input.trackingNumber, 60) : f.tracking_number
+    const tracking = "trackingNumber" in input ? normaliseTrackingNumber(cleanText(input.trackingNumber, 80)) : f.tracking_number
     if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
     let url = "trackingUrl" in input ? cleanText(input.trackingUrl, 500) : null
     if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
@@ -411,7 +425,7 @@ export async function updateShipment(
     }
   }
   if (to || trackingChanged) {
-    await db.from("fulfillment_events").insert({ fulfillment_id: fulfillmentId, status: to ?? f.status, message: to ? null : "Tracking updated", source: "manual" })
+    await db.from("fulfillment_events").insert({ fulfillment_id: fulfillmentId, status: to ?? f.status, message: to ? (input.partner ? `From ${input.partner.name}` : null) : "Tracking updated", source: input.partner ? "provider" : "manual" })
     await addOrderEvent(db, {
       checkoutId: f.checkout_id,
       creatorId,
@@ -426,7 +440,7 @@ export async function updateShipment(
             : to
               ? `Shipment ${to.replace(/_/g, " ")}`
               : "Tracking updated",
-      actor: "creator",
+      actor: input.partner ? "webhook" : "creator",
     })
   }
   if (input.notifyBuyer !== false && f.notify_buyer !== false) {
