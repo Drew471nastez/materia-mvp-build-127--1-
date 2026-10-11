@@ -235,6 +235,7 @@ function OptionRow({
       ref={setNodeRef}
       data-option-row={option.name || index}
       data-open={option.open ? "" : undefined}
+      data-dragging={isDragging ? "" : undefined}
       className={cn(
         "relative border-b border-[#eceef1] bg-white first:rounded-t-xl last:rounded-b-xl last:border-b-0",
         isDragging && "z-10 rounded-xl shadow-[0_14px_32px_-10px_rgba(17,24,39,0.28),0_0_0_1px_rgba(17,24,39,0.06)]",
@@ -454,11 +455,12 @@ function ValueField({
       )}
       style={{ transform: transform ? `translate3d(0, ${Math.round(transform.y)}px, 0)` : undefined, transition: isDragging ? undefined : transition }}
       data-option-value={value}
+      data-dragging={isDragging ? "" : undefined}
     >
       {canMove ? <Grip label={`Move ${value}`} activator={setActivatorNodeRef} attributes={attributes} listeners={listeners} className="h-10 sm:h-9" /> : <span className="w-7 shrink-0" />}
       <div className="relative min-w-0 flex-1">
         {color ? (
-          <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">
+          <span className="pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2">
             <Swatch value={text} />
           </span>
         ) : null}

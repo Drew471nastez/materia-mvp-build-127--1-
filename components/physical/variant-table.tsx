@@ -203,7 +203,7 @@ function GroupLine({ value, rows, folded, toggle, basePrice, trackInventory, sto
         </span>
       </button>
       <MoneyInput compact aria-label={`Price for every ${value}`} value={shared} placeholder={prices.size > 1 ? "Mixed" : basePrice || undefined} onChange={(v) => patchRows(keys, () => ({ price: v }))} />
-      <span className="truncate text-[13px] tabular-nums text-[#4b5563]">{trackInventory && stockAt ? qty : "Not tracked"}</span>
+      <span className={cn("truncate text-[13px] tabular-nums text-[#4b5563]", trackInventory && stockAt && "text-center")} aria-label={trackInventory && stockAt ? `${qty} in all` : undefined}>{trackInventory && stockAt ? qty : "Not tracked"}</span>
       <button type="button" onClick={toggle} aria-label={folded ? `Show ${value}` : `Hide ${value}`} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
         <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !folded && "rotate-180")} />
       </button>
@@ -273,7 +273,7 @@ function VariantLine({
           <Small label="Barcode" note={codeProblem} hint="UPC, EAN or ISBN">
             <TextInput value={row.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder="Optional" onChange={(e) => setRow(key, { barcode: barcodeTyped(e.target.value) })} className={FIELD_COMPACT} />
           </Small>
-          <Small label="Weight" hint="Empty uses the product's">
+          <Small label="Weight" hint="Blank: the product's">
             <DecimalInput compact value={row.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} placeholder="Same" />
           </Small>
           <div className="col-span-2 flex items-end sm:col-span-1">
