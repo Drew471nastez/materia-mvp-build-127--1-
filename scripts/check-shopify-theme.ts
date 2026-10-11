@@ -437,18 +437,25 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
         /* Its own visibility (a child may be visible inside a hidden parent), and no parent undrawn or see-through. */
         return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
       }
-      const onTop = (el: Element) => {
+      /* Where on it a visitor can press it: its middle, or failing that a part of it nothing else covers (a card's picture above the label laid over it). */
+      const spotOn = (el: Element): { x: number; y: number } | null => {
         const r = el.getBoundingClientRect()
-        const x = Math.min(innerWidth - 1, Math.max(0, r.left + Math.min(r.width / 2, 20))), y = Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2))
-        const hit = document.elementFromPoint(x, y)
-        return !!hit && (el === hit || el.contains(hit) || hit.contains(el))
+        const xs = [r.left + Math.min(r.width / 2, 20), r.left + r.width / 2, r.left + r.width * 0.25]
+        const ys = [r.top + r.height / 2, r.top + r.height * 0.25, r.top + r.height * 0.75]
+        for (const y0 of ys) for (const x0 of xs) {
+          const x = Math.min(innerWidth - 1, Math.max(0, x0)), y = Math.min(innerHeight - 1, Math.max(0, y0))
+          const hit = document.elementFromPoint(x, y)
+          if (hit && (el === hit || el.contains(hit) || hit.contains(el))) return { x, y }
+        }
+        return null
       }
+      const onTop = (el: Element) => !!spotOn(el)
       const mark = (el: Element) => { if (!el.hasAttribute("data-probe-id")) el.setAttribute("data-probe-id", String((W.__probeId = (W.__probeId ?? 0) + 1))); return el.getAttribute("data-probe-id")! }
       const name = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${el.className && typeof el.className === "string" ? `.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}` : ""}`
       const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
       const links = [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].filter((a) => { try { const u = new URL(a.getAttribute("href") ?? "", here); return `${u.pathname}${u.search}` === want } catch { return false } })
       const ready = links.find((a) => shown(a) && onTop(a))
-      if (ready) return { kind: "press", id: mark(ready), what: name(ready) }
+      if (ready) return { kind: "press", id: mark(ready), what: name(ready), at: spotOn(ready) }
       /* What would open one of the links. */
       const openers: { el: Element; how: "click" | "hover" }[] = []
       /* A link on screen with something of the menu's own over it (a toggle laid over "Shop" on a phone): a tap lands on that, which opens its submenu. */
@@ -494,9 +501,12 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
     const handle = await frame.$(`[data-probe-id="${step.id}"]`)
     const box = await handle?.boundingBox()
     if (!box) return { pressed: false, trail }
-    const x = box.x + Math.min(box.width / 2, 20), y = box.y + box.height / 2
+    let x = box.x + Math.min(box.width / 2, 20), y = box.y + box.height / 2
     if (step.kind === "hover") { await page.mouse.move(x, y, { steps: 4 }); await new Promise((r) => setTimeout(r, 500)); continue }
     if (step.kind === "press") {
+      /* The spot read in the page, moved by where the frame sits (the canvas's frame fills the page). */
+      const at = (step as { at?: { x: number; y: number } | null }).at
+      if (at) { const fb = await (await frame.frameElement())?.boundingBox().catch(() => null); x = at.x + (fb?.x ?? 0); y = at.y + (fb?.y ?? 0) }
       await page.mouse.move(x, y, { steps: 2 })
       if (phone) await page.touchscreen.tap(x, y)
       else await page.mouse.click(x, y)
@@ -783,7 +793,7 @@ async function overlayChecks(page: Page, base: string, label: string, overlay: {
     errors.length = 0
     await page.evaluate((id: string, html: string) => { const f = document.querySelector("iframe") as HTMLIFrameElement; f.contentWindow!.postMessage({ storelib: 1, type: "section", id, html }, "*") }, o.id, r.html)
     await new Promise((res) => setTimeout(res, 1200))
-    const after = await frame.evaluate((id: string) => ({ copies: document.querySelectorAll(`[id="shopify-section-${CSS.escape(id)}"]`).length, shows: (document.getElementById(`shopify-section-${id}`)?.innerHTML ?? "").includes("W5 changed this") }), o.id)
+    const after = await frame.evaluate((id: string) => ({ copies: document.querySelectorAll(`[id="shopify-section-${CSS.escape(id)}"]`).length, shows: /W5 changed this|w5-changed-this/i.test(document.getElementById(`shopify-section-${id}`)?.innerHTML ?? "") }), o.id)
     if (after.copies === 1 && after.shows && errors.length === 0) changedOk.push(o.id)
     else changedBad.push(`${o.id} (${r.changed}): ${after.copies} copies, shows ${after.shows}${errors[0] ? `, ${errors[0]}` : ""}`)
   }
