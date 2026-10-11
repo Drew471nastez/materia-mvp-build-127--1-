@@ -96,6 +96,8 @@ const PUBLIC_BY_DESIGN: Record<string, string> = {
   "auth/confirm-email/route.ts": "carries the confirmation token",
   "auth/exchange-reset-code/route.ts": "carries the one-time code",
   "auth/request-password-reset/route.ts": "takes an email and sends a link; it tells the caller nothing",
+  "checkout/site/track/route.ts": "Track your order on a website: the store is the host's, the link goes only to the order's own email, and the answer is the same whether anything matched; rate limited",
+  "physical/partner-tracking/route.ts": "a fulfilment partner reports tracking: proven by the shop's webhook secret (HMAC) or a link signed for one order and location, not by a session",
   "auth/signup-guard/route.ts": "runs during sign-up, before an account exists",
   "auth/validate-reset-token/route.ts": "carries the reset token",
   "auth/verify-email/route.ts": "carries the verification token",
