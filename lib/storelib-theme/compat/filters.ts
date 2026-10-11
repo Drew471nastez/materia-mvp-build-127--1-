@@ -550,6 +550,15 @@ const F: Record<string, FilterFn> = {
   format_code: (v) => str(v).replace(/\s+/g, "").replace(/(.{4})(?=.)/g, "$1 "),
   /* Instalment offers are Shopify Payments'; a Storelib checkout shows its own. */
   payment_terms: () => "",
+  /* The deprecated currency picker an older theme's `{% form 'currency' %}` draws: the store's one currency, chosen. */
+  currency_selector: (_v, _a, kw, ctx) => {
+    const code = attr(reg(ctx).currency ?? "USD")
+    const cls = kw.class ? ` class="${attr(str(kw.class))}"` : ""
+    const id = kw.id ? ` id="${attr(str(kw.id))}"` : ""
+    return `<select name="currency"${cls}${id}><option value="${code}" selected="selected">${code}</option></select>`
+  },
+  /* A theme block's style settings (Shopify's style.* panels) become classes there; a Storelib site has none to add. */
+  class_list: () => "",
   /* The payload a theme hands its own analytics events, as JSON. */
   standard_event_data: (v, [_event], kw, ctx) => JSON.stringify(eventData(v, str(kw.context ?? ""), reg(ctx).currency ?? "USD")),
 

@@ -21,6 +21,7 @@ import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
+import { cleanNote } from "./notes"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -326,7 +327,10 @@ export async function fulfilItems(
   url = url ?? trackingUrl(carrier, tracking)
   const key = cleanText(input.key, 120)
   const firstLine = order.lines.find((l) => l.orderId === items[0].orderId)
-  const locationId = pickup ? (order.pickup?.locationId ?? firstLine?.locationId ?? null) : typeof input.locationId === "string" ? input.locationId : (firstLine?.locationId ?? null)
+  /* Where it ships from: one of the chosen lines' own locations, never an id taken on trust from the request. */
+  const ownLocations = new Set(items.map((i) => order.lines.find((l) => l.orderId === i.orderId)?.locationId).filter((x): x is string => !!x))
+  const asked = typeof input.locationId === "string" && ownLocations.has(input.locationId) ? input.locationId : null
+  const locationId = pickup ? (order.pickup?.locationId ?? firstLine?.locationId ?? null) : (asked ?? firstLine?.locationId ?? null)
 
   const now = new Date().toISOString()
   const { data: f, error } = await db
@@ -468,6 +472,34 @@ export async function cancelOrder(db: Db, creatorId: string, checkoutId: string,
   await db.from("commerce_checkouts").update({ cancelled_at: now, cancel_reason: cleanText(reason, 300) ?? "Cancelled by the shop", fulfillment_status: order.lines.some((l) => l.requiresShipping) ? "cancelled" : "not_required", updated_at: now }).eq("id", checkoutId).eq("creator_id", creatorId)
   await addOrderEvent(db, { checkoutId, creatorId, kind: "order.cancelled", message: `Order cancelled${cleanText(reason, 300) ? `: ${cleanText(reason, 300)}` : ""}. Stock released.`, actor: "creator", key: `cancelled:${checkoutId}` })
   await queueCancelledEmail(db, checkoutId, creatorId)
+  const fresh = await loadOrder(db, { creatorId, checkoutId })
+  return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
+}
+
+/**
+ * A NOTE ON THE TIMELINE, for the shop alone: "called the buyer, sending
+ * Monday". An entry like any other on the order's timeline, by the shop, so
+ * it sits in the history where it happened. Line breaks are kept; the whole
+ * note is in the entry's detail and its first 300 characters in its message
+ * (the column's size, part 78). A key from the composer makes a double press
+ * one note. What a note may hold is ./notes.ts.
+ */
+export async function addNote(db: Db, creatorId: string, checkoutId: string, text: unknown, key: unknown): Promise<Outcome> {
+  const note = cleanNote(text)
+  if (!note) return { ok: false, error: "Write the note first." }
+  const { data: co } = await db.from("commerce_checkouts").select("id").eq("id", checkoutId).eq("creator_id", creatorId).maybeSingle()
+  if (!co) return { ok: false, error: "Order not found.", status: 404 }
+  const k = cleanText(key, 120)
+  const { error } = await db.from("commerce_order_events").insert({
+    checkout_id: checkoutId,
+    creator_id: creatorId,
+    kind: "note",
+    message: note.length > 300 ? `${note.slice(0, 299)}…` : note,
+    detail: { text: note },
+    actor: "creator",
+    idempotency_key: k ? `note:${checkoutId}:${k}` : null,
+  })
+  if (error && error.code !== "23505") return { ok: false, error: "The note could not be saved. Try again." }
   const fresh = await loadOrder(db, { creatorId, checkoutId })
   return fresh ? { ok: true, order: fresh } : { ok: false, error: "Order not found." }
 }

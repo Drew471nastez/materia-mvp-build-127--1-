@@ -18,8 +18,9 @@ import { pushTapTarget } from "./tap"
  *   1. Capacitor registers with APNs  → 'registration' event fires with raw APNs hex token
  *   2. AppDelegate hands APNs token to Firebase Messaging
  *   3. Firebase exchanges APNs token for FCM registration token
- *   4. AppDelegate (MessagingDelegate) dispatches 'fcmTokenReady' CustomEvent to the web view
- *   5. This function receives the FCM token and POSTs it to /api/push/register
+ *   4. AppDelegate keeps it, and gives it to the page (window.__storelibFcmToken,
+ *      the 'fcmTokenReady' event, and on the page's own ask)
+ *   5. registerDevice sends it to /api/push/register for whoever is signed in
  *
  * Android token flow:
  *   @capacitor/push-notifications already returns the FCM token via the 'registration' event.
@@ -47,88 +48,80 @@ export async function initPushNotifications(): Promise<void> {
   await registerDevice()
 }
 
-let deviceRegistered = false
+/* Listeners and register(), once per app launch. */
+let listening = false
+/* The newest token this phone has, and who it was last sent for, so a second sign in on the same launch gets it too and nothing is sent twice. */
+let knownToken: string | null = null
+let sentAs: string | null = null
 
-async function hasSession(): Promise<boolean> {
+async function sessionUser(): Promise<string | null> {
   try {
     const { createClient } = await import("@/lib/supabase/client")
     const { data } = await createClient().auth.getSession()
-    return !!data.session
+    return data.session?.user?.id ?? null
   } catch {
-    return false
+    return null
+  }
+}
+
+/** Sends the phone's token for whoever is signed in now. Never twice for the same person and token. */
+async function sendToken(token: string, platform: "ios" | "android"): Promise<void> {
+  knownToken = token
+  const user = await sessionUser()
+  if (!user) return
+  const key = `${user}:${token}`
+  if (sentAs === key) return
+  sentAs = key
+  try {
+    const res = await fetch("/api/push/register", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ token, platform }),
+    })
+    if (!res.ok) {
+      /* Asked again on the next launch, sign in or token. */
+      sentAs = null
+      console.error("[push] /api/push/register answered", res.status)
+    }
+  } catch (err) {
+    sentAs = null
+    console.error("[push] could not reach /api/push/register:", err instanceof Error ? err.message : err)
   }
 }
 
 /**
- * Listeners, then register(), once per app launch: after a permission that
- * was already given (above), or right after the person allowed it in
- * Settings (lib/native-push.ts).
+ * Registers this phone for whoever is signed in: after a permission that was
+ * already given (above), right after the person allowed it, and again on
+ * every sign in (components/native-push-init.tsx), so the token always
+ * belongs to the account using the phone.
+ *
+ * iOS: the FCM token comes from AppDelegate, which keeps it. It is read from
+ * window.__storelibFcmToken, asked for (window.webkit.messageHandlers.
+ * storelibPush), and heard as the fcmTokenReady event, because Firebase
+ * hands it over at launch, before the page is there to listen. Android: the
+ * plugin's registration event carries the FCM token.
  */
 export async function registerDevice(): Promise<void> {
-  if (!Capacitor.isNativePlatform() || deviceRegistered) return
+  if (!Capacitor.isNativePlatform()) return
   /* A yes before signing in has nobody to belong to yet; NativePushInit registers on sign in. */
-  if (!(await hasSession())) return
-  if (deviceRegistered) return
-  deviceRegistered = true
-  const { PushNotifications } = await import("@capacitor/push-notifications")
-  console.log("[push] Permission granted: attaching listeners before register()")
-
+  if (!(await sessionUser())) return
   const platform = Capacitor.getPlatform() as "ios" | "android"
-
-  // ── Helper: send a token to the backend ───────────────────────────────────
-  async function registerToken(token: string): Promise<void> {
-    console.log("[push] Sending FCM token to backend ...")
-    try {
-      const res = await fetch("/api/push/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ token, platform }),
-      })
-      let json: unknown = null
-      try {
-        json = await res.json()
-      } catch (parseErr) {
-        console.warn("[push] Could not parse response body as JSON:", parseErr)
-      }
-      console.log(`[push] POST /api/push/register → HTTP ${res.status} ${res.statusText}`, json)
-      if (!res.ok) {
-        console.error("[push] Backend returned non-OK status:", res.status, json)
-      } else {
-        console.log("[push] Token successfully registered with backend")
-      }
-    } catch (err) {
-      console.error("[push] EXCEPTION while calling /api/push/register:", err)
-      if (err instanceof Error) {
-        console.error("[push]   name:", err.name)
-        console.error("[push]   message:", err.message)
-        console.error("[push]   stack:", err.stack)
-      }
-    }
+  if (knownToken) void sendToken(knownToken, platform)
+  if (listening) {
+    if (platform === "ios") askNativeForToken()
+    return
   }
-
-  // ── 2. Listeners (must be attached BEFORE register() so the token event
-  //       is not missed on iOS) ───────────────────────────────────────────────
-  console.log("[push] Attaching listeners now...")
+  listening = true
+  const { PushNotifications } = await import("@capacitor/push-notifications")
 
   PushNotifications.addListener("registration", ({ value: token }) => {
-    console.log("[push] *** registration callback FIRED ***: this confirms APNs/FCM returned a token")
-
-    if (platform === "ios") {
-      // On iOS @capacitor/push-notifications returns the raw APNs device token (hex string).
-      // Firebase Admin requires an FCM registration token, so we must NOT send this to the
-      // backend. The FCM token arrives separately via the 'fcmTokenReady' window event
-      // dispatched by AppDelegate's MessagingDelegate callback.
-      console.log(`[push] APNs token received (not sent to backend: waiting for FCM token)`)
-    } else {
-      // On Android @capacitor/push-notifications returns the FCM registration token directly.
-      console.log(`[push] FCM token received`)
-      registerToken(token)
-    }
+    /* On iOS this is the raw APNs token, which Firebase cannot send to; the FCM token arrives as fcmTokenReady. */
+    if (platform === "android") void sendToken(token, platform)
   })
 
   PushNotifications.addListener("registrationError", (err) => {
-    console.error("[push] *** registrationError callback FIRED ***: APNs/FCM rejected registration:", err.error)
+    console.error("[push] registration was refused:", err.error)
   })
 
   PushNotifications.addListener("pushNotificationReceived", (notification) => {
@@ -138,7 +131,6 @@ export async function registerDevice(): Promise<void> {
 
   PushNotifications.addListener("pushNotificationActionPerformed", ({ notification }) => {
     const data = (notification.data ?? {}) as Record<string, unknown>
-    console.log("[push] Notification tapped, type:", data.type)
     /*
       lib/push/tap.ts: a sale, a payout, a page inside /app, or a community or
       inbox notification's own page anywhere on storelib.com (a post, an
@@ -153,30 +145,27 @@ export async function registerDevice(): Promise<void> {
     window.location.href = to
   })
 
-  // ── 3. On iOS: listen for the FCM token dispatched from native AppDelegate ─
   if (platform === "ios") {
-    window.addEventListener(
-      "fcmTokenReady",
-      (event) => {
-        const fcmToken = (event as CustomEvent<string>).detail
-        console.log(`[push] FCM token received`)
-        registerToken(fcmToken)
-      },
-      { once: true },
-    )
-    console.log("[push] iOS: registered 'fcmTokenReady' window event listener for FCM token")
-
-    // Signal native to fetch + dispatch the FCM token
-    window.dispatchEvent(new CustomEvent("pushPermissionGranted"))
-    console.log("[push] iOS: dispatched pushPermissionGranted to native")
+    /* Every token, not only the first: Firebase can hand over a fresh one at any time. */
+    window.addEventListener("fcmTokenReady", (event) => {
+      const fcmToken = (event as CustomEvent<string>).detail
+      if (typeof fcmToken === "string" && fcmToken) void sendToken(fcmToken, platform)
+    })
+    const kept = (window as unknown as { __storelibFcmToken?: unknown }).__storelibFcmToken
+    if (typeof kept === "string" && kept) void sendToken(kept, platform)
+    askNativeForToken()
   }
 
-  // ── Log that all listeners are attached before register() is called ────────
-  console.log("[push] All listeners attached: calling PushNotifications.register() now")
-
-  // ── 4. Register with APNs / FCM (after listeners are in place) ───────────
+  /* Listeners first, so the token event is never missed. */
   await PushNotifications.register()
-  // Note: on iOS the 'registration' event fires asynchronously after register()
-  // returns: the token will arrive via the listener above, not here.
-  console.log("[push] PushNotifications.register() call returned (token will arrive via listener)")
+}
+
+/** Asks the app for the FCM token it keeps (AppDelegate StorelibPush); an older app build without it is simply not asked. */
+function askNativeForToken(): void {
+  try {
+    const handler = (window as unknown as { webkit?: { messageHandlers?: { storelibPush?: { postMessage: (m: unknown) => void } } } }).webkit?.messageHandlers?.storelibPush
+    handler?.postMessage({ action: "token" })
+  } catch {
+    /* not this app build */
+  }
 }

@@ -25,7 +25,7 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps, schemeButton } from "../_shared"
+  type SectionProps, schemeButton, firstPicture } from "../_shared"
 
 const ASPECT: Record<string, string> = {
   "16:9": "aspect-video",
@@ -35,7 +35,7 @@ const ASPECT: Record<string, string> = {
   auto: "min-h-[320px]",
 }
 
-export function ImageBannerSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function ImageBannerSection({ section, theme, isEditing, isSelected, onClick, pageIndex }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
 
@@ -69,7 +69,7 @@ export function ImageBannerSection({ section, theme, isEditing, isSelected, onCl
               src={image}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
-              loading="lazy"
+              {...firstPicture(pageIndex)}
               decoding="async"
             />
           ) : (

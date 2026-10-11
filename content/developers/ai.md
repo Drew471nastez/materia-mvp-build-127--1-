@@ -126,8 +126,8 @@ sandbox against a copy of its own markup: prefer HTML and CSS.
 
 | | Through GitHub | Direct connection |
 | --- | --- | --- |
-| What it is | The site's sections live in a repository you own. | A token that lets an agent on your computer read and save the site's sections. |
-| How a change arrives | The agent pushes to the branch. Storelib compiles every changed section and saves it. | The agent calls `storelib_write_section`. |
+| What it is | The site's whole theme lives in a repository you own: settings, pages, header and footer, sections and blocks. | A token that lets an agent on your computer read and save the site's sections. |
+| How a change arrives | The agent pushes to the branch. Storelib checks every changed file the way the builder does and saves it as a draft. | The agent calls `storelib_write_section`. |
 | Best for | Claude Code or Codex working in a repository, a team, a history of every change. | One person and one agent, nothing to set up on GitHub. |
 | What you see | The change in the builder within seconds, and a Storelib check on the commit. | The change in the builder within seconds. |
 
@@ -139,15 +139,27 @@ Both reach one site and nothing else, both save drafts that go live only when yo
 
 1. In the builder, press the plug button in the top bar, or open **Website Settings › Connections**.
 2. Press **Connect GitHub**. GitHub asks which repositories to give Storelib; pick one, or make an empty one first.
-3. Back in the builder, pick the repository, the branch (its default branch unless you say otherwise) and, if the site should live in a folder of a bigger repository, the folder. Press **Link and send sections**.
+3. Back in the builder, pick the repository, the branch (its default branch unless you say otherwise) and, if the site should live in a folder of a bigger repository, the folder. Press **Link and send the theme**.
 
-Storelib writes one commit into the repository: every section file the site has, under `sections/`, and an `AGENTS.md` and a `CLAUDE.md` that tell an agent what the files are and how a push reaches the site. From then on:
+Storelib writes one commit into the repository: the site's whole theme, laid out as **Export theme** lays it out, and an `AGENTS.md` and a `CLAUDE.md` that tell an agent what the files are and how a push reaches the site.
 
-- **Push a change** to `sections/<type>.storelib` on that branch and it is compiled and saved to the site as a draft. An open builder shows it within a few seconds; a new section is placed on the page being edited.
-- **Every push gets a status** named Storelib on its commit: green with how many sections were saved, or red with the first error and its line. A file that does not compile is not saved, and nothing else in the push is held back by it.
-- **Only `sections/*.storelib` is read.** Everything else in the repository is yours and ignored. Deleting a section file on GitHub does not remove the section from the site, because a page may be using it.
-- **Send to GitHub**, in Connections, writes the site's current sections into the repository again, for instance after editing in the builder.
-- At most 30 section files are taken from one push. Storelib's own commits are recognised and not synced back.
+| Path | What it is |
+| --- | --- |
+| `config/settings.json` | The theme settings: colour schemes, type, layout, menus. |
+| `templates/<page>.json` | Each page: its sections in order, with their settings and blocks. |
+| `sections/header-group.json`, `sections/footer-group.json` | The header and footer every page shares. |
+| `sections/<type>.storelib` | Every section file, the theme's own and yours. |
+| `blocks/<type>.storelib` | The theme blocks sections hold. |
+
+An imported Shopify theme is written in Shopify's own folders instead: `layout/`, `sections/`, `blocks/`, `snippets/`, `templates/`, `config/`, `locales/` and the text files of `assets/`. Pictures stay on Storelib, and every setting keeps its address. From then on:
+
+- **Push a change** on that branch and every changed file is saved to the site as a draft, through the same checks the builder runs: a section or block is compiled, a page or the settings are cleaned and held to the page limits. An open builder shows it within a few seconds, and reads a changed page or the settings again unless you have an edit there not saved yet.
+- **An imported theme** takes back changes to its Liquid (sections, blocks, snippets, layout), its stylesheets and scripts in `assets/`, and its locales. A section's `{% schema %}` comes from the import, so a change to it is refused and said so; import the theme again to change settings. Its pages and settings are edited in the builder.
+- **Every push gets a status** named Storelib on its commit: green with how many files were saved, or red with the first error and its line. A file that fails is not saved, and nothing else in the push is held back by it.
+- **Deleting a file on GitHub does not delete it from the site**: a section file may be on a page, and a page file's page is kept. A built-in section is never changed from here.
+- **Send to GitHub**, in Connections, writes the whole theme into the repository again. With **Builder to GitHub** on, code you save in the builder is committed as you save it, and the whole theme after every Publish. A commit that would change nothing is not made.
+- **Pull from GitHub** takes every theme file on the branch that differs from the site, compared by Git's own file ids, so only those are fetched.
+- At most 60 theme files are taken from one push. Storelib's own commits are recognised and not synced back.
 
 With Claude Code, the whole loop is a conversation: open the repository, ask for the section, and let it commit and push.
 

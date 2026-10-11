@@ -53,10 +53,11 @@ async function main() {
   const db = { from: () => { touched++; throw new Error("the database was reached") } }
   const r = await writeSection(db, { installId: "i", tokenId: "t", name: "Claude Code" } as never, "sections/footer.storelib", "<template></template>")
   check("MCP and the agent API refuse a built-in with 403, before the database", r.ok === false && r.status === 403 && touched === 0)
-  const sync = read("lib/github-sync/sync.ts")
+  /* Round Z: a push's files are applied in lib/github-sync/apply.ts now, the whole theme and not only sections. */
+  const sync = read("lib/github-sync/apply.ts")
   check("a GitHub push to a built-in is refused, and said so on the commit",
     /const allowed = agentMayWrite\(path\)\s*\n\s*if \(allowed\.ok === false\) \{\s*\n\s*out\.failed\.push\(\{ path, error: allowed\.error \}\)/.test(sync)
-      && sync.indexOf("agentMayWrite(path)") < sync.indexOf("await saveThemeFile(db, link.install_id, path, source)"))
+      && sync.indexOf("agentMayWrite(path)") < sync.indexOf("await saveThemeFile(db, installId, path, source)"))
   const chat = read("app/api/website-builder/themes/[installId]/agent/route.ts")
   check("the builder's AI is held to the same rule", /const allowed = agentMayWrite\(path\)\s*\n\s*if \(allowed\.ok === false\) return \{ ok: false, error: allowed\.error \}/.test(chat))
   check("and saves what it rewrites as a draft with a version, not onto the live site",

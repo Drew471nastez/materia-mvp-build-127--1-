@@ -43,7 +43,9 @@ import type { FulfillmentMethod, FulfillmentModel, Location, PhysicalVariant, Pr
 import { formatStoreMoney } from "@/lib/store/currency"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field, Modal, MoneyInput, Notice, NumberInput, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf } from "./ui"
+import { MAX_ORDER_LIMIT, readOrderLimit } from "@/lib/physical/order-limit"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field, Modal, MoneyInput, Notice, NumberInput, Reveal, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf } from "./ui"
+import { barcodeTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
 import { VariantTable } from "./variant-table"
 import { emptyRow, remapRows, renameValueInRows, rowsForCombinations, type VariantRow } from "./variant-rows"
@@ -93,6 +95,8 @@ interface ProductData {
   fulfillmentLocationId: string | null
   fulfillmentMethod: FulfillmentMethod
   shippingProfileId: string | null
+  /** Limit sales: the most one order may take; null for none (lib/physical/order-limit.ts). */
+  maxPerOrder?: number | null
   options: ProductOption[]
   variants: PhysicalVariant[]
   levels: { variantId: string; locationId: string; onHand: number; committed: number }[]
@@ -139,6 +143,26 @@ export interface PhysicalCardsProps {
   uploadImage?: (file: File) => Promise<string>
   /** Goes to a Settings page from the editor, asking about unsaved changes first (product-editor openSettings). */
   openSettings?: (href: string) => void
+  /**
+   * Limit sales, typed in the editor's Settings card and saved here with the
+   * rest of what is physical. Absent: not sent, so the saved limit stays.
+   */
+  orderLimit?: OrderLimitDraft
+  /** The saved limit, once read, for the Settings card to show. */
+  onOrderLimitLoaded?: (limit: OrderLimitDraft) => void
+}
+
+/** Limit sales as the Settings card holds it: on or off, and the count as typed. */
+export interface OrderLimitDraft {
+  on: boolean
+  count: string
+}
+
+/** A typed limit, checked: a sentence when it cannot be saved, else null. */
+export function orderLimitProblem(limit: OrderLimitDraft | undefined): string | null {
+  if (!limit?.on) return null
+  const n = Number(limit.count)
+  return limit.count.trim() && Number.isInteger(n) && n >= 1 && n <= MAX_ORDER_LIMIT ? null : `Limit sales: set how many one order can take, 1 to ${MAX_ORDER_LIMIT}`
 }
 
 /**
@@ -185,7 +209,10 @@ function Cards(props: PhysicalCardsProps) {
 
 const LOCATIONS_HREF = "/app/settings?tab=shipping&section=locations"
 
-function CardsInner({ productId, basePrice, handle, onDirty, images = [], uploadImage }: PhysicalCardsProps) {
+function CardsInner({ productId, basePrice, handle, onDirty, images = [], uploadImage, orderLimit, onOrderLimitLoaded }: PhysicalCardsProps) {
+  /* Read from apply, which is made once: the editor's latest callback. */
+  const limitLoaded = React.useRef(onOrderLimitLoaded)
+  limitLoaded.current = onOrderLimitLoaded
   const currency = useStoreCurrency()
   const [loading, setLoading] = React.useState(true)
   const [loadError, setLoadError] = React.useState<string | null>(null)
@@ -222,7 +249,8 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
   const store = React.useMemo(() => storeFulfilment(ctx.settings.fulfillmentModel, ctx.settings.defaultLocationId, ctx.locations), [ctx])
 
-  const apply = React.useCallback((p: ProductData, storeNow: ReturnType<typeof storeFulfilment>) => {
+  /* After a save, the option that was open stays open: the save reads everything back, and a list folding shut under the finger read as a jump. */
+  const apply = React.useCallback((p: ProductData, storeNow: ReturnType<typeof storeFulfilment>, openBefore: string[] = []) => {
     setRequiresShipping(p.requiresShipping)
     setWeightUnit(p.weightUnit)
     setWeight(p.weightGrams === null ? "" : String(fromGrams(p.weightGrams, p.weightUnit) ?? ""))
@@ -242,7 +270,14 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     setTaxCategory(p.taxCategory ?? "")
     setVendor(p.vendor ?? "")
     setTags(p.tags ?? [])
-    setOptions(p.options.map((o) => ({ id: optionId(), name: o.name, values: o.values, open: false })))
+    const limit = readOrderLimit(p.maxPerOrder)
+    limitLoaded.current?.({ on: limit !== null, count: limit === null ? "" : String(limit) })
+    setOptions((prev) =>
+      p.options.map((o) => {
+        const same = prev.find((x) => clean(x.name) === clean(o.name))
+        return { id: same?.id ?? optionId(), name: o.name, values: o.values, open: openBefore.includes(clean(o.name)) }
+      }),
+    )
     const loaded = rowsFrom(p, p.weightUnit)
     setRows(loaded.length ? loaded : [emptyRow([null, null, null])])
   }, [])
@@ -403,9 +438,10 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
         if (p === null || p < 50) return multi ? `Set a price for ${variantName(r.options)}` : `Set a price of at least ${formatStoreMoney(50, currency)}`
       }
       if (rows.every((r) => !r.active)) return "Sell at least one variant"
+      if (repeatedSkus(rows.map((r) => r.sku)).size) return "Two variants have the same SKU"
       if (requiresShipping && weight.trim() && toGrams(weight, weightUnit) === null) return "Check the weight"
       if (ownFulfilment && method !== "self" && !shipsFrom) return `Choose who fulfils it, under Advanced`
-      return null
+      return orderLimitProblem(orderLimit)
     },
     save: async (id: string) => {
       const opts = normalised.map((o) => ({ name: o.name, values: o.values }))
@@ -456,13 +492,15 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           fulfillmentMethod: fulfilment.method,
           fulfillmentLocationId: fulfilment.locationId,
           shippingProfileId: profileId || null,
+          /* A limit that can't be read (only possible in a draft saved on the way to Settings) leaves the saved one as it is. */
+          ...(orderLimit && !orderLimitProblem(orderLimit) ? { maxPerOrder: orderLimit.on ? Number(orderLimit.count) : null } : {}),
           options: opts,
           variants,
         },
       })
       if (!res.ok) return res.error
       stash.current.clear()
-      apply(res.data.product, store)
+      apply(res.data.product, store, options.filter((o) => o.open).map((o) => clean(o.name)))
       return null
     },
   }
@@ -524,10 +562,10 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
             ) : onlyLocation ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Quantity" hint={(single.committed[onlyLocation.id] ?? 0) > 0 ? `${single.committed[onlyLocation.id]} held for unshipped orders` : "How many you have right now"}>
-                  <NumberInput allowNegative aria-label="Quantity" placeholder="0" value={single.stock[onlyLocation.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [onlyLocation.id]: v } })} />
+                  <NumberInput aria-label="Quantity" placeholder="0" value={single.stock[onlyLocation.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [onlyLocation.id]: v } })} />
                 </Field>
                 <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when it drops to this" : "Marked Low on Inventory at this"}>
-                  <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={changed(setLowStock)} />
+                  <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={(v) => changed(setLowStock)(v.slice(0, 5))} />
                 </Field>
               </div>
             ) : (
@@ -538,7 +576,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                       <p className="truncate text-[14px] font-medium text-[#1a1a2e]">{l.name}</p>
                       <p className="text-[12px] text-[#6b7280]">{(single.committed[l.id] ?? 0) > 0 ? `${single.committed[l.id]} held for unshipped orders` : "Quantity"}</p>
                     </div>
-                    <NumberInput allowNegative aria-label={`Quantity at ${l.name}`} placeholder="0" value={single.stock[l.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [l.id]: v } })} className="w-[110px] text-right" />
+                    <NumberInput aria-label={`Quantity at ${l.name}`} placeholder="0" value={single.stock[l.id] ?? ""} onChange={(v) => setRow(singleKey, { stock: { ...single.stock, [l.id]: v } })} className="w-[110px] text-right" />
                   </div>
                 ))}
               </div>
@@ -547,7 +585,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
           {trackInventory && multi ? <p className="text-[13px] text-[#6b7280]">Each variant has its own quantity, in Variants below.</p> : null}
           {trackInventory && (multi || !onlyLocation) ? (
             <Field label="Low stock alert" hint={ctx.settings.lowStockAlerts ? "We email you when a variant drops to this" : "Marked Low on Inventory at this"} className="sm:max-w-[260px]">
-              <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={changed(setLowStock)} />
+              <NumberInput value={lowStock} placeholder={String(lowDefault)} onChange={(v) => changed(setLowStock)(v.slice(0, 5))} />
             </Field>
           ) : null}
           {trackInventory ? <Toggle label="Keep selling when out of stock" description="Buyers can still order, and you ship when it's back." checked={continueSelling} onChange={changed(setContinueSelling)} /> : null}
@@ -647,18 +685,19 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
             <span className="block text-[16px] font-semibold leading-6 text-[#1a1a2e] sm:text-[17px]">Advanced</span>
             <span className="block truncate text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">{advancedSet.length ? advancedSet.join(", ") : multi ? "Package size, tax, brand, tags and who fulfils it" : "SKU, barcode, cost, package size, tax, brand and tags"}</span>
           </span>
-          <ChevronDown className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-transform", advancedOpen && "rotate-180")} />
+          <ChevronDown className={cn("h-5 w-5 shrink-0 text-[#6b7280] transition-transform duration-200", advancedOpen && "rotate-180")} />
         </button>
-        {advancedOpen ? (
+        {/* Folds out under its line (Reveal) rather than appearing all at once. */}
+        <Reveal open={advancedOpen}>
           <div className="divide-y divide-[#f1f2f4] border-t border-[#eceef1]" data-physical-advanced="">
             {!multi && single ? (
               <Group title="Codes and cost">
                 <div className="grid gap-3 sm:grid-cols-3">
                   <Field label="SKU" hint="Your code. On orders and packing slips.">
-                    <TextInput value={single.sku} maxLength={64} placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: e.target.value })} />
+                    <TextInput value={single.sku} maxLength={64} autoComplete="off" placeholder="MUG-BLK-11" onChange={(e) => setRow(singleKey, { sku: skuTyped(e.target.value) })} />
                   </Field>
                   <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
-                    <TextInput value={single.barcode} maxLength={64} inputMode="numeric" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: e.target.value })} />
+                    <TextInput value={single.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder="5901234123457" onChange={(e) => setRow(singleKey, { barcode: barcodeTyped(e.target.value) })} />
                   </Field>
                   <Field label="Cost per item" hint={marginOf(single) ? `${marginOf(single)} margin. Buyers never see this.` : "What one costs you. Buyers never see this."}>
                     <MoneyInput value={single.cost} onChange={(v) => setRow(singleKey, { cost: v })} />
@@ -772,7 +811,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
               </Group>
             </div>
           </div>
-        ) : null}
+        </Reveal>
       </section>
 
       <VariantImagePicker

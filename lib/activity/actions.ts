@@ -43,6 +43,7 @@ const ORDER: Record<string, string> = {
   "order.return_opened": "Opened a return for order {s}",
   "order.return_updated": "Updated a return for order {s}",
   "order.refunded": "Refunded order {s}",
+  "order.note": "Added a note to order {s}",
 }
 
 export function groupOf(action: string): ActivityGroup {

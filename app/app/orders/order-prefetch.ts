@@ -16,6 +16,7 @@
  * again past it.
  */
 import type { Order } from "@/lib/orders/order-view"
+import { prefetchPhysicalOrder } from "@/components/physical/order-panel"
 
 const FRESH_MS = 30_000
 
@@ -89,6 +90,11 @@ export function prefetchOrder(order: Order) {
   for (const line of order.lines) {
     const src = line.product?.thumbnail_url
     if (src) decode(src)
+  }
+  /* A parcel's shipments, tracking and history, so its cards draw on the first frame rather than a beat later. */
+  if (order.shipping) {
+    const line = order.lines.find((l) => l.product?.type === "physical")
+    if (line) prefetchPhysicalOrder(line.id)
   }
 }
 

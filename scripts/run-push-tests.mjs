@@ -23,6 +23,7 @@ import { join, basename } from "node:path"
 const SUITES = [
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
+  "tests/canvas20.test.ts",
   "tests/files-picker19.test.ts",
   "tests/perf-speed18.test.ts",
   "tests/perf-health18.test.ts",
@@ -33,6 +34,7 @@ const SUITES = [
   "tests/integrations-settings-sheet.test.ts",
   "tests/settings-sheet-desktop.test.ts",
   "tests/settings-r1.test.ts",
+  "tests/settings20.test.ts",
   "tests/store-settings-reach.test.ts",
   "tests/ai-memory.test.ts",
   "tests/product-binding.test.ts",
@@ -438,8 +440,10 @@ const SUITES = [
   "tests/round-v.test.ts",
   "tests/round-w.test.ts",
   "tests/product-editor-physical.test.ts",
+  "tests/product20.test.ts",
   "tests/round-x.test.ts",
   "tests/round-y.test.ts",
+  "tests/round-z.test.ts",
   "tests/business-switch-flow.test.ts",
   "tests/push-recipients.test.ts",
   "tests/onboarding-polish.test.ts",
@@ -533,6 +537,8 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
+  "tests/orders20.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

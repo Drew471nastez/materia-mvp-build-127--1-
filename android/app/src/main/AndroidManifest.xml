@@ -223,6 +223,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <!--
+        Notifications, on Android 13 and later. Without it in the app's own
+        manifest the system never shows its question and the plugin's
+        requestPermissions answers "denied" at once, so the first launch after
+        an install (components/platform/notifications-ask.tsx) could not ask.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!--
         Microphone, for speaking a request to Storelib AI in the website
         builder (components/website-builder/ask-voice.ts). The page asks with
         getUserMedia; Capacitor's BridgeWebChromeClient turns that into the

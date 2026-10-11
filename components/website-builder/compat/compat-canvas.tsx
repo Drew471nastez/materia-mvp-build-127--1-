@@ -59,8 +59,12 @@ export interface CompatCanvasProps {
   selectedBlockId: string | null
   inspectorEnabled: boolean
   onSelect: (sectionId: string, blockPath: string[]) => void
-  /** A link pressed in the page: its address, and whether it is in the header or the footer. */
-  onNavigate?: (href: string, chrome: boolean) => void
+  /** A link pressed in the page: its address, and whether it is in the header or the footer. True when another page is opening because of it. */
+  onNavigate?: (href: string, chrome: boolean) => boolean | void
+  /** The pointer rests on a link (or a finger landed on one): the page it goes to can be read ahead. */
+  onIntent?: (href: string) => void
+  /** The page on screen has changed: `${pageKey}|${productId}`, the moment the new one is drawn in front (the sections panel swaps its list at this). */
+  onPageShown?: (page: string) => void
   /** The website's own address (https://name.storelib.com or its domain): what a link shows under the pointer. */
   siteUrl?: string
   /** Something pressed in the page that only the live site does (checkout, Buy it now, signing in): the builder says so. */
@@ -198,9 +202,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
     scroll, its open menus and its pictures.
 
     Only a page whose skeleton changed (a different stylesheet, the layout
-    drawn otherwise) is loaded again, and then BEHIND the one on screen: the
-    new frame loads hidden, and takes the old one's place once it is drawn
-    and its pictures are in. The canvas never shows an empty frame.
+    drawn otherwise), or another page, is loaded again, and then BEHIND the
+    one on screen: the new frame loads under it, and takes the old one's
+    place once it is drawn and its pictures are in. The canvas never shows
+    an empty frame.
   */
   const shape = shapeOf(sections)
   const sectionsRef = useRef(sections)
@@ -228,8 +233,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
   }
 
-  /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
-  type Slot = { n: number; key: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; leaving?: boolean; entering?: boolean }
+  /* `page`: which page of the builder it draws (`${pageKey}|${productId}`), said to the editor when it comes to the front. */
+  type Slot = { n: number; key: string; page: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
@@ -246,7 +251,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* A page loaded behind the one on screen. */
   const loadBehind = (html: string, key: string, list: StoredSection[]) => {
-    const slot: Slot = { n: ++counter.current, key, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false }
+    const slot: Slot = { n: ++counter.current, key, page: `${pageKey}|${productId ?? ""}`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false }
     setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
   }
 
@@ -377,6 +382,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   onNavigate.current = props.onNavigate
   const onLiveOnly = useRef(props.onLiveOnly)
   onLiveOnly.current = props.onLiveOnly
+  const onIntent = useRef(props.onIntent)
+  onIntent.current = props.onIntent
   /*
     A REQUEST FROM THE THEME'S SCRIPTS (Add to cart, the drawer drawn again,
     a product's data), answered as the website answers it, from this page,
@@ -415,36 +422,54 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }
   const answerRequestRef = useRef(answerRequest)
   answerRequestRef.current = answerRequest
-  /* The page behind takes the front's place: drawn, its pictures in, and where the front was scrolled to. */
   /*
-    ANOTHER PAGE CROSS-FADES IN. The same page drawn again (an edit it could
-    not take in place) swaps in one frame, as it always has, because nothing
-    about it should seem to move. A different page, opened from the page list
-    or a link in it, fades in over the one it replaces, which stays under it
-    for those 200ms rather than leaving a white frame between them.
+    ═══════════════════════════════════════════════════════════════════════
+     THE PAGE BEHIND TAKES THE FRONT'S PLACE IN ONE FRAME, FULLY DRAWN
+    ═══════════════════════════════════════════════════════════════════════
+    Another page opened from a link in the canvas or from the page list was
+    shown four ways at once (filmed in scripts/check-canvas20.ts, About to
+    Home on the Posturex fixture): the editor dimmed the page being left
+    the moment the new page's sections arrived; the new page's frame waited
+    behind with `visibility: hidden`, where the browser does not draw it and
+    runs none of its animation frames, so it came forward unpainted; then it
+    faded in over the old one for 200ms, the two pages on top of each other,
+    with the theme's entrance (a hero rising into place) still to play.
+
+    Now the page behind is drawn UNDER the one in front, visible to the
+    browser and covered by the front, so it lays itself out, its pictures
+    decode, its scripts start and its entrance runs, all out of sight. It
+    says when its first screen is finished (canvas-network.ts, CANVAS_SHOWN:
+    fonts, pictures in and decoded, entrance done), it is put where it should
+    be scrolled to and says it is there ("settled"), and then the page in
+    front is taken away: the next frame is the new page, whole. No fade, so
+    never two pages at once; the page being left is untouched until then.
   */
-  const FADE_MS = 200
   const promote = (n: number) => {
     setSlots((prev) => {
       const at = prev.findIndex((x) => x.n === n)
-      if (at <= 0) return prev
-      const next = prev[at]
-      const old = prev[0]
-      const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
-      if (old.key === next.key || calm) return prev.slice(at)
-      next.entering = true
-      old.leaving = true
-      setTimeout(() => setSlots((now) => now.filter((x) => x !== old)), FADE_MS + 40)
-      return [next, old]
+      return at <= 0 ? prev : prev.slice(at)
     })
   }
-  /* The page that came forward from another address fades in, once. */
+  /* The page in front changed: the editor's sections panel swaps its list in the same frame. */
+  const onPageShown = useRef(props.onPageShown)
+  onPageShown.current = props.onPageShown
+  const frontPage = slots[0]?.page ?? null
+  const frontN = slots[0]?.n ?? 0
+  useEffect(() => { if (frontPage) onPageShown.current?.(frontPage) }, [frontPage, frontN])
+  /*
+    A LINK PRESSED TO ANOTHER PAGE LEAVES THE PAGE IN FRONT STILL. Until the
+    next page is drawn, the page being left takes no pointer: on the video a
+    pointer passing over Shop on its way off the header opened the theme's
+    product menu over About while Home was loading, and that menu was the
+    "products section" that flashed before Home.
+  */
+  const [leavingFrom, setLeavingFrom] = useState<number | null>(null)
   useEffect(() => {
-    const slot = slots[0]
-    if (!slot?.entering) return
-    slot.entering = false
-    frames.current.get(slot.n)?.animate?.([{ opacity: 0 }, { opacity: 1 }], { duration: FADE_MS, easing: "ease-out" })
-  }, [slots])
+    if (leavingFrom === null) return
+    const t = setTimeout(() => setLeavingFrom(null), 4000)
+    return () => clearTimeout(t)
+  }, [leavingFrom])
+  useEffect(() => { if (leavingFrom !== null && slots[0]?.n !== leavingFrom) setLeavingFrom(null) }, [slots, leavingFrom])
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
@@ -453,8 +478,6 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (!m || m.storelib !== 1) return
       const win = e.source as Window
       const isFront = slot === slotsRef.current[0]
-      /* The page being left says nothing that counts: it is on its way out, and never comes forward again. */
-      if (slot.leaving && !isFront) return
       if (m.type === "ready") {
         slot.ready = true
         /*
@@ -472,10 +495,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
       } else if (m.type === "loaded") {
         slot.loaded = true
         if (isFront) setPainted(true)
-        if (!isFront) {
-          win.postMessage({ storelib: 1, type: "scroll", top: slot.key === slotsRef.current[0]?.key ? scrollY.current : 0 }, "*")
-          requestAnimationFrame(() => promote(slot.n))
-        }
+        /* Where it should stand (the same page drawn again stays where it was; another page opens at its top), and told to say when it is drawn there. */
+        if (!isFront) win.postMessage({ storelib: 1, type: "scroll", top: slot.key === slotsRef.current[0]?.key ? scrollY.current : 0, settle: true }, "*")
+      } else if (m.type === "settled") {
+        if (!isFront && slot.loaded) promote(slot.n)
       } else if (m.type === "reload") {
         /* The page could not take a change in place: drawn again, behind it. */
         if (isFront && compatTheme) {
@@ -515,7 +538,10 @@ export function CompatCanvas(props: CompatCanvasProps) {
         }
         /* Leaving an account page: the page being edited again, then wherever the link goes. */
         if (accountRef.current) setAccountPath(null)
-        onNavigate.current?.(n.href, n.chrome === true)
+        if (onNavigate.current?.(n.href, n.chrome === true) === true) setLeavingFrom(slot.n)
+      } else if (m.type === "intent" && isFront) {
+        const h = (m as { href?: unknown }).href
+        if (typeof h === "string") onIntent.current?.(h)
       } else if (m.type === "box" && isFront) {
         const b = m as { id?: string | null; top?: number; left?: number; width?: number; height?: number }
         setGhost(typeof b.id === "string" ? { id: b.id, top: b.top ?? 0, left: b.left ?? 0, width: b.width ?? 0, height: b.height ?? 0 } : null)
@@ -549,6 +575,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
             and forth (measured in scripts/check-builder-nav19.ts: after a
             second link the canvas was left on its grey outline).
           */}
+          {/*
+            THE PAGE BEHIND IS UNDER THE FRONT, NOT HIDDEN. `visibility:
+            hidden` kept the browser from drawing it at all (and from running
+            its animation frames), so it was only drawn once it was already in
+            front. Under the front frame (opaque, white) it is drawn exactly
+            as it will be seen and is covered until the front is taken away.
+          */}
           {[...slots].sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
             <iframe
               key={slot.n}
@@ -556,11 +589,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
               title={`${compat?.theme ?? "Theme"} preview`}
               srcDoc={slot.html}
               sandbox="allow-scripts allow-forms allow-popups"
-              data-compat-frame={i === 0 ? "front" : slot.leaving ? "leaving" : "behind"}
+              data-compat-frame={i === 0 ? "front" : "behind"}
               aria-hidden={i === 0 ? undefined : true}
               tabIndex={i === 0 ? undefined : -1}
               className="absolute inset-0 block h-full w-full border-0 bg-white"
-              style={i === 0 ? { zIndex: 1 } : slot.leaving ? { zIndex: 0, pointerEvents: "none" } : { visibility: "hidden", pointerEvents: "none" }}
+              style={i === 0 ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : { zIndex: 0, pointerEvents: "none" }}
             />
           ) })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (

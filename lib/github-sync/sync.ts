@@ -2,24 +2,23 @@
  * ===========================================================================
  *  A SITE AND ITS REPOSITORY, BOTH DIRECTIONS
  * ===========================================================================
- *   exportSite   Storelib → GitHub. Every section file the site has, as the
- *                builder would open it, and AGENTS.md and CLAUDE.md, in one
- *                commit. Done when a repository is picked, and again when the
- *                creator presses "Send to GitHub".
- *   applyPush    GitHub → Storelib. A push to the linked branch: each changed
- *                `sections/<type>.storelib` is compiled and saved as a draft
- *                through saveThemeFile, the one save every editor uses, and
- *                logged so an open builder puts it on the page.
+ *   exportSite   Storelib → GitHub. The whole theme as the builder has it
+ *                (lib/github-sync/snapshot.ts), and AGENTS.md and CLAUDE.md,
+ *                in one commit. Done when a repository is picked, when the
+ *                creator presses "Send to GitHub", and after a publish.
+ *   applyPush    GitHub → Storelib. A push to the linked branch: every
+ *                changed theme file is taken in as a draft through the door
+ *                the builder uses for it (lib/github-sync/apply.ts), and
+ *                logged so an open builder shows it.
+ *   pullNow      "Pull from GitHub": every file on the branch that differs
+ *                from the site, found by Git's own file ids, so only those
+ *                are fetched.
  *
  * A push is idempotent by content: a file already saved with the same text is
  * skipped, so GitHub redelivering a webhook changes nothing. No in-memory
  * dedupe, which a serverless function could not keep anyway.
  */
-import { validateSection } from "@/lib/storelib-ai/validate"
 import "server-only"
-import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
-import { publicError, sectionSources } from "@/lib/agent-access/operations"
-import { agentMayWrite } from "@/lib/agent-access/protected"
 import {
   COMMIT_MARKER,
   MAX_FILES_PER_PUSH,
@@ -27,10 +26,12 @@ import {
   changedFiles,
   changedFromCompare,
   exportPlan,
+  fileName,
+  gitBlobSha,
   isOwnPush,
   pushedBy,
   statusLine,
-  SYNCED,
+  trackedFor,
   type PushPayload,
 } from "./core"
 import {
@@ -42,12 +43,14 @@ import {
   setStatus,
   type GitHubConfig,
 } from "./github"
-import { recordEvent } from "./mirror"
+import { recordEvent } from "./events"
+import { siteSnapshot, type SiteSnapshot } from "./snapshot"
+import { applyRepoFiles, type Taken } from "./apply"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
-/** Files one "Pull from GitHub" takes. The site holds more; a pull is not the way to move a whole theme. */
-const MAX_FILES_PER_PULL = 120
+/** Files one "Pull from GitHub" takes: only those that differ from the site are counted. */
+const MAX_FILES_PER_PULL = 400
 
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || "https://storelib.com").replace(/\/+$/, "")
 
@@ -81,23 +84,18 @@ export function editorUrl(installId: string) {
 /** Storelib → GitHub, in one commit. Returns the commit, or null when the repository already matched. */
 export async function exportSite(db: Db, cfg: GitHubConfig, link: GitHubLink, siteName: string): Promise<string | null> {
   if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
-  /* Every section's text in one read, not a list and then a read per file. */
-  let all: Map<string, string>
+  let snap: SiteSnapshot
   try {
-    all = await sectionSources(db, link.install_id)
+    snap = await siteSnapshot(db, link.install_id)
   } catch {
-    throw new SyncError("Could not read this website's sections. Try again.")
+    throw new SyncError("Could not read this website's theme. Try again.")
   }
-  const sections = [...all].filter(([path]) => SYNCED.test(path)).map(([path, source]) => ({ path, source }))
-  const files = exportPlan(sections, { siteName, branch: link.branch, root: link.root_path })
-  const token = await installationToken(cfg, link.installation_id)
-  const sha = await commitFiles(
-    token,
-    link.repo_full_name,
-    link.branch,
-    files,
-    `Storelib: ${siteName} sections\n\n${COMMIT_MARKER}`,
+  const files = exportPlan(
+    Object.entries(snap.files).map(([path, source]) => ({ path, source })),
+    { siteName, branch: link.branch, root: link.root_path, kind: snap.kind },
   )
+  const token = await installationToken(cfg, link.installation_id)
+  const sha = await commitFiles(token, link.repo_full_name, link.branch, files, `Storelib: ${siteName}\n\n${COMMIT_MARKER}`)
   await db
     .from("theme_github_links")
     .update({ last_synced_sha: sha ?? link.last_synced_sha, last_synced_at: new Date().toISOString(), last_error: null, updated_at: new Date().toISOString() })
@@ -105,102 +103,44 @@ export async function exportSite(db: Db, cfg: GitHubConfig, link: GitHubLink, si
   await recordEvent(db, link.install_id, {
     direction: "to_github",
     ok: true,
-    summary: sha ? `Sent ${files.length - 2} sections to GitHub` : "Sent to GitHub; it already had everything",
+    summary: sha ? `Sent the whole theme to GitHub, ${files.length - 2} files` : "Sent to GitHub; it already had everything",
     commit_sha: sha,
   })
   return sha
 }
 
-/**
- * Take section files from the repository at `ref` into the site, as drafts.
- * The one loop both a push and "Pull from GitHub" run: a file whose text the
- * site already has is left alone, and a file that does not compile is
- * reported with its first error and not saved.
- */
-async function takeFiles(
-  db: Db,
-  token: string,
-  link: GitHubLink,
-  repo: string,
-  ref: string,
-  paths: string[],
-  who: string,
-): Promise<{ saved: string[]; unchanged: string[]; failed: { path: string; error: string }[] }> {
-  const out = { saved: [] as string[], unchanged: [] as string[], failed: [] as { path: string; error: string }[] }
-  /* What the site has now for every one of these, in one read. A redelivered
-     webhook finds them all unchanged and writes nothing. */
-  let current: Map<string, string>
-  try {
-    current = await sectionSources(db, link.install_id, paths)
-  } catch {
-    current = new Map()
-  }
-  for (const path of paths) {
-    const source = await fileAt(token, repo, `${link.root_path}${path}`, ref)
-    if (source === null) continue
-    if (current.get(path) === source) {
-      out.unchanged.push(path)
-      continue
-    }
-    /* A built-in section in the repository is there to read. A change to one
-       is refused and said so on the commit, and the site keeps its own. */
-    const allowed = agentMayWrite(path)
-    if (allowed.ok === false) {
-      out.failed.push({ path, error: allowed.error })
-      continue
-    }
-    /* A push is an agent's write like any other: it has to plug into the theme like a native section. */
-    const checked = validateSection(source, { path, expectType: path.replace(/^sections\//, "").replace(/\.storelib$/, ""), strict: true })
-    if (checked.ok === false && checked.reason === "quality") {
-      const firstProblem = checked.findings.find((f) => f.severity === "error")
-      out.failed.push({ path, error: `${path}: ${firstProblem?.message ?? "does not meet the Storelib section rules"}` })
-      continue
-    }
-    const saved = await saveThemeFile(db, link.install_id, path, source)
-    if (saved.ok === false) {
-      const first = saved.errors?.[0]
-      /* This line becomes a commit status, which a public repository shows
-         to everyone: a database's own words never go into it. */
-      out.failed.push({ path, error: `${path}${first?.line ? ` line ${first.line}` : ""}: ${first?.message ?? publicError(saved.status, saved.error)}` })
-      continue
-    }
-    out.saved.push(path)
-    try {
-      await db.from("theme_agent_activity").insert({
-        install_id: link.install_id,
-        token_id: null,
-        agent_name: who,
-        path,
-        action: saved.created ? "created" : "updated",
-      })
-    } catch {
-      /* the builder hears about it on its next load instead */
-    }
+/** Read these repository files at `ref`, a few at a time. A file that is not there (deleted since) is left out. */
+async function readFiles(token: string, repo: string, root: string, ref: string, paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>()
+  for (let i = 0; i < paths.length; i += 8) {
+    const batch = paths.slice(i, i + 8)
+    const texts = await Promise.all(batch.map((p) => fileAt(token, repo, `${root}${p}`, ref)))
+    batch.forEach((p, j) => {
+      if (texts[j] !== null) out.set(p, texts[j] as string)
+    })
   }
   return out
 }
 
-function sectionNames(paths: string[]): string {
-  const names = paths.map((p) => p.replace(/^sections\//, "").replace(/\.storelib$/, ""))
-  return names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`
-}
-
-function takenSummary(r: { saved: string[]; failed: { error: string }[] }, how: string): string {
+function takenSummary(r: Taken, how: string): string {
   if (r.failed.length) return `${how}: ${r.saved.length} saved, ${r.failed.length} not saved. ${r.failed[0].error}`
   if (r.saved.length === 0) return `${how}: already up to date`
-  return `${how}: ${sectionNames(r.saved)}`
+  const names = r.saved.map(fileName)
+  return `${how}: ${names.length <= 3 ? names.join(", ") : `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`}`
 }
 
-/** "Pull from GitHub": every section file on the linked branch, now. */
+/** "Pull from GitHub": every theme file on the linked branch that differs from the site, now. */
 export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink): Promise<{ saved: number; unchanged: number; failed: { path: string; error: string }[] }> {
   if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
   const token = await installationToken(cfg, link.installation_id)
-  const tree = await listTree(token, link.repo_full_name, link.branch)
-  const paths = tree.paths
+  const [tree, snap] = await Promise.all([listTree(token, link.repo_full_name, link.branch), siteSnapshot(db, link.install_id)])
+  const theme = tree.paths
     .map((p) => (p.startsWith(link.root_path) ? p.slice(link.root_path.length) : null))
-    .filter((p): p is string => p !== null && SYNCED.test(p))
-  if (paths.length > MAX_FILES_PER_PULL) throw new SyncError(`${paths.length} section files; at most ${MAX_FILES_PER_PULL} are pulled at once`)
-  const r = await takeFiles(db, token, link, link.repo_full_name, tree.sha, paths, "GitHub")
+    .filter((p): p is string => p !== null && trackedFor(snap.kind, p))
+  const differ = theme.filter((p) => snap.files[p] === undefined || gitBlobSha(snap.files[p]) !== tree.blobs.get(`${link.root_path}${p}`))
+  if (differ.length > MAX_FILES_PER_PULL) throw new SyncError(`${differ.length} files differ from the site; at most ${MAX_FILES_PER_PULL} are pulled at once`)
+  const incoming = await readFiles(token, link.repo_full_name, link.root_path, tree.sha, differ)
+  const r = await applyRepoFiles(db, link.install_id, snap, incoming, "GitHub")
   await db
     .from("theme_github_links")
     .update({ last_synced_sha: tree.sha, last_synced_at: new Date().toISOString(), last_error: r.failed[0]?.error ?? null, updated_at: new Date().toISOString() })
@@ -211,7 +151,7 @@ export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink): Prom
     summary: takenSummary(r, "Pulled from GitHub"),
     commit_sha: tree.sha,
   })
-  return { saved: r.saved.length, unchanged: r.unchanged.length, failed: r.failed }
+  return { saved: r.saved.length, unchanged: r.unchanged.length + theme.length - differ.length, failed: r.failed }
 }
 
 export interface PushOutcome {
@@ -256,17 +196,28 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
 
   const outcomes: PushOutcome[] = []
   for (const link of links) {
-    const { changed, removed } = compared
+    const { changed: all, removed } = compared
       ? changedFromCompare(compared, link.root_path)
       : changedFiles(payload.commits ?? [], link.root_path)
     const out: PushOutcome = { site: link.install_id, saved: [], unchanged: [], failed: [], removed }
+    let snap: SiteSnapshot
+    try {
+      snap = await siteSnapshot(db, link.install_id)
+    } catch {
+      out.skipped = "Could not read the site's theme to take this push. Use Pull from GitHub."
+      await recordEvent(db, link.install_id, { direction: "from_github", ok: false, summary: `${who} pushed: ${out.skipped}`, commit_sha: after })
+      outcomes.push(out)
+      continue
+    }
+    const changed = all.filter((p) => trackedFor(snap.kind, p))
     if (changed.length > MAX_FILES_PER_PUSH) {
-      out.skipped = `${changed.length} section files in one push; at most ${MAX_FILES_PER_PUSH} are synced at once`
+      out.skipped = `${changed.length} theme files in one push; at most ${MAX_FILES_PER_PUSH} are synced at once`
       await recordEvent(db, link.install_id, { direction: "from_github", ok: false, summary: `${who} pushed ${out.skipped}. Use Pull from GitHub.`, commit_sha: after })
       outcomes.push(out)
       continue
     }
-    const r = await takeFiles(db, token, link, repo, after, changed, who)
+    const incoming = await readFiles(token, repo, link.root_path, after, changed)
+    const r = await applyRepoFiles(db, link.install_id, snap, incoming, who)
     out.saved = r.saved
     out.unchanged = r.unchanged
     out.failed = r.failed
@@ -298,10 +249,10 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     const saved = new Set(outcomes.flatMap((o) => o.saved)).size
     const state = failed.length || skipped ? "failure" : "success"
     const description = failed.length
-      ? statusLine(failed.length === 1 ? failed[0].error : `${failed.length} files did not compile. ${failed[0].error}`)
+      ? statusLine(failed.length === 1 ? failed[0].error : `${failed.length} files were not saved. ${failed[0].error}`)
       : skipped
         ? statusLine(skipped)
-        : statusLine(saved === 0 ? "Already up to date" : `${saved} section${saved === 1 ? "" : "s"} saved as a draft`)
+        : statusLine(saved === 0 ? "Already up to date" : `${saved} file${saved === 1 ? "" : "s"} saved as a draft`)
     try {
       await setStatus(token, repo, after, { state, description, target_url: editorUrl(links[0].install_id) })
     } catch {

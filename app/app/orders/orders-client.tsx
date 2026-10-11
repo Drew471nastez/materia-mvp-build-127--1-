@@ -244,7 +244,7 @@ export function OrdersClient(props: OrdersClientProps) {
       merged.forEach((v, k) => p.set(k, v))
     }, "replace")
     if (next.q !== undefined) setSearchText(next.q)
-    if (next.view !== undefined || next.source !== undefined || next.product !== undefined) setSelected(new Set())
+    if (next.view !== undefined || next.source !== undefined || next.product !== undefined || next.fulfillment !== undefined) setSelected(new Set())
     if (next.page !== undefined) listRef.current?.scrollTo({ top: 0 })
   })
 
@@ -277,7 +277,7 @@ export function OrdersClient(props: OrdersClientProps) {
   const filtered = React.useMemo(
     () => filterOrders(orders, { ...query, q: searchText }, span),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [orders, query.view, query.source, query.product, query.sort, searchText, span],
+    [orders, query.view, query.source, query.product, query.fulfillment, query.sort, searchText, span],
   )
   const page = React.useMemo(() => pageOf(filtered, query.page), [filtered, query.page])
   const listQuery = React.useMemo(() => ({ ...query, q: searchText }), [query, searchText])
@@ -449,6 +449,11 @@ export function OrdersClient(props: OrdersClientProps) {
   const patchRows = (ids: string[], patch: Partial<OrderRow>) =>
     setRows((prev) => prev.map((r) => (ids.includes(r.id) ? { ...r, ...patch } : r)))
 
+  /* A parcel fulfilled, delivered or returned on its page: its row in the list says so at once. */
+  const onShipping = useStable((checkoutId: string, fulfillment: string, returnStatus: string) =>
+    setRows((prev) => prev.map((r) => (r.checkout_id === checkoutId ? { ...r, physical_fulfillment: fulfillment, physical_return: returnStatus } : r))),
+  )
+
   /* What a send wrote to each row, straight from the server's answer: the
      page shows it at once, with no reload of every order. */
   const applyDelivery = (lines: LineDelivery[] | undefined) => {
@@ -531,7 +536,7 @@ export function OrdersClient(props: OrdersClientProps) {
      there. The Export button opens it and, on a computer, closes it again. */
   const [exporting, setExporting] = React.useState(false)
   const onExport = useStable(() => setExporting((open) => !open))
-  const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || query.view !== "all"
+  const filtering = Boolean(searchText.trim()) || query.source !== "any" || Boolean(query.product) || (query.fulfillment ?? "any") !== "any" || query.view !== "all"
 
   /* Under a settled order the list is hidden by the stage (app/globals.css,
      `.orders-stage[data-order-open]`), and drawn again while anything moves. */
@@ -599,6 +604,7 @@ export function OrdersClient(props: OrdersClientProps) {
             position={at >= 0 ? { index: at, count: filtered.length } : null}
             onAction={onAction}
             onNotice={onNotice}
+            onShipping={onShipping}
           />
         </div>
       ) : null}

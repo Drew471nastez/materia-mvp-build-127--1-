@@ -2,7 +2,7 @@
 
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
-import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
+import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberCreated, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
@@ -75,7 +75,8 @@ import { CategoryPicker } from "./category-picker"
 import { isCategoryFor } from "@/lib/products/category-groups"
 import { useCategorySuggestion } from "./category-suggestion"
 import { saveVariants } from "./variant-save"
-import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
+import { PhysicalProductCards, type OrderLimitDraft, type PhysicalEditorHandle } from "@/components/physical/product-cards"
+import { Reveal } from "@/components/physical/ui"
 import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
 import { StoreCurrencyProvider } from "@/lib/store/currency-context"
 
@@ -580,6 +581,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   // Limit product sales state
   const [limitSalesEnabled, setLimitSalesEnabled] = useState(false)
   const [salesLimit, setSalesLimit] = useState("")
+  /*
+    LIMIT SALES FOR A THING THAT SHIPS: the most one order may take, saved
+    with its physical details (lib/physical/order-limit.ts). Stock already
+    stops sales at zero, so a total cap would say the same thing twice. Not
+    in the snapshot: the saved value arrives with the stock, after the form
+    opened, and a change marks the form unsaved itself.
+  */
+  const [orderLimit, setOrderLimitState] = useState<OrderLimitDraft>({ on: false, count: "" })
+  const setOrderLimit = useCallback((next: OrderLimitDraft) => {
+    setOrderLimitState(next)
+    setHasUnsavedChanges(true)
+  }, [])
 
   // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
   const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
@@ -806,16 +819,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     const supabase = createClient()
 
     try {
-      let finalSlug = slug
       /** One suffix scheme, used by both checks below. */
       const suffix = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 5)}`
+      /* A draft saved before it has a title (on the way to Settings) still needs an address of its own; the title gives it a real one later. */
+      let finalSlug = slug || `draft-${suffix()}`
       // Check for duplicate slug for THIS creator (unique constraint is per-creator)
       // Runs for both create AND update — excludes current product when updating
       {
         let query = supabase
           .from("products")
           .select("id")
-          .eq("slug", slug)
+          .eq("slug", finalSlug)
           .eq("creator_id", creatorId)
 
         // When updating, exclude the current product from the duplicate check
@@ -827,7 +841,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
         if (existing) {
           // Add timestamp + random suffix to ensure uniqueness
-          finalSlug = `${slug}-${suffix()}`
+          finalSlug = `${finalSlug}-${suffix()}`
         }
       }
 
@@ -900,12 +914,13 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         thumbnail_url: determinedThumbnailUrl,
         gallery_urls: photoUrls.length > 0 ? photoUrls : null,
         video_url: youtubeItems[0]?.url || null,
-        show_sales_badge: showSalesBadge,
-        refund_policy_enabled: refundPolicyEnabled,
-        refund_policy_type: refundPolicyEnabled ? refundPolicyType : null,
+        /* A thing that ships has none of these three in the editor (its Settings card): its button says Buy now, and its returns are the store's. */
+        show_sales_badge: productType === "physical" ? false : showSalesBadge,
+        refund_policy_enabled: productType === "physical" ? false : refundPolicyEnabled,
+        refund_policy_type: productType !== "physical" && refundPolicyEnabled ? refundPolicyType : null,
         seo_title: seoTitle || null,
         seo_description: seoDescription || null,
-        call_to_action: callToAction || null,
+        call_to_action: productType === "physical" ? null : callToAction || null,
         whats_included: filteredWhatsIncluded.length > 0 ? filteredWhatsIncluded : null,
         faqs: formattedFaqs.length > 0 ? formattedFaqs : null,
         category: selectedCategory || null,
@@ -1497,24 +1512,43 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   /*
     A LINK TO SETTINGS FROM INSIDE THE EDITOR ("set up a location", "your
     shipping rates"). It stays in the app, in the same view, never a new tab
-    (which is what a plain link did in the iOS and Android app). With edits
-    not saved yet it asks first: Save and go, Don't save, or Stay.
+    (which is what a plain link did in the iOS and Android app). Settings
+    opens as its sheet over the editor (app/app/@sheet), so nothing reloads,
+    and closing it comes back to this product as it was left.
+
+    With edits not saved yet it asks first. "When I click Save and go it
+    doesn't let me because it tells me to add a title and a photo": Save and
+    go was the bar's Save, which publishes and so needs a title, a photo and
+    the rest. Going to Settings is not publishing. A product that is not
+    live yet is kept as a draft (saveDraftForLeave), whatever it is missing;
+    a live product is saved as the bar saves it, since a draft would take it
+    off the shop. Either way there is Leave without saving, and Stay.
   */
   const answeredRef = useRef(false)
+  const saveDraftRef = useRef<() => Promise<boolean>>(async () => false)
   const openSettings = useCallback(
     async (href: string) => {
-      if (hasUnsavedChanges) {
-        const a = await choose({ title: "Save this product first?", body: "Save your changes before you leave this page, or leave without them.", confirm: "Save and go", cancel: "Stay", alt: "Don't save", tone: "default" })
+      if (hasUnsavedChanges && !answeredRef.current) {
+        const live = !!productId && isPublished
+        const a = await choose(
+          live
+            ? { title: "Save your changes first?", body: "This product is live. Save your changes before you go, or leave without them.", confirm: "Save and go", cancel: "Stay", alt: "Leave without saving", tone: "default" }
+            : { title: "Save a draft first?", body: "It's kept as a draft, so the title and photos can wait. You come back to it here.", confirm: "Save draft and go", cancel: "Stay", alt: "Leave without saving", tone: "default" },
+        )
         if (a === false) return
-        if (a === true && !(await handleSaveChangesRef.current())) return
+        if (a === true && !(await (live ? handleSaveChangesRef.current() : saveDraftRef.current()))) return
         /* Answered here: the leave guard doesn't ask a second time on the way out. */
         answeredRef.current = true
         setHasUnsavedChanges(false)
       }
       router.push(href)
     },
-    [choose, hasUnsavedChanges, router],
+    [choose, hasUnsavedChanges, isPublished, productId, router],
   )
+  /* Back from Settings to an editor with new changes: the next way out asks again. */
+  useEffect(() => {
+    if (hasUnsavedChanges) answeredRef.current = false
+  }, [hasUnsavedChanges])
 
   const handleCancel = async () => {
     if (leaving || leavingRef.current) return
@@ -1705,6 +1739,48 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     return false
   }
   handleSaveChangesRef.current = handleSaveChanges
+
+  /*
+    A DRAFT, FOR GOING TO SETTINGS (openSettings). Nothing a published
+    product needs is asked for: no title, photo, file or category. What is
+    typed is kept as it is, the product stays off the shop, and a new one
+    moves to its own address, so Back from Settings, or a reload, finds it.
+  */
+  const saveDraftForLeave = async (): Promise<boolean> => {
+    if (isLoading || saveInFlight.current) return false
+    saveInFlight.current = true
+    setSaveBusy(true)
+    let result: Awaited<ReturnType<typeof saveProduct>> = null
+    try {
+      result = await saveProduct(false)
+    } finally {
+      saveInFlight.current = false
+      setSaveBusy(false)
+    }
+    if (!result) {
+      showToast("Couldn't save the draft. Try again.")
+      return false
+    }
+    setIsPublished(false)
+    setJustSaved(true)
+    setHasUnsavedChanges(false)
+    setSavedTitle(title)
+    setSavedThisVisit(true)
+    flashSaved()
+    savedValuesRef.current = snapshotOf({
+      title, description, price, compareAtPrice, mediaItems, digitalFiles, variants,
+      whatsIncluded, faqs, selectedCategory, limitSalesEnabled, salesLimit, callToAction,
+      showSalesBadge, refundPolicyEnabled, refundPolicyType,
+      payWhatYouWant, pwywMinPrice, pwywSuggestedPrice,
+    })
+    if (!productId && result.productId) {
+      /* The list's kept copy is from before it existed: it reads again when it is next shown. */
+      rememberCreated(result.productId)
+      window.history.replaceState({}, "", `/app/products/${result.productId}`)
+    }
+    return true
+  }
+  saveDraftRef.current = saveDraftForLeave
 
   // Handle publish/unpublish toggle
   const handleTogglePublish = async () => {
@@ -2937,6 +3013,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   handle={physicalRef}
                   onDirty={markPhysicalDirty}
                   openSettings={openSettings}
+                  orderLimit={orderLimit}
+                  onOrderLimitLoaded={setOrderLimitState}
                   images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
                   uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
                 /></StoreCurrencyProvider> : null}
@@ -3047,10 +3125,64 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 <div>
                   <h2 className={CARD_TITLE}>Settings</h2>
                   <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                    Configure product display and policies.
+                    {productType === "physical" ? "How much one order can take." : "Configure product display and policies."}
                   </p>
                 </div>
 
+                {/*
+                  A THING THAT SHIPS has no call to action to pick (its button
+                  is Add to cart), no sales count and no download's refund
+                  promise: its returns are the store's, in Settings › Returns
+                  and refunds. What it keeps is Limit sales, as the most one
+                  order may take. A download's settings are below as they were.
+                */}
+                {productType === "physical" ? (
+                  <>
+                    <div className={SWITCH_GROUP} data-physical-settings="">
+                      <div>
+                        <SwitchRow
+                          title="Limit sales"
+                          hint="The most one buyer can take in one order"
+                          checked={orderLimit.on}
+                          onChange={(on) => setOrderLimit({ on, count: on && !orderLimit.count ? "2" : orderLimit.count })}
+                        />
+                        <Reveal open={orderLimit.on}>
+                          <div className="flex items-center gap-2 px-4 pb-3" data-order-limit="">
+                            <span className="text-[14px] text-[#4b5563]">Up to</span>
+                            <Input
+                              type="text"
+                              inputMode="numeric"
+                              autoComplete="off"
+                              placeholder="2"
+                              aria-label="Most per order"
+                              value={orderLimit.count}
+                              onChange={(e) => setOrderLimit({ on: true, count: e.target.value.replace(/\D/g, "").replace(/^0+/, "").slice(0, 3) })}
+                              className="h-10 w-[72px] rounded-[10px] border-[#e5e7eb] text-center text-[15px] tabular-nums sm:h-9 sm:rounded-lg sm:text-sm"
+                            />
+                            <span className="text-[14px] text-[#4b5563]">per order</span>
+                          </div>
+                        </Reveal>
+                      </div>
+                    </div>
+                    <p className="text-[13px] leading-5 text-[#6b7280]" data-returns-line="">
+                      Returns and refunds for things that ship are set for your whole store in{" "}
+                      <a
+                        href="/app/settings?tab=returns"
+                        data-settings-link=""
+                        onClick={(e) => {
+                          if (e.metaKey || e.ctrlKey || e.shiftKey) return
+                          e.preventDefault()
+                          void openSettings("/app/settings?tab=returns")
+                        }}
+                        className="font-medium text-[#1a1a2e] underline underline-offset-2"
+                      >
+                        Settings › Returns and refunds
+                      </a>
+                      .
+                    </p>
+                  </>
+                ) : (
+                  <>
                 {/* Call to Action */}
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5">
@@ -3155,6 +3287,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     )}
                   </div>
                 </div>
+                  </>
+                )}
               </div>
 
               {/*
