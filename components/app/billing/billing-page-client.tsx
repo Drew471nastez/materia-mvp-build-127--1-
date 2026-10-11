@@ -13,7 +13,7 @@ import Link from "next/link"
 import { useLanguage } from "@/lib/i18n"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { PlanCards, type PlanCardAction } from "@/components/billing/plan-cards"
-import { PLAN_FOOTNOTE, formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
+import { formatPlanPrice, offeredPlan, withPlanLabel, type OfferedPlanId, type PlanId } from "@/lib/billing/plans"
 import { StatusBadge, card as CARD } from "@/app/app/orders/order-parts"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
@@ -944,7 +944,6 @@ function PricingTiers({ plans, currentPlan, subscription, loading, setLoading, s
         actions={{ free: actionFor("free"), growth: actionFor("growth") }}
         lead={currentPlan.id === "free" ? "growth" : undefined}
       />
-      <p className="mt-4 text-[13px] leading-[1.5] text-[#6b7280]">{PLAN_FOOTNOTE}</p>
     </div>
   )
 }
