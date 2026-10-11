@@ -162,6 +162,8 @@ export async function takeCoverShots(url: string, budgetMs = SHOT_BUDGET_MS): Pr
         isMobile: mobile,
         hasTouch: mobile,
       })
+      /* Still, as the page itself asks (lib/website-builder/cover-still.ts): a theme that only animates without reduced motion settles too. */
+      await page.emulateMediaFeatures([{ name: "prefers-reduced-motion", value: "reduce" }]).catch(() => undefined)
       /* Opened to its first paint, which is where its answer's status is known. */
       const response = await page.goto(url, { waitUntil: "domcontentloaded", timeout: left(deadline, OPEN_MS) || 1 })
       /* An error page photographed is an error page on the card. A pass that

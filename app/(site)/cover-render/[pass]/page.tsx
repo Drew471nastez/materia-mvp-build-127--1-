@@ -2,6 +2,7 @@ import { notFound } from "next/navigation"
 import type { Metadata } from "next"
 import { readCoverPass } from "@/lib/website-builder/cover-pass"
 import { coverPage } from "../../w/[username]/render-site"
+import { COVER_STILL_CSS } from "@/lib/website-builder/cover-still"
 
 /**
  * The page the cover's screenshot is taken of. See lib/website-builder/
@@ -23,5 +24,11 @@ export default async function CoverRender({ params }: { params: Promise<{ pass: 
   const { pass } = await params
   const installId = readCoverPass(decodeURIComponent(pass))
   if (!installId) notFound()
-  return coverPage(installId)
+  /* Still: the theme's animations at their end, for the photograph and the small page on the card (lib/website-builder/cover-still.ts). */
+  return (
+    <>
+      <style data-cover-still dangerouslySetInnerHTML={{ __html: COVER_STILL_CSS }} />
+      {await coverPage(installId)}
+    </>
+  )
 }

@@ -40,6 +40,8 @@ import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 
 export interface CompatCanvasProps {
   installId: string
+  /** Raised when the theme's own files changed elsewhere (a push to its GitHub repository): read again, the page shown meanwhile. */
+  filesVersion?: number
   /** The install's .storelib files (the editor's storelibSources). */
   sources: Record<string, string>
   /** The theme settings, `compat` and `shopify` among them. */
@@ -141,14 +143,21 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const [failure, setFailure] = useState<"files" | "draw" | "slow" | null>(null)
 
   /* The theme's own files: templates, config, the default locale, its stylesheets and scripts. */
+  const filesVersion = props.filesVersion ?? 0
+  const readVersion = useRef(filesVersion)
   useEffect(() => {
     let live = true
+    /* Changed elsewhere since they were read: asked for again, and the page already drawn stays until they are here. */
+    if (readVersion.current !== filesVersion) {
+      readVersion.current = filesVersion
+      forgetCompatFiles(installId)
+    }
     loadCompatFiles(installId).then(
       (files) => { if (live) setCompatFiles(files) },
       () => { if (live) setFailure("files") },
     )
     return () => { live = false }
-  }, [installId, attempt])
+  }, [installId, attempt, filesVersion])
 
   /* The frame is as tall as the canvas it sits in: the page scrolls inside it, as the website does. */
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { fetchWithin } from "./load-guard"
+
 /**
  * An editor save, tried again when the server could not be reached.
  *
@@ -8,12 +10,15 @@
  * nothing.
  */
 const AGAIN = new Set([502, 503, 504])
+/** How long one try may take before it counts as a dropped connection. A save is the same body each time, so a second try changes nothing the first one did. */
+const ATTEMPT_MS = 20_000
 
 export async function putJsonWithRetry(url: string, body: unknown, tries = 3): Promise<Response> {
   const text = JSON.stringify(body)
   for (let attempt = 1; ; attempt++) {
     try {
-      const res = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: text })
+      /* Each try ends: a request that hangs is a dropped connection, tried again like one (./load-guard). */
+      const res = await fetchWithin(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: text }, ATTEMPT_MS)
       if (!AGAIN.has(res.status) || attempt >= tries) return res
     } catch (e) {
       if (attempt >= tries) throw e
