@@ -21,7 +21,7 @@
           </ul>
         {%- when 'bundle' -%}
           <div class="bundle" {{ block.shopify_attributes }}>
-            <p class="bundle__heading"><span>{{ block.settings.heading }}</span></p>
+            <p class="bundle__heading"><span>{{ block.settings.heading | upcase }}</span></p>
             <label class="bundle__option"><input type="radio" name="bundle" value="one"><span class="bundle__thumb"></span><b>{{ product.title | default: 'PostureX Pro Corrector' }}</b></label>
             <label class="bundle__option bundle__option--best"><span class="bundle__badge">BEST</span><input type="radio" name="bundle" value="two" checked><b>Bundle &amp; Save</b>
               <span class="bundle__item"><span class="bundle__thumb"></span>{{ product.title | default: 'PostureX Pro Corrector' }}</span>
