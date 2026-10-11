@@ -204,7 +204,7 @@ try {
       const after = await page.evaluate(() => ({ radios: document.querySelectorAll("input[name=delivery]").length, pay: [...document.querySelectorAll("button")].find((b) => /^(Pay|Continue to payment|Place order)/.test(b.innerText.trim()))?.disabled, text: document.body.innerText }))
       expect(after.radios === 2, "the shop's two options for Romania", after.radios)
       /* The button says Continue to payment (Stripe's form opens in the page); the server's total is in the order summary. */
-      expect(after.pay === false && /\$1\d\d\.\d\d/.test(after.text), "Pay is on, with the server's total on the page", after.text.match(/\$\d+\.\d\d/g)?.join(" "))
+      expect(after.pay === false && /\b1\d\d\.\d\d\b/.test(after.text), "Pay is on, with the server's total on the page (in the store's currency)", after.text.match(/\d+\.\d\d/g)?.join(" "))
       expect(await sideways(page) === 0, "nothing scrolls sideways")
       await shot(page, `checkout-${label}`)
       await page.evaluate(() => [...document.querySelectorAll("input[name=delivery]")][1].click())
@@ -492,7 +492,8 @@ try {
     /* ── The help guide ───────────────────────────────────────── */
     for (const article of ["how-physical-products-work", "shipping-profiles-zones-and-rates", "local-pickup", "ship-your-orders"]) {
       const { page, errors } = await open("help", `&article=${article}`)
-      const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img]").length)
+      /* Drawn figures, or the screenshots the guide carries now (scripts that retake them, round of 6d625ec4). */
+      const figures = await page.evaluate(() => document.querySelectorAll("figure [role=img], figure img").length)
       expect(figures >= 1, `help: ${article} has its pictures (${label}px)`, figures)
       expect(await sideways(page) === 0, `help: ${article} doesn't scroll sideways (${label}px)`)
       await shot(page, `help-${article}-${label}`)
