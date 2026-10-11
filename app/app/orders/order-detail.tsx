@@ -11,6 +11,13 @@
  * (lib/orders/owned.ts): the receipt and the email change
  * (app/api/app/orders/[id]), the invoice (app/api/invoice), the refund
  * (app/api/stripe/refund).
+ *
+ * An order with something to ship is laid out as Shopify's is: what is still
+ * to send and each shipment with its tracking in the main column (the
+ * digital lines of a mixed order keep their own card), the shipping address
+ * and the delivery paid for at the side, and the parcel's history (shipped,
+ * delivered, returns, the shop's notes) on the one timeline
+ * (components/physical/order-panel.tsx, /api/physical/orders/[id]).
  */
 
 import * as React from "react"
@@ -26,15 +33,21 @@ import {
   Copy,
   Download,
   ExternalLink,
+  Ban,
+  CircleDot,
   KeyRound,
   Landmark,
   Mail,
   MailX,
+  MessageSquare,
   MoreHorizontal,
   Package,
+  PackageCheck,
   RotateCcw,
   Send,
   ShoppingBag,
+  Truck,
+  Undo2,
   X,
   type LucideIcon,
 } from "lucide-react"
@@ -42,14 +55,16 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { cn } from "@/lib/utils"
-import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
+import { SOURCE_LABEL, dayHeading, fullDate, itemsLabel, shipStageOf, timeOfDay, type Order, type OrderRow } from "@/lib/orders/order-view"
 import { originCampaign, sourceText } from "@/lib/orders/order-source"
 import {
   groupTimeline,
   orderEvents,
   paymentMethodOf,
+  physicalEvents,
   relativeTime,
   type OrderActivity,
+  type PhysicalHistory,
   type StripeStep,
   type TimelineEvent,
   type TimelineGlyph,
@@ -60,6 +75,7 @@ import {
   DeliveryBadge,
   FulfillmentBadge,
   PaymentBadge,
+  ShipBadge,
   buttonPrimary,
   buttonSecondary,
   card,
@@ -70,7 +86,7 @@ import {
   OrderBarFrame,
 } from "./order-parts"
 import { activityUrl, cachedJson, hasPayoutSteps, paidLineOf, readJson, stripeTimelineUrl } from "./order-prefetch"
-import { PhysicalOrderPanel } from "@/components/physical/order-panel"
+import { BuyerNoteCard, NoteComposer, PhysicalFulfillment, ShippingCard, historyOf, usePhysicalOrder } from "@/components/physical/order-panel"
 import { useReasons } from "@/lib/store/use-reasons"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 
@@ -91,6 +107,8 @@ export interface OrderDetailProps {
   position: { index: number; count: number } | null
   onAction: (order: Order, action: OrderAction) => Promise<string>
   onNotice: (message: string) => void
+  /** A physical order moved on (fulfilled, delivered, returned): the list's row follows. */
+  onShipping?: (checkoutId: string, fulfillment: string, returnStatus: string) => void
 }
 
 /** A row the buyer has paid for and can download, so its access email can be sent. */
@@ -122,7 +140,7 @@ function usePhone(): boolean {
  */
 const MENU_SHEET_LEFT_MS = 200
 
-export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice }: OrderDetailProps) {
+export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, position, onAction, onNotice, onShipping }: OrderDetailProps) {
   const [dialog, setDialogNow] = React.useState<"refund" | "email" | null>(null)
   const phone = usePhone()
   const later = React.useRef<number | undefined>(undefined)
@@ -142,7 +160,20 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
   const [revision, setRevision] = React.useState(0)
   const physicalCommerce = usePhysicalCommerceEnabled()
   /* A line that ships makes this a physical order, opened by that line's id. */
-  const physicalOrder = order.lines.find((l) => l.product?.type === "physical")?.id ?? null
+  const physicalOrder = physicalCommerce ? (order.lines.find((l) => l.product?.type === "physical")?.id ?? null) : null
+  const physical = usePhysicalOrder(physicalOrder, revision)
+  const parcel = physical.order
+  /* In a mixed order the downloads keep their own card; the parcel's lines are the physical panel's. */
+  const digitalLines = physicalOrder ? order.lines.filter((l) => l.product?.type !== "physical") : order.lines
+  /* The bar's word for where the parcel is: the server's answer once it is here, the list's until then. */
+  const stage = parcel ? shipStageOf(parcel.fulfillmentStatus, parcel.returnStatus) : physicalOrder ? (order.shipping?.stage ?? null) : null
+  /* The list's row follows what the server now says: once after an action here, or once when the list was behind. */
+  const row = order.lines.find((l) => l.checkout_id && l.physical_fulfillment)
+  React.useEffect(() => {
+    if (!parcel || !onShipping) return
+    if (row && row.physical_fulfillment === parcel.fulfillmentStatus && (row.physical_return ?? "none") === parcel.returnStatus) return
+    onShipping(parcel.id, parcel.fulfillmentStatus, parcel.returnStatus)
+  }, [parcel?.id, parcel?.fulfillmentStatus, parcel?.returnStatus, row?.physical_fulfillment, row?.physical_return]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const refundable = order.lines.filter((l) => l.status === "completed" && (l.amount_cents || 0) > 0 && l.stripe_payment_intent_id)
   const emailable = order.lines.some(canEmail)
@@ -218,7 +249,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
             <h1 className="text-[20px] font-bold leading-7 text-[#1a1a2e]">#{order.number}</h1>
             <span className="flex flex-wrap items-center gap-1.5">
               <PaymentBadge status={order.payment} />
-              <FulfillmentBadge status={order.fulfillment} />
+              {stage ? <ShipBadge stage={stage} /> : <FulfillmentBadge status={order.fulfillment} />}
             </span>
           </>
         }
@@ -274,13 +305,19 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       */}
       <div key={order.id} className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start">
-          {/* Something shipped: fulfilment, tracking and returns (components/physical/order-panel.tsx), while physical commerce is on. */}
-          {physicalOrder && physicalCommerce ? (
-            <PhysicalOrderPanel className="lg:col-start-1 lg:row-start-1" orderRowId={physicalOrder} revision={revision} />
+          {/* Something shipped: what is to send, each shipment and its tracking, returns (components/physical/order-panel.tsx), while physical commerce is on. */}
+          {physicalOrder ? (
+            <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
+              <PhysicalFulfillment state={physical} onNotice={onNotice} />
+              {digitalLines.length > 0 ? (
+                <FulfillmentCard order={order} lines={digitalLines} timeZone={timeZone} busy={busy} onResend={emailable ? () => void run("resend", { kind: "resend" }) : null} />
+              ) : null}
+            </div>
           ) : (
             <FulfillmentCard
               className="lg:col-start-1 lg:row-start-1"
               order={order}
+              lines={order.lines}
               timeZone={timeZone}
               busy={busy}
               onResend={emailable ? () => void run("resend", { kind: "resend" }) : null}
@@ -289,15 +326,26 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           <PaymentCard
             className="lg:col-start-1 lg:row-start-2"
             order={order}
+            shippingName={parcel ? (parcel.deliveryMethod === "pickup" ? "Local pickup" : (parcel.delivery?.name ?? null)) : order.shipping ? (order.shipping.pickup ? "Local pickup" : order.shipping.method) : null}
             busy={busy}
             onRefund={refundable.length > 0 ? () => setDialog("refund") : null}
             onInvoice={() => void run("invoice", { kind: "invoice" })}
           />
           <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">
-            <CustomerCard order={order} onEdit={() => setDialog("email")} onCopy={copy} />
-            <DetailsCard order={order} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
+            {physicalOrder ? <BuyerNoteCard order={parcel} /> : null}
+            <CustomerCard order={order} phone={parcel?.buyerPhone ?? null} onEdit={() => setDialog("email")} onCopy={copy} />
+            {physicalOrder ? <ShippingCard order={parcel} onNotice={onNotice} /> : null}
+            <DetailsCard order={order} digital={digitalLines.length > 0} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
           </div>
-          <Timeline className="lg:col-start-1 lg:row-start-3" order={order} timeZone={timeZone} now={now} revision={revision} />
+          <Timeline
+            className="lg:col-start-1 lg:row-start-3"
+            order={order}
+            timeZone={timeZone}
+            now={now}
+            revision={revision}
+            physical={parcel ? historyOf(parcel) : null}
+            onNote={parcel ? (text, key) => physical.act({ action: "comment", text, key }) : null}
+          />
         </div>
       </div>
 
@@ -355,8 +403,8 @@ function Thumb({ line }: { line: OrderRow }) {
   )
 }
 
-function accessLine(order: Order, timeZone: string): string {
-  if (order.fulfillment !== "fulfilled") return order.payment === "failed" ? "No access: the payment failed" : "Access is given when the payment goes through"
+function accessLine(order: Order, timeZone: string, fulfilled = order.fulfillment === "fulfilled"): string {
+  if (!fulfilled) return order.payment === "failed" ? "No access: the payment failed" : "Access is given when the payment goes through"
   if (order.deliveredAt) return `Receipt emailed ${fullDate(order.deliveredAt, timeZone)}`
   if (order.delivery === "failed") return "Access given, but the receipt email did not arrive"
   return "Access given when the payment went through"
@@ -365,28 +413,35 @@ function accessLine(order: Order, timeZone: string): string {
 function FulfillmentCard({
   className,
   order,
+  lines,
   timeZone,
   busy,
   onResend,
 }: {
   className?: string
   order: Order
+  /** The lines this card is for: all of them, or a mixed order's downloads. */
+  lines: OrderRow[]
   timeZone: string
   busy: string | null
   onResend: (() => void) | null
 }) {
+  /* A mixed order's downloads are given when it is paid, whatever its parcel is doing. */
+  const mixed = lines.length < order.lines.length
+  const fulfilled = mixed ? lines.some((l) => l.status === "completed" || l.status === "refunded") : order.fulfillment === "fulfilled"
+  const count = lines.reduce((n, l) => n + Math.max(1, l.quantity ?? 1), 0)
   return (
-    <section className={cn(card, "min-w-0", className)}>
+    <section className={cn(card, "min-w-0", className)} data-digital-card="">
       <CardHead aside={<DeliveryBadge status={order.delivery} />}>
-        <FulfillmentBadge status={order.fulfillment} />
-        <span className="truncate text-[12px] text-[#6b7280]">{itemsLabel(order.itemCount)}</span>
+        <FulfillmentBadge status={fulfilled ? "fulfilled" : "unfulfilled"} />
+        <span className="truncate text-[12px] text-[#6b7280]">{itemsLabel(count)}</span>
       </CardHead>
       <div className="px-4 pb-1 pt-2 text-[13px] text-[#4b5563]">
-        <p>{accessLine(order, timeZone)}</p>
-        <p className="text-[#6b7280]">{order.lines.some((l) => l.product?.type === "physical") ? "Ships to the buyer" : "Digital download, no shipping"}</p>
+        <p>{accessLine(order, timeZone, fulfilled)}</p>
+        <p className="text-[#6b7280]">{!mixed && lines.some((l) => l.product?.type === "physical") ? "Ships to the buyer" : "Digital download, no shipping"}</p>
       </div>
       <ul className="mx-4 mt-2 divide-y divide-[#f0f1f3] border-y border-[#f0f1f3]">
-        {order.lines.map((line) => {
+        {lines.map((line) => {
           /* The line's price: what was charged, less the tip and any tax added on top inside it. */
           const cents = Math.max(0, (line.amount_cents || 0) - (line.tip_cents || 0) - (line.tax_included ? 0 : line.tax_cents || 0))
           const kind = line.product?.type ? line.product.type.replace(/^./, (c) => c.toUpperCase()) : null
@@ -433,12 +488,15 @@ function Row({ label, middle, value, strong, muted }: { label: string; middle?: 
 function PaymentCard({
   className,
   order,
+  shippingName,
   busy,
   onRefund,
   onInvoice,
 }: {
   className?: string
   order: Order
+  /** The delivery the buyer chose, on an order that ships. */
+  shippingName?: string | null
   busy: string | null
   onRefund: (() => void) | null
   onInvoice: () => void
@@ -456,6 +514,7 @@ function PaymentCard({
       </CardHead>
       <div className="mx-4 mt-2 rounded-xl border border-[#eceef1] px-3 py-2">
         <Row label="Subtotal" middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
+        {order.shipping || order.shippingCents > 0 ? <Row label="Shipping" middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents) : "Free"} /> : null}
         {order.tipCents > 0 ? <Row label="Tip" value={formatMoney(order.tipCents)} /> : null}
         {order.taxCents > 0 && !order.taxIncluded ? <Row label="Tax" value={formatMoney(order.taxCents)} /> : null}
         <Row label="Total" value={formatMoney(order.totalCents)} strong />
@@ -501,10 +560,13 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function CustomerCard({
   order,
+  phone,
   onEdit,
   onCopy,
 }: {
   order: Order
+  /** On an order that ships, the number given for the delivery. */
+  phone?: string | null
   onEdit: () => void
   onCopy: (text: string, what: string) => void
 }) {
@@ -535,6 +597,13 @@ function CustomerCard({
             <span className="text-[#9ca3af]">No email</span>
           )}
         </Field>
+        {phone ? (
+          <Field label="Phone">
+            <a href={`tel:${phone.replace(/[^+0-9]/g, "")}`} className="text-[#6d4ae0] hover:underline">
+              {phone}
+            </a>
+          </Field>
+        ) : null}
         {country ? (
           <Field label="Country">
             {flagOf(line.buyer_country_code)} {country}
@@ -548,11 +617,14 @@ function CustomerCard({
 
 function DetailsCard({
   order,
+  digital = true,
   timeZone,
   receipt,
   onCopy,
 }: {
   order: Order
+  /** Whether anything in it downloads; an order that only ships has no receipt email to deliver. */
+  digital?: boolean
   timeZone: string
   receipt: string | null
   onCopy: (text: string, what: string) => void
@@ -568,7 +640,13 @@ function DetailsCard({
             <span className="mt-0.5 block break-words text-[12px] text-[#6b7280]">{originCampaign(order.sourceDetail)}</span>
           ) : null}
         </Field>
-        <Field label="Delivery">{order.customerEmail ? "Email, and the buyer's library" : "The buyer's library"}</Field>
+        <Field label="Delivery">
+          {order.shipping
+            ? [order.shipping.pickup ? "Local pickup" : "Shipped to the buyer", digital ? "downloads by email" : null].filter(Boolean).join(", ")
+            : order.customerEmail
+              ? "Email, and the buyer's library"
+              : "The buyer's library"}
+        </Field>
         {receipt ? (
           <Field label="Receipt">
             <a href={`/receipt/${receipt}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-[#6d4ae0] hover:underline">
@@ -611,6 +689,12 @@ const GLYPH: Record<TimelineGlyph, LucideIcon> = {
   refund: RotateCcw,
   funds: Landmark,
   payout: Banknote,
+  shipped: Truck,
+  delivered: PackageCheck,
+  return: Undo2,
+  cancelled: Ban,
+  note: MessageSquare,
+  event: CircleDot,
 }
 
 /* Semantic, never the accent: green for what went through, amber for what is
@@ -653,7 +737,25 @@ const stepsOf = (json: unknown): StripeStep[] | null =>
 /** The rail runs through the middle of the 22px node column. */
 const RAIL = "absolute left-[10.5px] w-px bg-[#d9dce1]"
 
-function Timeline({ className, order, timeZone, now, revision }: { className?: string; order: Order; timeZone: string; now: number; revision: number }) {
+function Timeline({
+  className,
+  order,
+  timeZone,
+  now,
+  revision,
+  physical = null,
+  onNote = null,
+}: {
+  className?: string
+  order: Order
+  timeZone: string
+  now: number
+  revision: number
+  /** A parcel's own history: shipments, deliveries, returns, notes. */
+  physical?: PhysicalHistory | null
+  /** Posts a note to it; null where notes are not kept (an order that ships nothing). */
+  onNote?: ((text: string, key: string) => Promise<string | null>) | null
+}) {
   const paidLine = paidLineOf(order)
   const payouts = hasPayoutSteps(order)
   /* What a finger on the row already read (./order-prefetch), so an order
@@ -699,7 +801,7 @@ function Timeline({ className, order, timeZone, now, revision }: { className?: s
     }
   }, [paidLine?.id, payouts, order.payment]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const groups = groupTimeline(orderEvents(order, activity, stripe), now, timeZone)
+  const groups = groupTimeline([...orderEvents(order, activity, stripe), ...(physical ? physicalEvents(physical) : [])], now, timeZone)
   const rows: Array<{ kind: "day"; key: string; label: string } | { kind: "event"; key: string; event: TimelineEvent; upcoming: boolean }> = []
   for (const g of groups) {
     rows.push({ kind: "day", key: `day-${g.key}`, label: g.day })
@@ -746,8 +848,27 @@ function Timeline({ className, order, timeZone, now, revision }: { className?: s
                   <Glyph className="h-3 w-3" strokeWidth={2.25} />
                 </span>
                 <div className="min-w-0 pt-[2px]">
-                  <p className={cn("text-[13px] font-semibold leading-[18px]", upcoming ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
-                  {event.detail ? <p className="mt-0.5 break-words text-[12px] leading-4 text-[#6b7280] first-letter:uppercase">{event.detail}</p> : null}
+                  {event.note ? (
+                    <>
+                      <p className="text-[13px] font-semibold leading-[18px] text-[#1a1a2e]">You added a note</p>
+                      <p data-timeline-note="" className="mt-1 whitespace-pre-wrap break-words rounded-lg border border-[#e7e8ec] bg-white px-2.5 py-1.5 text-[13px] leading-[18px] text-[#303036] shadow-[0_1px_1px_rgba(17,24,39,0.03)]">
+                        {event.text}
+                      </p>
+                    </>
+                  ) : (
+                    <p className={cn("text-[13px] font-semibold leading-[18px]", upcoming ? "text-[#6b7280]" : "text-[#1a1a2e]")}>{event.text}</p>
+                  )}
+                  {event.detail || event.link ? (
+                    <p className="mt-0.5 flex min-w-0 flex-wrap items-baseline gap-x-2 text-[12px] leading-4 text-[#6b7280]">
+                      {event.detail ? <span className="break-words first-letter:uppercase">{event.detail}</span> : null}
+                      {event.link ? (
+                        <a href={event.link.href} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+                          {event.link.label}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      ) : null}
+                    </p>
+                  ) : null}
                   {expanded && exact ? <p className="mt-0.5 text-[12px] leading-4 tabular-nums text-[#4b5563]">{exact}</p> : null}
                 </div>
                 {short && exact ? (
@@ -768,6 +889,7 @@ function Timeline({ className, order, timeZone, now, revision }: { className?: s
             )
           })}
         </ol>
+        {onNote ? <NoteComposer onPost={onNote} /> : null}
       </div>
     </section>
   )

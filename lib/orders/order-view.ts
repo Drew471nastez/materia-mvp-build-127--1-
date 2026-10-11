@@ -52,6 +52,13 @@ export interface OrderRow {
   checkout_id?: string | null
   quantity?: number | null
   physical_fulfillment?: string | null
+  /** The checkout's return status (lib/physical/status returnStatusOf). */
+  physical_return?: string | null
+  /** The delivery the buyer chose: the rate's name ("Standard"), and whether they collect it. */
+  physical_method?: string | null
+  physical_pickup?: boolean | null
+  /** This line's share of what the buyer paid for delivery, inside `amount_cents` (lib/physical/checkout-server). */
+  shipping_cents?: number | null
   /** Which of the creator's places sold it (supabase/sql/run-now part 60); absent on an older database. */
   property_type?: string | null
   property_id?: string | null
@@ -70,6 +77,69 @@ export type PaymentStatus = "paid" | "pending" | "refunded" | "partially_refunde
 export type FulfillmentStatus = "fulfilled" | "unfulfilled"
 export type DeliveryStatus = "delivered" | "failed" | null
 
+/**
+ * ===========================================================================
+ *  WHERE A PHYSICAL ORDER IS, IN ONE WORD
+ * ===========================================================================
+ * Only for an order with something that ships. A download is fulfilled the
+ * moment it is paid and keeps its own two words; a parcel goes through
+ * these. Read from the checkout's stored statuses (lib/physical/status
+ * recomputes them after every change): a return outranks delivery, since a
+ * returned parcel was delivered first.
+ */
+export type ShipStage = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "delivered" | "partially_returned" | "returned" | "cancelled"
+
+export interface Shipping {
+  stage: ShipStage
+  /** The rate the buyer chose, "Standard" or "Express"; null when none is recorded. */
+  method: string | null
+  pickup: boolean
+}
+
+export const SHIP_STAGE_LABEL: Record<ShipStage, string> = {
+  unfulfilled: "Unfulfilled",
+  partially_fulfilled: "Partially fulfilled",
+  fulfilled: "Fulfilled",
+  delivered: "Delivered",
+  partially_returned: "Partially returned",
+  returned: "Returned",
+  cancelled: "Cancelled",
+}
+
+/** Null when nothing in the order ships (or the checkout was never read). Processing is still unfulfilled: nothing has left. */
+export function shipStageOf(fulfillment: string | null | undefined, returnStatus?: string | null): ShipStage | null {
+  if (!fulfillment || fulfillment === "not_required") return null
+  if (fulfillment === "cancelled") return "cancelled"
+  if (returnStatus === "returned") return "returned"
+  if (returnStatus === "partially_returned") return "partially_returned"
+  if (fulfillment === "delivered") return "delivered"
+  if (fulfillment === "fulfilled") return "fulfilled"
+  if (fulfillment === "partially_fulfilled") return "partially_fulfilled"
+  return "unfulfilled"
+}
+
+/** The list's Fulfillment filter: the five words a shop looks for. */
+export type ShipFilter = "unfulfilled" | "partially_fulfilled" | "fulfilled" | "delivered" | "returned"
+
+export const SHIP_FILTERS: Array<{ value: ShipFilter; label: string }> = [
+  { value: "unfulfilled", label: "Unfulfilled" },
+  { value: "partially_fulfilled", label: "Partially fulfilled" },
+  { value: "fulfilled", label: "Fulfilled" },
+  { value: "delivered", label: "Delivered" },
+  { value: "returned", label: "Returned" },
+]
+
+export function isShipFilter(value: unknown): value is ShipFilter {
+  return SHIP_FILTERS.some((f) => f.value === value)
+}
+
+export function inShipFilter(order: Pick<Order, "shipping">, filter: ShipFilter | "any"): boolean {
+  if (filter === "any") return true
+  const stage = order.shipping?.stage
+  if (!stage) return false
+  return filter === "returned" ? stage === "returned" || stage === "partially_returned" : stage === filter
+}
+
 export interface Order {
   /** The first row's id. The address of the order's page. */
   id: string
@@ -86,6 +156,8 @@ export interface Order {
   /** The tax in the total: added on top unless `taxIncluded`. */
   taxCents: number
   taxIncluded: boolean
+  /** What the buyer paid for delivery, inside the total; 0 for an order that ships nothing. */
+  shippingCents: number
   totalCents: number
   feeCents: number
   refundedCents: number
@@ -94,6 +166,8 @@ export interface Order {
   fulfillment: FulfillmentStatus
   delivery: DeliveryStatus
   deliveredAt: string | null
+  /** An order with something to ship: where it is and how it goes. Null for downloads, courses and memberships. */
+  shipping: Shipping | null
 }
 
 /** Shopify starts at #1001, and so does everything a creator will compare this with. */
@@ -187,8 +261,12 @@ export function groupOrders(rows: OrderRow[]): Order[] {
     const totalCents = lines.reduce((n, r) => n + (r.amount_cents || 0), 0)
     const taxCents = lines.reduce((n, r) => n + Math.max(0, r.tax_cents || 0), 0)
     const taxIncluded = taxCents > 0 && lines.filter((r) => (r.tax_cents || 0) > 0).every((r) => r.tax_included === true)
-    /* Tax added on top is in the amount too: the subtotal is the items, the tax its own row. */
-    const subtotalCents = Math.max(0, totalCents - tipCents - (taxIncluded ? 0 : taxCents))
+    /* Delivery paid on a physical order is in the amount too, shared over its lines. */
+    const shippingCents = lines.reduce((n, r) => n + Math.max(0, r.shipping_cents || 0), 0)
+    /* Tax added on top is in the amount too: the subtotal is the items, the tax and delivery their own rows. */
+    const subtotalCents = Math.max(0, totalCents - tipCents - (taxIncluded ? 0 : taxCents) - shippingCents)
+    const shipped = lines.find((r) => r.physical_fulfillment)
+    const stage = shipped ? shipStageOf(shipped.physical_fulfillment, shipped.physical_return) : null
     const refundedCents = lines.reduce((n, r) => n + refundedCentsOf(r), 0)
     const delivered = lines.map((r) => r.buyer_notified_at).filter((d): d is string => !!d).sort()
     const emailFailed = lines.some((r) => !r.buyer_notified_at && (r.buyer_email_last_error || "").trim())
@@ -207,6 +285,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       tipCents,
       taxCents,
       taxIncluded,
+      shippingCents,
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),
       refundedCents,
@@ -222,6 +301,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
           : "unfulfilled",
       delivery: delivered.length > 0 ? "delivered" : emailFailed ? "failed" : null,
       deliveredAt: delivered.at(-1) ?? null,
+      shipping: stage && shipped ? { stage, method: shipped.physical_method ?? null, pickup: shipped.physical_pickup === true } : null,
     })
   }
 
@@ -270,10 +350,12 @@ export function startOfDay(ms: number, timeZone: string): number {
 
 /* ─── The list: views, search, filters, pages ─────────────────────────── */
 
-export type View = "all" | "paid" | "pending" | "refunded"
+export type View = "all" | "unfulfilled" | "paid" | "pending" | "refunded"
 
 export const VIEWS: Array<{ value: View; label: string }> = [
   { value: "all", label: "All" },
+  /* Shopify's own second tab: what is still to send. Shown only to a shop with something to ship (the list hides empty views). */
+  { value: "unfulfilled", label: "Unfulfilled" },
   { value: "paid", label: "Paid" },
   { value: "pending", label: "Payment pending" },
   { value: "refunded", label: "Refunded" },
@@ -287,6 +369,8 @@ export function inView(order: Order, view: View): boolean {
   switch (view) {
     case "all":
       return true
+    case "unfulfilled":
+      return (order.shipping?.stage === "unfulfilled" || order.shipping?.stage === "partially_fulfilled") && order.payment !== "refunded" && isSale(order)
     case "paid":
       return order.payment === "paid"
     case "pending":
@@ -314,11 +398,13 @@ export interface ListQuery {
   q: string
   source: OrderSource | "any"
   product: string
+  /** Physical orders only: where they are (SHIP_FILTERS). */
+  fulfillment?: ShipFilter | "any"
   sort: Sort
   page: number
 }
 
-export const DEFAULT_QUERY: ListQuery = { view: "all", q: "", source: "any", product: "", sort: "newest", page: 1 }
+export const DEFAULT_QUERY: ListQuery = { view: "all", q: "", source: "any", product: "", fulfillment: "any", sort: "newest", page: 1 }
 
 export function matchesSearch(order: Order, q: string): boolean {
   const needle = q.trim().toLowerCase().replace(/^#/, "")
@@ -348,6 +434,7 @@ export function filterOrders(orders: Order[], query: ListQuery, within?: { start
       inView(o, query.view) &&
       (query.source === "any" || o.source === query.source) &&
       (!query.product || o.lines.some((l) => l.product_id === query.product)) &&
+      inShipFilter(o, query.fulfillment ?? "any") &&
       matchesSearch(o, query.q)
     )
   })
@@ -382,11 +469,13 @@ export function pageOf<T>(items: T[], page: number): { items: T[]; page: number;
 export function queryFromParams(params: { get(name: string): string | null }): ListQuery {
   const view = params.get("view")
   const source = params.get("source")
+  const fulfillment = params.get("fulfillment")
   return {
     view: isView(view) ? view : "all",
     q: (params.get("q") || "").slice(0, 200),
     source: source === "website" || source === "storelib" ? source : "any",
     product: params.get("product") || "",
+    fulfillment: isShipFilter(fulfillment) ? fulfillment : "any",
     sort: isSort(params.get("sort")) ? (params.get("sort") as Sort) : "newest",
     page: Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1),
   }
@@ -402,6 +491,7 @@ export function paramsFromQuery(query: ListQuery, base?: URLSearchParams): URLSe
   set("q", query.q.trim(), "")
   set("source", query.source, "any")
   set("product", query.product, "")
+  set("fulfillment", query.fulfillment ?? "any", "any")
   set("sort", query.sort, "newest")
   set("page", String(query.page), "1")
   return params

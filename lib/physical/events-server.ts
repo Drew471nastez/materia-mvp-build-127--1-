@@ -19,7 +19,8 @@ export async function addOrderEvent(
     checkout_id: e.checkoutId,
     creator_id: e.creatorId,
     kind: e.kind,
-    message: e.message.slice(0, 500),
+    /* The column holds 300 (part 78): a longer message was refused and the entry lost. */
+    message: e.message.length > 300 ? `${e.message.slice(0, 299)}…` : e.message,
     detail: e.detail ?? null,
     actor: e.actor ?? "system",
     idempotency_key: e.key ?? null,

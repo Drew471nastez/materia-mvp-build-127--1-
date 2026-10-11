@@ -13,6 +13,10 @@
  *                           (app/api/app/orders/[id]/activity)
  *   Stripe                  funds available, payouts
  *                           (app/api/stripe/order-timeline)
+ *
+ * and, on an order with something to ship, a fourth: its shipments and its
+ * own history (lib/physical, physicalEvents below): shipped with tracking,
+ * delivered, returns, cancelled, emails to the buyer, and the shop's notes.
  */
 import { dayHeading, itemsLabel, startOfDay, type Order } from "./order-view"
 import { reasonLabel } from "@/lib/store/reasons"
@@ -32,6 +36,12 @@ export type TimelineGlyph =
   | "refund"
   | "funds"
   | "payout"
+  | "shipped"
+  | "delivered"
+  | "return"
+  | "cancelled"
+  | "note"
+  | "event"
 
 export interface TimelineEvent {
   id: string
@@ -41,6 +51,10 @@ export interface TimelineEvent {
   detail?: string
   tone: TimelineTone
   glyph: TimelineGlyph
+  /** A link the entry carries: a parcel's tracking page. */
+  link?: { href: string; label: string }
+  /** A note the shop wrote: `text` is the note, drawn as written. */
+  note?: boolean
 }
 
 export interface OrderActivity {
@@ -105,8 +119,10 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
     })
   }
 
-  if (order.fulfillment === "fulfilled") {
-    events.push({ id: "access", at: order.createdAt, text: `Access given to ${itemsLabel(order.itemCount)}`, tone: "success", glyph: "access" })
+  /* Access is for what downloads; a parcel's progress comes from its shipments (physicalEvents). */
+  const digitalItems = order.lines.filter((l) => l.product?.type !== "physical").reduce((n, l) => n + Math.max(1, l.quantity ?? 1), 0)
+  if (order.fulfillment === "fulfilled" && digitalItems > 0) {
+    events.push({ id: "access", at: order.createdAt, text: `Access given to ${itemsLabel(order.shipping ? digitalItems : order.itemCount)}`, tone: "success", glyph: "access" })
   }
 
   for (const line of order.lines) {
@@ -182,6 +198,86 @@ export function orderEvents(order: Order, activity: OrderActivity[] = [], stripe
     })
   }
 
+  return events
+}
+
+/* ─── A physical order's own history ─────────────────────────────────── */
+
+/** What lib/physical/orders-server loadOrder says about a parcel, as far as the timeline needs. */
+export interface PhysicalHistory {
+  pickup: boolean
+  shipments: {
+    id: string
+    status: string
+    carrier: string | null
+    trackingNumber: string | null
+    trackingUrl: string | null
+    shippedAt: string | null
+    deliveredAt: string | null
+    createdAt: string
+    items: { quantity: number }[]
+  }[]
+  events: { id: number | string; kind: string; message: string; actor: string; createdAt: string; detail?: Record<string, unknown> | null }[]
+}
+
+/**
+ * Entries the rest of the timeline already tells: the order placed and paid
+ * and its refunds come from its rows, and a shipment's sending and arrival
+ * from the shipment itself, with its tracking. The log keeps them too; here
+ * they would be said twice.
+ */
+const TOLD_ELSEWHERE = new Set(["checkout.started", "payment.paid", "payment.refunded", "fulfillment.created", "fulfillment.delivered"])
+
+function glyphOfKind(kind: string): { glyph: TimelineGlyph; tone: TimelineTone } {
+  if (kind === "note") return { glyph: "note", tone: "neutral" }
+  if (kind === "order.cancelled") return { glyph: "cancelled", tone: "critical" }
+  if (kind === "fulfillment.cancelled") return { glyph: "cancelled", tone: "neutral" }
+  if (kind === "fulfillment.failed") return { glyph: "failed", tone: "critical" }
+  if (kind === "fulfillment.manual_needed" || kind.startsWith("inventory.")) return { glyph: "pending", tone: "attention" }
+  if (kind.startsWith("fulfillment.")) return { glyph: "shipped", tone: "neutral" }
+  if (kind === "order.processing" || kind === "order.unprocessing") return { glyph: "pending", tone: "neutral" }
+  if (kind === "return.requested") return { glyph: "return", tone: "attention" }
+  if (kind.startsWith("return.")) return { glyph: "return", tone: "neutral" }
+  if (kind === "email.sent") return { glyph: "mail", tone: "neutral" }
+  if (kind === "job.failed") return { glyph: "mail-failed", tone: "critical" }
+  return { glyph: "event", tone: "neutral" }
+}
+
+const count = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
+
+/**
+ * A physical order's entries: each shipment sent (with its carrier, number
+ * and tracking link) and delivered, then everything else its log holds,
+ * the shop's notes among them.
+ */
+export function physicalEvents(p: PhysicalHistory): TimelineEvent[] {
+  const events: TimelineEvent[] = []
+  for (const s of p.shipments) {
+    const n = s.items.reduce((sum, i) => sum + i.quantity, 0)
+    const tracking = [s.carrier, s.trackingNumber].filter(Boolean).join(" ")
+    events.push({
+      id: `ship-${s.id}`,
+      at: s.shippedAt ?? s.createdAt,
+      text: p.pickup ? `${count(n)} ready for pickup` : `${count(n)} shipped`,
+      detail: p.pickup ? undefined : tracking || "No tracking number",
+      link: !p.pickup && s.trackingUrl ? { href: s.trackingUrl, label: "Track" } : undefined,
+      tone: "success",
+      glyph: "shipped",
+    })
+    if (s.status === "delivered" && s.deliveredAt) {
+      events.push({ id: `delivered-${s.id}`, at: s.deliveredAt, text: p.pickup ? `${count(n)} picked up` : `${count(n)} delivered`, tone: "success", glyph: "delivered" })
+    }
+  }
+  for (const e of p.events) {
+    if (TOLD_ELSEWHERE.has(e.kind)) continue
+    const { glyph, tone } = glyphOfKind(e.kind)
+    if (e.kind === "note") {
+      const full = typeof e.detail?.text === "string" ? (e.detail.text as string) : e.message
+      events.push({ id: `event-${e.id}`, at: e.createdAt, text: full, note: true, tone, glyph })
+      continue
+    }
+    events.push({ id: `event-${e.id}`, at: e.createdAt, text: e.message, tone, glyph })
+  }
   return events
 }
 
