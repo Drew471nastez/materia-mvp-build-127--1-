@@ -133,7 +133,8 @@ async function main() {
   /* Asked with an end and tried again on a 5xx (lib/website-builder/load-guard.ts), still after the sections are asked for. */
   const installFetch = editor.indexOf("const r = await fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)")
   check("the sections are asked for beside the install, not after it", asked > 0 && installFetch > asked && /const asked = await sectionsAsked/.test(editor))
-  check("an imported theme's files are asked for as soon as it is known to be one", /importedTheme\.current = true\s*\n[^\n]*\n\s*void loadCompatFiles\(installId\)/.test(editor) && /getItem\(`wb-compat:\$\{installId\}`\) === "1"\) void loadCompatFiles\(installId\)/.test(editor))
+  /* Changed on purpose (round Y): warmCompat asks for the files and, with them, the canvas's own code, which is a chunk of its own now. */
+  check("an imported theme's files are asked for as soon as it is known to be one", /importedTheme\.current = true\s*\n[^\n]*\n\s*warmCompat\(installId\)/.test(editor) && /getItem\(`wb-compat:\$\{installId\}`\) === "1"\) warmCompat\(installId\)/.test(editor) && /function warmCompat\(installId: string\) \{\s*void loadCompatFiles\(installId\)\s*void loadCompatCanvas\(\)/.test(editor))
   check("an imported theme is one wait: the loader stays until its page has painted, capped", /const canvasLoaderUp = canvasBusy \|\| compatFirstPaint/.test(editor) && /const COMPAT_PAINT_CAP_MS = 8000/.test(editor) && /onPainted=\{onCompatPainted\}/.test(editor))
   check("the loaders wait half a second, the top bar a fifth", /useDelayedFlag\(canvasLoaderUp, SPINNER_WAIT_MS\)/.test(editor) && /const BAR_AFTER_MS = 220/.test(editor))
   const route = read("app/api/website-builder/themes/[installId]/route.ts")

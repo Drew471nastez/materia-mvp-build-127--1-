@@ -67,9 +67,9 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("a wait with a fallback settles on it", (await within(new Promise<number>(() => {}), 20, -1)) === -1 && (await within(Promise.reject(new Error("x")), 20, -2)) === -2)
   }
 
-  console.log("\nAn imported theme's files (components/website-builder/compat/compat-canvas.tsx)\n")
+  console.log("\nAn imported theme's files (components/website-builder/compat/compat-files.ts)\n")
   {
-    const { loadCompatFiles } = await import("../components/website-builder/compat/compat-canvas")
+    const { loadCompatFiles } = await import("../components/website-builder/compat/compat-files")
     let calls = 0
     globalThis.fetch = (async () => {
       calls++
@@ -96,7 +96,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
   console.log("\nThe canvas of an imported theme\n")
   {
     const canvas = code("components/website-builder/compat/compat-canvas.tsx")
-    check("its files are tried again and each try has an end", /retrying\(/.test(canvas) && /deadline\(/.test(canvas) && /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`, \{\}, FILES_WAIT_MS\)/.test(canvas))
+    const filesCode = code("components/website-builder/compat/compat-files.ts")
+    check("its files are tried again and each try has an end", /retrying\(/.test(filesCode) && /deadline\(/.test(filesCode) && /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`, \{\}, FILES_WAIT_MS\)/.test(filesCode))
     check("a theme that cannot be read, or a first page that cannot be drawn, is said with Try again", /setFailure\("files"\)/.test(canvas) && /setFailure\("draw"\)/.test(canvas) && /<CanvasProblem kind=/.test(canvas) && /onRetry=\{retry\}/.test(canvas))
     check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt\]/.test(canvas) && /accountPath, attempt\]/.test(canvas))
     check("the frame's own load event shows it, whatever the page said, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) setPainted\(true\)/.test(canvas))
@@ -105,7 +106,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("a page that comes forward takes the outline away with it (a first page replaced before it said ready)", /if \(slotsRef\.current\.some\(\(x, i\) => i > 0 && x\.n === n\)\) setPainted\(true\)/.test(canvas))
     check("nothing to show after SLOW_MS says so", /const SLOW_MS = 15_000/.test(canvas) && /setFailure\(\(f\) => f \?\? "slow"\)/.test(canvas))
     check("the editor's loader steps aside for a failure as for a page", /if \(shown \|\| stuck\) onPainted\.current\?\.\(\)/.test(canvas))
-    check("and every one of these is told to the error log", (canvas.match(/reportLoadProblem\("compat-canvas"/g) ?? []).length >= 4)
+    check("and every one of these is told to the error log", (canvas.match(/reportLoadProblem\("compat-canvas"/g) ?? []).length >= 3 && /reportLoadProblem\("compat-canvas", e\)/.test(filesCode))
+    check("  and Try again after an answer that could not be drawn asks the server afresh", /forgetCompatFiles\(installId\)/.test(canvas))
     const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
     check("the page answers hello with ready, in whatever order the two happen", /m\.type === "hello"\) \{[\s\S]{0,200}ready\(\);/.test(bridge))
     check("  and says ready anyway when a deferred script of the theme's holds DOMContentLoaded back", /setTimeout\(function \(\) \{ if \(!saidReady\) ready\(\); \}, 2500\)/.test(bridge))

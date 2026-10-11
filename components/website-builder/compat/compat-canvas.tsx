@@ -34,8 +34,9 @@ import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/o
 import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance } from "@/lib/website-builder/types"
 import { useLiveSections } from "@/lib/website-builder/live-settings"
-import { deadline, fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import { CanvasProblem } from "@/components/website-builder/canvas-problem"
+import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
 
 export interface CompatCanvasProps {
   installId: string
@@ -52,6 +53,8 @@ export interface CompatCanvasProps {
   productId?: string | null
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
+  /** Every page the install has, by key: a link to a page it has none of is drawn going where the live site sends it (lib/storelib-theme/compat/links.ts). */
+  pageKeys?: readonly string[]
   shopName: string
   selectedSectionId: string | null
   /** The selected block's path key (lib/website-builder/block-tree.ts): its last part is the block. */
@@ -77,8 +80,6 @@ export interface CompatCanvasProps {
 const canvasCarts = new Map<string, CanvasCart>()
 const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
 
-const loading = new Map<string, Promise<Record<string, string>>>()
-
 /** From the page saying it is ready to the placeholder going, unless its pictures are all in first. */
 const FIRST_PAINT_MS = 250
 
@@ -88,14 +89,12 @@ const FIRST_PAINT_MS = 250
   ═══════════════════════════════════════════════════════════════════════
   The outline of a page stayed up for good when any one of these happened:
   the theme's files never answered (or answered an error, which was kept as
-  "this theme has no files" for the rest of the visit), the page could not
-  be drawn, the frame's page never said it was ready (a script of the
-  theme's that stalls the page, a message missed), or a first page was
-  replaced by a newer one before it said so, which nothing then told the
-  placeholder. Each now ends: in the page, or in words and Try again.
+  "this theme has no files" for the rest of the visit, ./compat-files), the
+  page could not be drawn, the frame's page never said it was ready (a
+  script of the theme's that stalls the page, a message missed), or a first
+  page was replaced by a newer one before it said so, which nothing then
+  told the placeholder. Each now ends: in the page, or in words and Try again.
 */
-/** One try at the theme's files, headers and body together. */
-const FILES_WAIT_MS = 25_000
 /** A frame that has said nothing by now is shown as it is: what it has drawn is better than the outline. */
 const FRAME_CAP_MS = 6_000
 /** A page loading behind the one on screen comes forward by now, whatever it has said. */
@@ -103,32 +102,8 @@ const BEHIND_CAP_MS = 7_000
 /** Nothing to show by now: the outline says it is taking a while, and offers to try again. */
 const SLOW_MS = 15_000
 
-/** The theme's own files (`shopify/…`), read once per install for the canvas and the settings panel together. Retried; rejects when they cannot be had, and a failure is not kept. */
-export function loadCompatFiles(installId: string): Promise<Record<string, string>> {
-  const hit = loading.get(installId)
-  if (hit) return hit
-  const p = retrying(
-    () =>
-      deadline(
-        (async () => {
-          const r = await fetchWithin(`/api/website-builder/themes/${installId}/files?compat=1`, {}, FILES_WAIT_MS)
-          if (!r.ok) throw new Error(`the theme's files answered ${r.status}`)
-          const d = (await r.json()) as { files?: Record<string, string> }
-          return d.files ?? {}
-        })(),
-        FILES_WAIT_MS,
-        "the theme's files",
-      ),
-    [800, 2000],
-  )
-  /* A failure is forgotten, so the next ask (Try again, another panel) asks the server again. */
-  p.catch((e) => {
-    if (loading.get(installId) === p) loading.delete(installId)
-    reportLoadProblem("compat-canvas", e)
-  })
-  loading.set(installId, p)
-  return p
-}
+/* Kept apart (./compat-files) so the editor can ask for the files before this canvas's code has arrived. */
+export { loadCompatFiles }
 
 /** The page's shape: which sections, in which order, shown or not. A change to it draws the page again. */
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
@@ -198,11 +173,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
     person typing, and the last letter went to the page being thrown away.
   */
   const productId = props.productId ?? null
-  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName])
-  const dataRef = useRef({ products, catalog, collections, menus, shopName })
-  dataRef.current = { products, catalog, collections, menus, shopName }
+  const pageKeys = props.pageKeys
+  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName, pageKeys])
+  const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys })
+  dataRef.current = { products, catalog, collections, menus, shopName, pageKeys }
   const page = useMemo((): CompatPage => {
-    const { products, catalog, collections, menus, shopName } = dataRef.current
+    const { products, catalog, collections, menus, shopName, pageKeys } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const sample = picked ?? products[0] ?? null
@@ -218,6 +194,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       pickable: catalog,
       collections,
       menus,
+      pageKeys: pageKeys ? [...pageKeys] : undefined,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
@@ -452,12 +429,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const answerRequest = (win: Window, m: { id?: unknown; method?: unknown; url?: unknown; body?: unknown; ajax?: unknown }) => {
     if (!compatTheme || typeof m.id !== "number" || typeof m.url !== "string") return
-    const { products, catalog, collections, menus } = dataRef.current
+    const { products, catalog, collections, menus, pageKeys } = dataRef.current
     const current = pageRef.current
     const site: SiteData = {
       creatorId: "",
       theme: compatTheme,
       pages: canvasPages(compatTheme, pageKey, sectionsRef.current),
+      pageKeys: pageKeys ? [...pageKeys] : undefined,
       products,
       pickable: catalog,
       collections,
@@ -526,6 +504,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (!m || m.storelib !== 1) return
       const win = e.source as Window
       const isFront = slot === slotsRef.current[0]
+      /* The page being left says nothing that counts: it is on its way out, and never comes forward again. */
+      if (slot.leaving && !isFront) return
       if (m.type === "ready") {
         slot.ready = true
         /*
@@ -650,7 +630,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const retry = () => {
     /* Anything but a slow wait asks for the theme's files afresh: an answer that could not be read is not read again. */
     if (failure !== "slow") {
-      loading.delete(installId)
+      forgetCompatFiles(installId)
       setCompatFiles(null)
     }
     setFailure(null)
@@ -667,7 +647,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
       {!shown && (failure || themeUnreadable) ? <CanvasProblem kind={themeUnreadable ? "draw" : failure!} {...PROBLEM_WORDS[themeUnreadable ? "draw" : failure!]} onRetry={retry} /> : null}
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
-          {slots.map((slot, i) => (
+          {/*
+            IN THE ORDER THEY WERE MADE, NEVER MOVED. Which page is in front is
+            the slot order (slots[0]); the frames themselves stay where they
+            were put in the page. Rendered in the slot order, a page coming
+            forward reordered them, React moved the page being left in the
+            document, and a frame that is moved loads its page again. That
+            page then said it was ready, was taken for a page behind, and was
+            brought forward over the one just opened: a header link showed
+            the new page for a moment and went back, or the two swapped back
+            and forth (measured in scripts/check-builder-nav19.ts: after a
+            second link the canvas was left on its grey outline).
+          */}
+          {[...slots].sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
             <iframe
               key={slot.n}
               ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
@@ -681,7 +673,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
               className="absolute inset-0 block h-full w-full border-0 bg-white"
               style={i === 0 ? { zIndex: 1 } : slot.leaving ? { zIndex: 0, pointerEvents: "none" } : { visibility: "hidden", pointerEvents: "none" }}
             />
-          ))}
+          ) })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
             <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
           )}
