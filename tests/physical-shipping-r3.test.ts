@@ -242,7 +242,7 @@ async function main() {
     check("packages: one default, in both places checkout reads it, and the next takes over when it's deleted", /default_package_id: id/.test(pkg) && /left\.length && !left\.some\(\(p\) => p\.isDefault\)/.test(pkg) && /packages\.find\(\(p\) => p\.isDefault\) \?\? packages\.find\(\(p\) => p\.id === s\?\.default_package_id\)/.test(config))
     check("  and the quote adds its weight", /defaultPackageGrams\(db, priced\.creatorId\)/.test(read("lib/physical/checkout-pricing-server.ts")) && /\{ packageGrams \}/.test(read("lib/physical/checkout-pricing-server.ts")))
     check("the checkout is told when a state is needed", /needsRegion: q\.quote\.needsRegion === true/.test(read("app/api/physical/checkout/quote/route.ts")))
-    check("a location saves back to the list: drawn from what the server kept, scrolled to, marked Saved", /onSaved\(r\.data\.location\)/.test(ship) && /scrollIntoView\(\{ block: "nearest"/.test(ship) && /savedId === l\.id/.test(ship))
+    check("a location saves back to the list: drawn from what the server kept, scrolled to, marked Saved", /onSaved\(r\.data\.location, r\.data\.message \?\? null\)/.test(ship) && /scrollIntoView\(\{ block: "nearest"/.test(ship) && /savedId === l\.id/.test(ship))
     check("Who ships the orders: no option that can't work is offered on a new location", /\{initial\?\.forwarding === "provider" \? <option value="provider">/.test(ship))
     const jobs = read("lib/physical/jobs-server.ts")
     check("  and the answer routes the order: emailed to the partner, or sent to the webhook", /loc\.forwarding === "email" && loc\.email/.test(jobs) && /kind: "supplier_email"/.test(jobs) && /kind: "webhook_delivery"/.test(jobs))
