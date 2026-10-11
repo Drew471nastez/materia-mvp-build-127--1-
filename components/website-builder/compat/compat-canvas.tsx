@@ -35,8 +35,24 @@ import type { ProductCard } from "@/lib/website-builder/shop-products"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import { isLive, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 import { reportLoadProblem } from "@/lib/website-builder/load-guard"
+import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+
+/** A product card with each option's stock and pickup points, the way the live site's loader hands them to the theme. */
+function withStock(card: ProductCard, variants: Record<string, { left: number | null; max: number | null; pickup: unknown[] }>, showLeft: boolean): ProductCard {
+  const list = (card.settings.variants ?? []) as unknown as Record<string, unknown>[]
+  const one = Object.keys(variants).length === 1 ? Object.values(variants)[0] : null
+  const settings = {
+    ...card.settings,
+    ...(one ? { ...(showLeft ? { left: one.left } : {}), max: one.max } : {}),
+    variants: list.map((v) => {
+      const s = variants[String(v.id)]
+      return s ? { ...v, ...(showLeft ? { left: s.left } : {}), max: s.max, pickup: s.pickup } : v
+    }),
+  }
+  return { ...card, settings } as unknown as ProductCard
+}
 
 export interface CompatCanvasProps {
   installId: string
@@ -200,11 +216,54 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const dataKey = JSON.stringify([products, catalog, collections, menus, shopName, pageKeys])
   const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys })
   dataRef.current = { products, catalog, collections, menus, shopName, pageKeys }
+  /*
+    THE PRODUCT PAGE'S STOCK AND PICKUP, AS THE LIVE SITE DRAWS THEM. The
+    cards say what is sold out; how many are left, the most one order may
+    take and where an option can be picked up are read for the product the
+    page shows from the storefront's own route (app/api/physical/storefront/
+    product), which the live site's loader agrees with (lib/website-builder/
+    compat-site.ts compatStock), and read again when the builder comes back
+    into view, after a change in Products. "Only 3 left" follows Website
+    settings › Commerce, as on the live site.
+  */
+  const showLeft = siteCommerce(settings).showStockLeft
+  const [stock, setStock] = useState<{ id: string; variants: Record<string, { left: number | null; max: number | null; pickup: unknown[] }> } | null>(null)
+  useEffect(() => {
+    if (pageKey !== "product") return
+    const { products, catalog } = dataRef.current
+    const card = (productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null) ?? products[0] ?? null
+    if (!card || card.settings.kind !== "physical") return
+    let alive = true
+    const read = () =>
+      fetch(`/api/physical/storefront/product?productId=${encodeURIComponent(card.id)}`, { cache: "no-store" })
+        .then((r) => (r.ok ? (r.json() as Promise<{ variants?: { id: string; left: number | null; maxQuantity: number; pickup?: unknown[] }[] }>) : null))
+        .then((d) => {
+          if (!alive || !d?.variants) return
+          const variants = Object.fromEntries(d.variants.map((v) => [v.id, { left: v.left, max: v.maxQuantity < 999 ? v.maxQuantity : null, pickup: v.pickup ?? [] }]))
+          const next = { id: card.id, variants }
+          setStock((prev) => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next))
+        })
+        .catch(() => {})
+    void read()
+    const again = () => {
+      if (document.visibilityState === "visible") void read()
+    }
+    document.addEventListener("visibilitychange", again)
+    window.addEventListener("focus", again)
+    return () => {
+      alive = false
+      document.removeEventListener("visibilitychange", again)
+      window.removeEventListener("focus", again)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageKey, productId, dataKey])
+  const stockKey = stock ? `${JSON.stringify(stock)}:${showLeft}` : ""
   const page = useMemo((): CompatPage => {
     const { products, catalog, collections, menus, shopName, pageKeys } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
-    const sample = picked ?? products[0] ?? null
+    const found = picked ?? products[0] ?? null
+    const sample = found && stock && stock.id === found.id ? withStock(found, stock.variants, showLeft) : found
     const firstCollection = collections[0] ?? null
     const path = pageKey === "home" ? "/" : pageKey === "product" ? (sample ? String(sample.settings.url) : "/products/sample") : pageKey === "collection" ? `/collections/${firstCollection?.handle ?? "all"}` : `/pages/${pageKey}`
     return {
@@ -228,7 +287,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, dataKey, productId])
+  }, [pageKey, dataKey, productId, stockKey])
   const pageRef = useRef(page)
   pageRef.current = page
 

@@ -397,6 +397,11 @@ async function main() {
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("the product page's product is read again when the builder comes back into view", /THE PRODUCT THE PRODUCT PAGE SHOWS, READ AGAIN/.test(editor) && /fetch\(`\/api\/website-builder\/products\?id=\$\{encodeURIComponent\(id\)\}`, \{ cache: "no-store" \}\)/.test(editor))
     check("only its _product_data changes, so nothing becomes unsaved", /return \{ \.\.\.sec, settings: \{ \.\.\.s, _product_data: fresh \} \}/.test(editor) && !/setIsDirty\(true\)[^\n]*_product_data: fresh/.test(editor))
+    const canvas = read("components/website-builder/compat/compat-canvas.tsx")
+    check("an imported theme's canvas reads the product page's stock and pickup from the storefront's route, again on coming back", /fetch\(`\/api\/physical\/storefront\/product\?productId=\$\{encodeURIComponent\(card\.id\)\}`/.test(canvas) && /document\.addEventListener\("visibilitychange", again\)/.test(canvas) && /withStock\(found, stock\.variants, showLeft\)/.test(canvas))
+    check("  and shows Only N left only when Website settings › Commerce does", /const showLeft = siteCommerce\(settings\)\.showStockLeft/.test(canvas) && /\.\.\.\(showLeft \? \{ left: s\.left \} : \{\}\), max: s\.max, pickup: s\.pickup/.test(canvas))
+    const route = read("app/api/physical/storefront/product/route.ts")
+    check("the storefront's product route says each option's pickup points and the delivery line, nothing more", /pickup: delivery\?\.pickup\[v\.id\] \?\? \[\]/.test(route) && /delivery: delivery\?\.ship \?\? null/.test(route))
     check("and the route draws it the way the live page does", /productSectionData\(createAdminClient\(\), product as ProductSectionRow, \{ files: true \}\)/.test(read("app/api/website-builder/products/route.ts")))
   }
 

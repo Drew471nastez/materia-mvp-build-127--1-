@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { isUuid } from "@/lib/physical/auth"
 import { liveVariant, physicalStock, type StockProduct, type StockVariant } from "@/lib/physical/storefront-stock"
+import { productDelivery } from "@/lib/physical/storefront-facts"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -33,7 +34,11 @@ export async function GET(request: Request) {
   ])
   const live = ((variants ?? []) as Record<string, any>[]).filter((v) => liveVariant(v as StockVariant))
   /* Stock per variant, by the one rule the website's product section reads too (lib/physical/storefront-stock.ts). */
-  const stock = await physicalStock(db, p as StockProduct, live as StockVariant[])
+  const [stock, delivery] = await Promise.all([
+    physicalStock(db, p as StockProduct, live as StockVariant[]),
+    /* Delivery home and pickup points, as the product page says them (lib/physical/storefront-facts.ts): a price, days, a place's name and town. */
+    productDelivery(db, p.creator_id, p.id),
+  ])
   return NextResponse.json(
     {
       product: { id: p.id, creatorId: p.creator_id, title: p.title, slug: p.slug, imageUrl: p.thumbnail_url },
@@ -50,8 +55,10 @@ export async function GET(request: Request) {
           soldOut,
           left,
           maxQuantity,
+          pickup: delivery?.pickup[v.id] ?? [],
         }
       }),
+      delivery: delivery?.ship ?? null,
     },
     { headers: { "Cache-Control": "public, max-age=0, s-maxage=15, stale-while-revalidate=30" } },
   )
