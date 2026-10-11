@@ -52,7 +52,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
     <OrderStatusView
       token={token}
       justPaid={paid === "1"}
-      shop={{ name: store.name, avatar: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl }}
+      shop={{ name: store.name, avatar: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, legal: store.legal }}
       help={ready ? { openCase: open ? { link: buyerCaseLink(appUrl("/").replace(/\/$/, ""), open.id), status: open.status } : null } : null}
       order={{
         id: order.id,
@@ -66,7 +66,7 @@ export default async function OrderStatusPage({ params, searchParams }: { params
         delivery: order.delivery,
         pickup: order.pickup ? { name: order.pickup.name, address: order.pickup.address, instructions: order.pickup.instructions, ready: PICKUP_READY_LABEL[order.pickup.ready] } : null,
         processing: !!order.processingAt,
-        totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, total: order.totalCents, refunded: order.refundedCents },
+        totals: { subtotal: order.itemsSubtotalCents, discount: order.discountCents, shipping: order.shippingCents - order.shippingDiscountCents, tax: order.taxCents, taxIncluded: order.taxIncluded, taxLabel: order.taxLabel, total: order.totalCents, refunded: order.refundedCents, currency: order.currency },
         lines: order.lines.map((l) => ({ orderId: l.orderId, title: l.title, variantName: l.variantName, imageUrl: l.imageUrl, quantity: l.quantity, cents: l.unitCents * l.quantity - l.discountCents, type: l.type, receiptToken: l.type === "physical" ? null : l.receiptToken, returnable: returnable.get(l.orderId) ?? 0 })),
         shipments: order.shipments.filter((s) => s.status !== "cancelled").map((s) => ({ id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber, trackingUrl: s.trackingUrl, shippedAt: s.shippedAt, deliveredAt: s.deliveredAt, items: s.items })),
         returns: order.returns.map((r) => ({ id: r.id, status: r.status, createdAt: r.createdAt })),

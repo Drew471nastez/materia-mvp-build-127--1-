@@ -21,6 +21,7 @@
  */
 
 import * as React from "react"
+import { includedTaxLabel } from "@/lib/tax/rules"
 import {
   ArrowLeft,
   AtSign,
@@ -516,9 +517,9 @@ function PaymentCard({
         <Row label="Subtotal" middle={itemsLabel(order.itemCount)} value={formatMoney(order.subtotalCents)} />
         {order.shipping || order.shippingCents > 0 ? <Row label="Shipping" middle={shippingName ?? undefined} value={order.shippingCents > 0 ? formatMoney(order.shippingCents) : "Free"} /> : null}
         {order.tipCents > 0 ? <Row label="Tip" value={formatMoney(order.tipCents)} /> : null}
-        {order.taxCents > 0 && !order.taxIncluded ? <Row label="Tax" value={formatMoney(order.taxCents)} /> : null}
+        {order.taxCents > 0 && !order.taxIncluded ? <Row label={order.taxLabel || "Tax"} value={formatMoney(order.taxCents)} /> : null}
         <Row label="Total" value={formatMoney(order.totalCents)} strong />
-        {order.taxCents > 0 && order.taxIncluded ? <Row label="Including tax" value={formatMoney(order.taxCents)} muted /> : null}
+        {order.taxCents > 0 && order.taxIncluded ? <Row label={includedTaxLabel(order.taxLabel)} value={formatMoney(order.taxCents)} muted /> : null}
         <div className="my-1.5 border-t border-[#f0f1f3]" />
         <Row label={order.payment === "pending" ? "Due" : "Paid"} middle={method || undefined} value={formatMoney(order.payment === "pending" ? order.totalCents : received)} />
         {order.refundedCents > 0 ? <Row label="Refunded" value={`−${formatMoney(order.refundedCents)}`} /> : null}

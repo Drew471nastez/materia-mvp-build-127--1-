@@ -26,6 +26,7 @@
  */
 
 import * as React from "react"
+import { includedTaxLabel } from "@/lib/tax/rules"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import { ChevronDown, Lock, MapPin, Minus, Plus, ShoppingBag, Tag, Trash2, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -66,7 +67,7 @@ interface Quote {
   couponError: string | null
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean }
   pickups?: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
-  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
   /* The store's upsells and bundles (lib/offers): what this cart got, and what it could add. */
   offers?: { title: string; savedCents: number }[]
   suggestions?: Suggestion[]
@@ -479,7 +480,7 @@ export function PhysicalCheckout({
           ) : null}
           {t.taxCents > 0 ? (
             <div className="flex justify-between">
-              <dt className="text-[#4b5563]">{t.taxIncluded ? "Including tax" : "Tax"}</dt>
+              <dt className="text-[#4b5563]">{t.taxIncluded ? includedTaxLabel(t.taxLabel) : t.taxLabel || "Tax"}</dt>
               <dd className="tabular-nums text-[#1a1a2e]">{money(t.taxCents)}</dd>
             </div>
           ) : null}

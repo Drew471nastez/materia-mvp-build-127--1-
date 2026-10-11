@@ -1,6 +1,7 @@
 "use client"
 
 import { OrderHelp } from "@/components/support/order-help"
+import { includedTaxLabel } from "@/lib/tax/rules"
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -569,9 +570,9 @@ export function ReceiptView({
               />
             ) : null}
             {receipt.tipCents > 0 ? <Row label="Tip" value={money(receipt.tipCents)} /> : null}
-            {(receipt.taxCents ?? 0) > 0 && !receipt.taxIncluded ? <Row label="Tax" value={money(receipt.taxCents ?? 0)} /> : null}
+            {(receipt.taxCents ?? 0) > 0 && !receipt.taxIncluded ? <Row label={receipt.taxLabel || "Tax"} value={money(receipt.taxCents ?? 0)} /> : null}
             <Row label="Total" value={receipt.totalCents === 0 ? "Free" : money(receipt.totalCents)} strong />
-            {(receipt.taxCents ?? 0) > 0 && receipt.taxIncluded ? <Row label="Including tax" value={money(receipt.taxCents ?? 0)} /> : null}
+            {(receipt.taxCents ?? 0) > 0 && receipt.taxIncluded ? <Row label={includedTaxLabel(receipt.taxLabel)} value={money(receipt.taxCents ?? 0)} /> : null}
             {receipt.refundedCents > 0 ? <Row label="Refunded" value={`−${money(receipt.refundedCents)}`} tone="text-[#b42318]" /> : null}
             {(cardLine && receipt.totalCents > 0 && paid) || (receipt.invoice && paid) ? (
               <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 pt-1.5 text-[13px]">
@@ -597,6 +598,22 @@ export function ReceiptView({
             ) : null}
           </dl>
         </div>
+
+        {/* The business that sold it, as a receipt must name it: Settings › Store details › Business details. */}
+        {receipt.seller.legal ? (
+          <div data-receipt-seller="" className="mt-3 px-1 text-[12.5px] leading-[18px] text-[#6b7280]">
+            <p>
+              Sold by <span className="font-medium text-[#4b5563]">{receipt.seller.legal.name}</span>
+              {receipt.seller.legal.name !== receipt.seller.name ? <> (trading as {receipt.seller.name})</> : null}
+            </p>
+            {receipt.seller.legal.lines.length ? <p>{receipt.seller.legal.lines.join(", ")}</p> : null}
+            {receipt.seller.legal.taxId ? (
+              <p>
+                {receipt.seller.legal.taxIdLabel} {receipt.seller.legal.taxId}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
 
         {hasFiles && platform !== "web" ? (
           <p className="mt-3 text-[13px] leading-relaxed text-[#6b7280] print:hidden">

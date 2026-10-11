@@ -44,6 +44,7 @@ import { countryName } from "./countries"
 import { unpackItems, type PackedItem } from "./cart-items"
 import { fullyRefunded } from "@/lib/orders/refund-state"
 import { ownerAddress } from "@/lib/businesses/email-alias"
+import { includedTaxLabel, percentText } from "@/lib/tax/rules"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -63,7 +64,12 @@ export interface InvoiceData {
   issuedAt: Date
   status: "paid" | "refunded" | "partially_refunded" | "disputed"
   currency: string
-  seller: { name: string; email: string | null; url: string | null }
+  /**
+   * Who sold it: the store's name (Settings › Store details), and when the
+   * store filled in its business details (SQL part 153) the legal name, the
+   * address and the tax number an invoice must carry.
+   */
+  seller: { name: string; email: string | null; url: string | null; legalName?: string | null; address?: string[]; taxId?: string | null; taxIdLabel?: string | null }
   buyer: { name: string; email: string; business: BusinessDetails | null }
   /** Every line of the payment: one for a checkout, one per product for a basket. */
   lines: InvoiceLine[]
@@ -77,6 +83,8 @@ export interface InvoiceData {
   taxCents?: number
   taxIncluded?: boolean
   taxRateBps?: number
+  /** "VAT 19%", as the checkout named the tax (lib/tax/rules taxLabel). */
+  taxLabel?: string | null
   totalCents: number
   payment: string
   reference: string | null
@@ -135,6 +143,8 @@ export interface OrderRow {
   /** Settings › Taxes: the tax in the amount (SQL part 110), and whether it was part of the price (part 129). */
   tax_cents?: number | null
   tax_included?: boolean | null
+  /** "VAT 19%" (SQL part 153). */
+  tax_label?: string | null
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
   business_details?: unknown
@@ -253,6 +263,9 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const taxCents = !isBasket ? Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0) : basketTax
   const taxIncluded = !isBasket ? meta.tax_included === "true" : basketTax > 0 && rows.filter((r) => rowTax(r) > 0).every(rowTaxIncluded)
   const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
+  /* The tax's own words: the payment's for one product, the rows' for a basket (one label when they agree), else the rate. */
+  const rowLabels = [...new Set(rows.filter((r) => rowTax(r) > 0).map((r) => (typeof r.tax_label === "string" ? r.tax_label.trim() : "")).filter(Boolean))]
+  const taxLabel = (!isBasket ? (meta.tax_label || "").trim() : rowLabels.length === 1 ? rowLabels[0] : "") || (taxRateBps > 0 ? `Tax ${percentText(taxRateBps)}` : "Tax")
   const addedTax = taxIncluded ? 0 : taxCents
   if (!isBasket) {
     const recordedDiscount = Math.max(0, Number(meta.discount_cents) || 0)
@@ -330,6 +343,22 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       seller = { name: name || seller.name, email, url: username ? `storelib.com/${username}` : null }
     }
   }
+    /* The store's own name over the person's, and the business behind it (Settings › Store details). Its own reads: an older database keeps the seller above. */
+    try {
+      let res = await admin.from("store_settings").select("store_name, legal").eq("creator_id", creatorId).maybeSingle()
+      if (res.error) res = await admin.from("store_settings").select("store_name").eq("creator_id", creatorId).maybeSingle()
+      const row = (res.data ?? {}) as { store_name?: string | null; legal?: unknown }
+      if (typeof row.store_name === "string" && row.store_name.trim()) seller.name = row.store_name.trim()
+      const legal = businessFromFields(row.legal)
+      if (legal) {
+        seller.legalName = legal.company
+        seller.address = addressLines(legal, countryName)
+        seller.taxId = legal.taxId || null
+        seller.taxIdLabel = taxIdFor(legal.country).label
+      }
+    } catch {
+      /* The seller as read above. */
+    }
 
   const issuedAt = new Date(first.created_at)
   return {
@@ -353,6 +382,7 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     taxCents,
     taxIncluded,
     taxRateBps,
+    taxLabel: taxCents > 0 ? taxLabel : null,
     totalCents: total,
     payment: paymentLabel(first),
     reference: first.stripe_payment_intent_id ?? first.provider_payment_id ?? null,
@@ -498,7 +528,16 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
       ? [inv.buyer.email]
       : []
   const billEnd = block(left, b ? "Billed to" : "Paid by", b ? b.company : inv.buyer.name || inv.buyer.email, billLines.filter(Boolean))
-  const fromEnd = block(left + col + 32, "Sold by", inv.seller.name, [inv.seller.email, inv.seller.url].filter(Boolean) as string[])
+  /* The seller as the law asks for it: the legal name, the store's name it trades as, the address and the tax number, then how to reach it. */
+  const legalName = inv.seller.legalName && inv.seller.legalName !== inv.seller.name ? inv.seller.legalName : null
+  const sellerLines = [
+    ...(legalName ? [`Trading as ${inv.seller.name}`] : []),
+    ...(inv.seller.address ?? []),
+    ...(inv.seller.taxId ? [`${inv.seller.taxIdLabel || "Tax ID"} ${inv.seller.taxId}`] : []),
+    inv.seller.email,
+    inv.seller.url,
+  ].filter(Boolean) as string[]
+  const fromEnd = block(left + col + 32, "Sold by", legalName ?? inv.seller.name, sellerLines)
   y = Math.max(fromEnd, billEnd) + 26
 
   /* ── The headline figure ─────────────────────────────────────────── */
@@ -564,13 +603,14 @@ export async function renderInvoicePdf(inv: InvoiceData, trace?: string[]): Prom
   row("Subtotal", money(inv.subtotalCents))
   if (inv.discountCents > 0) row(inv.discountCode ? `Discount (${inv.discountCode})` : "Discount", `−${money(inv.discountCents)}`)
   if (inv.tipCents > 0) row("Tip", money(inv.tipCents))
-  const taxRate = inv.taxRateBps ? ` (${(inv.taxRateBps / 100).toFixed(inv.taxRateBps % 100 ? 2 : 0)}%)` : ""
-  if (inv.taxCents && !inv.taxIncluded) row(`Tax${taxRate}`, money(inv.taxCents))
+  /* Named as the checkout named it: "VAT 19%". */
+  const taxName = inv.taxLabel || (inv.taxRateBps ? `Tax ${percentText(inv.taxRateBps)}` : "Tax")
+  if (inv.taxCents && !inv.taxIncluded) row(taxName, money(inv.taxCents))
   y += 2
   doc.moveTo(tLabel, y).lineTo(right, y).lineWidth(0.75).strokeColor(RULE).stroke()
   y += 10
   row("Total", money(inv.totalCents), true)
-  if (inv.taxCents && inv.taxIncluded) row(`Including tax${taxRate}`, money(inv.taxCents))
+  if (inv.taxCents && inv.taxIncluded) row(includedTaxLabel(taxName), money(inv.taxCents))
   row("Amount paid", `${money(inv.totalCents)} ${inv.currency}`, true)
   if (inv.refundedCents > 0) row("Refunded", `−${money(inv.refundedCents)} ${inv.currency}`, true)
 

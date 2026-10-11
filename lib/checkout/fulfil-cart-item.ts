@@ -73,7 +73,7 @@ export interface FulfilContext {
   attribution?: Attribution | null
   feeAudit?: { planUsed: string | null; pricingTier: string | null; feeRuleVersion: string | null }
   /** The basket's tax, as the cart route charged it: whether it was inside the prices, and where. */
-  tax?: { included: boolean; country: string | null } | null
+  tax?: { included: boolean; country: string | null; label?: string | null } | null
   /** Who held the basket's copies under a product's sales limit when the payment started (lib/checkout/sales-limit). */
   saleHolder?: string | null
 }
@@ -158,6 +158,11 @@ export async function fulfilCartLine(ctx: FulfilContext, line: FulfilLineInput, 
     else if (ctx.tax?.included) {
       const { error: inError } = await ctx.admin.from("orders").update({ tax_included: true }).eq("id", order.id)
       if (inError) console.warn("[checkout/cart] tax_included not kept:", inError.code)
+    }
+    /* "VAT 19%", as the checkout named it, for the receipt and the PDF (SQL part 153): its own write, so an older database loses only the words. */
+    if (!taxError && ctx.tax?.label) {
+      const { error: labelError } = await ctx.admin.from("orders").update({ tax_label: String(ctx.tax.label).slice(0, 80) }).eq("id", order.id)
+      if (labelError) console.warn("[checkout/cart] tax_label not kept:", labelError.code)
     }
   }
   /* A basket is only ever filled on a creator's website. */

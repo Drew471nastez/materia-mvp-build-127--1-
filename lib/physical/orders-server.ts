@@ -97,6 +97,8 @@ export interface PhysicalOrder {
   shippingDiscountCents: number
   taxCents: number
   taxIncluded: boolean
+  /** "VAT 19%", as the checkout named the tax (lib/tax/rules taxLabel); "Tax" for an order from before. */
+  taxLabel: string
   totalCents: number
   refundedCents: number
   platformFeeCents: number
@@ -212,6 +214,7 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
     shippingDiscountCents: co.shipping_discount_cents,
     taxCents: co.tax_cents,
     taxIncluded: !!co.shipping_rate?.tax_included,
+    taxLabel: typeof co.shipping_rate?.tax_label === "string" && co.shipping_rate.tax_label.trim() ? co.shipping_rate.tax_label.trim().slice(0, 80) : "Tax",
     totalCents: co.total_cents,
     refundedCents: refunded,
     platformFeeCents: co.platform_fee_cents,

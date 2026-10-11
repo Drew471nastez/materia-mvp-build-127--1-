@@ -469,6 +469,8 @@ export interface TaxLine {
   cents: number
   rateBps: number
   included: boolean
+  /** "VAT 19%", as Settings › Taxes names the region (lib/tax/rules taxLabel). */
+  label?: string
   country: string | null
   /** The countries the store has a tax region for. */
   countries: string[]
@@ -489,7 +491,8 @@ function TaxRow({ tax }: { tax: TaxLine }) {
     return list.sort((a, b) => a.name.localeCompare(b.name))
   }, [tax.countries, tax.country])
   const id = `checkout-tax-country${tax.suffix ? `-${tax.suffix}` : ""}`
-  const label = tax.included ? (tax.cents > 0 ? `Includes ${money(tax.cents)} tax` : "No tax included") : "Tax"
+  const named = tax.cents > 0 && tax.label ? tax.label : "Tax"
+  const label = tax.included ? (tax.cents > 0 ? `Includes ${money(tax.cents)} ${named.replace(/^Tax\b/, "tax")}` : "No tax included") : named
   return (
     <div data-tax-line="" className={cn("flex items-baseline justify-between gap-4", tax.included && "mt-2")}>
       <dt className={cn(tax.included ? "text-[13px] text-[#6b7280]" : "text-[#6b7280]")}>

@@ -25,6 +25,8 @@ import "server-only"
  */
 import { mediaUrl } from "@/lib/storage/media-url"
 import { getMainDomain } from "@/lib/url-helpers"
+import { addressLines, businessFromFields, taxIdFor } from "@/lib/checkout/business"
+import { countryName } from "@/lib/checkout/countries"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -38,6 +40,28 @@ export interface StoreIdentity {
   email: string | null
   phone: string | null
   websiteUrl: string | null
+  /**
+   * The business that sells, for receipts and invoices (Settings › Store
+   * details › Business details, SQL part 153): its legal name, its address
+   * as envelope lines, and its tax number with what that is called there
+   * ("VAT number RO12345678"). Null until the store fills it in.
+   */
+  legal: StoreLegal | null
+}
+
+export interface StoreLegal {
+  name: string
+  lines: string[]
+  taxId: string | null
+  /** "VAT number", "EIN", "ABN", "Tax ID". */
+  taxIdLabel: string
+}
+
+/** The stored business details (store_settings.legal) as a receipt prints them; null when there are none. */
+export function legalOf(raw: unknown): StoreLegal | null {
+  const b = businessFromFields(raw)
+  if (!b) return null
+  return { name: b.company, lines: addressLines(b, countryName), taxId: b.taxId || null, taxIdLabel: taxIdFor(b.country).label }
 }
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
@@ -60,13 +84,15 @@ function absolute(v: string): string | null {
  * part of opening Store details. Skipped when only the logo is asked for.
  */
 export async function storeIdentity(db: Db, creatorId: string, opts: { skipStoreLogo?: boolean; logoOnly?: boolean } = {}): Promise<StoreIdentity> {
-  const [settingsRes, creatorRes, installRes] = await Promise.all([
+  const [settingsRes, creatorRes, installRes, legalRes] = await Promise.all([
     db.from("store_settings").select("store_name, phone, logo_url, contact_email").eq("creator_id", creatorId).maybeSingle().then(
       (r: { data: unknown; error: unknown }) => (r.error ? db.from("store_settings").select("store_name, phone").eq("creator_id", creatorId).maybeSingle() : r),
       () => ({ data: null }),
     ),
     db.from("creators").select("display_name, username, slug, avatar_url, support_email, user_id").eq("id", creatorId).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
     db.from("store_theme_installs").select("store_theme_settings ( settings )").eq("creator_id", creatorId).eq("status", "published").limit(1).maybeSingle().then((r: unknown) => r, () => ({ data: null })),
+    /* Its own read: a database without part 153 answers with an error here and nothing else. */
+    db.from("store_settings").select("legal").eq("creator_id", creatorId).maybeSingle().then((r: { data?: { legal?: unknown } | null; error?: unknown }) => (r.error ? null : legalOf(r.data?.legal)), () => null),
   ])
   const s = ((settingsRes as { data?: Record<string, unknown> | null })?.data ?? {}) as Record<string, unknown>
   const c = ((creatorRes as { data?: Record<string, unknown> | null })?.data ?? {}) as Record<string, unknown>
@@ -93,7 +119,8 @@ export async function storeIdentity(db: Db, creatorId: string, opts: { skipStore
   }
 
   let email: string | null = null
-  if (opts.logoOnly) return { creatorId, name, logoUrl, logoFrom, email: null, phone: str(s.phone) || null, websiteUrl: null }
+  const legal = (legalRes as StoreLegal | null) ?? null
+  if (opts.logoOnly) return { creatorId, name, logoUrl, logoFrom, email: null, phone: str(s.phone) || null, websiteUrl: null, legal }
   for (const e of [str(s.contact_email), str(c.support_email)]) {
     if (usable(e)) {
       email = e
@@ -121,5 +148,5 @@ export async function storeIdentity(db: Db, creatorId: string, opts: { skipStore
     }
   }
 
-  return { creatorId, name, logoUrl, logoFrom, email, phone: str(s.phone) || null, websiteUrl }
+  return { creatorId, name, logoUrl, logoFrom, email, phone: str(s.phone) || null, websiteUrl, legal }
 }

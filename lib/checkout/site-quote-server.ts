@@ -74,7 +74,8 @@ export interface SiteQuote {
   /** `needsRegion`: the shop ships by state or province here, and none is chosen yet (lib/physical/rates). */
   delivery: { ok: boolean; error?: string; options: { id: string; name: string; priceCents: number; estimate: string }[]; selectedId: string | null; needsCountry: boolean; needsRegion?: boolean }
   pickups: { id: string; name: string; address: string[]; instructions: string | null; ready: string | null }[]
-  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number }
+  /** `taxLabel`: the tax line's words, "VAT 19%" (lib/tax/rules taxLabel). */
+  totals: { itemsSubtotalCents: number; discountCents: number; shippingCents: number; shippingDiscountCents: number; taxCents: number; taxIncluded: boolean; totalCents: number; taxLabel?: string }
   offers?: { title: string; savedCents: number }[]
 }
 
@@ -175,7 +176,7 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
       couponError,
       delivery: { ok: true, options: [], selectedId: null, needsCountry: false },
       pickups: [],
-      totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: priced.totalCents + (tax.included ? 0 : tax.taxCents) },
+      totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: priced.totalCents + (tax.included ? 0 : tax.taxCents), taxLabel: tax.label },
     },
   }
 }

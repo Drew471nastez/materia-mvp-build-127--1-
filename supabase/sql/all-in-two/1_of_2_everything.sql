@@ -1,5 +1,5 @@
 -- STORELIB DATABASE, FILE 1 of 2
--- Every part from 01 to 150: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
+-- Every part from 01 to 153: the whole database Storelib's code expects, apart from the storage policies and the check, which are file 2.
 -- HOW: select all of this file, copy, paste into a NEW query tab in the Supabase
 -- SQL editor, press Run. Run the two files in order, one at a time.
 -- Safe to run again: every statement checks before it changes anything, so a
@@ -3292,6 +3292,14 @@ REVOKE ALL ON FUNCTION public.product_sales_status(uuid[]) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.product_sales_status(uuid[]) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.product_sales_status(uuid[]) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('150', '150_products_sales_limit.sql', '0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
+-- part 153_store_business_and_tax_names.sql
+/* A store's business on its receipts, and each tax named as it was charged. `store_settings.legal` (part 109's table): the business behind the store as Settings › Store details › Business details keeps it, its legal name, address and tax number (VAT number, EIN, ABN), which the receipt page, the order page and the invoice PDF print under "Sold by"; one small object, null until the store fills it in. `orders.tax_label`: what the tax on an order (part 110's `tax_cents`) was called when it was charged, "VAT 19%" or "Sales tax 8.25%", as Settings › Taxes names the region, so the receipt, the PDF and the creator's order say it in the same words; a physical order keeps the same words on its checkout's `shipping_rate`. No rows change. Needs part 109 for the first; skips it with a notice where store_settings is not there. Until it runs, receipts carry the store's name and contact alone, and the tax line reads "Tax". */
+DO $do$ BEGIN IF to_regclass('public.store_settings') IS NULL THEN RAISE NOTICE 'store business: store_settings is not there yet (part 109).'; RETURN; END IF; ALTER TABLE public.store_settings ADD COLUMN IF NOT EXISTS legal jsonb; ALTER TABLE public.store_settings DROP CONSTRAINT IF EXISTS store_settings_legal_check; ALTER TABLE public.store_settings ADD CONSTRAINT store_settings_legal_check CHECK (legal IS NULL OR (jsonb_typeof(legal) = 'object' AND pg_column_size(legal) < 4096)); END $do$;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS tax_label text;
+ALTER TABLE public.orders DROP CONSTRAINT IF EXISTS orders_tax_label_check;
+ALTER TABLE public.orders ADD CONSTRAINT orders_tax_label_check CHECK (tax_label IS NULL OR length(tax_label) BETWEEN 1 AND 80) NOT VALID;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('153', '153_store_business_and_tax_names.sql', '5d22c6d35ab107846df5d617b477ea419082cdac4c83fcdd0fb7d5a24d7abcb4') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
 notify pgrst, 'reload schema';
 select 'Storelib file 1 of 2 ran. Next file.' as done;

@@ -19,6 +19,7 @@
  */
 
 import { regionCode } from "./regions"
+import { taxLabel } from "@/lib/tax/rules"
 
 export interface TotalsLine {
   /** Only needed for a product's own rate in a region. */
@@ -41,6 +42,8 @@ export interface TaxRate {
   country: string
   region: string | null
   rateBps: number
+  /** What the region's tax is called (Settings › Taxes): "VAT", "GST", "Sales tax". */
+  name?: string | null
 }
 
 export interface TaxSettings {
@@ -62,6 +65,8 @@ export interface PhysicalTotals {
   taxCents: number
   taxRateBps: number
   taxIncluded: boolean
+  /** The tax line's words, "VAT 19%", for the checkout, the order and the receipt (lib/tax/rules taxLabel). */
+  taxLabel: string
   totalCents: number
 }
 
@@ -126,7 +131,11 @@ export function physicalTotals(
   else for (const [bps, cents] of byRate) itemsTax += taxOf(cents, bps, taxIncluded)
   const taxCents = itemsTax + (tax.taxOnShipping ? taxOf(shippingPaid, taxRateBps, taxIncluded) : 0)
   const totalCents = itemsSubtotalCents - discountCents + shippingPaid + (taxIncluded ? 0 : taxCents)
-  return { itemsSubtotalCents, discountCents, shippingCents, shippingDiscountCents, taxCents, taxRateBps, taxIncluded, totalCents }
+  /* One rate charged names it ("VAT 19%"); lines at a product's own rate beside it leave the name alone. */
+  const charged = new Set([...byRate.entries()].filter(([bps, cents]) => cents > 0 && bps > 0).map(([bps]) => bps))
+  if (tax.taxOnShipping && shippingPaid > 0 && taxRateBps > 0) charged.add(taxRateBps)
+  const labelBps = charged.size === 1 ? [...charged][0] : charged.size === 0 ? taxRateBps : 0
+  return { itemsSubtotalCents, discountCents, shippingCents, shippingDiscountCents, taxCents, taxRateBps, taxIncluded, taxLabel: taxLabel(row?.name, labelBps), totalCents }
 }
 
 /** Margin of a sale at a cost: null when the cost is unknown or the price is nothing. */

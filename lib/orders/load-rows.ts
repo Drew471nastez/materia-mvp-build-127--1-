@@ -65,6 +65,7 @@ export function toOrderRow(order: any, product: CreatorProduct | undefined): Ord
     /* Settings › Taxes: the tax in the amount (parts 110 and 129), absent on an older database. */
     tax_cents: Number(order.tax_cents) || 0,
     tax_included: order.tax_included === true,
+    tax_label: typeof order.tax_label === "string" && order.tax_label.trim() ? order.tax_label.trim().slice(0, 80) : null,
     product: product ? { id: product.id, title: product.title, type: product.type, thumbnail_url: product.thumbnail_url } : null,
     /* A physical line: its share of delivery, and of tax added on top, which it keeps in its snapshot (the checkout holds the order's), not in the column. */
     ...(order.checkout_id
@@ -127,7 +128,7 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
   /* A physical order is fulfilled when it has shipped (lib/physical), not when it is paid: its stage, returns and delivery come from its checkout. */
   const checkoutIds = [...new Set(rows.map((r) => r.checkout_id).filter((id): id is string => !!id))]
   if (checkoutIds.length) {
-    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; shipping_rate: { name?: string } | null }
+    type Checkout = { id: string; fulfillment_status: string; return_status: string | null; delivery_method: string | null; shipping_rate: { name?: string; tax_label?: string } | null }
     const byCheckout = new Map<string, Checkout>()
     for (let i = 0; i < checkoutIds.length; i += 500) {
       const { data } = await admin.from("commerce_checkouts").select("id, fulfillment_status, return_status, delivery_method, shipping_rate").eq("creator_id", creatorId).in("id", checkoutIds.slice(i, i + 500))
@@ -140,6 +141,8 @@ export async function readCreatorOrders(admin: any, creatorId: string): Promise<
       r.physical_return = c.return_status ?? null
       r.physical_pickup = c.delivery_method === "pickup"
       r.physical_method = typeof c.shipping_rate?.name === "string" ? c.shipping_rate.name : null
+      /* The tax's name as the physical checkout charged it ("VAT 19%"). */
+      if (typeof c.shipping_rate?.tax_label === "string" && c.shipping_rate.tax_label.trim()) r.tax_label = c.shipping_rate.tax_label.trim().slice(0, 80)
     }
   }
   return { products, rows }
