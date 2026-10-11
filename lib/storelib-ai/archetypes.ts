@@ -135,11 +135,11 @@ export const ARCHETYPES: Archetype[] = [
   },
   {
     id: "apparel",
-    label: "Clothing, streetwear or apparel brand (a real Shopify style store)",
+    label: "Clothing, streetwear or apparel brand (a real online store)",
     match: [/\b(cloth(ing|es)|apparel|streetwear|street ?wear|fashion brand|clothing brand|hoodies?|t-?shirts?|tees|sneakers?|merch|activewear|athleisure|swimwear|denim|outerwear|garments?|wear brand)\b/i, /\b(drop|collection|sizes?|fits?|new arrivals|best sellers)\b/i],
     audience: "Shoppers who arrive from Instagram or TikTok on a phone, want to see the clothes on people, check the price and their size, and buy in a few taps.",
     personality: "Confident, current, product first. The brand's attitude in the photography and a few words, never in long copy.",
-    reference: "The structure the highest converting Shopify apparel stores share: an announcement bar with a real offer, a clean header with the menu, search and cart, a full width campaign image with one button to the new collection, best sellers as a product grid with prices, shop by category, the brand's story beside a strong photo, trust points (shipping, returns, secure checkout), real reviews or UGC, a lookbook, an email sign up with a reason to join, and a full footer.",
+    reference: "The structure the highest converting apparel stores share: an announcement bar with a real offer, a clean header with the menu, search and cart, a full width campaign image with one button to the new collection, best sellers as a product grid with prices, shop by category, the brand's story beside a strong photo, trust points (shipping, returns, secure checkout), real reviews or UGC, a lookbook, an email sign up with a reason to join, and a full footer.",
     architecture: [
       "announcement: one real offer or the shipping and returns promise",
       "header: logo, Shop, the collections, About; search and cart; transparent over the campaign image",

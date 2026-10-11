@@ -274,10 +274,11 @@ async function main() {
     check("Reset to Storelib's version deletes only an edited built-in, and gives GitHub Storelib's text back",
       /body\.action === "reset-override"/.test(route) && /if \(!edited\.some\(\(o\) => o\.path === path\)\)/.test(route) && /\.delete\(\)\.eq\("install_id", own\.installId\)\.eq\("path", path\)/.test(route) && /kind: "save", path, content: shipped/.test(route))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    // Changed on purpose (round G): read through refs, since the handler awaits before it asks, and an unsaved edit now waits for Keep mine or Use GitHub's (tests/github-publish-sync.test.ts).
     // Changed on purpose: W3's reload and round Z's did the same job; round Z's stayed (a page, home's header and footer, or the settings rewritten whole, read again; an unsaved edit kept, and said so).
     check("an open builder reads the page again when a push changed it, unless it has unsaved edits",
-      /if \(ev\.detail\?\.replaced\)/.test(editor) && /page === null \|\| page === currentPageRef\.current \|\| page === "home"\) replacedHere = true/.test(editor) &&
-        /if \(replacedHere\) \{\s*if \(!isDirty && !saving && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
+      /if \(ev\.detail\?\.replaced\)/.test(editor) && /page === null \|\| page === currentPageRef\.current \|\| page === "home"\) \{\s*replacedHere = true/.test(editor) &&
+        /if \(replacedHere\) \{\s*if \(!isDirtyRef\.current && !savingRef\.current && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
 
     /* ─────────────────────────────────────────────────────────────────── */
     console.log("\nNever in a circle")
@@ -356,7 +357,7 @@ async function main() {
     check("the picture is fetched from storage and committed", Buffer.compare(gh.filesAt(REPO, "main")["shopify/assets/hero.jpg"], Buffer.from(jpeg)) === 0)
     check("the settings keep the compat marker", JSON.parse(gh.text(REPO, "main", "config/settings.json")!).compat.kind === "shopify")
     const agents = gh.text(REPO, "main", "AGENTS.md")!
-    check("AGENTS.md says every section is the theme's own and keeps the compat line", /imported from a Shopify theme/.test(agents) && /Every section here is the theme's own/.test(agents) && /<template compat="shopify">/.test(agents))
+    check("AGENTS.md says every section is the theme's own and keeps the compat line", /imported from another store's theme/.test(agents) && !/Shopify|Liquid/.test(agents) && /Every section here is the theme's own/.test(agents) && /<template compat="shopify">/.test(agents))
     check("the manifest calls it a shopify theme", JSON.parse(gh.text(REPO, "main", "storelib.json")!).kind === "shopify")
 
     const slideshow = gh.text(REPO, "main", "sections/slideshow.storelib")!

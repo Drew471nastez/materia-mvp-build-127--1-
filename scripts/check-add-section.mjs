@@ -687,7 +687,7 @@ async function run(kind) {
   await sleep(400)
   await p.screenshot({ path: shot(`${kind}-2-created`) })
   const marketing = await p.evaluate(() => {
-    const pill = window.__lib().pills.find((b) => /^Marketing$/.test((b.textContent || "").trim()))
+    const pill = window.__lib().pills.find((b) => /^Marketing\d*$/.test((b.textContent || "").trim()))
     pill?.scrollIntoView({ inline: "center", block: "nearest" })
     pill?.click()
     return !!pill
@@ -700,7 +700,7 @@ async function run(kind) {
   }
 
   /* Back to everything, for the add. */
-  await p.evaluate(() => window.__lib().pills.find((b) => /^All$/.test((b.textContent || "").trim()))?.click())
+  await p.evaluate(() => window.__lib().pills.find((b) => /^All\d*$/.test((b.textContent || "").trim()))?.click())
   await sleep(400)
 
   /* ── ADD ── */

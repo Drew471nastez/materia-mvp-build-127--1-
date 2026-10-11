@@ -516,7 +516,7 @@ section("Save compiles, errors carry lines, the canvas finds out")
   check("and marks the line in the gutter", /hasError=\{errorLines\.has\(i \+ 1\)\}/.test(codePage) && /data-error-line=/.test(codePage))
   check("a broken file is not saved and says so, naming the file", /toast\.error\("Did not compile\. Not saved\.", \{ description: selectedFile\.name \}\)/.test(codePage) && !/did not compile —/.test(codePage))
   check("the code editor tells the canvas when a file changed", (codePage.match(/announceFileChange\(/g) ?? []).length >= 5 && /type: "storelib:file-saved"/.test(codePage))
-  check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\) void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
+  check("the editor listens and reloads the saved sources", /data\?\.type === "storelib:file-saved"\)( \{\s*)?void loadStorelibSources\(\)/.test(editor) && /files\?sources=1/.test(editor))
   // The sidebar reads the library, which is the theme's sections and this
   // creator's own together — see librarySchemas in the editor.
   /* And the shop's own facts since dynamic sources: the canvas draws a page the way the live site does. */
