@@ -22,6 +22,10 @@ import "server-only"
 import { priceCart, type PricedCart } from "./pricing"
 import { basketDecision } from "./basket-decision"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
+import { lineTotalCents } from "./cart-items"
+import { countryCode } from "./countries"
+import { loadTaxForCheckout } from "@/lib/tax/server"
+import { basketTax, type BasketTax } from "@/lib/tax/rules"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -80,13 +84,25 @@ async function variantNames(db: Db, ids: string[]): Promise<Map<string, string>>
   }
 }
 
-export async function siteQuote(db: Db, creatorId: string, body: Body): Promise<SiteQuoteAnswer> {
+/**
+ * Settings › Taxes on a cart of downloads (lib/tax/rules basketTax, as the
+ * single product checkout taxes one): only when the store taxes digital
+ * products, by the buyer's country (the one the page sends, else where the
+ * request comes from), each line at its own rate there. The intent route
+ * charges exactly this and puts each line's share on its order.
+ */
+export async function digitalCartTax(db: Db, creatorId: string, priced: Extract<PricedCart, { ok: true }>, body: Body, requestCountry: string | null): Promise<BasketTax> {
+  const country = countryCode(body.country) ?? requestCountry
+  return basketTax(await loadTaxForCheckout(db, creatorId), priced.lines.map((l) => ({ productId: l.item.productId, taxableCents: lineTotalCents(l.item) })), country)
+}
+
+export async function siteQuote(db: Db, creatorId: string, body: Body, requestCountry: string | null = null): Promise<SiteQuoteAnswer> {
   const { priced, couponError, decision } = await priceSiteCart(db, creatorId, body)
   if (decision.kind === "ships") return shippedQuote(db, creatorId, body)
   if (decision.kind === "refuse" || priced.ok === false) {
     return { ok: false, status: decision.kind === "refuse" ? decision.status : 400, error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }
   }
-  const names = await variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v))
+  const [names, tax] = await Promise.all([variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v)), digitalCartTax(db, creatorId, priced, body, requestCountry)])
   return {
     ok: true,
     quote: {
@@ -111,7 +127,7 @@ export async function siteQuote(db: Db, creatorId: string, body: Body): Promise<
       couponError,
       delivery: { ok: true, options: [], selectedId: null, needsCountry: false },
       pickups: [],
-      totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: 0, taxIncluded: false, totalCents: priced.totalCents },
+      totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: priced.totalCents + (tax.included ? 0 : tax.taxCents) },
     },
   }
 }

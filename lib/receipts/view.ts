@@ -56,6 +56,9 @@ export interface ReceiptView {
   tipCents: number
   totalCents: number
   refundedCents: number
+  /** Settings › Taxes: the tax in the total. Added on top unless `taxIncluded`; then it is part of the prices. */
+  taxCents?: number
+  taxIncluded?: boolean
   payment: { method: string | null; brand: string | null; last4: string | null }
   /** A code's saving and the code, when the payment recorded one. Zero and null otherwise. */
   discountCents?: number

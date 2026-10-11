@@ -59,7 +59,13 @@ const code = ["lib/automations", "lib/email-campaigns", "lib/contacts", "app/api
   .map((f) => readFileSync(f, "utf8"))
   .join("\n")
 
-/** The columns of a table as the part creates it, plus every column it adds. */
+/* A later part may add a column to one of these tables (part 129 gives checkout_starts its return_path): those count too, from the parts themselves. */
+const laterParts = readdirSync(join(root, "supabase/sql/run-now"))
+  .filter((f) => /^\d+_.*\.sql$/.test(f) && Number.parseInt(f, 10) > 46)
+  .map((f) => readFileSync(join(root, "supabase/sql/run-now", f), "utf8"))
+  .join("\n")
+
+/** The columns of a table as the part creates it, plus every column it, or a later part, adds. */
 function columnsOf(table: string): Set<string> {
   const out = new Set<string>()
   const create = new RegExp(`CREATE TABLE IF NOT EXISTS public\\.${table} \\((.*)\\);`).exec(sql)
@@ -79,6 +85,7 @@ function columnsOf(table: string): Set<string> {
     for (const p of parts) out.add(p.trim().split(/\s+/)[0])
   }
   for (const m of sql.matchAll(new RegExp(`ALTER TABLE public\\.${table} ADD COLUMN IF NOT EXISTS ([a-z_]+)`, "g"))) out.add(m[1])
+  for (const m of laterParts.matchAll(new RegExp(`ALTER TABLE public\\.${table} ADD COLUMN IF NOT EXISTS ([a-z_]+)`, "g"))) out.add(m[1])
   return out
 }
 

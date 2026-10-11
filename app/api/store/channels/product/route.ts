@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server"
+import { revalidateTag } from "next/cache"
+import { creatorShopTag } from "@/lib/website-builder/published-site"
+import { exploreCatalogueChanged } from "@/lib/explore/catalogue-cache"
 import { isUuid, physicalJson, readBody, shopCaller } from "@/lib/physical/auth"
 import { loadChannels, productOff, setProductChannels } from "@/lib/store/channels-server"
 
@@ -27,5 +30,9 @@ export async function PUT(request: Request) {
   if (!body) return physicalJson({ error: "Bad request." }, 400)
   const out = await setProductChannels(c.db, c.creatorId, body.productId, body.off)
   if (!out.ok) return physicalJson({ error: out.error }, out.status)
+  /* The website's product lists are held for a minute under the shop's tag: taken off (or put back on) a channel shows on the next visit, not a minute later. */
+  revalidateTag(creatorShopTag(c.creatorId), "max")
+  /* Explore's catalogue is held for everybody the same way (lib/explore/catalogue-cache.ts). */
+  exploreCatalogueChanged()
   return physicalJson({ off: out.off })
 }

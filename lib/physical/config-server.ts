@@ -27,6 +27,8 @@ export interface CommerceSettings {
   taxMode: "none" | "manual" | "provider"
   pricesIncludeTax: boolean
   taxOnShipping: boolean
+  /** Digital products are taxed too (Settings › Taxes, SQL part 110 `tax_digital`). */
+  taxDigital: boolean
   lowStockDefault: number
   /** Email the seller when an item sells down to its low stock line. */
   lowStockAlerts: boolean
@@ -43,6 +45,7 @@ export const DEFAULT_SETTINGS: CommerceSettings = {
   taxMode: "none",
   pricesIncludeTax: false,
   taxOnShipping: false,
+  taxDigital: false,
   lowStockDefault: 5,
   lowStockAlerts: true,
   onboardedAt: null,
@@ -79,6 +82,7 @@ export async function loadSettings(db: Db, creatorId: string): Promise<CommerceS
     taxMode: data.tax_mode ?? "none",
     pricesIncludeTax: !!data.prices_include_tax,
     taxOnShipping: !!data.tax_on_shipping,
+    taxDigital: data.tax_digital === true,
     lowStockDefault: Number(data.low_stock_default ?? 5),
     lowStockAlerts: data.low_stock_alerts !== false,
     onboardedAt: data.onboarded_at ?? null,
@@ -222,9 +226,9 @@ export async function loadTaxRates(db: Db, creatorId: string): Promise<TaxRateRo
 
 export async function loadTaxSettings(db: Db, creatorId: string, settings?: CommerceSettings): Promise<TaxSettings> {
   const s = settings ?? (await loadSettings(db, creatorId))
-  if (s.taxMode !== "manual") return { mode: s.taxMode, pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates: [] }
+  if (s.taxMode !== "manual") return { mode: s.taxMode, pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, digital: s.taxDigital, rates: [] }
   const [rates, overrides] = await Promise.all([loadTaxRates(db, creatorId), loadTaxOverrides(db, creatorId)])
-  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates, overrides }
+  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, digital: s.taxDigital, rates, overrides }
 }
 
 /** Products with their own rate in a region (SQL part 110); none before the part is run. */

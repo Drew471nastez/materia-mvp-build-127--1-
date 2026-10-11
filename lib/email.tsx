@@ -489,8 +489,10 @@ async function receiptEmailModel(
         note: notes[i.state] ?? null,
         thumbnailUrl: i.thumbnailUrl,
       })),
-      subtotalText: v.tipCents > 0 || v.items.length > 1 ? money(v.subtotalCents) : null,
+      subtotalText: v.tipCents > 0 || v.items.length > 1 || (v.taxCents ?? 0) > 0 ? money(v.subtotalCents) : null,
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
+      taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, "en-US") : null,
+      taxIncluded: v.taxIncluded === true,
       totalText: money(v.totalCents),
       refundedText: v.refundedCents > 0 ? formatMoney(v.refundedCents, v.currency, "en-US") : null,
       link: params.receiptLink,
@@ -517,6 +519,26 @@ async function receiptEmailModel(
     buttonLabel: "View your receipt",
     supportEmail: params.supportEmail,
   }
+}
+
+/**
+ * Settings › Customer emails › Receipt: the store's own subject, heading,
+ * opening text and button label (lib/emails/customer-custom.ts), on the
+ * model the receipt is drawn from. Nothing saved, nothing changes.
+ */
+async function withReceiptCopy(admin: any, creatorId: string | null | undefined, model: ReceiptEmailModel, subject: string): Promise<string> {
+  if (!creatorId) return subject
+  const [{ loadCustomerEmailCopy }, { resolveCopy, itemsText }] = await Promise.all([import("@/lib/emails/customer-copy-server"), import("@/lib/emails/customer-custom")])
+  const saved = await loadCustomerEmailCopy(admin, creatorId)
+  const copy = resolveCopy(saved.receipt, { customer_name: model.firstName, order_number: model.orderNumber, shop_name: model.sellerName, items: itemsText(model.items.map((i) => i.title)) })
+  if (!copy) return subject
+  if (copy.heading) model.heading = copy.heading
+  if (copy.introHtml !== undefined) {
+    model.introHtml = copy.introHtml || null
+    model.introText = copy.introText || null
+  }
+  if (copy.button) model.buttonLabel = copy.button
+  return copy.subject ?? subject
 }
 
 /* ─── The seller's sale email: its data ──────────────────────────────── */
@@ -807,10 +829,12 @@ export async function sendBuyerDownloadEmail(
     }
   }
   const firstTitle = model.items[0]?.title ?? productTitle
-  const subject =
-    model.items.length > 1
-      ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items`
-      : `Your receipt for ${safeText(firstTitle)}`
+  const subject = await withReceiptCopy(
+    admin,
+    creatorId,
+    model,
+    model.items.length > 1 ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items` : `Your receipt for ${safeText(firstTitle)}`,
+  )
 
   try {
     const result = await withRetry(
@@ -878,10 +902,12 @@ export async function sendReceiptCopyEmail(
     fallback: { productTitle: params.productTitle, variantName: params.variantName, amountCents: params.amountCents, orderId: params.orderId },
   })
   const firstTitle = model.items[0]?.title ?? params.productTitle
-  const subject =
-    model.items.length > 1
-      ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items`
-      : `Your receipt for ${safeText(firstTitle)}`
+  const subject = await withReceiptCopy(
+    admin,
+    params.creatorId,
+    model,
+    model.items.length > 1 ? `Your receipt from ${safeText(model.sellerName)}: ${model.items.length} items` : `Your receipt for ${safeText(firstTitle)}`,
+  )
   try {
     const sent = await sendEmail({
       from: buildFromHeaderLocal(fromName),

@@ -14,7 +14,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { siteHostsFor } from "@/lib/checkout/site-hosts"
-import { chargeUnits, packItems } from "@/lib/checkout/cart-items"
+import { chargeUnits, lineTotalCents, packItems } from "@/lib/checkout/cart-items"
 import { HELD_SESSION_SECONDS, HOLD_COOKIE, holdCouponUse, holderForEmail, isHolder, needsHold, newHolder, releaseCouponHold } from "@/lib/checkout/coupon-holds"
 import { fulfilFreeCart } from "@/lib/checkout/fulfil-cart-session"
 import { ORIGIN_METADATA_KEY, cleanHost, cleanOrigin, encodeOrigin } from "@/lib/orders/order-source"
@@ -25,8 +25,12 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
 import { basketDecision } from "@/lib/checkout/basket-decision"
 import { afterPaidTarget, basketCheckoutHref } from "@/lib/checkout/basket-link"
+import { detectedCountry, loadCheckoutConfig, loadStoreName } from "@/lib/store/settings-server"
+import { recordCheckoutStart } from "@/lib/automations/abandoned"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { loadTaxForCheckout } from "@/lib/tax/server"
+import { basketTax, percentText } from "@/lib/tax/rules"
 import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
-import { loadStoreName } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
 
@@ -294,6 +298,24 @@ async function handlePOST(request: Request) {
     })
   }
 
+  /*
+    SETTINGS › TAXES, for a store that taxes digital products: the same tax
+    the branded page showed (app/checkout/cart, lib/tax/rules basketTax), by
+    the buyer's country as the request says it, each line at its product's
+    own rate there or the region's, after its code. Added on top it is its
+    own "Tax" line on Stripe's form; with prices including tax the total
+    does not move. Each line's share rides in the metadata (`cart_tax`) for
+    its order and the receipt. Storelib's fee stays on the price, never on
+    the tax.
+  */
+  const tax = basketTax(
+    await loadTaxForCheckout(admin, creatorId),
+    lines.map((l) => ({ productId: l.item.productId, taxableCents: lineTotalCents(l.item) })),
+    detectedCountry(request.headers),
+  )
+  if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (lines[i].item.taxCents = t))
+  const addedTaxCents = tax.included ? 0 : tax.taxCents
+
   /* A code with a use limit keeps a place under it while this Stripe page is
      open (lib/checkout/coupon-holds), and the page expires before the place
      does. The holder is the buyer, or this browser: coming back from Stripe
@@ -341,7 +363,7 @@ async function handlePOST(request: Request) {
          is made out to (lib/checkout/fulfil-cart-session). The single
          product checkout asks the same on its own page. */
       tax_id_collection: { enabled: true },
-      line_items: lines.flatMap((l) =>
+      line_items: [...lines.flatMap((l) =>
         chargeUnits(l.item).map((part) => ({
           quantity: part.quantity,
           price_data: {
@@ -357,6 +379,9 @@ async function handlePOST(request: Request) {
           },
         })),
       ),
+      ...(addedTaxCents > 0
+        ? [{ quantity: 1, price_data: { currency: chargeCurrency, unit_amount: addedTaxCents, product_data: { name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 120) } } }]
+        : [])],
       ...(freeLines.length > 0 && coupon
         ? { custom_text: { submit: { message: `Also included, free with ${coupon.code}: ${freeLines.join(", ")}`.slice(0, 1000) } } }
         : {}),
@@ -412,6 +437,9 @@ async function handlePOST(request: Request) {
               ...(holder ? { coupon_holder: holder } : {}),
             }
           : {}),
+        ...(tax.taxCents > 0
+          ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "" }
+          : {}),
         ...packItems(lines.map((l) => l.item)),
       },
     }
@@ -442,6 +470,38 @@ async function handlePOST(request: Request) {
       }
     }
     if (!session) throw new Error("no session")
+
+    /*
+      Settings › Checkout › Abandoned checkouts, for a signed in buyer (Stripe's
+      form asks a guest's address only once they pay, so there is none to
+      remind): the basket reached Pay, one start per Stripe page, with the way
+      back to this basket. Stripe's form has no news box, so the sweep only
+      reminds a buyer who is already on the store's list, and never one who
+      bought since (lib/automations/abandoned).
+    */
+    if (user?.email) {
+      const config = await loadCheckoutConfig(admin, creatorId)
+      if (config.abandonedRecovery) {
+        await recordCheckoutStart(admin, {
+          creatorId,
+          productId: lines[0].item.productId,
+          variantId: lines[0].item.variantId,
+          productTitle: lines.length > 1 ? `${String(lines[0].product.title ?? "Product")} and ${lines.length - 1} more` : String(lines[0].product.title ?? "Product"),
+          email: user.email,
+          firstName: null,
+          paymentIntentId: session.id,
+          optedIn: false,
+          source: contactSourceOfOrder({ ...sent, surface: "website", site }, lines[0].item.productId),
+          returnPath: basketCheckoutHref({
+            shopId: creatorId,
+            items: lines.map((l) => ({ productId: l.item.productId, variantId: l.item.variantId, quantity: l.item.quantity })),
+            back: siteOrigin !== platformOrigin ? `${siteOrigin}${returnPath}` : null,
+            couponCode: coupon?.code ?? null,
+            wholeCart: body.wholeCart === true,
+          }),
+        }).catch(() => false)
+      }
+    }
 
     return NextResponse.json({
       ...(ui === "embedded" ? { clientSecret: session.client_secret } : { url: session.url }),

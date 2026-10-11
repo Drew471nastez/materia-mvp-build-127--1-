@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMainDomain } from "@/lib/url-helpers"
 import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
-import { priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
+import { digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
@@ -14,7 +14,8 @@ import { fulfilCartPayment, fulfilFreeCart } from "@/lib/checkout/fulfil-cart-se
 import { basketTitle, fieldPlan, missingField, siteGate, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
 import { isPickupOptionId } from "@/lib/physical/pickup"
-import { loadCheckoutConfig } from "@/lib/store/settings-server"
+import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
+import { percentText } from "@/lib/tax/rules"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
@@ -116,7 +117,7 @@ type Admin = ReturnType<typeof createAdminClient>
 async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
   const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
-  const answer = await siteQuote(admin, site.creatorId, body)
+  const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers))
   return answer.ok ? json(answer.quote) : json({ error: answer.error }, answer.status)
 }
 
@@ -212,6 +213,16 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
   const holder = needsHold(coupon) ? holderForEmail(contact.email) : null
   if (coupon && holder && !(await holdCouponUse(admin, coupon.id, holder))) return json({ error: "That code has been used up." }, 400)
 
+  /*
+    SETTINGS › TAXES: the tax the quote showed (lib/checkout/site-quote-server
+    digitalCartTax), worked out again here and charged on top unless prices
+    include it. Each line's share rides in the metadata (`cart_tax`) for its
+    order and the receipt. Storelib's fee stays on the price, never on the tax.
+  */
+  const tax = await digitalCartTax(admin, site.creatorId, priced, body, detectedCountry(request.headers))
+  if (tax.taxCents > 0) tax.lineTaxCents.forEach((t, i) => (priced.lines[i].item.taxCents = t))
+  const chargeCents = priced.totalCents + (tax.included ? 0 : tax.taxCents)
+
   const chargeCurrency = platformChargeCurrency()
   let fee: Awaited<ReturnType<typeof calculatePlatformFeeForCheckout>>
   try {
@@ -248,13 +259,14 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     email_opt_in: contact.optedIn ? "true" : "false",
     agreed_to_terms: "true",
     ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(priced.discountCents), ...(holder ? { coupon_holder: holder } : {}) } : {}),
+    ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 80) } : {}),
     ...packItems(priced.lines.map((l) => l.item)),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
   }
   Object.assign(metadata, attributionToMetadata(attribution, Object.keys(metadata).length))
 
   const params: Stripe.PaymentIntentCreateParams = {
-    amount: priced.totalCents,
+    amount: chargeCents,
     currency: chargeCurrency,
     payment_method_types: methodsFrom(body.paymentMethods),
     metadata,

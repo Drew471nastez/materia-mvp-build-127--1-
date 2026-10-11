@@ -132,6 +132,9 @@ export interface OrderRow {
   /** The Airwallex payment intent, for an order paid through Storelib Payments on Airwallex (part 76). */
   provider_payment_id?: string | null
   stripe_session_id?: string | null
+  /** Settings › Taxes: the tax in the amount (SQL part 110), and whether it was part of the price (part 129). */
+  tax_cents?: number | null
+  tax_included?: boolean | null
   refund_amount_cents?: number | null
   /** The company the buyer bought for, when the database has the column (part 35). */
   business_details?: unknown
@@ -243,9 +246,12 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
   const tip = rows.reduce((n, r) => n + Math.max(0, Number(r.tip_cents) || 0), 0)
   let lines: InvoiceLine[]
   let discount: number
-  /* The tax stripe-session put in the amount (a single product only). */
-  const taxCents = !isBasket ? Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0) : 0
-  const taxIncluded = meta.tax_included === "true"
+  /* The tax in the amount: a single product's as stripe-session put it on the payment; a basket's on each of its rows (orders.tax_cents, tax_included). */
+  const rowTax = (r: OrderRow) => Math.max(0, Number(r.tax_cents) || 0)
+  const rowTaxIncluded = (r: OrderRow) => r.tax_included === true
+  const basketTax = rows.reduce((n, r) => n + rowTax(r), 0)
+  const taxCents = !isBasket ? Math.max(0, Number.parseInt(meta.tax_cents || "0", 10) || 0) : basketTax
+  const taxIncluded = !isBasket ? meta.tax_included === "true" : basketTax > 0 && rows.filter((r) => rowTax(r) > 0).every(rowTaxIncluded)
   const taxRateBps = Math.max(0, Number.parseInt(meta.tax_rate_bps || "0", 10) || 0)
   const addedTax = taxIncluded ? 0 : taxCents
   if (!isBasket) {
@@ -265,7 +271,8 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
     const priced = rows.map((r) => {
       const at = left.findIndex((i) => i.productId === r.product_id && (i.variantId ?? null) === (r.variant_id ?? null))
       const item = at >= 0 ? left.splice(at, 1)[0] : null
-      const charged = Math.max(0, (Number(r.amount_cents) || 0) - (Number(r.tip_cents) || 0))
+      /* Tax added on top is in the row's amount; the line is its price, the tax its own row below. */
+      const charged = Math.max(0, (Number(r.amount_cents) || 0) - (Number(r.tip_cents) || 0) - (rowTaxIncluded(r) ? 0 : rowTax(r)))
       const quantity = item ? Math.max(1, item.quantity) : 1
       const gross = item ? item.priceCents * quantity : charged
       const off = item ? Math.max(0, item.discountCents ?? 0) : 0

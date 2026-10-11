@@ -61,6 +61,9 @@ import type { Address, PricedLine } from "./types"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { statementParams } from "@/lib/payments/platform-descriptor"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
+import { recordCheckoutStart } from "@/lib/automations/abandoned"
+import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
+import { physicalCheckoutHref } from "./cart-link"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 
 export const HOLD_MINUTES = 35
@@ -449,6 +452,28 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     }
     await db.from("commerce_checkouts").update({ stripe_session_id: session.id, updated_at: new Date().toISOString() }).eq("id", checkoutId)
     await addOrderEvent(db, { checkoutId, creatorId: priced.creatorId, kind: "checkout.started", message: "Checkout started", actor: "buyer", key: `started:${checkoutId}` })
+    /*
+      Settings › Checkout › Abandoned checkouts: the cart reached Pay with an
+      address, written down as the single product checkout writes its own
+      (lib/automations/abandoned), one start per Stripe page, with the way
+      back to this checkout and its items. The hourly sweep reminds them an
+      hour later only if no order came of it and they ticked the news box or
+      are on the list. Off, nothing is written.
+    */
+    if (config.abandonedRecovery) {
+      await recordCheckoutStart(db, {
+        creatorId: priced.creatorId,
+        productId: q.lines[0].productId,
+        variantId: q.lines[0].variantId,
+        productTitle: q.lines.length > 1 ? `${q.lines[0].title} and ${q.lines.length - 1} more` : q.lines[0].title,
+        email,
+        firstName: (clean(input.name, 200) || address?.name || "").split(/\s+/)[0] || null,
+        paymentIntentId: session.id,
+        optedIn: config.marketingOptIn && input.emailOptIn === true,
+        source: contactSourceOfOrder(input.origin, q.lines[0].productId),
+        returnPath: physicalCheckoutHref(priced.creatorId, q.lines.map((l) => ({ productId: l.productId, variantId: l.variantId, quantity: l.quantity })), input.backUrl),
+      }).catch(() => false)
+    }
     return { ok: true, url: session.url ?? "", clientSecret: session.client_secret ?? null, checkoutId, free: false }
   } catch (e) {
     console.error("[physical] Stripe page could not be made:", (e as { code?: string })?.code ?? "")

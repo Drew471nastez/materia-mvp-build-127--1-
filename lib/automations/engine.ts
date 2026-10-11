@@ -110,6 +110,8 @@ export interface RunContext {
   checkout_started_at?: string
   /** They ticked "Email me news and offers" at the checkout this run is about. */
   opted_in?: boolean
+  /** A cart left behind: its checkout with its items, for {{checkout_url}} (lib/automations/abandoned startCheckoutUrl). Its host is checked again when the link is made. */
+  checkout_url?: string
 }
 
 export type JobState = "queued" | "running" | "done" | "failed" | "cancelled"
@@ -352,6 +354,8 @@ export interface TriggerInput {
   /** They ticked "Email me news and offers" at the checkout this is about. */
   optedIn?: boolean
   source?: unknown
+  /** A cart left behind: its checkout's address, with its items. */
+  checkoutUrl?: string | null
 }
 
 export interface EnrollResult {
@@ -432,6 +436,7 @@ export async function enroll(store: Store, input: TriggerInput, now: number): Pr
     if (input.variantId) context.variant_id = input.variantId
     if (input.startedAt) context.checkout_started_at = input.startedAt
     if (input.optedIn) context.opted_in = true
+    if (input.checkoutUrl && /^https?:\/\//.test(input.checkoutUrl) && input.checkoutUrl.length <= 2000) context.checkout_url = input.checkoutUrl
     const res = await store.enroll({
       flowId: flow.id,
       creatorId: input.creatorId,

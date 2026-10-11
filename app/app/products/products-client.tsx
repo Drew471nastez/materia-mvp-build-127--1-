@@ -595,6 +595,15 @@ export function ProductsClient({ products: initialProducts, creatorUsername }: P
       if (error) throw error
 
       if (data) {
+        /* Settings › Sales channels: the copy is taken off the same channels as the product it copies. Best effort; the copy is a draft either way. */
+        await fetch(`/api/store/channels/product?productId=${encodeURIComponent(product.id)}`, { cache: "no-store", credentials: "same-origin" })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d: { off?: string[] } | null) =>
+            d?.off?.length
+              ? fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: data.id, off: d.off }) })
+              : null,
+          )
+          .catch(() => null)
         setProducts(prev => [data, ...prev])
         showNotification("Product duplicated")
       }
