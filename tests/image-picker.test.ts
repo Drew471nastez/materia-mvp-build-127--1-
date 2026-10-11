@@ -58,8 +58,8 @@ function main() {
   check("and the spinner sits over the picture rather than replacing it",
     /\{uploading && \(\s*\n\s*<span className="absolute inset-0 z-10 flex items-center justify-center bg-white\/55">/.test(picker))
   check("with Replace and Remove held while it runs",
-    /* Two in the box layout, two in the sidebar's one-line layout, and Choose from your files under both. */
-    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 5)
+    /* Two in the box layout, two in the sidebar's one-line layout, and Choose from your files under both, and the upload only Change. */
+    (picker.match(/disabled=\{uploading\}/g) ?? []).length === 6)
 
   console.log("\nThe stored copy arrives over it, and never under an empty box")
 
@@ -136,6 +136,18 @@ function main() {
   check("and it watches the frame the fade starts on, which is where the glitch was",
     /the picture underneath is still there when the stored copy starts to appear/.test(read("scripts/check-image-picker.mjs")),
     "reverting the component to `!ready` makes that assertion fail, which is how it was checked")
+
+  console.log("\nThe favicon takes an upload only")
+  const general = read("components/website-builder/website-settings/general.tsx")
+  check("Website settings' favicon turns the files library off",
+    /aspectRatio="favicon"\s*\n\s*folder="logos"\s*\n\s*library=\{false\}/.test(general))
+  check("the picker can drop Your files from the empty field",
+    /\{library && <button[\s\S]{0,1200}Your files\s*\n\s*<\/button>\}/.test(picker))
+  check("and from Change, which then opens the file dialog straight away",
+    /\.\.\.\(library \? \[\{ label: "Choose from your files"/.test(picker)
+      && /changeMenu = \(className: string, iconClass: string\) => !library \? \(\s*\n[\s\S]{0,200}onClick=\{pick\}/.test(picker))
+  check("and does not mount the chooser at all",
+    /\{library && <FilesLibraryChooser/.test(picker))
 
   console.log(`\n${passed} passed, ${failed} failed`)
   if (failed > 0) { console.log(`\nFailed:\n${failures.map((f) => `  - ${f}`).join("\n")}`); process.exit(1) }

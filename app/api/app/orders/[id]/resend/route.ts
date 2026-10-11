@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { currentCreatorId } from "@/lib/creators/current"
+import { storeIdFor } from "@/lib/team/server"
 import { rateLimit } from "@/lib/api/rate-limit"
 import { canEmailAccess, cleanEmail, ownedOrderLines } from "@/lib/orders/owned"
 import { recordOrderEvent, sendAccessEmails } from "@/lib/orders/notify"
@@ -17,8 +17,10 @@ export const runtime = "nodejs"
  * creator's.
  */
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const creatorId = await currentCreatorId()
-  if (!creatorId) return NextResponse.json({ error: "Sign in again to do this." }, { status: 401 })
+  /* The store's, for its owner or a team member whose role has orders (lib/team). */
+  const store = await storeIdFor("orders")
+  if (store.ok === false) return NextResponse.json({ error: store.error }, { status: store.status })
+  const creatorId = store.creatorId
 
   const { id } = await params
   const admin = createAdminClient()

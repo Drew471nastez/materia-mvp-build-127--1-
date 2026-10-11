@@ -134,8 +134,9 @@ section("The Add Section card presses once, not three times")
     /select-none/.test(card) && /\[-webkit-touch-callout:none\]/.test(card),
   )
   check(
+    /* An imported theme's picture lies over its card from the list's own frame, so only Storelib's own cards rise. */
     "the desktop lift is still there, because a mouse does hover",
-    /!phone && "group-hover:[^"]*group-hover:shadow-\[[^"]*group-hover:-translate-y-px"/.test(card),
+    /!phone && "group-hover:[^"]*group-hover:shadow-\[[^"]*"/.test(card) && /!phone && !compat && "group-hover:-translate-y-px"/.test(card),
   )
   check(
     "and no card asks for a layer of its own: forty cards would be forty layers",

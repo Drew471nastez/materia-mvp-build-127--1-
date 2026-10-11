@@ -115,7 +115,9 @@ async function main() {
     check("the order routes exist", routes.length >= 4, routes)
     for (const path of routes) {
       const src = code(path)
-      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src)
+      /* Changed on purpose (round AA, Team): storeIdFor (lib/team/server) is auth.getUser() and then
+         the store this account owns, or works in as a member whose role has orders, checked in the database. */
+      const who = /currentCreatorId\(\)/.test(src) || /auth\.getUser\(\)/.test(src) || (/await storeIdFor\("orders"\)/.test(src) && /if \(store\.ok === false\)/.test(src))
       check(`${path} asks who is signed in`, who)
       if (path.includes("[id]")) {
         check(`  and only acts on an order of theirs`, /await ownedOrderLines\(admin, creatorId, id\)/.test(src) && /if \(!lines\) return NextResponse\.json\(\{ error: "This order was not found\." \}, \{ status: 404 \}\)/.test(src))

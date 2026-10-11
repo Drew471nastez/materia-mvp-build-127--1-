@@ -15,7 +15,7 @@ function cell(value: unknown): string {
 
 /** Orders still to ship (or all, with ?all=1), one row per item, for a warehouse or a spreadsheet. */
 export async function GET(request: Request) {
-  const c = await physicalCaller()
+  const c = await physicalCaller("orders")
   if (c instanceof NextResponse) return c
   const all = new URL(request.url).searchParams.get("all") === "1"
   let q = c.db

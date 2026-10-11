@@ -105,7 +105,7 @@ export function siteGate(
     removeBranding: "Removing Storelib branding is available on Pro.",
     customCode: "Custom code is available on Pro.",
     premiumTemplates: "Premium templates are available on Pro.",
-    shopify: "Connecting Shopify is available on Pro.",
+    shopify: "Connecting another store is available on Pro.",
   }
   return reasons[capability]
 }

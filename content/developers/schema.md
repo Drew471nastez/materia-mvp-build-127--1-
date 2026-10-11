@@ -31,13 +31,13 @@ This is the schema of the library's Accordion FAQ, `sections/faq_accordion.store
 | `version` | no | The section's own version. Nothing reads it yet. |
 | `blocks` | no | The block types this section declares, or the theme blocks it accepts: `[{ "type": "@theme" }]`. See [Blocks](/developers/blocks). |
 | `max_blocks` | no | The most blocks in all, up to 50. |
-| `presets` | no | What Add Section places: its settings and its blocks, keyed by id with `block_order` the way Shopify writes them, nested as deep as blocks go, with an optional `category`. No presets means the section is not offered. |
+| `presets` | no | What Add Section places: its settings and its blocks, keyed by id with `block_order`, nested as deep as blocks go, with an optional `category`. No presets means the section is not offered. |
 | `capabilities` | no | What the section may reach: `embed` for a player frame, and the script capabilities. See [JavaScript](/developers/javascript#capabilities). |
 | `supports_color_scheme` | no | `false` hides the scheme picker. Unset, it is shown when the schema has a `color_scheme` setting. |
 | `supports_color_overrides` | no | Which colours Advanced colors offers for this section: `true`, `false`, or a list. See [Styling](/developers/styling#a-sections-own-colour-overrides). |
 | `supports_typography_overrides` | no | `false` hides the Heading style and Body style controls. Shown unless it says `false`. |
 | `allowed_templates`, `disabled_templates` | no | Meant to limit the pages a section may be placed on; one or the other, never both. Validated and kept. **Nothing uses them yet**: Add Section offers every section on every page. |
-| `enabled_on`, `disabled_on` | no | Which section groups it may sit in, Shopify's spelling: `{ "groups": ["header"] }`. The groups are `header`, `footer`, `template` (the page's own sections) and `overlay` (what floats over every page), or `"*"` for the header, page and footer. One or the other, never both. Unset, a section is a page section, and one with `"category": "announcement"` belongs to the header group. See [Where a section may go](#where-a-section-may-go). |
+| `enabled_on`, `disabled_on` | no | Which section groups it may sit in, the usual spelling: `{ "groups": ["header"] }`. The groups are `header`, `footer`, `template` (the page's own sections) and `overlay` (what floats over every page), or `"*"` for the header, page and footer. One or the other, never both. Unset, a section is a page section, and one with `"category": "announcement"` belongs to the header group. See [Where a section may go](#where-a-section-may-go). |
 | `kind` | no | `"header"` or `"footer"`: this section IS the site's header or footer, and replaces the built-in one on every page. Only for a creator who asked for one of their own; at most one of each per theme. See [The header and footer](/developers/header-and-footer#a-header-of-your-own). |
 | `migrations` | no | Meant for renaming a setting across versions. Validated and kept. **Nothing applies them yet**; see [Changing a section safely](#changing-a-section-safely). |
 
@@ -76,9 +76,9 @@ Pick the type by what the value is, because the type decides the control the cre
 | One of the creator's collections | `collection_picker` | Their collections with a picture and a product count, and a search box. |
 | Several collections, in an order | `collection_list` | The same list, with Add collection, Up, Down and Remove. |
 | A size, a count, a time | `number` with `unit`, or `range` | A number box with the unit inside it, or a slider. |
-| Alignment of text | `alignment` (Shopify's `text_alignment`) | Left, centre and right. |
+| Alignment of text | `alignment` (`text_alignment` is read as this) | Left, centre and right. |
 | A font for one part of the section | `font_picker` | The fonts Theme settings offers, each in its own face. The page loads the one picked. |
-| Markup pasted from another service | `html` (Shopify's `liquid` is read as this) | A code box. Scripts, forms and unknown frames are removed. |
+| Markup pasted from another service | `html` (`liquid` is read as this) | A code box. Scripts, forms and unknown frames are removed. |
 | A list of links: a menu, a nav, footer links | `link_list` | A choice of the site's menus. See [Menus](/developers/dynamic-values#menus). |
 | A colour of one element | `color` with `"default": "scheme.<name>"` | A colour row that follows the scheme until they pick one. See [Styling](/developers/styling#a-colour-setting-for-each-element). |
 | Words | `text`, `textarea`, `inline_richtext`, `richtext` | A box to type in. |

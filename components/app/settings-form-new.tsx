@@ -20,7 +20,8 @@ import {
   CreditCard, Shield, Settings, Wallet, Landmark, Truck,
   ExternalLink, Globe,
   User, FileText,
-  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2, History
+  ToggleLeft, Bell, LogOut, Trash2, Languages, Info, ChevronDown, CheckCircle, Clock, Copy, Plus, Plug, Brain, MapPin, Undo2, Receipt, Store, ShoppingCart, Share2, History,
+  Users,
 } from "lucide-react"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
@@ -62,6 +63,7 @@ import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { ActivityPanel } from "@/components/app/settings/activity-panel"
+import { TeamPanel } from "@/components/app/settings/team-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
 import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
 import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
@@ -83,6 +85,8 @@ const TABS = [
   { id: "privacy", label: "Privacy", icon: ToggleLeft, group: "account", line: "What others see and what we send" },
   { id: "notifications", label: "Notifications", icon: Bell, group: "account", line: "Emails and alerts you get" },
   { id: "billing", label: "Plan", icon: CreditCard, group: "account", line: "Your plan, invoices and payment card" },
+  /* Who helps run the store, and the stores you help run (components/app/settings/team-panel.tsx, lib/team). */
+  { id: "team", label: "Team", icon: Users, group: "account", line: "People who help run your store" },
   { id: "store", label: "Store details", icon: Store, group: "store", line: "Name, contact, phone and country" },
   { id: "payments", label: "Payments", icon: Wallet, group: "store", line: "How buyers pay you and payouts" },
   { id: "checkout", label: "Checkout", icon: ShoppingCart, group: "store", line: "Accounts, news box and what is asked" },
@@ -2177,6 +2181,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "channels" && <ChannelsPanel />}
           {panelTab === "emails" && <CustomerEmailsPanel />}
           {panelTab === "activity" && <ActivityPanel />}
+          {panelTab === "team" && <TeamPanel />}
           {panelTab === "returns" && (
             <div className="space-y-4 sm:space-y-6">
               {physicalCommerce && <ShippingSettings part="returns" />}
