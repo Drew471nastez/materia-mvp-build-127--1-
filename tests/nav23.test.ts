@@ -30,7 +30,7 @@
 import { readCode, readSource } from "./_source"
 import { BACK_MARK, BACK_MARK_MS, fullLoadFor, markBackStarted, SKEW_SAFE_MS } from "@/lib/ui/new-deploy"
 import { LEAVING_SEEN_MS, NAVIGATE_CEILING_MS, navigateWithCeiling } from "@/lib/website-builder/navigate-ceiling"
-import { NAV_SPINNER_CAP_MS } from "@/lib/ui/app-navigation"
+import { NAV_SPINNER_CAP_MS, NAV_STUCK_AFTER_ANSWER_MS } from "@/lib/ui/app-navigation"
 
 let passed = 0
 let failed = 0
@@ -59,7 +59,7 @@ console.log("\nSHEET: one close, whichever way it is closed")
   check("opened on its own, the sheet is hidden the moment its sliding copy takes over", /ghostPanel\.style\.transform = [^\n]+\n[\s\S]{0,200}?setGone\(true\)\s*\n\s*go\(\)/.test(sheet))
   check("  and without motion it is hidden too", /if \(!el \|\| !root \|\| !motion\) \{\s*\n\s*setGone\(true\)\s*\n\s*return go\(\)/.test(sheet))
   check("  its way out is skipped when the address already left, and replaces Settings rather than stacking on it",
-    /const go = \(\) => \{\s*\n\s*if \(!onSettings\(\)\) return/.test(sheet) && /backThen\(\(\) => router\.replace\("\/app"\)\)/.test(sheet) && /else router\.replace\("\/app"\)/.test(sheet) && !/router\.push\("\/app"\)/.test(sheet))
+    /const go = \(\) => \{\s*\n\s*if \(!onSettings\(\)\) return/.test(sheet) && /const toDashboard = \(\) => router\.replace\("\/app"\)\s*\n\s*if \(ours && window\.history\.length > 1\) backThen\(toDashboard\)\s*\n\s*else toDashboard\(\)/.test(sheet) && !/router\.push\("\/app"\)/.test(sheet))
   check("  it comes back only if the dashboard has not come by the app's give up, not after 2.5s", /const STUCK_PAGE_MS = 10_000/.test(sheet) && /\}, overlay \? STUCK_MS : STUCK_PAGE_MS\)/.test(sheet))
   check("  and the dashboard is fetched whole ahead, not only its frame", /prefetchAppPage\(router, "\/app"\)/.test(sheet) && !/router\.prefetch\("\/app"\)/.test(sheet))
 }
@@ -102,6 +102,7 @@ console.log("\nRELOADS: a whole page load only when nothing else can work, never
   const nav = code("lib/ui/app-navigation.ts")
   check("a page that landed outside the shell ends its record instead of being loaded again",
     /const navPath = pathOf\(new URL\(nav\.href as string, window\.location\.href\)\.pathname\)\s*\n\s*if \(pathOf\(window\.location\.pathname\) === navPath && committedPath !== navPath\) \{\s*\n\s*endAppNavigation\(\)\s*\n\s*return/.test(nav))
+  check("  and a page still rendering after its answer (a heavy page on a slow phone) is given 6s, not 2s", NAV_STUCK_AFTER_ANSWER_MS === 6_000)
   const stage = code("components/app/app-stage.tsx")
   check("  and the shell going ends it too", /useEffect\(\(\) => \(\) => \{\s*\n\s*forgetCommitted\(\)\s*\n\s*endAppNavigation\(\)\s*\n\s*\}, \[\]\)/.test(stage))
 }

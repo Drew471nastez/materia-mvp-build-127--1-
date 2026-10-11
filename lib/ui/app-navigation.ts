@@ -354,7 +354,13 @@ export function watchRouterCommits() {
  * document. Resource timing only, so no request is touched and no response
  * is read.
  */
-export const NAV_STUCK_AFTER_ANSWER_MS = 2000
+/*
+  Six seconds, not two (round 23). Two seconds after its answer and its code, a heavy page can still be rendering on a
+  slow phone: the website builder's editor, entered by a link at 4x CPU, took up to 2.7s from its answer to its commit in
+  scripts/nav23-real-router, and the check loaded it again as a document just as it was arriving. The page the router
+  really lost is still loaded for real, a few seconds later.
+*/
+export const NAV_STUCK_AFTER_ANSWER_MS = 6000
 /** The router's request goes out inside the press, a moment either side of the record starting. */
 const ANSWER_SLACK_MS = 20
 

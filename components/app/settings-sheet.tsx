@@ -311,8 +311,9 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
           Through the back watch, so a Back that goes nowhere still lands on the dashboard. In place of Settings, not on
           top of it: closed is closed, and the Back after it does not open the sheet again.
         */
-        if (ours && window.history.length > 1) backThen(() => router.replace("/app"))
-        else router.replace("/app")
+        const toDashboard = () => router.replace("/app")
+        if (ours && window.history.length > 1) backThen(toDashboard)
+        else toDashboard()
       }
       const root = el?.parentElement
       if (!el || !root || !motion) {

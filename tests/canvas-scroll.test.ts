@@ -529,7 +529,7 @@ section("Leaving a page always ends, one way or the other")
     /export const LEAVING_SEEN_MS = 0/.test(
       readFileSync(join(process.cwd(), "lib/website-builder/navigate-ceiling.ts"), "utf8"),
     ) &&
-      /LEAVING_SEEN_MS, navigateWithCeiling/.test(editor) &&
+      /LEAVING_SEEN_MS, (NAVIGATE_CEILING_MS, )?navigateWithCeiling/.test(editor) &&
       /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
       /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
   )
