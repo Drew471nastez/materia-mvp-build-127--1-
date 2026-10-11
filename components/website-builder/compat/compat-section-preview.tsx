@@ -377,12 +377,19 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       setSeen(true)
       return
     }
+    /*
+      NEAR THE SCREEN MEANS NEAR THE LIST'S OWN VIEW. Watched against the
+      window, the margin never reached past the library's scrolling list, which
+      cuts off whatever it does not show: a card was only drawn once it was
+      already on screen, and came in grey, then empty, then drawn. Against the
+      list, the cards a little further down are drawn before they are reached.
+    */
     const io = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) {
         setSeen(true)
         io.disconnect()
       }
-    }, { rootMargin: "800px 0px" })
+    }, { root: el.closest<HTMLElement>("[data-library-scroll]"), rootMargin: "800px 0px" })
     io.observe(el)
     return () => io.disconnect()
   }, [seen])

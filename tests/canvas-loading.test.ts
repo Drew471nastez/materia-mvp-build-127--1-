@@ -155,6 +155,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("a card is never made shorter where it can be seen", /if \(wanted > kept\.h \|\| !inSight\(box\.current\)\)/.test(preview) && /releaseCompatHeld\(\)/.test(read("components/website-builder/editor/section-library.tsx")))
     check("a card that is coming shimmers, and only while the library is open", /wb-preview-shimmer/.test(preview) && /\.wb-library-layer\[data-state="closed"\] \.wb-preview-shimmer::after/.test(read("app/globals.css")))
     check("the pages are drawn ahead in quiet moments, the first cards loaded ahead", /return seen \? whenIdle\(job\) : whenQuiet\(job\)/.test(preview) && /eager=\{eager\} \/>/.test(read("components/website-builder/editor/section-library.tsx")))
+    check("a card is drawn as it nears the list's own view, not the window's (the list clips the window's margin)", /root: el\.closest<HTMLElement>\("\[data-library-scroll\]"\), rootMargin: "800px 0px"/.test(preview))
     check("files that never come name each card instead of a shimmer for good", /failed: failed \|\| \(!!files && !theme\)/.test(preview) && /const unavailable = !!ctx\?\.failed/.test(preview))
   }
 
