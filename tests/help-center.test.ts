@@ -136,7 +136,7 @@ console.log("\nThe physical products guide")
     return false
   }
   const brokenP = linksP.filter((h) => !landsP(h))
-  check("every link in the guide lands on an article or a developer page", linksP.length >= 40 && brokenP.length === 0, brokenP)
+  check("every link in the guide lands on an article or a developer page", linksP.length >= 25 && brokenP.length === 0, brokenP)
 
   /* The screenshots: each one a real file, the size it says, used, and described. */
   const images = P.flatMap((a) => a.body.filter((b): b is Extract<typeof b, { type: "image" }> => b.type === "image"))

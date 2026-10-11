@@ -9,7 +9,7 @@ The biggest differences first:
 - **CSS is scoped for you**, and a script runs in a sandbox against a copy of the section. See [Styling](/developers/styling) and [JavaScript](/developers/javascript).
 - **Storelib is for creators**, not merchants with warehouses. There is no blog and there are no metaobjects, so the settings that pick those do not exist. What a creator sells is `products`, grouped in collections, and what they arrange is sections.
 
-How close the builder is to Shopify's theme editor, setting by setting and page by page, is in [Shopify parity](/developers/shopify-parity).
+How close the builder is to Shopify's theme editor, setting by setting and page by page, is in [Shopify parity](/developers/shopify-parity). To bring a whole Shopify theme across as it is, Liquid and all, import its zip instead: see [Imported Shopify themes](/developers/imported-shopify-themes).
 
 ## Setting types
 

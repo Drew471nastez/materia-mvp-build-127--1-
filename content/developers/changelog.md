@@ -12,6 +12,20 @@ A file written for a newer version is **refused, not misread**: a schema declari
 
 Every change since 1.0 has been additive. Nothing a section could do on 11 September 2026 has stopped working since, which is why every version above is still 1.
 
+## 11 October 2026
+
+**Added**
+
+- [Imported Shopify themes](/developers/imported-shopify-themes): a page on what a theme imported from Shopify can use on Storelib, from Liquid and the AJAX cart to accounts, the canvas and what does not come across.
+- In an imported theme: sign in, sign up and the account page on the website's own host with an emailed code, in the theme's own `customers/*` templates when it has them; the theme's hearts kept in step with the website's wishlist; contact and newsletter forms that reach the creator; a blog page drawn with its title and no posts.
+- In the builder's canvas, an imported theme's Add to cart, cart drawer and quantity changes work against a cart the builder keeps; checkout says it opens on the live site.
+- Live websites cross-fade between pages, with the next page fetched while the pointer rests on its link ([between pages](/developers/imported-shopify-themes#between-pages-on-the-live-site)).
+
+**Changed**
+
+- `shop.name` falls back to the store's name from Settings › Store details before the creator's own name, on native and imported themes, live and in the canvas.
+- Check out in an imported theme hands the cart to Storelib's branded checkout, and a checkout button the theme keeps disabled until its terms box is ticked is freed when it is.
+
 ## 10 October 2026
 
 **Added**

@@ -127,6 +127,15 @@ export const DEV_PAGES: readonly DevPage[] = [
     group: "Themes",
   },
   {
+    slug: "imported-shopify-themes",
+    title: "Imported Shopify themes",
+    nav: "Imported Shopify themes",
+    summary: "A Shopify theme on Storelib: Liquid, the cart, checkout, accounts, the canvas.",
+    description:
+      "What happens when a Shopify theme is imported into Storelib: the Liquid tags, filters and objects it can use, section groups and the Section Rendering API, the AJAX cart, checkout, predictive search, forms, customer accounts with emailed codes, the wishlist, the theme's scripts, the builder's canvas, live navigation and what does not come across.",
+    group: "Themes",
+  },
+  {
     slug: "publishing",
     title: "Publishing and checks",
     nav: "Publishing and checks",

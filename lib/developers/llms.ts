@@ -44,6 +44,7 @@ export function llmsTxt(): string {
     line("header-and-footer"),
     line("building-a-store"),
     line("sharing-themes"),
+    line("imported-shopify-themes"),
     line("publishing"),
     "",
     `## Sections: the ${FRAMEWORK_NAME}`,
