@@ -19,7 +19,7 @@ import type { Db } from "./auth"
 import { addOrderEvent, orderEvents, type OrderEvent } from "./events-server"
 import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
-import { canMoveShipment, fulfillmentStatusOf, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
+import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
@@ -483,13 +483,8 @@ export async function saveNote(db: Db, creatorId: string, checkoutId: string, no
  * showed them as not available. Only when the whole amount is refunded and
  * no shipment is out: a partial refund, or one after shipping, leaves stock
  * to the return flow, which restocks what comes back. Safe to call twice.
+ * The rule is ./status refundReleasesStock, pure, so the tests run it.
  */
-export function refundReleasesStock(o: Pick<PhysicalOrder, "totalCents" | "refundedCents" | "cancelledAt" | "shipments" | "lines">): boolean {
-  if (o.cancelledAt || o.totalCents <= 0 || o.refundedCents < o.totalCents) return false
-  if (o.shipments.some((s) => s.status !== "cancelled")) return false
-  return o.lines.some((l) => l.type === "physical")
-}
-
 async function releaseRefundedStock(db: Db, creatorId: string, order: PhysicalOrder, actor: "creator" | "webhook"): Promise<void> {
   if (!refundReleasesStock(order)) return
   await db.rpc("physical_cancel_unfulfilled", { p_checkout: order.id })

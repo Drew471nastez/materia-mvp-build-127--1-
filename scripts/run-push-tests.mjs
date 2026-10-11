@@ -238,6 +238,7 @@ const SUITES = [
   "tests/payments-setup-errors.test.ts",
   "tests/stripe-payments-facts.test.ts",
   "tests/physical-commerce.test.ts",
+  "tests/physical-shipping-r3.test.ts",
   "tests/storelib-fees.test.ts",
   "tests/fees-free-plan.test.ts",
   "tests/stripe-connect-production.test.ts",
