@@ -1980,8 +1980,10 @@ export async function proxy(request: NextRequest) {
       preview). It reads nothing and shows only what its parent on this
       origin posts to it, and it is framed on the same terms as the others.
     */
+    /* And the page a website's cover is taken of, shown small on the owner's Website page while its photograph is on its way (a pass for one install, two minutes). */
     const framableWhenEmbedded =
       url.pathname === "/onepage-preview" ||
+      url.pathname.startsWith("/cover-render/") ||
       url.pathname.startsWith("/website-builder/code/") ||
       url.pathname.startsWith("/u/") ||
       creatorPath ||
@@ -1989,9 +1991,11 @@ export async function proxy(request: NextRequest) {
     const framed = framableWhenEmbedded && url.searchParams.get("embedded") === "1"
     if (framed) {
       const existing = supabaseResponse.headers.get("Content-Security-Policy")
+      /* The cover's page draws a creator's own sections: framed, it is also given no origin of its own, whatever the frame's tag says. */
+      const rule = url.pathname.startsWith("/cover-render/") ? "sandbox allow-scripts; frame-ancestors 'self'" : "frame-ancestors 'self'"
       supabaseResponse.headers.set(
         "Content-Security-Policy",
-        existing ? `${existing}; frame-ancestors 'self'` : "frame-ancestors 'self'",
+        existing ? `${existing}; ${rule}` : rule,
       )
     }
   }

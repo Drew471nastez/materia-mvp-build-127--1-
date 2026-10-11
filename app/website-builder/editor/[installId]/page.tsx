@@ -160,6 +160,9 @@ import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-buil
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
+import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
@@ -2623,6 +2626,10 @@ function newBlockId(): string {
 const INSPECT_FADE_MS = 200
 /** The longest the editor's loader waits for an imported theme's first page to paint. */
 const COMPAT_PAINT_CAP_MS = 8000
+/** The longest one request for the website or a page's sections is waited for before it counts as failed. */
+const SECTIONS_WAIT_MS = 20_000
+/** The longest the canvas is held for a product opened from the address. */
+const CANVAS_HOLD_CAP_MS = 6000
 
 /*
   OUT OF THE FIRST PAINT. The AI conversation is drawn only once it has been
@@ -2635,7 +2642,8 @@ const loadThemeChat = () => import("@/components/website-builder/theme-chat")
 const loadProjectSettings = () => import("@/components/website-builder/project-settings")
 /* An imported Shopify theme's canvas: only such a site needs it, and its code is asked for with the theme's files (warmCompat). */
 const loadCompatCanvas = () => import("@/components/website-builder/compat/compat-canvas")
-const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false })
+/* Until its code is in: the outline the canvas itself starts with, never a white page (canvas-problem.tsx). */
+const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false, loading: () => <CompatCanvasWaiting /> })
 function warmCompat(installId: string) {
   void loadCompatFiles(installId)
   void loadCompatCanvas().catch(() => {})
@@ -2711,6 +2719,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [canvasInspecting, setCanvasInspecting] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
+  /* The editor's first load ended without the website (a request that failed or never answered): said over the canvas, with Try again. */
+  const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
@@ -3552,7 +3562,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // home's header/footer rather than its own persisted copy, so custom/about/
   // contact/product pages can never drift visually from home.
   const fetchHomeHeaderFooter = useCallback(async (): Promise<Chrome> => {
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=home`)
+    /* Every wait here ends (lib/website-builder/load-guard.ts): a request that never answers is an error, not a canvas that never draws. */
+    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=home`, {}, SECTIONS_WAIT_MS)
     if (!res.ok) return {}
     const data = await res.json()
     const loaded: SectionInstance[] = data.sections ?? []
@@ -3569,7 +3580,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const mergeWithHomeHeaderFooter = withUniversalChrome
 
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
+    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=${page}`, {}, SECTIONS_WAIT_MS)
+    /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
+    if (res.status >= 500) throw new Error(`the ${page} page answered ${res.status}`)
     if (!res.ok) return []
     const data = await res.json()
     // The server's own answer to "is the draft ahead of live". See `unpublished`.
@@ -3655,6 +3668,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // forever, which is exactly what the user reported.
   const loadData = useCallback(async () => {
     setLoading(true)
+    setLoadFailed(false)
     /*
       ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
       install to come back before they were even asked for, which put two
@@ -3668,8 +3682,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
     ]).then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }))
     try {
-    const res = await fetch(`/api/website-builder/themes/${installId}`)
-    if (!res.ok) { setLoading(false); return }
+    /* Asked again on a dropped connection or a 5xx, and never waited on forever; one that cannot be had is said over the canvas. */
+    const res = await retrying(async () => {
+      const r = await fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)
+      if (r.status >= 500) throw new Error(`the website answered ${r.status}`)
+      return r
+    }, [700, 2000])
+    if (!res.ok) {
+      reportLoadProblem("editor", `the website answered ${res.status}`)
+      setLoadFailed(true)
+      setLoading(false)
+      return
+    }
     const data = await res.json()
     const inst: ThemeInstall = data.install
     setInstall(inst)
@@ -3805,6 +3829,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(loaded)
     } catch (err) {
       console.error("[editor] loadData failed:", err)
+      reportLoadProblem("editor", err)
+      setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -4098,7 +4124,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * content for it is in hand. React batches these into one commit, so
        * the canvas goes from the old page straight to the new one with no
        * frame in between.
+       *
+       * And the old one is held over it, copied, until the new one is drawn
+       * with its first pictures in, then faded off it (lib/website-builder/
+       * canvas-still.ts). Not over an imported theme's canvas, whose frames
+       * cross-fade on their own (compat-canvas.tsx).
        */
+      if (!importedTheme.current) holdCanvasStill(() => currentPageRef.current === page)
       setCurrentPage(page)
       setSelectedProductPage(null)
       setSelectedProductId(null)
@@ -4108,9 +4140,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       setSectionsLoading(false)
       setCanvasLoading(false)
+    } catch (err) {
+      /* The page you were on stays, and says why it is still there; the sidebar's skeleton and the canvas's hold go. */
+      pageOpenFailed(err)
     } finally {
       switchingPage.current = false
     }
+  }
+
+  /** A page or product that could not be opened: nothing is left waiting on it, and it is said once. */
+  function pageOpenFailed(err: unknown) {
+    console.error("[editor] a page could not be opened:", err)
+    reportLoadProblem("editor", err)
+    setSectionsLoading(false)
+    setCanvasLoading(false)
+    openingPage.current = false
+    toast.error("Couldn't open that page. Try again.", { id: "wb-page-open" })
   }
 
   /**
@@ -4155,6 +4200,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (before === null || before === key) return
     const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
     const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+    /* The page being left is held over this one and fades off it (canvas-still.ts): fading this one up as well showed the white behind both. */
+    if (document.querySelector(`[${CANVAS_STILL_ATTR}]`)) return
     if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
   /* Opened by a link to one of its sections (`/about#section-x`): from the
@@ -4231,18 +4278,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const fetchProductWithRetry = async (): Promise<{ product?: unknown } | null> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const r = await fetch(`/api/website-builder/products?id=${productId}`, { cache: "no-store" })
+          const r = await fetchWithin(`/api/website-builder/products?id=${productId}`, { cache: "no-store" }, SECTIONS_WAIT_MS)
           if (r.ok) return await r.json()
         } catch {}
       }
       return null
     }
 
-    const [pageSections, productRes, homeHF] = await Promise.all([
-      fetchPageSections("product"),
-      fetchProductWithRetry(),
-      leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
-    ])
+    let pageSections: SectionInstance[], productRes: { product?: unknown } | null, homeHF: Chrome
+    try {
+      ;[pageSections, productRes, homeHF] = await Promise.all([
+        fetchPageSections("product"),
+        fetchProductWithRetry(),
+        leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
+      ])
+    } catch (err) {
+      if (nav === pageNav.current) pageOpenFailed(err)
+      return
+    }
     if (nav !== pageNav.current) return
 
     // Use API response first, fall back to list data
@@ -4267,7 +4320,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Splice home's header/footer around this product template
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
-    /** One commit: the page, the product it is showing, and its sections. */
+    /** One commit: the page, the product it is showing, and its sections, under the page being left (see handlePageChange). */
+    if (!importedTheme.current) holdCanvasStill(() => selectedProductIdRef.current === productId)
     setSelectedProductPage(productTitle)
     setSelectedProductId(productId)
     setCurrentPage("product")
@@ -7447,6 +7501,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const canvasBusy = loading || canvasLoading
   /*
+    A PRODUCT OPENED FROM THE ADDRESS holds the canvas until its product is
+    in (the `canvasLoading` initializer). A product that is not in the list
+    (deleted, renamed, a shop with none) never let go of it: the loader
+    stayed for good. It lets go by CANVAS_HOLD_CAP_MS whatever happened, and
+    shows the product page as it is.
+  */
+  useEffect(() => {
+    if (!canvasLoading || loading) return
+    const t = window.setTimeout(() => {
+      setCanvasLoading(false)
+      reportLoadProblem("editor", "a product opened from the address never arrived")
+    }, CANVAS_HOLD_CAP_MS)
+    return () => window.clearTimeout(t)
+  }, [canvasLoading, loading])
+  /*
     AN IMPORTED THEME'S FIRST PAGE IS PART OF THE SAME WAIT. Its canvas is a
     frame that still has the theme's files to read and its page to draw once
     the editor has loaded, and that used to be a second loading screen after
@@ -9454,6 +9523,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     }
                   />
                 )}
+              </div>
+            )}
+
+            {loadFailed && !loading && (
+              <div className="absolute inset-0 z-10 bg-white">
+                <CanvasProblem
+                  kind="editor"
+                  title="Your website didn't load"
+                  body="Check your connection and try again."
+                  onRetry={() => void loadData()}
+                />
               </div>
             )}
 

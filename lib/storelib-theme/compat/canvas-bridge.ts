@@ -790,10 +790,16 @@ export const CANVAS_BRIDGE = `
       setInspect(m.on);
     } else if (m.type === "scroll") {
       scrollTo({ top: m.top || 0 });
+    } else if (m.type === "hello") {
+      /* The builder heard the frame load but not this page say so: said again, whatever order the two happened in. */
+      ready();
     }
   });
-  var ready = function () { post({ type: "ready", scrollY: scrollY }); };
+  var saidReady = false;
+  var ready = function () { saidReady = true; post({ type: "ready", scrollY: scrollY }); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", ready); else ready();
+  /* Every section is in the page by the time this runs, at its foot. A deferred script of the theme's that stalls holds DOMContentLoaded back for good, and the canvas with it: ready is said anyway after a moment. */
+  setTimeout(function () { if (!saidReady) ready(); }, 2500);
   /* Drawn, its pictures in: a page drawn behind the one on screen takes its place at this, not before. */
   var loaded = function () { post({ type: "loaded", scrollY: scrollY }); };
   if (document.readyState === "complete") setTimeout(loaded, 0); else addEventListener("load", loaded);
