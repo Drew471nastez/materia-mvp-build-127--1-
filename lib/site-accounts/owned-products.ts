@@ -38,3 +38,9 @@ export async function customerOwns(db: Db, scope: { creatorId: string; email: st
   for (const [id, options] of Object.entries(owned.options)) if (options.length) out[id] = { whole: false, options }
   return out
 }
+
+/** The same for one product, with the service client made here: the theme route's product page (app/api/site-theme/site). */
+export async function customerOwnsProduct(scope: { creatorId: string; email: string }, productId: string): Promise<ProductOwnership | null> {
+  const { createAdminClient } = await import("@/lib/supabase/admin")
+  return (await customerOwns(createAdminClient(), scope, [productId]))[productId] ?? null
+}

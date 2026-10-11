@@ -159,9 +159,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     /* A signed in customer's product page says "You already own this" for a download they have (lib/site-accounts/owned-products). */
     owned: account?.customer?.email
       ? async (productId: string) => {
-          const { customerOwns } = await import("@/lib/site-accounts/owned-products")
-          const { createAdminClient } = await import("@/lib/supabase/admin")
-          return (await customerOwns(createAdminClient(), { creatorId: shopId, email: account.customer!.email }, [productId]))[productId] ?? null
+          const { customerOwnsProduct } = await import("@/lib/site-accounts/owned-products")
+          return customerOwnsProduct({ creatorId: shopId, email: account.customer!.email }, productId)
         }
       : undefined,
     submit: token

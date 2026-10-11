@@ -238,7 +238,7 @@ async function main() {
     const notOwned = String((await answer(site, { method: "GET", path: "/products/ebook", query: new URLSearchParams(), body: null, cart: [], account: { customer }, owned: async () => null })).body)
     check("  nor for a product they don't own", !/sl-owned/.test(notOwned))
     const live = code("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-    check("the live route asks only for a signed in customer, by the session's email and this site's shop", /owned: account\?\.customer\?\.email\s*\?/.test(live) && /customerOwns\(createAdminClient\(\), \{ creatorId: shopId, email: account\.customer!\.email \}, \[productId\]\)/.test(live))
+    check("the live route asks only for a signed in customer, by the session's email and this site's shop", /owned: account\?\.customer\?\.email\s*\?/.test(live) && /customerOwnsProduct\(\{ creatorId: shopId, email: account\.customer!\.email \}, productId\)/.test(live))
 
     const section2 = code("components/website-builder/sections/renderers/ProductSection.tsx")
     check("a built site's product asks the website's own session, only when its signed in hint is there, never for a physical product", /sl_signed_in=1/.test(section2) && /\/api\/site-account\/owned\?ids=/.test(section2) && /product\.type === "physical" \|\| product\.type === "membership"\) return/.test(section2))
