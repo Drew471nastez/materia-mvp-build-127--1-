@@ -156,6 +156,62 @@ export function initialStatus(settings: Pick<ReviewsAppSettings, "publish" | "mi
 }
 
 /**
+ * ===========================================================================
+ *  WHO DECIDES WHERE A REVIEW SHOWS
+ * ===========================================================================
+ * Explore, the product page, the creator page and every Storelib rating
+ * read `status`. A store's website (the Storelib Reviews sections, its
+ * cards' stars and its structured data) reads `status` and `site_status`.
+ *
+ * A verified buyer's review is Storelib's: its `status` follows Storelib's
+ * own rule (published, until a report or Storelib hides it), so a store
+ * cannot take a real buyer's review out of its marketplace rating. The
+ * store's approval and hide are about its own website and move
+ * `site_status` only, and the store cannot delete it (it can report it,
+ * and only Storelib removes a review for policy).
+ *
+ * An unverified review (a visitor's, an imported one) is the store's own:
+ * the store's approval, hide and delete move `status`, as before.
+ */
+export type SiteStatus = "shown" | "pending" | "hidden"
+
+export function readSiteStatus(v: unknown): SiteStatus {
+  return v === "pending" || v === "hidden" ? v : "shown"
+}
+
+/** Tied to a purchase. A row from before run-now part 133 has no column, and every one of those was a buyer's. */
+export function isVerifiedReview(row: { verified?: unknown }): boolean {
+  return row.verified !== false
+}
+
+/** Where a new review starts: `status` for Storelib, `site_status` for the store's website. */
+export function startingStatus(settings: Pick<ReviewsAppSettings, "publish" | "minStars">, rating: number, verified: boolean): { status: "published" | "pending"; site_status: SiteStatus } {
+  const store = initialStatus(settings, rating)
+  return verified ? { status: "published", site_status: store === "pending" ? "pending" : "shown" } : { status: store, site_status: "shown" }
+}
+
+/** What the store's website does with a review: show it, wait for the store, or leave it off. */
+export function websiteStatus(row: { status?: unknown; site_status?: unknown }): "published" | "pending" | "hidden" {
+  if (row.status === "hidden") return "hidden"
+  if (row.status === "pending") return "pending"
+  const site = readSiteStatus(row.site_status)
+  return site === "shown" ? "published" : site
+}
+
+/**
+ * The store's list (Reviews in the app): `status` is where the review is on
+ * the store's own website, `hidden_by` says who hid it ("seller" for the
+ * store, anything else a report or Storelib), and `on_storelib` whether
+ * Explore and the product page show it, which a verified buyer's review
+ * does whatever the store chose for its website.
+ */
+export function sellerView(row: { status?: unknown; site_status?: unknown; hidden_by?: unknown }): { status: "published" | "pending" | "hidden"; hidden_by: string | null; on_storelib: boolean } {
+  const status = websiteStatus(row)
+  const hidden_by = row.status === "hidden" ? (typeof row.hidden_by === "string" ? row.hidden_by : null) : status === "hidden" ? "seller" : null
+  return { status, hidden_by, on_storelib: row.status !== "hidden" && row.status !== "pending" }
+}
+
+/**
  * The name a review shows: the first name and the first letter of the last,
  * "Jane D.", never a full name and never an address. One word stays as it
  * is. Null when nothing usable is left, and the card says "Verified buyer"

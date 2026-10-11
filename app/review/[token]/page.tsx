@@ -2,7 +2,7 @@ import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { canDeliver } from "@/lib/receipts/rules"
-import { canEditUntil, publicName, readPhotos } from "@/lib/reviews/app-settings"
+import { canEditUntil, publicName, readPhotos, websiteStatus } from "@/lib/reviews/app-settings"
 import { looksLikeRequestToken, verifyRequest } from "@/lib/reviews/request-token"
 import { requestContext } from "@/lib/reviews/requests-server"
 import { mediaUrl } from "@/lib/storage/media-url"
@@ -60,7 +60,7 @@ export default async function ReviewPage({ params, searchParams }: { params: Pro
           content: review.content ?? "",
           name: review.reviewer_name ?? "",
           photos: readPhotos(review.photos).map((p) => ({ path: p.path, url: p.url, removed: p.status === "removed" })),
-          status: review.status === "pending" ? "pending" : review.status === "hidden" ? "hidden" : "published",
+          status: websiteStatus(review),
           editable: canEditUntil(review.created_at, ctx.settings.editDays),
         }
       : null,

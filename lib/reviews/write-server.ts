@@ -11,18 +11,20 @@ import "server-only"
  *                         line, so the review is that order's, verified,
  *                         and on the buyer's account when the order is
  *   on the website        /api/reviews/site, when the store lets anyone
- *                         write: verified only when the address bought the
- *                         product (an order of it, paid and still theirs),
- *                         and then tied to that order
+ *                         write: never verified (a buyer's address is sent
+ *                         their own link instead)
  *
- * Either way the review starts published or pending by the store's rule
- * (initialStatus), the ratings are counted again (published only), the
+ * The store's rule (initialStatus) decides where the review starts on the
+ * store's website. A verified buyer's review is published for Storelib
+ * either way and waits, when it waits, on the website only (site_status);
+ * an unverified one waits everywhere (app-settings startingStatus). The
+ * ratings are counted again (published only), the
  * store is told, and its photos are the ones the upload route put in this
  * store's folder of review-photos, each checked again here by its path.
  */
 import { canDeliver } from "@/lib/receipts/rules"
 import { refreshReviewStats } from "./store"
-import { initialStatus, type ReviewsAppSettings } from "./app-settings"
+import { startingStatus, type ReviewsAppSettings } from "./app-settings"
 import { notifySellerOfReview } from "./notify-seller"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,10 +65,12 @@ export interface NewAppReview {
   author?: { email: string | null; ipHash: string | null } | null
 }
 
+/** `status` is the store's website's: "pending" while the store has not approved it there. */
 export type WriteResult = { ok: true; review: Record<string, unknown>; status: "published" | "pending" } | { ok: false; status: number; error: string; alreadyReviewed?: boolean }
 
 export async function insertAppReview(db: Db, r: NewAppReview): Promise<WriteResult> {
-  const status = initialStatus(r.settings, r.rating)
+  const start = startingStatus(r.settings, r.rating, r.verified)
+  const status: "published" | "pending" = start.site_status === "pending" || start.status === "pending" ? "pending" : "published"
   const now = new Date().toISOString()
   const row: Record<string, unknown> = {
     product_id: r.product.id,
@@ -77,11 +81,12 @@ export async function insertAppReview(db: Db, r: NewAppReview): Promise<WriteRes
     title: r.title || null,
     content: r.content,
     reviewer_name: r.name,
-    status,
+    status: start.status,
+    site_status: start.site_status,
     verified: r.verified,
     source: r.source,
     photos: photoEntries(db, r.photoPaths),
-    published_at: status === "published" ? now : null,
+    published_at: start.status === "published" ? now : null,
   }
   const { data: review, error } = await db.from("reviews").insert(row).select("*").single()
   if (error || !review) {

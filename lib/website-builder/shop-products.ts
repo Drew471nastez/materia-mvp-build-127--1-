@@ -418,9 +418,11 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
 
 /**
  * STORELIB REVIEWS' STARS ON A CARD. With the app on and "Stars on product
- * cards" on (lib/reviews/app-settings.ts), each card that has published
- * reviews carries its rating: products.reviews_average and reviews_count,
- * which the reviews trigger keeps for published reviews only. A product
+ * cards" on (lib/reviews/app-settings.ts), each card that has reviews shown
+ * on the website carries its rating, counted from the reviews the website's
+ * review sections show: published, and not hidden or waiting on the website
+ * (site_status). Before run-now part 133 (no site_status, and the app cannot
+ * be on) it is products.reviews_average and reviews_count. A product
  * card section draws stars from it; an imported Shopify theme reads it as
  * product.metafields.reviews.rating (lib/storelib-theme/compat/objects.ts).
  * The app off, or no reviews: nothing is added. Never throws.
@@ -434,7 +436,22 @@ export async function withRatings(db: Db, creatorId: string, cards: ProductCard[
   if (!settings.enabled || !settings.display.showCardRating) return cards
   const byId = new Map<string, { count: number; average: number }>()
   for (let i = 0; i < cards.length; i += 80) {
-    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("status", "published").in("id", cards.slice(i, i + 80).map((c) => c.id))
+    const ids = cards.slice(i, i + 80).map((c) => c.id)
+    const shown = await any.from("reviews").select("product_id, rating").in("product_id", ids).eq("status", "published").eq("site_status", "shown").limit(5000)
+    if (!shown.error) {
+      const sums = new Map<string, { n: number; total: number }>()
+      for (const r of (shown.data ?? []) as { product_id: string; rating: number | string }[]) {
+        const rating = Number(r.rating)
+        if (!(rating >= 1 && rating <= 5)) continue
+        const t = sums.get(r.product_id) ?? { n: 0, total: 0 }
+        sums.set(r.product_id, { n: t.n + 1, total: t.total + rating })
+      }
+      for (const [id, t] of sums) byId.set(id, { count: t.n, average: Math.round((t.total / t.n) * 10) / 10 })
+      continue
+    }
+    const code = String((shown.error as { code?: string } | null)?.code ?? "")
+    if (code !== "42703" && code !== "PGRST204") return cards
+    const { data, error } = await any.from("products").select("id, reviews_count, reviews_average").eq("status", "published").in("id", ids)
     if (error) return cards
     for (const r of (data ?? []) as { id: string; reviews_count?: number | null; reviews_average?: number | string | null }[]) {
       const count = Math.max(0, Math.floor(Number(r.reviews_count) || 0))

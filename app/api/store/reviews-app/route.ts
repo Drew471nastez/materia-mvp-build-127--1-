@@ -20,8 +20,9 @@ export async function GET() {
   if (c instanceof NextResponse) return c
   const { settings, ready } = await loadReviewsApp(c.db, c.creatorId)
   const [pending, published, asked] = await Promise.all([
-    c.db.from("reviews").select("id", { count: "exact", head: true }).eq("creator_id", c.creatorId).eq("status", "pending"),
-    c.db.from("reviews").select("id", { count: "exact", head: true }).eq("creator_id", c.creatorId).eq("status", "published"),
+    /* On the store's website (lib/reviews/app-settings websiteStatus): a verified buyer's review waits there while it is already on Storelib. */
+    c.db.from("reviews").select("id", { count: "exact", head: true }).eq("creator_id", c.creatorId).neq("status", "hidden").or("status.eq.pending,site_status.eq.pending"),
+    c.db.from("reviews").select("id", { count: "exact", head: true }).eq("creator_id", c.creatorId).eq("status", "published").eq("site_status", "shown"),
     c.db.from("review_requests").select("id", { count: "exact", head: true }).eq("creator_id", c.creatorId).in("status", ["sent", "reminded", "reviewed"]),
   ])
   return physicalJson({ settings, ready, counts: { pending: pending.count ?? 0, published: published.count ?? 0, asked: asked.error ? 0 : asked.count ?? 0 } })
