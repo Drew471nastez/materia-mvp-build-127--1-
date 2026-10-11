@@ -59,6 +59,7 @@ import { usePhysicalCommerceEnabled } from "@/components/platform/platform-setti
 import { ShippingSettings } from "@/components/physical/shipping-settings"
 import { peekGet, prefetchGet, whenGets } from "@/components/physical/ui"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
+import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
@@ -96,6 +97,8 @@ const TABS = [
   { id: "emails", label: "Customer emails", icon: Mail, group: "store", line: "What buyers get from you, and when" },
   /* The store's own tax regions and rates, for every product (components/app/settings/taxes-panel.tsx). */
   { id: "taxes", label: "Taxes", icon: Receipt, group: "store", line: "Tax you charge, by country" },
+  /* The website's languages, and the countries it sells to with their currency (components/app/settings/markets-panel.tsx, lib/markets). */
+  { id: "markets", label: "Markets and languages", icon: Languages, group: "store", line: "Languages, countries and currencies" },
   { id: "domains", label: "Domains", icon: Globe, group: "store", line: "Your own web address" },
   /* What Storelib AI keeps for the creator on every website (components/app/settings/ai-memory-panel.tsx). */
   { id: "ai_memory", label: "AI Memory", icon: Brain, group: "store", line: "What Storelib AI remembers about your store" },
@@ -163,6 +166,7 @@ const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
   checkout: () => ["/api/store/settings"],
   channels: () => ["/api/store/channels"],
   taxes: () => ["/api/store/taxes"],
+  markets: () => ["/api/store/markets"],
   emails: () => ["/api/store/emails"],
   activity: () => ["/api/store/activity"],
   ai_memory: () => ["/api/ai-memory"],
@@ -2178,6 +2182,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {panelTab === "shipping" && physicalCommerce && <ShippingSettings part="delivery" />}
           {panelTab === "locations" && physicalCommerce && <ShippingSettings part="locations" />}
           {panelTab === "taxes" && <TaxesPanel />}
+          {panelTab === "markets" && <MarketsPanel />}
           {panelTab === "channels" && <ChannelsPanel />}
           {panelTab === "emails" && <CustomerEmailsPanel />}
           {panelTab === "activity" && <ActivityPanel />}

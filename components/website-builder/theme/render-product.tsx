@@ -14,6 +14,7 @@
  * site was a 404. The work lives here once, and the two routes differ by one
  * thing, which is whether the address claims an owner.
  */
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import { sanitizeSections } from "@/lib/website-builder/sanitize-sections"
 import { withMediaUrls } from "@/lib/storage/media-url"
 import { cache } from "react"
@@ -230,7 +231,8 @@ export async function productStructuredData(slug: string, site: { url: string; s
  */
 export async function renderProduct(
   slug: string,
-  owner?: { creatorId: string },
+  /** `locale`: the page in another of the website's languages (/fr/products/…, lib/markets/live.ts). */
+  owner?: { creatorId: string; locale?: string | null },
   /**
    * A preview link, so the product page can be checked before it is
    * published, the same as every other page of the site. The token is
@@ -240,9 +242,12 @@ export async function renderProduct(
    */
   previewToken?: string,
 ) {
-  const product = await fetchProductBySlug(slug, owner?.creatorId)
-  if (!product || !product.creator_id) notFound()
-  if (owner && product.creator_id !== owner.creatorId) notFound()
+  const found = await fetchProductBySlug(slug, owner?.creatorId)
+  if (!found || !found.creator_id) notFound()
+  if (owner && found.creator_id !== owner.creatorId) notFound()
+  /* In another language: its approved title and description laid over, and the page's texts below. Never for a preview. */
+  const localizer = owner?.locale && !previewToken ? await siteLocalizer(found.creator_id, owner.locale) : null
+  const product = (localizer ? localizer.product(found) : found) as typeof found & { creator_id: string }
 
   const admin = createAdminClient()
 
@@ -359,7 +364,7 @@ export async function renderProduct(
      describe: product-page.ts. A page with a product section of the
      creator's own (one that reads `product` or `page.product`) gets none:
      it would draw the product twice. */
-  const sections: SectionInstance[] = withMainProduct(rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
+  const sections: SectionInstance[] = withMainProduct(localizer ? localizer.sections(rawSections, shop.sources) : rawSections, (type) => drawsTheProduct(type, shop.sources)).map(s =>
     s.type === "product"
       ? { ...withProductBlocks(s), settings: { ...s.settings, _product_data: productData } }
       : s
@@ -372,8 +377,9 @@ export async function renderProduct(
    * storefront uses — which is what stops this route drifting from the others
    * the way all four had.
    */
-  const header = homeHeader ?? sections.find((s) => s.type === "header")
-  const footer = homeFooter ?? sections.find((s) => s.type === "footer")
+  const inLanguage = (section: SectionInstance | undefined) => (section && localizer ? localizer.sections([section], shop.sources)[0] : section)
+  const header = inLanguage(homeHeader) ?? sections.find((s) => s.type === "header")
+  const footer = inLanguage(homeFooter) ?? sections.find((s) => s.type === "footer")
   const page = [
     ...(header ? [header] : []),
     ...sections.filter((s) => s.type !== "header" && s.type !== "footer"),
@@ -394,8 +400,9 @@ export async function renderProduct(
    * a preview.
    */
   const facts = productFacts(product)
-  const others = products.filter((p) => p.id !== product.id)
-  const dressed = await dressPage(shop, page, products, productCount, "product", product.title ?? "Product", facts, { cached })
+  const shopCards = localizer ? localizer.cards(products) : products
+  const others = shopCards.filter((p) => p.id !== product.id)
+  const dressed = await dressPage(shop, page, shopCards, productCount, "product", product.title ?? "Product", facts, { cached })
   /**
    * THE PRODUCT THIS PAGE IS ABOUT, as `page.product` too: the same fields
    * as a card in `products`, and its description as plain text. A section
@@ -411,7 +418,7 @@ export async function renderProduct(
         theme={themeSettings}
         sections={dressed.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id }}
+        storefront={{ creatorId: product.creator_id ?? undefined, installId: install.id, language: previewToken ? undefined : await languageChoice(product.creator_id, owner?.locale) }}
         className="min-h-screen"
       />
       {previewToken ? null : <TrackView type="product" creatorId={product.creator_id} productId={product.id} />}

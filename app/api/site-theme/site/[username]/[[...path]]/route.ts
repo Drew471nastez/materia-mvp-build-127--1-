@@ -174,6 +174,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const headers = new Headers(out.headers ?? {})
   headers.set("Content-Type", out.type)
   headers.set("X-Robots-Tag", token ? "noindex" : "all")
+  /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
+  if (!headers.has("Cache-Control")) headers.set("Cache-Control", "private, no-store")
   if (out.cart) {
     headers.append("Set-Cookie", `${CART_COOKIE}=${writeCartCookie(out.cart, out.note ?? "")}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly; Secure`)
   }

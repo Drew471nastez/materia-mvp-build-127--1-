@@ -9,6 +9,7 @@ import { PlatformSettingsProvider } from "@/components/platform/platform-setting
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
+import { MarketsPanel } from "@/components/app/settings/markets-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
@@ -63,6 +64,7 @@ const panels: Record<string, () => React.ReactElement> = {
   store: () => <StoreDetailsPanel />,
   checkout: () => <CheckoutPanel />,
   taxes: () => <TaxesPanel />,
+  markets: () => <MarketsPanel />,
   channels: () => <ChannelsPanel />,
   integrations: () => <IntegrationsDirectory />,
   emails: () => <CustomerEmailsPanel />,

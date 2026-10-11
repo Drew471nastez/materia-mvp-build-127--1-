@@ -47,6 +47,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { creatorIdByHandle, websiteHandleOf } from "@/lib/website-builder/site-address-data"
 import { isBanned } from "@/lib/seo/bans"
 import { renderWithSources, sectionSources } from "@/lib/website-builder/storefront-render"
+import { siteLocalizer } from "@/lib/markets/live"
 import { shopCatalogue, shopProducts, type ProductCard } from "@/lib/website-builder/shop-products"
 import { pageSections, themeSettings as themeSettingsOf } from "@/lib/website-builder/preview-link"
 import { storeMenusOrNull, withStoreMenus } from "@/lib/website-builder/store-menus-server"
@@ -375,13 +376,23 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
  * the site has not published comes back as `missing`, so the route can 404
  * rather than quietly serving the home page under another address.
  */
-export async function publishedSiteByName(name: string, pageKey = "home"): Promise<SiteLookup> {
+export async function publishedSiteByName(name: string, pageKey = "home", locale: string | null = null): Promise<SiteLookup> {
   const found = await resolveSite(name)
   if (found.kind !== "site") return found
-  const { site, products, productCount } = found
+  const { site } = found
+  /*
+    IN ANOTHER LANGUAGE (/fr/…, lib/markets/live.ts): the store's approved
+    translations laid over the page's texts and the products' titles before
+    anything is drawn. A language that is not published, or has nothing
+    approved yet, draws the page as it is.
+  */
+  const localizer = locale ? await siteLocalizer(site.creatorId, locale) : null
+  const products = localizer ? localizer.cards(found.products) : found.products
+  const productCount = found.productCount
 
-  const stored = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
-  if (!stored) return { kind: "missing" }
+  const original = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
+  if (!original) return { kind: "missing" }
+  const stored = localizer ? localizer.sections(original, site.sources) : original
 
   /**
    * ═══════════════════════════════════════════════════════════════════════

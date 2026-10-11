@@ -1,4 +1,6 @@
 import { notFound, redirect } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -45,7 +47,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function SiteSearchPage({ params, searchParams }: PageProps) {
-  const { username } = await params
+  const { username: segment } = await params
+  /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
   const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
   const q = Array.isArray(asked.q) ? asked.q[0] : asked.q
   const query = (q ?? "").slice(0, 120)
@@ -55,14 +59,17 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products, productCount } = found
+  const { site, productCount } = found
+  /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* Filtered here rather than in the database: the shop's catalogue is
      already fetched and cached by publishedShopByName, and a search that
      goes back to Postgres would be a second round trip for a list that is
      already in hand. A shop is not big enough for that to be the wrong
      trade; if one ever is, this is the line to change. */
   /* The whole shop is searched, not only the newest 24 (siteCatalogue). */
-  const catalogue = await siteCatalogue(site.creatorId).catch(() => products ?? [])
+  const catalogue = await siteCatalogue(site.creatorId).then((c) => (localizer ? localizer.cards(c) : c)).catch(() => products ?? [])
   const pool = catalogue.length ? catalogue : products ?? []
   const matches = query ? pool.filter((p: any) => productMatchesQuery(p, query)) : pool
 
@@ -73,7 +80,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
   const arranged = stored && stored.length > 0 ? stored : searchSections(site.pages.home ?? site.sections)
   /* Placeholders filled, menus and picked products in hand: see dressPage.
      Pickers name from the whole shop; `products` is what matched. */
-  const { sections, data } = await dressPage(site, arranged, products, productCount, "page.search", "Search")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.search", "Search")
   /* The query travels on the page rather than in the section's settings: it
      belongs to this request, not to anything the creator arranged. */
   /* The filters narrow what the words found, and say how many each would
@@ -90,7 +97,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language }}
         emptyDetail={query ? `Nothing matched "${query}".` : "Type what you are looking for."}
       />
       {/* A page of the website like any other: one view, with its own path. */}

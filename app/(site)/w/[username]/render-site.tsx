@@ -41,6 +41,9 @@ import { SiteVitals } from "@/components/website-builder/site-vitals"
 import { renderAccountPage } from "./render-account"
 import { contactSections } from "@/lib/website-builder/account-pages"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageAlternates, languageChoice, siteLanguages } from "@/lib/markets/live"
+import { localizedPath } from "@/lib/markets/locales"
 
 export type SiteSearchParams = Record<string, string | string[] | undefined>
 
@@ -53,12 +56,14 @@ function paramsToSearch(sp: SiteSearchParams | undefined): URLSearchParams {
 }
 
 export async function siteMetadata(
-  username: string,
+  segment: string,
   searchParams: SiteSearchParams | undefined,
   pageKey = "home",
   /** Set when this is the preview route, which has the token in its path. */
   previewToken: string | null = null,
 ): Promise<Metadata> {
+  /* "andrew~fr": the website in French (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
   /**
    * A PREVIEW IS NOT FOR SEARCH ENGINES. The link is shared with a person,
    * and the page behind it is by definition not the one the creator has
@@ -129,7 +134,16 @@ export async function siteMetadata(
    * it knows between them. The canonical names the one the creator gives
    * out: lib/website-builder/site-seo-data.ts.
    */
-  const url = pageUrl(await siteOrigin(creator.creatorId, username), pageKey)
+  const origin = await siteOrigin(creator.creatorId, username)
+  /*
+    EVERY LANGUAGE OF THE PAGE, for search engines: hreflang for each
+    published language and x-default for the website's own, and a page in
+    another language is its own canonical (lib/markets/live.ts).
+  */
+  const ownPath = new URL(pageUrl(origin, pageKey)).pathname
+  const [languages, langs] = await Promise.all([languageAlternates(creator.creatorId, origin, ownPath), siteLanguages(creator.creatorId)])
+  const pageLocale = locale && langs.others.find((l) => l.toLowerCase() === locale) ? langs.others.find((l) => l.toLowerCase() === locale)! : null
+  const url = pageLocale ? `${origin}${localizedPath(ownPath, pageLocale, langs.defaultLanguage)}` : pageUrl(origin, pageKey)
 
   /*
     A SHARE CARD WITH A PICTURE. og:image came only from the share image in
@@ -151,7 +165,7 @@ export async function siteMetadata(
   return {
     title: { absolute: rawTitle },
     description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, ...(languages ? { languages } : {}) },
     icons,
     // The share image, the card type and — the one that matters — whether the
     // page may be indexed at all. All three were in the panel and read by
@@ -189,12 +203,14 @@ export async function siteMetadata(
  * purpose, because it is one person looking at unpublished work.
  */
 export async function renderSite(
-  username: string,
+  segment: string,
   searchParams: SiteSearchParams | undefined,
   pageKey = "home",
   /** Set when this is the preview route, which has the token in its path. */
   previewToken: string | null = null,
 ) {
+  /* "andrew~fr": the website in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
   /**
    * `?preview=` is still read, so links already shared keep working, but the
    * preview has an address of its own now: `/preview/<token>`. The public
@@ -211,7 +227,7 @@ export async function renderSite(
   */
   if (pageKey === "contact") return await renderAccountPage(username, "contact")
 
-  const found = await publishedSiteByName(username, pageKey)
+  const found = await publishedSiteByName(username, pageKey, locale)
   /* A renamed creator's site, at the new name for good (308), and at the same page of it rather than its front page. */
   if (found.kind === "renamed") permanentRedirect(pageUrl(`https://${found.to}.${getMainDomain()}`, pageKey))
   if (found.kind === "missing") notFound()
@@ -229,7 +245,7 @@ export async function renderSite(
   const { site } = found
   const template = templateForPage(pageKey)
   /* The website and whose it is, once, on the front page. */
-  const structured = pageKey === "home" ? await homeStructuredData(site, username) : null
+  const [structured, language] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale)])
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}
@@ -237,7 +253,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey, language }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its

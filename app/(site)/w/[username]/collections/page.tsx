@@ -1,4 +1,6 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -40,18 +42,23 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * the page's own empty state.
  */
 export default async function SiteCollectionsPage({ params }: PageProps) {
-  const { username } = await params
+  const { username: segment } = await params
+  /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
 
   const found = await publishedShopByName(username)
   if (found.kind === "renamed") permanentRedirect(`https://${found.to}.${getMainDomain()}/collections`)
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products, productCount } = found
+  const { site, productCount } = found
+  /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const products = localizer && found.products ? localizer.cards(found.products) : found.products
   const stored = site.pages.collections
   const arranged = stored && stored.length > 0 ? stored : collectionsPageSections(site.pages.home ?? site.sections)
   /* Placeholders filled, menus, picked products and the collections in hand: see dressPage. */
-  const { sections, data } = await dressPage(site, arranged, products, productCount, "page.collections", "Collections")
+  const { sections, data } = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "page.collections", "Collections")
   const prerendered = renderWithSources(site.sources, sections, site.themeSettings, "page.collections", products, undefined, data)
 
   return (
@@ -59,7 +66,7 @@ export default async function SiteCollectionsPage({ params }: PageProps) {
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language }}
         emptyDetail="No collections yet."
       />
       <TrackView creatorId={site.creatorId} />

@@ -123,5 +123,6 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "133", file: "133_perf_collect_everywhere.sql", sha256: "d0cb76a717c9b34c4df43f836bf81147699307c932c7fdb8f704a49546d56091" },
   { part: "134", file: "134_storelib_reviews.sql", sha256: "eb9e12375cee76a8f92245172d2a83e3593ac83ecf54294fe6ba7e57ce4b83f3" },
   { part: "135", file: "135_store_team.sql", sha256: "74bfd159b80d9db8a918ee388de5e53e007e102b24dce63135b4f5a1b3cb0883" },
+  { part: "136", file: "136_markets_languages.sql", sha256: "2f619d5a3af1925e8298b157d068c8f2d5e5e7d7db9de14b24baed620ea4b34a" },
   { part: "150", file: "150_products_sales_limit.sql", sha256: "0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18" },
 ]

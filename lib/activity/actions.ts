@@ -29,6 +29,8 @@ const SETTINGS: Record<string, string> = {
   "settings.store": "Updated store details",
   "settings.checkout": "Changed checkout settings",
   "settings.taxes": "Changed tax settings",
+  "settings.markets": "Changed markets and languages",
+  "website.translations": "Changed website translations",
   "settings.customer_emails": "Changed a customer email",
   "settings.shipping": "Changed shipping settings",
   "settings.channels": "Changed sales channels",
@@ -37,6 +39,7 @@ const SETTINGS: Record<string, string> = {
 
 const ORDER: Record<string, string> = {
   "order.processing": "Marked order {s} as processing",
+  "order.address_changed": "Changed the shipping address of order {s}",
   "order.fulfilled": "Fulfilled items in order {s}",
   "order.shipment": "Updated the shipment for order {s}",
   "order.cancelled": "Cancelled order {s}",

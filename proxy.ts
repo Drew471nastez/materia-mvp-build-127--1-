@@ -16,6 +16,7 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { siteRouteInLanguage } from "@/lib/markets/site-name"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { COVER_STILL_POLICY } from "@/lib/website-builder/cover-still"
 
@@ -374,6 +375,55 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════
+ *  A WEBSITE IN ANOTHER LANGUAGE: /fr/about
+ * ═══════════════════════════════════════════════════════════════════════════
+ * A website built in the website builder with more languages published
+ * (Settings › Markets and languages) answers each at its own prefix: the
+ * page goes to the same route under "<name>~fr" (lib/markets/site-name.ts),
+ * where its approved translations are laid over it (lib/markets/live.ts).
+ * Asked only when the address starts with something shaped like a language,
+ * and held for thirty seconds a name, like the questions above.
+ */
+const LANGUAGE_FIRST = /^\/[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*(?:\/|$)/
+const languagesHeld = new Map<string, { at: number; value: string[] }>()
+async function siteLanguagesFor(username: string): Promise<string[]> {
+  const lower = username.toLowerCase()
+  const hit = languagesHeld.get(lower)
+  if (hit && Date.now() - hit.at < 30_000) return hit.value
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) return []
+  try {
+    const db = createClient(supabaseUrl, supabaseKey)
+    const { facts, failed } = await siteFactsFor(db, lower)
+    if (failed) return hit?.value ?? []
+    let value: string[] = []
+    if (facts.creatorId) {
+      const { data, error } = await db.from("store_localization").select("default_language, languages").eq("creator_id", facts.creatorId).maybeSingle()
+      /* Part 136 not run, or no row: one language. Another error keeps what was known. */
+      if (error && !/does not exist|schema cache|PGRST20[45]|42P01/i.test(`${error.code} ${error.message}`)) return hit?.value ?? []
+      const row = data as { default_language?: string; languages?: { code?: unknown; published?: unknown }[] } | null
+      const def = (row?.default_language ?? "").toLowerCase()
+      value = (Array.isArray(row?.languages) ? row!.languages : [])
+        .filter((l) => l?.published === true && typeof l.code === "string" && l.code.toLowerCase() !== def)
+        .map((l) => String(l.code))
+    }
+    if (languagesHeld.size > 10_000) languagesHeld.clear()
+    languagesHeld.set(lower, { at: Date.now(), value })
+    return value
+  } catch {
+    return hit?.value ?? []
+  }
+}
+
+/** The address in one of the website's other languages, or null for one in its own. */
+async function inSiteLanguage(username: string, pathname: string) {
+  if (!LANGUAGE_FIRST.test(pathname)) return null
+  return siteRouteInLanguage(username, pathname, await siteLanguagesFor(username))
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
  *  A WEBSITE WHOSE THEME WAS IMPORTED FROM SHOPIFY
  * ═══════════════════════════════════════════════════════════════════════════
  * Its published install says so in its theme settings (`compat`). Such a
@@ -502,7 +552,13 @@ async function compatRewrite(request: NextRequest, name: string, host: string, p
   const seal = await sealSite(name, siteHostOf(request.headers))
   if (seal) headers.set(SITE_SEAL_HEADER, seal)
   const r = NextResponse.rewrite(to, { request: { headers } })
-  r.headers.set("Cache-Control", "private, no-store")
+  /*
+    No Cache-Control here: the handler sets its own on every answer (a page
+    "private, no-cache", which keeps the browser's back/forward cache on; the
+    cart, checkout, account and every other answer "private, no-store"). A
+    header set on this rewrite is merged over the handler's and would turn
+    the back/forward cache off again for every page.
+  */
   r.headers.set("x-seller-subdomain", name)
   return r
 }
@@ -1266,8 +1322,13 @@ export async function proxy(request: NextRequest) {
         guarded = gate.protected
       }
 
+      /* /fr/about: the page in French, or /fr/cart on to /cart (inSiteLanguage). */
+      const inLanguage = isWebsite && !seoFile ? await inSiteLanguage(subdomain, pathname) : null
+      if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
       url.pathname = isWebsite
-        ? `/w/${subdomain}${pathname === "/" ? "" : pathname}`
+        ? inLanguage?.kind === "page"
+          ? inLanguage.path
+          : `/w/${subdomain}${pathname === "/" ? "" : pathname}`
         : `/site/${subdomain}${pathname === "/" ? "" : pathname}`
       const rewritten = NextResponse.rewrite(url)
 
@@ -1675,7 +1736,10 @@ export async function proxy(request: NextRequest) {
             ? pathname
             : `/${username}/${parts.join("/")}`
     } else if (builtSite) {
-      rewritePath = `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
+      /* /fr/about on a connected domain, as on the subdomain (inSiteLanguage). */
+      const inLanguage = await inSiteLanguage(username, pathname)
+      if (inLanguage?.kind === "redirect") return NextResponse.redirect(new URL(`${inLanguage.to}${search}`, request.url), { status: 307 })
+      rewritePath = inLanguage?.kind === "page" ? inLanguage.path : `/w/${username}${pathname === "/" || pathname === "" ? "" : pathname}`
       /* The password page, as on the subdomain, for a visitor without a pass (lib/site-password/gate.ts). */
       const gate = await (domainGateAsked ?? passwordPageFor(request, username, host, pathname, search))
       if (gate.blocked) return gate.blocked
