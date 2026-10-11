@@ -48,6 +48,7 @@ import { TRACKERS, TRACKER_ORDER } from "../lib/store/tracking"
 import { tierPrice, zoneFor } from "../lib/physical/rates"
 import type { ShippingProfile, ShippingZone } from "../lib/physical/types"
 import { PLATFORM_DISALLOW } from "../lib/seo/indexing"
+import { HELP_TOPICS } from "../lib/help/questions"
 
 let passed = 0
 let failed = 0
@@ -184,6 +185,10 @@ check("the order shots are of the order page as it is now (Fulfill items)", "ord
 check("the low stock email and shipping email are the real templates, not drawings", "low-stock-email" in PHYSICAL_SHOTS && "shipping-email" in PHYSICAL_SHOTS && /lowStockEmail\(/.test(read("scripts/render-help-shots.tsx")) && /shipmentEmail\(/.test(read("scripts/render-help-shots.tsx")))
 check("the guide draws no picture of a screen: figures are only diagrams", P.every((a) => a.body.every((b) => b.type !== "figure" || ["order-journey", "profiles", "tiers", "order-steps", "split-order"].includes(b.figure))), P.flatMap((a) => a.body.filter((b) => b.type === "figure").map((b) => (b as { figure: string }).figure)))
 check("the demo order has its prices (no $NaN on the order shots)", /unitCents: 3200/.test(read("scripts/render-help-shots.tsx")))
+
+const qs = HELP_TOPICS.flatMap((t) => t.questions)
+check("the order problems page says Fulfill items too, never Mark as shipped", !/Mark as shipped/.test(JSON.stringify(HELP_TOPICS)) && /Fulfill items/.test(JSON.stringify(HELP_TOPICS)))
+check("  and shows screens as real screenshots, drawings only for ideas", qs.filter((q) => q.image).length >= 5 && qs.every((q) => !q.figure || ["order-steps", "split-order"].includes(q.figure.figure)) && qs.every((q) => !q.image || existsSync(join(process.cwd(), "public", q.image.src))))
 
 /* ── 5. SEO ───────────────────────────────────────────────────────────── */
 console.log("\n5. SEO")

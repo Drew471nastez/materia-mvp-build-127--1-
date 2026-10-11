@@ -147,7 +147,7 @@ function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onTog
       <h3>
         <button type="button" aria-expanded={open} aria-controls={panel} onClick={onToggle} className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left sm:px-5">
           <span className="text-[15.5px] font-medium leading-6 text-[#1a1a2e]">{q.q}</span>
-          <ChevronDown aria-hidden className={cn("mt-1 h-4 w-4 shrink-0 text-[#9ca3af] transition-[translate] duration-300 ease-out", open && "rotate-180")} />
+          <ChevronDown aria-hidden className={cn("mt-1 h-4 w-4 shrink-0 text-[#9ca3af] transition-[rotate] duration-300 ease-out", open && "rotate-180")} />
         </button>
       </h3>
       {/* Opens by its own height (grid rows 0fr to 1fr), so the answer slides rather than jumps. */}
@@ -164,6 +164,17 @@ function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onTog
               </div>
             ) : null}
             {q.figure && open ? <HelpFigure figure={q.figure.figure} caption={q.figure.caption} /> : null}
+            {q.image && open ? (
+              <figure data-help-image="">
+                {/* A screenshot of the real screen, the same file the physical products guide shows. */}
+                <picture>
+                  {q.image.phone ? <source media="(max-width: 639px)" srcSet={q.image.phone.src} width={q.image.phone.width} height={q.image.phone.height} /> : null}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={q.image.src} alt={q.image.alt} width={q.image.width} height={q.image.height} loading="lazy" decoding="async" className="block h-auto w-full rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]" style={{ maxWidth: q.image.width }} />
+                </picture>
+                {q.image.caption ? <figcaption className="mt-2 text-[13.5px] leading-snug text-[#6b7280]">{q.image.caption}</figcaption> : null}
+              </figure>
+            ) : null}
           </div>
         </div>
       </div>
