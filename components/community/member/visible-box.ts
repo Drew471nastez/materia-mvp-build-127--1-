@@ -134,17 +134,22 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
       IN THE FOCUS ITSELF. Where the table decides (the iOS app), the box goes onto the keys now, before iOS reads where the
       field is to decide on a pan. Elsewhere the visible part will say where the keyboard is, a frame later as before.
     */
+    const timers: number[] = []
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target as Element | null
       if (takesKeyboard(t) && scope()?.contains(t)) {
         run(t)
         /* Laid out now, so the field's place iOS reads is the new one. */
         void (scope() as HTMLElement | null)?.offsetHeight
+        /* ROUND R8: and again once the keyboard has finished rising (a web view resized, or a pan, can land after its last event). */
+        timers.push(
+          window.setTimeout(() => run(), 320),
+          window.setTimeout(() => run(), 700),
+        )
       }
       soon()
     }
     /* The keyboard going down is reported late on iOS: looked at again as it goes. */
-    const timers: number[] = []
     const onFocusOut = () => {
       soon()
       timers.push(
