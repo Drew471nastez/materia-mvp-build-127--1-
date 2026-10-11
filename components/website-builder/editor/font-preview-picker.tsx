@@ -40,7 +40,15 @@ const KIND: Record<string, string> = {
   "Bebas Neue": "Display",
 }
 
-const faceOf = (family: string) => (family ? `"${family.replace(/"/g, "")}", ui-sans-serif, system-ui, sans-serif` : undefined)
+/** A Shopify font handle ("work_sans_n7", an imported theme's font setting) as the family it names; anything else as it is. */
+const familyOf = (value: string) => {
+  const m = /^([a-z0-9_]+?)_[nio][1-9]$/.exec(value)
+  return m ? m[1].split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") : value
+}
+const faceOf = (value: string) => {
+  const family = familyOf(value)
+  return family ? `"${family.replace(/"/g, "")}", ui-sans-serif, system-ui, sans-serif` : undefined
+}
 
 let previewsLoaded = false
 /** The one request for every preview: each family at 500, only the letters drawn. */
@@ -79,7 +87,7 @@ export function FontPreviewPicker({
   const listId = React.useId()
 
   React.useEffect(() => {
-    loadPreviews(options.map((o) => o.value))
+    loadPreviews(options.map((o) => familyOf(o.value)))
   }, [options])
 
   /* Opening lands on the chosen one, in view. */
@@ -172,7 +180,7 @@ export function FontPreviewPicker({
                     {o.value ? SAMPLE : o.label}
                   </span>
                 </span>
-                {o.value && KIND[o.value] ? <span className="shrink-0 text-[11px] text-muted-foreground">{KIND[o.value]}</span> : null}
+                {o.value && KIND[familyOf(o.value)] ? <span className="shrink-0 text-[11px] text-muted-foreground">{KIND[familyOf(o.value)]}</span> : null}
                 {on ? <Check className="h-3.5 w-3.5 shrink-0 text-foreground/70" strokeWidth={2.2} aria-label="Chosen" /> : null}
               </div>
             )

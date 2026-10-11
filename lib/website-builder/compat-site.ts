@@ -14,6 +14,7 @@
  * so a page is drawn without parsing anything. A preview reads the drafts
  * and holds nothing.
  */
+import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -304,6 +305,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency: "USD", moneyFormat: "${{amount}}", policies },
     host,
     designMode: false,
+    /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
+    seo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
     product: async (handle) => {
       const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null

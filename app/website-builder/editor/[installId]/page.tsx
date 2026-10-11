@@ -136,6 +136,8 @@ import SectionRenderer from "@/components/website-builder/sections/SectionRender
 import { CompatCanvas, loadCompatFiles } from "@/components/website-builder/compat/compat-canvas"
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
+import { faviconFollows } from "@/lib/website-builder/favicon-sync"
+import { themeSchemeList } from "@/lib/storelib-theme/compat/scheme-list"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -910,7 +912,9 @@ function FieldControl({
   if (kind === "page_picker") {
     const want = "page"
     const options = targets.filter(t => t.kind === want)
-    const current = typeof raw === "string" ? raw : ""
+    /* An imported theme saves a page by its handle ("about"): it is the page at /pages/about. */
+    const saved = typeof raw === "string" ? raw : ""
+    const current = saved && !saved.startsWith("/") && options.some(t => t.href === `/pages/${saved}`) ? `/pages/${saved}` : saved
     return (
       <div className="relative">
         <select
@@ -4544,9 +4548,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       deferLive(`theme:${key}`, () => updateSettingRef.current(key, value))
       return
     }
-    if (sameSettingValue(settingsRef.current[key], value)) return
+    /* The favicon is one value in Website settings and in an imported theme's own settings (lib/website-builder/favicon-sync.ts): a write of one carries the other. */
+    const follows = faviconFollows(settingsRef.current as Record<string, unknown>, key, value)
+    if (sameSettingValue(settingsRef.current[key], value) && !follows) return
     debouncedPushUndo()
-    setSettingsDraft(prev => ({ ...prev, [key]: value }))
+    setSettingsDraft(prev => ({ ...prev, [key]: value, ...faviconFollows(prev as Record<string, unknown>, key, value) }))
 
     // If updating logo in theme settings, also sync to header section
     if (key in LOGO_SYNC_THEME_TO_HEADER) {
@@ -6814,8 +6820,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
-            {/* The section's design: its scheme, Customize, heading and body style */}
-            <SectionDesignPanel
+            {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
+                an imported theme reads none of them, and its scheme and any such settings of its
+                own are drawn below as the theme declares them. */}
+            {!compatInstall && <SectionDesignPanel
               section={section}
               schema={schema}
               theme={settingsDraft}
@@ -6826,7 +6834,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setExpandedSettings("color_schemes")
                 setSelectedPanel({ type: "pages" })
               }}
-            />
+            />}
 
             {schema?.fields && schema.fields.length > 0 && (() => {
               /**
@@ -6847,7 +6855,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               const support = designSupport(schema)
               const covered = new Set(support.colorOverrides.flatMap(k => LEGACY_OVERRIDE_FIELDS[k] ?? []))
               // And a setting whose `visible_if` does not hold for this section's values.
-              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id) && !(f.type === "color" && covered.has(f.id)))
+              /* An imported theme's section shows every setting it declares, its scheme among them: the panel above is not drawn for it. */
+              const visible = visibleFields(schema.fields, section.settings).filter(f => compatInstall || (f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id) && !(f.type === "color" && covered.has(f.id))))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]
@@ -7272,6 +7281,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     updateSectionSetting(header.id, "menu", handle)
   }
+  const compatShopify = compatInstall ? ((settingsDraft as Record<string, unknown>).shopify as Record<string, unknown> | undefined) : undefined
+  const compatSchemes = useMemo(() => (compatInstall ? themeSchemeList(compatShopify) : null), [compatInstall, compatShopify])
   const fieldEnv = useMemo<EditorFieldEnv>(
     () => ({
       products: pickerProducts,
@@ -7283,8 +7294,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
       collections: builderCollections?.choices ?? null,
+      /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
+      colorSchemes: compatSchemes,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
@@ -9858,7 +9871,8 @@ function SectionToolbar({
     const measure = () => {
       frame = 0
       const el = document.getElementById(`wb-section-${sectionId}`)
-      if (!el) {
+      /* A site drawer open over the canvas (its menu, its cart) covers the section: the toolbar is not drawn over the drawer. */
+      if (!el || scroller.hasAttribute(SITE_DRAWER_OPEN_ATTRIBUTE)) {
         setBox(null)
         return
       }
@@ -9882,11 +9896,15 @@ function SectionToolbar({
     window.addEventListener("resize", onScroll)
     const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onScroll) : null
     ro?.observe(scroller)
+    /* And measured again when one opens or closes. */
+    const mo = typeof MutationObserver !== "undefined" ? new MutationObserver(onScroll) : null
+    mo?.observe(scroller, { attributes: true, attributeFilter: [SITE_DRAWER_OPEN_ATTRIBUTE] })
     return () => {
       if (frame) cancelAnimationFrame(frame)
       scroller.removeEventListener("scroll", onScroll)
       window.removeEventListener("resize", onScroll)
       ro?.disconnect()
+      mo?.disconnect()
     }
   }, [sectionId])
 

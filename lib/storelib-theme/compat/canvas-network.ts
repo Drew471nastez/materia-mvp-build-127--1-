@@ -22,3 +22,25 @@ document.addEventListener("DOMContentLoaded",function(){setTimeout(function(){
   if(fonts)Promise.race([fonts,new Promise(function(r){setTimeout(r,400)})]).then(check,check);else check();
 },0)});
 })();</script>`
+
+/**
+ * ===========================================================================
+ *  THE CANVAS TOUCHES NO EDGE OF THE PHONE
+ * ===========================================================================
+ * A theme's phone tab bar (Posturex's Home, Account, Shop, Wishlist, Cart)
+ * pads itself with `env(safe-area-inset-bottom)` so its icons clear the
+ * iPhone's home bar. In the builder on a phone the canvas sits between the
+ * editor's top bar and its sheet, nowhere near that edge, but the frame
+ * still reads the phone's inset: the bar grew a band of empty padding that
+ * ran into the sheet, and the theme's back-to-top button, placed against
+ * the bar's usual height, landed on it.
+ *
+ * In the canvas every safe-area inset is 0, which is what it is for a page
+ * that does not reach the edge of the screen. The website itself, on a
+ * phone, keeps the theme's own value.
+ */
+const SAFE_AREA = /(?:env|constant)\(\s*safe-area-inset-(?:top|right|bottom|left)\s*(?:,[^()]*(?:\([^()]*\)[^()]*)*)?\)/gi
+
+export function canvasInsets(html: string): string {
+  return html.includes("safe-area-inset") ? html.replace(SAFE_AREA, "0px") : html
+}

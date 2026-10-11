@@ -25,7 +25,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
-import { CANVAS_SHOWN } from "@/lib/storelib-theme/compat/canvas-network"
+import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
 import { canvasAccountPage, cartLines, CANVAS_ACCOUNT_PATHS, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { assetAddresses, compatOf, templateOfPage } from "@/lib/storelib-theme/compat/install"
 import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -233,7 +233,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const drawn = account ?? drawPage(compatTheme!, page, list, { scripts: true, ...extra })
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
     const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
-    return drawn.html.replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
+    /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
+    return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
   }
 
   /* `leaving`: the page being left, kept under the new one while it fades in; `entering`: a page of another address, which fades in. */
@@ -282,7 +283,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     if (plan.empty) { now.shape = next; return }
-    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html }, "*")
+    /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
+    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, JSON.stringify(s))
@@ -315,20 +317,34 @@ export function CompatCanvas(props: CompatCanvasProps) {
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
       let html: string
       try {
-        html = drawSection(compatTheme, ctx, s, at, group).html
+        html = canvasInsets(drawSection(compatTheme, ctx, s, at, group).html)
       } catch (e) {
         /* This section stays as it was drawn; the others still change. */
         console.error("[compat-canvas] a section could not be drawn", e)
         continue
       }
-      win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
+      win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev: slot.shape.sections.get(s.id) }, "*")
       slot.drawnFrom.set(s.id, JSON.stringify(s))
       slot.shape.sections.set(s.id, html)
     }
   }
   const sync = useRef<() => void>(() => {})
   sync.current = () => { for (const slot of slotsRef.current) syncSlot(slot) }
-  useEffect(() => sync.current(), [sections, compatTheme, page])
+  /*
+    AT MOST ONCE A FRAME. A slider under a finger renders this with every
+    value it passes, several between two frames, and each one drew the
+    section through the theme's Liquid again on the editor's main thread.
+    The values in between are never seen; the last one in the frame is.
+  */
+  const syncFrame = useRef(0)
+  useEffect(() => {
+    if (syncFrame.current) return
+    syncFrame.current = requestAnimationFrame(() => {
+      syncFrame.current = 0
+      sync.current()
+    })
+  }, [sections, compatTheme, page])
+  useEffect(() => () => { if (syncFrame.current) cancelAnimationFrame(syncFrame.current) }, [])
 
   /* The selection, outlined in the page and announced to the theme. */
   const selectedBlock = props.selectedBlockId ? props.selectedBlockId.split(/[/>]/).pop() ?? null : null

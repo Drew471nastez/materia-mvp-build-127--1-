@@ -522,6 +522,9 @@ const SUITES = [
   "tests/account-round11.test.ts",
   "tests/elastic-and-landings.test.ts",
   "tests/communities-shell15.test.ts",
+  "tests/editor-r6.test.ts",
+  "tests/favicon-sync.test.ts",
+  "tests/page-seo-r6.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

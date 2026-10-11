@@ -570,7 +570,17 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       return typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)) ? Number(value) : value ?? null
     case "checkbox":
       return value === true || value === "true"
-    case "page":
+    case "page": {
+      /*
+        A page picked in the sidebar ("/pages/about") or saved by the theme
+        ("about", "shopify://pages/about"): the page at that address, so a
+        section that links to it or prints its title has one (round R6).
+      */
+      const handle = typeof value === "string" ? value.replace(/^shopify:\/\/pages\//, "").replace(/^\/?pages\//, "").replace(/^\//, "").split(/[?#]/)[0] : ""
+      if (!/^[a-z0-9][a-z0-9_-]*$/i.test(handle)) return null
+      const title = handle.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+      return { [OUTPUT]: title, id: handle, title, handle, url: `/pages/${handle}`, content: "", template_suffix: null, metafields: {} }
+    }
     case "blog":
     case "article":
     case "metaobject":

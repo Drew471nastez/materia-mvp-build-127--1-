@@ -5,7 +5,8 @@ import { ChevronDown, ChevronRight } from "lucide-react"
 import { Reveal } from "@/components/ui/reveal"
 import { cn } from "@/lib/utils"
 import { PAGE_DESCRIPTION_MAX, PAGE_TITLE_MAX, typedPageSeo, withPageSeo } from "@/lib/website-builder/page-seo"
-import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
+import { WbImagePicker } from "@/components/website-builder/editor/image-picker"
+import { Badge, Card, Counter, GOES_LIVE, PageTitle, Row, SearchResultPreview, Toggle, buttonClass, inputClass, textAreaClass } from "./parts"
 import type { SettingsContext, SitePage } from "./types"
 
 const str = (v: unknown) => (typeof v === "string" ? v.trim() : "")
@@ -70,7 +71,7 @@ function PageRow({
 }) {
   const home = page.key === "home"
   const seo = typedPageSeo(ctx.settings, page.key)
-  const set = (patch: { title?: string; description?: string; hidden?: boolean }) =>
+  const set = (patch: { title?: string; description?: string; image?: string; hidden?: boolean }) =>
     ctx.onSettingChange("page_seo", withPageSeo(ctx.settings, page.key, patch))
   const id = `wb-page-seo-${page.key}`
 
@@ -118,11 +119,7 @@ function PageRow({
         <Reveal open={open} id={id} className="border-t border-white/[0.06] bg-white/[0.02]" data-page-seo={page.key}>
         <div className="space-y-4 px-4 py-4 md:px-6">
           {/* What the result will say, from the same fallbacks the live page uses. */}
-          <div className="rounded-xl bg-white p-4 text-left" aria-label="Search result preview">
-            <p className="truncate text-[12.5px] text-[#4d5156]">{`${ctx.websiteUrlDisplay}${page.path === "/" ? "" : page.path}`}</p>
-            <p className="mt-0.5 truncate text-[17px] leading-snug text-[#1a0dab]">{seo.title.trim() || defaults.title}</p>
-            <p className="mt-0.5 line-clamp-2 text-[13px] leading-snug text-[#4d5156]">{seo.description.trim() || defaults.description}</p>
-          </div>
+          <SearchResultPreview compact address={`${ctx.websiteUrlDisplay}${page.path === "/" ? "" : page.path}`} title={seo.title.trim() || defaults.title} description={seo.description.trim() || defaults.description} />
 
           <label className="block">
             <span className="flex items-baseline justify-between gap-3 text-[14px] font-medium text-white">
@@ -152,6 +149,15 @@ function PageRow({
               className={cn(textAreaClass, "mt-1.5 leading-snug")}
             />
           </label>
+
+          {/* The picture a link to this page shows when it is shared; the site's own social image when there is none. */}
+          <div>
+            <p className="text-[14px] font-medium text-white">Social image</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-white/45">Shown when a link to this page is shared. Leave it empty to use the site&apos;s.</p>
+            <div className="dark mt-2 max-w-[420px]">
+              <WbImagePicker value={seo.image || undefined} onChange={(url) => set({ image: url ?? "" })} layout="row" folder="logos" />
+            </div>
+          </div>
 
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
