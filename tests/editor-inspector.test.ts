@@ -104,7 +104,7 @@ async function main() {
   try { new Function(CANVAS_BRIDGE) } catch { reads = false }
   check("the bridge reads as JavaScript", reads)
   check("it knows the inspector's state before its first paint", /var inspect = window\.__slInspect !== false;/.test(CANVAS_BRIDGE))
-  check("off, hover and pick do nothing", /if \(inspect\) hover\(sectionOf\(e\.target\)\);/.test(CANVAS_BRIDGE) && /if \(!s \|\| !inspect\) return;/.test(CANVAS_BRIDGE))
+  check("off, hover and pick do nothing", /if \(inspect\) hover\(targetOf\(e\.target\)\);/.test(CANVAS_BRIDGE) && /if \(!s \|\| !inspect\) return;/.test(CANVAS_BRIDGE))
   check("off, the toolbar's box is let go", /var el = inspect && selected\.section \?/.test(CANVAS_BRIDGE))
 
   console.log("The imported theme's canvas")
