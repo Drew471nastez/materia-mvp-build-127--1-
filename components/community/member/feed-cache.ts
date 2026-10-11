@@ -244,6 +244,33 @@ export function addPost(communityId: string, post: FeedPostView) {
   }
 }
 
+/*
+  POSTED AWAY FROM THE FEED (round 21). Create post on another place opens the composer over that place
+  (compose-anywhere.tsx); the feed is not on screen, and the list it shows is its own copy, which only it changes. The new
+  post goes into the cached lists (addPost) and waits here; the feed takes it into the list on screen as it comes back into
+  view, or at once when it is the one that hears POSTED_AWAY_EVENT.
+*/
+const postedAway = new Map<string, FeedPostView[]>()
+export const POSTED_AWAY_EVENT = "storelib:posted-away"
+/** A post written over another place: into every cached list it belongs in, and kept for the feed's own list. */
+export function notePostedAway(communityId: string, post: FeedPostView) {
+  addPost(communityId, post)
+  postedAway.set(communityId, [...(postedAway.get(communityId) ?? []).filter((p) => p.id !== post.id), post])
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent(POSTED_AWAY_EVENT, { detail: { communityId } }))
+}
+/** The posts written away from the feed since it last looked, taken (oldest first). */
+export function takePostedAway(communityId: string): FeedPostView[] {
+  const got = postedAway.get(communityId) ?? []
+  postedAway.delete(communityId)
+  return got
+}
+/** `view` with `post` where a new post goes in `sort` (below the pinned posts in Default, first in New); other orders are left as they are. */
+export function withNewPost(view: CachedView, post: FeedPostView, sort: FeedSortValue): CachedView {
+  if ((sort !== "default" && sort !== "new") || view.posts.some((p) => p.id === post.id)) return view
+  const at = sort === "default" ? view.posts.filter((p) => p.pinned).length : 0
+  return { ...view, posts: [...view.posts.slice(0, at), post, ...view.posts.slice(at)] }
+}
+
 /**
  * A list read again, merged into the copy on screen (feed.tsx QUIET): the posts on screen keep their order and take the
  * fresh copy's facts; the cursor and the pages already read are kept. `added` is what the fresh copy has that the screen

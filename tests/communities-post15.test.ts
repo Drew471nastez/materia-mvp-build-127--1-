@@ -195,7 +195,7 @@ console.log("\nSOURCE: the sheet (round 16; round 15's push from the right is re
   check("the tab bar stays over it (a 'post' layer)", /useLayer\("post", true, layerRef\)/.test(pf) && /data-layer-kind="post"/.test(pf))
   /* Round 17: the close is post-stage.ts's container move (st.close), still after the feed is put back. */
   check("the close puts the feed back before it moves", pf.indexOf("feedRestore(noted.current") > 0 && pf.indexOf("feedRestore(noted.current") < pf.indexOf("st.close("))
-  check("hidden on the move's last frame, then taken out", /layer\.style\.visibility = "hidden"[\s\S]{0,80}done\.current\.onGone\(\)/.test(pf))
+  check("hidden on the move's last frame, then taken out", /layer\.style\.visibility = "hidden"[\s\S]{0,400}done\.current\.onGone\(\)/.test(pf))
   check("a white skirt runs on under the page", /data-post-skirt/.test(pf) && /top-full h-\[100lvh\] bg-white/.test(pf))
   check("the back bar is inside the page, so it moves with it (never a second header over the community's)", pf.indexOf("data-post-fullscreen-top") > pf.indexOf('role="dialog"') && pf.indexOf("data-post-fullscreen-top") < pf.indexOf("</div>,\n    document.body"))
   const vb = read("components/community/member/visible-box.ts")

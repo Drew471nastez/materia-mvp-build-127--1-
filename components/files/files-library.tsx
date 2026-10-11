@@ -37,10 +37,9 @@
  *   The list is read once and kept for the session (`kept` below), so a
  *   chooser opened again shows it at once and refreshes underneath, and a
  *   pill or a search only filters what is already here: nothing waits on
- *   the network and nothing goes empty. The tiles on screen are copied into
- *   a layer above the grid as they are, the grid changes under it, and the
- *   copy fades out while the new grid fades in (`crossFade`): opacity only,
- *   on the compositor, 180ms.
+ *   the network and nothing goes empty. The grid itself fades out (90ms),
+ *   changes while it is out of sight, and fades back in (160ms): opacity
+ *   only, on the compositor, nothing copied (`swapGrid`, round 21).
  *
  * NEVER A BROKEN PICTURE. A copy the optimizer refuses falls back to the
  * original; an original that will not draw either leaves a clean tile with
@@ -95,6 +94,7 @@ import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Notice, api } from "@/component
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
+import { afterLayout } from "@/lib/ui/after-layout"
 
 export interface LibraryFile {
   id: string
@@ -131,7 +131,9 @@ type Source = (typeof SOURCES)[number]
 const VIDEO_SOURCES: readonly Source[] = ["All", "Library", "Website"]
 /* The rows drawn at once: three on a phone at three across, three in the window at four across. */
 const EAGER = 12
-const SWAP_MS = 180
+/* The grid out (opacity, on the compositor) and in again (round 21: the grid itself, no copy of it). */
+const SWAP_OUT_MS = 90
+const SWAP_IN_MS = 160
 const SWAP_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 /* Above a sheet that is itself above the page (the chooser), for what opens from inside it. */
 const OVER_SHEET_Z = 210
@@ -408,6 +410,20 @@ const localPreview = new Map<string, string>()
  * so the copy is the original's pixels (lib/files/thumb.ts). Written onto
  * the element before it is shown, so it never jumps.
  */
+/** Whether a file belongs in the grid for a pill and the words searched. */
+function inGrid(f: LibraryFile, g: { source: Source; words: string }): boolean {
+  return (g.source === "All" || f.source === g.source) && (!g.words || f.name.toLowerCase().includes(g.words))
+}
+
+/** A tile put away or shown, as the Tile draws it (data-off, out of reach while away). */
+function putAway(li: HTMLLIElement, off: boolean) {
+  if (li.hasAttribute("data-off") === off) return
+  li.toggleAttribute("data-off", off)
+  li.inert = off
+  if (off) li.setAttribute("aria-hidden", "true")
+  else li.removeAttribute("aria-hidden")
+}
+
 function fitSmall(img: HTMLImageElement) {
   const box = img.parentElement
   if (!box || img.dataset.small !== undefined || !img.naturalWidth || /\.svg(?:$|[?#&])/i.test(img.currentSrc || img.src)) return
@@ -597,7 +613,14 @@ const Tile = React.memo(function Tile({
   const local = localPreview.get(file.url)
   const label = selecting ? `${ticked ? "Unselect" : "Select"} ${file.name}` : mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`
   return (
-    <li className="group/tile relative" data-file-tile={file.id} hidden={hidden}>
+    /* Off screen a tile is skipped by the browser's layout and paint (content-visibility): a pill that shows sixty tiles lays out only the screenful (round 21). */
+    <li
+      className="group/tile relative [contain-intrinsic-size:auto_112px] [content-visibility:auto] data-[off]:pointer-events-none data-[off]:absolute data-[off]:left-0 data-[off]:top-0 data-[off]:w-0 data-[off]:[content-visibility:hidden]"
+      data-file-tile={file.id}
+      data-off={hidden ? "" : undefined}
+      aria-hidden={hidden || undefined}
+      inert={hidden}
+    >
       <button
         type="button"
         onClick={() => onPress(file)}
@@ -819,7 +842,6 @@ export function FilesLibrary({
   const scrollRef = React.useRef<HTMLDivElement>(null)
   const gridWrapRef = React.useRef<HTMLDivElement>(null)
   const swappedRef = React.useRef(false)
-  const ghostRef = React.useRef<HTMLDivElement | null>(null)
 
   const onPickRef = React.useRef(onPick)
   const onPickManyRef = React.useRef(onPickMany)
@@ -980,44 +1002,58 @@ export function FilesLibrary({
 
   /* ── The swap ── */
 
-  /**
-   * The tiles on screen, copied as they are into a layer that does not
-   * scroll, so the grid can change under it. Called before the state that
-   * changes the grid, while the old tiles are still the ones drawn.
-   */
-  const crossFade = React.useCallback(() => {
-    const wrap = gridWrapRef.current
-    const host = fill ? viewRef.current : wrap
-    const grid = wrap?.querySelector<HTMLElement>(":scope > [data-files-grid]:not([hidden])")
-    if (!wrap || !host || !grid) return
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
-    ghostRef.current?.remove()
-    const hostBox = host.getBoundingClientRect()
-    const view = fill && scrollRef.current ? scrollRef.current.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
-    const ghost = document.createElement("div")
-    ghost.setAttribute("aria-hidden", "true")
-    ghost.dataset.filesGhost = ""
-    ghost.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden;will-change:opacity"
-    for (const li of Array.from(grid.children) as HTMLElement[]) {
-      if (li.hidden) continue
-      const r = li.getBoundingClientRect()
-      if (r.bottom <= view.top || r.top >= view.bottom) continue
-      const copy = li.cloneNode(true) as HTMLElement
-      copy.removeAttribute("data-file-tile")
-      copy.style.cssText = `position:absolute;margin:0;list-style:none;left:${r.left - hostBox.left}px;top:${r.top - hostBox.top}px;width:${r.width}px;height:${r.height}px`
-      ghost.append(copy)
-    }
-    if (!ghost.childElementCount) return
-    host.append(ghost)
-    ghostRef.current = ghost
-    swappedRef.current = true
-  }, [fill])
+  /*
+    ROUND 21: THE GRID ITSELF FADES, NOTHING IS COPIED. Round 19 copied every tile on screen into a layer over the grid
+    (a copy of each tile, a box read per tile) in the press itself, then drew the new grid under the copy: 100 to 180ms of main thread
+    on a pill at 4x CPU, more under load (scripts/check-files-picker.mjs, "longest task"). Now the press changes only the pill
+    and starts the grid's own fade out, an opacity animation the compositor runs. Once it is out of sight the tiles that
+    belong are shown and the rest put away, written straight onto them (a tile put away keeps its drawing:
+    content-visibility hidden, so showing it again restyles almost nothing), and the grid fades back in on the next frame.
+    React hears of it after, in a transition, and finds the tiles already as it would draw them. A second press or a word
+    typed while it is out only changes what it will show. Reduced motion: the grid changes at once.
+  */
+  const [grid, setGrid] = React.useState<{ source: Source; words: string }>({ source: "All", words: "" })
+  const filesNow = React.useRef(files)
+  filesNow.current = files
+  const swapRef = React.useRef<{ out: Animation | null; to: { source: Source; words: string } | null }>({ out: null, to: null })
+  const swapGrid = React.useCallback(
+    (to: { source: Source; words: string }) => {
+      const swap = swapRef.current
+      const el = gridWrapRef.current?.querySelector<HTMLElement>(":scope > [data-files-grid]")
+      if (!el || el.hidden || typeof el.animate !== "function" || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        swappedRef.current = true
+        setGrid(to)
+        return
+      }
+      swap.to = to
+      if (swap.out) return
+      const out = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_OUT_MS, easing: "ease-in", fill: "forwards" })
+      swap.out = out
+      const go = () => {
+        if (swap.out !== out) return
+        swap.out = null
+        const next = swap.to
+        swap.to = null
+        if (!next) return out.cancel()
+        const keep = new Set((filesNow.current ?? []).filter((f) => inGrid(f, next)).map((f) => f.id))
+        for (const li of Array.from(el.querySelectorAll<HTMLLIElement>(":scope > li[data-file-tile]"))) putAway(li, !keep.has(li.dataset.fileTile ?? ""))
+        if (fill && scrollRef.current) {
+          const scroller = scrollRef.current
+          afterLayout(() => {
+            if (scroller.scrollTop !== 0) scroller.scrollTop = 0
+          }, scroller)
+        }
+        el.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_IN_MS, easing: SWAP_EASE })
+        out.cancel()
+        React.startTransition(() => setGrid(next))
+      }
+      out.finished.then(go, go)
+    },
+    [fill],
+  )
 
   const words = query.toLowerCase().trim()
-  const shown = React.useMemo(
-    () => (files ?? []).filter((f) => (source === "All" || f.source === source) && (!words || f.name.toLowerCase().includes(words))),
-    [files, source, words],
-  )
+  const shown = React.useMemo(() => (files ?? []).filter((f) => inGrid(f, grid)), [files, grid])
   /* Where each shown file is in the grid, for which are drawn at once. */
   const shownAt = React.useMemo(() => new Map(shown.map((f, i) => [f.id, i])), [shown])
   /*
@@ -1037,34 +1073,26 @@ export function FilesLibrary({
   }, [files])
   const tickedSet = React.useMemo(() => new Set(ticked), [ticked])
 
-  /* The new grid is drawn: it starts its fade under the copy, before this frame is painted. */
+  /* The grid as drawn now. */
   React.useLayoutEffect(() => {
-    /* Pictures that arrived while their pill was hidden are measured now that they have a size. */
-    gridWrapRef.current?.querySelectorAll<HTMLImageElement>("img[data-fit-later]").forEach(fitSmall)
-    if (!swappedRef.current) return
+    /* Pictures that arrived while their pill was hidden are measured now that they have a size: after the browser's own layout, so the reads lay nothing out of their own. */
+    const later = gridWrapRef.current?.querySelectorAll<HTMLImageElement>("img[data-fit-later]")
+    const stopFit = later?.length ? afterLayout(() => later.forEach(fitSmall), gridWrapRef.current) : () => {}
+    /* Changed at once (reduced motion, nothing on screen yet): back to the top. */
+    if (swappedRef.current && fill && scrollRef.current) scrollRef.current.scrollTop = 0
     swappedRef.current = false
-    if (fill && scrollRef.current) scrollRef.current.scrollTop = 0
-    const ghost = ghostRef.current
-    const next = gridWrapRef.current?.querySelector<HTMLElement>(":scope > :not([data-files-ghost]):not([hidden])")
-    next?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_MS, easing: SWAP_EASE })
-    if (ghost) {
-      const out = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_MS, easing: "ease-out", fill: "forwards" })
-      const done = () => {
-        ghost.remove()
-        if (ghostRef.current === ghost) ghostRef.current = null
-      }
-      out.finished.then(done, done)
-    }
-  }, [source, words, fill])
+    return stopFit
+  }, [grid, fill])
 
   const chooseSource = (s: Source) => {
     if (s === source) return
-    crossFade()
     setSource(s)
+    swapGrid({ source: s, words })
   }
   const type = (value: string) => {
-    if (value.toLowerCase().trim() !== words && !ghostRef.current) crossFade()
     setQuery(value)
+    const w = value.toLowerCase().trim()
+    if (w !== words) swapGrid({ source, words: w })
   }
 
   /* ── The three dots ── */

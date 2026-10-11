@@ -57,6 +57,7 @@ import { COMMUNITY_FEED_REFRESH_SCOPE, COMMUNITY_LEADERBOARD_REFRESH_SCOPE, COMM
 import { preloadPlaceView, preloadPlaceViews, PlaceView, PlaceWaiting } from "./place-views"
 import { BTN_SECONDARY } from "./ui"
 import { PostOpener } from "./post-opener"
+import { ComposeAnywhere } from "./compose-anywhere"
 import type { ViewerView } from "@/lib/communities/types"
 import { hardNavigationAllowed, loadingFailure } from "@/lib/communities/client/resume"
 
@@ -478,6 +479,8 @@ export function usePlaceScreens({ communityId, slug, chatSpaces, entries, render
           })}
         {/* A post that no card on screen holds (a profile's row, a notification) opens over the place, which stays (round 16). */}
         {viewer ? <PostOpener communityId={communityId} slug={slug} viewer={viewer} readOnly={readOnly} /> : null}
+        {/* Create post on a place that is not the feed opens the composer over it, which stays (round 21). */}
+        {viewer && !readOnly ? <ComposeAnywhere communityId={communityId} /> : null}
       </div>
     </HostFacts.Provider>
   )

@@ -73,8 +73,8 @@ console.log("\nA switch: cached, no empty frame, a short cross fade")
 /* Kept per kind (pictures, videos), so the video chooser has its own list. */
 check("the list is kept for the session and shown at once", /const kept: Record<LibraryKind, LibraryFile\[\] \| null> = \{ image: null, video: null \}/.test(lib) && /useState<LibraryFile\[\] \| null>\(\(\) => kept\[kind\]\)/.test(lib))
 check("a pill only hides tiles, it never rebuilds them", /hidden=\{at === undefined\}/.test(lib) && /files\.map\(\(f\) =>/.test(lib))
-check("the tiles on screen are copied over the grid before it changes", /crossFade\(\)\s*\n\s*setSource\(s\)/.test(lib))
-check("the copy fades out and the grid fades in, opacity only", /\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(lib) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(lib) && !/translate|scale\(/.test(lib.slice(lib.indexOf("const crossFade"), lib.indexOf("const chooseSource"))))
+/* Round 21 replaced the copy layer with the grid's own fade (tests/polish21.test.ts holds the details). */
+check("the grid fades out and in, opacity only, nothing copied", /\[\{ opacity: 0 \}, \{ opacity: 1 \}\]/.test(lib) && /\[\{ opacity: 1 \}, \{ opacity: 0 \}\]/.test(lib) && !/cloneNode/.test(lib) && !/translate|scale\(/.test(lib.slice(lib.indexOf("const swapGrid"), lib.indexOf("const chooseSource"))))
 /* Round W6: the pills are Storelib's segmented control (Support, Analytics), one white mark sliding under the chosen one rather than a black fill blinking from pill to pill. */
 check("the pills' mark slides over 200ms, on the compositor, every pill the same height", /data-files-pill-mark=""/.test(lib) && /transition-\[translate,width\] duration-200/.test(lib) && /translate: `\$\{mark\.x\}px 0`/.test(lib) && /inline-flex h-8 shrink-0 items-center rounded-lg/.test(lib))
 check("reduced motion: no fade", /prefers-reduced-motion: reduce/.test(lib))

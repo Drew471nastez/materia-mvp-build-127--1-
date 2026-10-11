@@ -87,6 +87,7 @@ import { WebPushPrompt } from "@/components/notifications/web-push-prompt"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { afterLayout } from "@/lib/ui/after-layout"
 import type { ViewerView } from "@/lib/communities/types"
 import { useLightChrome } from "@/lib/ui/light-chrome"
 import { useCommunityTheme } from "@/components/community/use-community-theme"
@@ -742,10 +743,10 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
     const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 2
     setEdges((e) => (e.left === left && e.right === right ? e : { left, right }))
   }
-  useLayoutEffect(() => {
-    measure()
+  /* The observer's first report comes after the browser's own layout (round 21: read in a layout effect, it laid the whole community out as it came back from the account). */
+  useEffect(() => {
     const el = trackRef.current
-    if (!el || typeof ResizeObserver === "undefined") return
+    if (!el || typeof ResizeObserver === "undefined") return measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
@@ -768,8 +769,12 @@ export function SectionTabs({ entries, current: currentProp, wide = true, onGo: 
       if (first || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || typeof el.scrollTo !== "function") el.scrollLeft = to
       else el.scrollTo({ left: to, behavior: "smooth" })
     }
-    follow()
-    return () => window.clearTimeout(timer)
+    /* After the browser's own layout (lib/ui/after-layout.ts): read in the commit, it laid the whole community out again as it came back from the account. Still before the frame is painted. */
+    const stop = afterLayout(follow, el)
+    return () => {
+      stop()
+      window.clearTimeout(timer)
+    }
   }, [current])
   return (
     <nav

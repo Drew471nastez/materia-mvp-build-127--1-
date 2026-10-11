@@ -18,6 +18,7 @@
  * the page is still growing to that height (lib/navigation/tab-scroll.ts
  * restoreTabScroll, which lets go the moment a finger or a wheel moves).
  */
+import { afterLayout } from "@/lib/ui/after-layout"
 import { useEffect, useLayoutEffect, useRef } from "react"
 import { restoreTabScroll, tabScrollFor } from "@/lib/navigation/tab-scroll"
 import { tabStorageGet, tabStorageSet } from "@/lib/nav/tab-session-persist"
@@ -240,7 +241,13 @@ export function useSectionTop(pathname: string, slug: string) {
       where its card had been and the card then 389px lower).
     */
     if (closedLayerOnto(pathname)) return
-    snapPageTop()
+    /*
+      ROUND 21: AT THE TOP BEFORE THE FIRST PAINT, WITHOUT A LAYOUT OF ITS OWN. Read here, in the commit, scrollY laid the whole
+      arriving page out on the spot (Home from the account, 60 to 120ms at 4x CPU), and laid out again once the rest of the
+      arrival had written to the page. After the browser's own layout (lib/ui/after-layout.ts) the read is free, and the scroll
+      it sets is still the one painted.
+    */
+    const stopSnap = afterLayout(snapPageTop)
     let frames = 0
     let id = 0
     let over = false
@@ -260,6 +267,7 @@ export function useSectionTop(pathname: string, slug: string) {
     }
     id = requestAnimationFrame(watch)
     return () => {
+      stopSnap()
       end()
       for (const t of inputs) window.removeEventListener(t, end, true)
     }

@@ -193,22 +193,28 @@ const subscribeUnread = (f: () => void) => {
   return () => unreadListeners.delete(f)
 }
 
-/** Whether this bell is on screen: not inside something display: none. Kept current as the layout changes. */
+/**
+ * Whether this bell is on screen: not inside something display: none. Kept current as the layout changes.
+ * ROUND 21: told by the ResizeObserver alone, which reports after the browser's own layout, on the frame it happens. Asking
+ * getClientRects in the layout effect made the browser lay out the whole page the new screen had just put in, in the middle
+ * of switching to it (about 85ms of restyle at 4x CPU on a phone switching to Home, scripts/nav18-real-router).
+ */
 function useOnScreen(ref: React.RefObject<HTMLElement | null>, ready: boolean): boolean {
   const [on, setOn] = useState(false)
-  useLayoutEffect(() => {
+  useEffect(() => {
     const el = ref.current
     if (!ready || !el) return
-    const check = () => setOn(el.getClientRects().length > 0)
-    check()
-    /* A switch to display: none gives the button an empty box, which the observer reports. */
-    const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(check)
-    ro?.observe(el)
-    window.addEventListener("resize", check)
-    return () => {
-      ro?.disconnect()
-      window.removeEventListener("resize", check)
+    if (typeof ResizeObserver === "undefined") {
+      setOn(true)
+      return
     }
+    /* A switch to display: none gives the button an empty box, which the observer reports; its first report comes with the next layout. */
+    const ro = new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1]?.contentRect
+      if (box) setOn(box.width > 0 || box.height > 0)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
   }, [ref, ready])
   return on
 }

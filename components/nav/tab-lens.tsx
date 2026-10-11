@@ -195,6 +195,8 @@ export function NavIcon({ icon, active, color, size = 22, box, layer = false }: 
 
 /** The bar as drawn on this screen, in screen pixels: read off the DOM, never computed. */
 export type Geometry = { pad: number; slot: number; dot: number }
+/** The last bar's numbers, for the next bar drawn on this screen (A BAR DRAWN AGAIN, in useSlide). */
+let lastGeometry: Geometry | null = null
 /**
  * The lens's left edge on slot `index`. The one place this is worked out:
  * the pill at rest and the gesture under a finger both call it.
@@ -587,8 +589,8 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
    * Read before the first paint, and again when the bar changes size (a
    * phone turned on its side). Null until then, and nothing is placed.
    */
-  const [geometry, setGeometry] = useState<Geometry | null>(null)
-  const geoRef = useRef<Geometry>({ pad: 0, slot: 0, dot: 0 })
+  const [geometry, setGeometry] = useState<Geometry | null>(lastGeometry)
+  const geoRef = useRef<Geometry>(lastGeometry ?? { pad: 0, slot: 0, dot: 0 })
   /**
    * ═════════════════════════════════════════════════════════════════════════
    *  AND THE BAR'S BOX IS NOT MEASURED AGAIN INSIDE THE GESTURE
@@ -628,9 +630,16 @@ export function useSlide(count: number, onPick: (index: number) => void, onPress
       const was = geoRef.current
       if (was.pad === next.pad && was.slot === next.slot && was.dot === next.dot) return
       geoRef.current = next
+      lastGeometry = next
       setGeometry(next)
     }
-    read()
+    /*
+      ROUND 21: A BAR DRAWN AGAIN STARTS FROM THE LAST BAR'S NUMBERS. The account and the community each draw their own tab bar,
+      so Home from the account mounted this one fresh, and its read here laid the whole arriving page out in the commit (100 to
+      180ms at 4x CPU, scripts/nav18-real-router). The bar is the same size on the same screen: the last numbers stand, and the
+      observer's first report, which comes after the browser's own layout, checks them. Only the very first bar reads at once.
+    */
+    if (!lastGeometry || typeof ResizeObserver === "undefined") read()
     if (typeof ResizeObserver === "undefined") return
     const observer = new ResizeObserver(read)
     observer.observe(bar)
