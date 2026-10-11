@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ALL_HELP_CATEGORIES, helpArticlePath, helpArticlesIn, helpCategoriesFor, helpCategory, helpVisible } from "@/lib/help/articles"
+import { ALL_HELP_CATEGORIES, helpArticlePath, helpCategoriesFor, helpCategory, helpSectionsIn, helpVisible } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
@@ -35,7 +35,8 @@ export default async function HelpCategoryPage({ params }: PageProps) {
   const physical = await isPhysicalCommerceEnabled()
   const category = helpCategory(slug)
   if (!category || !helpVisible(category, physical)) notFound()
-  const articles = helpArticlesIn(category.slug)
+  /* A big topic (the physical products guide) is read in groups, each under its own heading. */
+  const sections = helpSectionsIn(category.slug)
 
   return (
     <div className="bg-white">
@@ -53,18 +54,23 @@ export default async function HelpCategoryPage({ params }: PageProps) {
           <h1 className="text-[24px] font-bold tracking-tight text-[#1a1a2e] sm:text-[28px]">{category.title}</h1>
           <p className="mt-2 text-[15px] leading-relaxed text-[#6b7280]">{category.description}</p>
 
-          <ul className="mt-8 divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-            {articles.map((a) => (
-              <li key={a.slug}>
-                <Link href={helpArticlePath(a)} className="group block px-5 py-4 transition-colors hover:bg-[#f8f9fa] sm:px-6">
-                  <span className="block text-[15px] font-medium text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/40 group-hover:underline-offset-2">
-                    {a.title}
-                  </span>
-                  <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{a.summary}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {sections.map((section) => (
+            <section key={section.title ?? "all"} aria-label={section.title ?? undefined} className="mt-8" data-help-section={section.title ?? ""}>
+              {section.title ? <h2 className="mb-3 text-[17px] font-semibold tracking-tight text-[#1a1a2e]">{section.title}</h2> : null}
+              <ul className="divide-y divide-[#f0f0f2] overflow-hidden rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                {section.articles.map((a) => (
+                  <li key={a.slug}>
+                    <Link href={helpArticlePath(a)} className="group block px-5 py-4 transition-colors hover:bg-[#f8f9fa] sm:px-6">
+                      <span className="block text-[15px] font-medium text-[#1a1a2e] group-hover:underline group-hover:decoration-[#1a1a2e]/40 group-hover:underline-offset-2">
+                        {a.title}
+                      </span>
+                      <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{a.summary}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
         </div>
 
         <nav aria-label="Other topics" className="text-[14px]">
