@@ -341,6 +341,35 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   }
   const removeOption = (i: number) => reshape(options.filter((_, j) => j !== i))
 
+  /*
+    A unit changed: what is typed is converted, so 1.5 kg becomes 1500 g and
+    not 1.5 g. Grams and millimetres are what is stored, as before; this only
+    keeps the shown number the same weight or size.
+  */
+  const convertWeight = (typed: string, from: WeightUnit, to: WeightUnit) => {
+    if (!typed.trim()) return typed
+    const g = toGrams(typed, from)
+    return g === null ? typed : String(fromGrams(g, to) ?? "")
+  }
+  const changeWeightUnit = (to: WeightUnit) => {
+    const from = weightUnit
+    if (to === from) return
+    setWeight((w) => convertWeight(w, from, to))
+    setRows((prev) => prev.map((r) => (r.weight.trim() ? { ...r, weight: convertWeight(r.weight, from, to) } : r)))
+    changed(setWeightUnit)(to)
+  }
+  const changeDimUnit = (to: DimensionUnit) => {
+    const from = dimUnit
+    if (to === from) return
+    const conv = (typed: string) => {
+      if (!typed.trim()) return typed
+      const mm = toMm(typed, from)
+      return mm === null ? typed : String(fromMm(mm, to) ?? "")
+    }
+    setDims((d) => ({ l: conv(d.l), w: conv(d.w), h: conv(d.h) }))
+    changed(setDimUnit)(to)
+  }
+
   /* Its own fulfilment: where it ships from is one of the seller's places for "myself", a partner of the right kind otherwise. */
   const partners = activeLocations.filter((l) => METHODS[method].locationKinds.includes(l.kind))
   const pickMethod = (m: FulfillmentMethod) => {
@@ -555,7 +584,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                 <DecimalInput value={weight} onChange={changed(setWeight)} placeholder="0.0" aria-label="Weight" />
               </Field>
               <Field label="Unit">
-                <SelectInput value={weightUnit} onChange={(v) => changed(setWeightUnit)(v as WeightUnit)} aria-label="Weight unit">
+                <SelectInput value={weightUnit} onChange={(v) => changeWeightUnit(v as WeightUnit)} aria-label="Weight unit">
                   <option value="kg">kg</option>
                   <option value="g">g</option>
                   <option value="lb">lb</option>
@@ -650,7 +679,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
                     <DecimalInput value={dims.h} placeholder="10" onChange={(v) => changed(setDims)((d) => ({ ...d, h: v }))} />
                   </Field>
                   <Field label="Unit" className="col-span-3 sm:col-span-1">
-                    <SelectInput value={dimUnit} onChange={(v) => changed(setDimUnit)(v as DimensionUnit)}>
+                    <SelectInput value={dimUnit} onChange={(v) => changeDimUnit(v as DimensionUnit)} aria-label="Size unit">
                       <option value="cm">cm</option>
                       <option value="in">in</option>
                     </SelectInput>

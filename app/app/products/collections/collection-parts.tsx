@@ -51,6 +51,7 @@ export const OP_WORDS: Record<RuleOp, string> = {
 export function opsFor(field: RuleField): RuleOp[] {
   if (NUMERIC_FIELDS.has(field)) return ["equals", "not_equals", "greater_than", "less_than"]
   if (field === "type") return ["equals", "not_equals"]
+  if (field === "category") return ["equals", "not_equals", "contains", "not_contains"]
   return ["equals", "not_equals", "contains", "not_contains", "starts_with", "ends_with"]
 }
 
@@ -80,6 +81,7 @@ const FIELD_WORDS: Record<RuleField, string> = {
   compare_at_price: "Compare at price",
   inventory: "Stock",
   weight: "Weight",
+  category: "Category",
 }
 
 export const fieldWords = (field: RuleField) => FIELD_WORDS[field]
@@ -107,6 +109,7 @@ export function ruleProduct(p: CollectionProduct): RuleProduct {
     compareAtCents: p.compare_at_price_cents ?? null,
     inventory: p.inventory_count ?? null,
     weightGrams: p.weight_grams ?? null,
+    category: p.category ?? null,
   }
 }
 

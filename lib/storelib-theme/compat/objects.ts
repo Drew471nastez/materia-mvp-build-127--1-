@@ -190,7 +190,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     options_with_values,
     options_by_name: Object.fromEntries(options_with_values.map((o) => [String(o.name).toLowerCase(), o])),
     collections: [],
-    metafields: { custom: s.fields && typeof s.fields === "object" ? s.fields : {} },
+    metafields: productMetafields(s),
     gift_card: false,
     gift_card_: false,
     requires_selling_plan: false,
@@ -206,6 +206,26 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   }
   for (const v of variants) v.product = { id: product.id, title, handle, url: product.url }
   return product
+}
+
+/**
+ * A product's metafields, the way an Online Store 2.0 theme reads them.
+ * `custom`: the creator's custom fields (lib/products/custom-fields.ts), each
+ * a drop that prints as its value and has `.value`, `.type`, `.key`, so both
+ * `{{ product.metafields.custom.material }}` and `.material.value` work.
+ * `storelib.faqs`: the product's own questions, `.value` a list of
+ * `{ question, answer }`; it prints as how many there are, never as markup.
+ */
+function productMetafields(s: Record<string, unknown>): O {
+  const custom: O = {}
+  if (s.fields && typeof s.fields === "object") {
+    for (const [key, value] of Object.entries(s.fields as Record<string, unknown>)) {
+      if (typeof value !== "string" || !value) continue
+      custom[key] = { [OUTPUT]: value, value, key, namespace: "custom", type: value.includes("\n") ? "multi_line_text_field" : "single_line_text_field" }
+    }
+  }
+  const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
+  return { custom, storelib: faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {} }
 }
 
 /**

@@ -42,7 +42,7 @@ function view(r: Record<string, any>, productIds: string[]): CollectionView {
 }
 
 async function shopProducts(db: Db, creatorId: string, publishedOnly: boolean): Promise<(RuleProduct & { sales: number })[]> {
-  let q = db.from("products").select("id, title, type, tags, vendor, price_cents, compare_at_price_cents, inventory_count, weight_grams, created_at, sales_count, status").eq("creator_id", creatorId).limit(2000)
+  let q = db.from("products").select("id, title, type, tags, vendor, price_cents, compare_at_price_cents, inventory_count, weight_grams, created_at, sales_count, status, category").eq("creator_id", creatorId).limit(2000)
   if (publishedOnly) q = q.eq("status", "published")
   const { data } = await q
   return ((data ?? []) as Record<string, any>[]).map((p) => ({
@@ -56,6 +56,7 @@ async function shopProducts(db: Db, creatorId: string, publishedOnly: boolean): 
     inventory: p.inventory_count ?? null,
     weightGrams: p.weight_grams ?? null,
     createdAt: p.created_at,
+    category: p.category ?? null,
     sales: p.sales_count ?? 0,
   }))
 }
@@ -157,10 +158,11 @@ export interface CollectionProduct {
   compare_at_price_cents?: number | null
   inventory_count?: number | null
   weight_grams?: number | null
+  category?: string | null
 }
 
 const PICKER_COLUMNS = "id, title, thumbnail_url, type, status, price_cents"
-const RULE_COLUMNS = `${PICKER_COLUMNS}, tags, vendor, compare_at_price_cents, inventory_count, weight_grams`
+const RULE_COLUMNS = `${PICKER_COLUMNS}, tags, vendor, compare_at_price_cents, inventory_count, weight_grams, category`
 
 /**
  * The shop's collections and its products, for /app/products/collections

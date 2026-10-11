@@ -370,7 +370,8 @@ try {
       /* Renaming a value keeps what its rows had. */
       await page.evaluate(() => [...document.querySelectorAll("[data-option-row] button")].find((b) => /^Edit Size/.test(b.getAttribute("aria-label") ?? ""))?.click())
       await wait(100)
-      await page.click("input[aria-label='Value M']", { clickCount: 3 })
+      await page.focus("input[aria-label='Value M']")
+      await page.$eval("input[aria-label='Value M']", (i) => i.select())
       await page.type("input[aria-label='Value M']", "Medium")
       await page.keyboard.press("Enter")
       await page.click("[data-option-done]")
