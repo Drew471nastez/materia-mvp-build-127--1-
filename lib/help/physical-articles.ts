@@ -735,7 +735,7 @@ const ARTICLES: Article[] = [
         items: [
           "Open Website and the editor.",
           "Open Website settings and choose Policies.",
-          "Open each policy. If it's empty, start from the template.",
+          "Press Edit on a policy, or Use template to start from ours.",
           "Replace everything in [square brackets] with your own terms. The card counts how many are left.",
           "Write a shipping policy too: where you ship, how long it takes and what it costs.",
           "Publish the website so visitors see the changes.",
@@ -916,7 +916,7 @@ const ARTICLES: Article[] = [
       shot("location-pickup", "Inside a location: Ships orders from here on, Local pickup on, Usually ready in 24 hours and the pickup instructions.", "Local pickup is turned on per location."),
       { type: "h", text: "What the buyer sees" },
       shot("checkout-pickup", "Checkout with Pick up chosen: the studio's name and address, Usually ready in 24 hours and the instructions, with no address fields.", "At checkout the buyer chooses Ship or Pick up."),
-      { type: "p", text: "Choosing Pick up shows your location, its address, when it's usually ready and your instructions. They only type their name and email." },
+      { type: "p", text: "Choosing Pick up shows your location, its address, when it's usually ready and your instructions. They type their email and name, and a phone number if they want. No address." },
       { type: "h", text: "When Pick up is offered" },
       {
         type: "list",
@@ -1273,7 +1273,8 @@ const ARTICLES: Article[] = [
           "How do you want it?: Ship or Pick up. Pick up only shows if you offer it.",
           "Delivery: the country first, then the address in that country's format.",
           "Shipping method: the rates that fit their address and cart, with the price and delivery time. One is picked for them, and they can change it.",
-          "Pay: card, Apple Pay or Google Pay, through Stripe, with your shop's name across the top.",
+          "Optional: Add a note for the shop, like a gift message.",
+          "Continue to payment, then pay by card, Apple Pay or Google Pay, through Stripe, with your shop's name across the top.",
         ],
       },
       { type: "h", text: "On the right" },

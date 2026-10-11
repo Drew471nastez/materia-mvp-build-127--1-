@@ -11,11 +11,8 @@
  * every /api request answered from made up demo data: a ceramics studio
  * called Fern & Clay, a buyer called Sam Rivera at example.com, a tracking
  * number of zeros. Nothing real is in them: no person, no account, no id.
- * Chromium draws each at 2x in light mode, it is cropped to the part the
- * article is about and saved as WebP. The script is a harness bundled with
- * esbuild the way scripts/check-physical-commerce.mjs bundles
- * scripts/render-physical.tsx; when a screen changes, take its picture
- * again the same way and run it to rewrite this file.
+ * Written by scripts/help-shots.mjs, which takes the pictures
+ * (scripts/render-help-shots.tsx); when a screen changes, run it again.
  *
  * tests/help-center.test.ts checks every name here has its file and every
  * file is used by an article.
