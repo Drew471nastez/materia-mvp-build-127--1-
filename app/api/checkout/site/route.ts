@@ -17,7 +17,6 @@ import { basketTitle, fieldPlan, missingField, siteGate, siteThanksHref } from "
 import { siteBuyerOfRequest, siteOfRequest, type SiteOfCheckout } from "@/lib/checkout/site-checkout-server"
 import { isPickupOptionId } from "@/lib/physical/pickup"
 import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
-import { percentText } from "@/lib/tax/rules"
 import type { CheckoutConfig } from "@/lib/store/checkout-config"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
@@ -221,6 +220,10 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
   /* A wallet brings its own name and email; the card form's are checked here. */
   if (missing === "email") return json({ error: "Enter a valid email address.", field: "email" }, 400)
   if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)
+  /* Settings › Checkout › Customer information: a field the store makes required is required here too, not only on the page. */
+  if (missing === "company") return json({ error: "Enter the company name.", field: "company" }, 400)
+  if (missing === "phone") return json({ error: order.pickup ? "Enter a phone number for the pickup." : "Enter a phone number for the delivery.", field: "phone" }, 400)
+  if (missing === "line2") return json({ error: "Enter the apartment, suite or unit.", field: "line2" }, 400)
   if (body.agreedToTerms !== true) return json({ error: "Agree to the Terms and Conditions to continue." }, 400)
   return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer, ownerEmail: buyer?.email ?? null }
 }
@@ -343,7 +346,7 @@ async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body
     email_opt_in: contact.optedIn ? "true" : "false",
     agreed_to_terms: "true",
     ...(coupon ? { coupon_id: coupon.id, coupon_code: coupon.code, discount_cents: String(priced.discountCents), ...(holder ? { coupon_holder: holder } : {}) } : {}),
-    ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 80) } : {}),
+    ...(tax.taxCents > 0 ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_label: tax.label } : {}),
     ...packItems(priced.lines.map((l) => l.item)),
     ...(business?.ok ? businessToMetadata(business.value) : {}),
     ...(saleHolder ? { [SALE_HOLDER_KEY]: saleHolder } : {}),

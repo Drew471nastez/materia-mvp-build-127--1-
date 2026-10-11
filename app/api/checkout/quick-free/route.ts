@@ -16,6 +16,7 @@ import { communityAccessAfterEntitlement } from "@/lib/communities/server/paymen
 import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
 import { timed } from "@/lib/perf/server-timing"
+import { loadCheckoutConfig } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
 
@@ -65,6 +66,11 @@ async function handlePOST(request: Request) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 })
     }
 
+    /* The store's Settings › Checkout: an account first, and a confirmed one, for a free product as for a paid one (lib/store/checkout-config). */
+    const creatorOf = (product as { creator?: { id?: string } | null }).creator?.id ?? null
+    const checkoutRules = await loadCheckoutConfig(admin, creatorOf)
+    if (checkoutRules.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to get this.", code: "account_required" }, { status: 401 })
+    if (checkoutRules.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to get this.", code: "email_unconfirmed" }, { status: 403 })
     /* A product that sells a community tier: signed in, approved first when the community asks, never twice (lib/communities/server/join.ts). */
     if ((product as { community_id?: string | null }).community_id) {
       const { checkoutGate } = await import("@/lib/communities/server/join")
