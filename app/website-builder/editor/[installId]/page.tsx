@@ -6077,6 +6077,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [liveBatch, setLiveBatch] = useState<LiveBatch | null>(null)
   const handleAgentEvents = async (events: ActivityEvent[]) => {
+    let replacedHere = false
     const files = await loadStorelibSources()
     const custom = files ? customSectionSchemas(files) : {}
     /* One poll can hold two writers; each gets its own run of lines. */
@@ -6128,6 +6129,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
         setArrivedId(id)
       }
       changes.push({ key: ev.path, text: describeChange(ev, (t) => custom[t]?.name ?? SECTION_SCHEMAS[t]?.name), sectionType: type })
+      /* A page or the settings rewritten whole: this one, home's header and footer, or the settings, are on screen now. */
+      if (ev.detail?.replaced) {
+        const page = ev.detail.page ?? null
+        if (page === null || page === currentPageRef.current || page === "home") replacedHere = true
+      }
+    }
+    /*
+      REWRITTEN WHOLE, NOT EDITED (a push to the linked GitHub repository,
+      lib/github-sync/apply.ts). There are no operations to replay, and the
+      copy held here would be autosaved over the new draft, so it is read
+      again from the draft. An edit made here and not saved yet is kept
+      instead, and the line says how to take GitHub's version.
+    */
+    if (replacedHere) {
+      if (!isDirty && !saving && !publishing) {
+        clearHistory()
+        await loadData()
+      } else {
+        changes.push({ key: "github-kept", text: "Your unsaved edit is kept. Pull from GitHub after it saves to take theirs.", sectionType: null })
+      }
     }
     flush()
   }

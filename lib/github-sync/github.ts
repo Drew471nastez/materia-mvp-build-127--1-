@@ -229,15 +229,17 @@ export async function commitFiles(
   return made.sha
 }
 
-/** Every file path on a branch, for "Pull from GitHub". */
-export async function listTree(token: string, repo: string, branch: string): Promise<{ sha: string; paths: string[] }> {
+/** Every file on a branch, with the id of its bytes, for "Pull from GitHub". */
+export async function listTree(token: string, repo: string, branch: string): Promise<{ sha: string; paths: string[]; blobs: Map<string, string> }> {
   const ref = await call<{ object: { sha: string } }>(`/repos/${repo}/git/ref/heads/${branch}`, token)
-  const tree = await call<{ tree?: { path?: string; type?: string }[]; truncated?: boolean }>(
+  const tree = await call<{ tree?: { path?: string; type?: string; sha?: string }[]; truncated?: boolean }>(
     `/repos/${repo}/git/trees/${ref.object.sha}?recursive=1`,
     token,
   )
+  const files = (tree.tree ?? []).filter((t) => t.type === "blob" && typeof t.path === "string")
   return {
     sha: ref.object.sha,
-    paths: (tree.tree ?? []).filter((t) => t.type === "blob" && typeof t.path === "string").map((t) => t.path as string),
+    paths: files.map((t) => t.path as string),
+    blobs: new Map(files.map((t) => [t.path as string, String(t.sha ?? "")])),
   }
 }

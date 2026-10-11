@@ -4,8 +4,9 @@
  * ===========================================================================
  *  WEBSITE SETTINGS › CONNECTIONS › GITHUB
  * ===========================================================================
- * One repository per website. Storelib writes the site's section files and an
- * AGENTS.md into it; Codex in ChatGPT, Claude Code on the web or a person
+ * One repository per website. Storelib writes the site's whole theme (its
+ * settings, pages, header and footer, sections and blocks, or an imported
+ * theme in Shopify's own folders) and an AGENTS.md into it; Codex in ChatGPT, Claude Code on the web or a person
  * edits them and pushes; every push to the linked branch lands here as a
  * draft, and an open builder shows it within seconds. See lib/github-sync.
  *
@@ -113,8 +114,8 @@ function SyncRow({ title, detail, on, busy, onChange }: {
 }
 
 const STEPS = [
-  ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md your tool reads first."],
-  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section."],
+  ["Connect a repository", "Storelib writes this website's whole theme into it: settings, pages, header and footer, sections and blocks, with an AGENTS.md your tool reads first."],
+  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section, a page or a settings change."],
   ["It appears here", "Each push arrives within seconds, as a draft. Publish when you like it."],
 ] as const
 
@@ -192,7 +193,7 @@ export function GitHubSyncPanel({
       if (kind === "pull") {
         const n = d.saved ?? 0
         const bad = d.failed?.length ?? 0
-        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} section${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} did not compile` : ""}.`)
+        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} file${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} not saved` : ""}.`)
       }
       await load()
     } catch (e) {
@@ -294,7 +295,7 @@ export function GitHubSyncPanel({
             className={`${primaryButtonClass} md:col-span-3 md:justify-self-start`}
           >
             {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
-            Link and send sections
+            Link and send the theme
           </button>
         </div>
       )}
@@ -384,7 +385,7 @@ export function GitHubSyncPanel({
         <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
           <SyncRow
             title="Builder to GitHub"
-            detail="Every section you save here is committed"
+            detail="Code you save here is committed, and the whole theme on Publish"
             on={link.pushOnSave}
             busy={busy === "settings"}
             onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}

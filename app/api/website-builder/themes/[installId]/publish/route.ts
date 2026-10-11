@@ -8,6 +8,7 @@ import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -224,6 +225,8 @@ export async function POST(req: Request, { params }: Params) {
        take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
     const announced = creator.id
     after(() => announce(() => websiteAddresses(announced)))
+    /* And the whole theme to its linked GitHub repository, pages and settings with it, if it sends builder changes. */
+    after(() => mirrorWholeTheme(installId, "Published in the builder"))
 
     return NextResponse.json({ ok: true, status: "published" })
   }
