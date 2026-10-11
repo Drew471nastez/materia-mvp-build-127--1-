@@ -6,7 +6,6 @@ import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
-import { timed } from "@/lib/perf/server-timing"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -40,7 +39,7 @@ async function getCreatorInstall(installId: string) {
 }
 
 // GET /api/website-builder/themes/[installId]/settings
-async function handleGET(_req: Request, { params }: Params) {
+export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
@@ -63,7 +62,7 @@ async function handleGET(_req: Request, { params }: Params) {
 // body: { settings?: object, draft_settings?: object }
 // When saving from the visual editor, pass draft_settings.
 // When publishing, pass settings (and clear draft_settings).
-async function handlePUT(req: Request, { params }: Params) {
+export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
@@ -155,7 +154,3 @@ async function handlePUT(req: Request, { params }: Params) {
 
   return NextResponse.json({ settings: result })
 }
-
-/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
-export const GET = timed("builder", "/api/website-builder/themes/:id/settings", handleGET)
-export const PUT = timed("builder", "/api/website-builder/themes/:id/settings", handlePUT)

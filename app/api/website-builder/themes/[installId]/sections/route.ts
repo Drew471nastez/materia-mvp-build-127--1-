@@ -15,7 +15,6 @@ import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { z } from "zod"
 import { createClient } from "@/lib/supabase/server"
 import type { SectionInstance } from "@/lib/website-builder/types"
-import { timed } from "@/lib/perf/server-timing"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -70,7 +69,7 @@ async function getCreatorInstall(installId: string) {
 }
 
 // GET /api/website-builder/themes/[installId]/sections?page=home
-async function handleGET(req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
@@ -190,7 +189,7 @@ async function handleGET(req: Request, { params }: Params) {
 
 // PUT /api/website-builder/themes/[installId]/sections
 // body: { page_key: string, sections: SectionInstance[], mode: "draft" | "publish" }
-async function handlePUT(req: Request, { params }: Params) {
+export async function PUT(req: Request, { params }: Params) {
   const { installId } = await params
   const { error, status, supabase, creatorId, userId } = await getCreatorInstall(installId)
   if (error || !supabase) return NextResponse.json({ error }, { status })
@@ -394,7 +393,3 @@ export async function DELETE(req: Request, { params }: Params) {
 
   return NextResponse.json({ ok: true })
 }
-
-/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
-export const GET = timed("builder", "/api/website-builder/themes/:id/sections", handleGET)
-export const PUT = timed("builder", "/api/website-builder/themes/:id/sections", handlePUT)

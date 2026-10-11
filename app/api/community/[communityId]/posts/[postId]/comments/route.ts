@@ -8,7 +8,6 @@ import { admin } from "@/lib/communities/server/db"
 import { NO_STORE, memberSubject, readJson, sessionUserId } from "@/lib/communities/server/feed"
 import { announceComment } from "@/lib/communities/server/realtime"
 import { HELD_MESSAGE, isHeld } from "@/lib/communities/server/safety"
-import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -16,7 +15,7 @@ export const dynamic = "force-dynamic"
 type Params = { params: Promise<{ communityId: string; postId: string }> }
 
 /** GET ?cursor=: { comments, nextCursor }, top level comments oldest first, each with its replies. */
-async function handleGET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId, postId } = await params
@@ -35,7 +34,7 @@ async function handleGET(request: Request, { params }: Params) {
  * (lib/communities/server/comments.ts checkCommentMedia).
  * Once answered, whoever has the post open hears of it by id (lib/communities/server/realtime.ts).
  */
-async function handlePOST(request: Request, { params }: Params) {
+export async function POST(request: Request, { params }: Params) {
   const off = await requireCommunitiesOn()
   if (off) return off
   const { communityId, postId } = await params
@@ -56,7 +55,3 @@ async function handlePOST(request: Request, { params }: Params) {
   after(() => announceComment(communityId, { id: comment.id, postId, parentId: comment.parentId ?? null, authorId: comment.author?.id ?? null }))
   return NextResponse.json({ comment }, { status: 201, headers: NO_STORE })
 }
-
-/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
-export const GET = timed("community", "/api/community/:id/posts/:id/comments", handleGET)
-export const POST = timed("community", "/api/community/:id/posts/:id/comments", handlePOST)

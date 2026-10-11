@@ -229,11 +229,14 @@ async function main() {
     const job = ingests("server").find((r) => r.m === "job")
     check("a scheduled job's run is timed with what it answered", out.status === 200 && job?.a === "infra" && job?.r === "/api/cron/notify" && job?.s === 200, JSON.stringify(job))
     const routes: Array<[string, RegExp]> = [
-      ["app/api/website-builder/themes/[installId]/sections/route.ts", /export const PUT = timed\("builder"/],
-      ["app/api/website-builder/themes/[installId]/settings/route.ts", /export const PUT = timed\("builder"/],
-      ["app/api/website-builder/themes/[installId]/publish/route.ts", /export const POST = timed\("builder"/],
+      /*
+        Not the builder's save routes or the community routes: their own suites
+        (website-builder-api, communities-security) read each handler as an
+        exported async function, and a save's time is measured where it is
+        felt, in the editor (/step/editor/save).
+      */
+      ["app/api/website-builder/themes/[installId]/files/route.ts", /export const GET = timed\("builder"/],
       ["app/api/notifications/route.ts", /export const GET = timed\("app"/],
-      ["app/api/community/[communityId]/posts/route.ts", /export const GET = timed\("community"/],
       ["app/api/v2/search/route.ts", /export const GET = timed\("explore"/],
       ["app/api/checkout/quick-free/route.ts", /export const POST = timed\("checkout"/],
       ["app/api/stripe/webhook/route.ts", /export const POST = timed\("infra"/],
