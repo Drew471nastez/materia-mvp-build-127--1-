@@ -1105,7 +1105,13 @@ async function formSubmit(site: SiteData, req: SiteRequest): Promise<SiteRespons
   const result = req.submit ? await req.submit(subscribe ? "subscribe" : "contact", payload).catch(() => ({ ok: false, status: 503 })) : { ok: false, status: 503 }
   const code = result.ok ? null : result.status === 400 ? (subscribe || !/@/.test(email) ? "email" : "check") : result.status === 429 ? "limit" : "failed"
   if (req.ajax) return json(result.ok ? { ok: true, form_type: type } : { ok: false, form_type: type, code, message: FORM_ERRORS[code ?? "failed"] }, result.ok ? 200 : result.status >= 400 ? result.status : 500)
-  const [path, hash] = [back.split("#")[0], subscribe ? "#footer" : "#contact_form"]
+  /*
+    Back at the form that was sent. The form posts to /contact#<its id>
+    (theme.ts formMarkup), and a redirect with no # of its own keeps the
+    one the browser posted to, as Shopify's does, so the page opens at that
+    form and its thank you. A post from elsewhere (no #) opens at the top.
+  */
+  const [path, hash] = [back.split("#")[0], ""]
   const q = new URLSearchParams(path.split("?")[1] ?? "")
   for (const k of ["customer_posted", "contact_posted", "form_error", "form_type"]) q.delete(k)
   if (result.ok) q.set(`${type}_posted`, "true")

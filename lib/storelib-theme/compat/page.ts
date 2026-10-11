@@ -140,7 +140,7 @@ export function drawPage(theme: CompatTheme, page: CompatPage, sections: readonl
     theme's ajax views are (`/cart?view=drawer`, `/search?view=json`). No
     layout, no head, nothing added: a script reads it as markup or JSON.
   */
-  const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : undefined
+  const layout = typeof ctx.registers.layout === "string" ? ctx.registers.layout : opts.content === undefined ? theme.templateLayout(page.template, page.suffix) : undefined
   if (layout === "none" && opts.content === undefined) return { html: theme.finish(content), errors, ctx }
   const js = opts.scripts ? theme.javascriptBundle() : ""
   const tail = `${js ? `<script data-storelib-bundle>${js.replace(/<\/script/gi, "<\\/script")}</script>` : ""}${opts.extraBodyEnd ?? ""}`
