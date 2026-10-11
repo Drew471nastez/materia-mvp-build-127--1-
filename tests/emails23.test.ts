@@ -346,7 +346,18 @@ async function main() {
     check("the order page link and Get help", h.includes(`/checkout/physical/order/${TOKEN}`) && h.includes("#get-help"))
     check("Reply-To is the store's contact email (Store details), the one its footer shows", c.replyTo === "hello@astrid.test" && h.includes("mailto:hello@astrid.test"))
     check("the legal line names the store and why the email came", /data-legal=""[^>]*>Astrid Studio<br>You&#39;re getting this email because of your order with Astrid Studio\.|data-legal=""[^>]*>Astrid Studio<br>You're getting this email because of your order with Astrid Studio\./.test(h) || (h.includes('data-legal=""') && h.includes("because of your order with Astrid Studio")))
-    check("a business name, address and tax number go on the legal line when the store has them", legalOf({ legalName: "Astrid SRL", legalAddress: ["Strada Lipscani 12", "Bucharest"], taxId: "RO123" })?.taxId === "RO123" && legalOf({ name: "x" }) === null)
+    check("the business behind the store is read from Store details' business details (storeIdentity legal)", legalOf({ legal: { name: "Astrid SRL", lines: ["Strada Lipscani 12", "Bucharest"], taxId: "RO123", taxIdLabel: "VAT number" } })?.taxIdLabel === "VAT number" && legalOf({ legal: null }) === null)
+    const vdb = new FakeDb()
+    seed(vdb)
+    vdb.tables.commerce_checkouts[0].shipping_rate = { name: "Standard", min_days: 3, max_days: 5, tax_included: true, tax_label: "VAT 19%" }
+    vdb.tables.store_settings[0].legal = { company: "Astrid SRL" }
+    const [vat] = await takeFrom(vdb, () => queueOrderConfirmation(vdb as any, CHECKOUT, CREATOR))
+    check("the tax is named as the checkout named it: Including VAT 19%, in the HTML and the text", !!vat && vat.html.includes("Including VAT 19%") && vat.text.includes("Including VAT 19%: $17.67") && !vat.html.includes("Tax (included)"), vat?.text)
+    const { orderConfirmationEmail: oce } = await import("@/lib/physical/email-templates")
+    const sold = oce({ shopName: "Astrid Studio", orderNumber: "#1", buyerFirstName: null, lines: [], totals: { subtotal: 0, discount: 0, shipping: 0, shippingDiscount: 0, tax: 0, taxIncluded: false, total: 0, currency: "USD" }, address: null, deliveryName: null, deliveryEstimate: null, statusUrl: "https://x", hasDownloads: false, brand: { legal: legalOf({ legal: { name: "Astrid SRL", lines: ["Strada Lipscani 12", "030031 Bucharest"], taxId: "RO123", taxIdLabel: "VAT number" } }) } })
+    check("Sold by the legal name, its address and tax number, at the foot of the order email and its text", sold.html.includes("Sold by Astrid SRL, Strada Lipscani 12, 030031 Bucharest · VAT number RO123") && sold.text.includes("Sold by Astrid SRL"))
+    const receipt: any = { firstName: "Maria", sellerName: "Astrid Studio", orderNumber: "#1001", dateText: "10 October 2026", items: [{ title: "Course", variantName: null, amountText: "$49.00", note: null }], subtotalText: "$41.18", tipText: null, taxText: "$7.82", taxIncluded: true, taxLabel: "VAT 19%", totalText: "$49.00", refundedText: null, link: "https://storelib.com/receipt/x", buttonLabel: "View your receipt", supportEmail: "hello@astrid.test", legal: { name: "Astrid SRL", lines: ["Strada Lipscani 12"], taxId: "RO123", taxIdLabel: "VAT number" } }
+    check("the receipt names its tax and says who sold it", buyerReceiptEmailHtml(receipt).includes("Including VAT 19%") && buyerReceiptEmailHtml(receipt).includes("Sold by Astrid SRL, Strada Lipscani 12, VAT number RO123") && buyerReceiptEmailText(receipt).includes("Including VAT 19%: $7.82"))
     check("the payment method", h.includes("Visa ending 4242"))
     check("no unsubscribe on an order email, in the body or the headers", !/unsubscribe/i.test(h) && !Object.keys(c.headers).some((k) => /unsubscribe/i.test(k)))
 
@@ -468,6 +479,7 @@ async function main() {
     await runJobs(off as any, 20)
     check("with sales emails off in the seller's notification settings, no seller email", outbox.length === n3)
     const ls = lowStockEmail({ shopName: "Astrid", items: [{ title: "Hoodie", variantName: "M", available: 0, threshold: 5 }], inventoryUrl: "https://storelib.com/app/inventory?filter=low" })
+    check("low stock is a seller email: no buyer wording in it", !/Questions about this order|your order with|Get help with this order/.test(ls.html + ls.text))
     check("low stock: Storelib's look, the item, Open Inventory, and how to turn it off", ls.html.includes("Stock is running out") && ls.html.includes("Hoodie") && ls.html.includes("Open Inventory") && ls.text.includes("Settings › Locations"))
     check("low stock is never sent to Storelib's own support inbox standing in for a seller", /sellerInbox\(db, creatorId\)/.test(read("lib/physical/jobs-server.ts")) && /to !== EMAIL_REPLY_TO/.test(read("lib/physical/jobs-server.ts")))
     const pf = sellerCommerceEmail("payment_failed", { orderNumber: "1042", totalCents: 11067, currency: "usd", reason: "Card declined" }, { baseUrl: "https://storelib.com" })

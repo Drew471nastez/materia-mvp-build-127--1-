@@ -83,6 +83,10 @@ export interface ReceiptEmailModel {
   /** Settings › Taxes: the tax in the total, and whether it was part of the prices. */
   taxText?: string | null
   taxIncluded?: boolean
+  /** "VAT 19%", as the checkout named the tax (SQL part 153, lib/tax/rules taxLabel); "Tax" without one. */
+  taxLabel?: string | null
+  /** The business that sells (Settings › Store details › Business details): "Sold by" with its address and tax number. */
+  legal?: { name: string; lines: string[]; taxId: string | null; taxIdLabel: string } | null
   totalText: string
   refundedText: string | null
   link: string
@@ -277,9 +281,9 @@ ${itemRows}
 <tr><td colspan="2" style="height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>
 ${m.subtotalText ? sumRow("Subtotal", m.subtotalText) : ""}
 ${m.tipText ? sumRow("Tip", m.tipText) : ""}
-${m.taxText && !m.taxIncluded ? sumRow("Tax", m.taxText) : ""}
+${m.taxText && !m.taxIncluded ? sumRow(taxName(m), m.taxText) : ""}
 ${sumRow("Total", m.totalText, true)}
-${m.taxText && m.taxIncluded ? sumRow("Including tax", m.taxText) : ""}
+${m.taxText && m.taxIncluded ? sumRow(includedName(m), m.taxText) : ""}
 ${m.refundedText ? sumRow("Refunded", m.refundedText) : ""}
 </table>
 ${documentLine(m)?.html ?? ""}
@@ -294,13 +298,36 @@ ${button(m.buttonLabel, link)}
 </td></tr>
 </table>
 </td></tr>
-<tr><td align="center" class="rc-foot" style="padding:18px 16px 0;font-family:${FONT};font-size:12px;line-height:18px;color:#9ca3af;">Sold by ${seller} through ${PLATFORM_BRAND_NAME}</td></tr>
+<tr><td align="center" class="rc-foot" style="padding:18px 16px 0;font-family:${FONT};font-size:12px;line-height:18px;color:#9ca3af;">${legalHtml(m) || `Sold by ${seller} through ${PLATFORM_BRAND_NAME}`}</td></tr>
 </table>
 <!--[if mso]></td></tr></table><![endif]-->
 </td></tr>
 </table>
 </body>
 </html>`
+}
+
+/** The tax row's name: the checkout's own ("VAT 19%"), else "Tax". */
+function taxName(m: ReceiptEmailModel): string {
+  return safeText(m.taxLabel || "").replace(/[<>]/g, "").slice(0, 80) || "Tax"
+}
+
+/** Under the total, for prices that had the tax in them: "Including VAT 19%" (the same words as lib/tax/rules includedTaxLabel). */
+function includedName(m: ReceiptEmailModel): string {
+  const l = taxName(m)
+  return `Including ${/^tax\b/i.test(l) ? "tax" + l.slice(3) : l}`
+}
+
+/** "Sold by Astrid SRL", its address and its tax number, one line each part, when the store gave its business details. */
+function legalText(m: ReceiptEmailModel): string {
+  const l = m.legal
+  if (!l?.name?.trim()) return ""
+  return [`Sold by ${safeText(l.name)}`, ...l.lines.map(safeText).filter(Boolean), l.taxId ? `${safeText(l.taxIdLabel || "Tax ID")} ${safeText(l.taxId)}` : ""].filter(Boolean).join(", ")
+}
+
+function legalHtml(m: ReceiptEmailModel): string {
+  const t = legalText(m)
+  return t ? `${escapeHtml(t)}<br>Through ${PLATFORM_BRAND_NAME}` : ""
 }
 
 export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
@@ -318,15 +345,16 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
     ...lines,
     m.subtotalText ? `Subtotal: ${m.subtotalText}` : null,
     m.tipText ? `Tip: ${m.tipText}` : null,
-    m.taxText && !m.taxIncluded ? `Tax: ${m.taxText}` : null,
+    m.taxText && !m.taxIncluded ? `${taxName(m)}: ${m.taxText}` : null,
     `Total: ${m.totalText}`,
-    m.taxText && m.taxIncluded ? `Including tax: ${m.taxText}` : null,
+    m.taxText && m.taxIncluded ? `${includedName(m)}: ${m.taxText}` : null,
     m.refundedText ? `Refunded: ${m.refundedText}` : null,
     "",
     `${m.buttonLabel}: ${m.link}`,
     documentLine(m)?.text ?? null,
     "",
     "Reply to this email to reach the seller.",
+    ...(legalText(m) ? ["", legalText(m)] : []),
   ]
     .filter((l): l is string => l !== null)
     .join("\n")

@@ -151,10 +151,10 @@ export function physicalSaleFacts(co: Record<string, unknown> | null | undefined
  * and the `fulfil` block the template draws. Data that does not add up
  * keeps what the order rows said.
  */
-export function withPhysicalSale(data: Record<string, unknown>, facts: PhysicalSaleFacts | null, nextStep?: string | null): Record<string, unknown> {
-  if (!facts) return data
+export function withPhysicalSale(data: Record<string, unknown>, read: PhysicalSaleFacts | null, nextStep?: string | null): Record<string, unknown> {
+  if (!read) return data
   /* The order's own next step when it was read (lib/physical/orders-server.ts sellerNextStepFor: who ships each part and how they hear of it). */
-  if (nextStep && nextStep.trim()) facts = { ...facts, nextStep: str(nextStep, 600) }
+  const facts: PhysicalSaleFacts = nextStep && nextStep.trim() ? { ...read, nextStep: str(nextStep, 600) } : read
   const fulfil = {
     kind: facts.kind,
     shipTo: facts.shipTo,

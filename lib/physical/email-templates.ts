@@ -38,6 +38,8 @@ export interface EmailTotals {
    * one Tax row stands for all of it.
    */
   taxLines?: { label: string; cents: number }[] | null
+  /** The tax's name as the checkout set it ("VAT 19%", shipping_rate.tax_label, SQL part 153); "Tax" without one. */
+  taxLabel?: string | null
 }
 
 function esc(value: unknown): string {
@@ -79,7 +81,7 @@ export interface EmailBrand {
    * when the store gave them. Left out, the line is the store's name alone.
    * A ship-from address is never used here: for many stores it is a home.
    */
-  legal?: { name?: string | null; address?: string[] | null; taxId?: string | null } | null
+  legal?: { name?: string | null; address?: string[] | null; taxId?: string | null; taxIdLabel?: string | null } | null
 }
 
 /** "10 October 2026", in the store's time zone when known. "" for a date that can't be read. */
@@ -105,11 +107,12 @@ function brandTop(shopName: string, brand: EmailBrand | undefined, aside: string
   }</tr></table>`
 }
 
-/** The business behind the store, one small line: name, address, tax number. Only what the store gave. */
+/** The business behind the store, one small line: "Sold by" its legal name, its address, its tax number. Only what the store gave; the store's name alone without them. */
 function legalLine(shopName: string, brand: EmailBrand | undefined): string {
   const l = brand?.legal
-  const parts = [l?.name?.trim() || shopName, ...(l?.address ?? []).map((a) => a.trim()).filter(Boolean)].filter(Boolean)
-  const tax = l?.taxId?.trim() ? `Tax ID ${l.taxId.trim()}` : ""
+  if (!l?.name?.trim()) return shopName
+  const parts = [`Sold by ${l.name.trim()}`, ...(l.address ?? []).map((a) => a.trim()).filter(Boolean)]
+  const tax = l.taxId?.trim() ? `${l.taxIdLabel?.trim() || "Tax ID"} ${l.taxId.trim()}` : ""
   return [parts.join(", "), tax].filter(Boolean).join(" · ")
 }
 
@@ -257,12 +260,19 @@ ${row("Total", formatMoney(t.total, t.currency), true)}
 </table></td></tr>`
 }
 
-/** The tax as rows: one per line the checkout kept, else one Tax row; "(included)" when it was in the prices. */
+/**
+ * The tax as rows: one per line the checkout kept, else one row named as the
+ * checkout named it ("VAT 19%"), else "Tax". Tax that was in the prices reads
+ * "Including VAT 19%", the words receipts use (lib/tax/rules includedTaxLabel).
+ */
 function taxRows(t: EmailTotals): { label: string; value: string }[] {
+  const name = (l: string) => {
+    const clean = l.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60) || "Tax"
+    return t.taxIncluded ? `Including ${/^tax\b/i.test(clean) ? "tax" + clean.slice(3) : clean}` : clean
+  }
   const lines = (t.taxLines ?? []).filter((l) => l && l.cents > 0 && typeof l.label === "string" && l.label.trim())
-  const inc = t.taxIncluded ? " (included)" : ""
-  if (lines.length) return lines.map((l) => ({ label: `${l.label.trim().slice(0, 60)}${inc}`, value: formatMoney(l.cents, t.currency) }))
-  return t.tax > 0 ? [{ label: `Tax${inc}`, value: formatMoney(t.tax, t.currency) }] : []
+  if (lines.length) return lines.map((l) => ({ label: name(l.label), value: formatMoney(l.cents, t.currency) }))
+  return t.tax > 0 ? [{ label: name(t.taxLabel ?? ""), value: formatMoney(t.tax, t.currency) }] : []
 }
 
 /** The money as the plain text part says it, every row the HTML has. */

@@ -500,6 +500,9 @@ async function receiptEmailModel(
       tipText: v.tipCents > 0 ? money(v.tipCents) : null,
       taxText: (v.taxCents ?? 0) > 0 ? formatMoney(v.taxCents ?? 0, v.currency, "en-US") : null,
       taxIncluded: v.taxIncluded === true,
+      /* The tax's own name and the business behind the store, when the receipt read them (SQL part 153). */
+      taxLabel: (v as { taxLabel?: string | null }).taxLabel ?? null,
+      legal: (v.seller as { legal?: ReceiptEmailModel["legal"] } | undefined)?.legal ?? null,
       totalText: money(v.totalCents),
       refundedText: v.refundedCents > 0 ? formatMoney(v.refundedCents, v.currency, "en-US") : null,
       link: params.receiptLink,

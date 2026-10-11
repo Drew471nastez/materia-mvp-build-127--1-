@@ -409,10 +409,14 @@ async function returnAddressOf(db: Db, creatorId: string): Promise<string[] | nu
 export function legalOf(store: object | null | undefined): EmailBrand["legal"] {
   const s = (store ?? {}) as Record<string, unknown>
   const text = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max) : "")
-  const address = Array.isArray(s.legalAddress) ? (s.legalAddress as unknown[]).map((l) => text(l, 120)).filter(Boolean).slice(0, 6) : text(s.legalAddress, 300) ? [text(s.legalAddress, 300)] : []
-  const name = text(s.legalName, 120)
-  const taxId = text(s.taxId, 60)
-  return name || address.length || taxId ? { name: name || null, address, taxId: taxId || null } : null
+  /* Settings › Store details › Business details (SQL part 153): storeIdentity's `legal`, { name, lines, taxId, taxIdLabel }. */
+  const l = (s.legal && typeof s.legal === "object" ? s.legal : s) as Record<string, unknown>
+  const rawLines = Array.isArray(l.lines) ? l.lines : Array.isArray(l.legalAddress) ? l.legalAddress : text(l.legalAddress, 300) ? [l.legalAddress] : []
+  const address = (rawLines as unknown[]).map((x) => text(x, 120)).filter(Boolean).slice(0, 6)
+  const name = text(l.name ?? l.legalName, 120)
+  const taxId = text(l.taxId, 60)
+  if (!name) return null
+  return { name, address, taxId: taxId || null, taxIdLabel: text(l.taxIdLabel, 40) || null }
 }
 
 /**
@@ -478,6 +482,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         shippingDiscount: co.shipping_discount_cents,
         tax: co.tax_cents,
         taxIncluded: !!co.shipping_rate?.tax_included,
+        /* "VAT 19%", as the checkout named it (part 153); "Tax" for an order from before. */
+        taxLabel: typeof co.shipping_rate?.tax_label === "string" ? co.shipping_rate.tax_label : null,
         total: co.total_cents,
         currency: co.currency,
       },
