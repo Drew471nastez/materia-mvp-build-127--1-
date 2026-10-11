@@ -2054,9 +2054,27 @@ html.capacitor body {
     from { opacity: 0; transform: translateY(10px) scale(0.97) }
     to { opacity: 1; transform: none }
   }
+  /* Leaving the way it came (components/website-builder/leave-confirm.tsx, LEAVE_EXIT_MS). */
+  .wb-leave-scrim[data-state="closed"] {
+    animation: wb-leave-scrim-out 160ms cubic-bezier(0.4, 0, 0.2, 1) both;
+    pointer-events: none;
+  }
+  .wb-leave-card[data-state="closed"] {
+    animation: wb-leave-card-out 160ms cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+  @keyframes wb-leave-scrim-out {
+    from { opacity: 1 }
+    to { opacity: 0 }
+  }
+  @keyframes wb-leave-card-out {
+    from { opacity: 1; transform: none }
+    to { opacity: 0; transform: translateY(6px) scale(0.98) }
+  }
   @media (prefers-reduced-motion: reduce) {
     .wb-leave-scrim,
-    .wb-leave-card { animation: none }
+    .wb-leave-card,
+    .wb-leave-scrim[data-state="closed"],
+    .wb-leave-card[data-state="closed"] { animation: none }
   }
 
   /* Leaving the builder. Shown the instant Back is pressed, over everything,
