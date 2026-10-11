@@ -732,7 +732,7 @@ export class CompatTheme {
     }
     errors.push(...said.slice(from, from + 5))
     child.out.chars = charsBefore
-    html = `${sectionCss(instance.id, instance.settings[SECTION_CSS_KEY])}${html}`
+    html = `${sectionCss(instance.id, instance.settings?.[SECTION_CSS_KEY])}${html}`
     const cls = typeof schema.class === "string" ? ` ${escapeHtml(schema.class)}` : ""
     const tag = typeof schema.tag === "string" && /^(div|section|article|aside|header|footer|main|nav)$/.test(schema.tag) ? schema.tag : "div"
     return { html: `<${tag} id="shopify-section-${escapeHtml(instance.id)}" class="shopify-section${group ? ` shopify-section-group-${escapeHtml(/-group$/.test(group) ? group : `${group}-group`)}` : ""}${cls}" data-section-id="${escapeHtml(instance.id)}" data-section-type="${escapeHtml(instance.type)}">${html}</${tag}>`, errors }
