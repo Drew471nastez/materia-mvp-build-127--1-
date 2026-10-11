@@ -328,6 +328,8 @@ async function main() {
     check("asks for the report when the link changes", /onSyncChanged: \(\) => void refreshSync\(\)/.test(editor) && /sync_at/.test(read("app/api/website-builder/themes/[installId]/agent-activity/route.ts")))
     check("an imported theme's own files changed underneath are read again for the canvas", /forgetCompatFiles\(installId\)/.test(editor) && /filesRevision=\{compatFilesRevision\}/.test(editor) && /\[installId, attempt, props\.filesRevision\]/.test(read("components/website-builder/compat/compat-canvas.tsx")))
     check("both changed: autosave waits and the creator picks", /\|\| syncConflict\) return/.test(editor) && /setSyncConflict\(\{ what:/.test(editor) && /Keep mine/.test(read("components/website-builder/github-sync-notice.tsx")) && /Use GitHub's/.test(read("components/website-builder/github-sync-notice.tsx")))
+    check("no save goes over GitHub's version unasked: a page switch waits, Save on the way out is a pick",
+      /if \(syncConflictRef\.current\) \{\s*if \(!options\.keepMine\)/.test(editor) && /saveDraft\(\{ quiet: true, keepMine: true \}\)/.test(editor) && /const handlePageChange = async[\s\S]{0,1600}if \(syncConflictRef\.current\) \{\s*showNotification/.test(editor))
     check("Publish waits for that choice", /if \(syncConflictRef\.current\) \{\s*showNotification\("Pick which version to keep first"/.test(editor))
     check("Publish writes the editor's copy only when it has unsaved work, so a push it has not read yet is not overwritten", /if \(isDirty\) \{\s*const settingsRes = await putJsonWithRetry/.test(editor))
     check("the buttons go through the GitHub route, which is rate limited per site and checks the owner",

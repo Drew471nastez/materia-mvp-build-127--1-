@@ -4160,6 +4160,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
      * Awaited, not fired and forgotten: the write must land while
      * `currentPage` and `sections` still agree about which page they describe.
      */
+    /* An edit here and GitHub's version of the same page: switching would save one over the other unasked. */
+    if (syncConflictRef.current) {
+      showNotification("Pick which version to keep first", "error")
+      return
+    }
     if (isDirty && !saving && !publishing) {
       await saveDraft({ quiet: true })
     }
@@ -5650,7 +5655,15 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     scheduleCoverRefresh(installId)
   }
 
-  const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
+  const saveDraft = async (options: { quiet?: boolean; keepMine?: boolean } = {}): Promise<boolean> => {
+    /* Never over GitHub's version while the creator has not picked (syncConflict), unless saving IS their pick. */
+    if (syncConflictRef.current) {
+      if (!options.keepMine) {
+        showNotification("Pick which version to keep first", "error")
+        return false
+      }
+      setSyncConflict(null)
+    }
     /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
     const t0 = performance.now()
     try {
@@ -8263,7 +8276,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   /** Save, from the leave dialog: the draft is written and then the page goes where it was going. */
   const saveThenLeave = async (): Promise<boolean> => {
-    const ok = await saveDraft({ quiet: true })
+    /* Save, pressed on the way out, keeps this editor's version. */
+    const ok = await saveDraft({ quiet: true, keepMine: true })
     if (!ok) return false
     const href = pendingExit
     setPendingExit(null)
