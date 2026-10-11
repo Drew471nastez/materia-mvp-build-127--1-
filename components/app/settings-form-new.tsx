@@ -26,6 +26,7 @@ import { IntegrationsDirectory } from "@/components/app/settings/integrations-di
 import { AiMemoryPanel } from "@/components/app/settings/ai-memory-panel"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { CheckoutPanel } from "@/components/app/settings/checkout-panel"
+import { SETTINGS_TAB_EVENT, type SettingsTabRequest } from "@/lib/settings/sheet-links"
 import type { Profile, Creator } from "@/lib/types"
 import { isValidUsername } from "@/lib/reserved-words"
 import { getLinksShareUrl, getLinksUrlDisplay, getStoreShareUrl, getStoreUrl, getStoreUrlDisplay, getWebsiteShareUrl, getWebsiteUrlDisplay } from "@/lib/url-helpers"
@@ -131,6 +132,22 @@ const TAB_FADE_MS = 150
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
 /** The longest a press waits for a section's data that is still on its way, before the section shows with its own placeholder. */
 const DATA_WAIT_MS = 160
+/*
+  A SECTION PRESSED WHILE SCROLLED DOWN GLIDES UP TO ITS TOP (round 20, the
+  owner: "when I click in the sidebar, it should auto scroll up smoothly,
+  clean"). Filmed: the jump straight to the top made "Settings" pop in over
+  the column in one frame, and the column dropped from where it was held to
+  its place under the title in the same frame. The new section still swaps
+  on the press, at once (never the old one riding a glide up and swapped
+  mid motion, round R1's "bump"), but it is drawn GLIDE_FROM_PX above the
+  top, where nothing above it is in view yet, and the browser's own smooth
+  scroll carries it the rest of the way: the title comes down into view and
+  the column settles under it, on the compositor. From closer than that it
+  glides from where it is; within SNAP_PX, and with less motion asked for,
+  it is simply at the top.
+*/
+const GLIDE_FROM_PX = 200
+const SNAP_PX = 8
 
 /**
  * What each section reads when it opens, so Settings can fetch it ahead
@@ -550,13 +567,25 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const show = () => {
       if (live) startTransition(() => setPanelTab(activeTab))
     }
+    /*
+      Plan waits for its own answer the same way (round 20): the open section stays while it comes, rather than a
+      one line "Checking your plan" card that the plans then push down from under it. This effect runs again when the
+      answer lands, and shows it then.
+    */
+    if (activeTab === "billing" && !billingData && !billingError) {
+      const t = window.setTimeout(show, DATA_WAIT_MS)
+      return () => {
+        live = false
+        window.clearTimeout(t)
+      }
+    }
     if (urls.every((u) => peekGet(u) !== null)) show()
     else void Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, DATA_WAIT_MS))]).then(show)
     return () => {
       live = false
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, physicalCommerce])
+  }, [activeTab, physicalCommerce, !!billingData, billingError])
   const [isLoading, setIsLoading] = useState(false)
   const [success, setSuccess] = useState(false)
   const [showSaveToast, setShowSaveToast] = useState(false)
@@ -912,6 +941,9 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     */
     requestLeave(() => {
       scrollPending.current = true
+      /* Where the column is on screen as it is pressed, so it can be eased from there if the swap moves it (below). */
+      const column = formRef.current?.closest("[data-settings-columns]")?.querySelector<HTMLElement>("[data-settings-groups]")
+      columnFrom.current = column && column.offsetHeight > 0 ? column.getBoundingClientRect().top : null
       /* The new panel fades in, for a press only (not on load, not on a re-render). */
       setPanelEntrance(true)
       setActiveTab(newTab)
@@ -926,6 +958,10 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   }
 
   const scrollPending = useRef(false)
+  /** Lets go of the section's held height once a glide to the top is over (see the layout effect below). */
+  const glideHold = useRef<null | (() => void)>(null)
+  /** The column's top on screen at the press (from 1024px), or null. */
+  const columnFrom = useRef<number | null>(null)
   /** The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
   const scrollerOf = () => formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
   /* Before the new section is painted: the scroll goes to the section's top, under the pills. */
@@ -944,9 +980,75 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     /* A short section still fills the screen under the row, so the row can stay where it is. Measured first, set once:
        clearing it before measuring laid the page out short and the browser pulled the scroll to the top. */
     if (formRef.current) formRef.current.style.minHeight = held ? `${scroller!.clientHeight}px` : ""
-    /* From 1024px, the very top, in this frame: the new section is never painted part way down the old one's scroll. */
-    if (scroller && scroller.scrollTop > target) scroller.scrollTop = target
+    if (!scroller || scroller.scrollTop <= target) return
+    /* In this frame the new section is never painted part way down the old one's scroll: at most GLIDE_FROM_PX above its top, then up. */
+    const still = scroller.scrollTop - target <= SNAP_PX || typeof scroller.scrollTo !== "function" || !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    /*
+      From where the column is still held (sticky) and the title still out of view, so neither moves in the swap's frame:
+      GLIDE_FROM_PX, or more when the column's own place is further down than that.
+    */
+    const columns = formRef.current?.closest<HTMLElement>("[data-settings-columns]")
+    const column = columns?.querySelector<HTMLElement>("[data-settings-groups]")
+    const shownColumn = !!column && column.offsetHeight > 0
+    const columnHeld = shownColumn ? columns!.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop - (parseFloat(getComputedStyle(column!).top) || 0) : 0
+    const start = still ? target : Math.min(scroller.scrollTop, target + Math.max(GLIDE_FROM_PX, Math.ceil(columnHeld)))
+    /*
+      THE COLUMN STAYS WHERE IT WAS HELD IN THE FRAME OF THE SWAP. It is held (sticky) inside the row it shares with the
+      section, and a short section made that row too short to hold it GLIDE_FROM_PX down: the column was pushed up by
+      100px in the swap's frame and came back down with the glide (scripts/check-settings20.mjs). For the length of the
+      glide the section's box is at least the column's height plus the glide, then it is let go, at the top, where
+      nothing in view depends on it.
+    */
+    glideHold.current?.()
+    const box = formRef.current
+    if (!held && !still && box && shownColumn) {
+      box.style.minHeight = `${column!.offsetHeight + start - target}px`
+      const release = () => {
+        window.clearTimeout(timer)
+        scroller.removeEventListener("scroll", onScroll)
+        if (glideHold.current === release) glideHold.current = null
+        box.style.minHeight = ""
+      }
+      glideHold.current = release
+      const onScroll = () => {
+        if (scroller.scrollTop <= target + 1) release()
+      }
+      const timer = window.setTimeout(release, 1500)
+      scroller.addEventListener("scroll", onScroll, { passive: true })
+    }
+    scroller.scrollTop = start
+    /*
+      AND FROM THE VERY END OF A LONG SECTION, the column was pushed up to make room for the end of its row (by 104px on
+      a 900px screen), and in the new section's first frame it is back at its held place: it eases there instead, over
+      the glide, never in one frame.
+    */
+    const was = columnFrom.current
+    columnFrom.current = null
+    if (!still && shownColumn && was !== null && typeof column!.animate === "function") {
+      const by = was - column!.getBoundingClientRect().top
+      if (Math.abs(by) > 1) column!.animate([{ transform: `translateY(${by}px)` }, { transform: "translateY(0)" }], { duration: 360, easing: "cubic-bezier(0.32, 0.72, 0, 1)" })
+    }
+    if (!still) scroller.scrollTo({ top: target, behavior: "smooth" })
   }, [panelTab])
+
+  /*
+    A LINK TO A SECTION FROM INSIDE SETTINGS (lib/settings/sheet-links.ts):
+    the sheet stops the navigation and names the section, and it opens here
+    as a press in the column would, with no new history entry.
+  */
+  const tabChangeRef = useRef(handleTabChange)
+  tabChangeRef.current = handleTabChange
+  const allowedRef = useRef(allowed)
+  allowedRef.current = allowed
+  useEffect(() => {
+    const onAsk = (e: Event) => {
+      const ask = (e as CustomEvent<SettingsTabRequest>).detail
+      const to = tabFromAddress(ask?.tab ?? null, ask?.section ?? null)
+      if (allowedRef.current(to)) tabChangeRef.current(to)
+    }
+    window.addEventListener(SETTINGS_TAB_EVENT, onAsk)
+    return () => window.removeEventListener(SETTINGS_TAB_EVENT, onAsk)
+  }, [])
 
   const handleSubmit = async (e?: React.FormEvent | Event): Promise<boolean> => {
     if (e && 'preventDefault' in e) e.preventDefault()
@@ -1458,7 +1560,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           FROM 1024px, THE SECTIONS ARE A COLUMN OF GROUPS beside the one open (the owner's reference: Account, Store,
           Commerce, Integrations). Below it, the same sections are the pill row above, in the same order.
         */}
-        <div className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-12">
+        <div data-settings-columns="" className="lg:grid lg:grid-cols-[232px_minmax(0,1fr)] lg:items-start lg:gap-12">
         {/* A plain list, not a card in the sheet: the groups' names and their sections, the open one filled. */}
         <nav aria-label="Settings" data-settings-groups="" className="sticky top-6 hidden lg:block">
           <div className="py-1">
