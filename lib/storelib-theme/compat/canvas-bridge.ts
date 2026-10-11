@@ -260,7 +260,34 @@ export const CANVAS_BRIDGE = `
   /* A theme that takes every link to play its own exit and then opens the page itself (location.href): the page it opened, as the builder would. */
   addEventListener("pagehide", function () {
     if (taken && Date.now() - taken.at < 3000) post({ type: "navigate", href: taken.href, chrome: taken.chrome });
+    else if (pressedCard && Date.now() - pressedCard.at < 3000) post({ type: "navigate", href: pressedCard.href, chrome: pressedCard.chrome });
   });
+  /*
+    A CARD THAT IS ITS OWN LINK. A product card pressed anywhere but on its
+    link (Horizon's, a picture or the space around the name) opens the
+    product with location.href, which a frame with no origin cannot report.
+    The press is remembered: the card is the nearest box around it whose
+    links all go to one page, and that page is what opened.
+  */
+  var pressedCard = null;
+  var oneLinkAround = function (el) {
+    for (var at = el, depth = 0; at && at !== document.body && depth < 8; at = at.parentElement, depth++) {
+      if (!at.querySelectorAll || (at.classList && at.classList.contains("shopify-section"))) return null;
+      var hrefs = {};
+      var n = 0;
+      Array.prototype.forEach.call(at.querySelectorAll("a[href]"), function (a) { var h = a.getAttribute("href") || ""; if (/^\\//.test(h) && !/^\\/\\//.test(h) && !hrefs[h]) { hrefs[h] = 1; n++; } });
+      if (n > 1) return null;
+      if (n === 1) return Object.keys(hrefs)[0];
+    }
+    return null;
+  };
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    pressedCard = null;
+    if (!t || !t.closest || t.closest("a[href], button, input, select, textarea, label, form, [role=button], summary")) return;
+    var href = oneLinkAround(t);
+    if (href) pressedCard = { href: href, at: Date.now(), chrome: !!t.closest("[class*='shopify-section-group-'], header, footer, nav") };
+  }, true);
   var follow = function (e, link) {
     var themeTook = false;
     var settled = false;

@@ -224,6 +224,10 @@ const go = async (page: Page, url: string) => {
   await page.goto(url, { waitUntil: "networkidle0", timeout: 90_000 }).catch((e) => console.log(`        (${url.replace(/^https?:\/\/[^/]+/, "").slice(0, 60)}: ${String(e).slice(0, 60)})`))
 }
 const wants = (what: string) => !ONLY.length || ONLY.includes(what)
+/* A group of checks that stopped part way (the browser stopped answering on a busy machine) is one failure, and the rest still run. */
+const guard = async (what: string, label: string, run: () => Promise<void>) => {
+  try { await run() } catch (e) { check(`${label}: the ${what} checks ran to the end`, false, String(e).slice(0, 160)) }
+}
 
 /* What a header link is, read in the page: its address, and a mark to find it again. */
 type HeaderLink = { href: string; text: string }
@@ -451,6 +455,26 @@ async function cardChecks(page: Page, base: string, label: string) {
       if (!cards.length && !want) { console.log(`  --    ${where}, ${label}, ${path}: no product cards`); continue }
       check(`${where}, ${label}, ${path}: every product card has its name, price and picture${want ? ` (${want} cards)` : ""}`, bad.length === 0 && cards.length >= want && errors.length === 0, `${cards.length} cards${bad.length ? `; ${bad.slice(0, 3).map((c) => `${c.handle}: title ${c.title}, price ${c.price}, pictures ${c.loaded}/${c.pictures} "${c.text}"`).join(" | ")}` : ""}${errors.length ? `; ${errors.join(" | ")}` : ""}`)
     }
+    /* A card's picture pressed, as a visitor presses it: the product opens (in the canvas, the builder is told to open it). */
+    await go(page, at("/collections/all"))
+    const frame = where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame()
+    await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+    const spot = await frame.evaluate(() => {
+      const main = document.querySelector("main, #MainContent") ?? document.body
+      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ opacityProperty: true, visibilityProperty: true }) && !!i.closest("li, [class*='card' i], product-card") && !!i.closest("li, [class*='card' i], product-card")!.querySelector("a[href*='/products/linen-shirt-']") })
+      if (!img) return null
+      img.scrollIntoView({ block: "center" })
+      const b = img.getBoundingClientRect()
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
+    })
+    if (!spot) { console.log(`  --    ${where}, ${label}: no card picture on /collections/all`); continue }
+    const nav = where === "the website" ? page.waitForNavigation({ timeout: 8000 }).catch(() => null) : null
+    if (label === "phone") await page.touchscreen.tap(spot.x, spot.y)
+    else await page.mouse.click(spot.x, spot.y)
+    let opened = ""
+    if (nav) { await nav; opened = new URL(page.url()).pathname }
+    else { await new Promise((r) => setTimeout(r, 1500)); opened = (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" ") }
+    check(`${where}, ${label}: a product card's picture, pressed, opens the product`, /\/products\/linen-shirt-\d/.test(opened), opened || "nothing opened")
   }
 }
 
@@ -639,11 +663,11 @@ async function run(zipPath: string) {
 
       /* Layout shift and the largest picture, from the first byte of every page (read by loadingChecks). */
       await page.evaluateOnNewDocument(() => { const W = window as unknown as { __w5cls: number; __w5lcp: string }; W.__w5cls = 0; W.__w5lcp = ""; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) W.__w5cls += e.value }).observe({ type: "layout-shift", buffered: true }); new PerformanceObserver((l) => { const e = l.getEntries().pop() as unknown as { element?: Element; url?: string } | undefined; if (e) W.__w5lcp = `${e.element?.tagName.toLowerCase() ?? ""} ${(e.url ?? "").split("/").pop()?.slice(0, 40) ?? ""}` }).observe({ type: "largest-contentful-paint", buffered: true }) } catch {} })
-      if (wants("loading")) await loadingChecks(page, base, label)
-      if (wants("overlay")) await overlayChecks(page, base, label, overlay)
-      if (wants("cards")) await cardChecks(page, base, label)
-      if (wants("recent")) await recentChecks(page, base, label)
-      if (wants("header")) await headerChecks(page, base, label === "phone", label, name)
+      if (wants("loading")) await guard("loading", label, () => loadingChecks(page, base, label))
+      if (wants("overlay")) await guard("overlay", label, () => overlayChecks(page, base, label, overlay))
+      if (wants("cards")) await guard("cards", label, () => cardChecks(page, base, label))
+      if (wants("recent")) await guard("recent", label, () => recentChecks(page, base, label))
+      if (wants("header")) await guard("header", label, () => headerChecks(page, base, label === "phone", label, name))
       if (ONLY.length && !ONLY.includes("core")) { await page.deleteCookie({ name: CART_COOKIE, url: base }); await page.close(); continue }
       for (const path of ["/", "/collections/all", "/collections/summer?sort_by=price-descending", "/search?q=linen", "/pages/contact", "/no-such-page"]) {
         const m = await visit(path)

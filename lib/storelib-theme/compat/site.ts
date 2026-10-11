@@ -622,10 +622,11 @@ function sectionsAnswer(site: SiteData, page: CompatPage, sections: StoredSectio
     if (at >= 0) {
       const s = sections[at]
       const group = s.group === "header" || s.group === "footer" ? s.group : undefined
-      return drawSection(site.theme, ctx, s, at, group).html
+      /* Drawn alone, as the Section Rendering API draws: no section.index (-1). */
+      return drawSection(site.theme, ctx, s, -1, group).html
     }
     const type = site.theme.typeOf(id)
-    if (/^[A-Za-z0-9_-]+$/.test(type) && site.theme.files[`sections/${type}.storelib`] !== undefined) return drawSection(site.theme, ctx, { id, type, settings: {} }).html
+    if (/^[A-Za-z0-9_-]+$/.test(type) && site.theme.files[`sections/${type}.storelib`] !== undefined) return drawSection(site.theme, ctx, { id, type, settings: {} }, -1).html
     /*
       A section of another page, by its own id: a recently viewed section on
       the product page asks the search page for itself (`/search?q=id:…
@@ -633,7 +634,7 @@ function sectionsAnswer(site: SiteData, page: CompatPage, sections: StoredSectio
       answer. Drawn with its own settings, about this page's results.
     */
     const elsewhere = Object.values(site.pages).flat().find((s) => s.id === id && !s.group && !s.hidden)
-    return elsewhere ? drawSection(site.theme, ctx, elsewhere).html : null
+    return elsewhere ? drawSection(site.theme, ctx, elsewhere, -1).html : null
   }
   if (!many) {
     const out = one(ids[0])
