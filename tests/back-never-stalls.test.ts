@@ -86,7 +86,8 @@ const SOURCES = [
   "components/nav",
   "lib",
 ]
-const OWN_WATCH = ["lib/navigation/go-back.ts", "app/checkout/checkout-client.tsx"]
+/* Round 20: the settings sheet's extra Back past a second Settings entry follows a backThen and has its own watch (STUCK_MS: the page under, then the sheet back working). */
+const OWN_WATCH = ["lib/navigation/go-back.ts", "app/checkout/checkout-client.tsx", "components/app/settings-sheet.tsx"]
 function walk(dir: string): string[] {
   const out: string[] = []
   const full = join(process.cwd(), dir)

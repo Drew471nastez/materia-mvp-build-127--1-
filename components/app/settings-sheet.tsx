@@ -46,8 +46,10 @@ import * as React from "react"
 import { usePathname, useRouter } from "next/navigation"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { backThen } from "@/lib/navigation/go-back"
+import { BACK_HOLD_MS, backInFlight, backThen } from "@/lib/navigation/go-back"
+import { pageUnderSettingsSheet } from "@/lib/ui/app-navigation"
 import { hasUnsaved, requestLeave } from "@/lib/settings/unsaved-guard"
+import { inSheetSettingsLink, SETTINGS_PATH, SETTINGS_TAB_EVENT } from "@/lib/settings/sheet-links"
 
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
 const IN_MS = 420
@@ -86,6 +88,30 @@ function reducedMotion(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
+/*
+  A CLOSE THAT DID NOT TAKE (round 20, the owner: "sometimes when I'm AFK the
+  settings sheet blocks, I have to refresh the page"). A close slides the
+  sheet away and then goes Back. When the Back did not take the address off
+  Settings (it landed on a second Settings entry, a back already on its way
+  swallowed it, a router that came back from a long idle answered late), the
+  sheet stayed mounted, slid out of sight with its dim still over the whole
+  page, and every press after that met `leaving` and did nothing: a page that
+  looks open and takes no clicks. So:
+
+    gone       once it has slid away it is hidden and lets every press
+               through, whatever the address does next, and the page under
+               it is no longer held
+    hops       a Back that lands on Settings again goes on back, up to
+               MAX_HOPS times, to the page it was opened over
+    STUCK_MS   still up on Settings after that: the address is put on the
+               page under it; and if even that does not take, the sheet comes
+               back, whole and working, so a press on the close works again
+    shown      every time it is shown again (the slot keeps it mounted
+               through a step that does not match it), it starts fresh
+*/
+const STUCK_MS = 2500
+const MAX_HOPS = 3
+
 /** A touch that starts on one of these is the control's, not the sheet's. */
 const OWN_GESTURE = "input[type=range], textarea, [contenteditable=true], [data-no-sheet-drag], [role=slider]"
 
@@ -97,16 +123,50 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
   const scroller = React.useRef<HTMLDivElement>(null)
   const leaving = React.useRef(false)
   const [scrolled, setScrolled] = React.useState(false)
+  /* Slid away: hidden and letting every press through (see STUCK_MS). */
+  const [gone, setGone] = React.useState(false)
+  const alive = React.useRef(true)
+  const stuck = React.useRef(0)
+  const hereRef = React.useRef(false)
 
   /*
     A LINK INSIDE THE SHEET TO ANOTHER PAGE. A slot keeps what it last drew
     through a step that does not match it, so over any other address this
     draws nothing and the page that was opened is simply the page.
   */
-  const here = !overlay || pathname === "/app/settings"
+  const here = !overlay || pathname === SETTINGS_PATH
+  hereRef.current = here
+
+  React.useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      window.clearTimeout(stuck.current)
+    }
+  }, [])
+
+  /* Put back at rest and working: no offset, no fade left filled in, presses taken again. */
+  const restore = React.useCallback(() => {
+    window.clearTimeout(stuck.current)
+    for (const el of [panel.current, scrim.current]) {
+      el?.getAnimations?.().forEach((a) => a.cancel())
+      if (el) {
+        el.style.transform = ""
+        el.style.opacity = ""
+      }
+    }
+    leaving.current = false
+    setGone(false)
+  }, [])
 
   /* In: up from below the screen, once, on the first frame, on the compositor. */
   React.useLayoutEffect(() => {
+    /* Shown again on the same mount: whatever the last close left (a `leaving`, a hidden root) is over. */
+    if (here) {
+      window.clearTimeout(stuck.current)
+      leaving.current = false
+      setGone(false)
+    }
     const el = panel.current
     if (!here || !el || reducedMotion() || typeof el.animate !== "function") return
     if (asPage()) {
@@ -141,16 +201,53 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       /* From rest it leaves at speed; from a drag it carries on from the finger. */
       const ease = from > 0 || speed > 0 ? EASE : OUT_EASE
 
+      /* Still up on Settings well after the close: put the address on the page under it, then, if even that did not take, bring the sheet back working. */
+      const watch = () => {
+        window.clearTimeout(stuck.current)
+        stuck.current = window.setTimeout(() => {
+          if (!alive.current || !hereRef.current || window.location.pathname !== SETTINGS_PATH) return
+          if (!overlay) return restore()
+          router.replace(pageUnderSettingsSheet(SETTINGS_PATH) ?? "/app")
+          stuck.current = window.setTimeout(() => {
+            if (alive.current && hereRef.current && window.location.pathname === SETTINGS_PATH) restore()
+          }, STUCK_MS)
+        }, STUCK_MS)
+      }
+
       if (overlay) {
         /*
           OVER THE PAGE: the sheet itself goes down, and only when it is gone
           does the address go Back. The page under it never left, so there is
           nothing to load and nothing to flash.
         */
-        /* Through the back watch, so a Back that goes nowhere still leaves for the dashboard. */
+        /* Through the back watch, so a Back that goes nowhere still leaves for the page under it. */
+        const under = () => pageUnderSettingsSheet(SETTINGS_PATH) ?? "/app"
+        let waited = 0
         const back = () => {
-          if (window.history.length > 1) backThen(() => router.replace("/app"))
-          else router.replace("/app")
+          setGone(true)
+          watch()
+          if (window.history.length <= 1) return router.replace(under())
+          /* A back already on its way (a press a moment ago) would swallow this one: wait it out rather than do nothing. */
+          if (backInFlight() && waited++ < 8) {
+            window.setTimeout(back, BACK_HOLD_MS)
+            return
+          }
+          /* A Back that lands on Settings again (a second entry for it) goes on back to the page it was opened over. */
+          let hops = 0
+          const onPop = () => {
+            window.setTimeout(() => {
+              if (!alive.current || window.location.pathname !== SETTINGS_PATH || hops >= MAX_HOPS) return stop()
+              hops++
+              window.history.back()
+            }, 0)
+          }
+          const stop = () => window.removeEventListener("popstate", onPop)
+          window.addEventListener("popstate", onPop)
+          window.setTimeout(stop, STUCK_MS)
+          backThen(() => {
+            stop()
+            router.replace(under())
+          })
         }
         if (!el || !motion) return back()
         const a = asPage()
@@ -169,6 +266,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       }
 
       const go = () => {
+        watch()
         /* Back to where it was opened from, when that was a page of ours; a cold open goes to the dashboard. */
         let ours = false
         try {
@@ -207,7 +305,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       a.onfinish = remove
       window.setTimeout(remove, ms + 200)
     },
-    [router, overlay],
+    [router, overlay, restore],
   )
 
   /*
@@ -259,7 +357,8 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
                    move the header and the sidebar behind the sheet.
   */
   React.useLayoutEffect(() => {
-    if (!here) return
+    /* Slid away, even before the address has moved: the page under it is the page again. */
+    if (!here || gone) return
     const html = document.documentElement
     html.setAttribute("data-settings-sheet-up", overlay ? "over" : "page")
     /*
@@ -279,7 +378,7 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       if (was.gutter) html.style.setProperty("scrollbar-gutter", was.gutter)
       else html.style.removeProperty("scrollbar-gutter")
     }
-  }, [here, overlay])
+  }, [here, overlay, gone])
 
   React.useEffect(() => {
     const root = scrim.current?.parentElement
@@ -297,6 +396,30 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       root.removeEventListener("wheel", outside)
       root.removeEventListener("touchmove", outside)
     }
+  }, [here])
+
+  /*
+    A LINK FROM SETTINGS TO SETTINGS IS NOT A NAVIGATION (lib/settings/sheet-
+    links.ts). On the document, in the capture phase, so it is stopped before
+    a Link's own handler or the browser follows it, and a link in a popover
+    drawn on the body (the address pill's menu) is caught as well. The form
+    switches to the section it names; a link to Settings with no section
+    leaves the sheet as it is.
+  */
+  React.useEffect(() => {
+    if (!here) return
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+      const a = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null
+      if (!a || (a.target && a.target !== "_self") || a.hasAttribute("download")) return
+      const ask = inSheetSettingsLink(a.href, window.location.href)
+      if (!ask) return
+      e.preventDefault()
+      e.stopPropagation()
+      if (ask.tab) window.dispatchEvent(new CustomEvent(SETTINGS_TAB_EVENT, { detail: ask }))
+    }
+    document.addEventListener("click", onClick, true)
+    return () => document.removeEventListener("click", onClick, true)
   }, [here])
 
   /* ── The drag ─────────────────────────────────────────────────────────── */
@@ -468,7 +591,11 @@ export function SettingsSheet({ children, label = "Settings", overlay = false }:
       className={cn(
         "fixed inset-0 z-[54]",
         "max-lg:z-[49] max-lg:top-[calc(68px+env(safe-area-inset-top,0px))] md:max-lg:top-[calc(58px+env(safe-area-inset-top,0px))] md:max-lg:left-[240px]",
+        /* Slid away: nothing of it takes a press or covers the page while the address catches up (STUCK_MS). */
+        gone && "pointer-events-none invisible",
       )}
+      aria-hidden={gone || undefined}
+      data-settings-sheet-gone={gone ? "" : undefined}
       data-settings-sheet-root=""
       data-settings-sheet-mode={overlay ? "over" : "page"}
     >

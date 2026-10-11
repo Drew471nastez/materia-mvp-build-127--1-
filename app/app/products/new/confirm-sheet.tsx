@@ -137,7 +137,7 @@ export function ConfirmSheet({
           </div>
           <div className="flex justify-end gap-2 border-t border-[#eceef1] px-5 py-3">
             {q.alt ? (
-              <button type="button" data-confirm-alt="" onClick={() => onAnswer("alt")} className="mr-auto h-8 rounded-lg px-2 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">
+              <button type="button" data-confirm-alt="" onClick={() => onAnswer("alt")} className="mr-auto h-8 whitespace-nowrap rounded-lg px-2 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]">
                 {q.alt}
               </button>
             ) : null}

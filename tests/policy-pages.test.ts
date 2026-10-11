@@ -696,7 +696,8 @@ async function main() {
     )
 
     /** A refresh looks like a page switch. */
-    check("the sidebar shows its skeleton on a first load too", /\{sectionsLoading \|\| loading \? \(/.test(editor))
+    /* Round 20 (tests/canvas20.test.ts): a page switch keeps the list it has instead of grey bars; the first load still shows them. */
+    check("the sidebar shows its skeleton on a first load too", /\{loading \? \(/.test(editor))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

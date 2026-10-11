@@ -142,7 +142,8 @@ async function main() {
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("the page frames are drawn in the order they were made, so none is ever moved (a moved frame loads again)", /\[\.\.\.slots\]\.sort\(\(a, b\) => a\.n - b\.n\)/.test(canvas))
-    check("  and the page being left says nothing that brings it forward", /if \(slot\.leaving && !isFront\) return/.test(canvas))
+    /* Round 20 (tests/canvas20.test.ts): no page is kept leaving any more; the one in front is taken out the moment the next comes forward, so nothing of it can come back. */
+    check("  and the page being left is gone the moment the next comes forward, so it cannot come back", /return at <= 0 \? prev : prev\.slice\(at\)/.test(canvas))
     check("the canvas is told every page the site has", /pageKeys=\{rowPageKeys\}/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /pageKeys: pageKeys \?/.test(canvas))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
     check("a link that opens nothing in the canvas says why", /Opens \$\{other\[1\]/.test(editor) && /No page at \$\{path\} yet/.test(editor))

@@ -118,4 +118,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "128", file: "128_plan_cancellations.sql", sha256: "55d887cf001c2b4b6802988ae1139825368cfb2c59bb6c86876473ab317d4238" },
   { part: "129", file: "129_customer_email_words_and_tax_on_receipts.sql", sha256: "aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b" },
   { part: "130", file: "130_theme_publish_in_one_step.sql", sha256: "20561e14e27f6ea10622df2fa617fed5b86a973f9a4df016943b148ad0134ea8" },
+  { part: "131", file: "131_products_max_per_order.sql", sha256: "6d2388941730e3490474a62561f5224313ced2db03639b34684edf4b2c055453" },
 ]
