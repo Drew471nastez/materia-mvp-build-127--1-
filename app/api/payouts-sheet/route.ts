@@ -19,13 +19,24 @@ export const dynamic = "force-dynamic"
 const NO_STORE = { "cache-control": "no-store" }
 const EXPIRED = "This link has run out. Close it and tap Set up payouts again."
 
+type LinkedCreator = { id: string; user_id: string; deleted_at?: string | null }
+
+/** The creator the link names, with whether the store was closed. A database without `deleted_at` is read as before. */
+async function linkedCreator(id: string): Promise<LinkedCreator | null> {
+  const db = createAdminClient()
+  const first = await db.from("creators").select("id, user_id, deleted_at").eq("id", id).maybeSingle()
+  if (!first.error) return (first.data as LinkedCreator | null) ?? null
+  const { data } = await db.from("creators").select("id, user_id").eq("id", id).maybeSingle()
+  return (data as LinkedCreator | null) ?? null
+}
+
 export async function POST(request: NextRequest) {
   const body = ((await request.json().catch(() => null)) ?? {}) as { token?: unknown }
   const link = verifySheetLink(body.token)
   if (!link) return NextResponse.json({ error: EXPIRED }, { status: 401, headers: NO_STORE })
-  const { data } = await createAdminClient().from("creators").select("id, user_id").eq("id", link.c).maybeSingle()
-  const row = data as { id: string; user_id: string } | null
-  if (!row || row.user_id !== link.u) return NextResponse.json({ error: EXPIRED }, { status: 401, headers: NO_STORE })
+  const row = await linkedCreator(link.c)
+  /* A store closed since the link was made (lib/account/delete-account keeps its row, marked deleted_at) opens nothing either. */
+  if (!row || row.user_id !== link.u || row.deleted_at) return NextResponse.json({ error: EXPIRED }, { status: 401, headers: NO_STORE })
   const limited = await rateLimit({
     bucket: "payments-read",
     subjects: [row.id],
