@@ -7,6 +7,7 @@
  */
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
+import { resolveEditorHref } from "@/lib/website-builder/editor-navigation"
 import { COVER_SCRIPT_HOSTS, COVER_STILL_CSS, COVER_STILL_POLICY, withStillStyle } from "@/lib/website-builder/cover-still"
 
 let passed = 0
@@ -43,6 +44,17 @@ console.log("\nPublishing ends, and sooner")
   const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
   const later = route.slice(route.indexOf("after(async () => {"))
   check("the history row, the backup and the files' versions come after the answer", /takeBackup\(admin, installId/.test(later) && /theme_publish_history/.test(later) && /recordVersion\(admin, installId, file\.path/.test(later) && route.indexOf("after(async () => {") < route.indexOf("await revalidatePublishedSite(creator.id)\n\n"))
+}
+
+console.log("\nThe editor follows the site's links as the live site does")
+{
+  const ctx = { currentPage: "about", inspectorEnabled: true, fromNav: true, shopPath: "/products", customPageKeys: [] as string[] }
+  check("a menu link to the page that is open is that page, with the inspector on", JSON.stringify(resolveEditorHref("/about", ctx)) === '{"kind":"page","key":"about"}')
+  check("  and without fromNav a tap with the inspector on selects instead", resolveEditorHref("/about", { ...ctx, fromNav: false }).kind === "ignore")
+  const editor = read("app/website-builder/editor/[installId]/page.tsx")
+  check("the page that is open goes to its top, smoothly, instead of nothing", /if \(decision\.key === currentPageRef\.current && !decision\.anchor\) \{\s*document\.getElementById\("wb-preview-root"\)\?\.scrollTo\(\{ top: 0, behavior: "smooth" \}\)/.test(editor))
+  const section = read("components/website-builder/sections/StorelibSection.tsx")
+  check("a .storelib section says when its link is the site's navigation", section.includes(`const fromNav = chrome || !!a.closest("nav, [role='navigation']")`) && section.includes(`section.group === "header" || section.group === "footer"`) && section.includes(`onEditorNavigate(a.getAttribute("href") ?? "#", fromNav)`))
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)

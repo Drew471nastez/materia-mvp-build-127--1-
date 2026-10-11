@@ -4643,6 +4643,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       }
 
       case "page":
+        /* The page that is already open, with no section named: what a browser
+           does on a same page link, which is go to the top, as "top" does for
+           home. Opening it again would only throw the scroll away. */
+        if (decision.key === currentPageRef.current && !decision.anchor) {
+          document.getElementById("wb-preview-root")?.scrollTo({ top: 0, behavior: "smooth" })
+          return
+        }
         /* Opened at its top as always, then taken to the section the hash
            names once it is drawn: see the effect after "you arrive at the top". */
         pendingAnchor.current = decision.anchor ?? null
