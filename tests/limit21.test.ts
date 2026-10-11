@@ -249,7 +249,7 @@ async function main() {
     const wrapper = read("components/checkout/purchase-status-wrapper.tsx")
     check("the product page's buy box: Sold out in place of the buy button, a few left said under it", /sales\?\.soldOut \? \([\s\S]{0,300}disabled[\s\S]{0,400}Sold out[\s\S]{0,100}\) : \([\s\S]{0,40}<BuyButton/.test(wrapper) && wrapper.includes("{sales.fewLeft}"))
     const sticky = read("components/store-builder/sticky-add-to-cart.tsx")
-    check("the sticky bar says Sold out and does not buy", sticky.includes('closed ? "Sold out"') && sticky.includes("if (inEditorFrame || closed) return") && (sticky.match(/disabled=\{closed\}/g) ?? []).length === 2)
+    check("the sticky bar says Sold out and does not buy", sticky.includes('closed ? "Sold out"') && sticky.includes("if (closed) return") && (sticky.match(/disabled=\{closed\}/g) ?? []).length === 2)
     const page = read("app/(marketing)/p/[slug]/page.tsx")
     check("the product page counts on the server and hands both", page.includes("salesStanding(createAdminClient(), productId)") && (page.match(/sales=\{salesView\}/g) ?? []).length === 2 && (page.match(/soldOut=\{salesView\?\.soldOut \?\? false\}/g) ?? []).length === 2)
     check("and tells search engines it is out of stock", page.includes("soldOut(product) || salesView?.soldOut"))

@@ -554,7 +554,9 @@ export function LiveStickyAddToCart({
 
   const handleClick = async () => {
     /* Same rule as the buy button: the canvas browses, it does not buy. */
-    if (inEditorFrame || closed) return
+    if (inEditorFrame) return
+    /* A limited run that has sold out: the bar says so and does nothing. */
+    if (closed) return
     if (isPurchased) {
       if (isMembership) {
         window.location.assign(new URL("/account/library/memberships", getCanonicalSiteUrl()).toString())
