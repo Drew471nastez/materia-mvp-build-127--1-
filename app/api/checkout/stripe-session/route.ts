@@ -273,6 +273,8 @@ async function handlePOST(request: Request) {
     tax_rate_bps: String(tax?.rateBps ?? 0),
     tax_included: tax?.included ? "true" : "false",
     tax_country: tax && tax.taxCents > 0 ? tax.country ?? "" : "",
+    /* "VAT 19%": what the receipt, the PDF and the order call it (lib/tax/rules taxLabel). */
+    tax_label: tax && tax.taxCents > 0 ? tax.label : "",
     buyer_country: geoInfo.country || "",
     buyer_country_code: geoInfo.countryCode || "",
     buyer_device_type: deviceInfo.deviceType || "",

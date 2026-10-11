@@ -29,7 +29,7 @@ import { detectedCountry, loadCheckoutConfig, loadStoreName } from "@/lib/store/
 import { recordCheckoutStart } from "@/lib/automations/abandoned"
 import { contactSourceOfOrder } from "@/lib/contacts/contact-source"
 import { loadTaxForCheckout } from "@/lib/tax/server"
-import { basketTax, percentText } from "@/lib/tax/rules"
+import { basketTax } from "@/lib/tax/rules"
 import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { servingSiteOrigin } from "@/lib/checkout/site-checkout-server"
 import { CLAIM_HOLD_SECONDS, SALE_HOLDER_KEY, holdBasket, releaseSales, saleHolderForEmail } from "@/lib/checkout/sales-limit"
@@ -243,6 +243,17 @@ async function handlePOST(request: Request) {
   const attributionNow = () => attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
 
   const totalCents = priced.totalCents
+  /*
+    SETTINGS › CHECKOUT, where this route takes the order itself (a free
+    basket, or a Stripe page of its own): an account first, and a confirmed
+    one, as every other checkout asks (lib/store/checkout-config). The
+    addresses it hands back above go to checkouts that ask on their own.
+  */
+  if ((coupon && totalCents === 0) || ui) {
+    const config = await loadCheckoutConfig(admin, creatorId)
+    if (config.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
+    if (config.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
+  }
   if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin: siteServes ? siteOrigin : undefined, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
@@ -409,7 +420,7 @@ async function handlePOST(request: Request) {
         })),
       ),
       ...(addedTaxCents > 0
-        ? [{ quantity: 1, price_data: { currency: chargeCurrency, unit_amount: addedTaxCents, product_data: { name: `${tax.name || "Tax"} (${percentText(tax.rateBps)})`.slice(0, 120) } } }]
+        ? [{ quantity: 1, price_data: { currency: chargeCurrency, unit_amount: addedTaxCents, product_data: { name: tax.label } } }]
         : [])],
       ...(freeLines.length > 0 && coupon
         ? { custom_text: { submit: { message: `Also included, free with ${coupon.code}: ${freeLines.join(", ")}`.slice(0, 1000) } } }
@@ -467,7 +478,7 @@ async function handlePOST(request: Request) {
             }
           : {}),
         ...(tax.taxCents > 0
-          ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "" }
+          ? { tax_cents: String(tax.taxCents), tax_rate_bps: String(tax.rateBps), tax_included: tax.included ? "true" : "false", tax_country: tax.country ?? "", tax_label: tax.label }
           : {}),
         ...packItems(lines.map((l) => l.item)),
         /* Whose copies under the products' sales limits the orders take (lib/checkout/sales-limit). */
@@ -506,9 +517,9 @@ async function handlePOST(request: Request) {
       Settings › Checkout › Abandoned checkouts, for a signed in buyer (Stripe's
       form asks a guest's address only once they pay, so there is none to
       remind): the basket reached Pay, one start per Stripe page, with the way
-      back to this basket. Stripe's form has no news box, so the sweep only
-      reminds a buyer who is already on the store's list, and never one who
-      bought since (lib/automations/abandoned).
+      back to this basket. Stripe's form has no news box, so nobody ticked one
+      here and the sweep reminds nobody from it (only a tick asks for a
+      reminder, lib/automations/abandoned); the start is kept for the record.
     */
     if (user?.email) {
       const config = await loadCheckoutConfig(admin, creatorId)

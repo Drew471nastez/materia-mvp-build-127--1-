@@ -1163,7 +1163,7 @@ export default function CheckoutPageClient({
             total={total}
             tax={
               checkoutTax && !isFree
-                ? { cents: taxNow?.taxCents ?? 0, rateBps: taxNow?.rateBps ?? 0, included: checkoutTax.included, country: taxCountry, countries: checkoutTax.regions.map((r) => r.country), onCountry: setTaxCountry, suffix }
+                ? { cents: taxNow?.taxCents ?? 0, rateBps: taxNow?.rateBps ?? 0, label: taxNow?.label, included: checkoutTax.included, country: taxCountry, countries: checkoutTax.regions.map((r) => r.country), onCountry: setTaxCountry, suffix }
                 : undefined
             }
           />

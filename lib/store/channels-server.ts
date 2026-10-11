@@ -78,7 +78,7 @@ const failed = (error: { code?: string } | null | undefined, what: string): Done
 
 export async function createChannel(db: Db, creatorId: string, input: unknown): Promise<Done> {
   const read = readChannel(input)
-  if (!read.ok) return { ok: false, error: read.error, status: 400 }
+  if (read.ok === false) return { ok: false, error: read.error, status: 400 }
   const now = await loadChannels(db, creatorId)
   if (!now.ready) return { ok: false, error: CHANNELS_NEED_PART, status: 409 }
   if (now.channels.length >= MAX_CHANNELS) return { ok: false, error: `A store has up to ${MAX_CHANNELS} channels.`, status: 400 }
@@ -91,7 +91,7 @@ export async function createChannel(db: Db, creatorId: string, input: unknown): 
 export async function updateChannel(db: Db, creatorId: string, id: unknown, input: unknown): Promise<Done> {
   if (typeof id !== "string" || !UUID.test(id)) return { ok: false, error: "That channel was not found.", status: 404 }
   const read = readChannel(input)
-  if (!read.ok) return { ok: false, error: read.error, status: 400 }
+  if (read.ok === false) return { ok: false, error: read.error, status: 400 }
   const { data: row } = await db.from("sales_channels").select("id, kind").eq("id", id).eq("creator_id", creatorId).maybeSingle()
   if (!row) return { ok: false, error: "That channel was not found.", status: 404 }
   if (row.kind !== "custom") return { ok: false, error: "Storelib's own channels keep their names.", status: 400 }

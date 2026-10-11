@@ -324,6 +324,11 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
         const { error: inError } = await admin.from("orders").update({ tax_included: true }).eq("id", order.id)
         if (inError) throw new Error(inError.message)
       }
+      /* "VAT 19%", as the checkout named it (SQL part 153): last, so an older database loses only the words. */
+      if (m.tax_label) {
+        const { error: labelError } = await admin.from("orders").update({ tax_label: String(m.tax_label).slice(0, 80) }).eq("id", order.id)
+        if (labelError) throw new Error(labelError.message)
+      }
     })
   }
 

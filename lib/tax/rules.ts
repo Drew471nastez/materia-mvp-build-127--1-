@@ -75,6 +75,25 @@ export function percentText(bps: number): string {
   return `${(bps / 100).toFixed(bps % 100 ? (bps % 10 ? 2 : 1) : 0)}%`
 }
 
+/**
+ * THE TAX LINE'S NAME, as Settings › Taxes names the region: "VAT 19%",
+ * "GST 10%", "Sales tax 8.25%". One rule for every checkout total, the
+ * Stripe line, the order, the receipt, the PDF and the order emails, so a
+ * buyer reads the same words everywhere. With no name it is "Tax"; with no
+ * rate (a basket whose lines had different rates) the name alone.
+ */
+export function taxLabel(name: string | null | undefined, rateBps: number | null | undefined): string {
+  const n = typeof name === "string" ? name.replace(/[\u0000-\u001f\u007f<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 60) : ""
+  const bps = Number.isFinite(rateBps as number) ? Math.round(rateBps as number) : 0
+  return `${n || "Tax"}${bps > 0 ? ` ${percentText(bps)}` : ""}`.slice(0, 80)
+}
+
+/** The row under the total for a price that already had the tax in it: "Including VAT 19%". */
+export function includedTaxLabel(label: string | null | undefined): string {
+  const l = (label ?? "").trim() || "Tax"
+  return `Including ${/^tax\b/i.test(l) ? "tax" + l.slice(3) : l}`
+}
+
 /** "19.5" typed, as basis points; null when it is not a rate. */
 export function bpsFromPercent(typed: unknown): number | null {
   const n = typeof typed === "number" ? typed : typeof typed === "string" && typed.trim() !== "" ? Number(typed.replace(",", ".")) : NaN
@@ -90,7 +109,7 @@ export function bpsFromPercent(typed: unknown): number | null {
  */
 export interface CheckoutTax {
   included: boolean
-  regions: { id: string; country: string; rateBps: number }[]
+  regions: { id: string; country: string; rateBps: number; name?: string }[]
   overrides: { taxRateId: string; productId: string; rateBps: number }[]
   country: string | null
 }
@@ -101,7 +120,7 @@ export function checkoutTaxFor(
   country: string | null,
 ): CheckoutTax | null {
   if (!setup || !setup.enabled || !setup.digital) return null
-  const regions = setup.regions.filter((r) => !r.region && r.id).map((r) => ({ id: r.id as string, country: r.country.toUpperCase(), rateBps: clampBps(r.rateBps) }))
+  const regions = setup.regions.filter((r) => !r.region && r.id).map((r) => ({ id: r.id as string, country: r.country.toUpperCase(), rateBps: clampBps(r.rateBps), ...(r.name ? { name: r.name } : {}) }))
   if (regions.length === 0) return null
   const ids = new Set(regions.map((r) => r.id))
   const overrides = setup.overrides.filter((o) => o.productId === productId && ids.has(o.taxRateId)).map((o) => ({ taxRateId: o.taxRateId, productId: o.productId, rateBps: clampBps(o.rateBps) }))
@@ -115,6 +134,8 @@ export interface DigitalTax {
   rateBps: number
   included: boolean
   country: string | null
+  /** "VAT 19%": the region's name and the rate charged (taxLabel). */
+  label: string
 }
 
 /**
@@ -127,11 +148,11 @@ export function digitalTax(
   sale: { taxableCents: number; tipCents: number; productId: string; country: string | null; region?: string | null },
 ): DigitalTax {
   const base = Math.max(0, sale.taxableCents) + Math.max(0, sale.tipCents)
-  if (!setup.enabled || !setup.digital || !sale.country) return { totalCents: base, taxCents: 0, rateBps: 0, included: setup.included, country: sale.country }
+  if (!setup.enabled || !setup.digital || !sale.country) return { totalCents: base, taxCents: 0, rateBps: 0, included: setup.included, country: sale.country, label: taxLabel(null, 0) }
   const region = regionFor(setup.regions, sale.country, sale.region ?? null)
   const bps = rateForProduct(region, setup.overrides, sale.productId)
   const tax = taxOf(Math.max(0, sale.taxableCents), bps, setup.included)
-  return { totalCents: setup.included ? base : base + tax, taxCents: tax, rateBps: bps, included: setup.included, country: sale.country.toUpperCase() }
+  return { totalCents: setup.included ? base : base + tax, taxCents: tax, rateBps: bps, included: setup.included, country: sale.country.toUpperCase(), label: taxLabel(region?.name, bps) }
 }
 
 export interface BasketTax {
@@ -144,6 +165,8 @@ export interface BasketTax {
   country: string | null
   /** What the receipt calls it: the region's own name ("VAT", "GST"). */
   name: string | null
+  /** "VAT 19%"; the name alone when the lines were taxed at different rates (taxLabel). */
+  label: string
 }
 
 /**
@@ -160,7 +183,7 @@ export function basketTax(
   lines: readonly { productId: string; taxableCents: number }[],
   country: string | null,
 ): BasketTax {
-  const none: BasketTax = { lineTaxCents: lines.map(() => 0), taxCents: 0, rateBps: 0, included: setup?.included === true, country: country ? country.toUpperCase() : null, name: null }
+  const none: BasketTax = { lineTaxCents: lines.map(() => 0), taxCents: 0, rateBps: 0, included: setup?.included === true, country: country ? country.toUpperCase() : null, name: null, label: taxLabel(null, 0) }
   if (!setup || !setup.enabled || !setup.digital || !country) return none
   const region = regionFor(
     setup.regions.filter((r) => !r.region),
@@ -168,9 +191,13 @@ export function basketTax(
     null,
   )
   if (!region) return none
-  const lineTaxCents = lines.map((l) => taxOf(Math.max(0, Math.round(l.taxableCents)), rateForProduct(region, setup.overrides, l.productId), setup.included))
+  const lineRates = lines.map((l) => rateForProduct(region, setup.overrides, l.productId))
+  const lineTaxCents = lines.map((l, i) => taxOf(Math.max(0, Math.round(l.taxableCents)), lineRates[i], setup.included))
   const taxCents = lineTaxCents.reduce((n, t) => n + t, 0)
-  return { lineTaxCents, taxCents, rateBps: clampBps(region.rateBps), included: setup.included, country: country.toUpperCase(), name: region.name ?? null }
+  /* The rate the taxed lines were charged: one rate names it, several leave the name alone. */
+  const charged = [...new Set(lineRates.filter((r, i) => lineTaxCents[i] > 0))]
+  const rateBps = charged.length === 1 ? charged[0] : charged.length === 0 ? clampBps(region.rateBps) : 0
+  return { lineTaxCents, taxCents, rateBps, included: setup.included, country: country.toUpperCase(), name: region.name ?? null, label: taxLabel(region.name, rateBps) }
 }
 
 /**

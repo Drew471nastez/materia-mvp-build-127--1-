@@ -563,6 +563,8 @@ const SUITES = [
   "tests/orders20.test.ts",
   /* Round 21 */
   "tests/safety21.test.ts",
+  /* Round 23 */
+  "tests/store23.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

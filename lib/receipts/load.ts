@@ -90,16 +90,18 @@ async function readOrders(
  * so a database without either column shows the receipt as before, with no
  * tax line.
  */
-async function readTax(admin: SupabaseClient, ids: string[]): Promise<Map<string, { cents: number; included: boolean }>> {
-  const out = new Map<string, { cents: number; included: boolean }>()
+async function readTax(admin: SupabaseClient, ids: string[]): Promise<Map<string, { cents: number; included: boolean; label: string | null }>> {
+  const out = new Map<string, { cents: number; included: boolean; label: string | null }>()
   if (ids.length === 0) return out
   try {
-    let res = await admin.from("orders").select("id, tax_cents, tax_included").in("id", ids)
+    /* With its name ("VAT 19%", part 153) where the column is there; without it, then without part 129's either. */
+    let res = await admin.from("orders").select("id, tax_cents, tax_included, tax_label").in("id", ids)
+    if (res.error) res = (await admin.from("orders").select("id, tax_cents, tax_included").in("id", ids)) as typeof res
     if (res.error) res = (await admin.from("orders").select("id, tax_cents").in("id", ids)) as typeof res
     if (res.error) return out
-    for (const r of (res.data ?? []) as { id: string; tax_cents?: number | null; tax_included?: boolean | null }[]) {
+    for (const r of (res.data ?? []) as { id: string; tax_cents?: number | null; tax_included?: boolean | null; tax_label?: string | null }[]) {
       const cents = Math.max(0, Math.round(Number(r.tax_cents) || 0))
-      if (cents > 0) out.set(r.id, { cents, included: r.tax_included === true })
+      if (cents > 0) out.set(r.id, { cents, included: r.tax_included === true, label: typeof r.tax_label === "string" && r.tax_label.trim() ? r.tax_label.trim().slice(0, 80) : null })
     }
   } catch {
     /* No tax line. */
@@ -261,6 +263,14 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
         supportEmail: null,
       }
     }
+    /* The store as Settings › Store details names it: its name over the person's, its logo (else the website's, else the photo), and the business behind it for the legal lines. */
+    try {
+      const { storeIdentity } = await import("@/lib/store/identity-server")
+      const store = await storeIdentity(admin, creatorId, { logoOnly: true })
+      seller = { ...seller, name: store.name || seller.name, avatarUrl: store.logoUrl ?? seller.avatarUrl, legal: store.legal }
+    } catch {
+      /* The person's own name and photo, as before. */
+    }
     /* The address the seller set for buyers to write to, and only that one:
        never the email they sign in with. A separate read, because a
        database without the column must still show the receipt. */
@@ -276,6 +286,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
   const totals = sumMoney(rows)
   const taxCents = [...taxOf.values()].reduce((n, t) => n + t.cents, 0)
   const taxIncluded = taxCents > 0 && [...taxOf.values()].every((t) => t.included)
+  const labels = [...new Set([...taxOf.values()].map((t) => t.label).filter(Boolean))]
   if (taxCents > 0 && !taxIncluded) totals.subtotalCents = Math.max(0, totals.subtotalCents - taxCents)
   const sent = rows.some((r) => !!r.buyer_notified_at)
   const failed = !sent && rows.some((r) => (r.buyer_email_last_error ?? "").toString().trim() !== "")
@@ -289,6 +300,7 @@ export async function loadReceiptByToken(admin: SupabaseClient, token: string): 
     ...totals,
     taxCents,
     taxIncluded,
+    taxLabel: taxCents > 0 ? (labels.length === 1 ? labels[0] : "Tax") : null,
     payment: {
       method: (first.payment_method as string) ?? null,
       brand: (first.card_brand as string) ?? null,

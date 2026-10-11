@@ -876,7 +876,7 @@ export function SiteCheckout({
             ) : null}
             {t && t.taxCents > 0 && !t.taxIncluded ? (
               <div className="flex justify-between gap-4" data-tax-line="">
-                <dt className="text-[#6b7280]">Tax</dt>
+                <dt className="text-[#6b7280]">{t.taxLabel || "Tax"}</dt>
                 <dd className="tabular-nums text-[#6b7280]">{money(t.taxCents)}</dd>
               </div>
             ) : null}
@@ -884,7 +884,7 @@ export function SiteCheckout({
         ) : null}
         <div className="mt-5">
           <Totals part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
-          {t && t.taxCents > 0 && t.taxIncluded ? <p className="mt-2 text-[13px] text-[#6b7280]">Includes {money(t.taxCents)} tax</p> : null}
+          {t && t.taxCents > 0 && t.taxIncluded ? <p className="mt-2 text-[13px] text-[#6b7280]">Includes {money(t.taxCents)} {(t.taxLabel || "tax").replace(/^Tax\b/, "tax")}</p> : null}
         </div>
       </div>
     </div>

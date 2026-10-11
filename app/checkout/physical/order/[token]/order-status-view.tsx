@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { includedTaxLabel } from "@/lib/tax/rules"
 import { OrderHelp } from "@/components/support/order-help"
 import { AlertTriangle, Check, Download, ExternalLink, MapPin, Package, RefreshCw, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -14,7 +15,7 @@ interface Props {
   justPaid: boolean
   /** The store's return reasons (Settings › Returns and refunds), as the buyer reads them. */
   reasons?: { value: string; label: string }[]
-  shop: { name: string; avatar: string | null; email: string | null; phone?: string | null; websiteUrl?: string | null }
+  shop: { name: string; avatar: string | null; email: string | null; phone?: string | null; websiteUrl?: string | null; legal?: { name: string; lines: string[]; taxId: string | null; taxIdLabel: string } | null }
   /** Get help with this order (lib/support/cases.ts): the open case when there is one; absent when cases aren't switched on. */
   help?: { openCase: { link: string; status: string } | null } | null
   order: {
@@ -31,7 +32,8 @@ interface Props {
     /** Collected by the buyer instead of shipped. */
     pickup: { name: string; address: string[]; instructions: string | null; ready: string; hours?: string | null } | null
     processing: boolean
-    totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; total: number; refunded: number }
+    /** `taxLabel`: "VAT 19%", as the checkout named it. `currency`: what it was charged in. */
+    totals: { subtotal: number; discount: number; shipping: number; tax: number; taxIncluded: boolean; taxLabel?: string; total: number; refunded: number; currency?: string }
     lines: { orderId: string; title: string; variantName: string | null; imageUrl: string | null; quantity: number; cents: number; type: string; receiptToken: string | null; returnable: number }[]
     /** Each shipment's updates (`updates`, oldest first): shipped, in transit, out for delivery, delivered, a delivery problem. */
     shipments: { id: string; status: string; carrier: string | null; trackingNumber: string | null; trackingUrl: string | null; shippedAt: string | null; deliveredAt: string | null; items: { orderId: string; quantity: number }[]; updates?: { status: string; at: string }[] }[]
@@ -42,7 +44,14 @@ interface Props {
   canReturn: boolean
 }
 
-const money = (c: number) => `$${(c / 100).toFixed(2)}`
+/* In the currency the order was charged in (commerce_checkouts.currency, the platform's: RON or USD), never a bare dollar sign. */
+const moneyIn = (c: number, currency?: string) => {
+  try {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: (currency || "USD").toUpperCase() }).format(c / 100)
+  } catch {
+    return `${(c / 100).toFixed(2)} ${(currency || "").toUpperCase()}`.trim()
+  }
+}
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "")
 const dayTime = (iso: string) => new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
 
@@ -92,6 +101,7 @@ export function PendingOrder({ reason }: { reason: string | null }) {
 
 export function OrderStatusView({ token, justPaid, shop, order, canReturn, reasons, help }: Props) {
   const local = order.delivery?.kind === "local"
+  const money = (c: number) => moneyIn(c, order.totals.currency)
   const shipped = order.shipments.some((s) => s.shippedAt)
   const delivered = order.shipments.length > 0 && order.shipments.every((s) => s.status === "delivered")
   const needsShipping = order.lines.some((l) => l.type === "physical")
@@ -121,7 +131,10 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
       </header>
       <div className="mx-auto max-w-[760px] space-y-4 px-4 py-6 sm:px-6 sm:py-10">
         <div>
-          <p className="text-[13px] font-medium text-[#6b7280]">Order {orderNumber(order.id)}</p>
+          <p className="text-[13px] font-medium text-[#6b7280]">
+            Order {orderNumber(order.id)}
+            {order.createdAt ? <> · {day(order.createdAt)}</> : null}
+          </p>
           <h1 className="mt-1 text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">
             {order.cancelled
               ? "Your order was cancelled"
@@ -250,8 +263,8 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
             <Row label="Subtotal" value={money(order.totals.subtotal)} />
             {order.totals.discount ? <Row label="Discount" value={`-${money(order.totals.discount)}`} /> : null}
             {needsShipping ? <Row label={pickup ? "Pickup" : "Shipping"} value={order.totals.shipping ? money(order.totals.shipping) : "Free"} /> : null}
-            {order.totals.tax ? <Row label={order.totals.taxIncluded ? "Including tax" : "Tax"} value={money(order.totals.tax)} /> : null}
-            <Row label="Total" value={money(order.totals.total)} strong />
+            {order.totals.tax ? <Row label={order.totals.taxIncluded ? includedTaxLabel(order.totals.taxLabel) : order.totals.taxLabel || "Tax"} value={money(order.totals.tax)} /> : null}
+            <Row label="Total" value={`${money(order.totals.total)}${order.totals.currency && order.totals.currency.toUpperCase() === "USD" ? " USD" : ""}`} strong />
             {order.totals.refunded ? <Row label="Refunded" value={`-${money(order.totals.refunded)}`} /> : null}
           </dl>
         </section>
@@ -303,6 +316,14 @@ export function OrderStatusView({ token, justPaid, shop, order, canReturn, reaso
           {shop.phone ? <> · <a href={`tel:${shop.phone.replace(/[^\d+]/g, "")}`} className="font-medium text-[#1a1a2e] underline underline-offset-4">{shop.phone}</a></> : null}
           {shop.websiteUrl ? <> · <a href={shop.websiteUrl} className="font-medium text-[#1a1a2e] underline underline-offset-4">Visit the store</a></> : null}
         </p>
+        {/* The business that sold it, as a receipt must name it (Settings › Store details › Business details). */}
+        {shop.legal ? (
+          <p className="text-center text-[12.5px] leading-[18px] text-[#9ca3af]" data-order-seller="">
+            Sold by {shop.legal.name}
+            {shop.legal.lines.length ? `, ${shop.legal.lines.join(", ")}` : ""}
+            {shop.legal.taxId ? `. ${shop.legal.taxIdLabel} ${shop.legal.taxId}` : ""}
+          </p>
+        ) : null}
       </div>
     </main>
   )

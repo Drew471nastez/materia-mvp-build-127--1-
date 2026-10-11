@@ -280,8 +280,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
-        : { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded },
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
+        : { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel },
       lines: q.lines.map(snapshotLine),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
@@ -385,7 +385,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
     })),
   )
   if (totals.taxCents > 0 && !totals.taxIncluded) {
-    lineItems.push({ quantity: 1, price_data: { currency: chargeCurrency, unit_amount: totals.taxCents, product_data: { name: "Tax" } } })
+    /* Named as Settings › Taxes names it, "VAT 19%", on Stripe's page as on the receipt. */
+    lineItems.push({ quantity: 1, price_data: { currency: chargeCurrency, unit_amount: totals.taxCents, product_data: { name: totals.taxLabel || "Tax" } } })
   }
   const shippingPaid = totals.shippingCents - totals.shippingDiscountCents
 

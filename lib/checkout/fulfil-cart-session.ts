@@ -140,7 +140,7 @@ export async function fulfilCartSession(
       feeRuleVersion: metadata.fee_rule_version || null,
     },
     /* Settings › Taxes, as the cart route charged it (each line's share is on the line, `cart_tax`). */
-    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
+    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null, label: metadata.tax_label || null } : null,
     saleHolder: metadata[SALE_HOLDER_KEY] || null,
   }
 
@@ -246,7 +246,7 @@ export async function fulfilCartPayment(
     attribution: attributionFromMetadata(metadata, { source: "website", origin: orderOriginFrom(metadata) }),
     feeAudit: { planUsed: metadata.plan_used || null, pricingTier: metadata.pricing_tier || null, feeRuleVersion: metadata.fee_rule_version || null },
     /* Settings › Taxes, as the website's checkout charged it (each line's share is on the line, `cart_tax`). */
-    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null } : null,
+    tax: metadata.tax_cents ? { included: metadata.tax_included === "true", country: /^[A-Z]{2}$/.test(metadata.tax_country || "") ? metadata.tax_country : null, label: metadata.tax_label || null } : null,
     saleHolder: metadata[SALE_HOLDER_KEY] || null,
   }
   const written = await writeBasket(admin, ctx, items, {

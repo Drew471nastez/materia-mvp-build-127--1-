@@ -63,6 +63,25 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
     ref,
     () => ({
       save: async (id: string) => {
+        /*
+          A NEW PRODUCT SAVED BEFORE THIS CARD HAD LOADED (a quick Save, a
+          slow connection): Settings › Sales channels › "List new products on"
+          still applies. The channels are read now and the product starts
+          where Settings says, instead of on every channel.
+        */
+        if (!loaded && !productId) {
+          try {
+            const r = await fetch("/api/store/channels/product", { cache: "no-store", credentials: "same-origin" })
+            const d = r.ok ? ((await r.json()) as Loaded) : null
+            if (!d || !d.ready || !Array.isArray(d.channels) || !d.defaultKey) return null
+            const starting = physical ? startingChannels(d.channels.filter(forPhysical), d.defaultKey) : startingChannels(d.channels, d.defaultKey)
+            const off = d.channels.map(channelKey).filter((k) => !starting.has(k))
+            const put = await fetch("/api/store/channels/product", { method: "PUT", headers: { "Content-Type": "application/json" }, credentials: "same-origin", body: JSON.stringify({ productId: id, off }) })
+            return put.ok ? null : "The sales channels were not saved."
+          } catch {
+            return "The sales channels were not saved."
+          }
+        }
         if (!loaded || !loaded.ready || !dirty.current) return null
         const off = loaded.channels.map(channelKey).filter((k) => !on.has(k))
         try {
@@ -75,7 +94,7 @@ export const SalesChannelsCard = React.forwardRef<SalesChannelsHandle, { product
         }
       },
     }),
-    [loaded, on],
+    [loaded, on, productId, physical],
   )
 
   if (!loaded || !loaded.ready) return null

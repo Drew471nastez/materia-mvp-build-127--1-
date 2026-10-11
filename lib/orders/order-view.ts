@@ -65,6 +65,8 @@ export interface OrderRow {
   /** Settings › Taxes: the tax inside `amount_cents`, and whether it was part of the price or added on top. */
   tax_cents?: number | null
   tax_included?: boolean | null
+  /** "VAT 19%", as the checkout named the tax (SQL part 153; a physical order's from its checkout). */
+  tax_label?: string | null
   product?: {
     id: string
     title: string
@@ -156,6 +158,8 @@ export interface Order {
   /** The tax in the total: added on top unless `taxIncluded`. */
   taxCents: number
   taxIncluded: boolean
+  /** "VAT 19%" when the order's lines agree on one; "Tax" otherwise. */
+  taxLabel: string
   /** What the buyer paid for delivery, inside the total; 0 for an order that ships nothing. */
   shippingCents: number
   totalCents: number
@@ -261,6 +265,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
     const totalCents = lines.reduce((n, r) => n + (r.amount_cents || 0), 0)
     const taxCents = lines.reduce((n, r) => n + Math.max(0, r.tax_cents || 0), 0)
     const taxIncluded = taxCents > 0 && lines.filter((r) => (r.tax_cents || 0) > 0).every((r) => r.tax_included === true)
+    const taxLabels = [...new Set(lines.filter((r) => (r.tax_cents || 0) > 0).map((r) => (r.tax_label || "").trim()).filter(Boolean))]
     /* Delivery paid on a physical order is in the amount too, shared over its lines. */
     const shippingCents = lines.reduce((n, r) => n + Math.max(0, r.shipping_cents || 0), 0)
     /* Tax added on top is in the amount too: the subtotal is the items, the tax and delivery their own rows. */
@@ -285,6 +290,7 @@ export function groupOrders(rows: OrderRow[]): Order[] {
       tipCents,
       taxCents,
       taxIncluded,
+      taxLabel: taxLabels.length === 1 ? taxLabels[0] : "Tax",
       shippingCents,
       totalCents,
       feeCents: lines.reduce((n, r) => n + (r.fee_cents || 0), 0),

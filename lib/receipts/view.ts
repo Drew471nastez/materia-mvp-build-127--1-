@@ -59,12 +59,21 @@ export interface ReceiptView {
   /** Settings › Taxes: the tax in the total. Added on top unless `taxIncluded`; then it is part of the prices. */
   taxCents?: number
   taxIncluded?: boolean
+  /** "VAT 19%", as the checkout named it; "Tax" for an order from before (lib/tax/rules taxLabel). */
+  taxLabel?: string | null
   payment: { method: string | null; brand: string | null; last4: string | null }
   /** A code's saving and the code, when the payment recorded one. Zero and null otherwise. */
   discountCents?: number
   discountCode?: string | null
   /** supportEmail is the address the seller chose to be written to, never their login. */
-  seller: { name: string; username: string | null; avatarUrl: string | null; supportEmail?: string | null }
+  seller: {
+    name: string
+    username: string | null
+    avatarUrl: string | null
+    supportEmail?: string | null
+    /** The business that sells (Settings › Store details, SQL part 153): legal name, address lines, tax number. */
+    legal?: { name: string; lines: string[]; taxId: string | null; taxIdLabel: string } | null
+  }
   buyer: {
     firstName: string | null
     maskedEmail: string | null

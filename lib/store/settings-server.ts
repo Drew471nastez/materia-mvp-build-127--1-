@@ -13,6 +13,7 @@ import "server-only"
 import { countryCode } from "@/lib/checkout/countries"
 import { cleanPhone } from "./phone-rule"
 import { checkoutConfig, mergeCheckout, type CheckoutConfig } from "./checkout-config"
+import { businessFromFields, checkBusiness, type BusinessDetails } from "@/lib/checkout/business"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -26,6 +27,13 @@ export interface StoreSettings {
   defaultSalesChannelId: string | null
   /** The picture on receipts and customer emails (SQL part 118); empty, the website's logo or the person's photo (lib/store/identity-server.ts). */
   logoUrl: string | null
+  /**
+   * The business behind the store, as receipts and invoices must name it
+   * (SQL part 153, `store_settings.legal`): its legal name, address and tax
+   * number. Null until it is filled in; receipts then carry the store's name
+   * and contact alone, as before.
+   */
+  legal: BusinessDetails | null
   /** False until SQL part 109 has run. */
   ready: boolean
 }
@@ -40,10 +48,12 @@ export function isMissingTable(error: { code?: string } | null | undefined): boo
 const BASE_COLUMNS = "store_name, phone, phone_country, default_country, checkout, default_sales_channel_id"
 
 export async function loadStoreSettings(db: Db, creatorId: string): Promise<StoreSettings> {
+  const legalRead = loadStoreLegal(db, creatorId)
   /* With the logo (part 118) when the column is there; without it on a database that hasn't run that part, so nothing else stops working. */
   let { data, error } = await db.from("store_settings").select(`${BASE_COLUMNS}, logo_url`).eq("creator_id", creatorId).maybeSingle()
   if (error && (error.code === "42703" || error.code === "PGRST204")) ({ data, error } = await db.from("store_settings").select(BASE_COLUMNS).eq("creator_id", creatorId).maybeSingle())
   const ready = !error || !isMissingTable(error)
+  const legal = await legalRead
   return {
     storeName: data?.store_name ?? null,
     phone: data?.phone ?? null,
@@ -52,9 +62,23 @@ export async function loadStoreSettings(db: Db, creatorId: string): Promise<Stor
     checkout: checkoutConfig(data?.checkout),
     defaultSalesChannelId: data?.default_sales_channel_id ?? null,
     logoUrl: typeof data?.logo_url === "string" && data.logo_url ? data.logo_url : null,
+    legal,
     ready: ready && !error,
   }
 }
+
+/** The business details alone, in their own read, so a database without part 153 still loads everything else. Null on any failure. */
+export async function loadStoreLegal(db: Db, creatorId: string): Promise<BusinessDetails | null> {
+  try {
+    const { data, error } = await db.from("store_settings").select("legal").eq("creator_id", creatorId).maybeSingle()
+    if (error) return null
+    return businessFromFields(data?.legal)
+  } catch {
+    return null
+  }
+}
+
+export const LEGAL_NEEDS_PART = "Business details need their database update. Run SQL part 153 in Supabase, then try again."
 
 /** Checkout's settings alone, for the two checkouts: the defaults on any failure, so a checkout never breaks over them. */
 export async function loadCheckoutConfig(db: Db, creatorId: string | null | undefined): Promise<CheckoutConfig> {
@@ -134,7 +158,25 @@ export async function saveStoreSettings(db: Db, creatorId: string, body: Record<
     if (emailError) return { ok: false, error: "The contact email could not be saved. Try again in a moment.", status: 400 }
   }
 
+  /*
+    THE BUSINESS ON RECEIPTS: its legal name, address and tax number,
+    checked as a buyer's company is checked at checkout (lib/checkout/
+    business checkBusiness: the address in the country's words, a VAT number
+    in the shape its country writes it). Empty clears it.
+  */
+  if ("legal" in body) {
+    const raw = body.legal
+    const empty = raw === null || (typeof raw === "object" && raw !== null && Object.values(raw as Record<string, unknown>).every((v) => typeof v !== "string" || !v.trim()))
+    if (empty) row.legal = null
+    else {
+      const checked = checkBusiness(raw)
+      if (checked.ok === false) return { ok: false, error: checked.field === "company" ? "Enter the business's legal name." : checked.error.replace("the company's", "the business's"), status: 400 }
+      row.legal = checked.value
+    }
+  }
+
   const { error } = await db.from("store_settings").upsert(row, { onConflict: "creator_id" })
+  if (error && "legal" in row && (error.code === "42703" || error.code === "PGRST204")) return { ok: false, error: LEGAL_NEEDS_PART, status: 503 }
   if (error && "logo_url" in row && (error.code === "42703" || error.code === "PGRST204")) return { ok: false, error: "The store logo needs its database update. Run SQL part 118 in Supabase, then try again.", status: 503 }
   if (error) return { ok: false, error: isMissingTable(error) ? NEEDS_PART : "That could not be saved. Try again in a moment.", status: isMissingTable(error) ? 503 : 400 }
   return { ok: true, settings: await loadStoreSettings(db, creatorId) }
