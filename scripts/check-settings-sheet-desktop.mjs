@@ -9,9 +9,11 @@
  *                 rise frame by frame: only ever up, transform only, done
  *                 by IN_MS plus a little
  *   A SECTION     pressed in the column while scrolled far down the longest
- *                 one: the scroll glides to the top over several frames,
- *                 only ever up, never in one jump, and no frame shows empty
- *                 space where the section should be
+ *                 one (round R1, "a little bit of a bump"): the new section
+ *                 shows within three frames of the press, at the top in the
+ *                 very frame it first appears, and nothing moves after; the
+ *                 old section never rides a glide up first, and no frame
+ *                 shows empty space where the section should be
  *   THE COLUMN    the open row has depth (a shadow, not none) and a press
  *                 gives under the pointer (scale under 1 while held)
  *   CLOSE         down frame by frame, only ever down, and Back once only
@@ -155,22 +157,17 @@ for (const tab of ["security", "domains", "notifications"]) {
   const tp = await page.evaluate((tab) => { window.__record(); const t = performance.now(); document.querySelector(`[data-settings-side-tab="${tab}"]`).click(); return t }, tab)
   await wait(800)
   frames = (await page.evaluate(() => window.__stop())).filter((f) => f.t >= tp)
-  const tops = frames.map((f) => f.scroll)
-  const end = frames.findIndex((f) => f.scroll === 0)
-  const glideFrames = end < 0 ? frames.length : end + 1
-  const up = tops.every((y, i) => i === 0 || y <= tops[i - 1])
-  /* Each frame's step, as a share of the way. The frame the new section swaps in may carry on from where it is all in view. */
-  const steps = tops.slice(1).map((y, i) => tops[i] - y)
   const swap = frames.findIndex((f) => f.tab === tab)
-  const biggest = Math.max(0, ...steps.filter((_, i) => i + 1 !== swap))
-  const blank = frames.filter((f, i) => i <= end && f.shown !== null && f.shown < 40).length
-  const ms = end >= 0 ? Math.round(frames[end].t - tp) : null
+  const at = swap >= 0 ? frames[swap] : null
+  const after = swap >= 0 ? frames.slice(swap) : []
+  const still = after.every((f) => f.scroll === 0)
+  const rode = frames.slice(0, Math.max(0, swap)).some((f) => f.scroll !== from)
+  const blank = frames.filter((f) => f.shown !== null && f.shown < 40).length
   const long = await longIn(tp, tp + 700)
-  if (process.env.STEPS) console.log("      " + frames.slice(0, glideFrames).map((f) => `${Math.round(f.t - tp)}:${f.scroll}${f.tab === tab ? "*" : ""}`).join(" "))
-  console.log(`    ${tab}: from ${from}px, at the top in ${ms}ms over ${glideFrames} frames, biggest step ${biggest}px, swapped on frame ${swap}, blank frames ${blank}; long tasks ${JSON.stringify(long)}`)
-  say(end > 0 && glideFrames >= 8, `${tab}: glides to the top over several frames`)
-  say(up, `${tab}: only ever up`)
-  say(biggest < Math.max(400, from * 0.45), `${tab}: no single jump`)
+  console.log(`    ${tab}: from ${from}px, the new section on frame ${swap} (${at ? Math.round(at.t - tp) : "never"}ms) at scroll ${at?.scroll}, still after: ${still}, blank frames ${blank}; long tasks ${JSON.stringify(long)}`)
+  say(swap >= 0 && swap <= 3, `${tab}: the new section shows within three frames of the press`)
+  say(at?.scroll === 0 && still, `${tab}: at the top in the frame it appears, and nothing moves after`)
+  say(!rode, `${tab}: the old section never rides the scroll before the swap`)
   say(blank === 0, `${tab}: never a frame of empty space where the section is`)
 }
 say(far > 1000, `the longest section scrolls far enough to measure (${far}px)`)

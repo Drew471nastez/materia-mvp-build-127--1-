@@ -19,7 +19,8 @@
  */
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
-import { ArrowLeft, ExternalLink, Search, Check } from "lucide-react"
+import { ChevronLeft, ExternalLink, Search, Check, ArrowRight } from "lucide-react"
+import { glideScrollTop } from "@/lib/ui/glide-scroll"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
@@ -33,6 +34,17 @@ import { TRACKERS, type Tracking } from "@/lib/store/tracking"
 type Filter = "all" | "installed" | IntegrationCategory
 
 const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
+/* A card with a little depth: the hairline, a contact shadow and a soft one under it, as the rail's open row sits over its column. */
+const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
+
+/* The push and the pop: the page comes in from the side it is going to, a short way, on the app's sheet curve. */
+const PAGE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+const PAGE_MS = 280
+const PAGE_SHIFT = 18
+
+function reduced(): boolean {
+  return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+}
 
 function writeIntegrationParam(id: string | null) {
   try {
@@ -60,8 +72,6 @@ export function IntegrationsDirectory() {
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
-  /* Where the list was scrolled when a card was opened, so Back lands there again. */
-  const listScroll = React.useRef(0)
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward. It was read once on mount, so a second row did nothing. */
@@ -110,22 +120,116 @@ export function IntegrationsDirectory() {
     [states, installed],
   )
 
-  const scroller = () => document.querySelector("[data-integrations]")?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+  const root = React.useRef<HTMLDivElement>(null)
+  const scroller = () => root.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
+  /** Where the directory's top is in its scroller: the search row, a little under the scroll's top edge. */
+  const topOf = (box: HTMLElement) => {
+    const el = root.current
+    if (!el) return 0
+    return Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 16)
+  }
+  /*
+    PUSH AND POP, NEVER A JUMP (round R1). A card pushes its page in from the
+    right; Back pops the list in from the left (the layout effect below plays
+    it on the frame the new view is painted, transform and opacity only).
+
+      opening   the page starts at its top: placed there in the same frame it
+                appears, so it is never seen part way down the list's scroll
+      Back      the list comes back and the scroll GLIDES to the list's top
+                ("not leave you mid scroll"), the browser's own smooth scroll
+                on the compositor (lib/ui/glide-scroll). The directory is held
+                at the height the page had until the glide is over, so a list
+                shorter than the page can't pull the scroll up in one step.
+  */
+  const motion = React.useRef<null | "push" | "pop">(null)
+  const pendingGlide = React.useRef<number | null>(null)
   const open = (id: string | null) => {
-    if (id) listScroll.current = scroller()?.scrollTop ?? 0
+    motion.current = id ? "push" : "pop"
+    const box = scroller()
+    const el = root.current
+    if (!id && el && box) {
+      const from = box.scrollTop
+      const to = topOf(box)
+      if (from > to + 1) {
+        el.style.minHeight = `${el.offsetHeight}px`
+        pendingGlide.current = to
+      }
+    }
     setOpenId(id)
     writeIntegrationParam(id)
-    requestAnimationFrame(() => {
-      /* A page opens at its top; Back puts the list where it was left, filter and search as they were. */
-      if (id) document.querySelector("[data-integrations]")?.scrollIntoView({ block: "start" })
-      else scroller()?.scrollTo({ top: listScroll.current, behavior: "instant" as ScrollBehavior })
-    })
   }
+  const viewKey = openId && shownAll.some((i) => i.id === openId) ? openId : "list"
+  React.useLayoutEffect(() => {
+    const el = root.current
+    const box = scroller()
+    const how = motion.current
+    motion.current = null
+    if (!el || !how) return
+    if (how === "push" && box) {
+      const to = topOf(box)
+      if (box.scrollTop > to) box.scrollTop = to
+    }
+    if (how === "pop" && box && pendingGlide.current !== null) {
+      const to = pendingGlide.current
+      pendingGlide.current = null
+      const release = () => {
+        el.style.minHeight = ""
+      }
+      if (reduced()) {
+        box.scrollTop = to
+        release()
+      } else glideScrollTop(box, to, release)
+    }
+    if (reduced() || typeof el.animate !== "function") return
+    const dx = how === "push" ? PAGE_SHIFT : -PAGE_SHIFT
+    el.animate([{ opacity: 0, transform: `translate3d(${dx}px, 0, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: PAGE_MS, easing: PAGE_EASE })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewKey])
+
+  /*
+    A CATEGORY LANDS IN PLACE (round R1). A press used to swap the cards in
+    one frame and, with the list scrolled, a shorter category pulled the
+    scroll up by however much it lost: the cards flashed and the page jumped.
+    Now the pills stay where they are on screen (the scroll is set so the row
+    keeps its place if the list under it got shorter), and the cards settle
+    in: a short fade from half and a 6px rise, staggered by a frame or two.
+  */
+  const pillsRef = React.useRef<HTMLDivElement>(null)
+  const gridRef = React.useRef<HTMLUListElement>(null)
+  const filterChanged = React.useRef(false)
+  const pillsAt = React.useRef<number | null>(null)
+  const chooseFilter = (f: Filter) => {
+    if (f === filter) return
+    const box = scroller()
+    const row = pillsRef.current
+    pillsAt.current = box && row ? row.getBoundingClientRect().top - box.getBoundingClientRect().top : null
+    filterChanged.current = true
+    setFilter(f)
+  }
+  React.useLayoutEffect(() => {
+    if (!filterChanged.current) return
+    filterChanged.current = false
+    const box = scroller()
+    const row = pillsRef.current
+    if (box && row && pillsAt.current !== null) {
+      /* Where they were on screen; or, scrolled out of sight above, just under the top, so the new category starts in view. */
+      const want = pillsAt.current < 0 ? 12 : pillsAt.current
+      const now = row.getBoundingClientRect().top - box.getBoundingClientRect().top
+      if (Math.abs(now - want) > 0.5) box.scrollTop += now - want
+    }
+    const grid = gridRef.current
+    if (!grid || reduced()) return
+    Array.from(grid.children).forEach((li, i) => {
+      if (typeof (li as HTMLElement).animate !== "function") return
+      ;(li as HTMLElement).animate([{ opacity: 0.4, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: 220, delay: Math.min(i, 8) * 14, easing: PAGE_EASE, fill: "backwards" })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filter])
 
   const current = shownAll.find((i) => i.id === openId) ?? null
   if (current) {
     return (
-      <div data-integrations="" className="scroll-mt-4">
+      <div ref={root} data-integrations="" data-integrations-view="page" className="scroll-mt-4">
         <IntegrationPage
           item={current}
           status={statusOf(current)}
@@ -154,7 +258,7 @@ export function IntegrationsDirectory() {
   const shown = searchIntegrations(shownAll, query).filter((i) => (filter === "all" ? true : filter === "installed" ? installed(i) || i.builtIn : i.category === filter))
 
   return (
-    <div data-integrations="" className="scroll-mt-4 space-y-4">
+    <div ref={root} data-integrations="" data-integrations-view="list" className="scroll-mt-4 space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search integrations</span>
@@ -173,7 +277,7 @@ export function IntegrationsDirectory() {
         </button>
       </div>
 
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories" data-integration-pills="">
+      <div ref={pillsRef} className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories" data-integration-pills="">
         {pills.map((f) => {
           const on = filter === f
           return (
@@ -182,7 +286,7 @@ export function IntegrationsDirectory() {
               type="button"
               role="tab"
               aria-selected={on}
-              onClick={() => setFilter(f)}
+              onClick={() => chooseFilter(f)}
               className={cn(
                 "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color] duration-200 ease-out motion-reduce:transition-none",
                 on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] hover:bg-[#f8f9fa]",
@@ -206,7 +310,7 @@ export function IntegrationsDirectory() {
         </div>
       ) : (
         /* One list for every pill: a switch only adds and removes cards, each keeping its place, so nothing flashes or zooms. */
-        <ul className="grid gap-3 sm:grid-cols-2" data-integration-grid="">
+        <ul ref={gridRef} className="grid gap-3 sm:grid-cols-2" data-integration-grid="">
           {shown.map((i) => {
             const status = statusOf(i)
             return (
@@ -261,6 +365,41 @@ function StatusBadge({ status }: { status: IntegrationStatus }) {
   return <Badge tone={tone}>{status === "built_in" ? "Storelib" : STATUS_LABEL[status]}</Badge>
 }
 
+/** Where it stands, in words a person reads at a glance: a dot and a line, with what it means under the name. */
+const STANDING: Record<IntegrationStatus, { tone: Tone; label: string; line: string }> = {
+  built_in: { tone: "gray", label: "Built into Storelib", line: "Ready to use. Nothing to connect." },
+  installed: { tone: "green", label: "Connected", line: "Working on your store." },
+  needs_attention: { tone: "amber", label: "Needs attention", line: "Connected, but the last try didn't go through." },
+  error: { tone: "red", label: "Not working", line: "Check its settings below." },
+  coming_soon: { tone: "gray", label: "Coming soon", line: "Not available to connect yet." },
+  available: { tone: "gray", label: "Not connected", line: "Set it up below in a minute." },
+}
+const DOT: Record<Tone, string> = { gray: "bg-[#9ca3af]", green: "bg-[#12b76a]", amber: "bg-[#f79009]", red: "bg-[#f04438]" }
+
+/**
+ * ===========================================================================
+ *  AN INTEGRATION'S OWN PAGE (round R1)
+ * ===========================================================================
+ * "Must look much better, Storelib styled with a little depth: cards, a
+ * header with the logo, clear status, connect and disconnect actions."
+ *
+ *   THE HEADER      its mark on a soft tile, the name, what it does, and where
+ *                   it stands as a dot and two words (Connected, Not
+ *                   connected, Needs attention...) with what that means. The
+ *                   one action that matters sits at the header's right on a
+ *                   computer and under it on a phone: Set up, Manage,
+ *                   Tell me when it's ready. It takes you to the setup card and
+ *                   puts the cursor in its field.
+ *   SET UP          first, because it is why the page was opened: the
+ *                   field and Install / Save / Remove for a pixel, the
+ *                   provider's own Connect, Manage and Disconnect, or Tell me
+ *                   when it's ready
+ *   ABOUT, DATA     what it does and what it sees, under it
+ *   AT A GLANCE     beside them from 1024px, under them on a phone
+ *
+ * Every card has the same hairline and a soft shadow under it; nothing is a
+ * card inside a card.
+ */
 function IntegrationPage({
   item,
   status,
@@ -282,27 +421,77 @@ function IntegrationPage({
   onStates: (s: IntegrationState[]) => void
   onBack: () => void
 }) {
+  const setupRef = React.useRef<HTMLElement>(null)
+  const standing = STANDING[status]
+  const notifyOnly = item.kind === "listed" || (!!item.paused && !installed)
+  const action = item.builtIn && item.kind !== "commerce" ? null : notifyOnly ? "Tell me when it's ready" : installed ? "Manage" : "Set up"
+  const toSetup = () => {
+    const el = setupRef.current
+    if (!el) return
+    el.scrollIntoView({ block: "start", behavior: reduced() ? "auto" : "smooth" })
+    window.setTimeout(() => el.querySelector<HTMLElement>("input, textarea, button")?.focus({ preventScroll: true }), reduced() ? 0 : 420)
+  }
+  const tracked = item.kind === "tracker" && item.trackerId ? tracking?.[item.trackerId] ?? null : null
+
   return (
-    <div className="space-y-4 sm:space-y-6" data-integration-page={item.id}>
-      <button type="button" onClick={onBack} className="-ml-1 inline-flex h-9 items-center gap-1.5 rounded-lg px-1 text-[13.5px] font-medium text-[#4b5563] hover:text-[#1a1a2e]" data-integration-back="">
-        <ArrowLeft className="h-4 w-4" aria-hidden />
+    <div className="space-y-4 sm:space-y-5" data-integration-page={item.id}>
+      <button
+        type="button"
+        onClick={onBack}
+        className="-ml-2 inline-flex h-9 items-center gap-1 rounded-full pl-1.5 pr-3 text-[13.5px] font-medium text-[#4b5563] outline-none transition-colors hover:bg-[#f1f2f4] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 [-webkit-tap-highlight-color:transparent]"
+        data-integration-back=""
+      >
+        <ChevronLeft className="h-4 w-4" aria-hidden />
         Back to integrations
       </button>
 
-      <div className={cn(CARD, "flex items-center gap-4 p-4 sm:p-6")}>
-        <Mark item={item} size={56} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[18px] font-semibold text-[#1a1a2e] sm:text-[20px]">{item.name}</h2>
-            <StatusBadge status={status} />
+      <header className={cn(DEPTH, "p-4 sm:p-6")} data-integration-header="">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+          <div className="flex min-w-0 flex-1 items-start gap-4">
+            <span className="grid shrink-0 place-items-center rounded-[18px] border border-[#eceef1] bg-[#f8f9fa] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)]">
+              <Mark item={item} size={48} />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[20px] font-bold leading-tight tracking-[-0.01em] text-[#1a1a2e] sm:text-[22px]">{item.name}</h2>
+              <p className="mt-1 text-[14px] leading-[20px] text-[#6b7280]">{item.summary}</p>
+              <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]" data-integration-standing={status}>
+                <span className="inline-flex items-center gap-1.5 font-medium text-[#1a1a2e]">
+                  <span aria-hidden className={cn("h-2 w-2 rounded-full", DOT[standing.tone])} />
+                  {standing.label}
+                </span>
+                <span className="text-[#6b7280]">{tracked ? `${TRACKERS[item.trackerId!].label}: ${tracked}` : standing.line}</span>
+              </div>
+            </div>
           </div>
-          <p className="mt-0.5 text-[13.5px] text-[#6b7280]">{item.summary}</p>
+          {action ? (
+            <button type="button" onClick={toSetup} className={cn(installed ? BTN_SECONDARY : BTN_PRIMARY, "h-11 w-full shrink-0 rounded-xl px-5 sm:h-10 sm:w-auto")} data-integration-action="">
+              {action}
+              {!installed && !notifyOnly ? <ArrowRight className="h-4 w-4" aria-hidden /> : null}
+            </button>
+          ) : null}
         </div>
-      </div>
+      </header>
 
-      <div className="grid gap-4 sm:gap-6 lg:grid-cols-[minmax(0,1fr)_260px]">
-        <div className="space-y-4 sm:space-y-6">
-          <section className={cn(CARD, "p-4 sm:p-6")} aria-labelledby="integration-about">
+      <div className="grid gap-4 sm:gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
+        <div className="space-y-4 sm:space-y-5">
+          <section ref={setupRef} className={cn(DEPTH, "scroll-mt-4 overflow-hidden")} aria-labelledby="integration-install" data-integration-install="">
+            <div className="border-b border-[#f1f2f4] px-4 py-3.5 sm:px-6">
+              <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">{notifyOnly ? "Get notified" : installed ? "Settings" : "Set up"}</h3>
+            </div>
+            <div className="px-4 py-4 sm:px-6 sm:py-5">
+              {notifyOnly ? (
+                <NotifyMe item={item} />
+              ) : item.kind === "tracker" && item.trackerId ? (
+                <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
+              ) : item.providerId && providerInfo(item.providerId) ? (
+                <ul className="[&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
+                  <IntegrationCard provider={providerInfo(item.providerId)!} state={states?.find((s) => s.provider === item.providerId) ?? null} loading={states === null} onSaved={onStates} startOpen={!item.builtIn} />
+                </ul>
+              ) : null}
+            </div>
+          </section>
+
+          <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-about">
             <h3 id="integration-about" className="text-[15px] font-semibold text-[#1a1a2e]">About</h3>
             <div className="mt-2 space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
               {item.about.map((p) => (
@@ -316,22 +505,7 @@ function IntegrationPage({
             ) : null}
           </section>
 
-          <section className={cn(CARD, "p-4 sm:p-6")} aria-labelledby="integration-install" data-integration-install="">
-            <h3 id="integration-install" className="text-[15px] font-semibold text-[#1a1a2e]">Install</h3>
-            <div className="mt-3">
-              {item.kind === "listed" || (item.paused && !installed) ? (
-                <NotifyMe item={item} />
-              ) : item.kind === "tracker" && item.trackerId ? (
-                <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
-              ) : item.providerId && providerInfo(item.providerId) ? (
-                <ul>
-                  <IntegrationCard provider={providerInfo(item.providerId)!} state={states?.find((s) => s.provider === item.providerId) ?? null} loading={states === null} onSaved={onStates} startOpen={!item.builtIn} />
-                </ul>
-              ) : null}
-            </div>
-          </section>
-
-          <section className={cn(CARD, "p-4 sm:p-6")} aria-labelledby="integration-data">
+          <section className={cn(DEPTH, "px-4 py-4 sm:px-6 sm:py-5")} aria-labelledby="integration-data">
             <h3 id="integration-data" className="text-[15px] font-semibold text-[#1a1a2e]">Data ownership</h3>
             <ul className="mt-2 space-y-2 text-[14px] leading-[21px] text-[#4b5563]">
               {item.data.map((d) => (
@@ -344,22 +518,22 @@ function IntegrationPage({
           </section>
         </div>
 
-        <aside className={cn(CARD, "h-fit p-4 sm:p-5")} aria-labelledby="integration-glance" data-integration-glance="">
+        <aside className={cn(DEPTH, "h-fit px-4 py-4 sm:px-5 lg:sticky lg:top-4")} aria-labelledby="integration-glance" data-integration-glance="">
           <h3 id="integration-glance" className="text-[15px] font-semibold text-[#1a1a2e]">At a glance</h3>
-          <dl className="mt-3 space-y-3">
-            <div>
-              <dt className="text-[12px] font-medium text-[#9ca3af]">Category</dt>
-              <dd className="text-[13.5px] text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</dd>
+          <dl className="mt-3 divide-y divide-[#f1f2f4]">
+            <div className="flex items-baseline justify-between gap-3 py-2 first:pt-0">
+              <dt className="text-[13px] text-[#6b7280]">Category</dt>
+              <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{CATEGORY_NAMES[item.category]}</dd>
             </div>
             {item.glance.map((g) => (
-              <div key={g.label}>
-                <dt className="text-[12px] font-medium text-[#9ca3af]">{g.label}</dt>
-                <dd className="text-[13.5px] text-[#1a1a2e]">{g.value}</dd>
+              <div key={g.label} className="flex items-baseline justify-between gap-3 py-2">
+                <dt className="shrink-0 text-[13px] text-[#6b7280]">{g.label}</dt>
+                <dd className="text-right text-[13.5px] font-medium text-[#1a1a2e]">{g.value}</dd>
               </div>
             ))}
           </dl>
           {item.docsUrl ? (
-            <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-[#1a1a2e] underline decoration-black/20 underline-offset-[3px] hover:decoration-black/50">
+            <a href={item.docsUrl} target="_blank" rel="noopener noreferrer" className={cn(BTN_SECONDARY, "mt-3 h-10 w-full rounded-xl")}>
               {item.name} help
               <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             </a>

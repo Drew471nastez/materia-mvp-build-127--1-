@@ -4,7 +4,6 @@ import { announceChange } from "@/lib/seo/announce-client"
 import type React from "react"
 import { BottomSheet, SHEET_CLOSE_MS, SHEET_EASE, SHEET_OPEN_MS } from "@/components/ui/bottom-sheet"
 import { useState, useRef, useEffect, useLayoutEffect, useCallback, startTransition } from "react"
-import { glideScrollTop, type Glide } from "@/lib/ui/glide-scroll"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { useRouter, useSearchParams } from "next/navigation"
 import { createClient, isNativePlatform } from "@/lib/supabase/client"
@@ -55,13 +54,15 @@ import { displayEmail } from "@/lib/businesses/email-alias"
 import { countWord } from "@/lib/businesses/rules"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ShippingSettings } from "@/components/physical/shipping-settings"
-import { prefetchGet, whenGets } from "@/components/physical/ui"
+import { peekGet, prefetchGet, whenGets } from "@/components/physical/ui"
 import { TaxesPanel } from "@/components/app/settings/taxes-panel"
 import { ReasonsPanel } from "@/components/app/settings/reasons-panel"
 import { ChannelsPanel } from "@/components/app/settings/channels-panel"
 import { CustomerEmailsPanel } from "@/components/app/settings/customer-emails-panel"
 import { ActivityPanel } from "@/components/app/settings/activity-panel"
 import { PaymentsHub } from "@/components/app/settings/payments-hub"
+import { SettingsLeaveGuard } from "@/components/app/settings/leave-guard"
+import { markDirty, requestLeave } from "@/lib/settings/unsaved-guard"
 
 /* The country field is components/app/settings/country-picker: every country, with its flag. */
 
@@ -126,9 +127,9 @@ const TAB_IDS: TabId[] = TABS.map((tab) => tab.id)
 
 /* A pill's own fill fades in where it is, on one gentle ease out (as before the sheet). */
 const TAB_FADE_MS = 150
-/** From 1024px, how near the top a glide is when the new section shows (the page's own bottom margin, so no empty frame). */
-const GLIDE_SHOW_WITHIN = 120
 const TAB_EASE = "cubic-bezier(0.33, 1, 0.68, 1)"
+/** The longest a press waits for a section's data that is still on its way, before the section shows with its own placeholder. */
+const DATA_WAIT_MS = 160
 
 /**
  * What each section reads when it opens, so Settings can fetch it ahead
@@ -141,6 +142,7 @@ const TAB_DATA: Partial<Record<TabId, (physical: boolean) => string[]>> = {
   channels: () => ["/api/store/channels"],
   taxes: () => ["/api/store/taxes"],
   activity: () => ["/api/store/activity"],
+  ai_memory: () => ["/api/ai-memory"],
   shipping: () => ["/api/physical/settings"],
   locations: () => ["/api/physical/settings"],
   returns: (p) => ["/api/store/reasons", ...(p ? ["/api/physical/settings"] : [])],
@@ -248,6 +250,9 @@ function MobileBottomSheet({
         isOpen={isOpen}
         onClose={onClose}
         label={title}
+        hideFrom={null}
+        /* Change email and Delete account have fields: the sheet sits on the keyboard, never under it. */
+        aboveKeyboard
         header={<h3 className="px-4 pb-3 pt-3 text-[16px] font-semibold text-[#1a1a2e]">{title}</h3>}
       >
         <div className="px-4 pb-4">{children}</div>
@@ -490,7 +495,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       window.clearTimeout(t)
     }
   }, [physicalCommerce, loadBilling])
-  const formRef = useRef<HTMLFormElement>(null)
+  const formRef = useRef<HTMLDivElement>(null)
   const pillRowRef = useRef<HTMLDivElement>(null)
   /*
     THE PRESSED PILL COMES TO THE MIDDLE OF THE ROW, as it did before the
@@ -517,17 +522,23 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     built just after, with the old panel on screen until the new one is ready.
   */
   /*
-    THE PILL AT ONCE, THE SECTION WHEN IT IS WHOLE. The pill reads activeTab
-    and fills on the press. The section reads panelTab, which follows once
-    what the new section shows has been read (Taxes its regions, Shipping
-    its zones...): fetched ahead when Settings opened, so normally at once,
-    and never kept waiting more than 450ms. Until then the section that was
-    there stays, so there is never an empty page with the content dropping
-    in after it; the new one fades in already complete.
+    THE PILL AT ONCE, THE SECTION RIGHT AFTER, AT ITS TOP (round R1).
+    The pill reads activeTab and fills on the press. The section reads
+    panelTab, swapped in a transition on the same press, so the pill's frame
+    is never held up by the section being built. A section whose data is
+    already here (fetched ahead when Settings opened, or kept from an earlier
+    visit: components/physical/ui peekGet) swaps on that press; one whose data
+    is still on its way waits for it at most DATA_WAIT_MS and then shows its
+    own placeholder.
+
+    NO GLIDE, NO WAIT FOR ONE. From 1024px a press used to glide the scroll to
+    the top first (lib/ui/glide-scroll) and swap the section in once the glide
+    neared the top, 400 to 470ms after the press: the old section rode up the
+    screen and was then replaced mid motion, "a little bit of a bump". The
+    section now swaps at once and is placed at its top before it is painted
+    (the layout effect below), so nothing moves after it appears.
   */
   const [panelTab, setPanelTab] = useState<TabId>(activeTab)
-  /** Each section's height when it was last drawn, for the glide below. */
-  const panelHeights = useRef<Partial<Record<TabId, number>>>({})
   useEffect(() => {
     if (panelTab === activeTab) return
     let live = true
@@ -535,30 +546,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     const show = () => {
       if (live) startTransition(() => setPanelTab(activeTab))
     }
-    /*
-      WITH A GLIDE UNDER WAY, THE NEW SECTION COMES IN ONCE IT WOULD FILL THE
-      SCREEN: swapped in far down a long section, a short one left the screen
-      on empty space for the length of the glide. A section as long as the
-      way left shows at once; a short one as the glide nears the top (the
-      page's own bottom margin from it), and the glide carries it the rest.
-      How long a section is, is known from the last time it was drawn.
-    */
-    const nearTop = () =>
-      new Promise<void>((resolve) => {
-        const tick = () => {
-          const g = glide.current
-          const scroller = scrollerOf()
-          const panel = formRef.current?.querySelector<HTMLElement>("[data-settings-panel]")
-          if (!live || !g || g.done || !scroller || !panel) return resolve()
-          const top = panel.getBoundingClientRect().top - scroller.getBoundingClientRect().top + scroller.scrollTop
-          const fills = Math.max(GLIDE_SHOW_WITHIN, top + (panelHeights.current[activeTab] ?? 0) + 48 - scroller.clientHeight)
-          if (scroller.scrollTop <= fills) resolve()
-          else requestAnimationFrame(tick)
-        }
-        tick()
-      })
-    const ready = urls.length === 0 ? Promise.resolve() : Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, 450))])
-    void Promise.all([ready, nearTop()]).then(show)
+    if (urls.every((u) => peekGet(u) !== null)) show()
+    else void Promise.race([whenGets(urls), new Promise((r) => window.setTimeout(r, DATA_WAIT_MS))]).then(show)
     return () => {
       live = false
     }
@@ -606,6 +595,8 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
   const [firstName, setFirstName] = useState(profile.first_name || profile.display_name?.split(" ")[0] || "")
   const [lastName, setLastName] = useState(profile.last_name || profile.display_name?.split(" ").slice(1).join(" ") || "")
   const [username, setUsername] = useState(profile.username || creator.slug || "")
+  /* The Name field's own text while it is being typed (see the field). */
+  const [nameDraft, setNameDraft] = useState<string | null>(null)
 
   // Track initial values for unsaved changes detection
   const initialValues = useRef({
@@ -904,62 +895,35 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
      * build is cleared.
      */
     /*
-      FROM 1024px, A GLIDE TO THE TOP, NOT A JUMP. "If I'm scrolled down and I
-      click a new thing in the sidebar, it should smooth scroll me to the top."
-      The glide starts on the press (lib/ui/glide-scroll), the content is held
-      at its height so nothing under the scroll can pull it short, and the new
-      section comes in as the glide nears the top (panelTab, above). Below
+      FROM 1024px, THE NEW SECTION AT ITS TOP, IN THE FRAME IT APPEARS. The
+      glide to the top that was here (lib/ui/glide-scroll) held the new
+      section back until the glide was nearly done, and swapping it in mid
+      motion was the bump the owner kept feeling. See panelTab, above. Below
       1024px the pills keep their own placing.
     */
-    if (!startGlide()) scrollPending.current = true
-    /* The new panel fades in, for a press only (not on load, not on a re-render). */
-    setPanelEntrance(true)
-    setActiveTab(newTab)
-    if (newTab === "domains") fetchDomains()
-    // Persist tab in URL so refresh stays on the same tab
-    const url = new URL(window.location.href)
-    url.searchParams.set("tab", newTab)
-    url.searchParams.delete("section")
-    window.history.replaceState({}, "", url.toString())
+    /*
+      CHANGES THAT AREN'T SAVED ASK FIRST (lib/settings/unsaved-guard.ts):
+      Save, Discard or Keep editing, and the section changes only after Save
+      or Discard.
+    */
+    requestLeave(() => {
+      scrollPending.current = true
+      /* The new panel fades in, for a press only (not on load, not on a re-render). */
+      setPanelEntrance(true)
+      setActiveTab(newTab)
+      if (newTab === "domains") fetchDomains()
+      // Persist tab in URL so refresh stays on the same tab
+      const url = new URL(window.location.href)
+      url.searchParams.set("tab", newTab)
+      url.searchParams.delete("section")
+      url.searchParams.delete("integration")
+      window.history.replaceState(window.history.state, "", url.toString())
+    })
   }
 
   const scrollPending = useRef(false)
-  const glide = useRef<Glide | null>(null)
   /** The settings sheet's own scroller when settings is drawn in it (components/app/settings-sheet.tsx), else the shell's. */
   const scrollerOf = () => formRef.current?.closest("[data-settings-sheet-scroll], .app-content-scroll") as HTMLElement | null
-  /* The held height comes off once the glide is over: the section is at its top by then, so nothing moves. */
-  const releaseHold = () => {
-    glide.current = null
-    if (formRef.current) formRef.current.style.minHeight = ""
-  }
-  /** Starts the glide to the top for a press on the sections' column; false where the pills place the section instead. */
-  const startGlide = (): boolean => {
-    const form = formRef.current
-    const scroller = scrollerOf()
-    const bar = pillRowRef.current
-    if (!form || !scroller || (bar && getComputedStyle(bar).display !== "none")) return false
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return false
-    glide.current?.cancel()
-    const shown = form.querySelector<HTMLElement>("[data-settings-panel]")
-    if (shown) panelHeights.current[panelTab] = shown.offsetHeight
-    if (scroller.scrollTop <= 1) {
-      releaseHold()
-      return true
-    }
-    /* Held at the height it has now, so the glide's way up stays there whatever the new section's length. */
-    form.style.minHeight = `${form.offsetHeight}px`
-    const g = glideScrollTop(scroller, 0, () => {
-      if (glide.current === g) releaseHold()
-    })
-    glide.current = g
-    return true
-  }
-  useEffect(() => () => glide.current?.cancel(), [])
-  /* Each section's height as it is drawn, so the next glide to it knows whether it fills the screen (panelTab, above). */
-  useLayoutEffect(() => {
-    const panel = formRef.current?.querySelector<HTMLElement>("[data-settings-panel]")
-    if (panel) panelHeights.current[panelTab] = panel.offsetHeight
-  }, [panelTab])
   /* Before the new section is painted: the scroll goes to the section's top, under the pills. */
   useLayoutEffect(() => {
     if (!scrollPending.current) return
@@ -976,19 +940,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
     /* A short section still fills the screen under the row, so the row can stay where it is. Measured first, set once:
        clearing it before measuring laid the page out short and the browser pulled the scroll to the top. */
     if (formRef.current) formRef.current.style.minHeight = held ? `${scroller!.clientHeight}px` : ""
-    if (scroller && scroller.scrollTop > target) scroller.scrollTo({ top: target, behavior: "instant" as ScrollBehavior })
+    /* From 1024px, the very top, in this frame: the new section is never painted part way down the old one's scroll. */
+    if (scroller && scroller.scrollTop > target) scroller.scrollTop = target
   }, [panelTab])
 
-  const handleSubmit = async (e?: React.FormEvent | Event) => {
+  const handleSubmit = async (e?: React.FormEvent | Event): Promise<boolean> => {
     if (e && 'preventDefault' in e) e.preventDefault()
 
     if (usernameError) {
       setError(usernameError)
       setShowSaveToast(true)
-      return
+      return false
     }
 
-    if (isLoading) return // Prevent double-clicks
+    if (isLoading) return false // Prevent double-clicks
 
     setIsLoading(true)
     setError(null)
@@ -1010,7 +975,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       if (existingUsers && existingUsers.length > 0) {
         setError("This username is already taken")
         setIsLoading(false)
-        return
+        return false
       }
 
       /* Nor another website's address (Website Settings › Domains), which is
@@ -1021,7 +986,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         if (handleTaken === true) {
           setError("A website already uses this name")
           setIsLoading(false)
-          return
+          return false
         }
       }
 
@@ -1189,7 +1154,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         setTimeout(() => {
           window.location.reload()
         }, 500)
-        return
+        return true
       }
 
       router.refresh()
@@ -1198,15 +1163,52 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         setSuccess(false)
         setShowSaveToast(false)
       }, 8000)
+      return !onepageWarning
     } catch (error: unknown) {
       console.error("[Settings] Save error:", error)
       const msg = error instanceof Error ? error.message : "An error occurred while saving. Please try again."
       setError(msg)
       setShowSaveToast(false)
+      return false
     } finally {
       setIsLoading(false)
     }
   }
+
+  const discardChanges = () => {
+    setNameDraft(null)
+    setFirstName(initialValues.current.firstName)
+    setLastName(initialValues.current.lastName)
+    setUsername(initialValues.current.username)
+    setAddressLine1(initialValues.current.addressLine1)
+    setCity(initialValues.current.city)
+    setState(initialValues.current.state)
+    setPostalCode(initialValues.current.postalCode)
+    setCountry(initialValues.current.country)
+    setSelectedLanguage(initialLanguage.current)
+    setSelectedTimezone(initialTimezone.current)
+    setSupportEmail(initialSupportEmail.current)
+    /* Payments' two fields: Cancel used to leave them as typed, so the bar never went away there. */
+    setPayoutCurrency(initialPayoutCurrency.current)
+    setStatementDescriptor(initialStatementDescriptor.current)
+    setError(null)
+  }
+
+  /*
+    WHAT THE SAVE BAR HOLDS IS UNSAVED FOR THE WHOLE OF SETTINGS
+    (lib/settings/unsaved-guard.ts): another section, closing the sheet, a
+    link out and Back all ask Save, Discard or Keep editing first
+    (components/app/settings/leave-guard.tsx). The latest save and discard
+    are read through refs, so the entry is only rewritten when it comes or goes.
+  */
+  const submitRef = useRef(handleSubmit)
+  submitRef.current = handleSubmit
+  const discardRef = useRef(discardChanges)
+  discardRef.current = discardChanges
+  useEffect(() => {
+    markDirty("settings-form", hasUnsavedChanges ? { save: () => submitRef.current(), discard: () => discardRef.current() } : null)
+  }, [hasUnsavedChanges])
+  useEffect(() => () => markDirty("settings-form", null), [])
 
   /* This device only. "Sign out everywhere" below is the one that ends every
      session; this used to be the same call, because supabase-js signs out
@@ -1406,7 +1408,22 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
         page rises inside the shell's scroller, whose track is always there.
       */}
       <div data-settings-page="" className="overflow-x-clip bg-[#fafafa]">
-        <div className="max-w-4xl lg:max-w-[1200px] mx-auto app-gutter py-6 sm:py-8 pb-16 sm:pb-32 overflow-x-clip">
+        {/*
+          ROOM AT THE FOOT FOR WHAT FLOATS OVER IT. On a phone the nav pill,
+          and while there is something to save the save bar above it, both
+          float over the end of the page: the last card used to sit under
+          the bar. The room is the pill's own (--app-nav-room) plus, with the
+          bar up, the bar's 48px and the 10px it floats above the pill. From
+          768px there is no pill; the bar floats 16px off the bottom.
+        */}
+        <div
+          data-settings-foot={hasUnsavedChanges ? "bar" : "pill"}
+          className={`max-w-4xl lg:max-w-[1200px] mx-auto app-gutter pt-6 sm:pt-8 overflow-x-clip ${
+            hasUnsavedChanges
+              ? "pb-[calc(var(--app-nav-top)+10px+48px+24px)] md:pb-[calc(max(16px,env(safe-area-inset-bottom))+48px+32px)] sm:max-md:pb-[calc(var(--app-nav-top)+10px+48px+32px)] lg:pb-32"
+              : "pb-[var(--app-nav-room)] md:pb-16 lg:pb-32"
+          }`}
+        >
         {/*
           THE HEADER AND THE ADDRESS PILL. On a phone the pill took the right
           half of the row the title and the subtitle shared, and "Manage your
@@ -1499,8 +1516,20 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           {/*
             THE PILLS AS THEY WERE (before the sheet, the owner's reference):
             words on the page's grey, the open one on a soft grey fill with a
-            hairline. Each pill carries its own fill, which fades in where it
-            is and never slides across from the last one; nothing scales.
+            hairline. Nothing slides across from the last one; nothing scales.
+
+            THE FILL IS THE PILL'S OWN BACKGROUND (round R1). "The text hides
+            and the icon flashes." The fill was a separate span laid over the
+            whole pill with its opacity eased, and the icon and the words were
+            lifted over it with position: relative. An element whose opacity
+            is animating is put on a layer of its own, and WebKit then has to
+            lift everything drawn over it onto layers too, for the length of
+            the fade, and drop them again after: the words and the icon were
+            painted again twice on every press, which on a phone is a frame
+            with the words missing and the icon blinking. Now the pill eases
+            its own background colour and its inset hairline, nothing is
+            stacked over anything, and nothing is ever put on a layer. The
+            words and the icon change colour with it.
           */}
           <div className="flex h-[44px] w-max items-center gap-1 p-1 sm:h-[48px]">
             {shownTabs.map((tab) => {
@@ -1515,27 +1544,32 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                   onClick={() => handleTabChange(tab.id)}
                   onPointerDown={() => prefetchGet(tabData(tab.id, physicalCommerce))}
                   data-settings-tab={tab.id}
+                  data-settings-tab-on={on ? "" : undefined}
                   style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                  className={`relative flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-transparent px-3 py-2 text-[13px] font-medium outline-none transition-[color,background-color] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:px-4 sm:py-2.5 sm:text-[14px] [-webkit-tap-highlight-color:transparent] ${
-                    on ? "text-[#1a1a2e]" : "text-[#6b7280] active:bg-[#f3f4f6]/70"
+                  className={`flex shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-2 text-[13px] font-medium outline-none transition-[color,background-color,box-shadow] focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/15 motion-reduce:transition-none sm:px-4 sm:py-2.5 sm:text-[14px] [-webkit-tap-highlight-color:transparent] ${
+                    on
+                      ? "bg-[#f3f4f6] text-[#1a1a2e] shadow-[inset_0_0_0_1px_#d1d5db,0_1px_2px_rgba(0,0,0,0.04)]"
+                      : "bg-[#f3f4f6]/0 text-[#6b7280] shadow-[inset_0_0_0_1px_rgba(209,213,219,0),0_1px_2px_rgba(0,0,0,0)] active:bg-[#f3f4f6]/70"
                   }`}
                 >
-                  <span
-                    aria-hidden
-                    data-settings-tab-fill=""
-                    style={{ transitionDuration: `${TAB_FADE_MS}ms`, transitionTimingFunction: TAB_EASE }}
-                    className={`pointer-events-none absolute -inset-px rounded-full border border-[#d1d5db] bg-[#f3f4f6] shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-opacity motion-reduce:transition-none ${on ? "opacity-100" : "opacity-0"}`}
-                  />
-                  <Icon className="relative h-4 w-4 shrink-0" aria-hidden />
-                  <span className="relative">{labelOf(tab.id)}</span>
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden />
+                  <span>{labelOf(tab.id)}</span>
                 </button>
               )
             })}
           </div>
         </div>
 
-        {/* Tab Content */}
-        <form ref={formRef} onSubmit={handleSubmit}>
+        {/*
+          Tab Content. NOT A <form> (round R1). It was one form around every
+          section, so a panel's own form was a form inside a form: AI Memory's
+          Remember submitted this one too (a submit bubbles through React to
+          every form above it), which saved the profile and refreshed the
+          route, and the sheet closed under the person typing. Any button a
+          panel left without a type did the same. The save bar calls
+          handleSubmit itself; nothing here submits by accident.
+        */}
+        <div ref={formRef} data-settings-content="">
           {/*
             ONE KEYED WRAPPER, so React replaces the panel rather than
             reconciling one tab's fields into another's and keeping the DOM
@@ -1690,15 +1724,24 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
                     <Label htmlFor="firstName" className="text-[13px] font-medium text-[#374151]">
                       Name
                     </Label>
+                    {/*
+                      WHAT IS TYPED IS WHAT IS SHOWN. The field showed first and
+                      last name joined back together, so the space typed after
+                      "Mara" was split off and dropped before the next key: a
+                      two word name could only be pasted. It shows the typing
+                      itself now, and the halves are worked out from it.
+                    */}
                     <Input
                       id="firstName"
-                      value={fullNameForUsernameInput}
+                      value={nameDraft ?? fullNameForUsernameInput}
                       onChange={(e) => {
                         const value = e.target.value
-                        const [first = "", ...rest] = value.trimStart().split(/\s+/)
+                        setNameDraft(value)
+                        const [first = "", ...rest] = value.trim().split(/\s+/)
                         setFirstName(first)
                         setLastName(rest.join(" "))
                       }}
+                      onBlur={() => setNameDraft(null)}
                       placeholder="Your name or your brand's"
                       className="h-11 border-[#e5e7eb] rounded-xl text-[14px] focus:ring-[#8b5cf6] focus:border-[#8b5cf6]"
                     />
@@ -2119,12 +2162,11 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
           )}
 
           </div>
-        </form>
         </div>
         </div>
-        {/* Room for the save bar while it is up, so the page's last row can scroll clear of it. */}
-        {hasUnsavedChanges ? <div aria-hidden className="h-16" /> : null}
+        </div>
       </div>
+      <SettingsLeaveGuard />
 
       {/*
         THE SAVE BAR. A floating card, not a strip across the foot of the
@@ -2137,23 +2179,7 @@ export function SettingsFormNew({ profile, creator, accountTimeZone = null, webs
       */}
       {(() => {
         const barUp = hasUnsavedChanges && !showEmailChangeModal && !showDeleteModal
-        const discard = () => {
-          setFirstName(initialValues.current.firstName)
-          setLastName(initialValues.current.lastName)
-          setUsername(initialValues.current.username)
-          setAddressLine1(initialValues.current.addressLine1)
-          setCity(initialValues.current.city)
-          setState(initialValues.current.state)
-          setPostalCode(initialValues.current.postalCode)
-          setCountry(initialValues.current.country)
-          setSelectedLanguage(initialLanguage.current)
-          setSelectedTimezone(initialTimezone.current)
-          setSupportEmail(initialSupportEmail.current)
-          /* Payments' two fields: Cancel used to leave them as typed, so the bar never went away there. */
-          setPayoutCurrency(initialPayoutCurrency.current)
-          setStatementDescriptor(initialStatementDescriptor.current)
-          setError(null)
-        }
+        const discard = discardChanges
         return (
       <div
         data-settings-save-bar={barUp ? "up" : "down"}

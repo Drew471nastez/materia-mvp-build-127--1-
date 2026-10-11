@@ -43,15 +43,22 @@ console.log("\nThe rail keeps the page under the sheet lit\n")
   check("the stage forgets on leaving the shell", /useEffect\(\(\) => \(\) => forgetCommitted\(\), \[\]\)/.test(read("components/app/app-stage.tsx")))
 }
 
-console.log("\nA section pressed while scrolled glides to the top\n")
+/*
+  Changed on purpose (round R1). The glide to the top, with the new section
+  held back until the glide neared the top, was the "little bit of a bump"
+  the owner kept feeling: the old section rode up the screen and was replaced
+  mid motion, 400 to 470ms after the press (scripts/check-settings-sheet-
+  desktop.mjs measured it). The section now swaps on the press and is placed
+  at its top before it is painted. The glide stays for Integrations' Back.
+*/
+console.log("\nA section pressed while scrolled opens at its top, at once\n")
 {
   const form = read("components/app/settings-form-new.tsx")
   const glide = read("lib/ui/glide-scroll.ts")
-  check("the browser's own smooth scroll, on the compositor", /el\.scrollTo\(\{ top: to, behavior: "smooth" \}\)/.test(glide))
-  check("started on the press, from the column only (the pills keep their placing)", /if \(!startGlide\(\)\) scrollPending\.current = true/.test(form) && /getComputedStyle\(bar\)\.display !== "none"\)\) return false/.test(form))
-  check("the content is held at its height for the glide and let go after", /form\.style\.minHeight = `\$\{form\.offsetHeight\}px`/.test(form) && /if \(glide\.current === g\) releaseHold\(\)/.test(form))
-  check("the new section comes in once it would fill the screen, never onto empty space", /const fills = Math\.max\(GLIDE_SHOW_WITHIN, top \+ \(panelHeights\.current\[activeTab\] \?\? 0\) \+ 48 - scroller\.clientHeight\)/.test(form) && /void Promise\.all\(\[ready, nearTop\(\)\]\)\.then\(show\)/.test(form))
-  check("reduced motion keeps the plain placing", /prefers-reduced-motion: reduce\)"\)\.matches\) return false/.test(form))
+  check("no glide and no wait for one in Settings' sections", !/glideScrollTop|startGlide|nearTop|GLIDE_SHOW_WITHIN/.test(form))
+  check("the scroll is put at the section's top in the layout effect, before it is painted", /useLayoutEffect\(\(\) => \{\n    if \(!scrollPending\.current\) return/.test(form) && /if \(scroller && scroller\.scrollTop > target\) scroller\.scrollTop = target/.test(form))
+  check("a section whose data is kept swaps on the press, in a transition so the pill's frame is not held", /if \(urls\.every\(\(u\) => peekGet\(u\) !== null\)\) show\(\)/.test(form) && /startTransition\(\(\) => setPanelTab\(activeTab\)\)/.test(form))
+  check("the browser's own smooth scroll, on the compositor, still carries Integrations' Back", /el\.scrollTo\(\{ top: to, behavior: "smooth" \}\)/.test(glide) && /glideScrollTop\(box, to, release\)/.test(read("components/app/settings/integrations-directory.tsx")))
 }
 
 console.log("\nOpen and close\n")
