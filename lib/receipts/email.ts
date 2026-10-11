@@ -80,6 +80,9 @@ export interface ReceiptEmailModel {
   }>
   subtotalText: string | null
   tipText: string | null
+  /** Settings › Taxes: the tax in the total, and whether it was part of the prices. */
+  taxText?: string | null
+  taxIncluded?: boolean
   totalText: string
   refundedText: string | null
   link: string
@@ -93,6 +96,15 @@ export interface ReceiptEmailModel {
    * draws it again, which the receipt token opens as the receipt link does.
    */
   document?: { kind: "invoice" | "receipt"; link: string } | null
+  /**
+   * The store's own words from Settings › Customer emails
+   * (lib/emails/customer-custom.ts): a heading in place of "Thanks for your
+   * order", and an opening paragraph under it, already escaped. The button's
+   * label is `buttonLabel`.
+   */
+  heading?: string | null
+  introHtml?: string | null
+  introText?: string | null
 }
 
 /** The line under the totals that says the PDF is attached, and where to get it again. */
@@ -253,8 +265,9 @@ ${it.note ? `<div style="font-size:13px;line-height:19px;color:#b91c1c;margin-to
 </tr></table>
 </td></tr>
 <tr><td class="rc-pad" style="padding:24px 36px 0;font-family:${FONT};">
-<h1 class="rc-ink" style="margin:0;font-size:22px;line-height:29px;font-weight:700;color:${INK};">Thanks for your order, ${first}</h1>
+<h1 class="rc-ink" style="margin:0;font-size:22px;line-height:29px;font-weight:700;color:${INK};">${m.heading ? escapeHtml(m.heading) : `Thanks for your order, ${first}`}</h1>
 <p class="rc-muted" style="margin:6px 0 0;font-size:14px;line-height:20px;color:${MUTED};">Order ${escapeHtml(m.orderNumber)} &middot; ${escapeHtml(m.dateText)}</p>
+${m.introHtml ? `<p class="rc-ink" style="margin:14px 0 0;font-size:14px;line-height:22px;color:${INK};">${m.introHtml}</p>` : ""}
 </td></tr>
 <tr><td class="rc-pad" style="padding:20px 36px 0;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;">
@@ -264,7 +277,9 @@ ${itemRows}
 <tr><td colspan="2" style="height:8px;line-height:8px;font-size:0;">&nbsp;</td></tr>
 ${m.subtotalText ? sumRow("Subtotal", m.subtotalText) : ""}
 ${m.tipText ? sumRow("Tip", m.tipText) : ""}
+${m.taxText && !m.taxIncluded ? sumRow("Tax", m.taxText) : ""}
 ${sumRow("Total", m.totalText, true)}
+${m.taxText && m.taxIncluded ? sumRow("Including tax", m.taxText) : ""}
 ${m.refundedText ? sumRow("Refunded", m.refundedText) : ""}
 </table>
 ${documentLine(m)?.html ?? ""}
@@ -296,13 +311,16 @@ export function buyerReceiptEmailText(m: ReceiptEmailModel): string {
   return [
     `Hi ${safeName(m.firstName) || "there"},`,
     "",
-    `Thanks for your order from ${safeText(m.sellerName) || PLATFORM_BRAND_NAME}.`,
+    m.heading ? safeText(m.heading) : `Thanks for your order from ${safeText(m.sellerName) || PLATFORM_BRAND_NAME}.`,
     `Order ${m.orderNumber}, ${m.dateText}`,
+    ...(m.introText ? ["", m.introText] : []),
     "",
     ...lines,
     m.subtotalText ? `Subtotal: ${m.subtotalText}` : null,
     m.tipText ? `Tip: ${m.tipText}` : null,
+    m.taxText && !m.taxIncluded ? `Tax: ${m.taxText}` : null,
     `Total: ${m.totalText}`,
+    m.taxText && m.taxIncluded ? `Including tax: ${m.taxText}` : null,
     m.refundedText ? `Refunded: ${m.refundedText}` : null,
     "",
     `${m.buttonLabel}: ${m.link}`,

@@ -31,6 +31,8 @@ import { SiteIntro } from "./site-intro"
 import { SITE_COOKIE_TEXT } from "@/lib/consent/copy"
 import { setSiteConsentTheme } from "@/lib/consent/site-theme"
 import { StorefrontProvider, type Storefront } from "./storefront-context"
+import { ReturnFacts, useShopCommerce } from "./shop-commerce"
+import { freeShippingLine, siteCommerce } from "@/lib/website-builder/site-commerce"
 import { SectionSandboxProvider } from "../sections/section-sandbox"
 import { SiteCartProvider, useSiteCart } from "../site-cart"
 import { SiteWishlistProvider } from "../site-wishlist"
@@ -299,25 +301,23 @@ function AnnouncementBar({ theme }: { theme: ThemeSettingsValues }) {
  * sent, so the bar said "Spend $75 more" over a full basket.
  */
 function FreeShippingBar({ theme }: { theme: ThemeSettingsValues }) {
-  const t = theme as Record<string, unknown>
-  const threshold = typeof t.free_shipping_threshold === "number" ? t.free_shipping_threshold : 0
-  const subtotal = useSiteCart().subtotalCents / 100
+  const c = siteCommerce(theme as Record<string, unknown>)
+  const subtotalCents = useSiteCart().subtotalCents
+  /* No amount typed: where the shop's own rates make shipping free (Settings › Shipping and delivery), so the banner and the checkout agree. */
+  const facts = useShopCommerce(c.freeShippingBar && c.freeShippingAmount === null)
+  const fromCents = c.freeShippingAmount !== null ? Math.round(c.freeShippingAmount * 100) : (facts?.freeShippingFromCents ?? null)
+  const said = c.freeShippingBar ? freeShippingLine(subtotalCents, fromCents) : null
 
-  if (t.free_shipping_bar !== true || threshold <= 0) return null
-
-  const remaining = Math.max(0, threshold - subtotal)
-  const progress = Math.max(0, Math.min(1, threshold > 0 ? subtotal / threshold : 0))
+  if (!said) return null
+  const progress = said.progress
 
   return (
     <div
       className="w-full px-4 py-2 text-center text-[13px]"
       style={{ background: "var(--theme-surface)", color: "var(--theme-text-secondary)" }}
+      data-free-shipping-bar=""
     >
-      <span>
-        {remaining > 0
-          ? `Spend $${remaining.toFixed(2)} more for free shipping`
-          : "You have earned free shipping"}
-      </span>
+      <span>{said.text}</span>
       <span
         aria-hidden="true"
         className="mx-auto mt-1.5 block h-1 max-w-xs overflow-hidden rounded-full"
@@ -488,8 +488,11 @@ export function ThemePage({
     [storefront?.inEditor, pageColor],
   )
 
+  /* Website settings › Commerce, read once from the theme and handed to every section (lib/website-builder/site-commerce.ts). */
+  const storefrontValue = useMemo(() => ({ ...(storefront ?? {}), commerce: siteCommerce(theme as Record<string, unknown>) }), [storefront, theme])
+
   return (
-    <StorefrontProvider value={storefront ?? {}}>
+    <StorefrontProvider value={storefrontValue}>
     {/*
       One sandbox for the page, created only if a section on it has a
       script. See components/website-builder/sections/section-sandbox.tsx
@@ -592,6 +595,8 @@ export function ThemePage({
       ))}
       {/* And below the last one, so a page can be added to at the end. */}
       {body.length > 0 && renderGap?.(body.length)}
+      {/* The refund policy says what the store's return settings say today (./shop-commerce). */}
+      {storefront?.pageKey === "refund-policy" && storefront.inEditor !== true ? <ReturnFacts /> : null}
 
       {sections.length === 0 && (
         <div className="flex flex-1 min-h-[50vh] items-center justify-center">

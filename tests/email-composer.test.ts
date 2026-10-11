@@ -67,7 +67,12 @@ check("headings, bold, italic, underline, strike, lists, quote, link, alignment,
 check("every control a 44px target on a phone", /inline-flex h-11 min-w-11/.test(bar))
 check("the line being typed is kept clear of it", /scroller\?\.scrollBy/.test(bar) && /var\(--kb-inset,0px\)\+80px/.test(composer))
 check("a block is added at the caret, the text split around it", /tail\.setStart\(r\.endContainer, r\.endOffset\)/.test(bar) && /const insertAt = \(type: BlockType, at: InsertPoint \| null\)/.test(editor))
-check("the button's words are typed on the button, drawn as the email draws it", /data-button-label=""/.test(editor) && /px-6 py-3[^"]*text-\[16px\] font-semibold leading-5/.test(editor) && !/Field label="Button text" htmlFor=\{`\$\{id\}-label`\}/.test(code("components/email/compose/panels.tsx")))
+/* Round R8: on a phone the words are a field of the button's bottom sheet (the `sheet` panel), and only there. */
+{
+  const panels = code("components/email/compose/panels.tsx")
+  const fields = panels.match(/Field label="Button text" htmlFor=\{`\$\{id\}-label`\}/g) ?? []
+  check("the button's words are typed on the button, drawn as the email draws it (a field only in the phone's sheet)", /data-button-label=""/.test(editor) && /px-6 py-3[^"]*text-\[16px\] font-semibold leading-5/.test(editor) && fields.length === 1 && /\{sheet \? \(\s*<Field label="Button text"/.test(panels))
+}
 
 console.log("\nPreview")
 check("no Write | Preview switch", !/"write"/.test(composer) && !/label: "Write"/.test(composer) && !/Segmented/.test(composer))

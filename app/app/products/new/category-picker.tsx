@@ -38,7 +38,8 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { ArrowLeft, Check, ChevronRight, Search, X } from "lucide-react"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
 import { hapticTap } from "@/lib/native-bridge"
-import { categoryGroupsFor, groupOfCategory, searchCategories, type CategoryKind } from "@/lib/products/category-groups"
+import { categoryGroupsFor, groupOfCategory, type CategoryKind } from "@/lib/products/category-groups"
+import { searchCategoriesByWords } from "@/lib/products/category-suggest"
 import { cn } from "@/lib/utils"
 
 function reducedMotion() {
@@ -75,7 +76,8 @@ function useCategoryBrowser({ suggested, onPick, kind = "digital" }: { suggested
   levelRef.current = level
 
   const query = level.query.trim()
-  const found = useMemo(() => (query ? searchCategories(query, kind) : null), [query, kind])
+  /* Names that match, led by the one the words point to ("tee" is T-Shirts): lib/products/category-suggest.ts. */
+  const found = useMemo(() => (query ? searchCategoriesByWords(query, kind) : null), [query, kind])
   const levelKey = query ? "search" : level.group ?? ""
 
   const rows = useMemo<Row[]>(() => {

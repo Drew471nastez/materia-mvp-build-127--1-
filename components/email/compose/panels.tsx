@@ -27,12 +27,29 @@ function linkError(v: string): string | null {
   return safeUrl(v) ? null : "Use a full web address, like https://example.com"
 }
 
-export function ButtonPanel({ block, onChange, brand }: { block: ButtonBlock; onChange: (p: Partial<ButtonBlock>) => void; brand?: string }) {
+/**
+ * A button's settings. Under the block on a wide screen, where its words are
+ * typed on the button itself (./block-editor.tsx ButtonView). On a phone
+ * (`sheet`, round R8) they are the content of a bottom sheet, the words a
+ * field of their own at the top, every control a thumb's size, and the
+ * return key on a field puts the keyboard away.
+ */
+export function ButtonPanel({ block, onChange, brand, sheet = false }: { block: ButtonBlock; onChange: (p: Partial<ButtonBlock>) => void; brand?: string; sheet?: boolean }) {
   const id = block.id
   const urlError = linkError(block.url)
+  const done = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (sheet && e.key === "Enter") {
+      e.preventDefault()
+      e.currentTarget.blur()
+    }
+  }
   return (
-    <div className={panel} data-block-panel="button">
-      {/* The words are written on the button itself (./block-editor.tsx ButtonView). */}
+    <div className={sheet ? "grid gap-5" : panel} data-block-panel="button">
+      {sheet ? (
+        <Field label="Button text" htmlFor={`${id}-label`}>
+          <input id={`${id}-label`} className={inputClass} value={block.label} maxLength={60} placeholder="Button text" enterKeyHint="done" onKeyDown={done} onChange={(e) => onChange({ label: e.target.value })} data-button-label-field="" />
+        </Field>
+      ) : null}
       <Field label="Link" htmlFor={`${id}-url`} error={urlError} className="sm:col-span-2">
         <input
           id={`${id}-url`}
@@ -43,14 +60,16 @@ export function ButtonPanel({ block, onChange, brand }: { block: ButtonBlock; on
           autoCorrect="off"
           placeholder="https://"
           aria-invalid={!!urlError}
+          enterKeyHint="done"
+          onKeyDown={done}
           onChange={(e) => onChange({ url: e.target.value })}
         />
       </Field>
       <Field label="Color">
-        <ColorChoice value={block.color} brand={brand} onChange={(color) => onChange({ color })} />
+        <ColorChoice value={block.color} brand={brand} onChange={(color) => onChange({ color })} large={sheet} />
       </Field>
       <Field label="Alignment">
-        <Segmented label="Alignment" value={block.align} options={ALIGN} onChange={(align) => onChange({ align })} />
+        <Segmented label="Alignment" value={block.align} options={ALIGN} onChange={(align) => onChange({ align })} className={sheet ? "h-11 w-full sm:h-11 [&>button]:flex-1 [&>button]:text-[15px]" : undefined} />
       </Field>
     </div>
   )

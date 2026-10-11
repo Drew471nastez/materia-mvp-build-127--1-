@@ -88,7 +88,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
 
-  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url }]).map((v, i) => {
+  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left }]).map((v, i) => {
     const vName = String(v.name ?? "Default Title")
     const opts = variantOptions(vName, optionNames.length)
     const vPrice = v.price !== undefined && v.price !== "" ? priceCents(v.price) : price
@@ -101,9 +101,10 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
       price: vPrice,
       compare_at_price: vCompare > vPrice ? vCompare : null,
       available: v.available !== false,
-      inventory_management: null,
+      /* Counted by Storelib and few left (lib/website-builder/compat-site.ts compatStock): the number, so a theme's "Only 3 left" shows. */
+      inventory_management: typeof v.left === "number" ? "shopify" : null,
       inventory_policy: "deny",
-      inventory_quantity: v.available === false ? 0 : 10,
+      inventory_quantity: typeof v.left === "number" ? v.left : v.available === false ? 0 : 10,
       option1: opts[0] ?? null,
       option2: opts[1] ?? null,
       option3: opts[2] ?? null,
@@ -190,7 +191,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
     options_with_values,
     options_by_name: Object.fromEntries(options_with_values.map((o) => [String(o.name).toLowerCase(), o])),
     collections: [],
-    metafields: { custom: s.fields && typeof s.fields === "object" ? s.fields : {} },
+    metafields: productMetafields(s),
     gift_card: false,
     gift_card_: false,
     requires_selling_plan: false,
@@ -206,6 +207,26 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   }
   for (const v of variants) v.product = { id: product.id, title, handle, url: product.url }
   return product
+}
+
+/**
+ * A product's metafields, the way an Online Store 2.0 theme reads them.
+ * `custom`: the creator's custom fields (lib/products/custom-fields.ts), each
+ * a drop that prints as its value and has `.value`, `.type`, `.key`, so both
+ * `{{ product.metafields.custom.material }}` and `.material.value` work.
+ * `storelib.faqs`: the product's own questions, `.value` a list of
+ * `{ question, answer }`; it prints as how many there are, never as markup.
+ */
+function productMetafields(s: Record<string, unknown>): O {
+  const custom: O = {}
+  if (s.fields && typeof s.fields === "object") {
+    for (const [key, value] of Object.entries(s.fields as Record<string, unknown>)) {
+      if (typeof value !== "string" || !value) continue
+      custom[key] = { [OUTPUT]: value, value, key, namespace: "custom", type: value.includes("\n") ? "multi_line_text_field" : "single_line_text_field" }
+    }
+  }
+  const faqs = Array.isArray(s.faqs) ? (s.faqs as { question?: unknown; answer?: unknown }[]).filter((f) => typeof f?.question === "string" && typeof f?.answer === "string").map((f) => ({ question: f.question as string, answer: f.answer as string })) : []
+  return { custom, storelib: faqs.length ? { faqs: { [OUTPUT]: String(faqs.length), value: faqs, key: "faqs", namespace: "storelib", type: "list.faq" } } : {} }
 }
 
 /**
@@ -518,6 +539,20 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       const menu = r.menus[handle] ?? (handle ? r.menus[/footer/i.test(handle) ? "footer" : "main-menu"] ?? r.menus["main-menu"] : undefined)
       return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
     }
+    /*
+      A PALETTE (Horizon's color_palette): each of its colours a colour, as
+      Shopify gives them, so `settings.color_palette.color3` is a colour and
+      `for c in settings.color_palette` walks colours with their brightness
+      and .rgb. Kept as words, Horizon's "lightest colour of the palette" was
+      never found and --palette-lightest-rgb was empty, which left every
+      contrast colour built on it unset.
+    */
+    case "color_palette": {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return value ?? null
+      const out: O = {}
+      for (const [k, v] of Object.entries(value as O)) out[k] = colorObject(v) ?? v
+      return out
+    }
     case "color_scheme":
       return r.schemes[String(value ?? "")] ?? Object.values(r.schemes)[0] ?? null
     case "color_scheme_group":
@@ -535,7 +570,17 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       return typeof value === "string" && value.trim() !== "" && Number.isFinite(Number(value)) ? Number(value) : value ?? null
     case "checkbox":
       return value === true || value === "true"
-    case "page":
+    case "page": {
+      /*
+        A page picked in the sidebar ("/pages/about") or saved by the theme
+        ("about", "shopify://pages/about"): the page at that address, so a
+        section that links to it or prints its title has one (round R6).
+      */
+      const handle = typeof value === "string" ? value.replace(/^shopify:\/\/pages\//, "").replace(/^\/?pages\//, "").replace(/^\//, "").split(/[?#]/)[0] : ""
+      if (!/^[a-z0-9][a-z0-9_-]*$/i.test(handle)) return null
+      const title = handle.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+      return { [OUTPUT]: title, id: handle, title, handle, url: `/pages/${handle}`, content: "", template_suffix: null, metafields: {} }
+    }
     case "blog":
     case "article":
     case "metaobject":

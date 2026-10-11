@@ -30,6 +30,7 @@ import { ActivitySpinner } from "@/components/ui/activity-spinner"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { RULE_FIELDS, inSmartCollection, type CollectionRule, type RuleField, type RuleOp } from "@/lib/physical/collections"
+import { CATEGORY_GROUPS, PHYSICAL_CATEGORY_GROUPS } from "@/lib/products/category-groups"
 import { SWITCH_GROUP, Segmented, SwapPanels, SwitchRow } from "../new/editor-controls"
 import { Tick } from "../../coupons/coupon-parts"
 import type { SaveBody } from "./collections-client"
@@ -449,10 +450,19 @@ function RuleRow({
               onChange={(e) => onValue(e.target.value)}
               inputMode={NUMERIC_FIELDS.has(rule.field) ? "decimal" : undefined}
               aria-label={`Condition ${n}: value`}
-              placeholder={money ? "30" : rule.field === "weight" ? "Grams" : rule.field === "inventory" ? "10" : rule.field === "tag" ? "summer" : "Word"}
+              placeholder={money ? "30" : rule.field === "weight" ? "Grams" : rule.field === "inventory" ? "10" : rule.field === "tag" ? "summer" : rule.field === "category" ? "T-Shirts" : "Word"}
               autoComplete="off"
+              list={rule.field === "category" ? `collection-categories-${n}` : undefined}
               className={cn(FIELD, money && "pl-7", NUMERIC_FIELDS.has(rule.field) && "tabular-nums")}
             />
+            {/* The product categories the editor files products under, things that ship first while they can be sold (lib/products/category-groups.ts). */}
+            {rule.field === "category" ? (
+              <datalist id={`collection-categories-${n}`}>
+                {[...(physical ? PHYSICAL_CATEGORY_GROUPS : []), ...CATEGORY_GROUPS].flatMap((g) => g.categories).map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            ) : null}
           </span>
         )}
         <button

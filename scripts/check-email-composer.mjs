@@ -281,11 +281,24 @@ export const useSearchParams = () => new URLSearchParams()
     await sleep(250)
     const order = await p.evaluate(() => [...document.querySelectorAll("[data-email-editor] [data-block-id]")].map((b) => `${b.dataset.blockType}:${(b.textContent || "").trim().slice(-8)}`))
     expect(order.length === 3 && order[0].startsWith("rich:") && order[0].endsWith("Line 7") && order[1].startsWith("button") && order[2].startsWith("rich:"), "a button added at the caret lands between the two halves of the text", order)
-    const focusedLabel = await p.evaluate(() => document.activeElement?.hasAttribute?.("data-button-label"))
-    expect(focusedLabel, "and its words are ready to type, on the button")
-    await p.keyboard.type("Get the pack")
-    const url = await p.$('[data-block-panel="button"] input')
-    await url.type("storelib.com/anapop/autumn")
+    if (phone) {
+      /* Round R8: on a phone a button is edited in its own bottom sheet, which opens as it is added; the keyboard goes down for it. */
+      await sleep(500)
+      const sheet = await p.evaluate(() => ({ sheet: !!document.querySelector('[data-sheet-panel] [data-block-panel="button"]'), caretInText: !!document.activeElement?.closest?.("[data-email-text]") }))
+      expect(sheet.sheet && !sheet.caretInText, "and its settings open in a sheet on a phone, the keyboard down", sheet)
+      await p.evaluate(() => document.querySelector("[data-button-label-field]").focus())
+      await p.keyboard.type("Get the pack")
+      await p.evaluate(() => document.querySelector('[data-sheet-panel] [data-block-panel="button"] input[inputmode=url]').focus())
+      await p.keyboard.type("storelib.com/anapop/autumn")
+      await p.evaluate(() => document.querySelector("[data-button-sheet-done]").click())
+      await sleep(500)
+    } else {
+      const focusedLabel = await p.evaluate(() => document.activeElement?.hasAttribute?.("data-button-label"))
+      expect(focusedLabel, "and its words are ready to type, on the button")
+      await p.keyboard.type("Get the pack")
+      const url = await p.$('[data-block-panel="button"] input')
+      await url.type("storelib.com/anapop/autumn")
+    }
     const button = await p.evaluate(() => {
       const b = document.querySelector('[data-block-type="button"] [data-button-label]').parentElement
       const s = getComputedStyle(b)

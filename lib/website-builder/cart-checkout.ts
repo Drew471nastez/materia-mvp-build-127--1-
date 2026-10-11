@@ -16,13 +16,19 @@
 import { checkoutItems, type CartLine } from "./cart"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { getMainDomain } from "@/lib/url-helpers"
 
 export type DrawerCheckout = { go: string; free: boolean } | { go: null; free?: undefined }
 
 export async function drawerCheckout(lines: CartLine[], shopId: string | null): Promise<DrawerCheckout> {
   if (lines.length === 0) return { go: null }
   if (shopId && lines.some((l) => l.physical)) {
-    return { go: physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href), free: false }
+    /* On the website: its own checkout at this same address (app/checkout/site). A preview on storelib.com keeps the platform's. */
+    const go = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
+      ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", wholeCart: true })
+      : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
+    return { go, free: false }
   }
   try {
     const res = await fetch("/api/checkout/cart", {

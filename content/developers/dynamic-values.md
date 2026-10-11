@@ -284,7 +284,7 @@ The store the website belongs to, from what the creator has already set, so a se
 
 | Path | What it is |
 | --- | --- |
-| `shop.name` | The brand name from the theme settings, else the creator's name. |
+| `shop.name` | The brand name from the theme settings, else the store's name from Settings › Store details, else the creator's name. |
 | `shop.tagline` | The tagline from the theme settings, or empty. |
 | `shop.logo` | The logo's URL, or empty. |
 | `shop.url` | `/`, the website's home. |

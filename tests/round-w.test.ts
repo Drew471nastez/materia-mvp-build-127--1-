@@ -137,10 +137,13 @@ console.log("\nThe physical product editor")
   const cards = read("components/physical/product-cards.tsx")
   check("no editor link to settings is a plain link that leaves the app", !/<Link href="\/app\/settings/.test(cards) && !/target="_blank"/.test(cards) && /function SettingsLink/.test(cards))
   check("tax is set up in its own tab", /\/app\/settings\?tab=taxes/.test(cards) && !/section=taxes/.test(cards))
-  check("variants start in a tap: Size, Color, Material", /OPTION_PRESETS/.test(cards) && /"S", "M", "L", "XL"/.test(cards))
+  /* The options editor moved to its own file (components/physical/variant-options.tsx); the presets came with it. */
+  const options = read("components/physical/variant-options.tsx")
+  check("variants start in a tap: Size, Color, Material", /OPTION_PRESETS/.test(cards + options) && /"S", "M", "L", "XL"/.test(options))
   check("advanced fields show an example", /placeholder="MUG-BLK-11"/.test(cards) && /placeholder="5901234123457"/.test(cards))
   const ch = read("app/app/products/new/sales-channels-card.tsx")
-  check("creator page and Explore are shown as not for things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
+  /* Changed on purpose: the owner asked that a physical product is not offered the creator page or Explore at all, rather than shown them greyed out. */
+  check("creator page and Explore are not offered to things that ship", /DIGITAL_ONLY = new Set\(\["creator_page", "marketplace"\]\)/.test(ch) && /physical \? loaded\.channels\.filter\(forPhysical\)/.test(ch) && !/data-channel-not-for-physical/.test(ch) && /physical=\{productType === "physical"\}/.test(ed))
 }
 
 console.log("\nWhat happens if... (/help/questions)")

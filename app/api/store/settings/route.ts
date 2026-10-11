@@ -26,7 +26,7 @@ export async function GET() {
     db.from("creators").select("support_email, payout_currency, display_name, username").eq("id", c.creatorId).maybeSingle(),
     db.auth.admin.getUserById(c.userId).catch(() => null),
     /* What receipts show when no store logo is set: the website's logo, else the person's photo. */
-    storeIdentity(db, c.creatorId, { skipStoreLogo: true }).catch(() => null),
+    storeIdentity(db, c.creatorId, { skipStoreLogo: true, logoOnly: true }).catch(() => null),
   ])
   /*
     WHAT TO START FROM WHEN NOTHING IS SAVED YET: the name the store already

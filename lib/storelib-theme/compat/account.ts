@@ -58,12 +58,23 @@ export interface StorelibOrder {
   action_url: string
 }
 
+/** One order with its files, as lib/site-accounts/order-files.ts reads it for /account/orders/<id>. */
+export interface StorelibOrderDetail {
+  id: string
+  number: string
+  date: string
+  total: string
+  lines: { orderId: string; title: string; variant: string; image: string; url: string; files: { id: string; name: string; size: string; url: string }[]; note: string }[]
+}
+
 /** What a request knows about who is visiting (the route reads it from the website's own session cookie). */
 export interface SiteAccount {
   /** Signed in: the customer and their orders. Null for a guest. */
   customer: StorelibCustomer | null
   /** A guest part way through signing in: the email a code went to. */
   pending?: { email: string } | null
+  /** On /account/orders/<id>: that order of this customer's, with its files. Null when it is not theirs. */
+  order?: StorelibOrderDetail | null
 }
 
 const FINANCIAL: Record<string, [string, string]> = {
@@ -288,6 +299,44 @@ function addressList(addresses: { lines: string[] }[]): string {
 
 function deleteBlock(open: boolean): string {
   return `<details class="sl-acc__block" id="delete"${open ? " open" : ""}><summary class="sl-acc__link">Delete account</summary><p class="sl-acc__empty">This deletes your account and saved items on this website. Your past orders stay with the store.</p><form class="sl-acc__danger" method="post" action="/api/site-account/delete" data-storelib-form="native"><input type="hidden" name="confirm" value="delete"><button class="${BUTTON_CLASS}" type="submit">Delete my account</button></form></details>`
+}
+
+/** Why a download went back to the order's page (/api/site-account/download), as a fixed sentence. */
+const DOWNLOAD_NOTICES: Record<string, string> = {
+  limit: "That is a lot of downloads at once. Try again in a few minutes.",
+  refunded: "This order was refunded, so its files are closed.",
+  pending: "The payment has not cleared yet. Files open as soon as it does.",
+  held: "This order is on hold while the payment is reviewed.",
+  failed: "This payment did not go through, so there is nothing to download.",
+  variant: "That file is not part of the option you bought.",
+  denied: "That file could not be found in this order.",
+  unavailable: "That file could not be downloaded right now. Try again in a moment.",
+}
+
+export function downloadNotice(why: string | null | undefined): string | null {
+  return why && Object.prototype.hasOwnProperty.call(DOWNLOAD_NOTICES, why) ? DOWNLOAD_NOTICES[why] : null
+}
+
+/** /account/orders/<id>: one order and its files, each downloaded here, on the website. */
+export function orderContent(o: StorelibOrderDetail, v: { notice?: string | null } = {}): string {
+  const lines = o.lines
+    .map((l) => {
+      const thumb = `<span class="sl-acc__thumb">${l.image ? `<img src="${esc(l.image)}" alt="" loading="lazy" decoding="async">` : ""}</span>`
+      const head = `<div class="sl-acc__item">${thumb}<span><span>${l.url ? `<a href="${esc(l.url)}" style="color:inherit">${esc(l.title)}</a>` : esc(l.title)}</span>${l.variant ? `<br><span class="sl-acc__muted">${esc(l.variant)}</span>` : ""}</span></div>`
+      const files = l.files.length
+        ? `<ul class="sl-acc__files">${l.files.map((f) => `<li class="sl-acc__file"><span class="sl-acc__file-name">${esc(f.name)}${f.size ? ` <span class="sl-acc__muted">${esc(f.size)}</span>` : ""}</span><a class="sl-acc__link" href="${esc(f.url)}" download>Download</a></li>`).join("")}</ul>`
+        : `<p class="sl-acc__muted" style="margin-top:8px">${esc(l.note || "Nothing to download for this one.")}</p>`
+      return `<li class="sl-acc__order">${head}${files}</li>`
+    })
+    .join("")
+  return page(
+    `<style>.sl-acc .sl-acc__files{list-style:none;margin:12px 0 0;padding:0}.sl-acc .sl-acc__file{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:48px;border-top:1px solid color-mix(in srgb,currentColor 10%,transparent)}.sl-acc .sl-acc__file-name{min-width:0;overflow-wrap:anywhere}</style>
+<div class="sl-acc__top"><h1>Order #${esc(o.number)}</h1><a class="sl-acc__link" href="/account">Back to account</a></div>
+<p class="sl-acc__muted">${esc(o.date)} · ${esc(o.total)}</p>
+${v.notice ? `<div style="margin-top:20px">${notice(v.notice)}</div>` : ""}
+<div class="sl-acc__block"><h2>Downloads</h2><ol class="sl-acc__orders">${lines}</ol></div>`,
+    true,
+  )
 }
 
 /** /account/addresses: where this customer's orders from the shop were sent. Saved by checkout, so there is nothing to type here. */

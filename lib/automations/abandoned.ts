@@ -34,6 +34,7 @@
  */
 
 import { enroll, type Store } from "./engine"
+import { encodeItems, type LinkItem } from "@/lib/physical/cart-link"
 import type { ContactOutcome } from "@/lib/contacts/checkout-contact"
 import { joinedTheList } from "@/lib/contacts/checkout-welcome"
 
@@ -48,6 +49,18 @@ export interface CheckoutStart {
   email_opt_in: boolean
   source_detail: unknown
   created_at: string
+  /**
+   * Where "Finish checkout" goes for a cart (SQL part 129): the physical
+   * checkout with the same items, `/checkout/physical?...`. Absent for a
+   * single product, whose checkout is found from the product.
+   */
+  return_path?: string | null
+  /**
+   * A website's own checkout (app/api/checkout/site, SQL part 127): the
+   * cart's lines and the website it was started on, so "Finish checkout"
+   * goes back to that checkout on that website with the same cart.
+   */
+  basket?: { items?: unknown; site?: unknown; checkout?: unknown } | null
 }
 
 export type StartOutcome = "bought" | "unsubscribed" | "no_consent" | "entered"
@@ -79,6 +92,28 @@ export interface SweepResult {
   looked: number
   outcomes: Record<StartOutcome | "raced" | "failed", number>
   entered: number
+  /** Reminders sent by Storelib's own checkout reminder, for a store with no reminder automation of its own. */
+  reminded?: number
+}
+
+/**
+ * What the sweep needs beyond the engine, each optional so a test can leave
+ * it out:
+ *
+ *   recoveryOn   Settings › Checkout › Abandoned checkouts is still on for
+ *                the store. Turned off after a start was written, the start
+ *                is settled and nobody is reminded on the store's behalf.
+ *   remind       Storelib's own checkout reminder (Settings › Customer
+ *                emails › Checkout reminder), sent when the store has the
+ *                setting on and no checkout reminder automation of its own,
+ *                so the switch does what it says without building a flow.
+ *                Only ever with the person's own unsubscribe link.
+ */
+export interface SweepHelpers {
+  /** Storelib's own address, for a cart's way back on it (APP_URL in production). */
+  appUrl?: string
+  recoveryOn?: (creatorId: string) => Promise<boolean>
+  remind?: (start: CheckoutStart, unsubscribeToken: string) => Promise<boolean>
 }
 
 export async function decideStart(store: Store, s: CheckoutStart): Promise<StartOutcome> {
@@ -89,15 +124,19 @@ export async function decideStart(store: Store, s: CheckoutStart): Promise<Start
   return "entered"
 }
 
-export async function sweepAbandoned(input: { store: Store; starts: StartsStore; now: number; limit?: number }): Promise<SweepResult> {
+const appUrlOf = (h: SweepHelpers) => h.appUrl ?? "https://storelib.com"
+
+export async function sweepAbandoned(input: { store: Store; starts: StartsStore; now: number; limit?: number } & SweepHelpers): Promise<SweepResult> {
   const { store, starts, now } = input
-  const out: SweepResult = { available: true, looked: 0, entered: 0, outcomes: { bought: 0, unsubscribed: 0, no_consent: 0, entered: 0, raced: 0, failed: 0 } }
+  const out: SweepResult = { available: true, looked: 0, entered: 0, reminded: 0, outcomes: { bought: 0, unsubscribed: 0, no_consent: 0, entered: 0, raced: 0, failed: 0 } }
   const due = await starts.due(new Date(now - ABANDONED_AFTER_MS).toISOString(), new Date(now - ABANDONED_LOOK_BACK_MS).toISOString(), input.limit ?? 50)
   if (due === null) return { ...out, available: false }
   out.looked = due.length
   for (const s of due) {
     try {
-      const outcome = await decideStart(store, s)
+      let outcome = await decideStart(store, s)
+      /* The store turned reminders off since: nobody asked to be reminded on its behalf any more. */
+      if (outcome === "entered" && input.recoveryOn && !(await input.recoveryOn(s.creator_id))) outcome = "no_consent"
       if (!(await starts.settle(s.id, outcome))) {
         out.outcomes.raced++
         continue
@@ -118,6 +157,15 @@ export async function sweepAbandoned(input: { store: Store; starts: StartsStore;
           await enroll(store, { triggerType: "new_subscriber", creatorId: s.creator_id, email: s.email, name: s.first_name, optedIn: true, source: s.source_detail ?? null }, now)
         }
       }
+      /* No checkout reminder automation of the store's own: Storelib's one reminder email, with their unsubscribe link. */
+      if (input.remind) {
+        const flows = await store.activeFlows(s.creator_id, "abandoned_checkout")
+        if (flows !== null && flows.filter((f) => f.trigger_type === "abandoned_checkout").length === 0) {
+          const standing = await store.standing(s.creator_id, s.email)
+          if (!standing.suppressed && standing.unsubscribeToken && (await input.remind(s, standing.unsubscribeToken))) out.reminded = (out.reminded ?? 0) + 1
+          continue
+        }
+      }
       const r = await enroll(
         store,
         {
@@ -130,6 +178,7 @@ export async function sweepAbandoned(input: { store: Store; starts: StartsStore;
           variantId: s.variant_id,
           eventId: `checkout:${s.id}`,
           startedAt: s.created_at,
+          checkoutUrl: startCheckoutUrl(s, appUrlOf(input)),
           optedIn: s.email_opt_in === true,
           source: s.source_detail ?? null,
         },
@@ -158,9 +207,44 @@ export interface StartInput {
   productTitle?: string | null
   email: string
   firstName?: string | null
+  /** The payment that reached Pay: a PaymentIntent, or for a cart the Stripe Checkout Session. One start each. */
   paymentIntentId: string
   optedIn: boolean
   source?: unknown
+  /** A cart's way back (`/checkout/physical?...` or the basket's `/checkout/cart?...`), kept for "Finish checkout" (SQL part 129). */
+  returnPath?: string | null
+}
+
+/**
+ * Where "Finish checkout" goes for a start, as an address: a website's own
+ * checkout with the same cart (`basket`, SQL part 127), else the cart's
+ * checkout on Storelib (`return_path`, part 129), else null and the single
+ * product's checkout is found from the product. A website's host must
+ * still be checked against the store's own (lib/checkout/site-hosts) by
+ * whoever sends the link.
+ */
+export function startCheckoutUrl(s: Pick<CheckoutStart, "basket" | "return_path">, appUrl: string): string | null {
+  const b = s.basket
+  if (b && typeof b === "object" && b.checkout === "/checkout" && typeof b.site === "string" && Array.isArray(b.items)) {
+    let site: URL | null = null
+    try {
+      site = new URL(b.site)
+    } catch {
+      site = null
+    }
+    const items = (b.items as Record<string, unknown>[])
+      .filter((i) => i && typeof i.productId === "string" && /^[0-9a-f-]{36}$/i.test(i.productId))
+      .slice(0, 50)
+      .map((i): LinkItem => ({ productId: i.productId as string, variantId: typeof i.variantId === "string" && /^[0-9a-f-]{36}$/i.test(i.variantId) ? i.variantId : null, quantity: Math.max(1, Math.min(999, Math.floor(Number(i.quantity)) || 1)) }))
+    if (site && (site.protocol === "https:" || site.hostname === "localhost") && !site.username && items.length) return `${site.origin}/checkout?items=${encodeItems(items)}`
+  }
+  const back = cleanReturnPath(s.return_path)
+  return back ? `${appUrl.replace(/\/$/, "")}${back}` : null
+}
+
+/** A cart's way back, only ever a path on Storelib's own two cart checkouts. */
+export function cleanReturnPath(path: unknown): string | null {
+  return typeof path === "string" && path.length <= 1500 && /^\/checkout\/(physical|cart)\?[A-Za-z0-9_\-=&%.~+]+$/.test(path) ? path : null
 }
 
 /**
@@ -170,7 +254,7 @@ export interface StartInput {
  */
 export async function recordCheckoutStart(db: Db, s: StartInput): Promise<boolean> {
   const email = s.email.trim().toLowerCase()
-  if (!s.creatorId || !s.productId || !/^pi_[A-Za-z0-9]+$/.test(s.paymentIntentId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false
+  if (!s.creatorId || !s.productId || !/^(pi|cs)_[A-Za-z0-9_]+$/.test(s.paymentIntentId) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return false
   try {
     const { error } = await db.from("checkout_starts").insert({
       creator_id: s.creatorId,
@@ -183,7 +267,13 @@ export async function recordCheckoutStart(db: Db, s: StartInput): Promise<boolea
       email_opt_in: s.optedIn === true,
       source_detail: s.source ?? null,
     })
-    if (!error || error.code === "23505") return !error
+    if (!error) {
+      /* Its own write, so a database without the column (part 129) still records the start. */
+      const back = cleanReturnPath(s.returnPath)
+      if (back) await db.from("checkout_starts").update({ return_path: back }).eq("payment_intent_id", s.paymentIntentId)
+      return true
+    }
+    if (error.code === "23505") return false
     if (!/42P01|PGRST205|42703/.test(String(error.code ?? ""))) console.warn("[checkout] could not record the started checkout:", error.code)
     return false
   } catch {

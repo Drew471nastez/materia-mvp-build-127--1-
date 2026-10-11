@@ -24,7 +24,7 @@
 import { useLayoutEffect } from "react"
 import { KEYBOARD_CHANGE_EVENT } from "@/lib/ui/keyboard-safe-sheet"
 import { iosKeyboardFor } from "./post-motion"
-import { keyboardEnv, keyboardPlan, type KeyboardEnv, type KeyboardFacts, type KeyboardPlan } from "./keyboard-plan"
+import { RESIZED_MIN_PX, keyboardEnv, keyboardPlan, webViewResized, type KeyboardEnv, type KeyboardFacts, type KeyboardPlan } from "./keyboard-plan"
 import { holdNativeScroll, nativeKeyboardAvailable, nativeKeyboardHeight, watchNativeKeyboard } from "./native-keyboard"
 
 /** What a plan was worked out from, for the readout (post-fullscreen.tsx). */
@@ -63,6 +63,23 @@ function layoutHeight(probe: HTMLElement | null): number {
   return probe?.offsetHeight || window.innerHeight
 }
 
+/*
+  ROUND R8: THE FIXED BOX WITH NO KEYBOARD, AND WHETHER THE WEB VIEW SHRINKS FOR ONE (keyboard-plan.ts). Started from the
+  window as this module loads (no keyboard is up while a page loads), raised by every reading with no field typed in, per
+  width (a rotation starts again). A field typed in with the box shorter than that by more than any toolbar is a web view
+  that resized itself, remembered for the rest of the visit.
+*/
+let fullBox = typeof window === "undefined" ? { w: 0, h: 0 } : { w: window.innerWidth, h: window.innerHeight }
+let resizedOnce = false
+export function noteFixedBox(layoutH: number): { fullH: number; resizes: boolean } {
+  const w = window.innerWidth
+  const keys = takesKeyboard(document.activeElement)
+  if (w !== fullBox.w) fullBox = { w, h: layoutH }
+  else if (!keys) fullBox.h = Math.max(fullBox.h, layoutH)
+  if (keys && fullBox.h - layoutH > RESIZED_MIN_PX) resizedOnce = true
+  return { fullH: fullBox.h, resizes: resizedOnce }
+}
+
 /**
  * Follow the keyboard while `active`. `scope` holds the fields that count as typing here (a field elsewhere on the page
  * does not move this box); `probe` is any fixed element as tall as the screen (inset-0), or null.
@@ -80,6 +97,7 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
       const focused = focusTarget ?? document.activeElement
       const typing = takesKeyboard(focused) && !!where?.contains(focused)
       const published = parseFloat(document.documentElement.style.getPropertyValue("--kb-inset")) || 0
+      const box = noteFixedBox(layoutH)
       const facts: BoxFacts = {
         env,
         layoutH,
@@ -90,6 +108,8 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
         native: typing ? nativeKeyboardHeight() : 0,
         table: typing && (env === "ios-app" || env === "ios-app-plugin") ? iosKeyboardFor(window.innerWidth, layoutH) : null,
         published,
+        fullH: box.fullH,
+        resizes: box.resizes,
         scrollY: Math.round(window.scrollY),
       }
       const plan = keyboardPlan(env, facts)
@@ -99,7 +119,7 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
         held = hold
         holdNativeScroll(hold)
       }
-      const key = `${plan.top}|${plan.foot}|${plan.source}|${typing}|${layoutH}|${facts.vvH}|${facts.vvTop}|${facts.scrollY}`
+      const key = `${plan.top}|${plan.foot}|${plan.source}|${typing}|${layoutH}|${facts.vvH}|${facts.vvTop}|${facts.scrollY}|${box.fullH}|${box.resizes}`
       if (key === last) return
       last = key
       apply(plan, facts)
@@ -114,17 +134,22 @@ export function useKeyboardPlan(active: boolean, scope: () => Element | null, pr
       IN THE FOCUS ITSELF. Where the table decides (the iOS app), the box goes onto the keys now, before iOS reads where the
       field is to decide on a pan. Elsewhere the visible part will say where the keyboard is, a frame later as before.
     */
+    const timers: number[] = []
     const onFocusIn = (e: FocusEvent) => {
       const t = e.target as Element | null
       if (takesKeyboard(t) && scope()?.contains(t)) {
         run(t)
         /* Laid out now, so the field's place iOS reads is the new one. */
         void (scope() as HTMLElement | null)?.offsetHeight
+        /* ROUND R8: and again once the keyboard has finished rising (a web view resized, or a pan, can land after its last event). */
+        timers.push(
+          window.setTimeout(() => run(), 320),
+          window.setTimeout(() => run(), 700),
+        )
       }
       soon()
     }
     /* The keyboard going down is reported late on iOS: looked at again as it goes. */
-    const timers: number[] = []
     const onFocusOut = () => {
       soon()
       timers.push(
@@ -168,10 +193,14 @@ export function appKeyboardRoom(within: Element | null): number | null {
   if (typeof window === "undefined") return null
   const env = currentKeyboardEnv()
   if (env !== "ios-app" && env !== "ios-app-plugin") return null
+  const probe = document.querySelector<HTMLElement>("[data-viewport-probe]")
+  const layoutH = layoutHeight(probe)
+  const box = noteFixedBox(layoutH)
   const active = document.activeElement
   if (!takesKeyboard(active) || !within?.contains(active)) return null
+  /* ROUND R8: a web view that shrank for the keyboard has made the room already; a number here would make it twice. */
+  if (box.resizes || webViewResized({ layoutH, fullH: box.fullH })) return null
   const native = nativeKeyboardHeight()
   if (env === "ios-app-plugin" && native > 0) return native
-  const probe = document.querySelector<HTMLElement>("[data-viewport-probe]")
-  return iosKeyboardFor(window.innerWidth, layoutHeight(probe))
+  return iosKeyboardFor(window.innerWidth, layoutH)
 }

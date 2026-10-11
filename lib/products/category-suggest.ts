@@ -21,7 +21,7 @@
  * network: tests/category-suggest.test.ts.
  */
 
-import { categoryGroupsFor, groupOfCategory, isCategory, isCategoryFor, type CategoryKind } from "./category-groups"
+import { categoryGroupsFor, groupOfCategory, isCategory, isCategoryFor, searchCategories, type CategoryKind } from "./category-groups"
 import { toStorageUrl } from "@/lib/storage/media-url"
 
 /* ── what a request may carry ─────────────────────────────────────────── */
@@ -318,6 +318,18 @@ const KEYWORDS: Record<string, { keywords: string[]; weight: number }[]> = {
     { keywords: ["unity", "unreal", "godot"], weight: 7 },
     { keywords: ["pixel art", "game art", "character"], weight: 5 },
   ],}
+
+/**
+ * What the category field lists for a search: the names that match, and in
+ * front of them the category the words people use point to, so "tee" finds
+ * T-Shirts, "perfume" Fragrance and "tumbler" Mugs & Cups though no name
+ * holds those words. Only ever names from the list for this kind.
+ */
+export function searchCategoriesByWords(query: string, kind: CategoryKind = "digital"): string[] {
+  const found = searchCategories(query, kind)
+  const hint = query.trim().length >= 3 ? keywordSuggestion(query, kind) : null
+  return hint && isCategoryFor(hint, kind) && !found.includes(hint) ? [hint, ...found] : found
+}
 
 /** The best keyword match in the words given, or null under three characters or with no match. */
 export function keywordSuggestion(words: string, kind: CategoryKind = "digital"): string | null {

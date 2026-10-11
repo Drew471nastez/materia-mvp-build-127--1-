@@ -82,8 +82,8 @@ async function handlePOST(request: Request) {
     const { product, variant, totals, coupon } = priced
     const creator = product.creator as { id: string; user_id: string | null }
     /* The store's Settings › Checkout: an account first, and a confirmed one (lib/store/checkout-config). The page asks too; this is the rule. */
+    const config = await loadCheckoutConfig(admin, creator.id)
     {
-      const config = await loadCheckoutConfig(admin, creator.id)
       if (config.requireAccount && !user) return NextResponse.json({ error: "Sign in or create an account to check out.", code: "account_required" }, { status: 401 })
       if (config.requireConfirmedEmail && !user?.email_confirmed_at) return NextResponse.json({ error: "Confirm your email address to check out.", code: "email_unconfirmed" }, { status: 403 })
     }
@@ -218,7 +218,8 @@ async function handlePOST(request: Request) {
         email,
         name: `${firstName} ${lastName}`.trim(),
         orderId: order.id,
-        basis: body.emailOptIn === true ? "ticked" : "none",
+        /* Only a box the store shows can be ticked (Settings › Checkout): with it off, a sent yes is not one. */
+        basis: config.marketingOptIn && body.emailOptIn === true ? "ticked" : "none",
         bought: true,
         source: contactSourceOfOrder(origin, product.id),
       }),

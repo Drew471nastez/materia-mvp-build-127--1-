@@ -127,7 +127,8 @@ console.log("\nWired")
   check("and a connected domain's do too, before the reserved-path rule sends them to Storelib's", /isCustomDomain &&\s*\n\s*(?:domainPurpose === "website" &&\s*\n\s*)?\(pathname === "\/robots\.txt" \|\| pathname === "\/sitemap\.xml"\)/.test(proxy) && proxy.indexOf("seoUrl.pathname = `/w/${username}${pathname}`") < proxy.search(/if \(username && \(?!isReservedPath\(pathname\)/))
   check("both routes exist", /robotsTxt\(seo\.origin, seo\.indexable\)/.test(read("app/(site)/w/[username]/robots.txt/route.ts")) && /sitemapXml\(seo\.entries\)/.test(read("app/(site)/w/[username]/sitemap.xml/route.ts")))
   const render = read("app/(site)/w/[username]/render-site.tsx")
-  check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /themeMetadata\(settings, \{ title: rawTitle, description, url, image: shareImage \}\)/.test(render))
+  check("every page names its canonical address on the site's own domain", /alternates: \{ canonical: url \}/.test(render) && /* Round R6: a page's own share picture (page_seo) stands in for the site's. */
+    /themeMetadata\((?:settings|own\.image \? \{ \.\.\.settings, seo_og_image: own\.image \} : settings), \{ title: rawTitle, description, url, image: shareImage \}\)/.test(render))
   check("the home page carries the website's structured data", /pageKey === "home" \? await homeStructuredData\(site, username\)/.test(render))
   const product = read("app/(site)/w/[username]/products/[slug]/page.tsx")
   check("a product page names its canonical address, respects a hidden site, and carries its structured data",

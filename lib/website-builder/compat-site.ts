@@ -14,6 +14,7 @@
  * so a page is drawn without parsing anything. A preview reads the drafts
  * and holds nothing.
  */
+import { pageSeoForSite } from "@/lib/website-builder/page-seo"
 import { unstable_cache } from "next/cache"
 import { SiteReadError, siteRead } from "@/lib/website-builder/site-read"
 import { createAdminClient } from "@/lib/supabase/admin"
@@ -35,6 +36,10 @@ import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
 import { storeIdentity } from "@/lib/store/identity-server"
+import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
+import { physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
+import { returnFactsHtml, siteCommerce } from "./site-commerce"
+import { productFaqs } from "@/lib/products/product-section-data"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
 const brandOf = (settings: unknown): string => {
@@ -278,10 +283,13 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     if (Array.isArray(list) && list.length) pages[p.page_key] = list
   }
   /* The creator's policies (Website settings), as the theme's shop.policies and /policies/<handle> (lib/storelib-theme/compat/site.ts). */
+  const physical = await isPhysicalCommerceEnabled().catch(() => false)
+  /* The refund policy closes with what the store's return settings say today (Settings › Returns and refunds). */
+  const returnFacts = physical ? await storeReturnFacts(admin, creator.creatorId) : ""
   const policies = POLICY_HANDLES.flatMap((handle) => {
     const body = policyBodyOf((pages[handle] ?? []) as never)
     if (isBlankHtml(body)) return []
-    return [{ handle, title: POLICY_TITLES[handle] ?? handle, body }]
+    return [{ handle, title: POLICY_TITLES[handle] ?? handle, body: handle === "refund-policy" && returnFacts ? `${body}${returnFacts}` : body }]
   })
   const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings)
 
@@ -297,17 +305,24 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     shop: { name: brandOf(settings) || store.name || creator.displayName, email: store.email ?? undefined, currency: "USD", moneyFormat: "${{amount}}", policies },
     host,
     designMode: false,
+    /* SEO & Social and each page's own search result (Website settings), read by the theme's own head (lib/website-builder/page-seo.ts). */
+    seo: (key) => pageSeoForSite(settings as Record<string, unknown>, key),
     product: async (handle) => {
       const card = products.find((p) => p.settings.slug === handle || p.id === handle) ?? catalog.find((p) => p.settings.slug === handle || p.id === handle)
       if (!card) return null
+      /* The description, and the product's own questions for `product.metafields.storelib.faqs` (lib/storelib-theme/compat/objects.ts); the description alone on a database without them. */
       const readDescription = async () => {
-        const { data, error } = await admin.from("products").select("description").eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
-        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "" }
+        const read = (cols: string) => admin.from("products").select(cols).eq("id", card.id).eq("creator_id", creator.creatorId).eq("status", "published").maybeSingle()
+        let { data, error } = await read("description, faqs")
+        if (error) ({ data, error } = await read("description"))
+        return error ? null : { text: (data as { description?: string | null } | null)?.description ?? "", faqs: productFaqs((data as { faqs?: unknown } | null)?.faqs) }
       }
       const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
-      return { ...card, descriptionHtml }
+      /* A shipped product's stock, as the native product page reads it: "Only 3 left" in a theme's inventory block (Website settings › Commerce can hide it). */
+      const withStock = physical && card.settings.kind === "physical" && siteCommerce(settings as Record<string, unknown>).showStockLeft ? await compatStock(admin, creator.creatorId, card) : card
+      return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     extraHead: draft ? undefined : liveNavigationMarkup(),
@@ -362,4 +377,46 @@ export async function compatDraftHome(installId: string): Promise<string | null>
     menus: compatMenus(menus as never, ["home"]),
     shop: { name: row.name ?? "", currency: "USD", moneyFormat: "${{amount}}" },
   }, sections, { scripts: true }).html
+}
+
+/** The refund policy's closing paragraph, from the store's return settings; "" when it never set them. */
+async function storeReturnFacts(admin: ReturnType<typeof createAdminClient>, creatorId: string): Promise<string> {
+  try {
+    const { data } = await admin.from("commerce_settings").select("returns_enabled, return_window_days").eq("creator_id", creatorId).maybeSingle()
+    return data ? returnFactsHtml({ enabled: data.returns_enabled !== false, windowDays: Number(data.return_window_days ?? 30) }) : ""
+  } catch {
+    return ""
+  }
+}
+
+/**
+ * A product card with its variants' stock: how many are left when that is
+ * few, and the low stock line, so Shopify's inventory block (`inventory_
+ * management`, `inventory_quantity`) says what Storelib's own does. Never
+ * throws: a card without stock draws as before.
+ */
+async function compatStock<T extends { id: string; settings: Record<string, unknown> }>(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: T): Promise<T> {
+  try {
+    const { data: product } = await admin.from("products").select("track_inventory, continue_selling, low_stock_threshold").eq("id", card.id).eq("creator_id", creatorId).eq("status", "published").maybeSingle()
+    const { data: variants } = await admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", card.id)
+    const list = (variants ?? []) as StockVariant[]
+    if (!product || list.length === 0) return card
+    const stock = await physicalStock(admin, { creator_id: creatorId, ...(product as Record<string, unknown>) }, list)
+    const cards = Array.isArray(card.settings.variants) ? (card.settings.variants as Record<string, unknown>[]) : []
+    const only = list.length === 1 ? stock.get(list[0].id) : undefined
+    return {
+      ...card,
+      settings: {
+        ...card.settings,
+        low_stock_at: [...stock.values()][0]?.lowAt ?? null,
+        ...(only ? { left: only.left } : {}),
+        variants: cards.map((v) => {
+          const s = stock.get(String(v.id))
+          return s ? { ...v, left: s.left } : v
+        }),
+      },
+    }
+  } catch {
+    return card
+  }
 }

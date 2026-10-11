@@ -58,7 +58,8 @@ export function ReasonsPanel({ kinds }: { kinds: ReasonKind[] }) {
           kind={kind}
           reasons={lists[kind]}
           onChange={(next) => {
-            forgetReasons()
+            /* Every open dialog, on this page and in other tabs, takes the new list at once (lib/store/use-reasons). */
+            forgetReasons({ [kind]: next })
             setLists((l) => (l ? { ...l, [kind]: next } : l))
           }}
         />

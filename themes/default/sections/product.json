@@ -960,11 +960,12 @@
           "id": "threshold",
           "label": "Show at or under",
           "type": "range",
-          "min": 1,
-          "max": 10,
+          "min": 0,
+          "max": 20,
           "step": 1,
           "unit": "",
-          "default": 5
+          "default": 0,
+          "info": "0 uses each product's low stock line (Settings, Locations)."
         },
         {
           "id": "text",
@@ -1044,6 +1045,90 @@
           "step": 2,
           "unit": "px",
           "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 20
+        }
+      ]
+    },
+    {
+      "type": "product_details",
+      "name": "Product details",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "heading",
+          "label": "Heading",
+          "type": "text",
+          "default": "Details"
+        },
+        {
+          "id": "border",
+          "label": "Divider",
+          "type": "color",
+          "default": "scheme.border"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 8
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 20
+        }
+      ]
+    },
+    {
+      "type": "product_faq",
+      "name": "Product questions",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "heading",
+          "label": "Heading",
+          "type": "text",
+          "default": "Questions"
+        },
+        {
+          "id": "open_first",
+          "label": "First answer open to start with",
+          "type": "toggle",
+          "default": false
+        },
+        {
+          "id": "border",
+          "label": "Divider",
+          "type": "color",
+          "default": "scheme.border"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 8
         },
         {
           "id": "margin_bottom",
@@ -1680,7 +1765,7 @@
           "id": "pb-low_stock",
           "type": "low_stock",
           "settings": {
-            "threshold": 5,
+            "threshold": 0,
             "text": "Only {count} left",
             "in_stock_text": "",
             "show_dot": true,
@@ -1696,6 +1781,27 @@
             "size": 15,
             "color": "scheme.text",
             "margin_top": 0,
+            "margin_bottom": 20
+          }
+        },
+        {
+          "id": "pb-product_details",
+          "type": "product_details",
+          "settings": {
+            "heading": "Details",
+            "border": "scheme.border",
+            "margin_top": 8,
+            "margin_bottom": 20
+          }
+        },
+        {
+          "id": "pb-product_faq",
+          "type": "product_faq",
+          "settings": {
+            "heading": "Questions",
+            "open_first": false,
+            "border": "scheme.border",
+            "margin_top": 8,
             "margin_bottom": 20
           }
         },

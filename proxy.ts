@@ -16,6 +16,7 @@ import { passCookieName } from "@/lib/site-password/pass"
 import { learnAddressFor } from "@/lib/communities/learn"
 import { SITE_SEAL_HEADER, sealSite, siteHostOf } from "@/lib/storelib-theme/compat/site-seal"
 import { rememberCreatorOf, siteFactsFor } from "@/lib/website-builder/route-facts"
+import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 
 /*
   A refused refresh ("Invalid Refresh Token: Already Used") is a person who
@@ -409,10 +410,13 @@ async function compatSiteFor(username: string): Promise<boolean> {
 /** The addresses of an imported theme's site that are still Storelib's own: a visitor's account, the API, the site's SEO files. */
 function compatAnswers(pathname: string, request: NextRequest): boolean {
   if (pathname === "/api" || pathname.startsWith("/api/") || pathname.startsWith("/_next/")) return false
-  /* The theme's /checkout is its own (its cart posts there); anything under
-     it, /checkout/physical a cart that ships is sent on to, is Storelib's
-     and goes to the apex like any other site's (PLATFORM_APEX_PATHS). */
+  /* The theme's /checkout is its own (its cart posts there, and it hands the
+     cart cookie's lines on); with the lines already in the address, and
+     anything under it, it is the website's own checkout (siteCheckoutFor). */
   if (pathname.startsWith("/checkout/")) return false
+  if (pathname === "/checkout" && (request.nextUrl.searchParams.has("items") || request.nextUrl.searchParams.has("productId"))) return false
+  /* A receipt is Storelib's page on the site (siteCheckoutFor), never a theme's 404: the thank you page links to it. */
+  if (pathname === "/receipt" || pathname.startsWith("/receipt/")) return false
   /*
     THE VISITOR'S ACCOUNT is drawn by the theme itself, on this host, with
     no frame (lib/storelib-theme/compat/site.ts, accountPage): sign in, the
@@ -431,6 +435,33 @@ function compatAnswers(pathname: string, request: NextRequest): boolean {
     return reading && !framed
   }
   return pathname !== "/robots.txt" && pathname !== "/sitemap.xml"
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ *  A WEBSITE'S CHECKOUT, ON THE WEBSITE'S OWN HOST
+ * ═══════════════════════════════════════════════════════════════════════════
+ * /checkout on a creator's published website is served there, on that host
+ * (app/checkout/site), so the address, the cookies and the site's customer
+ * account are the creator's: it used to be sent to storelib.com, where the
+ * buyer was a stranger and the address was ours. The thank you page, the
+ * receipt and the order page are served there too; the old basket links are
+ * sent on to it (lib/checkout/site-checkout siteCheckoutRouteFor). The page
+ * is behind the website's password like any other page of it.
+ */
+async function siteCheckoutFor(request: NextRequest, name: string, host: string, pathname: string, search: string): Promise<NextResponse | null> {
+  const route = siteCheckoutRouteFor(pathname, search, request.method, host)
+  if (!route) return null
+  if (route.kind === "pass") return NextResponse.next()
+  if (route.kind === "redirect") return NextResponse.redirect(new URL(route.to, request.url), { status: route.status })
+  if (pathname === "/checkout" || pathname === "/checkout/") {
+    const gate = await passwordPageFor(request, name, host, pathname, search)
+    if (gate.blocked) return gate.blocked
+  }
+  const r = NextResponse.rewrite(new URL(route.path, request.url))
+  r.headers.set("Cache-Control", "private, no-store")
+  r.headers.set("x-seller-subdomain", name)
+  return r
 }
 
 /**
@@ -893,6 +924,8 @@ export async function proxy(request: NextRequest) {
 
   /* A public file at Storelib's own address (lib/storage/media-url.ts): on every host, straight to next.config's rewrite, never a page of a site. */
   if (pathname.startsWith("/media/")) return NextResponse.next()
+  /* Apple Pay's domain file (public/.well-known), which Apple fetches from every host a checkout runs on, a creator's own domain too: the file, never a page of a site. */
+  if (pathname === "/.well-known/apple-developer-merchantid-domain-association") return NextResponse.next()
 
   /*
     A COMMUNITY PAGE IS TOLD ITS OWN ADDRESS. A layout is not given its path,
@@ -1169,6 +1202,11 @@ export async function proxy(request: NextRequest) {
         page's new address after a rename, and to the creator page for a
         creator with no OnePage (oldOnePageTarget).
       */
+      /* The website's checkout, its thank you page and its receipts, on this host (siteCheckoutFor). A live AI site keeps the platform's. */
+      if ((pathname.startsWith("/checkout") || pathname.startsWith("/receipt")) && !(await hasLiveAiSite(subdomain)) && (await hasPublishedWebsite(subdomain))) {
+        const checkout = await siteCheckoutFor(request, subdomain, host, pathname, search)
+        if (checkout) return checkout
+      }
       if (PLATFORM_APEX_PATHS.some((r) => pathname === r || pathname.startsWith(`${r}/`))) {
         const apex = new URL(`https://${MAIN_DOMAIN}`)
         apex.pathname = pathname
@@ -1480,6 +1518,25 @@ export async function proxy(request: NextRequest) {
     if (website) seoUrl.pathname = `/w/${username}${pathname}`
     else seoUrl.pathname = `/u/${username}${pathname}`
     return NextResponse.rewrite(seoUrl)
+  }
+
+  /*
+    A CONNECTED WEBSITE'S CHECKOUT, on the domain (siteCheckoutFor). /checkout
+    is a reserved path, so it used to serve storelib.com's single product
+    checkout here, and an imported theme's cart at /checkout reached nothing.
+    Only a domain connected for a website that is published: a domain showing
+    the creator page keeps the platform's checkout as before.
+  */
+  if (
+    username &&
+    isCustomDomain &&
+    domainPurpose === "website" &&
+    (pathname.startsWith("/checkout") || pathname.startsWith("/receipt")) &&
+    !(await hasLiveAiSite(username)) &&
+    (await hasPublishedWebsite(username))
+  ) {
+    const checkout = await siteCheckoutFor(request, username, host, pathname, search)
+    if (checkout) return checkout
   }
 
   /* A connected website's page: every question it asks below, started together (startSiteQuestions). */

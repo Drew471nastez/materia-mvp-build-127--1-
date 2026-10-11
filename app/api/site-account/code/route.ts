@@ -4,7 +4,7 @@ import { addressSubject, emailSubject, rateLimit } from "@/lib/api/rate-limit"
 import { buildMailgunFromHeader, sendMailgunEmail } from "@/lib/mailgun"
 import { requestCode, type SignInDeps } from "@/lib/site-accounts/sign-in"
 import { returnPathOf, siteOwnerOfHost } from "@/lib/site-accounts/hosts"
-import { siteBrandName } from "@/lib/site-accounts/brand"
+import { siteBrand } from "@/lib/site-accounts/site-brand"
 import { hostOf, pendingCookie, pendingCookieName } from "@/lib/site-accounts/session"
 import { originOf, privateResponse, sameOriginForm } from "@/lib/site-accounts/respond"
 
@@ -78,6 +78,11 @@ export async function POST(request: Request) {
       })
       return !!byStore
     },
+    /*
+      A code they just asked for: transactional, so it leaves at once (no
+      bounce lookup first, no tracking), from the store by name, and a reply
+      reaches the store.
+    */
     send: (mail) =>
       sendMailgunEmail({
         to: mail.to,
@@ -85,9 +90,11 @@ export async function POST(request: Request) {
         html: mail.html,
         text: mail.text,
         from: buildMailgunFromHeader(mail.fromName),
+        replyTo: mail.replyTo || undefined,
         tags: ["site-sign-in"],
+        transactional: true,
       }),
-    brand: (creatorId) => siteBrandName(db, creatorId),
+    brand: (creatorId) => siteBrand(db, creatorId),
   }
 
   /* "Send a new code" on the code step posts the same email again, marked. */

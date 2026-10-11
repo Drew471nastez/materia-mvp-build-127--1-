@@ -123,6 +123,26 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
                 <HelpFigure figure={b.figure} caption={b.caption} />
               </div>
             )
+          case "image":
+            return (
+              <figure key={i} className={`${gap} -mx-1 sm:mx-0`} data-help-image="">
+                {/* A screenshot of the real screen (public/help/), at its own size, never wider than the column; pressed, it opens full size (a wide screen is small on a phone). */}
+                <a href={b.src} target="_blank" rel="noreferrer" className="block" aria-label={`${b.alt} Opens the full size picture.`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={b.src}
+                  alt={b.alt}
+                  width={b.width}
+                  height={b.height}
+                  loading="lazy"
+                  decoding="async"
+                  className="block h-auto w-full max-w-full rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]"
+                  style={{ maxWidth: b.width }}
+                />
+                </a>
+                {b.caption ? <figcaption className="mt-2 text-[14px] leading-snug text-[#6b7280]">{b.caption}</figcaption> : null}
+              </figure>
+            )
           case "note":
             return (
               <p key={i} className={`${gap} rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-4 py-3 text-[15px] leading-relaxed`}>

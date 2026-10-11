@@ -317,8 +317,9 @@ function main() {
     const plansAt = billing.indexOf("<PricingTiers")
     /* Changed on purpose (round U): the owner's order is the plans first, then the overview, then the history. */
     check("the Billing tab reads Plans, then Subscription Overview, then Billing History", plansAt > 0 && overview > plansAt && history > overview, JSON.stringify({ overview, history, plansAt }))
-    check("Plans is a section heading the size of the tab's others, handed to the cards' row",
-      /heading=\{<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Plans<\/h2>\}/.test(billing)
+    /* Changed on purpose (round R1): the owner asked for the left aligned "Plans" to go, for a centred header in the plans page's type. */
+    check("the plans have a centred header in the plans page's type, handed to the cards' row",
+      /data-plans-header=""/.test(billing) && /className="mx-auto max-w-\[560px\] pt-1 text-center/.test(billing) && /tracking-\[-0\.02em\] text-\[#1a1a2e\] sm:text-\[32px\]">Plans and pricing<\/h2>/.test(billing) && !/>Plans<\/h2>/.test(billing)
         && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\] mb-4">Subscription Overview<\/h2>/.test(billing)
         && /<h2 className="text-\[17px\] font-bold text-\[#1a1a2e\]">Billing History<\/h2>/.test(billing))
     check("inside Settings the tab adds no second column, gutter or clip of its own", /<div className=\{embedded \? "" : "max-w-4xl mx-auto/.test(billing))

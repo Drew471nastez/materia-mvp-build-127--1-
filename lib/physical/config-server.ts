@@ -10,10 +10,10 @@ import "server-only"
  * read or change another's, whatever ids a request carries.
  */
 
-import { COUNTRY_CODES } from "@/lib/checkout/countries"
+import { COUNTRY_CODES, countryName } from "@/lib/checkout/countries"
 import type { Db } from "./auth"
 import { readTiers } from "./rates"
-import { regionList } from "./regions"
+import { regionLabel, regionList } from "./regions"
 import { FULFILLMENT_MODELS, LOCATION_KINDS, PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type ShippingProfile, type ShippingRate, type ShippingZone, type UnitSystem } from "./types"
 import type { TaxRate, TaxSettings } from "./totals"
 
@@ -27,6 +27,8 @@ export interface CommerceSettings {
   taxMode: "none" | "manual" | "provider"
   pricesIncludeTax: boolean
   taxOnShipping: boolean
+  /** Digital products are taxed too (Settings › Taxes, SQL part 110 `tax_digital`). */
+  taxDigital: boolean
   lowStockDefault: number
   /** Email the seller when an item sells down to its low stock line. */
   lowStockAlerts: boolean
@@ -43,6 +45,7 @@ export const DEFAULT_SETTINGS: CommerceSettings = {
   taxMode: "none",
   pricesIncludeTax: false,
   taxOnShipping: false,
+  taxDigital: false,
   lowStockDefault: 5,
   lowStockAlerts: true,
   onboardedAt: null,
@@ -79,6 +82,7 @@ export async function loadSettings(db: Db, creatorId: string): Promise<CommerceS
     taxMode: data.tax_mode ?? "none",
     pricesIncludeTax: !!data.prices_include_tax,
     taxOnShipping: !!data.tax_on_shipping,
+    taxDigital: data.tax_digital === true,
     lowStockDefault: Number(data.low_stock_default ?? 5),
     lowStockAlerts: data.low_stock_alerts !== false,
     onboardedAt: data.onboarded_at ?? null,
@@ -171,11 +175,48 @@ export async function loadPackages(db: Db, creatorId: string): Promise<ShippingP
 export async function defaultPackageGrams(db: Db, creatorId: string): Promise<number> {
   try {
     const [{ data: s }, packages] = await Promise.all([db.from("commerce_settings").select("default_package_id").eq("creator_id", creatorId).maybeSingle(), loadPackages(db, creatorId)])
-    const chosen = packages.find((p) => p.id === s?.default_package_id) ?? packages.find((p) => p.isDefault) ?? null
+    /* The package marked default first (Make default sets both), then the settings' choice. */
+    const chosen = packages.find((p) => p.isDefault) ?? packages.find((p) => p.id === s?.default_package_id) ?? null
     return chosen ? Math.max(0, Number(chosen.weightGrams) || 0) : 0
   } catch {
     return 0
   }
+}
+
+/** A physical product as Shipping and delivery lists it: which profile it ships with (null: the general one). */
+export interface ShippingProduct {
+  id: string
+  title: string
+  imageUrl: string | null
+  profileId: string | null
+}
+
+/** The shop's physical products and the profile each ships with, for the profile cards. */
+export async function loadShippingProducts(db: Db, creatorId: string): Promise<ShippingProduct[]> {
+  const { data, error } = await db.from("products").select("id, title, thumbnail_url, shipping_profile_id, status").eq("creator_id", creatorId).eq("type", "physical").order("created_at", { ascending: false }).limit(1000)
+  if (error) return []
+  return ((data ?? []) as Record<string, any>[])
+    .filter((p) => p.status !== "archived" && p.status !== "deleted")
+    .map((p) => ({ id: p.id, title: p.title ?? "Untitled", imageUrl: p.thumbnail_url ?? null, profileId: p.shipping_profile_id ?? null }))
+}
+
+/**
+ * Moves products into a custom profile, or back to the general one. Only
+ * the caller's own physical products move, whatever ids are sent.
+ */
+export async function assignProfileProducts(db: Db, creatorId: string, profileId: string, add: unknown, remove: unknown): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ids = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && /^[0-9a-f-]{36}$/i.test(x)))].slice(0, 1000) : [])
+  const adding = ids(add)
+  const removing = ids(remove).filter((id) => !adding.includes(id))
+  if (adding.length) {
+    const { error } = await db.from("products").update({ shipping_profile_id: profileId }).eq("creator_id", creatorId).eq("type", "physical").in("id", adding)
+    if (error) return { ok: false, error: "The products could not be moved." }
+  }
+  if (removing.length) {
+    const { error } = await db.from("products").update({ shipping_profile_id: null }).eq("creator_id", creatorId).eq("shipping_profile_id", profileId).in("id", removing)
+    if (error) return { ok: false, error: "The products could not be moved." }
+  }
+  return { ok: true }
 }
 
 export async function loadTaxRates(db: Db, creatorId: string): Promise<TaxRateRow[]> {
@@ -185,9 +226,9 @@ export async function loadTaxRates(db: Db, creatorId: string): Promise<TaxRateRo
 
 export async function loadTaxSettings(db: Db, creatorId: string, settings?: CommerceSettings): Promise<TaxSettings> {
   const s = settings ?? (await loadSettings(db, creatorId))
-  if (s.taxMode !== "manual") return { mode: s.taxMode, pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates: [] }
+  if (s.taxMode !== "manual") return { mode: s.taxMode, pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, digital: s.taxDigital, rates: [] }
   const [rates, overrides] = await Promise.all([loadTaxRates(db, creatorId), loadTaxOverrides(db, creatorId)])
-  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, rates, overrides }
+  return { mode: "manual", pricesIncludeTax: s.pricesIncludeTax, taxOnShipping: s.taxOnShipping, digital: s.taxDigital, rates, overrides }
 }
 
 /** Products with their own rate in a region (SQL part 110); none before the part is run. */
@@ -370,6 +411,28 @@ export function readZonePlaces(body: Record<string, unknown>): { ok: true; count
   const parts = regions.filter((r) => !countries.includes(r.split("-")[0]))
   if (countries.length === 0 && parts.length === 0) return { ok: false, error: "Choose at least one country or state." }
   return { ok: true, countries, regions: parts }
+}
+
+/**
+ * A country or state can be in one zone of a profile, or the price an
+ * address gets would depend on which zone happened to be made first. Null
+ * when the places are free; otherwise what to tell the seller.
+ */
+export function zoneClash(zones: { id: string; name: string; countries: string[]; regions: string[]; restOfWorld: boolean }[], countries: string[], regions: string[], exceptZoneId?: string): string | null {
+  for (const z of zones) {
+    if (z.id === exceptZoneId || z.restOfWorld) continue
+    const country = countries.find((c) => z.countries.includes(c))
+    if (country) return `${countryName(country)} is already in the ${z.name} zone. Remove it there first.`
+    const region = regions.find((r) => (z.regions ?? []).includes(r))
+    if (region) return `${regionLabel(region)} is already in the ${z.name} zone. Remove it there first.`
+  }
+  return null
+}
+
+/** The zones of one of the caller's profiles, for zoneClash. */
+export async function profileZones(db: Db, creatorId: string, profileId: string): Promise<{ id: string; name: string; countries: string[]; regions: string[]; restOfWorld: boolean }[]> {
+  const { data } = await db.from("shipping_zones").select("id, name, countries, regions, rest_of_world").eq("creator_id", creatorId).eq("profile_id", profileId).limit(500)
+  return ((data ?? []) as Record<string, any>[]).map((z) => ({ id: z.id, name: z.name, countries: z.countries ?? [], regions: z.regions ?? [], restOfWorld: !!z.rest_of_world }))
 }
 
 /** The shop's default profile, made the first time anything needs one. */

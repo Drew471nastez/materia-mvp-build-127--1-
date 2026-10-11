@@ -11,13 +11,15 @@ export const dynamic = "force-dynamic"
  * deleting one. Uploading goes straight to storage from the page, into the
  * owner's own folder, as every other upload does.
  *
- *   GET                     the files, newest first
+ *   GET                     the files, newest first (?kind=video for videos)
  *   DELETE { bucket, path } delete one of the owner's own
  */
-export async function GET() {
+export async function GET(request: Request) {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
-  return physicalJson({ files: await listLibrary(c.db, { userId: c.userId, creatorId: c.creatorId }) })
+  /* `?kind=video`: the videos a video setting can use, from the same folders. */
+  const kind = new URL(request.url).searchParams.get("kind") === "video" ? "video" : "image"
+  return physicalJson({ files: await listLibrary(c.db, { userId: c.userId, creatorId: c.creatorId }, kind) })
 }
 
 export async function DELETE(request: Request) {
