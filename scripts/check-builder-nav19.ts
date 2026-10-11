@@ -53,6 +53,8 @@ const check = (label: string, ok: boolean, detail: unknown = "") => {
   console.log(`  ${ok ? "ok  " : "FAIL"}  ${label}${d ? `  (${d})` : ""}`)
 }
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/* A frame the canvas has just replaced never answers: asked with a time limit, so the probe moves on. */
+const within = <T,>(p: Promise<T>, ms = 1500): Promise<T> => Promise.race([p, new Promise<T>((_, no) => setTimeout(() => no(new Error("no answer")), ms))])
 
 export async function fixtureZip(): Promise<JSZip> {
   const dir = join(__dirname, "..", "tests", "fixtures", "shopify-posture")
@@ -217,7 +219,7 @@ async function live(browser: Browser) {
 
 /* ── the editor ───────────────────────────────────────────────────────────── */
 
-async function editor(browser: Browser, width: number, height: number, touch: boolean): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
+export async function editorFor(browser: Browser, width: number, height: number, touch: boolean): Promise<{ page: Page; frame: () => Promise<Frame>; close: () => void }> {
   const { bundle, css } = (await import("./editor-probe-harness.mjs")) as { bundle: string; css: string }
   const t = await converted()
   const sources = Object.fromEntries(Object.entries(t.files).filter(([p]) => p.endsWith(".storelib")))
@@ -256,14 +258,16 @@ async function editor(browser: Browser, width: number, height: number, touch: bo
   await page.setViewport({ width, height, isMobile: touch, hasTouch: touch })
   await page.evaluateOnNewDocument("window.__name = (f) => f")
   page.on("pageerror", (e) => console.log("    editor error:", String(e).slice(0, 200)))
+  if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || m.type() === "warn") console.log("    console:", m.text().slice(0, 300)) })
   await page.goto(base, { waitUntil: "domcontentloaded" })
   const frame = async () => {
     for (let i = 0; i < 160; i++) {
-      const h = await page.$("[data-compat-frame='front']")
-      const f = h ? await h.contentFrame() : null
-      if (f && (await f.evaluate(() => document.readyState === "complete" && !!document.querySelector(".shopify-section")).catch(() => false))) return f
+      const h = await within(page.$("[data-compat-frame='front']")).catch(() => null)
+      const f = h ? await within(h.contentFrame()).catch(() => null) : null
+      if (f && (await within(f.evaluate(() => document.readyState !== "loading" && !!document.querySelector(".shopify-section"))).catch(() => false))) return f
       await sleep(100)
     }
+    await page.screenshot({ path: `${OUT}/no-frame.png` })
     throw new Error("the canvas never drew the theme")
   }
   return { page, frame, close: () => server.close() }
@@ -271,18 +275,18 @@ async function editor(browser: Browser, width: number, height: number, touch: bo
 
 /** Which page the builder has open, read from the frame it draws: the page template's own section. */
 async function pageInCanvas(frame: Frame): Promise<string> {
-  return frame.evaluate(() => {
+  return within(frame.evaluate(() => {
     const main = document.querySelector("main .shopify-section [class*='main-'], main .shopify-section .slideshow")
     if (!main) return "?"
     if (main.classList.contains("slideshow")) return "home"
     const m = [...main.classList].find((c) => c.startsWith("main-"))
     return m ? m.slice(5) : "?"
-  })
+  }))
 }
 
 async function canvas(browser: Browser) {
   console.log("\nbuilder canvas, 1440x900")
-  const ed = await editor(browser, 1440, 900, false)
+  const ed = await editorFor(browser, 1440, 900, false)
   try {
     let frame = await ed.frame()
     await sleep(800)
@@ -290,15 +294,22 @@ async function canvas(browser: Browser) {
     const dead: string[] = []
     const times: number[] = []
     for (const l of links) {
-      frame = await ed.frame()
+      if (process.env.DEBUG) console.log("      next:", l.text)
+      const ready = await ed.frame().catch(() => null)
+      if (!ready) {
+        dead.push(`the canvas was left without a page before ${l.text}`)
+        break
+      }
+      frame = ready
       const before = await pageInCanvas(frame)
       const handle = await ed.page.$("[data-compat-frame='front']")
       const fb = await handle!.boundingBox()
-      const at = await frame.evaluate((href) => {
+      const at = await within(frame.evaluate((href) => {
         const a = [...document.querySelectorAll<HTMLAnchorElement>(".site-header__nav > ul > li > a")].find((x) => x.getAttribute("href") === href)!
-        const r = a.getBoundingClientRect()
+        /* Its first line: a link that wraps has a gap in the middle of its box. */
+        const r = a.getClientRects()[0] ?? a.getBoundingClientRect()
         return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
-      }, l.href)
+      }, l.href))
       const t0 = Date.now()
       await ed.page.mouse.click(fb!.x + at.x, fb!.y + at.y)
       /* What the builder did: another page in the frame, a message, or nothing. */
@@ -306,7 +317,7 @@ async function canvas(browser: Browser) {
       let said = ""
       for (let i = 0; i < 40; i++) {
         await sleep(100)
-        said = await ed.page.evaluate(() => [...document.querySelectorAll("[data-sonner-toast], [role='dialog']")].map((x) => (x.textContent ?? "").replace(/\s+/g, " ").trim()).join(" | ").slice(0, 120))
+        said = await within(ed.page.evaluate(() => [...document.querySelectorAll("[data-sonner-toast]")].map((x) => (x.textContent ?? "").replace(/\s+/g, " ").trim()).join(" | ").slice(0, 120))).catch(() => "")
         const f = await ed.frame().catch(() => null)
         if (f) after = await pageInCanvas(f).catch(() => before)
         if (after !== before || said) break
@@ -319,10 +330,10 @@ async function canvas(browser: Browser) {
       /* Back home for the next link, through the logo. */
       if (after !== "home") {
         frame = await ed.frame()
-        const logo = await frame.evaluate(() => { const r = document.querySelector(".site-header__logo")!.getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } })
+        const logo = await within(frame.evaluate(() => { const r = document.querySelector(".site-header__logo")!.getBoundingClientRect(); return { x: r.left + 10, y: r.top + r.height / 2 } }))
         const hb = await (await ed.page.$("[data-compat-frame='front']"))!.boundingBox()
         await ed.page.mouse.click(hb!.x + logo.x, hb!.y + logo.y)
-        for (let i = 0; i < 40; i++) { await sleep(100); const f = await ed.frame().catch(() => null); if (f && (await pageInCanvas(f)) === "home") break }
+        for (let i = 0; i < 40; i++) { await sleep(100); const f = await ed.frame().catch(() => null); if (f && (await pageInCanvas(f).catch(() => "?")) === "home") break }
       }
       await ed.page.evaluate(() => document.querySelectorAll("[data-sonner-toast]").forEach((x) => x.remove()))
       await ed.page.keyboard.press("Escape")
@@ -346,7 +357,7 @@ const boxesIn = (frame: Frame): Promise<Boxes> =>
 async function select(browser: Browser) {
   for (const [width, height, touch, label] of [[390, 844, true, "phone"], [1440, 900, false, "desktop"]] as const) {
     console.log(`\nbuilder selector, ${width}x${height}${touch ? " touch" : ""}`)
-    const ed = await editor(browser, width, height, touch)
+    const ed = await editorFor(browser, width, height, touch)
     try {
       const frame = await ed.frame()
       await sleep(1200)
@@ -372,9 +383,29 @@ async function select(browser: Browser) {
       const box = shownBoxes[0]
       if (box && sel.rect) {
         const visibleBottom = Math.min(sel.rect.bottom, sel.bar ?? sel.inner)
-        const off = Math.max(Math.abs(box.left - (sel.rect.left - 2)), Math.abs(box.width - (sel.rect.width + 4)), Math.abs(box.top - Math.max(sel.rect.top - 2, 0)), Math.abs(box.top + box.height - (visibleBottom + (visibleBottom === sel.rect.bottom ? 2 : 0))))
+        const L = Math.max(sel.rect.left - 2, 0), R = Math.min(sel.rect.left + sel.rect.width + 2, width)
+        const off = Math.max(Math.abs(box.left - L), Math.abs(box.left + box.width - R), Math.abs(box.top - Math.max(sel.rect.top - 2, 0)), Math.abs(box.top + box.height - (visibleBottom + (visibleBottom === sel.rect.bottom ? 2 : 0))))
         check(`${label}: the outline sits on the element's own box after its motion (within 3px)`, off <= 3, { off, box, el: sel.rect, bar: sel.bar })
       }
+      /*
+        A SECTION STILL RISING INTO PLACE: scrolled to and picked at once, as
+        a thumb does, while the theme's reveal moves it up 48px. Measured once
+        it has stopped.
+      */
+      await frame.evaluate(() => { const el = document.querySelector(".collection-list")!; scrollTo(0, scrollY + el.getBoundingClientRect().top - 140) })
+      await sleep(60)
+      await press(await frame.evaluate(() => { const r = document.querySelector(".collection-card")!.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }))
+      await sleep(1600)
+      const risen = await frame.evaluate(() => { const b = document.querySelector<HTMLElement>("[data-sl-selected-block]"); const r = b?.getBoundingClientRect(); return r ? { block: b!.getAttribute("data-block-id"), left: Math.round(r.left), top: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) } : null })
+      const risenBoxes = (await boxesIn(frame)).filter((b) => b.kind !== "hover")
+      const rb = risenBoxes[0]
+      const roff = rb && risen ? Math.max(Math.abs(rb.left - Math.max(risen.left - 2, 0)), Math.abs(rb.top - (risen.top - 2)), Math.abs(rb.height - (risen.height + 4))) : 99
+      await ed.page.screenshot({ path: `${OUT}/select-${label}-risen.png` })
+      check(`${label}: a card picked while its section rises is outlined where it stops (within 3px)`, risenBoxes.length === 1 && roff <= 3, { off: roff, box: rb, el: risen, boxes: risenBoxes.length })
+      await frame.evaluate(() => scrollTo(0, 0))
+      await sleep(400)
+      await press(await point(".slideshow__slide h2"))
+      await sleep(700)
       if (touch) {
         check(`${label}: no hover outline after a tap`, !boxes.some((b) => b.kind === "hover"), boxes)
         /* A second tap on the same spot goes up a level: the slide, then the section. */
@@ -387,7 +418,8 @@ async function select(browser: Browser) {
         const logo = await frame.evaluate(() => { const a = document.querySelector(".site-header__logo")!.getBoundingClientRect(); const h = document.querySelector(".site-header")!.getBoundingClientRect(); return { left: Math.round(a.left), right: Math.round(a.right), hl: Math.round(h.left), hr: Math.round(h.right), top: Math.round(a.top), htop: Math.round(h.top) } })
         check(`${label}: the header's logo is inside the header`, logo.left >= logo.hl && logo.right <= logo.hr && logo.top >= logo.htop, logo)
       } else {
-        await ed.page.mouse.move(fb.x + 40, fb.y + 300)
+        const other = await frame.evaluate(() => { const r = document.querySelector(".rich-text, .collection-list")!.getBoundingClientRect(); return { x: r.left + 20, y: Math.min(r.top + 20, innerHeight - 20) } })
+        await ed.page.mouse.move(fb.x + other.x, fb.y + other.y)
         await sleep(300)
         const hov = await boxesIn(frame)
         check(`${label}: a mouse over another section outlines it`, hov.some((b) => b.kind === "hover"), hov)

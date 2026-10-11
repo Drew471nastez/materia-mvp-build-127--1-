@@ -50,6 +50,8 @@ export interface CompatCanvasProps {
   productId?: string | null
   collections: CollectionLike[]
   menus: Record<string, { title?: string; links: MenuLinkLike[] }>
+  /** Every page the install has, by key: a link to a page it has none of is drawn going where the live site sends it (lib/storelib-theme/compat/links.ts). */
+  pageKeys?: readonly string[]
   shopName: string
   selectedSectionId: string | null
   /** The selected block's path key (lib/website-builder/block-tree.ts): its last part is the block. */
@@ -147,11 +149,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
     person typing, and the last letter went to the page being thrown away.
   */
   const productId = props.productId ?? null
-  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName])
-  const dataRef = useRef({ products, catalog, collections, menus, shopName })
-  dataRef.current = { products, catalog, collections, menus, shopName }
+  const pageKeys = props.pageKeys
+  const dataKey = JSON.stringify([products, catalog, collections, menus, shopName, pageKeys])
+  const dataRef = useRef({ products, catalog, collections, menus, shopName, pageKeys })
+  dataRef.current = { products, catalog, collections, menus, shopName, pageKeys }
   const page = useMemo((): CompatPage => {
-    const { products, catalog, collections, menus, shopName } = dataRef.current
+    const { products, catalog, collections, menus, shopName, pageKeys } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
     const sample = picked ?? products[0] ?? null
@@ -167,6 +170,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       pickable: catalog,
       collections,
       menus,
+      pageKeys: pageKeys ? [...pageKeys] : undefined,
       shop: { name: shopName, currency: "USD", moneyFormat: "${{amount}}" },
       /* The builder's own cart (canvasCarts), so the cart page and a drawer drawn again show what was added. */
       cart: cartLines({ products }, canvasCarts.get(installId)?.cart ?? []),
@@ -356,12 +360,13 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const answerRequest = (win: Window, m: { id?: unknown; method?: unknown; url?: unknown; body?: unknown; ajax?: unknown }) => {
     if (!compatTheme || typeof m.id !== "number" || typeof m.url !== "string") return
-    const { products, catalog, collections, menus } = dataRef.current
+    const { products, catalog, collections, menus, pageKeys } = dataRef.current
     const current = pageRef.current
     const site: SiteData = {
       creatorId: "",
       theme: compatTheme,
       pages: canvasPages(compatTheme, pageKey, sectionsRef.current),
+      pageKeys: pageKeys ? [...pageKeys] : undefined,
       products,
       pickable: catalog,
       collections,
@@ -424,6 +429,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       if (!m || m.storelib !== 1) return
       const win = e.source as Window
       const isFront = slot === slotsRef.current[0]
+      /* The page being left says nothing that counts: it is on its way out, and never comes forward again. */
+      if (slot.leaving && !isFront) return
       if (m.type === "ready") {
         slot.ready = true
         /*
@@ -497,7 +504,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
       <CanvasPlaceholder hidden={shown} label={`Loading ${compat?.theme ?? "the theme"}`} />
       {slots.length === 0 ? null : (
         <div className="sticky top-0 h-full w-full" style={{ height }}>
-          {slots.map((slot, i) => (
+          {/*
+            IN THE ORDER THEY WERE MADE, NEVER MOVED. Which page is in front is
+            the slot order (slots[0]); the frames themselves stay where they
+            were put in the page. Rendered in the slot order, a page coming
+            forward reordered them, React moved the page being left in the
+            document, and a frame that is moved loads its page again. That
+            page then said it was ready, was taken for a page behind, and was
+            brought forward over the one just opened: a header link showed
+            the new page for a moment and went back, or the two swapped back
+            and forth (measured in scripts/check-builder-nav19.ts: after a
+            second link the canvas was left on its grey outline).
+          */}
+          {[...slots].sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
             <iframe
               key={slot.n}
               ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
@@ -510,7 +529,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
               className="absolute inset-0 block h-full w-full border-0 bg-white"
               style={i === 0 ? { zIndex: 1 } : slot.leaving ? { zIndex: 0, pointerEvents: "none" } : { visibility: "hidden", pointerEvents: "none" }}
             />
-          ))}
+          ) })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
             <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
           )}

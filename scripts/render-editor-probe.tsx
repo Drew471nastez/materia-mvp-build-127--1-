@@ -10,6 +10,7 @@
 import React from "react"
 import { createRoot } from "react-dom/client"
 import StoreEditorPage from "@/app/website-builder/editor/[installId]/page"
+import { EditorToaster } from "@/components/ui/editor-toaster"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -175,5 +176,7 @@ window.probeCalls = calls
 /** The page reads `params` with `use()`, which needs a Suspense boundary above it. */
 createRoot(document.getElementById("app")!).render(
   React.createElement(React.Suspense, { fallback: React.createElement("div", { id: "probe-fallback" }, "loading") },
-    React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) })),
+    React.createElement(StoreEditorPage, { params: Promise.resolve({ installId: "probe-install" }) }),
+    /* The toasts, as app/website-builder/layout.tsx mounts them: what a press said is readable ([data-sonner-toast]). */
+    React.createElement(EditorToaster)),
 )
