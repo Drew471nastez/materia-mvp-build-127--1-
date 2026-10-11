@@ -125,6 +125,8 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
+import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
+import { DEFAULT_THEME_SOURCES } from "../../../../themes/default/sources.generated"
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
@@ -6840,6 +6842,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+            {/* A built-in this site has its own copy of (edited in GitHub or the code editor): said, with the way back. */}
+            {!compatInstall && isEditedBuiltIn(section.type, storelibSources, { defaults: DEFAULT_THEME_SOURCES as Record<string, string>, drawnByStorelib: (t) => !!SECTION_SCHEMAS[t] }) && (
+              <EditedBuiltInNote installId={installId} type={section.type} onReset={() => void loadStorelibSources()} />
+            )}
             {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
                 an imported theme reads none of them, and its scheme and any such settings of its
                 own are drawn below as the theme declares them. */}

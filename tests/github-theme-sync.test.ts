@@ -40,6 +40,7 @@ import { sectionSource } from "@/lib/website-builder/storelib-runtime"
 import { keyExpired, scopesCanWrite, expiryFor, READ_ONLY_REFUSAL } from "@/lib/agent-access/token-format"
 import { keyLine } from "@/components/website-builder/agent-connections-panel"
 import { editedLabel } from "@/components/website-builder/github-sync-panel"
+import { isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
 import { convertShopifyTheme } from "@/lib/storelib-theme/shopify/convert"
 import { ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { DEFAULT_THEME_SOURCES } from "../themes/default/sources.generated"
@@ -257,6 +258,11 @@ async function main() {
     const list = overridesOf({ files: overrides, defaults: DEFAULT, compat: false, referenceSchemas: { slideshow: {} } })
     check("it is listed as an edited built-in, and a section of the site's own is not", list.some((x) => x.path === "sections/hero.storelib") && !list.some((x) => x.path === "sections/my_promo.storelib"))
     check("the builder marks it Edited in GitHub", editedLabel({ path: "sections/hero.storelib", from: "github" }).badge === "Edited in GitHub")
+    const builtIns = { defaults: DEFAULT, drawnByStorelib: (t: string) => t === "slideshow" }
+    check("the section's panel knows it is an edited built-in, and not a section of the site's own or an untouched one",
+      isEditedBuiltIn("hero", overrides, builtIns) && !isEditedBuiltIn("my_promo", overrides, builtIns) && !isEditedBuiltIn("faq_accordion", overrides, builtIns) && isEditedBuiltIn("slideshow", { "sections/slideshow.storelib": "x" }, builtIns))
+    check("  and shows the note with Reset in the panel, for a Storelib theme only",
+      /!compatInstall && isEditedBuiltIn\(section\.type, storelibSources/.test(read("app/website-builder/editor/[installId]/page.tsx")) && /Reset to Storelib&apos;s version/.test(read("components/website-builder/editor/edited-built-in-note.tsx")))
     check("a push note says it is now this site's copy", o.notes.some((n) => n.path === "sections/hero.storelib" && /own copy/.test(n.note)))
     check("a section Storelib draws itself can be replaced the same way", repoMayWrite("sections/slideshow.storelib", { compat: false }).ok && (repoMayWrite("sections/slideshow.storelib", { compat: false }) as { override: boolean }).override === true)
     check("  while an agent over MCP is still refused a built-in", agentMayWrite("sections/hero.storelib").ok === false)

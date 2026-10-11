@@ -230,9 +230,10 @@ async function main() {
   const manage = read("app/api/website-builder/themes/[installId]/agent-connections/route.ts")
   check("only the site's owner can make, list or disconnect one",
     /\.eq\("creator_id", creator\.id\)/.test(manage) && (manage.match(/const own = await ownInstall\(installId\)/g) ?? []).length === 3)
+  // Changed on purpose: the answer and the list now carry the key's expiry and access (part 131); never its hash.
   check("the token is returned once, at creation, and the list never has it",
-    /return NextResponse\.json\(\{ connection: data, token: minted\.token \}\)/.test(manage)
-      && /\.select\("id, name, prefix, created_at, last_used_at"\)/.test(manage) && !/select\([^)]*token_hash/.test(manage))
+    /token: minted\.token,\s*\}\)/.test(manage) && (manage.match(/minted\.token/g) ?? []).length === 1
+      && /const BASE_COLUMNS = "id, name, prefix, created_at, last_used_at"/.test(manage) && /`\$\{BASE_COLUMNS\}, expires_at, scopes`/.test(manage) && !/select\([^)]*token_hash/.test(manage) && !/token_hash[^:]*,\s*expires_at/.test(manage))
   check("disconnecting is scoped to the site too", /\.eq\("id", id\)\s*\.eq\("install_id", own\.installId\)/.test(manage))
   check("a site holds a bounded number", /MAX_CONNECTIONS = 10/.test(manage))
 

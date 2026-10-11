@@ -335,6 +335,7 @@ const SUITES = [
   "tests/section-sandbox.test.ts",
   "tests/agent-connection.test.ts",
   "tests/github-sync.test.ts",
+  "tests/github-theme-sync.test.ts",
   "tests/date-range.test.ts",
   "tests/cookie-consent.test.ts",
   "tests/marketing-footer.test.ts",
