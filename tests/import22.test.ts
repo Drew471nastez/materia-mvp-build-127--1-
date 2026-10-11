@@ -93,6 +93,23 @@ async function main() {
     check("1500 g in kg, 500 g in g, 907 g in lb", r("{{ 1500 | weight_with_unit: 'kg' }}|{{ 500 | weight_with_unit: 'g' }}|{{ 907 | weight_with_unit: 'lb' }}") === "1.5 kg|500 g|2 lb", r("{{ 1500 | weight_with_unit: 'kg' }}|{{ 500 | weight_with_unit: 'g' }}|{{ 907 | weight_with_unit: 'lb' }}"))
   }
 
+  console.log("\nPictures and search engines\n")
+  {
+    const r = themeWith({})
+    const tag = r("{{ product.featured_image | image_url: width: 800 | image_tag }}")
+    check("image_url | image_tag writes the picture's own alt, as on Shopify", /alt="Shirt"/.test(tag), tag)
+    check("the theme's alt wins", /alt="X"/.test(r("{{ product.featured_image | image_url: width: 800 | image_tag: alt: 'X' }}")))
+    check("an address with no picture behind it has an empty alt", /alt=""/.test(r("{{ 'https://img.test/z.png' | image_tag }}")))
+    const sd = r("{{ product | structured_data }}")
+    let parsed: Record<string, unknown> | null = null
+    try { parsed = JSON.parse(sd) } catch { parsed = null }
+    const offers = (parsed?.offers ?? []) as Record<string, unknown>[]
+    check("product | structured_data is JSON-LD Product (Dawn and Horizon print it in ld+json)", parsed?.["@type"] === "Product" && parsed?.name === "Shirt" && parsed?.url === "https://shop.test/products/shirt", sd)
+    check("an Offer per variant: price, currency, stock, address", offers.length === 2 && offers[0].price === "40.00" && offers[1].price === "55.00" && offers[0].priceCurrency === "USD" && offers[0].availability === "http://schema.org/InStock" && offers[1].url === "https://shop.test/products/shirt?variant=v2", offers)
+    check("the description as plain words", parsed?.description === "Washed linen, cut loose.", parsed?.description)
+    check("anything else is still JSON", r("{{ shop | structured_data }}") === "{}")
+  }
+
   console.log("\n{% ifchanged %}\n")
   {
     const env = { snippet: () => null, filter: compatFilter }
