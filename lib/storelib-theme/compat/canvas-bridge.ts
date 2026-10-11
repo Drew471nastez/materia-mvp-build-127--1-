@@ -143,13 +143,14 @@ export const CANVAS_BRIDGE = `
     if (first < 0) return null;
     var lo, hi, k;
     var from = top, to = bottom;
-    if (!seen(top + 0.5)) {
-      lo = top + 0.5; hi = top + step * (first + 0.5);
+    /* A whole pixel in from each edge: a hit test reads whole pixels, and half a pixel past the foot is the next section. */
+    if (!seen(top + 1)) {
+      lo = top + 1; hi = top + step * (first + 0.5);
       for (k = 0; k < 7; k++) { var m1 = (lo + hi) / 2; if (seen(m1)) hi = m1; else lo = m1; }
       from = Math.round(hi);
     }
-    if (!seen(bottom - 0.5)) {
-      lo = top + step * (last + 0.5); hi = bottom - 0.5;
+    if (!seen(bottom - 1)) {
+      lo = top + step * (last + 0.5); hi = bottom - 1;
       for (k = 0; k < 7; k++) { var m2 = (lo + hi) / 2; if (seen(m2)) lo = m2; else hi = m2; }
       to = Math.round(lo);
     }

@@ -137,6 +137,7 @@ import { CompatCanvas, loadCompatFiles } from "@/components/website-builder/comp
 import { CompatThemeSettings } from "@/components/website-builder/compat/compat-theme-settings"
 import { compatOf, compatPageForHref } from "@/lib/storelib-theme/compat/install"
 import { faviconFollows } from "@/lib/website-builder/favicon-sync"
+import { themeSchemeList } from "@/lib/storelib-theme/compat/scheme-list"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
 import type { StoredSection } from "@/lib/storelib-theme/compat/page"
@@ -6817,8 +6818,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
-            {/* The section's design: its scheme, Customize, heading and body style */}
-            <SectionDesignPanel
+            {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
+                an imported theme reads none of them, and its scheme and any such settings of its
+                own are drawn below as the theme declares them. */}
+            {!compatInstall && <SectionDesignPanel
               section={section}
               schema={schema}
               theme={settingsDraft}
@@ -6829,7 +6832,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                 setExpandedSettings("color_schemes")
                 setSelectedPanel({ type: "pages" })
               }}
-            />
+            />}
 
             {schema?.fields && schema.fields.length > 0 && (() => {
               /**
@@ -6850,7 +6853,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
               const support = designSupport(schema)
               const covered = new Set(support.colorOverrides.flatMap(k => LEGACY_OVERRIDE_FIELDS[k] ?? []))
               // And a setting whose `visible_if` does not hold for this section's values.
-              const visible = visibleFields(schema.fields, section.settings).filter(f => f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id) && !(f.type === "color" && covered.has(f.id)))
+              /* An imported theme's section shows every setting it declares, its scheme among them: the panel above is not drawn for it. */
+              const visible = visibleFields(schema.fields, section.settings).filter(f => compatInstall || (f.type !== "color_scheme" && !DESIGN_FIELDS.has(f.id) && !(f.type === "color" && covered.has(f.id))))
               const clean: typeof visible = []
               for (let i = 0; i < visible.length; i++) {
                 const f = visible[i]
@@ -7273,6 +7277,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     updateSectionSetting(header.id, "menu", handle)
   }
+  const compatShopify = compatInstall ? ((settingsDraft as Record<string, unknown>).shopify as Record<string, unknown> | undefined) : undefined
+  const compatSchemes = useMemo(() => (compatInstall ? themeSchemeList(compatShopify) : null), [compatInstall, compatShopify])
   const fieldEnv = useMemo<EditorFieldEnv>(
     () => ({
       products: pickerProducts,
@@ -7284,8 +7290,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       linkHeaderToMain,
       communities: builderCommunities?.choices ?? null,
       collections: builderCollections?.choices ?? null,
+      /* An imported theme's sections pick from its own schemes, not Storelib's (lib/storelib-theme/compat/scheme-list.ts). */
+      colorSchemes: compatSchemes,
     }),
-    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections],
+    [pickerProducts, canvasMenus, currentPage, openMenus, menuRequest, headerSection, linkHeaderToMain, builderCommunities, builderCollections, compatSchemes],
   )
   const previewedProduct = useMemo(() => {
     if (currentPage !== "product") return null
