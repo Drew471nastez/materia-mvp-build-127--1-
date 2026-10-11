@@ -9,24 +9,61 @@
  *   manage   /app/files: upload, search, filter by where a picture came
  *            from, open one for its details (size, type, date, where it's
  *            from, its link) and delete it
- *   pick     the website builder's image fields: the same grid, and a press
- *            chooses the picture (a bottom sheet on a phone, a window on a
- *            computer, through Modal)
+ *   pick     "Choose from your files" (the website builder's image fields,
+ *            Settings > Store details): the same grid, and a press chooses
+ *            the picture. A bottom sheet on a phone, a window on a computer
+ *            (FilesLibraryChooser below)
  *
  * The list is the API's (app/api/files, lib/files/library.ts). An upload goes
  * straight to storage into the owner's own library folder, without its
  * location and camera details, the way the builder's image field uploads.
+ *
+ * WHAT A TILE DOES TO STAY SMOOTH
+ *
+ *   SMALL. A tile is drawn from a copy the width it is shown at
+ *   (lib/files/thumb.ts, Next's optimizer), never the camera original.
+ *
+ *   OFF THE MAIN THREAD. `decoding="async"`, eager for the first rows only
+ *   and lazy after them.
+ *
+ *   NO SHIFT, NO POP. Every tile is a fixed square with a quiet grey in it
+ *   from the first frame. The picture is decoded before it is shown and then
+ *   fades in over 200ms; one the browser already has is there at once, with
+ *   no fade. Both are written straight onto the element (data-loaded), so a
+ *   picture arriving never renders React.
+ *
+ * WHAT A SWITCH DOES (a pill, a search)
+ *
+ *   The list is read once and kept for the session (`kept` below), so a
+ *   chooser opened again shows it at once and refreshes underneath, and a
+ *   pill or a search only filters what is already here: nothing waits on
+ *   the network and nothing goes empty. The tiles on screen are copied into
+ *   a layer above the grid as they are, the grid changes under it, and the
+ *   copy fades out while the new grid fades in (`crossFade`): opacity only,
+ *   on the compositor, 180ms.
+ *
+ * THE THREE DOTS. One menu for the whole grid, not one per tile: on a
+ * computer a dropdown held against the dots that were pressed, on a phone
+ * the shared action sheet. Preview, Copy link, Download and Delete, each the
+ * real thing (app/api/files for the delete, the file's own public address for
+ * the rest). There is no Rename: a file's name is its address, so renaming
+ * it would empty every page that shows it.
  */
 import * as React from "react"
-import { createPortal } from "react-dom"
-import { Check, Copy, ImagePlus, Search, Trash2 } from "lucide-react"
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
+import { Check, Copy, Download, Eye, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
 import { mediaUrl } from "@/lib/storage/media-url"
-import { BTN_DANGER, BTN_SECONDARY, Modal, Notice, api } from "@/components/physical/ui"
+import { fileThumb, filePreview } from "@/lib/files/thumb"
+import { saveFile, savedMessage } from "@/lib/platform/save-file"
+import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Notice, api } from "@/components/physical/ui"
+import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
+import { BottomSheet } from "@/components/ui/bottom-sheet"
+import { ActionDropdownContent, ActionSheetRows, groupsOf, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 
 export interface LibraryFile {
   id: string
@@ -43,6 +80,14 @@ export interface LibraryFile {
 const TYPES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp", "image/avif"])
 const MAX_BYTES = 5 * 1024 * 1024
 const SOURCES = ["All", "Library", "Website", "Product photos"] as const
+type Source = (typeof SOURCES)[number]
+/* The rows drawn at once: three on a phone at three across, three in the window at four across. */
+const EAGER = 12
+const SWAP_MS = 180
+const SWAP_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
+/* Above a sheet that is itself above the page (the chooser), for what opens from inside it. */
+const OVER_SHEET_Z = 210
+const PHONE = "(max-width: 639px)"
 
 export function sizeText(bytes: number | null): string {
   if (bytes === null) return "Unknown size"
@@ -60,27 +105,235 @@ function dateText(iso: string | null): string {
   }
 }
 
-export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: "manage" | "pick"; onPick?: (url: string) => void; selectedUrl?: string | null }) {
-  const [files, setFiles] = React.useState<LibraryFile[] | null>(null)
-  const [error, setError] = React.useState<string | null>(null)
-  const [query, setQuery] = React.useState("")
-  const [source, setSource] = React.useState<(typeof SOURCES)[number]>("All")
-  const [open, setOpen] = React.useState<LibraryFile | null>(null)
-  const [uploading, setUploading] = React.useState(0)
-  const [dragOver, setDragOver] = React.useState(false)
-  const input = React.useRef<HTMLInputElement>(null)
+/* ── The list, kept for the session ─────────────────────────────────────── */
 
-  const load = React.useCallback(async () => {
+let kept: LibraryFile[] | null = null
+let inFlight: Promise<{ files?: LibraryFile[]; error?: string }> | null = null
+
+function fetchList(): Promise<{ files?: LibraryFile[]; error?: string }> {
+  if (inFlight) return inFlight
+  inFlight = (async () => {
     const r = await api<{ files: LibraryFile[] }>("/api/files")
-    if ("error" in r) setError(r.error)
-    else {
-      setFiles(r.data.files)
-      setError(null)
+    if ("error" in r) return { error: r.error }
+    kept = r.data.files
+    return { files: r.data.files }
+  })().finally(() => {
+    inFlight = null
+  })
+  return inFlight
+}
+
+function useLibraryList() {
+  const [files, setFilesState] = React.useState<LibraryFile[] | null>(() => kept)
+  const [error, setError] = React.useState<string | null>(null)
+  const setFiles = React.useCallback((next: (prev: LibraryFile[] | null) => LibraryFile[] | null) => {
+    setFilesState((prev) => {
+      const out = next(prev)
+      kept = out
+      return out
+    })
+  }, [])
+  const load = React.useCallback(async () => {
+    const r = await fetchList()
+    if (r.error) setError(r.error)
+    else if (r.files) {
+      const list = r.files
+      /* A list that arrives while the chooser is still rising is drawn in pieces the browser can stop between, so no frame of the rise and no tap waits on sixty tiles. */
+      React.startTransition(() => {
+        setFilesState(list)
+        setError(null)
+      })
     }
   }, [])
   React.useEffect(() => {
     void load()
   }, [load])
+  return { files, setFiles, error, load }
+}
+
+/* ── One picture's actions ─────────────────────────────────────────────── */
+
+function copyLink(f: LibraryFile) {
+  if (!navigator.clipboard?.writeText) {
+    toast.error("Copying is not available here.")
+    return
+  }
+  void navigator.clipboard.writeText(f.url).then(
+    () => toast.success("Link copied"),
+    () => toast.error("The link could not be copied."),
+  )
+}
+
+async function downloadFile(f: LibraryFile) {
+  try {
+    const outcome = await saveFile({
+      name: f.name,
+      file: async () => {
+        const res = await fetch(f.url, { credentials: "omit" })
+        if (!res.ok) throw new Error(String(res.status))
+        return res.blob()
+      },
+      /* A public file: the system browser in the app can open it as it is. */
+      link: async () => f.url,
+    })
+    toast.success(savedMessage(outcome, "Picture"))
+  } catch {
+    toast.error("The picture could not be downloaded.")
+  }
+}
+
+/* ── A picture, shown once it is ready ─────────────────────────────────── */
+
+/** Shown once decoded: straight onto the element, so nothing renders for it. */
+function reveal(img: HTMLImageElement) {
+  if (img.dataset.loaded !== undefined) return
+  const show = () => {
+    img.dataset.loaded = ""
+  }
+  if (typeof img.decode === "function") img.decode().then(show, show)
+  else show()
+}
+
+/** A picture the browser already has is there on the first frame, with no fade to sit through. */
+function revealIfReady(img: HTMLImageElement | null) {
+  if (img && img.complete && img.naturalWidth > 0 && img.dataset.loaded === undefined) {
+    img.dataset.instant = ""
+    img.dataset.loaded = ""
+  }
+}
+
+/** The resized copy failed (a host the optimizer refused, say): the original, once. */
+function fallBack(img: HTMLImageElement, original: string) {
+  if (img.dataset.fallback !== undefined || img.src === original) {
+    img.dataset.failed = ""
+    img.dataset.loaded = ""
+    return
+  }
+  img.dataset.fallback = ""
+  img.removeAttribute("srcset")
+  img.removeAttribute("sizes")
+  img.src = original
+}
+
+const IMG_FADE = "absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:opacity-0"
+
+/* ── A tile ─────────────────────────────────────────────────────────────── */
+
+const Tile = React.memo(function Tile({
+  file,
+  index,
+  hidden,
+  mode,
+  chosen,
+  menuOpen,
+  onPress,
+  onMenu,
+}: {
+  file: LibraryFile
+  index: number
+  hidden: boolean
+  mode: "manage" | "pick"
+  chosen: boolean
+  menuOpen: boolean
+  onPress: (f: LibraryFile) => void
+  onMenu: (f: LibraryFile, button: HTMLButtonElement) => void
+}) {
+  const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
+  return (
+    <li className="group/tile relative" data-file-tile={file.id} hidden={hidden}>
+      <button
+        type="button"
+        onClick={() => onPress(file)}
+        className={cn(
+          "relative block w-full overflow-hidden rounded-xl border bg-white text-left transition-[border-color,box-shadow] duration-150 hover:border-[#d1d5db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent]",
+          chosen ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#eceef1]",
+        )}
+        data-file={file.id}
+        aria-label={mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`}
+      >
+        <span className="relative block aspect-square w-full bg-[#f3f4f6]" data-file-box="">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            ref={revealIfReady}
+            src={thumb.src}
+            srcSet={thumb.srcSet}
+            sizes={thumb.sizes}
+            alt=""
+            draggable={false}
+            loading={index < EAGER ? "eager" : "lazy"}
+            decoding="async"
+            onLoad={(e) => reveal(e.currentTarget)}
+            onError={(e) => fallBack(e.currentTarget, file.url)}
+            className={IMG_FADE}
+          />
+        </span>
+        {chosen ? (
+          <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">
+            <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
+          </span>
+        ) : null}
+        {mode === "manage" ? <span className="block truncate border-t border-[#eceef1] bg-white px-2 py-1.5 text-[12px] text-[#4b5563]">{file.name}</span> : null}
+      </button>
+      <button
+        type="button"
+        aria-label={`More for ${file.name}`}
+        aria-haspopup="menu"
+        aria-expanded={menuOpen}
+        data-file-menu=""
+        onClick={(e) => onMenu(file, e.currentTarget)}
+        className={cn(
+          "absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#374151] shadow-[0_1px_3px_rgba(17,24,39,0.16)] outline-none transition-opacity duration-150 hover:bg-white hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent] sm:h-7 sm:w-7",
+          /* Always there on a touch screen; with a mouse once the pointer is on the tile, or while its menu is open. */
+          menuOpen ? "opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100",
+        )}
+      >
+        <MoreHorizontal className="h-4 w-4" aria-hidden />
+      </button>
+    </li>
+  )
+})
+
+/* ── The library ────────────────────────────────────────────────────────── */
+
+type Menu = { file: LibraryFile; anchor: HTMLButtonElement; box: DOMRect; phone: boolean }
+
+export function FilesLibrary({
+  mode = "manage",
+  onPick,
+  selectedUrl,
+  fill = false,
+}: {
+  mode?: "manage" | "pick"
+  onPick?: (url: string) => void
+  selectedUrl?: string | null
+  /** Lay out as a column whose grid scrolls by itself (inside the chooser), rather than with the page. */
+  fill?: boolean
+}) {
+  const { files, setFiles, error, load } = useLibraryList()
+  const [query, setQuery] = React.useState("")
+  const [source, setSource] = React.useState<Source>("All")
+  const [open, setOpen] = React.useState<LibraryFile | null>(null)
+  const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
+  const [deleting, setDeleting] = React.useState(false)
+  const [uploading, setUploading] = React.useState(0)
+  const [dragOver, setDragOver] = React.useState(false)
+  /* The three dots: which file, and the dots it opened from. */
+  const [menu, setMenu] = React.useState<Menu | null>(null)
+  const [sheetOpen, setSheetOpen] = React.useState(false)
+  const pendingRef = React.useRef<(() => void) | null>(null)
+  /* The dots whose dropdown a press outside just closed: the same press must not open it again. */
+  const closedRef = React.useRef<{ anchor: HTMLElement; at: number } | null>(null)
+  const input = React.useRef<HTMLInputElement>(null)
+  const viewRef = React.useRef<HTMLDivElement>(null)
+  const scrollRef = React.useRef<HTMLDivElement>(null)
+  const gridWrapRef = React.useRef<HTMLDivElement>(null)
+  const swappedRef = React.useRef(false)
+  const ghostRef = React.useRef<HTMLDivElement | null>(null)
+
+  const onPickRef = React.useRef(onPick)
+  React.useEffect(() => {
+    onPickRef.current = onPick
+  })
 
   const upload = async (list: FileList | File[]) => {
     const picked = Array.from(list).slice(0, 20)
@@ -113,19 +366,141 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
   }
 
   const remove = async (f: LibraryFile) => {
+    setDeleting(true)
     const r = await api("/api/files", { method: "DELETE", body: { bucket: f.bucket, path: f.path } })
-    if ("error" in r) return toast.error(r.error)
+    setDeleting(false)
+    if ("error" in r) {
+      toast.error(r.error)
+      return
+    }
     setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
-    setOpen(null)
+    setConfirming(null)
+    setOpen((o) => (o?.id === f.id ? null : o))
     toast.success("Deleted")
   }
 
+  /* ── The swap ── */
+
+  /**
+   * The tiles on screen, copied as they are into a layer that does not
+   * scroll, so the grid can change under it. Called before the state that
+   * changes the grid, while the old tiles are still the ones drawn.
+   */
+  const crossFade = React.useCallback(() => {
+    const wrap = gridWrapRef.current
+    const host = fill ? viewRef.current : wrap
+    const grid = wrap?.querySelector<HTMLElement>(":scope > [data-files-grid]:not([hidden])")
+    if (!wrap || !host || !grid) return
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    ghostRef.current?.remove()
+    const hostBox = host.getBoundingClientRect()
+    const view = fill && scrollRef.current ? scrollRef.current.getBoundingClientRect() : { top: 0, bottom: window.innerHeight }
+    const ghost = document.createElement("div")
+    ghost.setAttribute("aria-hidden", "true")
+    ghost.dataset.filesGhost = ""
+    ghost.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden;will-change:opacity"
+    for (const li of Array.from(grid.children) as HTMLElement[]) {
+      if (li.hidden) continue
+      const r = li.getBoundingClientRect()
+      if (r.bottom <= view.top || r.top >= view.bottom) continue
+      const copy = li.cloneNode(true) as HTMLElement
+      copy.removeAttribute("data-file-tile")
+      copy.style.cssText = `position:absolute;margin:0;list-style:none;left:${r.left - hostBox.left}px;top:${r.top - hostBox.top}px;width:${r.width}px;height:${r.height}px`
+      ghost.append(copy)
+    }
+    if (!ghost.childElementCount) return
+    host.append(ghost)
+    ghostRef.current = ghost
+    swappedRef.current = true
+  }, [fill])
+
   const words = query.toLowerCase().trim()
-  const shown = (files ?? []).filter((f) => (source === "All" || f.source === source) && (!words || f.name.toLowerCase().includes(words)))
+  const shown = React.useMemo(
+    () => (files ?? []).filter((f) => (source === "All" || f.source === source) && (!words || f.name.toLowerCase().includes(words))),
+    [files, source, words],
+  )
+  /* Where each shown file is in the grid, for which are drawn at once. */
+  const shownAt = React.useMemo(() => new Map(shown.map((f, i) => [f.id, i])), [shown])
+
+  /* The new grid is drawn: it starts its fade under the copy, before this frame is painted. */
+  React.useLayoutEffect(() => {
+    if (!swappedRef.current) return
+    swappedRef.current = false
+    if (fill && scrollRef.current) scrollRef.current.scrollTop = 0
+    const ghost = ghostRef.current
+    const next = gridWrapRef.current?.querySelector<HTMLElement>(":scope > :not([data-files-ghost]):not([hidden])")
+    next?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_MS, easing: SWAP_EASE })
+    if (ghost) {
+      const out = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_MS, easing: "ease-out", fill: "forwards" })
+      const done = () => {
+        ghost.remove()
+        if (ghostRef.current === ghost) ghostRef.current = null
+      }
+      out.finished.then(done, done)
+    }
+  }, [source, words, fill])
+
+  const chooseSource = (s: Source) => {
+    if (s === source) return
+    crossFade()
+    setSource(s)
+  }
+  const type = (value: string) => {
+    if (value.toLowerCase().trim() !== words && !ghostRef.current) crossFade()
+    setQuery(value)
+  }
+
+  /* ── The three dots ── */
+
+  const onPress = React.useCallback(
+    (f: LibraryFile) => {
+      if (mode === "pick") onPickRef.current?.(f.url)
+      else setOpen(f)
+    },
+    [mode],
+  )
+  const onMenu = React.useCallback((f: LibraryFile, anchor: HTMLButtonElement) => {
+    const closed = closedRef.current
+    if (closed && closed.anchor === anchor && performance.now() - closed.at < 400) {
+      closedRef.current = null
+      return
+    }
+    const phone = window.matchMedia(PHONE).matches
+    pendingRef.current = null
+    setMenu({ file: f, anchor, box: anchor.getBoundingClientRect(), phone })
+    if (phone) setSheetOpen(true)
+  }, [])
+
+  const items = React.useMemo<ActionMenuItem[]>(() => {
+    if (!menu) return []
+    const f = menu.file
+    const use: ActionMenuItem[] = mode === "pick" ? [{ label: "Use this picture", icon: <Check />, onClick: () => onPickRef.current?.(f.url) }] : []
+    return [
+      ...use,
+      { label: "Preview", icon: <Eye />, onClick: () => setOpen(f) },
+      { label: "Copy link", icon: <Copy />, onClick: () => copyLink(f) },
+      { label: "Download", icon: <Download />, onClick: () => void downloadFile(f) },
+      { label: "Delete", icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
+    ]
+  }, [menu, mode])
+  const groups = React.useMemo(() => groupsOf(items), [items])
+
+  /* A dropdown held against the dots is closed by a scroll, since the dots move and it would not. */
+  React.useEffect(() => {
+    if (!menu || menu.phone) return
+    const target: EventTarget = (fill ? scrollRef.current : null) ?? window
+    const close = () => setMenu(null)
+    target.addEventListener("scroll", close, { passive: true })
+    return () => target.removeEventListener("scroll", close)
+  }, [menu, fill])
+
+  const desktopMenu = menu && !menu.phone ? menu : null
+
+  const gridCols = mode === "pick" ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5"
 
   return (
     <div
-      className="space-y-3"
+      className={cn(fill ? "flex min-h-0 flex-1 flex-col" : "space-y-3")}
       data-files-library={mode}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
@@ -140,79 +515,222 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
         if (e.dataTransfer.files.length) void upload(e.dataTransfer.files)
       }}
     >
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="relative min-w-0 flex-1">
-          <span className="sr-only">Search files</span>
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
-          <input type="search" data-no-autofocus="" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search files" className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] outline-none focus:border-[#9ca3af] sm:text-[14px]" />
-        </label>
-        <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5")} onClick={() => input.current?.click()} data-files-upload="">
-          <ImagePlus className="h-4 w-4" aria-hidden />
-          {uploading > 0 ? `Uploading ${uploading}` : "Upload"}
-        </button>
-        <input ref={input} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" multiple className="hidden" onChange={(e) => e.target.files && void upload(e.target.files)} />
-      </div>
-      <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Where it came from">
-        {SOURCES.map((s) => (
-          <button key={s} type="button" role="tab" aria-selected={source === s} onClick={() => setSource(s)} className={cn("inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium transition-colors", source === s ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f8f9fa]")}>
-            {s}
+      <div className={cn("space-y-3", fill && "shrink-0 px-4 pb-3 sm:px-5")}>
+        <div className="flex items-center gap-2">
+          <label className="relative min-w-0 flex-1">
+            <span className="sr-only">Search files</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
+            <input type="search" data-no-autofocus="" value={query} onChange={(e) => type(e.target.value)} placeholder="Search files" className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] outline-none transition-[border-color] focus:border-[#9ca3af] sm:text-[14px]" />
+          </label>
+          <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5 rounded-xl px-3 sm:px-4")} onClick={() => input.current?.click()} data-files-upload="">
+            <ImagePlus className="h-4 w-4" aria-hidden />
+            {uploading > 0 ? `Uploading ${uploading}` : "Upload"}
           </button>
-        ))}
+          <input ref={input} type="file" accept="image/jpeg,image/png,image/gif,image/webp,image/avif" multiple className="hidden" onChange={(e) => e.target.files && void upload(e.target.files)} />
+        </div>
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Where it came from">
+          {SOURCES.map((s) => (
+            <button
+              key={s}
+              type="button"
+              role="tab"
+              aria-selected={source === s}
+              data-files-pill={s}
+              onClick={() => chooseSource(s)}
+              className={cn(
+                "inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color] duration-200 ease-out [-webkit-tap-highlight-color:transparent]",
+                source === s ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f5f6f7]",
+              )}
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+        {error && files === null ? <Notice>{error}</Notice> : null}
       </div>
 
-      {error ? <Notice>{error}</Notice> : null}
-      <div className={cn("relative rounded-2xl transition-[box-shadow]", dragOver && "shadow-[0_0_0_2px_#1a1a2e]")}>
-        {files === null ? (
-          <div className="min-h-[240px]" aria-busy="true" />
-        ) : shown.length === 0 ? (
-          <div className="flex min-h-[200px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center">
-            <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
-            <p className="mt-1 text-[13px] text-[#6b7280]">{files.length === 0 ? "Upload pictures here, or drop them in, and use them anywhere on your website." : "Try another word or filter."}</p>
+      <div ref={viewRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
+        <div
+          ref={scrollRef}
+          className={cn(fill && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-0.5 sm:px-5 sm:pb-5")}
+          data-files-scroll={fill ? "" : undefined}
+        >
+          <div ref={gridWrapRef} className={cn("relative rounded-2xl transition-[box-shadow]", dragOver && "shadow-[0_0_0_2px_#1a1a2e]")}>
+            {files === null ? (
+              <ul className={cn("grid gap-2.5", gridCols)} aria-busy="true" aria-label="Loading files" data-files-waiting="">
+                {Array.from({ length: EAGER }, (_, i) => (
+                  <li key={i} className="aspect-square rounded-xl border border-[#eceef1] bg-[#f3f4f6]" />
+                ))}
+              </ul>
+            ) : (
+              <>
+                {shown.length === 0 ? (
+                  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
+                    <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
+                    <p className="mt-1 text-[13px] text-[#6b7280]">{files.length === 0 ? "Upload pictures here, or drop them in, and use them anywhere on your website." : "Try another word or filter."}</p>
+                  </div>
+                ) : null}
+                {/* Every tile stays built; a pill or a search only hides the ones that do not match, so going back shows them as they were, pictures and all. */}
+                <ul className={cn("grid gap-2.5", gridCols)} data-files-grid="" hidden={shown.length === 0}>
+                  {files.map((f) => {
+                    const at = shownAt.get(f.id)
+                    return (
+                      <Tile
+                        key={f.id}
+                        file={f}
+                        index={at ?? EAGER}
+                        hidden={at === undefined}
+                        mode={mode}
+                        chosen={mode === "pick" && !!selectedUrl && selectedUrl === f.url}
+                        menuOpen={menu?.file.id === f.id && (!menu.phone || sheetOpen)}
+                        onPress={onPress}
+                        onMenu={onMenu}
+                      />
+                    )
+                  })}
+                </ul>
+              </>
+            )}
           </div>
-        ) : (
-          <ul className={cn("grid gap-2.5", mode === "pick" ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5")} data-files-grid="">
-            {shown.map((f) => {
-              const chosen = mode === "pick" && !!selectedUrl && selectedUrl === f.url
-              return (
-                <li key={f.id}>
-                  <button
-                    type="button"
-                    onClick={() => (mode === "pick" ? onPick?.(f.url) : setOpen(f))}
-                    className={cn("group relative block w-full overflow-hidden rounded-xl border bg-[#f8f9fa] text-left transition-[border-color,box-shadow] hover:border-[#d1d5db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30", chosen ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#eceef1]")}
-                    data-file={f.id}
-                    aria-label={mode === "pick" ? `Use ${f.name}` : `Open ${f.name}`}
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={f.url} alt="" loading="lazy" decoding="async" className="aspect-square w-full object-contain" />
-                    {chosen ? (
-                      <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">
-                        <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
-                      </span>
-                    ) : null}
-                    {mode === "manage" ? <span className="block truncate border-t border-[#eceef1] bg-white px-2 py-1.5 text-[12px] text-[#4b5563]">{f.name}</span> : null}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
+        </div>
       </div>
 
-      <Modal open={!!open} onClose={() => setOpen(null)} title="File details" wide>
-        {open ? (
-          <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_220px]" data-file-details="">
-            <div className="overflow-hidden rounded-xl border border-[#eceef1] bg-[#f8f9fa]">
+      {/* On a computer: one dropdown, held against the dots that were pressed. */}
+      {desktopMenu ? (
+        <DropdownMenuPrimitive.Root
+          open
+          modal={false}
+          onOpenChange={(next) => {
+            if (next) return
+            closedRef.current = { anchor: desktopMenu.anchor, at: performance.now() }
+            setMenu(null)
+          }}
+        >
+          <DropdownMenuPrimitive.Trigger asChild>
+            <span aria-hidden style={{ position: "fixed", left: desktopMenu.box.left, top: desktopMenu.box.top, width: desktopMenu.box.width, height: desktopMenu.box.height, pointerEvents: "none" }} />
+          </DropdownMenuPrimitive.Trigger>
+          <ActionDropdownContent
+            groups={groups}
+            align="end"
+            menuWidth="w-52"
+            onCloseAutoFocus={(e) => {
+              e.preventDefault()
+              desktopMenu.anchor.focus({ preventScroll: true })
+            }}
+          />
+        </DropdownMenuPrimitive.Root>
+      ) : null}
+
+      {/* On a phone: the shared action sheet, and the row runs once it has gone. */}
+      <BottomSheet
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onClosed={() => {
+          const run = pendingRef.current
+          pendingRef.current = null
+          setMenu(null)
+          run?.()
+        }}
+        label="Picture actions"
+        hideFrom={null}
+        zIndex={OVER_SHEET_Z}
+      >
+        <ActionSheetRows
+          groups={menu?.phone ? groups : []}
+          onPick={(run) => {
+            pendingRef.current = run
+            setSheetOpen(false)
+          }}
+        />
+      </BottomSheet>
+
+      <FileDetails
+        file={open}
+        mode={mode}
+        onClose={() => setOpen(null)}
+        onUse={(f) => {
+          setOpen(null)
+          onPickRef.current?.(f.url)
+        }}
+        onDelete={(f) => setConfirming(f)}
+      />
+      <ConfirmDelete
+        file={confirming}
+        busy={deleting}
+        onClose={() => {
+          if (!deleting) setConfirming(null)
+        }}
+        onConfirm={(f) => void remove(f)}
+      />
+    </div>
+  )
+}
+
+/* ── Phone or not, decided before the first frame ───────────────────────── */
+
+function usePhoneNow(): boolean {
+  const [phone, setPhone] = React.useState(() => typeof window !== "undefined" && window.matchMedia(PHONE).matches)
+  React.useEffect(() => {
+    const mq = window.matchMedia(PHONE)
+    const on = () => setPhone(mq.matches)
+    on()
+    mq.addEventListener("change", on)
+    return () => mq.removeEventListener("change", on)
+  }, [])
+  return phone
+}
+
+/** The last value something was open with, so a sheet or a window does not empty as it leaves. */
+function useLastOpen<T>(value: T | null): T | null {
+  const [last, setLast] = React.useState<T | null>(value)
+  if (value !== null && value !== last) setLast(value)
+  return value ?? last
+}
+
+/* ── A picture's details ────────────────────────────────────────────────── */
+
+function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFile | null; mode: "manage" | "pick"; onClose: () => void; onUse: (f: LibraryFile) => void; onDelete: (f: LibraryFile) => void }) {
+  const phone = usePhoneNow()
+  const f = useLastOpen(file)
+  return (
+    <SheetDialog
+      open={!!file}
+      onClose={onClose}
+      phone={phone}
+      label="File details"
+      showCloseButton={false}
+      className="gap-0 p-0 sm:max-w-[720px] sm:rounded-2xl"
+      sheet={{ zIndex: OVER_SHEET_Z, aboveKeyboard: false, maxHeight: "calc(var(--vv-h, 100dvh) * 0.9)" }}
+    >
+      {f ? (
+        <div className="flex min-h-0 flex-col" data-file-details="">
+          <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-1 sm:border-b sm:border-[#f1f2f4] sm:px-5 sm:py-3">
+            <SheetDialogTitle className="min-w-0 truncate text-[16px] font-semibold text-[#1a1a2e]">{f.name}</SheetDialogTitle>
+            <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid min-h-0 gap-4 overflow-y-auto px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-2 sm:grid-cols-[minmax(0,1fr)_220px] sm:px-5 sm:py-5">
+            <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-[#eceef1] bg-[#f3f4f6]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={open.url} alt="" className="mx-auto max-h-[52vh] w-full object-contain" />
+              <img
+                key={f.id}
+                ref={revealIfReady}
+                src={filePreview(f.url)}
+                alt=""
+                decoding="async"
+                onLoad={(e) => reveal(e.currentTarget)}
+                onError={(e) => fallBack(e.currentTarget, f.url)}
+                className={IMG_FADE}
+              />
             </div>
             <div className="space-y-3">
-              <dl className="space-y-2.5 text-[13.5px]">
+              <dl className="grid grid-cols-2 gap-2.5 text-[13.5px] sm:grid-cols-1">
                 {[
-                  ["Name", open.name],
-                  ["Size", sizeText(open.bytes)],
-                  ["Type", (open.type ?? "").replace("image/", "").toUpperCase() || "Picture"],
-                  ["Uploaded", dateText(open.createdAt)],
-                  ["From", open.source],
+                  ["Size", sizeText(f.bytes)],
+                  ["Type", (f.type ?? "").replace("image/", "").toUpperCase() || "Picture"],
+                  ["Uploaded", dateText(f.createdAt)],
+                  ["From", f.source],
                 ].map(([k, v]) => (
                   <div key={k}>
                     <dt className="text-[12px] font-medium text-[#9ca3af]">{k}</dt>
@@ -221,50 +739,112 @@ export function FilesLibrary({ mode = "manage", onPick, selectedUrl }: { mode?: 
                 ))}
               </dl>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={cn(BTN_SECONDARY, "gap-1.5")}
-                  onClick={() => {
-                    void navigator.clipboard?.writeText(open.url).then(() => toast.success("Link copied"))
-                  }}
-                >
+                {mode === "pick" ? (
+                  <button type="button" className={cn(BTN_PRIMARY, "w-full")} onClick={() => onUse(f)}>
+                    Use this picture
+                  </button>
+                ) : null}
+                <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => copyLink(f)}>
                   <Copy className="h-4 w-4" aria-hidden />
                   Copy link
                 </button>
-                <button type="button" className={cn(BTN_DANGER, "gap-1.5")} onClick={() => void remove(open)}>
+                <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => void downloadFile(f)}>
+                  <Download className="h-4 w-4" aria-hidden />
+                  Download
+                </button>
+                <button type="button" className={cn(BTN_DANGER, "w-full gap-1.5")} onClick={() => onDelete(f)}>
                   <Trash2 className="h-4 w-4" aria-hidden />
                   Delete
                 </button>
               </div>
-              {open.source !== "Library" ? <p className="text-[12.5px] leading-[18px] text-[#6b7280]">Deleting it takes it off anything that still shows it.</p> : null}
             </div>
           </div>
-        ) : null}
-      </Modal>
-    </div>
+        </div>
+      ) : null}
+    </SheetDialog>
   )
 }
 
+/* ── Asked before a delete ──────────────────────────────────────────────── */
+
+function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile | null; busy: boolean; onClose: () => void; onConfirm: (f: LibraryFile) => void }) {
+  const phone = usePhoneNow()
+  const f = useLastOpen(file)
+  return (
+    <SheetDialog
+      open={!!file}
+      onClose={onClose}
+      phone={phone}
+      label="Delete this picture?"
+      showCloseButton={false}
+      className="max-w-[420px] gap-0 rounded-2xl p-6"
+      sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
+    >
+      {f ? (
+        <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm="">
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">Delete this picture?</SheetDialogTitle>
+          <p className="mt-2 break-words text-[14px] leading-[20px] text-[#6b7280]">
+            {f.source === "Library" ? `${f.name} is removed from your files.` : `${f.name} is removed from your files, and anything that still shows it will show nothing.`}
+          </p>
+          <div className="mt-5 flex gap-2 sm:justify-end">
+            <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(f)} disabled={busy} data-file-confirm-delete="">
+              {busy ? "Deleting" : "Delete"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </SheetDialog>
+  )
+}
+
+/* ── "Choose from your files" ───────────────────────────────────────────── */
+
+/** Fixed, so a list that arrives, or a pill with fewer pictures, never moves the top edge. */
+const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.88)"
+
 /**
- * "Choose from your files": the library in pick mode, in a window on a
- * computer and a bottom sheet on a phone. Drawn into the body, so a sidebar
- * or editor panel with a transform can't trap or clip it.
+ * "Choose from your files": the library in pick mode. On a phone the app's
+ * one bottom sheet (components/ui/bottom-sheet.tsx, through SheetDialog), so
+ * it follows the finger the way every other sheet does; on a computer the
+ * app's dialog, which fades and scales in and out on the compositor. Both
+ * are drawn into the body, so a sidebar or editor panel that is moved or scaled
+ * can't trap or clip them. Built on the first open and kept, so it can leave
+ * with its own motion and a second open is already there.
  */
 export function FilesLibraryChooser({ open, onClose, onPick, selectedUrl }: { open: boolean; onClose: () => void; onPick: (url: string) => void; selectedUrl?: string | null }) {
-  const [mounted, setMounted] = React.useState(false)
-  React.useEffect(() => setMounted(true), [])
-  if (!mounted || !open) return null
-  return createPortal(
-    <Modal open onClose={onClose} title="Choose from your files" wide>
-      <FilesLibrary
-        mode="pick"
-        selectedUrl={selectedUrl}
-        onPick={(url) => {
-          onPick(url)
-          onClose()
-        }}
-      />
-    </Modal>,
-    document.body,
+  const [used, setUsed] = React.useState(open)
+  if (open && !used) setUsed(true)
+  const phone = usePhoneNow()
+  const pick = React.useCallback(
+    (url: string) => {
+      onPick(url)
+      onClose()
+    },
+    [onPick, onClose],
+  )
+  if (!used) return null
+  return (
+    <SheetDialog
+      open={open}
+      onClose={onClose}
+      phone={phone}
+      label="Choose from your files"
+      showCloseButton={false}
+      className="flex h-[min(760px,calc(100dvh-48px))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px] sm:rounded-2xl"
+      sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, keepMounted: true }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col" data-files-chooser="">
+        <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-4">
+          <SheetDialogTitle className="text-[16px] font-semibold text-[#1a1a2e] sm:text-[17px]">Choose from your files</SheetDialogTitle>
+          <button type="button" onClick={onClose} aria-label="Close" className="grid h-9 w-9 shrink-0 place-items-center rounded-lg text-[#6b7280] hover:bg-[#f1f2f4] hover:text-[#1a1a2e] max-sm:hidden">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <FilesLibrary mode="pick" fill selectedUrl={selectedUrl} onPick={pick} />
+      </div>
+    </SheetDialog>
   )
 }
