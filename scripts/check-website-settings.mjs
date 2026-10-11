@@ -96,7 +96,8 @@ const expect = (ok, what, got) => {
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const browser = await puppeteer.launch({ executablePath: CHROMIUM, args: ["--no-sandbox", "--disable-gpu", "--hide-scrollbars"] })
 
-const EXPECTED = ["General", "Domains", "SEO & Social", "Pages & Navigation", "Commerce", "Policies", "Publishing", "Backups & Versions", "Connections"]
+/* Navigation is its own subject (round N5), after Pages. */
+const EXPECTED = ["General", "Domains", "SEO & Social", "Pages", "Navigation", "Commerce", "Policies", "Publishing", "Backups & Versions", "Connections"]
 
 async function open(viewport, section = "") {
   const p = await browser.newPage()
@@ -145,7 +146,7 @@ console.log("\ndesktop, 1280 wide")
 {
   const p = await open({ width: 1280, height: 860 })
   const nav = await p.$$eval("nav[aria-label='Website settings'] button", (b) => b.map((x) => x.textContent.trim()))
-  expect(JSON.stringify(nav) === JSON.stringify(EXPECTED), "nine subjects, in the order asked for", nav.join(" | "))
+  expect(JSON.stringify(nav) === JSON.stringify(EXPECTED), "every subject, in the order asked for", nav.join(" | "))
   expect((await heading(p)) === "General", "it opens on General", await heading(p))
   const layout = await p.evaluate(() => {
     const label = [...document.querySelectorAll("main label")].find((l) => l.textContent.trim() === "Website name")
@@ -224,18 +225,14 @@ console.log("\ndesktop, 1280 wide")
   await sleep(250)
   expect(!/shipping/i.test(await p.evaluate(() => document.querySelector("main").textContent)), "Commerce no longer asks about shipping")
 
-  /* Policies: the cookie banner, on or off, with its words there to edit from the start. */
+  /* Policies: the cookie banner is set in Theme settings now (beside the colours); Policies says whether it shows and opens it. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Policies")
   await sleep(250)
-  const words = await p.evaluate(() => ({ text: document.getElementById("wb-cookie-text")?.value ?? null, accept: document.getElementById("wb-cookie-accept")?.value ?? null }))
-  expect(/^We use necessary cookies/.test(words.text ?? "") && words.accept === "Accept all", "the banner's words are there to edit, starting with the site's default sentence", JSON.stringify(words))
-  await p.click("input[aria-label='Show the cookie banner']")
-  /* The fields fold away over 200ms (components/ui/reveal.tsx) before they leave. */
-  await sleep(350)
-  const off = await p.evaluate(() => ({ stored: window.__settings?.cookie_banner_show, fields: !!document.getElementById("wb-cookie-text") }))
-  expect(off.stored === false && !off.fields, "switching it off stores that and takes the fields away", JSON.stringify(off))
-  await p.click("input[aria-label='Show the cookie banner']")
-  await sleep(150)
+  const banner = await p.evaluate(() => {
+    const main = document.querySelector("main")
+    return { said: /Cookie banner/.test(main.textContent) && /(Shown to visitors|Turned off)/.test(main.textContent), edit: [...main.querySelectorAll("button")].some((b) => b.textContent.trim() === "Edit banner") }
+  })
+  expect(banner.said && banner.edit, "Policies says whether the cookie banner shows, with Edit banner to set it in Theme settings", JSON.stringify(banner))
 
   /* Domains: the website's own name on Storelib, changed without touching the username. */
   await clickText(p, "nav[aria-label='Website settings'] button", "Domains")
@@ -310,7 +307,8 @@ console.log("\ndesktop, 1280 wide")
   await clickText(p, "nav[aria-label='Website settings'] button", "Connections")
   await sleep(400)
   const lines = await connectionLines(p)
-  expect(lines.map((l) => l.id).join(",") === "claude,codex,github", "it lists the tools: Claude Code, Codex, GitHub", lines.map((l) => l.id))
+  /* Your own AI key (round 8) has its line too. */
+  expect(["claude", "codex", "github"].every((id) => lines.some((l) => l.id === id)), "it lists the tools: Claude Code, Codex, GitHub", lines.map((l) => l.id))
   expect(lines.every((l) => l.status === "Not connected" && l.buttons.join() === "Connect"), "each says whether it is connected, with one button", lines)
   await p.screenshot({ path: join(shots, "desktop-connections.png") })
   await pressLine(p, "claude")
@@ -342,7 +340,7 @@ console.log("\nphone, 390 wide")
     mainShown: getComputedStyle(document.querySelector("main")).display !== "none",
     viewport: window.innerHeight,
   }))
-  expect(list.items.length === 9 && list.items.every((i) => i.v), "the nine subjects are a list you can see, not chips off the edge", list.items.map((i) => i.t).join(" | "))
+  expect(list.items.length === EXPECTED.length && list.items.every((i) => i.v), "every subject are a list you can see, not chips off the edge", list.items.map((i) => i.t).join(" | "))
   expect(list.items.every((i) => i.h >= 44), "every one is a thumb's height", list.items.map((i) => i.h))
   const lastBottom = await p.evaluate(() => [...document.querySelectorAll("nav[aria-label='Website settings'] button")].pop().getBoundingClientRect().bottom)
   expect(lastBottom <= list.viewport, "Connections is on the first screen, where it can be found", `${lastBottom} of ${list.viewport}`)
@@ -350,7 +348,8 @@ console.log("\nphone, 390 wide")
   await p.screenshot({ path: join(shots, "phone-list.png") })
 
   await clickText(p, "nav[aria-label='Website settings'] button", "Connections")
-  await sleep(350)
+  /* The push takes 340ms (PUSH_MS); the list hides once it lands. */
+  await sleep(700)
   const inside = await p.evaluate(() => ({
     heading: document.querySelector("main h1")?.textContent,
     /* Under the page, hidden rather than removed, so it keeps its scroll for Back. */
@@ -359,7 +358,7 @@ console.log("\nphone, 390 wide")
   expect(inside.heading === "Connections" && !inside.listShown, "a subject opens over the list", inside)
   expect((await overflow(p)) === 0, "and does not scroll sideways", await overflow(p))
   const buttons = await p.$$eval("[data-connection] > div:first-child button", (r) => r.map((x) => { const b = x.getBoundingClientRect(); return { h: Math.round(b.height), right: Math.round(b.right) } }))
-  expect(buttons.length === 3 && buttons.every((c) => c.h >= 44 && c.right <= 390), "each line's button is a thumb's height, on the screen", buttons)
+  expect(buttons.length >= 3 && buttons.every((c) => c.h >= 44 && c.right <= 390), "each line's button is a thumb's height, on the screen", buttons)
   await pressLine(p, "claude")
   await sleep(500)
   const steps = await p.evaluate(() => [...document.querySelectorAll("main button, main pre, main code")].filter((e) => e.getBoundingClientRect().right > 391).length)

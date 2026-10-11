@@ -13,6 +13,7 @@
 import { NEXT_IMAGE_WIDTHS, isOptimizableImage } from "@/lib/images/optimized-url"
 import { isOwnMedia } from "@/lib/storage/media-url"
 import { LFloat, OUTPUT, isBlank, prop, toList, toOutput, truthy, type Ctx, type FilterFn } from "./runtime"
+import { shopifyGlobalAssetUrl } from "./shopify-global-assets"
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -555,8 +556,9 @@ const F: Record<string, FilterFn> = {
   /* Assets and URLs */
   asset_url: (v, _a, _k, ctx) => reg(ctx).assetUrl?.(str(v)) ?? `/theme-assets/${encodeURIComponent(str(v))}`,
   asset_img_url: (v, [size], _k, ctx) => sized(reg(ctx).assetUrl?.(str(v)) ?? "", String(size ?? "").split("x")[0]),
-  global_asset_url: (v, _a, _k, ctx) => reg(ctx).assetUrl?.(str(v)) ?? "",
-  shopify_asset_url: (v, _a, _k, ctx) => reg(ctx).assetUrl?.(str(v)) ?? "",
+  /* Shopify's own helper scripts (option_selection.js, api.jquery.js...) are Storelib's (shopify-global-assets.ts). */
+  global_asset_url: (v, _a, _k, ctx) => shopifyGlobalAssetUrl(str(v)) ?? reg(ctx).assetUrl?.(str(v)) ?? "",
+  shopify_asset_url: (v, _a, _k, ctx) => shopifyGlobalAssetUrl(str(v)) ?? reg(ctx).assetUrl?.(str(v)) ?? "",
   file_url: (v, _a, _k, ctx) => reg(ctx).fileUrl?.(str(v)) ?? "",
   file_img_url: (v, [size], _k, ctx) => sized(reg(ctx).fileUrl?.(str(v)) ?? "", String(size ?? "").split("x")[0]),
   image_url: (v, _a, kw) => sized(imageSrc(v), kw.width, kw.height),

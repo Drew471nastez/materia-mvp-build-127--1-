@@ -1,0 +1,8 @@
+{ "type": "footer", "name": "Footer group", "sections": { "footer": { "type": "footer", "settings": { "menu": "footer" }, "blocks": {
+  "l1": { "type": "link", "settings": { "label": "About us", "link": "shopify://pages/about-us" } },
+  "l2": { "type": "link", "settings": { "label": "Contact", "link": "https://posturex.myshopify.com/pages/contact" } },
+  "l3": { "type": "link", "settings": { "label": "Journal", "link": "shopify://blogs/news" } },
+  "l4": { "type": "link", "settings": { "label": "Refunds", "link": "shopify://policies/refund-policy" } },
+  "l5": { "type": "link", "settings": { "label": "Correctors", "link": "shopify://collections/posture-correctors" } },
+  "l6": { "type": "link", "settings": { "label": "Instagram", "link": "https://instagram.com/posturex" } }
+}, "block_order": ["l1", "l2", "l3", "l4", "l5", "l6"] } }, "order": ["footer"] }

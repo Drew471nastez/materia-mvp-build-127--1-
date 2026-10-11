@@ -40,6 +40,7 @@ import { templateOfPage } from "./install"
 import { assetType, binaryOf } from "./install"
 import { renderString } from "./runtime"
 import { facet } from "./facets"
+import { linkFactsOf, siteLink } from "./links"
 import { CLEAR_CART_PARAM } from "@/lib/checkout/basket-link"
 import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
 import { fixThemeCss } from "./css-fixes"
@@ -53,6 +54,8 @@ export interface SiteData {
   theme: CompatTheme
   /** The published page rows, by key. */
   pages: Record<string, StoredSection[]>
+  /** Every page key the site has, where `pages` holds only some of them (the builder's canvas). */
+  pageKeys?: string[]
   products: (CardLike & { descriptionHtml?: string })[]
   /** Every published product a picker may name (memberships and tiers included). */
   pickable?: CardLike[]
@@ -229,7 +232,20 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
 
   /* ── pages ── */
   const route = await pageFor(site, path, req)
-  if (!route) return notFound(site, req)
+  if (!route) {
+    /*
+      AN ADDRESS OF THE STORE THE THEME CAME FROM (a collection, a product, a
+      blog it had, its own domain's path with a locale in front) is sent on,
+      once, to the place on this site it meant (./links.ts). Any other address
+      that is not a page stays this site's 404.
+    */
+    const meant = method === "GET" && !req.ajax && !req.query.get("section_id") && !req.query.get("sections") ? siteLink(path, linkFactsOf({ pageKeys: siteKeys(site), products: site.products, pickable: site.pickable, collections: site.collections, shop: site.shop }), { pageFallback: false }) : path
+    if (meant !== path && meant.startsWith("/")) {
+      const q = req.query.toString()
+      return redirect(`${meant}${q ? `?${q}` : ""}`)
+    }
+    return notFound(site, req)
+  }
   if (route.redirect) return redirect(route.redirect)
   const sectionId = req.query.get("section_id")
   const sections = req.query.get("sections")
@@ -455,9 +471,13 @@ f.addEventListener("load",function(){try{var d=f.contentDocument;if(d&&d.head&&!
   return shell(site, req, path, title, content, path === "/wishlist" ? "page" : "customers/account")
 }
 
+/** The site's page keys: the builder's own list where it gives one (its canvas holds one page at a time), else the pages held. */
+const siteKeys = (site: SiteData): string[] => site.pageKeys ?? Object.keys(site.pages)
+
 function basePage(site: SiteData, req: SiteRequest, extra: Partial<CompatPage> & { template: string; path: string }): CompatPage {
   return {
     designMode: site.designMode === true,
+    pageKeys: siteKeys(site),
     host: site.host,
     query: Object.fromEntries(req.query.entries()),
     products: site.products,
