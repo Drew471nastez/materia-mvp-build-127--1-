@@ -18,12 +18,16 @@ import * as React from "react"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { usePhoneWidth } from "@/components/ui/choice-list"
 import { EXPLAINERS, type ExplainerArt, type ExplainerId } from "@/lib/settings/explainers"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { cn } from "@/lib/utils"
 
 export function HowItWorks({ id, className, label = "How it works" }: { id: ExplainerId; className?: string; label?: string }) {
   const [open, setOpen] = React.useState(false)
   const phone = usePhoneWidth()
   const e = EXPLAINERS[id]
+  /* The physical products guide is not found while physical commerce is off, so its link is offered only while it is on. */
+  const physical = usePhysicalCommerceEnabled()
+  const guide = "guide" in e && e.guide && (physical || !e.guide.startsWith("/help/physical-products/")) ? e.guide : null
   return (
     <>
       <button
@@ -56,8 +60,8 @@ export function HowItWorks({ id, className, label = "How it works" }: { id: Expl
             ))}
           </div>
           <div className="mt-5 flex items-center justify-end gap-2">
-            {"guide" in e && e.guide ? (
-              <a href={e.guide} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg px-3 text-[13.5px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
+            {guide ? (
+              <a href={guide} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg px-3 text-[13.5px] font-medium text-[#1a1a2e] underline-offset-2 hover:underline">
                 Read the guide
               </a>
             ) : null}

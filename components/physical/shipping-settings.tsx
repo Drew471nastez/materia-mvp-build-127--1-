@@ -233,7 +233,7 @@ export function ShippingSettings({ part = "delivery" }: { part?: ShippingPart })
 
       <p className="text-[13px] text-[#6b7280]">
         New to selling physical products?{" "}
-        <a href="/help/physical-products/how-physical-products-work" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
+        <a href="/help/physical-products/zero-to-100" target="_blank" rel="noreferrer" className="font-medium text-[#1a1a2e] underline underline-offset-2">
           Read the step by step guide
         </a>
       </p>

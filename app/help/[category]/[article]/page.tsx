@@ -1,7 +1,7 @@
 import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ALL_HELP_ARTICLES, helpArticle, helpArticlePath, helpArticlesIn, helpCategory, helpVisible } from "@/lib/help/articles"
+import { ALL_HELP_ARTICLES, helpArticle, helpArticlePath, helpCategory, helpSectionsIn, helpVisible } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { ArticleBody, Breadcrumbs, ContactSupport, HELP_READING } from "@/components/help/help-parts"
 import { HelpSearch } from "@/components/help/help-search"
@@ -37,7 +37,13 @@ export default async function HelpArticlePage({ params }: PageProps) {
   const article = helpArticle(categorySlug, slug)
   const category = helpCategory(categorySlug)
   if (!article || !category || !helpVisible(category, await isPhysicalCommerceEnabled())) notFound()
-  const siblings = helpArticlesIn(category.slug)
+  /*
+    The articles beside this one. A topic read in groups (the physical
+    products guide has thirty articles in sixteen) lists only this article's
+    group, and the way to the rest is the topic's own page.
+  */
+  const own = helpSectionsIn(category.slug).find((g) => g.articles.some((a) => a.slug === article.slug))
+  const sideGroups = own ? [own] : []
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -79,25 +85,35 @@ export default async function HelpArticlePage({ params }: PageProps) {
               {category.title}
             </Link>
           </h2>
-          <ul className="mt-3 space-y-1 border-l border-[#e5e7eb]">
-            {siblings.map((a) => {
-              const current = a.slug === article.slug
-              return (
-                <li key={a.slug}>
-                  <Link
-                    href={helpArticlePath(a)}
-                    aria-current={current ? "page" : undefined}
-                    className={cn(
-                      "-ml-px block border-l py-1.5 pl-4 text-[14px] leading-snug transition-colors",
-                      current ? "border-[#1a1a2e] font-medium text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:border-[#d1d5db] hover:text-[#1a1a2e]",
-                    )}
-                  >
-                    {a.title}
-                  </Link>
-                </li>
-              )
-            })}
-          </ul>
+          {sideGroups.map((group) => (
+            <div key={group.title ?? "all"} className={group.title ? "mt-3" : ""}>
+              {group.title ? <h3 className="mb-1.5 text-[12.5px] font-medium text-[#9ca3af]">{group.title}</h3> : null}
+              <ul className={cn("space-y-1 border-l border-[#e5e7eb]", group.title ? "mt-1" : "mt-3")}>
+                {group.articles.map((a) => {
+                  const current = a.slug === article.slug
+                  return (
+                    <li key={a.slug}>
+                      <Link
+                        href={helpArticlePath(a)}
+                        aria-current={current ? "page" : undefined}
+                        className={cn(
+                          "-ml-px block border-l py-1.5 pl-4 text-[14px] leading-snug transition-colors",
+                          current ? "border-[#1a1a2e] font-medium text-[#1a1a2e]" : "border-transparent text-[#6b7280] hover:border-[#d1d5db] hover:text-[#1a1a2e]",
+                        )}
+                      >
+                        {a.title}
+                      </Link>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          ))}
+          {own?.title ? (
+            <Link href={`/help/${category.slug}`} className="mt-4 inline-block text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
+              Every {category.title.toLowerCase()} article
+            </Link>
+          ) : null}
         </nav>
       </div>
     </div>
