@@ -434,7 +434,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     body: [
       { type: "steps", items: [
         "Open Orders and press the order.",
-        "Open its menu and choose Refund.",
+        "Press Refund in the payment card, or open More actions at the top and choose Refund.",
         "Enter the amount, up to what has not been refunded yet, and a reason.",
         "Confirm.",
       ] },
