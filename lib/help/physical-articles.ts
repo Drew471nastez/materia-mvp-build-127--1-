@@ -1406,7 +1406,7 @@ const ARTICLES: Article[] = [
         type: "steps",
         items: [
           "Open Orders and press the order.",
-          "Press More actions at the top (the three dots on a phone) and choose Refund.",
+          "Press Refund in the payment card, or open More actions at the top (the three dots on a phone) and choose Refund.",
           "If the order has more than one product, pick the one you're refunding.",
           "Type the amount, up to what hasn't been refunded yet.",
           "Pick a reason from your refund reasons, and press Refund.",
@@ -1421,6 +1421,7 @@ const ARTICLES: Article[] = [
           "The amount comes out of your balance. Storelib's fee on the sale is not returned.",
           "A full refund before anything was sent puts the stock back on sale and cancels the order. A partial refund, or one after sending, leaves stock alone: mark a return received to put items back.",
           "You can refund the same order more than once, until all of it is refunded.",
+          "Only the store's owner can refund. A team member working in Orders doesn't see Refund.",
         ],
       },
       { type: "h", text: "Refund reasons" },

@@ -7,7 +7,7 @@ import { HelpSearch } from "@/components/help/help-search"
 import { jsonLdScript } from "@/lib/seo/json-ld"
 import { helpHomeJsonLd } from "@/lib/help/structured-data"
 
-const DESCRIPTION = "Answers and step by step guides for selling on Storelib: products, physical products and shipping, orders and payouts, your website, email, billing and policies."
+const DESCRIPTION = "Step by step guides and answers for selling on Storelib: products, shipping, orders and payouts, your website, email, billing and policies."
 
 export const metadata: Metadata = {
   title: { absolute: "Storelib Help Center: guides and answers" },
@@ -96,12 +96,12 @@ export default async function HelpPage() {
                   </Link>
                 </h3>
                 <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">{category.description}</p>
-                <ul className="mt-4 space-y-2.5">
+                <ul className="mt-3 space-y-0.5">
                   {articles.slice(0, 4).map((a) => (
                     <li key={a.slug}>
                       <Link
                         href={helpArticlePath(a)}
-                        className="text-[14.5px] leading-snug text-[#1a1a2e] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[#1a1a2e]/40"
+                        className="block py-1.5 text-[14.5px] leading-snug text-[#1a1a2e] underline decoration-transparent underline-offset-2 transition-colors hover:decoration-[#1a1a2e]/40"
                       >
                         {a.title}
                       </Link>
@@ -109,7 +109,7 @@ export default async function HelpPage() {
                   ))}
                 </ul>
                 {articles.length > 4 && (
-                  <Link href={`/help/${category.slug}`} className="mt-3 inline-block text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
+                  <Link href={`/help/${category.slug}`} className="mt-2 inline-block py-1.5 text-[14px] font-medium text-[#6d28d9] hover:underline hover:underline-offset-2">
                     All {articles.length} articles
                   </Link>
                 )}

@@ -137,7 +137,7 @@ const guideText = P.map((a) => articleText(a)).join(" ")
 for (const words of ["Fulfill items", "Send shipment details to the buyer", "Mark as delivered", "Mark ready for pickup", "Mark picked up", "Not ready after all", "Cancel fulfillment", "Edit tracking", "Email the buyer the new number", "Mark as in progress", "Packing slip", "Start return", "Mark as in transit", "Cancel order", "Tell the buyer it's ready"]) {
   check(`order page: "${words}" is on the screen and in the guide`, orderPanel.includes(words) && guideText.includes(words))
 }
-check("Refund lives under More actions on the order", orderDetail.includes('label: "Refund"') && orderDetail.includes("More actions") && text("refund-a-physical-order").includes("More actions"))
+check("Refund lives under More actions and in the payment card, and only the owner sees it", orderDetail.includes('label: "Refund"') && orderDetail.includes("More actions") && /canRefund && refundable/.test(orderDetail) && text("refund-a-physical-order").includes("More actions") && text("refund-a-physical-order").includes("payment card") && text("refund-a-physical-order").includes("Only the store's owner can refund"))
 check("the guide no longer says Mark as shipped, which the order page doesn't have", !/Mark as shipped/.test(guideText) && !orderPanel.includes(">Mark as shipped<"))
 const store = read("components/app/settings/store-details-panel.tsx")
 for (const words of ["Choose a logo", "Store name", "Contact email", "Where your store is based", "Where orders ship from"]) check(`store details: "${words}"`, store.includes(words) && text("store-details").includes(words))
