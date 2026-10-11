@@ -25,6 +25,9 @@ import { ProjectSettings } from "@/components/website-builder/project-settings"
 import type { SettingsSection } from "@/components/website-builder/website-settings/types"
 import { SiteCheckout } from "@/app/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
+import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
+import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
+import { lowStockEmail, shipmentEmail } from "@/lib/physical/email-templates"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -105,16 +108,16 @@ function order(kind: "new" | "shipped" | "pickup") {
   return {
     deliveryMethod: pickup ? "pickup" : "ship",
     pickup: pickup ? { locationId: LOC, name: "Studio", address: ["120 Alder Street", "Portland, OR 97204", "United States"], instructions: location1.pickupInstructions, ready: "24h" } : null,
-    processingAt: null,
+    processingAt: null, buyerName: "Sam Rivera", buyerPhone: null,
     id: PRODUCT, status: "paid", fulfillmentStatus: shipped ? "fulfilled" : "unfulfilled", returnStatus: "none", currency: "USD", totalCents: 11400, refundedCents: 0, shippingCents: pickup ? 0 : 600, shippingDiscountCents: 0,
     address: pickup ? null : { name: "Sam Rivera", line1: "48 Maple Avenue", city: "Denver", region: "CO", postalCode: "80203", country: "US" },
     delivery: pickup ? null : { name: "Standard", priceCents: 600, minDays: 3, maxDays: 5 },
     buyerNote: "It's a gift, please leave the price off.", merchantNote: null, cancelledAt: null,
     lines: [
-      { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", sku: "MUG-12-S", imageUrl: MUG_SAND, type: "physical", quantity: 2, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 6400, refundedCents: 0 },
-      { orderId: "22222222-2222-4222-8222-222222222222", title: "Serving bowl", variantName: null, sku: "BOWL-L", imageUrl: BOWL, type: "physical", quantity: 1, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 1 : 0, returned: 0, amountCents: 4400, refundedCents: 0 },
+      { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", sku: "MUG-12-S", imageUrl: MUG_SAND, type: "physical", quantity: 2, unitCents: 3200, discountCents: 0, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 2 : 0, returned: 0, amountCents: 6400, refundedCents: 0 },
+      { orderId: "22222222-2222-4222-8222-222222222222", title: "Serving bowl", variantName: null, sku: "BOWL-L", imageUrl: BOWL, type: "physical", quantity: 1, unitCents: 4400, discountCents: 0, requiresShipping: true, locationId: LOC, fulfillmentMethod: "self", fulfilled: shipped ? 1 : 0, returned: 0, amountCents: 4400, refundedCents: 0 },
     ],
-    shipments: shipped ? [{ id: "f1", status: "shipped", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, locationId: LOC, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }, { orderId: "22222222-2222-4222-8222-222222222222", quantity: 1 }] }] : [],
+    shipments: shipped ? [{ id: "f1", status: "shipped", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, createdAt: "2026-10-08T15:00:00Z", locationId: LOC, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }, { orderId: "22222222-2222-4222-8222-222222222222", quantity: 1 }] }] : [],
     returns: [],
     events: [
       { id: 2, kind: "email.sent", message: "Order confirmation emailed to the buyer", actor: "system", createdAt: "2026-10-07T10:00:05Z" },
@@ -168,7 +171,7 @@ const channels = {
   ],
 }
 
-const store = { settings: { storeName: "Fern & Clay", phone: null, phoneCountry: null, defaultCountry: "US", checkout: { nameFields: "first_and_last", phone: "optional", company: "off", address2: "optional", marketingOptIn: true, abandonedRecovery: true, requireAccount: false, requireConfirmedEmail: false }, defaultSalesChannelId: null, ready: true }, detectedCountry: "US", supportEmail: "hello@fernandclay.example", currency: "USD" }
+const store = { settings: { storeName: "Fern & Clay", phone: "5035550142", phoneCountry: "US", defaultCountry: "US", logoUrl: null, checkout: { nameFields: "first_and_last", phone: "optional", company: "off", address2: "optional", marketingOptIn: true, abandonedRecovery: true, requireAccount: false, requireConfirmedEmail: false }, defaultSalesChannelId: null, ready: true }, detectedCountry: "US", supportEmail: "hello@fernandclay.example", currency: "USD", suggested: { storeName: "Fern & Clay", contactEmail: "hello@fernandclay.example" }, logoDefault: null }
 
 import { DEFAULT_RETURN_REASONS, DEFAULT_REFUND_REASONS } from "@/lib/store/reasons"
 const reasons = { ready: true, return: DEFAULT_RETURN_REASONS.map((r, i) => ({ ...r, id: `rr${i}` })), refund: DEFAULT_REFUND_REASONS.map((r, i) => ({ ...r, id: `rf${i}` })) }
@@ -212,6 +215,10 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/physical/inventory")) return inventory
   if (path.startsWith("/api/physical/transfers")) return { transfers: [] }
   if (path.startsWith("/api/physical/orders/")) return { order: order(params.get("order") === "shipped" ? "shipped" : params.get("order") === "pickup" ? "pickup" : "new"), locations: [{ id: LOC, name: "Studio" }] }
+  if (path === "/api/store/integrations/catalog") return { overrides: [] }
+  if (path.startsWith("/api/store/integrations")) return { tracking: { ga4: "G-1A2B3C4D5E" }, ready: true }
+  if (path.startsWith("/api/physical/integrations")) return { integrations: [] }
+  if (path.startsWith("/api/store/reviews-app")) return { settings: { enabled: false } }
   if (path.startsWith("/api/store/taxes")) return taxes
   if (path.startsWith("/api/store/channels")) return channels
   if (path.startsWith("/api/store/settings")) return store
@@ -327,6 +334,29 @@ function SiteCheckoutView() {
   )
 }
 
+/** A real email, as its template writes it, in a frame the size of an email client's reading pane. */
+function EmailView({ html }: { html: string }) {
+  const ref = React.useRef<HTMLIFrameElement | null>(null)
+  const [h, setH] = React.useState(900)
+  return (
+    <div id="shot" style={{ background: "#f8f9fa", padding: 0 }}>
+      <iframe
+        ref={ref}
+        title="Email"
+        srcDoc={html}
+        style={{ display: "block", width: "100%", height: h, border: 0 }}
+        onLoad={() => {
+          const d = ref.current?.contentDocument
+          if (!d) return
+          /* The email's own card: the largest box with rounded corners. The frame ends a little under it. */
+          const card = [...d.querySelectorAll<HTMLElement>("table, td, div")].filter((e) => parseFloat(getComputedStyle(e).borderTopLeftRadius) > 0).sort((a, b) => b.offsetWidth * b.offsetHeight - a.offsetWidth * a.offsetHeight)[0]
+          setH(Math.ceil(card ? card.getBoundingClientRect().bottom + 32 : d.documentElement.scrollHeight))
+        }}
+      />
+    </div>
+  )
+}
+
 function App() {
   switch (view) {
     case "site-checkout":
@@ -392,6 +422,23 @@ function App() {
             } as never}
           />
         </div>
+      )
+    case "store":
+      return <Page width={760}><StoreDetailsPanel /></Page>
+    case "integrations":
+      return <Page width={980}><IntegrationsDirectory /></Page>
+    case "email-low-stock":
+      return <EmailView html={lowStockEmail({ shopName: "Fern & Clay", inventoryUrl: "https://storelib.com/app/inventory?filter=low", items: [{ title: "Speckled mug", variantName: "12 oz / Ink", available: 0, threshold: 3 }, { title: "Speckled mug", variantName: "16 oz / Ink", available: 3, threshold: 3 }, { title: "Linen apron", variantName: null, available: 4, threshold: 5 }] }).html} />
+    case "email-shipped":
+      return (
+        <EmailView
+          html={shipmentEmail({
+            kind: "shipped", shopName: "Fern & Clay", orderNumber: "#0F3A9C2E", buyerFirstName: "Sam", carrier: "USPS", trackingNumber: "9400100000000000000000",
+            trackingUrl: "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400100000000000000000", statusUrl: "https://fernandclay.storelib.com/checkout/order",
+            address: { name: "Sam Rivera", line1: "48 Maple Avenue", city: "Denver", region: "CO", postalCode: "80203", country: "US" }, deliveryName: "Standard, 3 to 5 business days",
+            lines: [{ title: "Speckled mug", variantName: "12 oz / Sand", quantity: 2, cents: 6400, imageUrl: null }, { title: "Serving bowl", variantName: null, quantity: 1, cents: 4400, imageUrl: null }] as never,
+          }).html}
+        />
       )
     case "taxes":
       return <Page width={760}><TaxesPanel /></Page>

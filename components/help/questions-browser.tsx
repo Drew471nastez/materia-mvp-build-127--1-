@@ -147,7 +147,7 @@ function Question({ q, open, onToggle }: { q: HelpQuestion; open: boolean; onTog
       <h3>
         <button type="button" aria-expanded={open} aria-controls={panel} onClick={onToggle} className="flex w-full items-start justify-between gap-4 px-4 py-4 text-left sm:px-5">
           <span className="text-[15.5px] font-medium leading-6 text-[#1a1a2e]">{q.q}</span>
-          <ChevronDown aria-hidden className={cn("mt-1 h-4 w-4 shrink-0 text-[#9ca3af] transition-transform duration-300 ease-out", open && "rotate-180")} />
+          <ChevronDown aria-hidden className={cn("mt-1 h-4 w-4 shrink-0 text-[#9ca3af] transition-[translate] duration-300 ease-out", open && "rotate-180")} />
         </button>
       </h3>
       {/* Opens by its own height (grid rows 0fr to 1fr), so the answer slides rather than jumps. */}

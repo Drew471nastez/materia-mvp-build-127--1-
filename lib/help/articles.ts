@@ -35,7 +35,14 @@ export type HelpBlock =
    * lib/help/physical-shots.ts). `width` and `height` are its size in CSS
    * pixels, so the page keeps its space while it loads.
    */
-  | { type: "image"; src: string; alt: string; caption?: string; width: number; height: number }
+  | { type: "image"; src: string; alt: string; caption?: string; width: number; height: number; phone?: HelpPicture }
+
+/** A second picture of the same screen, taken at phone width, shown instead on a narrow screen. */
+export interface HelpPicture {
+  src: string
+  width: number
+  height: number
+}
 
 export interface HelpCategory {
   slug: string
@@ -55,6 +62,12 @@ export interface HelpArticle {
   keywords?: string[]
   /** A group inside a big topic (the physical products guide), shown as a heading on the topic's page. */
   section?: string
+  /** When the article was last checked against the product (YYYY-MM-DD): the page's date, the sitemap's lastmod. */
+  updated?: string
+  /** Other articles to read next, as slugs in the same topic or "topic/slug". */
+  related?: string[]
+  /** Its headings are questions and the paragraph under each is the answer: marked up as an FAQ for search engines. */
+  faq?: boolean
   body: HelpBlock[]
 }
 
@@ -712,7 +725,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     body: [
       { type: "list", items: [
         "Your download is on the receipt page linked from your receipt email. If you bought while signed in, it is also in your [Library](/account/library).",
-        "Refunds are decided by the creator who sold the product, following the refund policy on its page. Press Get help with this order on your receipt or order page: it goes to the store, and Storelib can step in if it isn't sorted out. See [What happens if...](/help/questions).",
+        "Refunds are decided by the creator who sold the product, following the refund policy on its page. Press Get help with this order on your receipt or order page: it goes to the store, and Storelib can step in if it isn't sorted out. See [Order problems, answered](/help/questions).",
         "If you cannot find the receipt email, check spam, then ask the creator to resend it: they can send it again, or to a corrected address.",
       ] },
       { type: "p", text: "If you cannot reach the creator, email [support@storelib.com](mailto:support@storelib.com) with the product and the email address you paid with." },
@@ -821,3 +834,91 @@ export function articleText(a: HelpArticle): string {
   }
   return parts.map(plainText).join(" ")
 }
+
+/* ── For the article page: its contents, its neighbours, what to read next ── */
+
+/** A heading's id on the page, from its words: "Set up your General profile" is #set-up-your-general-profile. */
+export function headingId(text: string): string {
+  return (
+    plainText(text)
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60) || "section"
+  )
+}
+
+/** The article's headings, in order, each with the id the page gives it (a repeated heading gets -2, -3). */
+export function helpToc(a: HelpArticle): { id: string; text: string }[] {
+  const seen = new Map<string, number>()
+  const out: { id: string; text: string }[] = []
+  for (const b of a.body) {
+    if (b.type !== "h") continue
+    const base = headingId(b.text)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    out.push({ id: n === 1 ? base : `${base}-${n}`, text: plainText(b.text) })
+  }
+  return out
+}
+
+/** The article before and after this one in its topic's reading order. */
+export function helpNeighbours(a: HelpArticle): { previous: HelpArticle | null; next: HelpArticle | null } {
+  const list = helpArticlesIn(a.category)
+  const i = list.findIndex((x) => x.slug === a.slug)
+  return { previous: i > 0 ? list[i - 1] : null, next: i >= 0 && i < list.length - 1 ? list[i + 1] : null }
+}
+
+/**
+ * What to read next: the article's own picks first, then the others in its
+ * group, never itself or the two the previous and next links already show.
+ */
+export function helpRelated(a: HelpArticle, limit = 4): HelpArticle[] {
+  const { previous, next } = helpNeighbours(a)
+  const skip = new Set([a, previous, next].filter(Boolean).map((x) => helpArticlePath(x!)))
+  const out: HelpArticle[] = []
+  const add = (x: HelpArticle | undefined) => {
+    if (!x || skip.has(helpArticlePath(x)) || out.includes(x)) return
+    out.push(x)
+  }
+  for (const r of a.related ?? []) {
+    const [cat, slug] = r.includes("/") ? r.split("/") : [a.category, r]
+    add(helpArticle(cat, slug))
+  }
+  if (a.section) for (const x of helpArticlesIn(a.category)) if (x.section === a.section) add(x)
+  return out.slice(0, limit)
+}
+
+/** About how long it takes to read, at 200 words a minute. */
+export function readingMinutes(a: HelpArticle): number {
+  return Math.max(1, Math.round(words(articleText(a)) / 200))
+}
+const words = (t: string) => t.split(/\s+/).filter(Boolean).length
+
+/** Every screenshot in an article, for its social card and its sitemap row. */
+export function helpImages(a: HelpArticle): string[] {
+  return a.body.filter((b): b is Extract<HelpBlock, { type: "image" }> => b.type === "image").map((b) => b.src)
+}
+
+/**
+ * ARTICLES THAT MOVED. An address already shared, emailed or indexed keeps
+ * working: the article page sends it on, for good, to where the article is
+ * now. "topic/old-slug" to "topic/new-slug".
+ */
+export const HELP_MOVED: Record<string, string> = {
+  "physical-products/tax-and-units": "physical-products/units-and-packages",
+}
+
+/** The articles most people come for, first on the Help Center's home. The physical ones show only while the guide is on. */
+export const POPULAR_HELP: string[] = [
+  "physical-products/zero-to-100",
+  "orders-and-payouts/connect-stripe",
+  "physical-products/shipping-profiles-zones-and-rates",
+  "orders-and-payouts/how-payouts-work",
+  "physical-products/ship-your-orders",
+  "website-builder/custom-domain",
+  "physical-products/taxes",
+  "products/create-a-product",
+]

@@ -8,10 +8,10 @@ import { jsonLdScript } from "@/lib/seo/json-ld"
 const DESCRIPTION = "What happens when an order can't be filled, a parcel goes missing, a buyer wants a refund or can't find a download, and what to do, for stores and for buyers."
 
 export const metadata: Metadata = {
-  title: "What happens if... | Help Center",
+  title: { absolute: "Order problems, answered for stores and buyers | Storelib Help Center" },
   description: DESCRIPTION,
   alternates: { canonical: "/help/questions" },
-  openGraph: { title: "What happens if... | Storelib Help Center", description: DESCRIPTION, url: "/help/questions", siteName: "Storelib", type: "website" },
+  openGraph: { title: "Order problems, answered", description: DESCRIPTION, url: "/help/questions", siteName: "Storelib Help Center", type: "website" },
 }
 
 /* The physical questions follow the switch in /admin, like the rest of the physical guide. */
@@ -36,7 +36,7 @@ export default async function HelpQuestionsPage() {
       <header className="border-b border-[#e5e7eb] bg-[#f8f9fa]">
         <div className={`${HELP_CONTAINER} py-8 sm:py-12`}>
           <Breadcrumbs items={[{ label: "Help Center", href: "/help" }]} />
-          <h1 className="mt-4 text-[28px] font-bold tracking-tight text-[#1a1a2e] sm:text-[32px]">What happens if...</h1>
+          <h1 className="mt-4 text-[28px] font-bold tracking-tight text-[#1a1a2e] sm:text-[32px]">Order problems, answered</h1>
           <p className="mt-2 max-w-[62ch] text-[15px] leading-relaxed text-[#6b7280]">
             The questions stores and buyers ask most, answered for both sides: what happens, what the store does, and what the buyer does.
           </p>
