@@ -31,10 +31,23 @@ import { useModalPhone } from "@/components/physical/ui"
 import { primaryDepth, secondaryDepth } from "@/components/ui/depth-button"
 import { cn } from "@/lib/utils"
 import { takeTraversal } from "@/lib/ui/app-navigation"
+import { backThen } from "@/lib/navigation/go-back"
 import { discardAllUnsaved, hasUnsaved, requestLeave, saveAllUnsaved, setLeaveAsker, subscribeUnsaved } from "@/lib/settings/unsaved-guard"
 
 /** The extra history entry's mark (see Back, above). */
 const GUARD_KEY = "__settingsUnsaved"
+
+/*
+  TAKING THE EXTRA ENTRY OFF IS NOT A BACK TO ANYWHERE. It has Settings' own
+  address, so nothing lands and there is nothing for the back watch
+  (lib/navigation/go-back backThen) to wait for, and its fallback (leaving for
+  the dashboard) would be exactly wrong. So it is a plain step of the history,
+  and the popstate it makes is ignored here. A Back that really leaves goes
+  through backThen.
+*/
+function dropGuardEntry() {
+  window.history.go(-1)
+}
 
 export function useHasUnsaved(): boolean {
   return React.useSyncExternalStore(subscribeUnsaved, hasUnsaved, () => false)
@@ -44,6 +57,8 @@ export function SettingsLeaveGuard() {
   const router = useRouter()
   const phone = useModalPhone()
   const dirty = useHasUnsaved()
+  const routerRef = React.useRef(router)
+  routerRef.current = router
   const [pending, setPending] = React.useState<null | (() => void)>(null)
   const [busy, setBusy] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
@@ -116,7 +131,7 @@ export function SettingsLeaveGuard() {
       if (!hasUnsaved()) return
       requestLeave(() => {
         ignorePop.current = false
-        window.history.back()
+        backThen(() => routerRef.current.replace("/app"))
       })
     }
     window.addEventListener("popstate", onPop)
@@ -131,7 +146,7 @@ export function SettingsLeaveGuard() {
       if ((window.history.state as Record<string, unknown> | null)?.[GUARD_KEY]) {
         guarded.current = false
         ignorePop.current = true
-        window.history.back()
+        dropGuardEntry()
       } else guarded.current = false
     }, 600)
     return () => window.clearTimeout(t)
@@ -161,7 +176,7 @@ export function SettingsLeaveGuard() {
     if (guarded.current && (window.history.state as Record<string, unknown> | null)?.[GUARD_KEY]) {
       guarded.current = false
       ignorePop.current = true
-      window.history.back()
+      dropGuardEntry()
       window.setTimeout(go, 60)
       return
     }

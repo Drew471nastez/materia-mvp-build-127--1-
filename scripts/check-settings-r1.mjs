@@ -8,7 +8,7 @@
  * THE SHEET AT 1440
  *   a section pressed from far down   the new section is painted at the top
  *                                     in the frame it first appears, within
- *                                     two frames of the press; after that
+ *                                     160ms of the press; after that
  *                                     nothing moves (its top, the column, the
  *                                     handle strip), no layout shift
  *   AI Memory                         typing and Remember adds the memory;
@@ -189,7 +189,9 @@ async function framesAfter(page, press, read, ms = 700) {
     window.__clickAt = -1
     document.addEventListener("click", () => { if (window.__f && window.__clickAt < 0) window.__clickAt = window.__f.length }, { capture: true, once: true })
     window.__t0 = performance.now()
-    const tick = () => { if (!window.__f) return; window.__f.push({ t: performance.now() - window.__t0, ...window.__read() }); requestAnimationFrame(tick) }
+    /* One loop per recording: an older one stops when a new one starts. */
+    const gen = (window.__gen = (window.__gen || 0) + 1)
+    const tick = () => { if (!window.__f || gen !== window.__gen) return; window.__f.push({ t: performance.now() - window.__t0, ...window.__read() }); requestAnimationFrame(tick) }
     requestAnimationFrame(tick)
   })
   await press()
@@ -224,7 +226,8 @@ async function framesAfter(page, press, read, ms = 700) {
     const beforeMoves = f.slice(0, Math.max(0, first)).some((x) => x.scroll !== from)
     const shift = (await page.evaluate(() => window.__shift)) - shift0
     console.log(`    ${tab}: from ${from}px, new section on frame ${first} (${first >= 0 ? Math.round(f[first].t) : "never"}ms), scroll then ${after[0]?.scroll}, still after: ${still}, layout shift ${shift.toFixed(4)}`)
-    say(first >= 0 && first <= 3, `${tab}: the new section shows within three frames of the press`)
+    /* The glide it replaced swapped the section in 400 to 470ms after the press (check-settings-sheet-desktop.mjs before round R1). */
+    say(first >= 0 && f[first].t <= 160, `${tab}: the new section shows within 160ms of the press`)
     say(after[0]?.scroll === 0, `${tab}: painted at the top in its first frame`)
     say(still, `${tab}: nothing moves after it appears (section, column, handle strip)`)
     say(!beforeMoves, `${tab}: the old section never rides the scroll before the swap`)

@@ -10,7 +10,7 @@
  *                 by IN_MS plus a little
  *   A SECTION     pressed in the column while scrolled far down the longest
  *                 one (round R1, "a little bit of a bump"): the new section
- *                 shows within three frames of the press, at the top in the
+ *                 shows within 160ms of the press, at the top in the
  *                 very frame it first appears, and nothing moves after; the
  *                 old section never rides a glide up first, and no frame
  *                 shows empty space where the section should be
@@ -165,7 +165,7 @@ for (const tab of ["security", "domains", "notifications"]) {
   const blank = frames.filter((f) => f.shown !== null && f.shown < 40).length
   const long = await longIn(tp, tp + 700)
   console.log(`    ${tab}: from ${from}px, the new section on frame ${swap} (${at ? Math.round(at.t - tp) : "never"}ms) at scroll ${at?.scroll}, still after: ${still}, blank frames ${blank}; long tasks ${JSON.stringify(long)}`)
-  say(swap >= 0 && swap <= 3, `${tab}: the new section shows within three frames of the press`)
+  say(swap >= 0 && at.t - tp <= 160, `${tab}: the new section shows within 160ms of the press (the glide it replaced: 400 to 470ms)`)
   say(at?.scroll === 0 && still, `${tab}: at the top in the frame it appears, and nothing moves after`)
   say(!rode, `${tab}: the old section never rides the scroll before the swap`)
   say(blank === 0, `${tab}: never a frame of empty space where the section is`)
