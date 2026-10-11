@@ -9,7 +9,7 @@
 import * as React from "react"
 import { FileImage, Package, Settings2, ShoppingBag } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { BTN_SECONDARY, Card, Notice, api, peekGet, prefetchGet } from "@/components/physical/ui"
+import { BTN_SECONDARY, Card, Notice, api, peekGet, prefetchGet, readFresh } from "@/components/physical/ui"
 import { GROUP_LABELS, actorLabel, describeActivity, groupOf, type ActivityEntry, type ActivityGroup } from "@/lib/activity/actions"
 
 type Filter = "all" | ActivityGroup
@@ -86,8 +86,8 @@ export function ActivityPanel() {
     let live = true
     setError(null)
     const path = pathOf(filter)
-    prefetchGet([path])
-    void api<Page>(path).then((r) => {
+    /* Drawn from what is kept, and always read again behind it: a change made a moment ago elsewhere shows up here. */
+    void readFresh<Page>(path).then((r) => {
       if (!live) return
       if (!r.ok) return setError(r.error)
       setLists((l) => ({ ...l, [filter]: r.data }))

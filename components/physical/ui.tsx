@@ -295,6 +295,11 @@ export function whenGets(paths: string[]): Promise<void> {
   return Promise.all(waiting.map((p) => kept.get(p)?.result.catch(() => null) ?? Promise.resolve(null))).then(() => undefined)
 }
 
+/** Read this now even if a fresh answer is kept, and keep what comes back: for a panel whose list changes behind it (Activity). */
+export function readFresh<T>(path: string): Promise<ApiResult<T>> {
+  return keep(path) as Promise<ApiResult<T>>
+}
+
 /** What a prefetch already brought back for this address, for a panel's first draw: the last good answer, however old. */
 export function peekGet<T>(path: string): T | null {
   const e = kept.get(path)
@@ -305,7 +310,8 @@ export function peekGet<T>(path: string): T | null {
 function refreshAfterWrite(path: string): void {
   const area = path.split("?")[0].split("/").slice(0, 4).join("/")
   for (const key of kept.keys()) {
-    if (key.startsWith(area) || (path.startsWith("/api/physical/") && key.startsWith("/api/physical/settings"))) void keep(key)
+    /* And any kept read the write sits under: DELETE /api/ai-memory/<id> reads /api/ai-memory again (its area is only three parts deep). */
+    if (key.startsWith(area) || path.split("?")[0].startsWith(`${key.split("?")[0]}/`) || (path.startsWith("/api/physical/") && key.startsWith("/api/physical/settings"))) void keep(key)
   }
 }
 
