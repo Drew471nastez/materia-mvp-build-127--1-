@@ -132,8 +132,8 @@ if (flow === "back") {
 }
 
 if (flow === "compose") {
-  const placeLink = opt.place || "members"
-  const go = await p.$(`[data-place-tab=${placeLink}], [data-community-tab=${placeLink}], a[href$="/${placeLink}"]`)
+  const placeLink = opt.place || "Members"
+  const go = await p.$(`[data-community-nav="${placeLink}"]`)
   if (!go) { console.log("  no link to", placeLink); process.exit(1) }
   await go.evaluate((el) => el.click())
   await sleep(2500)
@@ -163,16 +163,16 @@ if (flow === "compose") {
   if (after.sheet && opt.post === "1") {
     await p.type("[data-composer=sheet] input", "Kiln opening on Friday")
     await p.type("[data-composer=sheet] textarea", "Bring a mug to glaze.")
-    const spaceBtn = await p.$("[data-composer=sheet] [data-composer-space]")
-    if (spaceBtn) { await spaceBtn.click(); await sleep(400); const opt1 = await p.$("[data-composer-space-option]"); if (opt1) await opt1.click(); await sleep(300) }
+    const spaceBtn = await p.$("[data-composer=sheet] button[data-composer-space]")
+    if (spaceBtn) { await spaceBtn.click(); await sleep(900); const items = await p.$$("[data-action-sheet] button, [data-action-list] [role=menuitem]"); console.log("  space choices:", items.length); if (items[0]) await items[0].click(); await sleep(400) }
     await p.evaluate(() => { window.__posted = null; const f = window.fetch; window.fetch = (u, o) => { if (String(u).includes("/posts") && o?.method === "POST") window.__posted = String(u); return f(u, o) } })
-    await tapSel("[data-composer=sheet] [data-composer-post], [data-composer=sheet] button[type=submit]")
+    await tapSel("[data-composer=sheet] [data-composer-post]")
     await sleep(2500)
     const s2 = await p.evaluate(() => ({ path: location.pathname, sheet: !!document.querySelector("[data-composer=sheet]"), posted: window.__posted }))
     console.log("  after Post:", JSON.stringify(s2))
     await tapSel("[data-buyer-tab=home]")
     await sleep(1500)
-    const top = await p.evaluate(() => Array.from(document.querySelectorAll("[data-feed-list] > [data-post]")).slice(0, 3).map((e) => e.textContent.slice(0, 60)))
+    const top = await p.evaluate(() => Array.from(document.querySelectorAll("[data-feed-list] > [data-post]")).filter((e) => e.getBoundingClientRect().height > 0).slice(0, 3).map((e) => e.querySelector("h2, h3, [data-post-title]")?.textContent || e.textContent.slice(0, 60)))
     console.log("  the feed's first posts:", JSON.stringify(top))
     await film("compose-home", async () => {}, 300)
   }

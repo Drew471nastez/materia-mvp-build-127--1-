@@ -160,6 +160,11 @@ export interface ComposerProps {
   onPosted: (post: FeedPostView) => void
   /** Edit post (round 13): this post in the editor, opened at once; Save sends the change. */
   edit?: ComposerEdit | null
+  /**
+   * A new post asked for away from the feed (round 21, compose-anywhere.tsx): on a phone, the sheet opened at once over the
+   * place on screen, with no field of its own in a list; `onClosed` once it has gone down (posted or not).
+   */
+  away?: { onClosed: () => void } | null
 }
 
 export interface ComposerEdit {
@@ -398,14 +403,16 @@ function useLeaveGuard(opts: { active: boolean; sheet: boolean; ask: () => Promi
   }, [guarding])
 }
 
-export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null }: ComposerProps) {
+export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null, onPosted, edit = null, away = null }: ComposerProps) {
   const key = draftKey(communityId, fixedSpaceId)
   const phone = usePhone()
   /* Edit post: the post as it was, read once, for the editor's first state and to tell whether anything changed. */
   const editing = !!edit
   const [was] = useState(() => (edit ? edit.post : null))
   const wasLink = was?.media.find((m): m is Extract<PostMedia, { type: "link" }> => m.type === "link") ?? null
-  const [open, setOpen] = useState(editing)
+  const [open, setOpen] = useState(editing || !!away)
+  const awayRef = useRef(away)
+  awayRef.current = away
   const [sheetIn, setSheetIn] = useState(false)
   /*
     THE SCREEN FIRST, ITS FIELDS ON THE NEXT FRAME (round 15, the owner: "quicker to appear"). The tap drew the whole editor
@@ -865,6 +872,11 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
       const posted = afterClose.current
       afterClose.current = null
       posted?.()
+      /* Away from the feed, the composer has nothing left to show once its sheet is down: its owner takes it out. */
+      if (awayRef.current) {
+        awayRef.current.onClosed()
+        return
+      }
       /* The posts' own layer, held while the editor was open (so the fold drew nothing new), goes once all is still. */
       const list = cardRef.current ? following(cardRef.current) : []
       const t = window.setTimeout(() => {
@@ -977,8 +989,9 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
     afterClose.current = () => {
       clear()
       setSent(false)
-      /* Into the feed with its finish; a list that does not show it (another order) says it in words instead, unless the feed already did ("Posted in ..."). */
-      arrive([post.id], { mine: true, missing: () => !document.querySelector('.fixed[role="status"]') && toast("Posted") })
+      /* Into the feed with its finish; a list that does not show it (another order) says it in words instead, unless the feed already did ("Posted in ..."). Away from the feed, the words alone: the feed has it when the member goes there. */
+      if (awayRef.current) toast("Posted")
+      else arrive([post.id], { mine: true, missing: () => !document.querySelector('.fixed[role="status"]') && toast("Posted") })
       onPosted(post)
     }
     window.setTimeout(shut, reducedMotion() ? 0 : SENT_HOLD_MS)
@@ -1279,7 +1292,7 @@ export function Composer({ communityId, userId, me, spaces, fixedSpaceId = null,
             {inPlace ? editorBlock : null}
           </div>
         ) : null
-      ) : (
+      ) : away && phone ? null : (
         <div ref={cardRef} className={`${CARD} ${PHONE_ROW} relative sm:shadow-[0_1px_2px_rgba(16,24,40,0.04)]`} data-composer={inPlace ? "open" : "closed"}>
           {row}
           {inPlace ? editorBlock : null}

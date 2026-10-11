@@ -515,8 +515,10 @@ function TabBar({
         CREATE POST (round 15): the composer, asked for through
         lib/communities/client/compose-intent.ts. A composer on screen opens
         at once; when there is none (you are on Learn, or a profile), the
-        community's feed is brought back, without a page, and its composer
-        takes the request as it mounts. The bar does not hold the composer:
+        shell's own composer opens over that place on a phone (round 21,
+        components/community/member/compose-anywhere.tsx), and only when it
+        cannot is the community's feed brought back, without a page, for its
+        composer to take the request as it mounts. The bar does not hold the composer:
         the composer covers the bar while it is open (lib/ui/layers.ts) and
         the bar is simply there again when it closes.
       */

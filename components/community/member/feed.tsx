@@ -54,6 +54,9 @@ import {
   loadView,
   mergeQuiet,
   patchPost,
+  POSTED_AWAY_EVENT,
+  takePostedAway,
+  withNewPost,
   prefetchView,
   prefetchViews,
   readView,
@@ -100,7 +103,7 @@ export interface ComposeBase {
 }
 
 /** The spaces a post may go to from the composer (data.ts composerSpaces, browser side). */
-function composerSpacesOf(spaces: SpaceView[]) {
+export function composerSpacesOf(spaces: SpaceView[]) {
   return spaces.filter((s) => s.canPost && s.kind !== "chat").map((s) => ({ id: s.id, name: s.name, slug: s.slug, kind: s.kind, icon: s.icon }))
 }
 
@@ -594,6 +597,33 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
     },
     [communityId, key, listTarget],
   )
+  /*
+    POSTED OVER ANOTHER PLACE (round 21, compose-anywhere.tsx): the post is taken into the list on screen as the feed comes
+    back into view (a kept place's effects run again when it is shown), or at once when the feed is on screen; at the top
+    of the list it belongs in, as a post written here would be.
+  */
+  const takeAway = useRef<() => void>(() => {})
+  takeAway.current = () => {
+    const got = takePostedAway(communityId)
+    if (!got.length) return
+    const fits = got.filter((p) => listTarget.kind === "all" || (listTarget.kind === "space" && p.space?.id === listTarget.id))
+    if (!fits.length) return
+    setShown((s) => {
+      let v = s.key === key ? s.view : (readView(key) ?? s.view)
+      for (const p of fits) v = withNewPost(v, p, listSort)
+      if (s.key === key && v === s.view) return s
+      writeView(key, v)
+      return { key, view: v }
+    })
+  }
+  useEffect(() => {
+    takeAway.current()
+    const on = (e: Event) => {
+      if ((e as CustomEvent<{ communityId: string }>).detail?.communityId === communityId) takeAway.current()
+    }
+    window.addEventListener(POSTED_AWAY_EVENT, on)
+    return () => window.removeEventListener(POSTED_AWAY_EVENT, on)
+  }, [communityId])
   const onRetry = useCallback(() => {
     setFailedKey(null)
     void loadView(communityId, listTarget, listSort).then((fresh) => {

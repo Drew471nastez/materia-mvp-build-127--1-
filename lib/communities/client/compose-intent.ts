@@ -24,6 +24,14 @@
  * either order. Past PENDING_MS it is dropped: a composer that opens by
  * itself a minute later would be a surprise.
  *
+ * OVER THE PLACE YOU ARE ON (round 21). On a phone, Create post on Learn, the
+ * Calendar, Members or a profile went to the feed first and opened the composer
+ * there: the place jumped away under the finger. The community's shell now
+ * holds a composer of its own for that (compose-anywhere.tsx), set as the
+ * FALLBACK: asked only when no composer on screen took the request, it opens
+ * over the place as it is. It says no when it cannot (no feed data in hand, a
+ * computer), and the caller then goes to the feed as before.
+ *
  * Pure module state, no React context: the tab bar may be outside the
  * community's tree (useNavigatorOutsideCommunity), and a request must cross
  * from one tree to the other. Nothing here touches the DOM.
@@ -45,6 +53,7 @@ export const PENDING_MS = 4000
 
 const handlers: ComposeHandler[] = []
 let pending: ComposeRequest | null = null
+let fallback: ComposeHandler | null = null
 
 function now(): number {
   return typeof performance !== "undefined" ? performance.now() : Date.now()
@@ -62,8 +71,20 @@ export function requestCompose(opts?: { spaceSlug?: string }): boolean {
       return true
     }
   }
+  if (fallback?.(req)) {
+    pending = null
+    return true
+  }
   pending = req
   return false
+}
+
+/** The one composer asked when none on screen took a request (the shell's, over the place); null lets it go. */
+export function setComposeFallback(handler: ComposeHandler | null): () => void {
+  fallback = handler
+  return () => {
+    if (fallback === handler) fallback = null
+  }
 }
 
 /** Register a handler; the returned function lets it go. A pending request is offered to it at once. */
@@ -89,6 +110,7 @@ export function takePending(at: number = now()): ComposeRequest | null {
 export function resetComposeIntent(): void {
   handlers.length = 0
   pending = null
+  fallback = null
 }
 
 /**
