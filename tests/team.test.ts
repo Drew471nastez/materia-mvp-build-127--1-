@@ -93,7 +93,7 @@ console.log("\nEvery way in asks the server")
   check("the store cookie only names a store and is not readable by scripts", (read("app/api/team/act/route.ts").match(/httpOnly: true, sameSite: "lax", secure: true/g) ?? []).length === 1)
 
   const layout = read("app/app/layout.tsx")
-  check("the dashboard draws the store only for a verified member", /actingStore\(createAdminClient\(\), user\.id\)/.test(layout) && /teamStore && acting \? <TeamBar/.test(layout))
+  check("the dashboard draws the store only for a verified member", /teamStoreForRequest\(user\.id\)/.test(layout) && /const acting = await actingStore\(db, userId\)/.test(read("lib/team/server.ts")) && /teamStore && acting \? <TeamBar/.test(layout))
 }
 
 console.log("\nThe table")
