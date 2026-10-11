@@ -513,22 +513,23 @@ section("Leaving a page always ends, one way or the other")
   timers2.forEach((cb) => cb())
   check("a page still here when the ceiling is reached loads the address for real", second.join(", ") === "soft, hard", second.join(", "))
 
-  check("two and a half seconds: long enough for a warm route, short enough that nobody wonders", NAVIGATE_CEILING_MS === 2500)
+  /* Round 23: at 2.5s a cold server turned an ordinary Back into a reload of the whole app; the app's spinner cap. */
+  check("eight seconds, the app's own cap on a navigation: a slow server is not a reason for a whole page load", NAVIGATE_CEILING_MS === 8_000)
 }
 {
   const editor = readFileSync(join(process.cwd(), "app/website-builder/editor/[installId]/page.tsx"), "utf8")
   check(
-    "the screen that says you are leaving is on the glass before the page goes",
+    "the push goes on the press (round 23: no hold before it), through the one timer that can still be cancelled",
     // Prefetching made the navigation instant, and an instant navigation
     // paints the next page before this one has drawn the screen at all.
     // Three lines in turn need the time they were written for.
     // The number itself moved to lib/website-builder/navigate-ceiling, beside
     // the ceiling it starts, because the creator page editor leaves too and a
     // second copy of it is a second answer to the same question.
-    /export const LEAVING_SEEN_MS = 3_000/.test(
+    /export const LEAVING_SEEN_MS = 0/.test(
       readFileSync(join(process.cwd(), "lib/website-builder/navigate-ceiling.ts"), "utf8"),
     ) &&
-      /LEAVING_SEEN_MS, navigateWithCeiling/.test(editor) &&
+      /LEAVING_SEEN_MS, (NAVIGATE_CEILING_MS, )?navigateWithCeiling/.test(editor) &&
       /const start = window\.setTimeout\(\(\) => \{\s*\n\s*cancelCeiling\.current = navigateWithCeiling\([\s\S]*?\}, LEAVING_SEEN_MS\)/.test(editor) &&
       /cancelCeiling\.current = \(\) => window\.clearTimeout\(start\)/.test(editor),
   )
@@ -541,8 +542,8 @@ section("Leaving a page always ends, one way or the other")
       !/setLeaving\(true\)\s*\n\s*router\.push\(href\)/.test(editor),
   )
   check(
-    "the watchdog finishes the job rather than stranding somebody in the editor they asked to leave",
-    /const watchdog = window\.setTimeout\(\(\) => \{\s*\n\s*const href = leavingHref\.current\s*\n\s*if \(href\) window\.location\.assign\(href\)\s*\n\s*else revive\(\)/.test(editor),
+    "the watchdog only revives the editor, long after the push (round 23: its own load of the address fired as the push started)",
+    /const watchdog = window\.setTimeout\(revive, LEAVING_SEEN_MS \+ NAVIGATE_CEILING_MS \+ 2000\)/.test(editor),
   )
   check(
     "and the way out is warmed while nothing else is happening",

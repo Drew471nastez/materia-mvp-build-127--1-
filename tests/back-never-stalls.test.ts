@@ -53,7 +53,8 @@ for (const event of ["popstate", "pagehide", "beforeunload"]) {
   check(`  a real back shows itself as ${event}`, new RegExp(`window\\.addEventListener\\("${event}", done\\)`).test(watch))
 }
 check("  and as the Navigation API's navigate where there is one", /nav\?\.addEventListener\?\.\("navigate", done\)/.test(watch))
-check("nothing arriving runs the fallback", /if \(settled\) return\s*\n\s*done\(\)\s*\n\s*fallback\(\)/.test(watch))
+/* Round 23: the fallback is marked as a way back first (lib/ui/new-deploy markBackStarted), so a newer deploy does not make it a whole page load. */
+check("nothing arriving runs the fallback", /if \(settled\) return\s*\n\s*done\(\)\s*\n\s*(markBackStarted\(\)\s*\n\s*)?fallback\(\)/.test(watch))
 check("and the watch can be cancelled by a screen that goes away first", /return \(\) => \{\s*\n\s*if \(settled\) return\s*\n\s*done\(\)\s*\n\s*window\.clearTimeout\(timer\)/.test(watch))
 check("goBackOr is the same watch, with the creator's page as the fallback", /backThen\(\(\) => navigate\(fallbackHref\(creatorHref\)\)\)/.test(watch))
 

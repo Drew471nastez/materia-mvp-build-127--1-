@@ -61,7 +61,10 @@ async function main() {
   {
     const base = { from: "https://storelib.com/app/orders", newDeploy: true, holdsWork: false }
     check("a push to another page, once behind, loads fully and keeps its history entry", fullLoadFor({ ...base, href: "/app/products", type: "push" }) === "assign")
-    check("a replace loads in place", fullLoadFor({ ...base, href: "/app/products", type: "replace" }) === "replace")
+    /* Round 23: a replace is the page's own doing (a close, a fallback, a tab), never a moment somebody chose to leave. */
+    check("a replace never loads fully", fullLoadFor({ ...base, href: "/app/products", type: "replace" }) === null)
+    check("nor a push that is a way back (a back's fallback, a back with nothing behind)", fullLoadFor({ ...base, href: "/app/products", type: "push", inBack: true }) === null)
+    check("nor into Settings over a page", fullLoadFor({ ...base, href: "/app/settings?tab=checkout", type: "push" }) === null)
     check("a relative href is read against the page", fullLoadFor({ ...base, from: "https://storelib.com/app/orders/1", href: "2", type: "push" }) === "assign")
     check("not when the tab is current", fullLoadFor({ ...base, newDeploy: false, href: "/app/products", type: "push" }) === null)
     check("not from a page holding unsaved work", fullLoadFor({ ...base, holdsWork: true, href: "/app/products", type: "push" }) === null)

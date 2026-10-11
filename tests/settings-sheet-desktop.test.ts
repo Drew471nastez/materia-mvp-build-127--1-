@@ -40,7 +40,7 @@ console.log("\nThe rail keeps the page under the sheet lit\n")
   check("after leaving the shell, a stale page is not taken as under it", pageUnderSettingsSheet("/app/settings") === null)
   const nav = read("lib/ui/app-navigation.ts")
   check("the rows read it, only where Settings is a sheet (1024px up)", /return \(settingsIsSheet\(\) && pageUnderSettingsSheet\(shown\)\) \|\| shown/.test(nav) && /min-width: 1024px/.test(nav))
-  check("the stage forgets on leaving the shell", /useEffect\(\(\) => \(\) => forgetCommitted\(\), \[\]\)/.test(read("components/app/app-stage.tsx")))
+  check("the stage forgets on leaving the shell", /useEffect\(\(\) => \(\) => forgetCommitted\(\), \[\]\)|useEffect\(\(\) => \(\) => \{\s*\n\s*forgetCommitted\(\)/.test(read("components/app/app-stage.tsx")))
 }
 
 /*

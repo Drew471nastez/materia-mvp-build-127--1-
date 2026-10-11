@@ -2323,7 +2323,7 @@ function main() {
     check("and warms the way out so the wait is the only wait", /router\.prefetch\("\/app"\)/.test(workspace))
     /** One number for one question: both editors leave. */
     check("the hold is shared, not copied", /export const LEAVING_SEEN_MS/.test(ceiling))
-    check("and the builder uses that one", /LEAVING_SEEN_MS, navigateWithCeiling/.test(builder) && !/const LEAVING_SEEN_MS =/.test(builder))
+    check("and the builder uses that one", /LEAVING_SEEN_MS, (NAVIGATE_CEILING_MS, )?navigateWithCeiling/.test(builder) && !/const LEAVING_SEEN_MS =/.test(builder))
 
     /**
      * A bare anchor is a FULL DOCUMENT LOAD: nothing prefetched, and the

@@ -54,7 +54,8 @@ console.log("\nA close that did not take never leaves the page blocked\n")
 {
   check("slid away, it is hidden and lets every press through", /gone && "pointer-events-none invisible"/.test(sheet) && /aria-hidden=\{gone \|\| undefined\}/.test(sheet))
   check("and the page under is no longer held", /if \(!here \|\| gone\) return\n    const html = document\.documentElement/.test(sheet) && /\}, \[here, overlay, gone\]\)/.test(sheet))
-  check("it is hidden when the Back starts, not only once it lands", /const back = \(\) => \{\n          setGone\(true\)\n          watch\(\)/.test(sheet))
+  /* Round 23: unless the address already left Settings (a Back during the slide), which is then the only Back. */
+  check("it is hidden when the Back starts, not only once it lands", /const back = \(\) => \{\n(\s*\/\*[\s\S]*?\*\/\n\s*if \(!alive\.current \|\| !onSettings\(\)\) return\n)?          setGone\(true\)\n          watch\(\)/.test(sheet))
   check("a Back that lands on Settings again goes on back, a few times at most", /const MAX_HOPS = 3/.test(sheet) && /if \(!alive\.current \|\| window\.location\.pathname !== SETTINGS_PATH \|\| hops >= MAX_HOPS\) return stop\(\)/.test(sheet) && /hops\+\+\n              window\.history\.back\(\)/.test(sheet))
   check("a back already on its way is waited out, not swallowed", /if \(backInFlight\(\) && waited\+\+ < 8\) \{\n            window\.setTimeout\(back, BACK_HOLD_MS\)/.test(sheet))
   check("the back watch's fallback is the page under the sheet, not always the dashboard", /pageUnderSettingsSheet\(SETTINGS_PATH\) \?\? "\/app"/.test(sheet) && /backThen\(\(\) => \{\n            stop\(\)\n            router\.replace\(under\(\)\)/.test(sheet))
