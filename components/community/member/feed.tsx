@@ -217,10 +217,14 @@ export function CommunityFeed({ communityId, slug, viewer: givenViewer, spaces: 
   const compose = useSameFacts(givenCompose)
   const base = `/community/${slug}`
   const pathname = usePathname()
-  /* Back and Forward between lists switched in place: the address is the truth, so read it again when it moves. */
+  /*
+    Back and Forward between lists switched in place: the address is the truth, so read it again when it moves. In a
+    transition (round 21): a Back that closes an opened post drew the whole feed again inside the popstate, before the post's
+    close could be painted; the close now starts first and the feed follows in slices that leave room for its frames.
+  */
   const [, setTick] = useState(0)
   useEffect(() => {
-    const on = () => setTick((t) => t + 1)
+    const on = () => startTransition(() => setTick((t) => t + 1))
     window.addEventListener("popstate", on)
     return () => window.removeEventListener("popstate", on)
   }, [])

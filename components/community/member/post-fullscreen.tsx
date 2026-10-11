@@ -56,6 +56,7 @@ import { ChevronLeft } from "lucide-react"
 import { useLayer } from "@/lib/ui/layers"
 import { hapticTap } from "@/lib/native-bridge"
 import { edgeSwipeEnvironment } from "@/lib/navigation/edge-swipe"
+import { isPostAddress } from "@/lib/communities/client/places"
 import { useKeyboardPlan } from "./visible-box"
 import { footCss } from "./keyboard-plan"
 import { BACK_CIRCLE, BACK_HIT, BAR_PX, BROWSER_EDGE_PX, closedByBrowserSwipe, edgeOffset, feedRestore, judgeMove, pullOffset, pullVerdict, releaseVelocity, shouldComplete, startsAtEdge, PULL_SLOP, type CloseTrigger } from "./post-motion"
@@ -120,6 +121,37 @@ if (typeof document !== "undefined") {
     },
     { passive: true, capture: true },
   )
+}
+
+/*
+  BACK CLOSES AS FAST AS THE X (round 21). The X starts the close in its own press, and the address steps back only once the
+  move is over, so everything that reads the address (the router, the feed, the place host, the frame) draws after it. A Back
+  went the other way round: the router restored its tree, the feed and the frame drew again and the history layer set its
+  owner's state, all inside the popstate, and only then could the close start: 82 to 148ms from the Back to the first moved
+  frame at 4x CPU in a real Next build (scripts/nav18-real-router/polish21.mjs flow=back), against 20 to 67ms for the X.
+  Now a Back is the X's order too. This listener is added as this module loads, before the router's and every component's,
+  so it is heard first: the open post starts its close in the event and keeps the event from the rest of the page until the
+  move is over, then hands it on (replayPop), exactly as the X's step back reaches them. A Back the browser drew itself
+  (Safari's edge swipe) is handed on at once.
+*/
+let onPopFirst: (() => boolean) | null = null
+let replaying = false
+if (typeof window !== "undefined")
+  window.addEventListener(
+    "popstate",
+    (e) => {
+      if (!replaying && onPopFirst?.()) e.stopImmediatePropagation()
+    },
+    { capture: true },
+  )
+/** The Back held while the close moved, handed to the rest of the page now (the router, the feed, the history layers). */
+function replayPop() {
+  replaying = true
+  try {
+    window.dispatchEvent(new PopStateEvent("popstate", { state: window.history.state }))
+  } finally {
+    replaying = false
+  }
 }
 
 /** The community's frame, marked while a post is open over it (globals.css: the keyboard does not shorten it then). */
@@ -289,6 +321,11 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
       window.clearTimeout(closeTimer.current)
       if (layer) layer.style.visibility = "hidden"
       if (ours) done.current.onRequestClose()
+      /* A Back held while it moved: the router, the feed and the history layer hear it now, as they hear the X's step back. */
+      if (heldPop.current) {
+        heldPop.current = false
+        replayPop()
+      }
       done.current.onGone()
     }
     /* BLUR: the keyboard goes down with the post, not after it. */
@@ -309,6 +346,35 @@ export function PostFullscreen({ open, label, title, onRequestClose, onShown, on
     /* A tab in the background draws no frames: it still goes. */
     closeTimer.current = window.setTimeout(end, CLOSE_MS + 600)
   }
+  /*
+    THE BACK, HEARD FIRST (onPopFirst above): an address that is no longer a post's is this post closing (a Back from a viewer
+    over it lands on the post's own address and leaves it open). Held until the move is over, then handed on.
+  */
+  const heldPop = useRef(false)
+  useEffect(() => {
+    const mine = () => {
+      if (closing.current || isPostAddress(window.location.pathname)) return false
+      const trigger: CloseTrigger = closedByBrowserSwipe(performance.now() - lastEdgeTouch, edgeSwipeEnvironment()) ? "browser-swipe" : "history"
+      how.current ??= trigger
+      if (trigger === "browser-swipe") {
+        beginClose(trigger)
+        return false
+      }
+      heldPop.current = true
+      beginClose(trigger)
+      return true
+    }
+    onPopFirst = mine
+    return () => {
+      if (onPopFirst === mine) onPopFirst = null
+      /* Taken out mid move: the page still hears its Back. */
+      if (heldPop.current) {
+        heldPop.current = false
+        replayPop()
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   useLayoutEffect(() => {
     if (open || closing.current) return
     beginClose(how.current ?? (closedByBrowserSwipe(performance.now() - lastEdgeTouch, edgeSwipeEnvironment()) ? "browser-swipe" : "history"))
