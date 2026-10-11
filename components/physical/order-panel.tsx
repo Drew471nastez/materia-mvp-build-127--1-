@@ -374,7 +374,7 @@ export function PhysicalFulfillment({
             {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
-                The carrier reported a problem delivering this package. The buyer sees it on their order page and gets the Delivery problem email. Check the tracking, contact them or the carrier, then mark it in transit or delivered when it moves again.
+                The carrier reported a problem delivering this package. The buyer sees it and gets the Delivery problem email. Contact them or the carrier, then mark it in transit or delivered when it moves.
               </p>
             ) : null}
             {pickup && !cancelled && order.pickup ? <p className="px-4 pt-2 text-[13px] text-[#4b5563]">At {order.pickup.name}</p> : null}

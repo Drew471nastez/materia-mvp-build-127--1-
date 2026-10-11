@@ -557,11 +557,11 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   return (
     <div className="space-y-4 sm:space-y-5" data-physical-cards="">
       {/* ── Inventory ────────────────────────────────────────────────── */}
-      <Card id="physical-inventory" title="Inventory" description={printedAt ? `Not counted: ${printedAt.partner?.name ?? printedAt.name} makes each one when it sells.` : trackInventory ? "Stock goes down with every sale. Nobody can buy more than you have." : "Not counted: it can always be bought."}>
+      <Card id="physical-inventory" title="Inventory" description={printedAt ? `Not counted: ${printedAt.partner?.name ?? printedAt.name} makes each one when it sells, so it never shows as sold out.` : trackInventory ? "Stock goes down with every sale. Nobody can buy more than you have." : "Not counted: it can always be bought."}>
         <div className="space-y-4">
           {printedAt ? (
             <p className="text-[13.5px] leading-5 text-[#4b5563]" data-made-to-order="">
-              Print on demand at {printedAt.name}: there is no stock to count, so it never shows as sold out. To count stock, have it fulfilled from one of your own locations.
+              To count stock, have it fulfilled from one of your own locations.
             </p>
           ) : (
             <Toggle label="Track inventory" description="Count how many you have and stop selling at zero." checked={trackInventory} onChange={changed(setTrackInventory)} />

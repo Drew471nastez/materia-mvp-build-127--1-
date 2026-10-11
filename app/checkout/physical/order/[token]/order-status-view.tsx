@@ -469,7 +469,7 @@ function CancelRequest({ token, shopName }: { token: string; shopName: string })
   return (
     <section className="space-y-3 rounded-2xl border border-[#e5e7eb]/60 bg-white p-4 shadow-[0_1px_3px_rgba(0,0,0,0.04)] sm:p-6" data-cancel-form="">
       <h2 className="text-[16px] font-semibold text-[#1a1a2e]">Cancel this order?</h2>
-      <p className="text-[14px] leading-5 text-[#4b5563]">{shopName} is asked to cancel it before it ships. Once they do, you're refunded in full and get an email.</p>
+      <p className="text-[14px] leading-5 text-[#4b5563]">This asks {shopName} to cancel it before it ships. Once they do, you get an email and your money back.</p>
       <label htmlFor="cancel-reason" className="block text-[13.5px] font-medium text-[#1a1a2e]">
         Why are you cancelling? (optional)
       </label>

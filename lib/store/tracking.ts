@@ -135,7 +135,8 @@ function inWords(names: string[]): string {
 
 /** What Website settings › Commerce says about the integrations, from this list, so a service added here is named there. */
 export function trackersHint(): string {
-  return `${inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name))} load on every page of this website once you add them. Each paid order is reported once to ${inWords(PURCHASE_TRACKERS.map((id) => TRACKERS[id].name))}.`
+  const pagesOnly = TRACKER_ORDER.filter((id) => !PURCHASE_TRACKERS.includes(id)).map((id) => TRACKERS[id].name.replace(/^Microsoft /, ""))
+  return `${inWords(TRACKER_ORDER.map((id) => TRACKERS[id].name))} load on every page of this website once you add them. Each paid order is reported to them once${pagesOnly.length ? `, except ${inWords(pagesOnly)}` : ""}.`
 }
 
 export type Tracking = Partial<Record<TrackerId, string>>
