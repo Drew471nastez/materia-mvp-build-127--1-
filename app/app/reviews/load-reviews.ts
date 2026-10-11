@@ -22,7 +22,7 @@ export interface SellerReview {
   content: string
   created_at: string
   edited_at: string | null
-  /* On the store's website (app-settings sellerView): pending waits for the store (Storelib Reviews, part 133); hidden was hidden by the store or a report (hidden_by). */
+  /* On the store's website (app-settings sellerView): pending waits for the store (Storelib Reviews, part 134); hidden was hidden by the store or a report (hidden_by). */
   status: "published" | "hidden" | "pending"
   hidden_by: string | null
   /* Shown on Explore and the product page. A verified buyer's review stays there whatever the store does on its website. */
@@ -57,7 +57,7 @@ export async function loadSellerReviews() {
   const read = (columns: string) =>
     admin.from("reviews").select(columns).eq("creator_id", creator.id).order("created_at", { ascending: false }).limit(LIMIT)
   const buyer = "buyer:profiles!buyer_id(display_name, avatar_url)"
-  /* With Storelib Reviews' columns (part 133); without them, as part 52 left the table; before that, the oldest shape. */
+  /* With Storelib Reviews' columns (part 134); without them, as part 52 left the table; before that, the oldest shape. */
   let res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, title, photos, featured, verified, source, hidden_by, site_status, ${buyer}`)
   const appReady = !(res.error && missingColumn(res.error))
   if (!appReady) res = await read(`id, product_id, rating, content, created_at, edited_at, status, reviewer_name, seller_reply, seller_reply_at, ${buyer}`)

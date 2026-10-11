@@ -98,7 +98,7 @@ export async function authenticateAgent(request: Request): Promise<AgentIdentity
     scopes?: string[] | null
     install: { creator_id?: string; name?: string } | { creator_id?: string; name?: string }[] | null
   }
-  /* expires_at and scopes arrived with part 131; before it, a key is read as it always was. */
+  /* expires_at and scopes arrived with part 132; before it, a key is read as it always was. */
   let COLUMNS = "id, install_id, creator_id, name, token_hash, revoked_at, last_used_at, expires_at, scopes"
   const first = async () =>
     (await db

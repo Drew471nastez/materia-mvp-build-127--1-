@@ -23,31 +23,17 @@
  */
 import "server-only"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { COMMIT_MARKER, changesFor, describeChange, statusLine, type BuilderChange } from "./core"
+import { COMMIT_MARKER, changesFor, describeChange, type BuilderChange } from "./core"
 import { GitHubError, commitChanges, githubConfig, installationToken, type FileChange } from "./github"
 import { explainFailure, failureLine } from "./errors"
 import { fontBytes, gitBlobSha, readsBack, roleOf } from "./layout"
+import { recordEvent } from "./events"
+import { exportSite, type GitHubLink } from "./sync"
+
+/* Written in ./events.ts, so the sync and this file both write it without importing each other for it. */
+export { recordEvent }
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
-
-/** Write one line to the Connections activity list. Never throws. */
-export async function recordEvent(
-  db: Db,
-  installId: string,
-  e: { direction: "to_github" | "from_github"; ok: boolean; summary: string; commit_sha?: string | null },
-) {
-  try {
-    await db.from("theme_github_events").insert({
-      install_id: installId,
-      direction: e.direction,
-      ok: e.ok,
-      summary: statusLine(e.summary).slice(0, 300),
-      commit_sha: e.commit_sha ?? null,
-    })
-  } catch {
-    /* the table may not exist yet */
-  }
-}
 
 /** Whether a file saved in the builder belongs in the repository. A shopify/ path exists only on an imported theme. */
 export function travels(path: string): boolean {
@@ -117,5 +103,34 @@ async function remember(db: Db, installId: string, root: string, changes: FileCh
     await db.from("theme_github_links").update({ sync_state: { ...state, files } }).eq("install_id", installId)
   } catch {
     /* without part 131 there is no sync_state; the marker and the bot still stop the loop */
+  }
+}
+
+/**
+ * The whole theme to the linked repository, if the site sends builder
+ * changes: after a Publish, so the pages and settings an agent reads there
+ * are the ones the site has now, not the ones from the last Push. Pictures
+ * are not fetched again; the repository keeps the ones it has. Resolves
+ * either way, never rejects: exportSite writes a failure to the link and the
+ * activity list, with what to do.
+ */
+export async function mirrorWholeTheme(installId: string, why: string): Promise<void> {
+  const cfg = githubConfig()
+  if (!cfg) return
+  let db: Db
+  try {
+    db = createAdminClient()
+  } catch {
+    return
+  }
+  try {
+    const [{ data: link, error }, { data: install }] = await Promise.all([
+      db.from("theme_github_links").select("*").eq("install_id", installId).maybeSingle(),
+      db.from("store_theme_installs").select("name").eq("id", installId).maybeSingle(),
+    ])
+    if (error || !link || !link.repo_full_name || !link.branch || link.push_on_save === false) return
+    await exportSite(db, cfg, link as GitHubLink, String((install as { name?: string } | null)?.name || "Site"), { fetchMedia: null, reason: why })
+  } catch {
+    /* exportSite wrote why to the link and the activity list */
   }
 }

@@ -153,6 +153,25 @@ export function trackingUrl(carrier: string | null | undefined, number: string |
 /** What the seller picks from when marking an order shipped, Other last. */
 export const CARRIERS = CARRIER_NAMES
 
+/**
+ * The carrier a tracking number most likely belongs to, from its shape, as
+ * Shopify fills it in while the number is typed. Only shapes that are hard
+ * to mistake: anything else returns null and the merchant picks. A guess,
+ * never a check: the field stays the merchant's to change.
+ */
+export function guessCarrier(number: string | null | undefined): string | null {
+  const n = (number ?? "").replace(/[\s-]/g, "").toUpperCase()
+  if (!n) return null
+  if (/^1Z[0-9A-Z]{16}$/.test(n)) return "UPS"
+  if (/^(9[1-5])\d{18,20}$/.test(n) || /^[A-Z]{2}\d{9}US$/.test(n)) return "USPS"
+  if (/^[A-Z]{2}\d{9}GB$/.test(n)) return "Royal Mail"
+  if (/^[A-Z]{2}\d{9}CA$/.test(n)) return "Canada Post"
+  if (/^[A-Z]{2}\d{9}AU$/.test(n)) return "Australia Post"
+  if (/^(\d{12}|\d{15})$/.test(n)) return "FedEx"
+  if (/^\d{10}$/.test(n)) return "DHL Express"
+  return null
+}
+
 /** What buyers and the merchant call an order: short, stable, from its id. */
 export function orderNumber(checkoutId: string): string {
   return `#${checkoutId.replace(/-/g, "").slice(0, 8).toUpperCase()}`

@@ -112,7 +112,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (error || !data) {
     const code = String((error as { code?: string } | null)?.code ?? "")
     const missing = code === "42703" || code === "PGRST204" || code === "23514"
-    return answer({ error: missing ? "Moderation turns on after the database update (SQL part 133)." : "That did not save. Try again." }, missing ? 409 : 500)
+    return answer({ error: missing ? "Moderation turns on after the database update (SQL part 134)." : "That did not save. Try again." }, missing ? 409 : 500)
   }
   await syncReviewPhotos(db, data)
   await refreshReviewStats(db, { productId: review.product_id, creatorId: review.creator_id, productSlug: found.product.slug })

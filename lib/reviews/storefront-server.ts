@@ -14,7 +14,7 @@ import "server-only"
  * (lib/reviews/store forgetReviewPages). The product's own reviews are read
  * beside the shop's when the page is about one.
  *
- * Before run-now part 133 the new columns are not there (site_status
+ * Before run-now part 134 the new columns are not there (site_status
  * neither); the read falls back to the columns part 52 made, so reviews still show, without titles or
  * photos. Never throws: a page whose reviews will not load draws without
  * them.

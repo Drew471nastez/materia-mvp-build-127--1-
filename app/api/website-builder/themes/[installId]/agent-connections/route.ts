@@ -64,7 +64,7 @@ export async function GET(_req: Request, { params }: Params) {
       .is("revoked_at", null)
       .order("created_at", { ascending: false })
       .limit(MAX_CONNECTIONS)
-  /* expires_at and scopes arrived with part 131. */
+  /* expires_at and scopes arrived with part 132. */
   let { data, error } = await read(`${BASE_COLUMNS}, expires_at, scopes`)
   if (error && /expires_at|scopes/.test(error.message ?? "")) ({ data, error } = await read(BASE_COLUMNS))
   if (error) {
@@ -133,9 +133,9 @@ export async function POST(req: Request, { params }: Params) {
     .insert({ ...row, expires_at, scopes })
     .select(`${BASE_COLUMNS}, expires_at, scopes`)
     .single()
-  /* Before part 131: a key that never expires and can write, as every key was. A read only key is refused rather than made writable. */
+  /* Before part 132: a key that never expires and can write, as every key was. A read only key is refused rather than made writable. */
   if (error && /expires_at|scopes/.test(error.message ?? "")) {
-    if (access === "read") return NextResponse.json({ error: "Read only keys need a database update first (part 131)." }, { status: 503 })
+    if (access === "read") return NextResponse.json({ error: "Read only keys need a database update first (part 132)." }, { status: 503 })
     ;({ data, error } = await db.from("theme_agent_tokens").insert(row).select(BASE_COLUMNS).single())
   }
   if (error) return NextResponse.json({ error: "Could not make a connection" }, { status: 500 })

@@ -33,7 +33,7 @@ import type { SellerProduct, SellerReview } from "./load-reviews"
  *
  * A seller never edits a buyer's words.
  *
- * WITH STORELIB REVIEWS ON (Settings › Integrations, run-now part 133) the
+ * WITH STORELIB REVIEWS ON (Settings › Integrations, run-now part 134) the
  * store moderates as on Judge.me: a review that waits for approval is under
  * Pending with Publish and Hide beside it; any review can be hidden (kept),
  * published again, featured (first in Featured order and in the website's

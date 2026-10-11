@@ -29,6 +29,7 @@ import { quoteDelivery, pickOption, type Quote } from "./rates"
 import { physicalTotals, type PhysicalTotals, type TaxSettings } from "./totals"
 import { applyOffers, suggestionsFor, type AppliedOffer, type Offer } from "@/lib/offers/offers"
 import { loadOffers } from "@/lib/offers/offers-server"
+import { orderLimits, overLimit } from "./order-limit"
 import type { Address, DeliveryOption, Location, PricedLine } from "./types"
 
 export const MAX_CHECKOUT_LINES = 50
@@ -296,6 +297,12 @@ export async function priceCheckout(
       shippingProfileId: p.shipping_profile_id ?? null,
       fulfillmentMethod: methodOf(readMethod(v.fulfillment_method), readMethod(p.fulfillment_method)),
     })
+  }
+
+  /* Limit sales (./order-limit.ts): a product's variants together, never more than the seller allows in one order. */
+  if (physicalIds.length) {
+    const tooMany = overLimit(lines.filter((l) => l.type === "physical"), await orderLimits(db, physicalIds))
+    if (tooMany) return { ok: false, status: 400, error: tooMany }
   }
 
   const tax = await loadTaxSettings(db, creatorId, settings)

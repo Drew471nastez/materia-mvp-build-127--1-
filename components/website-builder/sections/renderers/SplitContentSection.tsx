@@ -23,7 +23,7 @@ import {
   sectionPadding,
   str,
   SectionWrapper,
-  type SectionProps, schemeButton } from "../_shared"
+  type SectionProps, schemeButton, firstPicture } from "../_shared"
 import { stableHtml } from "../stable-html"
 
 const ASPECT: Record<string, string> = {
@@ -33,7 +33,7 @@ const ASPECT: Record<string, string> = {
   wide: "16 / 9",
 }
 
-export function SplitContentSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function SplitContentSection({ section, theme, isEditing, isSelected, onClick, pageIndex }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
 
@@ -77,7 +77,7 @@ export function SplitContentSection({ section, theme, isEditing, isSelected, onC
               alt=""
               className="w-full rounded-lg object-cover"
               style={{ aspectRatio: ratio }}
-              loading="lazy"
+              {...firstPicture(pageIndex)}
               decoding="async"
             />
           ) : (

@@ -6,7 +6,7 @@
  * second time, a redelivery or an old one replayed with its valid signature,
  * is answered and ignored: replaying an old push must not put that commit's
  * files back into the site as drafts. The ids are kept a day, in the server
- * only table github_webhook_deliveries (SQL part 131), which is enough: the
+ * only table github_webhook_deliveries (SQL part 132), which is enough: the
  * other half of the guard is applyPush refusing a head older than the one
  * already applied (lib/github-sync/sync.ts), which holds for any age.
  *

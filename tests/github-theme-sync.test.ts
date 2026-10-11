@@ -239,7 +239,10 @@ async function main() {
     const row = (p: string) => db.tables.store_theme_custom_files.find((r) => r.install_id === INSTALL && r.path === p)
     check("the new section is saved as a draft", row("sections/promo_strip.storelib")?.draft_content === promo)
     check("a backup of the site was taken before pages and settings were written", db.tables.store_theme_backups.length >= 1 && /Before GitHub/.test(db.tables.store_theme_backups[0].label))
-    check("an open builder hears about each change", ["templates/home.json", "config/settings.json", "sections/promo_strip.storelib", "sections/hero.storelib"].every((p) => db.tables.theme_agent_activity.some((a) => a.path === p && a.agent_name === "GitHub · drew")))
+    // Changed on purpose (merged with round Z's editor reload): a page or the settings is logged as a page rewritten whole (pages/<key>, settings, replaced), which an open builder reads again from the draft.
+    check("an open builder hears about each change, a page or the settings as rewritten whole", ["pages/home", "settings", "sections/promo_strip.storelib", "sections/hero.storelib"].every((p) => db.tables.theme_agent_activity.some((a) => a.path === p && a.agent_name === "GitHub · drew")) &&
+      db.tables.theme_agent_activity.some((a) => a.path === "pages/home" && a.action === "page" && a.detail?.replaced === true && a.detail?.page === "home") &&
+      db.tables.theme_agent_activity.some((a) => a.path === "settings" && a.detail?.replaced === true))
     const repo = gh.repos.get(REPO)!
     const status = repo.statuses.find((s) => s.sha === head)
     check("the commit gets a red Storelib status naming the first problem, within 140 characters", status?.state === "failure" && status.context === "Storelib" && status.description.length <= 140 && /not taken/.test(status.description))
@@ -271,8 +274,10 @@ async function main() {
     check("Reset to Storelib's version deletes only an edited built-in, and gives GitHub Storelib's text back",
       /body\.action === "reset-override"/.test(route) && /if \(!edited\.some\(\(o\) => o\.path === path\)\)/.test(route) && /\.delete\(\)\.eq\("install_id", own\.installId\)\.eq\("path", path\)/.test(route) && /kind: "save", path, content: shipped/.test(route))
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    // Changed on purpose: W3's reload and round Z's did the same job; round Z's stayed (a page, home's header and footer, or the settings rewritten whole, read again; an unsaved edit kept, and said so).
     check("an open builder reads the page again when a push changed it, unless it has unsaved edits",
-      /if \(!isDirty && events\.some\(\(ev\) => ev\.path === `templates\/\$\{currentPageRef\.current\}\.json`\)\)/.test(editor) && /ev\.path === "config\/settings\.json"/.test(editor))
+      /if \(ev\.detail\?\.replaced\)/.test(editor) && /page === null \|\| page === currentPageRef\.current \|\| page === "home"\) replacedHere = true/.test(editor) &&
+        /if \(replacedHere\) \{\s*if \(!isDirty && !saving && !publishing\) \{\s*clearHistory\(\)\s*await loadData\(\)/.test(editor) && /Your unsaved edit is kept/.test(editor))
 
     /* ─────────────────────────────────────────────────────────────────── */
     console.log("\nNever in a circle")
@@ -371,6 +376,11 @@ async function main() {
     check("Liquid that does not parse is refused with its file", o.failed.some((f) => f.path === "shopify/templates/customers/account.liquid"))
     check("a changed picture is noted, with where to upload it", o.notes.some((n) => n.path === "shopify/assets/hero.jpg" && /Files/.test(n.note)))
     check("the commit is red, the good files are in anyway", gh.repos.get(REPO)!.statuses.find((s) => s.sha === after)?.state === "failure" && o.saved.length === 2)
+    /* Round Z's rule, kept in the one sync: an imported section's markup comes back, its settings (the schema) come from its import. */
+    const schemaEdited = edited.replace('"label": "Heading"', '"label": "Headline"').replace('"label":"Heading"', '"label":"Headline"')
+    const second = await pushAs(gh, db, { "sections/slideshow.storelib": schemaEdited })
+    check("a change to an imported section's schema is refused and said so", schemaEdited !== edited && second.outcomes[0].failed.some((f) => f.path === "sections/slideshow.storelib" && /settings/.test(f.error) && /import/.test(f.error)), JSON.stringify(second.outcomes[0].failed))
+    check("  and the draft keeps the markup taken before", tables.store_theme_custom_files.find((r) => r.path === "sections/slideshow.storelib")!.draft_content === edited)
     check("repoMayWrite never calls an imported theme's section a built-in", (repoMayWrite("sections/slideshow.storelib", { compat: true }) as { override: boolean }).override === false)
   }
 
@@ -519,11 +529,11 @@ async function main() {
     await seenDelivery(db, "11111111-2222-3333-4444-555555555555", t0 + 3 * DELIVERY_TTL_MS)
     check("ids older than a day are cleared", db.tables.github_webhook_deliveries.length === 1 && db.tables.github_webhook_deliveries[0].delivery_id === "11111111-2222-3333-4444-555555555555")
     const missing = fakeDb({}, { failWith: { github_webhook_deliveries: { message: 'relation "github_webhook_deliveries" does not exist' } } })
-    check("before part 131 it lets the push through, to the older-head check", (await seenDelivery(missing, id, t0)) === false)
+    check("before part 132 it lets the push through, to the older-head check", (await seenDelivery(missing, id, t0)) === false)
     const hook = read("app/api/github/webhook/route.ts")
     check("the webhook asks after the signature and before any work",
       hook.indexOf("verifySignature(") < hook.indexOf("seenDelivery(db, delivery)") && hook.indexOf("seenDelivery(db, delivery)") < hook.indexOf('event === "push"') && /req\.headers\.get\("x-github-delivery"\)/.test(hook))
-    const sql = read("supabase/sql/run-now/131_github_whole_theme_and_agent_keys.sql")
+    const sql = read("supabase/sql/run-now/132_github_whole_theme_and_agent_keys.sql")
     check("the table is server only and safe to run again", /CREATE TABLE IF NOT EXISTS public\.github_webhook_deliveries/.test(sql) && /REVOKE ALL ON public\.github_webhook_deliveries FROM anon, authenticated/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql))
   }
 
@@ -551,7 +561,7 @@ async function main() {
     const tokens = read("lib/agent-access/tokens.ts")
     check("an expired key is refused with the day and where to make a new one", /if \(keyExpired\(row\.expires_at\)\)/.test(tokens) && /expired on \$\{/.test(tokens) && tokens.indexOf("keyExpired(row.expires_at)") < tokens.indexOf("bucket: \"agent\","))
     check("a revoked key is refused before anything else", /row\.revoked_at/.test(tokens))
-    check("before part 131 a key is read as it always was", /expires_at\|scopes/.test(tokens))
+    check("before part 132 a key is read as it always was", /expires_at\|scopes/.test(tokens))
     const bind = read("lib/agent-access/bind.ts")
     check("a read only key reads, and every write over MCP answers why not", /const readOnly = who\.canWrite === false/.test(bind) && (bind.match(/readOnly \? refuse\(\)/g) ?? []).length >= 6 && /if \(readOnly\) return refuse\(\)/.test(bind))
     check("  and over HTTP", /if \(who\.canWrite === false\) return NextResponse\.json\(\{ error: READ_ONLY_REFUSAL \}, \{ status: 403 \}\)/.test(read("app/api/agent/v1/files/route.ts")))
@@ -563,15 +573,17 @@ async function main() {
   /* ─────────────────────────────────────────────────────────────────── */
   console.log("\nThe database part and the builder")
   {
-    const sql = read("supabase/sql/run-now/131_github_whole_theme_and_agent_keys.sql")
-    check("part 131 adds sync_state, expires_at and scopes, and is safe to run again", /ADD COLUMN IF NOT EXISTS sync_state jsonb/.test(sql) && /ADD COLUMN IF NOT EXISTS expires_at timestamptz/.test(sql) && /ADD COLUMN IF NOT EXISTS scopes text\[\]/.test(sql) && /to_regclass\('public\.theme_github_links'\) IS NULL/.test(sql))
+    const sql = read("supabase/sql/run-now/132_github_whole_theme_and_agent_keys.sql")
+    check("part 132 adds sync_state, expires_at and scopes, and is safe to run again", /ADD COLUMN IF NOT EXISTS sync_state jsonb/.test(sql) && /ADD COLUMN IF NOT EXISTS expires_at timestamptz/.test(sql) && /ADD COLUMN IF NOT EXISTS scopes text\[\]/.test(sql) && /to_regclass\('public\.theme_github_links'\) IS NULL/.test(sql))
     check("  stores no token", !/token_hash|access_token|ghs_/.test(sql.replace(/theme_agent_tokens/g, "")))
-    check("  and the check after reads it", /as p131_github_whole_theme/.test(read("supabase/sql/run-now/99_check_after.sql")) && /131_github_whole_theme_and_agent_keys\.sql/.test(read("supabase/sql/run-now/README.md")))
+    check("  and the check after reads it", /as p132_github_whole_theme/.test(read("supabase/sql/run-now/99_check_after.sql")) && /132_github_whole_theme_and_agent_keys\.sql/.test(read("supabase/sql/run-now/README.md")))
     const panel = read("components/website-builder/github-sync-panel.tsx")
     check("the GitHub card lists each file that was not taken, with its fix", /link\.last\.failed\.map/.test(panel) && /Fix these in the repository and push again/.test(panel))
     check("  the built-ins this site has its own copy of, with Reset to Storelib's version", /status\.overrides!\.map/.test(panel) && /Reset to Storelib&apos;s version/.test(panel) && /action: "reset-override"/.test(panel))
     check("  and how to use it with an AI", /Use it with an AI/.test(panel) && /claude\.ai\/code/.test(panel) && /chatgpt\.com\/codex/.test(panel))
-    check("Publish sends the whole theme to a linked repository", /after\(\(\) => sendWholeTheme\(installId\)\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")))
+    // Changed on purpose: W3's sendWholeTheme and round Z's mirrorWholeTheme did the same job; one stayed (lib/github-sync/mirror.ts), sending without fetching pictures again.
+    check("Publish sends the whole theme to a linked repository", /after\(\(\) => mirrorWholeTheme\(installId, "Published in the builder"\)\)/.test(read("app/api/website-builder/themes/[installId]/publish/route.ts")) &&
+      /exportSite\(db, cfg, link as GitHubLink, [^\n]*\{ fetchMedia: null, reason: why \}\)/.test(read("lib/github-sync/mirror.ts")))
     check("comment text is plain and has the editor link", /Open the builder: https:/.test(commitComment({ saved: [], failed: [{ path: "a", error: "a: x" }], notes: [] }, "https://storelib.com/x")))
     check("AGENTS.md for a folder says so", /The folder `site\/`/.test(agentsGuide({ siteName: "A", branch: "main", root: "site/" })))
   }

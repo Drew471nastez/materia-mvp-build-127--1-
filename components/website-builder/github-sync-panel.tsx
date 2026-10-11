@@ -4,8 +4,9 @@
  * ===========================================================================
  *  WEBSITE SETTINGS › CONNECTIONS › GITHUB
  * ===========================================================================
- * One repository per website. Storelib writes the site's section files and an
- * AGENTS.md into it; Codex in ChatGPT, Claude Code on the web or a person
+ * One repository per website. Storelib writes the site's whole theme (its
+ * settings, pages, header and footer, sections and blocks, or an imported
+ * theme in Shopify's own folders) and an AGENTS.md into it; Codex in ChatGPT, Claude Code on the web or a person
  * edits them and pushes; every push to the linked branch lands here as a
  * draft, and an open builder shows it within seconds. See lib/github-sync.
  *
@@ -41,7 +42,7 @@ interface Link {
   lastError: string | null
   pushOnSave: boolean
   pullOnPush: boolean
-  /** What the last sync did, file by file (part 131). */
+  /** What the last sync did, file by file (part 132). */
   last?: {
     at: string
     direction: "to_github" | "from_github"
@@ -138,8 +139,8 @@ function SyncRow({ title, detail, on, busy, onChange }: {
 }
 
 const STEPS = [
-  ["Connect a repository", "Storelib writes this website's whole theme into it: settings, pages, sections and blocks, with an AGENTS.md your tool reads first."],
-  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section."],
+  ["Connect a repository", "Storelib writes this website's whole theme into it: settings, pages, header and footer, sections and blocks, with an AGENTS.md your tool reads first."],
+  ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section, a page or a settings change."],
   ["It appears here", "Each push arrives within seconds, as a draft. Publish when you like it."],
 ] as const
 
@@ -481,7 +482,7 @@ export function GitHubSyncPanel({
         <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
           <SyncRow
             title="Builder to GitHub"
-            detail="Every section you save here is committed"
+            detail="Code you save here is committed, and the whole theme on Publish"
             on={link.pushOnSave}
             busy={busy === "settings"}
             onChange={(v) => void post({ action: "settings", pushOnSave: v }, "settings")}

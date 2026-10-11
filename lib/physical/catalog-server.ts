@@ -28,6 +28,7 @@ import { normaliseOptions, planVariants, variantName, type Combination } from ".
 import { readMethod } from "./fulfillment"
 import type { FulfillmentMethod, InventoryLevel, PhysicalVariant, ProductOption } from "./types"
 import { applyInventory } from "./inventory-server"
+import { missingColumn, readOrderLimit } from "./order-limit"
 
 export interface PhysicalProductData {
   productId: string
@@ -50,6 +51,8 @@ export interface PhysicalProductData {
   fulfillmentMethod: FulfillmentMethod
   taxCategory: string | null
   shippingProfileId: string | null
+  /** Limit sales: the most one order may take (./order-limit.ts); null for none, or before SQL part 131. */
+  maxPerOrder: number | null
   options: ProductOption[]
   variants: PhysicalVariant[]
   levels: InventoryLevel[]
@@ -88,9 +91,11 @@ export function variantFromRow(r: Record<string, any>, product: Record<string, a
 export async function loadPhysicalProduct(db: Db, creatorId: string, productId: string): Promise<PhysicalProductData | null> {
   const { data: p } = await db.from("products").select(PRODUCT_COLUMNS).eq("id", productId).eq("creator_id", creatorId).maybeSingle()
   if (!p) return null
-  const [{ data: options }, { data: variants }] = await Promise.all([
+  const [{ data: options }, { data: variants }, limitRead] = await Promise.all([
     db.from("product_options").select("position, name, values").eq("product_id", productId).order("position"),
     db.from("product_variants").select(VARIANT_COLUMNS).eq("product_id", productId).order("position"),
+    /* Its own read: a database without part 131 has no column, and the rest still loads. */
+    db.from("products").select("max_per_order").eq("id", productId).maybeSingle(),
   ])
   const ids = ((variants ?? []) as { id: string }[]).map((v) => v.id)
   const [{ data: costs }, { data: levels }] = ids.length
@@ -121,6 +126,7 @@ export async function loadPhysicalProduct(db: Db, creatorId: string, productId: 
     fulfillmentMethod: readMethod(p.fulfillment_method) ?? "self",
     taxCategory: p.tax_category ?? null,
     shippingProfileId: p.shipping_profile_id ?? null,
+    maxPerOrder: limitRead?.error ? null : readOrderLimit(limitRead?.data?.max_per_order),
     options: ((options ?? []) as { position: 1 | 2 | 3; name: string; values: string[] }[]).map((o) => ({ position: o.position, name: o.name, values: o.values ?? [] })),
     variants: ((variants ?? []) as Record<string, any>[]).map((v) => variantFromRow(v, p, costOf.get(v.id) ?? null)),
     levels: ((levels ?? []) as Record<string, any>[]).map((l) => ({
@@ -353,6 +359,19 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
         note: "Set in the product editor",
       })
       if (!moved.ok) return { ok: false, error: moved.error }
+    }
+  }
+
+  /*
+    LIMIT SALES (./order-limit.ts), in a request of its own so a database
+    without part 131 still saves everything above. A limit typed there is
+    said to need the update rather than dropped without a word.
+  */
+  if ("maxPerOrder" in body) {
+    const limit = readOrderLimit(body.maxPerOrder)
+    const { error } = await db.from("products").update({ max_per_order: limit }).eq("id", productId).eq("creator_id", creatorId)
+    if (error && !(missingColumn(error) && limit === null)) {
+      return { ok: false, error: missingColumn(error) ? "Everything else is saved. Limit sales needs its database update: run SQL part 131 in Supabase." : "The sales limit could not be saved." }
     }
   }
 

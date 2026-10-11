@@ -576,7 +576,7 @@ export default async function StorefrontPage({ params, searchParams }: Storefron
       skipping it, and that would empty the whole panel.
     */
     (async () => {
-      /* With run-now part 133: `verified`, so an imported review without a name is never called a verified buyer. */
+      /* With run-now part 134: `verified`, so an imported review without a name is never called a verified buyer. */
       const withVerified = await supabase
         .from("reviews")
         .select("id, rating, content, created_at, reviewer_name, verified, product:products(title, slug), buyer:profiles!buyer_id(display_name, avatar_url)")

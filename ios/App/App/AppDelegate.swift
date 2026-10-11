@@ -19,6 +19,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         FirebaseApp.configure()
         Messaging.messaging().delegate = self
         UNUserNotificationCenter.current().delegate = self
+        // The page asks for the push token whenever it loads (lib/push/client.ts), and is answered from here.
+        StorelibPush.shared.onAsk = { [weak self] in self?.dispatchFcmToken() }
         requestPushPermission(application)
         return true
     }
@@ -60,32 +62,41 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     /// Called by Firebase Messaging whenever a fresh FCM registration token is available.
     /// This is the token that must be stored in push_tokens and used with firebase-admin.
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
-        guard let fcmToken = fcmToken else {
+        guard let fcmToken = fcmToken, !fcmToken.isEmpty else {
             print("[push] FCM token is nil — skipping dispatch")
             return
         }
-        print("[push] FCM token received: \(fcmToken)")
+        print("[push] FCM token received")
+        latestFcmToken = fcmToken
+        dispatchFcmToken()
+    }
 
-        // Dispatch the FCM token to the JavaScript layer via the Capacitor web view.
-        // client.ts listens for the 'fcmTokenReady' CustomEvent on window and sends the
-        // token to /api/push/register in place of the raw APNs hex string.
+    /// The newest FCM registration token.
+    ///
+    /// KEPT, NOT ONLY SENT. Firebase hands the token over at launch, which is
+    /// before the page has loaded and long before anybody signs in, so an
+    /// event sent then reached no listener and the phone was never registered
+    /// for pushes. It is kept here and given to the page as a value it can
+    /// read (window.__storelibFcmToken), as the event a listening page hears,
+    /// again whenever the page asks (StorelibPush), and whenever the app comes
+    /// forward. client.ts sends it to /api/push/register once someone is
+    /// signed in, and again for whoever signs in next.
+    private var latestFcmToken: String?
+
+    private func dispatchFcmToken() {
+        guard let token = latestFcmToken else { return }
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            // Escape the token (FCM tokens are alphanumeric + dashes/underscores, but be safe)
-            let escaped = fcmToken.replacingOccurrences(of: "'", with: "\\'")
-            let script = "window.dispatchEvent(new CustomEvent('fcmTokenReady', { detail: '\(escaped)' }));"
-
-            if let vc = self.window?.rootViewController as? CAPBridgeViewController {
-                vc.bridge?.webView?.evaluateJavaScript(script, completionHandler: { _, jsError in
-                    if let jsError = jsError {
-                        print("[push] evaluateJavaScript error dispatching fcmTokenReady: \(jsError)")
-                    } else {
-                        print("[push] fcmTokenReady event dispatched to JS layer")
-                    }
-                })
-            } else {
-                print("[push] WARNING: rootViewController is not CAPBridgeViewController — fcmTokenReady not dispatched")
+            guard let vc = self.window?.rootViewController as? CAPBridgeViewController, let webView = vc.bridge?.webView else {
+                print("[push] WARNING: no web view yet: the page will ask for the token when it loads")
+                return
             }
+            // FCM tokens are letters, digits, ':', '-' and '_'; anything else is left out rather than escaped.
+            let safe = String(token.unicodeScalars.filter { CharacterSet.alphanumerics.contains($0) || ":-_".unicodeScalars.contains($0) })
+            let script = "window.__storelibFcmToken='\(safe)';window.dispatchEvent(new CustomEvent('fcmTokenReady',{detail:'\(safe)'}));"
+            webView.evaluateJavaScript(script, completionHandler: { _, jsError in
+                if let jsError = jsError { print("[push] evaluateJavaScript error dispatching fcmTokenReady: \(jsError)") }
+            })
         }
     }
 
@@ -99,7 +110,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         if let vc = window?.rootViewController as? CAPBridgeViewController, let webView = vc.bridge?.webView {
             StorelibDownloads.shared.attach(to: webView)
             StorelibPopups.shared.attach(to: webView)
+            StorelibPush.shared.attach(to: webView)
         }
+        // A token that arrived while the page was not there yet, or that the page lost by navigating.
+        dispatchFcmToken()
     }
 
     // ── OAuth / deep-link forwarding ──────────────────────────────────────────
@@ -411,5 +425,32 @@ final class StorelibPopupController: UIViewController {
     @objc private func close() {
         web.evaluateJavaScript("window.close()", completionHandler: nil)
         dismiss(animated: true)
+    }
+}
+
+// MARK: - The push token, asked for by the page
+
+/// The page asks for the push token when it loads:
+///
+///     window.webkit.messageHandlers.storelibPush.postMessage({ action: "token" })
+///
+/// and AppDelegate answers with dispatchFcmToken. Attached once per web view,
+/// like StorelibDownloads.
+final class StorelibPush: NSObject, WKScriptMessageHandler {
+    static let shared = StorelibPush()
+    static let handlerName = "storelibPush"
+    var onAsk: (() -> Void)?
+    private weak var webView: WKWebView?
+
+    func attach(to webView: WKWebView) {
+        if self.webView === webView { return }
+        self.webView = webView
+        let controller = webView.configuration.userContentController
+        controller.removeScriptMessageHandler(forName: Self.handlerName)
+        controller.add(self, name: Self.handlerName)
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        onAsk?()
     }
 }

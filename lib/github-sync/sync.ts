@@ -31,7 +31,7 @@ import { validateSection } from "@/lib/storelib-ai/validate"
 import { saveThemeFile } from "@/lib/website-builder/save-theme-file"
 import { publicError } from "@/lib/agent-access/operations"
 import { repoMayWrite } from "@/lib/agent-access/protected"
-import { isCompatSource } from "@/lib/storelib-theme/compat/theme"
+import { isCompatSource, splitCompatFile } from "@/lib/storelib-theme/compat/theme"
 import { compatOf } from "@/lib/storelib-theme/compat/install"
 import { parseCompat } from "@/lib/storelib-theme/compat/parser"
 import { CompatSyntaxError } from "@/lib/storelib-theme/compat/lexer"
@@ -56,10 +56,10 @@ import {
   type PushPayload,
 } from "./core"
 import { GitHubError, blobAt, commentOnCommit, commitChanges, compareFiles, compareStatus, installationToken, listTree, setStatus, treeAt, type FileChange, type GitHubConfig } from "./github"
-import { GENERATED, SETTINGS_PATH, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
+import { GENERATED, gitBlobSha, jsonError, mergePages, readsBack, repoReadme, roleOf, themeFiles, type RepoFile, type ThemeSnapshot } from "./layout"
 import { explainFailure, failureLine } from "./errors"
 import { readSnapshot, SnapshotError } from "./snapshot"
-import { recordEvent } from "./mirror"
+import { recordEvent } from "./events"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -176,15 +176,18 @@ export async function exportSite(
   cfg: GitHubConfig,
   link: GitHubLink,
   siteName: string,
-  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). */
-  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null } = {},
+  /* fetchMedia null: pictures are not fetched (an export after Publish; the repository keeps the ones it has). reason: what started it, for the activity list. */
+  deps: { fetchMedia?: ((url: string, maxBytes: number) => Promise<Uint8Array | null>) | null; reason?: string } = {},
 ): Promise<string | null> {
   if (!link.repo_full_name || !link.branch) throw new SyncError("Pick a repository first")
   let snap: ThemeSnapshot
   try {
     snap = await readSnapshot(db, link.install_id, { name: siteName, fetchMedia: deps.fetchMedia === null ? undefined : (deps.fetchMedia ?? storageMedia) })
   } catch (e) {
-    throw new SyncError(e instanceof SnapshotError ? e.message : "Could not read this website. Try again.")
+    const line = e instanceof SnapshotError ? e.message : "Could not read this website. Try again."
+    await saveLink(db, link.install_id, { last_error: `Sending to GitHub: ${line}` })
+    await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `${deps.reason ? `${deps.reason}, not sent` : "Not sent"}: ${line}` })
+    throw new SyncError(line)
   }
   const { files, skipped, overrides } = repoFilesFor(snap, link)
   const at = new Date().toISOString()
@@ -210,9 +213,9 @@ export async function exportSite(
     await recordEvent(db, link.install_id, {
       direction: "to_github",
       ok: true,
-      summary: r.sha
+      summary: (deps.reason ? `${deps.reason}. ` : "") + (r.sha
         ? `Sent the whole theme to GitHub (${theme}): ${r.written} changed${r.removed ? `, ${r.removed} removed` : ""}${skipped.length ? `. ${skipped.length} left out, listed in storelib.json` : ""}`
-        : `GitHub already had the whole theme (${theme})`,
+        : `GitHub already had the whole theme (${theme})`),
       commit_sha: r.sha,
     })
     return r.sha
@@ -221,7 +224,7 @@ export async function exportSite(
     const line = x ? failureLine(x) : "Something went wrong sending the theme to GitHub. Press Push again."
     const last: LastSync = { at, direction: "to_github", commit: null, ok: false, saved: [], failed: [], notes: [], problem: x?.problem ?? "unknown" }
     await saveLink(db, link.install_id, { last_error: line, sync_state: { ...(link.sync_state ?? {}), last } })
-    await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `Not sent: ${line}` })
+    await recordEvent(db, link.install_id, { direction: "to_github", ok: false, summary: `${deps.reason ? `${deps.reason}, not sent` : "Not sent"}: ${line}` })
     throw new SyncError(line)
   }
 }
@@ -245,6 +248,27 @@ export interface ApplyResult {
 
 const looksBinary = (b: Uint8Array) => b.subarray(0, 8000).includes(0)
 
+/** The same value, written the same way: key order and spacing do not count as a change. */
+function stable(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(stable).join(",")}]`
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value as object).sort().map((k) => `${JSON.stringify(k)}:${stable((value as Record<string, unknown>)[k])}`).join(",")}}`
+  }
+  return JSON.stringify(value ?? null)
+}
+
+/**
+ * Why an imported section or block from the repository cannot be taken, or
+ * null: its <schema> (the panel and the theme's own `shopify` settings) is
+ * the import's, so a change to it is refused and said so. The markup is free.
+ */
+export function compatSchemaChange(path: string, stored: string, text: string): string | null {
+  const theirs = splitCompatFile(text)
+  if (theirs.schema === null && /<schema>/.test(text)) return `${path}: the <schema> block is not valid JSON`
+  if (stable(theirs.schema ?? {}) === stable(splitCompatFile(stored).schema ?? {})) return null
+  return `${path}: its settings (the <schema> block) changed. An imported theme's settings come from its import: change the markup here, or import the theme again`
+}
+
 /** The quality findings a built-in already has are not the edit's fault: only new ones refuse a copy of it. */
 function newQualityErrors(source: string, original: string | undefined, path: string, type: string) {
   const checked = validateSection(source, { path, expectType: type, strict: true })
@@ -256,9 +280,15 @@ function newQualityErrors(source: string, original: string | undefined, path: st
   return errors.find((f) => !had.has(f.id)) ?? null
 }
 
-async function logActivity(db: Db, installId: string, who: string, path: string, action: "created" | "updated") {
+/**
+ * One line in the activity log an open builder follows (the one agents
+ * write). A file as itself; a page or the settings, rewritten whole, as a
+ * page change that carries `replaced` and no operations, so the builder reads
+ * it again from the draft (or keeps an edit not saved yet, and says so).
+ */
+async function logActivity(db: Db, installId: string, who: string, row: { path: string; action: "created" | "updated" | "page" | "page_created"; detail?: { page?: string; replaced: true } }) {
   try {
-    await db.from("theme_agent_activity").insert({ install_id: installId, token_id: null, agent_name: who, path, action })
+    await db.from("theme_agent_activity").insert({ install_id: installId, token_id: null, agent_name: who, path: row.path, action: row.action, ...(row.detail ? { detail: row.detail } : {}) })
   } catch {
     /* the builder hears about it on its next load instead */
   }
@@ -379,7 +409,7 @@ export async function applyFiles(
       conflictNote(f.path)
       out.saved.push(f.path)
       out.shas[f.path] = f.sha
-      await logActivity(db, link.install_id, who, SETTINGS_PATH, "updated")
+      await logActivity(db, link.install_id, who, { path: "settings", action: "page", detail: { replaced: true } })
       continue
     }
 
@@ -398,6 +428,15 @@ export async function applyFiles(
       if (allowed.ok === false) {
         out.failed.push({ path: f.path, error: allowed.error })
         continue
+      }
+      /* An imported theme's settings come from its import: its markup changes here, its <schema> does not. */
+      const had = snap.compat && /^(sections|blocks)\//.test(f.path) ? snap.files[f.path] : undefined
+      if (had !== undefined) {
+        const schemaProblem = compatSchemaChange(f.path, had, text)
+        if (schemaProblem) {
+          out.failed.push({ path: f.path, error: schemaProblem })
+          continue
+        }
       }
       /* A section or block of a Storelib theme is held to every rule a creator's own section is, scripts included. */
       if (!snap.compat && /^(sections|blocks)\//.test(f.path)) {
@@ -439,7 +478,7 @@ export async function applyFiles(
     if (role === "source" && !snap.compat && repoMayWrite(f.path, compat).ok && (f.path in snap.defaults || (m && SECTION_SCHEMAS[m[1]]))) {
       out.notes.push({ path: f.path, note: `${f.path} is a built-in. This site now uses its own copy; reset it in the builder to go back to Storelib's.` })
     }
-    await logActivity(db, link.install_id, who, f.path, saved.created ? "created" : "updated")
+    await logActivity(db, link.install_id, who, { path: f.path, action: saved.created ? "created" : "updated" })
   }
 
   /* Pages: the changed templates and groups, merged into what each page has. */
@@ -472,7 +511,7 @@ export async function applyFiles(
         out.failed.push({ path: file, error: `${file}: could not be saved just now. Push again.` })
         continue
       }
-      await logActivity(db, link.install_id, who, file, exists ? "updated" : "created")
+      await logActivity(db, link.install_id, who, { path: `pages/${page.page_key}`, action: exists ? "page" : "page_created", detail: { page: page.page_key, replaced: true } })
     }
     for (const path of Object.keys(pageFiles)) {
       if (failedPaths.has(path) || out.failed.some((x) => x.path === path)) continue
@@ -513,9 +552,23 @@ export function commitComment(r: { saved: string[]; failed: FileProblem[]; notes
   return lines.join("\n")
 }
 
-async function readIncoming(token: string, repo: string, files: Map<string, { sha: string; size: number }>, root: string, paths: string[], agreed: Record<string, string>): Promise<{ incoming: Incoming[]; failed: FileProblem[] }> {
+/**
+ * Each theme path to the Git id of its bytes as the site has it now, and as
+ * GitHub and Storelib last agreed: a file GitHub has with one of these ids is
+ * already the site's, so it is never downloaded (round Z: Pull fetches only
+ * what differs, by Git's own file ids, even on a link that agreed on nothing yet).
+ */
+function currentShas(snap: ThemeSnapshot, link: GitHubLink): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const f of repoFilesFor(snap, link).files) out[f.path] = gitBlobSha(f.bytes ?? f.text ?? "")
+  return out
+}
+
+async function readIncoming(token: string, repo: string, files: Map<string, { sha: string; size: number }>, root: string, paths: string[], agreed: Record<string, string>, current: Record<string, string> = {}): Promise<{ incoming: Incoming[]; failed: FileProblem[] }> {
   const incoming: Incoming[] = []
   const failed: FileProblem[] = []
+  const known: Record<string, string> = { ...current }
+  for (const [p, sha] of Object.entries(agreed)) if (files.get(`${root}${p}`)?.sha === sha) known[p] = sha
   const queue = [...paths]
   const work = async () => {
     while (queue.length) {
@@ -526,8 +579,8 @@ async function readIncoming(token: string, repo: string, files: Map<string, { sh
         failed.push({ path, error: `${path}: over 20 MB, which Storelib does not take` })
         continue
       }
-      /* Already agreed on: no need to download it to know. */
-      if (agreed[path] === entry.sha) {
+      /* Already agreed on, or already the site's own bytes: no need to download it to know. */
+      if (known[path] === entry.sha) {
         incoming.push({ path, bytes: new Uint8Array(), sha: entry.sha })
         continue
       }
@@ -581,7 +634,7 @@ export async function pullNow(db: Db, cfg: GitHubConfig, link: GitHubLink, siteN
     .map((p) => (p.startsWith(link.root_path) ? p.slice(link.root_path.length) : null))
     .filter((p): p is string => p !== null && readsBack(roleOf(p, compat)) && !GENERATED.has(p))
   if (paths.length > MAX_FILES_PER_PULL) throw new SyncError(`The branch has ${paths.length} theme files; Pull takes ${MAX_FILES_PER_PULL} at once`)
-  const read = await readIncoming(token, link.repo_full_name, tree.files, link.root_path, paths, link.sync_state?.files ?? {})
+  const read = await readIncoming(token, link.repo_full_name, tree.files, link.root_path, paths, link.sync_state?.files ?? {}, currentShas(snap, link))
   const r = await applyFiles(db, link, snap, read.incoming, "GitHub", { commit: tree.sha, deadline })
   r.failed.unshift(...read.failed)
   await finish(db, link, r, tree.sha, "from_github", "Pulled from GitHub")
@@ -703,7 +756,7 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
       outcomes.push({ ...out, failed: [{ path: "", error: line }] })
       continue
     }
-    const read = await readIncoming(token, repo, tree, link.root_path, changed, link.sync_state?.files ?? {})
+    const read = await readIncoming(token, repo, tree, link.root_path, changed, link.sync_state?.files ?? {}, currentShas(snap, link))
     const r = await applyFiles(db, link, snap, read.incoming, who, { commit: after, deadline })
     r.failed.unshift(...read.failed)
     r.notes.push(...out.notes)
@@ -742,26 +795,4 @@ export async function applyPush(db: Db, cfg: GitHubConfig, payload: PushPayload)
     }
   }
   return outcomes
-}
-
-/**
- * After a Publish: the whole theme to the linked repository, so the pages
- * and settings an agent reads there are the ones the site has now, not the
- * ones from the last Push. Only when "Builder to GitHub" is on. Never
- * rejects; a failure is on the link and in the activity list.
- */
-export async function sendWholeTheme(installId: string): Promise<void> {
-  try {
-    const { githubConfig } = await import("./github")
-    const { createAdminClient } = await import("@/lib/supabase/admin")
-    const cfg = githubConfig()
-    if (!cfg) return
-    const db = createAdminClient()
-    const { data: link } = await db.from("theme_github_links").select("*").eq("install_id", installId).maybeSingle()
-    if (!link || !link.repo_full_name || !link.branch || link.push_on_save === false) return
-    const { data: install } = await db.from("store_theme_installs").select("name").eq("id", installId).maybeSingle()
-    await exportSite(db, cfg, link as GitHubLink, (install?.name as string) || "Site", { fetchMedia: null })
-  } catch {
-    /* exportSite wrote why to the link and the activity list */
-  }
 }

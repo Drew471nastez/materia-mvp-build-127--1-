@@ -3,7 +3,7 @@
  *  STORELIB REVIEWS: THE APP'S SETTINGS AND ITS RULES, WITH NO DATABASE
  * ===========================================================================
  * Settings › Integrations › Storelib Reviews keeps one small object in
- * store_settings.reviews (run-now part 133). Everything that reads it (the
+ * store_settings.reviews (run-now part 134). Everything that reads it (the
  * settings page, the routes that take a review, the request emails, the
  * website's review sections) goes through readReviewsApp, so a value that was
  * never saved, or was saved by an older version, reads as the default and a
@@ -179,7 +179,7 @@ export function readSiteStatus(v: unknown): SiteStatus {
   return v === "pending" || v === "hidden" ? v : "shown"
 }
 
-/** Tied to a purchase. A row from before run-now part 133 has no column, and every one of those was a buyer's. */
+/** Tied to a purchase. A row from before run-now part 134 has no column, and every one of those was a buyer's. */
 export function isVerifiedReview(row: { verified?: unknown }): boolean {
   return row.verified !== false
 }

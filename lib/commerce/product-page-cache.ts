@@ -328,7 +328,7 @@ export const cachedReviews = (productId: string) =>
         return q.order("created_at", { ascending: false }).limit(10)
       }
       const buyer = "buyer:profiles!buyer_id(id, display_name, avatar_url)"
-      /* With run-now part 133: whether it is a verified buyer's, so the card says so only then. */
+      /* With run-now part 134: whether it is a verified buyer's, so the card says so only then. */
       let res = await read(`id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, verified, source, ${buyer}`, true)
       if (res.error && (res.error.code === "42703" || res.error.code === "PGRST204")) {
         res = await read(`id, product_id, rating, content, created_at, edited_at, reviewer_name, seller_reply, seller_reply_at, ${buyer}`, true)

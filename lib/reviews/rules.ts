@@ -85,7 +85,7 @@ export function guestReviewerName(firstName: unknown): string | null {
 
 export interface ReviewAuthorFields {
   reviewer_name?: string | null
-  /** False for a website visitor's or an imported review (run-now part 133): never called a verified buyer. */
+  /** False for a website visitor's or an imported review (run-now part 134): never called a verified buyer. */
   verified?: boolean | null
   buyer?: { display_name?: string | null; username?: string | null; avatar_url?: string | null } | null
 }

@@ -59,7 +59,7 @@ export function ReviewsAppPanel({ onChanged }: { onChanged?: (s: ReviewsAppSetti
   if (!loaded) {
     return error ? <Notice>{error}</Notice> : <div className="h-24 animate-pulse rounded-xl bg-[#f3f4f6]" aria-label="Loading" />
   }
-  if (!loaded.ready) return <Notice tone="amber">Storelib Reviews needs its database update (SQL part 133). Until it runs, nothing here is kept.</Notice>
+  if (!loaded.ready) return <Notice tone="amber">Storelib Reviews needs its database update (SQL part 134). Until it runs, nothing here is kept.</Notice>
 
   const on = draft.enabled
   return (

@@ -56,7 +56,7 @@ export async function POST(request: Request) {
     const { data, error } = await c.db.from("reviews").insert(rows.slice(i, i + 200)).select("id")
     if (error) {
       const code = String((error as { code?: string }).code ?? "")
-      if (imported === 0) return physicalJson({ error: code === "42703" || code === "PGRST204" || code === "23514" ? "Import turns on after the database update (SQL part 133)." : "The reviews did not import. Try again." }, code === "42703" || code === "PGRST204" || code === "23514" ? 409 : 500)
+      if (imported === 0) return physicalJson({ error: code === "42703" || code === "PGRST204" || code === "23514" ? "Import turns on after the database update (SQL part 134)." : "The reviews did not import. Try again." }, code === "42703" || code === "PGRST204" || code === "23514" ? 409 : 500)
       break
     }
     imported += (data ?? []).length

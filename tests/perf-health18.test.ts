@@ -259,9 +259,9 @@ async function main() {
     const fns = ["perf_ingest(text, jsonb, integer)", "perf_window(timestamptz)", "perf_rollup_day(date)", "perf_errors(timestamptz, integer)", "perf_slow_queries(integer, double precision, integer)"]
     check("every function is the service role's alone", fns.every((f) => sql.includes(`REVOKE ALL ON FUNCTION public.${f} FROM PUBLIC, anon, authenticated;`) && sql.includes(`GRANT EXECUTE ON FUNCTION public.${f} TO service_role;`)))
     check("a daily cap counted per source before anything is kept", /INSERT INTO public\.perf_day_counts[\s\S]*IF v_n > greatest\(coalesce\(p_cap, 0\), 0\) THEN RETURN 0/.test(sql))
-    /* Part 132 keeps raw samples longer, for the 30 day window; it replaces only that function. */
-    const p132 = read("supabase/sql/run-now/132_perf_collect_everywhere.sql")
-    check(`raw samples kept ${RAW_RETENTION_DAYS} days (part 132), rollups ${ROLLUP_RETENTION_DAYS}`, sql.includes("interval '8 days'") && p132.includes(`interval '${RAW_RETENTION_DAYS} days'`) && p132.includes(`v_today - ${ROLLUP_RETENTION_DAYS}`))
+    /* Part 133 keeps raw samples longer, for the 30 day window; it replaces only that function. */
+    const p133 = read("supabase/sql/run-now/133_perf_collect_everywhere.sql")
+    check(`raw samples kept ${RAW_RETENTION_DAYS} days (part 133), rollups ${ROLLUP_RETENTION_DAYS}`, sql.includes("interval '8 days'") && p133.includes(`interval '${RAW_RETENTION_DAYS} days'`) && p133.includes(`v_today - ${ROLLUP_RETENTION_DAYS}`))
     check("caps are what the routes pass", read("app/api/perf/beacon/route.ts").includes("DAILY_CAP.client") && read("lib/perf/server-timing.ts").includes("DAILY_CAP.server") && DAILY_CAP.client <= 50_000)
     check("pg_stat_statements is read only where it exists, with a reason otherwise", /WHERE e\.extname = 'pg_stat_statements'; IF v_schema IS NULL THEN RETURN jsonb_build_object\('available', false/.test(sql) && /EXCEPTION WHEN others THEN RETURN jsonb_build_object\('available', false/.test(sql))
     check("published websites' own Web Vitals only where their table exists", (sql.match(/to_regclass\('public\.site_web_vitals'\) IS NOT NULL/g) ?? []).length === 2)
@@ -319,7 +319,7 @@ async function main() {
 
   console.log("\nCopy")
   {
-    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "lib/perf/mark.ts", "lib/perf/site-vitals-inline.ts", "components/perf/perf-beacon.tsx", "app/admin/performance/page.tsx", "app/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/public/m/route.ts", "app/api/public/sv/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql", "supabase/sql/run-now/132_perf_collect_everywhere.sql"]
+    const files = ["lib/perf/config.ts", "lib/perf/routes.ts", "lib/perf/scoring.ts", "lib/perf/problems.ts", "lib/perf/telemetry.ts", "lib/perf/beacon-client.ts", "lib/perf/server-timing.ts", "lib/perf/read.ts", "lib/perf/daily.ts", "lib/perf/infra.ts", "lib/perf/report.ts", "lib/perf/optimizations.ts", "lib/perf/mark.ts", "lib/perf/site-vitals-inline.ts", "components/perf/perf-beacon.tsx", "app/admin/performance/page.tsx", "app/admin/performance/performance-admin.tsx", "app/api/perf/beacon/route.ts", "app/api/public/m/route.ts", "app/api/public/sv/route.ts", "app/api/perf/admin/route.ts", "supabase/sql/run-now/126_perf_health.sql", "supabase/sql/run-now/133_perf_collect_everywhere.sql"]
     const bad = files.filter((f) => /—|\b(unlock|elevate|seamless|powerful|effortless|effortlessly|supercharge|transform)/i.test(read(f)))
     check("no em dashes and none of the banned words", bad.length === 0, bad.join(", "))
   }

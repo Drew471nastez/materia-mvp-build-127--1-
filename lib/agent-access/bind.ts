@@ -44,7 +44,7 @@ export async function bindOps(who: AgentIdentity): Promise<BoundOps> {
     const { data: install } = await db.from("store_theme_installs").select("name").eq("id", who.installId).maybeSingle()
     siteName = install?.name ?? undefined
   }
-  /* A read only key (part 131's scopes) reads and checks, and every write answers why not. */
+  /* A read only key (part 132's scopes) reads and checks, and every write answers why not. */
   const readOnly = who.canWrite === false
   const refuse = async () => ({ ok: false as const, status: 403, error: READ_ONLY_REFUSAL })
   return {

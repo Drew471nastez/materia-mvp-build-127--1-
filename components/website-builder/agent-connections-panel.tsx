@@ -58,7 +58,7 @@ interface Connection {
   prefix: string
   created_at: string
   last_used_at: string | null
-  /** Part 131: when the key stops working (null for never), whether it has, and whether it can change the site. */
+  /** Part 132: when the key stops working (null for never), whether it has, and whether it can change the site. */
   expires_at?: string | null
   expired?: boolean
   access?: "read" | "write"

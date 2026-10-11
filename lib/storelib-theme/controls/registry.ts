@@ -513,6 +513,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
 export const UNSUPPORTED_TYPES: Record<string, string> = {
   blog: "A Storelib website has no blog of its own yet, so there is no blog to pick.",
   article: "A Storelib website has no blog of its own yet, so there are no posts to pick.",
+  article_list: "A Storelib website has no blog of its own yet, so there are no posts to pick.",
   metaobject: "Storelib has no metaobjects. Use blocks for repeated content.",
   metaobject_list: "Storelib has no metaobjects. Use blocks for repeated content.",
   color_scheme_group: "Colour schemes are the theme's, edited in Theme settings › Colors. A section picks one with color_scheme.",

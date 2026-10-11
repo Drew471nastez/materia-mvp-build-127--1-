@@ -3,9 +3,9 @@
 // Video hero — full-width hero with a background video (self-hosted or
 // poster image fallback) and an overlay text/CTA block on top.
 
-import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps, schemeButton } from "../_shared"
+import { sectionColors, str, bool, SectionWrapper, hexToRgba, type SectionProps, schemeButton, firstPicture } from "../_shared"
 
-export function VideoHeroSection({ section, theme, isEditing, isSelected, onClick }: SectionProps) {
+export function VideoHeroSection({ section, theme, isEditing, isSelected, onClick, pageIndex }: SectionProps) {
   const s = section.settings
   const c = sectionColors(section, theme)
   const fullHeight = bool(s.full_height, true)
@@ -51,7 +51,7 @@ export function VideoHeroSection({ section, theme, isEditing, isSelected, onClic
           />
         ) : poster ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={poster} alt="" className="absolute inset-0 w-full h-full object-cover" />
+          <img src={poster} alt="" className="absolute inset-0 w-full h-full object-cover" fetchPriority={firstPicture(pageIndex).fetchPriority} />
         ) : null}
         <div className="absolute inset-0" style={{ background: hexToRgba(overlayColor, overlayOp / 100) }} />
         <div className={`relative flex flex-col ${alignClass} justify-center px-6 py-16 ${mw} mx-auto`} style={{ color: textColor, minHeight: fullHeight ? "calc(var(--sl-vh, 1vh) * 100)" : undefined }}>

@@ -217,7 +217,7 @@ async function save(
   const insert = (values: Record<string, unknown>) =>
     admin.from("reviews").insert(values).select(`*, buyer:profiles!buyer_id(id, display_name, avatar_url)`).single()
   let { data: review, error } = await insert(row)
-  /* Before run-now part 133 there is no site_status, and the app cannot be on. */
+  /* Before run-now part 134 there is no site_status, and the app cannot be on. */
   if (error && missingColumn(error) && "site_status" in row) {
     delete row.site_status
     ;({ data: review, error } = await insert(row))

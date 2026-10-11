@@ -338,15 +338,16 @@ async function run(zipPath: string) {
       /* Policies and the account pages, in the theme's own header and footer. */
       for (const at of ["/policies/refund-policy", "/refund-policy"]) {
         await visit(at)
-        const p = await page.evaluate(() => ({ header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner]"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer"), words: /Returns are accepted within 30 days/.test(document.body.textContent ?? "") }))
+        const p = await page.evaluate(() => ({ header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner], #shopify-section-header"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer, #shopify-section-footer"), words: /Returns are accepted within 30 days/.test(document.body.textContent ?? "") }))
         check(`${at} draws the policy in the theme's header and footer`, p.header && p.footer && p.words, JSON.stringify(p))
+        if (at === "/refund-policy") await page.screenshot({ path: `${OUT}/${name}-${label}-policy.png` })
       }
       /* The account: drawn by the theme on this host (no frame, which X-Frame-Options: DENY refuses live); a guest is sent to sign in. */
       await visit("/account")
       const acc = await page.evaluate(() => {
         const form = document.querySelector<HTMLFormElement>('form[action="/account/login"], form[action="/api/site-account/code"]')
         const email = form?.querySelector<HTMLInputElement>('input[type=email], input[name="customer[email]"], input[name=email]')
-        return { path: location.pathname, header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner]"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer"), frame: !!document.querySelector("iframe#sl-account-frame"), email: !!email && email.getBoundingClientRect().width > 40, password: !!document.querySelector("input[type=password]") }
+        return { path: location.pathname, header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner], #shopify-section-header"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer, #shopify-section-footer"), frame: !!document.querySelector("iframe#sl-account-frame"), email: !!email && email.getBoundingClientRect().width > 40, password: !!document.querySelector("input[type=password]") }
       })
       check("/account sends a guest to sign in: a visible email form in the theme's header and footer, no frame, no password", acc.path === "/account/login" && acc.header && acc.footer && !acc.frame && acc.email && !acc.password, JSON.stringify(acc))
       const all = await shirtsOn("/collections/all")
@@ -376,7 +377,8 @@ async function run(zipPath: string) {
       check("product pictures load", pictures.shown > 0 && pictures.loaded === pictures.shown, `${pictures.loaded} of ${pictures.shown}${pictures.missing[0] ? `; not loaded: ${pictures.missing.join(" | ")}` : ""}`)
       const priceBefore = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
       const picked = await page.evaluate(() => {
-        const inputs = [...document.querySelectorAll<HTMLInputElement>("variant-picker input[type=radio], variant-selects input[type=radio], variant-picker select, variant-selects select")]
+        /* variant-radios: Dawn before 2023. */
+        const inputs = [...document.querySelectorAll<HTMLInputElement>("variant-picker input[type=radio], variant-selects input[type=radio], variant-radios input[type=radio], variant-picker select, variant-selects select")]
         const radio = inputs.find((i) => i instanceof HTMLInputElement && i.value === "Large" && !i.checked) as HTMLInputElement | undefined
         if (radio) { (radio.labels?.[0] ?? radio).click(); return "radio" }
         const select = document.querySelector<HTMLSelectElement>("variant-picker select, variant-selects select, select.single-option-selector")
@@ -622,7 +624,7 @@ async function run(zipPath: string) {
           const shown = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
           const form = [...document.querySelectorAll<HTMLFormElement>("form")].find((f) => shown(f) && !!f.querySelector("input[type=email], input[name='customer[email]'], input[name=email]"))
           const email = form?.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")
-          return { header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner]"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
+          return { header: !!document.querySelector(".shopify-section-group-header-group, body > .site-header, header.site-header, header[role=banner], #shopify-section-header"), footer: !!document.querySelector(".shopify-section-group-footer-group, footer.site-footer, footer[role=contentinfo], .site-footer, #shopify-section-footer"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
         })
         if (at === "/account") {
           check("in the canvas, /account draws the theme's account page, about a sample customer", drawn.header && drawn.footer && drawn.account && errors.length === 0, JSON.stringify(drawn))

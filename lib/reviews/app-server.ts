@@ -4,7 +4,7 @@ import "server-only"
  * ===========================================================================
  *  STORELIB REVIEWS: READING AND SAVING THE APP'S SETTINGS
  * ===========================================================================
- * store_settings.reviews (run-now part 133), read through readReviewsApp so
+ * store_settings.reviews (run-now part 134), read through readReviewsApp so
  * every reader gets whole, in-range settings. A published page reads them
  * through a short cache keyed by the creator, cleared by every save, so a
  * visitor's page never waits on it and a change shows on the next view.
@@ -16,7 +16,7 @@ import { mergeReviewsApp, readReviewsApp, type ReviewsAppSettings } from "./app-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
 
-export const REVIEWS_APP_NEEDS_PART = "Storelib Reviews needs its database update. Run SQL part 133 in Supabase, then try again."
+export const REVIEWS_APP_NEEDS_PART = "Storelib Reviews needs its database update. Run SQL part 134 in Supabase, then try again."
 export const reviewsAppTag = (creatorId: string) => `reviews-app:${creatorId}`
 
 function missingColumn(error: { code?: string } | null | undefined): boolean {

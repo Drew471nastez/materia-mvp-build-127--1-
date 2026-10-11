@@ -237,8 +237,11 @@ export interface ActivityEvent {
    * A page change carries its operations, the same ones Storelib AI streams
    * (lib/website-builder/agent/operations.ts). A new file an agent already
    * placed on a page carries placed, so the builder does not place it twice.
+   * A page or the settings rewritten whole (a push to the linked GitHub
+   * repository) carries replaced and no operations: the builder reads it
+   * again from the draft.
    */
-  detail?: { placed?: boolean; page?: string; ops?: ThemeOp[] } | null
+  detail?: { placed?: boolean; page?: string; ops?: ThemeOp[]; replaced?: boolean } | null
 }
 
 /**

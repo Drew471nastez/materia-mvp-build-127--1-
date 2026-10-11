@@ -7,26 +7,35 @@
  * already fetched while the pointer rests on its link
  * (lib/website-builder/prefetch-rules.ts); this is the other half, how the
  * change looks. A cross-document view transition keeps the page being left
- * on screen until the next one can be drawn, then the two cross-fade,
- * briefly: no white page between them, and the header and its logo do not
- * blink. Off for a visitor who has asked for less motion, and ignored by a
- * browser that does not have it, which loads pages as it always did.
+ * on screen until the next one can be drawn, then the next one replaces it
+ * in one frame: no white page between them, and the header and its logo do
+ * not blink. Off for a visitor who has asked for less motion, and ignored by
+ * a browser that does not have it, which loads pages as it always did.
  *
- * Live pages only: the builder's canvas draws one page and does not move.
+ * Live pages only: the builder's canvas swaps its own pages the same way
+ * (components/website-builder/compat/compat-canvas.tsx).
  */
 /*
   `:root::` and not `::`: the app's own stylesheet turns the root's fade off
   for its sliding layers (app/globals.css), and this sheet is only on a
-  site's pages, so on a site the more particular rule wins and the pages
-  cross-fade. plus-lighter adds the two pictures, so what is the same on
-  both, the header and its logo, stays exactly as it was through the fade.
+  site's pages, so on a site the more particular rule wins.
+
+  A CUT, NOT A CROSS-FADE. The two pages faded across each other for 160ms,
+  added together (plus-lighter): wherever they differ, both were on screen
+  at once, a ghost of About over Home (filmed frame by frame on the Posturex
+  fixture, scripts/check-canvas20.ts: 26 of 35 frames of a header link were
+  neither page). Now the page being left stays exactly as it is, the next
+  page is held under it until it has started (NAVIGATION_HEAD_SCRIPT), and
+  then the next page is shown, whole, in one frame. The animations are a
+  millisecond long and a single step so the transition still has something
+  to hold paused while the page starts.
 */
 export const VIEW_TRANSITION_CSS =
   "@keyframes sl-page-out{to{opacity:0}}@keyframes sl-page-in{from{opacity:0}}" +
   "@media (prefers-reduced-motion: no-preference){@view-transition{navigation:auto}" +
   ":root::view-transition-group(root){animation:none}" +
-  ":root::view-transition-old(root){animation:sl-page-out 160ms ease both;mix-blend-mode:plus-lighter}" +
-  ":root::view-transition-new(root){animation:sl-page-in 160ms ease both;mix-blend-mode:plus-lighter}" +
+  ":root::view-transition-old(root){animation:sl-page-out 1ms steps(1,end) both}" +
+  ":root::view-transition-new(root){animation:sl-page-in 1ms steps(1,end) both}" +
   /* The page arriving waits, under the page being left, until it has started (NAVIGATION_HEAD_SCRIPT). */
   ":root[data-sl-arriving]::view-transition-group(*),:root[data-sl-arriving]::view-transition-old(*),:root[data-sl-arriving]::view-transition-new(*){animation-play-state:paused}" +
   "::view-transition{pointer-events:none}}"

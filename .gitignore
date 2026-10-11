@@ -110,3 +110,4 @@ tsconfig.*.generated.json
 # the way out; left behind by a run that stopped early.
 .receipt-downloads/
 .onepage-downloads/
+.orders20-probe/

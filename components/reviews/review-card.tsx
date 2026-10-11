@@ -35,7 +35,7 @@ export interface ReviewCardData {
   reviewer_name?: string | null
   seller_reply?: string | null
   seller_reply_at?: string | null
-  /** False for a website visitor's or an imported review: no "Verified purchase" (absent before run-now part 133, when every review was a buyer's). */
+  /** False for a website visitor's or an imported review: no "Verified purchase" (absent before run-now part 134, when every review was a buyer's). */
   verified?: boolean | null
   source?: string | null
   buyer?: { id?: string; display_name?: string | null; avatar_url?: string | null } | null

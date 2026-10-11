@@ -421,7 +421,7 @@ export async function cardsFromRows(db: unknown, rows: ProductRow[], creatorId?:
  * cards" on (lib/reviews/app-settings.ts), each card that has reviews shown
  * on the website carries its rating, counted from the reviews the website's
  * review sections show: published, and not hidden or waiting on the website
- * (site_status). Before run-now part 133 (no site_status, and the app cannot
+ * (site_status). Before run-now part 134 (no site_status, and the app cannot
  * be on) it is products.reviews_average and reviews_count. A product
  * card section draws stars from it; an imported Shopify theme reads it as
  * product.metafields.reviews.rating (lib/storelib-theme/compat/objects.ts).

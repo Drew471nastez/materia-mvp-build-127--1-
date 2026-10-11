@@ -4,19 +4,29 @@
  * ===========================================================================
  *  EVERY COMBINATION, AS ROWS A SELLER CAN FILL IN QUICKLY
  * ===========================================================================
- * Under the options (./variant-options.tsx). Each row is one variant: its
- * photo, its name, its price and its quantity, and behind the chevron its
- * compare at price, SKU, barcode, weight and cost, and whether it is sold.
+ * Under the options (./variant-options.tsx). Each row is one variant on one
+ * line, at every width: its photo, its name, its price and its quantity,
+ * under a header that names the two columns. Behind the chevron its compare
+ * at price, cost, SKU, barcode and weight, and whether it is sold, folding
+ * out under the row (Reveal) rather than appearing all at once.
  *
  *   two options or more   rows are grouped by the first option, as Shopify
- *                         does: "S, 4 variants", folded open, with one price
- *                         and one photo that apply to the whole group
+ *                         does: "S, 4 variants", with one price and one photo
+ *                         that apply to the whole group; a group folds
  *   Edit all              one price, compare at, quantity, weight or cost
  *                         for every variant, or every one with a value
- *   phone                 the name and photo on top, price and quantity
- *                         side by side under them; nothing scrolls sideways
+ *   new rows              a value added above brings its rows in with a short
+ *                         fade; the rows already there stay where they are
+ *   values                each field keeps only what it can be
+ *                         (lib/physical/typed-values.ts): no negative stock,
+ *                         two decimal places, a SKU without spaces, a barcode
+ *                         of digits; a compare at price that would show no
+ *                         sale, a barcode of the wrong length and a SKU two
+ *                         variants share are said under the field
  *
- * Prices are in the store's currency (lib/store/currency-context.tsx).
+ * "Smaller, smoother, cleaner": fields are 40px on a phone and 36px from
+ * 640px, with 16px type on a phone so iOS doesn't zoom. Prices are in the
+ * store's currency (lib/store/currency-context.tsx).
  */
 
 import * as React from "react"
@@ -24,14 +34,16 @@ import { ChevronDown, ImagePlus, SlidersHorizontal } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { combinationKey, variantName } from "@/lib/physical/variants"
 import { marginPercent } from "@/lib/physical/totals"
+import { barcodeProblem, barcodeTyped, compareAtProblem, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { formatStoreMoney } from "@/lib/store/currency"
 import { useStoreCurrency } from "@/lib/store/currency-context"
 import type { Location, ProductOption } from "@/lib/physical/types"
 import type { WeightUnit } from "@/lib/physical/units"
-import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, DecimalInput, Field, Modal, MoneyInput, NumberInput, SelectInput, TextInput, Toggle, centsOf } from "./ui"
+import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, DecimalInput, FIELD_COMPACT, Field, Modal, MoneyInput, NumberInput, Reveal, SelectInput, TextInput, Toggle, centsOf } from "./ui"
 import { groupByFirst, priceRange, type VariantRow } from "./variant-rows"
 
-const GRID = "md:grid-cols-[44px_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,0.8fr)_36px]"
+/** One line per variant at every width: photo, name, price, quantity, more. */
+const GRID = "grid grid-cols-[34px_minmax(0,1fr)_84px_60px_28px] items-center gap-x-2 md:grid-cols-[40px_minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,0.7fr)_32px] md:gap-x-3"
 
 export interface VariantTableProps {
   rows: VariantRow[]
@@ -48,6 +60,18 @@ export interface VariantTableProps {
   pickImage: (keys: string[], name: string) => void
 }
 
+/** Rows that were not there on the last draw, so they can come in with a fade; none on the first draw. */
+function useNewKeys(keys: string[]): Set<string> {
+  const seen = React.useRef<Set<string> | null>(null)
+  const fresh = seen.current ? new Set(keys.filter((k) => !seen.current!.has(k))) : new Set<string>()
+  React.useEffect(() => {
+    seen.current = new Set(keys)
+  })
+  return fresh
+}
+
+const ENTER = "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-200"
+
 export function VariantTable(props: VariantTableProps) {
   const { rows, options, trackInventory, locations, stockAt, setStockAt } = props
   const [openRow, setOpenRow] = React.useState<string | null>(null)
@@ -56,36 +80,62 @@ export function VariantTable(props: VariantTableProps) {
   const grouped = options.length >= 2
   const groups = grouped ? groupByFirst(rows) : []
   const sold = rows.filter((r) => r.active).length
+  const fresh = useNewKeys(rows.map((r) => combinationKey(r.options)))
+  const sharedSkus = repeatedSkus(rows.map((r) => r.sku))
+  const toggleFold = (value: string) =>
+    setFolded((s) => {
+      const n = new Set(s)
+      const k = value.toLowerCase()
+      if (n.has(k)) n.delete(k)
+      else n.add(k)
+      return n
+    })
+  const line = (r: VariantRow, label: string, nested: boolean) => {
+    const key = combinationKey(r.options)
+    return (
+      <VariantLine
+        key={key}
+        {...props}
+        row={r}
+        label={label}
+        nested={nested}
+        entering={fresh.has(key)}
+        skuShared={!!r.sku.trim() && sharedSkus.has(r.sku.trim().toLowerCase())}
+        open={openRow === key}
+        setOpen={(o) => setOpenRow(o ? key : null)}
+      />
+    )
+  }
 
   return (
-    <div className="mt-5" data-variant-table="">
-      <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] text-[#6b7280]">
+    <div className="mt-4" data-variant-table="">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-[13px] text-[#6b7280]" aria-live="polite">
           {rows.length} {rows.length === 1 ? "variant" : "variants"}
           {sold < rows.length ? `, ${rows.length - sold} not sold` : ""}
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {trackInventory && locations.length > 1 ? (
-            <SelectInput value={stockAt} onChange={setStockAt} className="w-[190px]" aria-label="Location for the quantity column">
+            <SelectInput value={stockAt} onChange={setStockAt} className="w-[180px]" aria-label="Location for the quantity column">
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
-                  Quantity at {l.name}
+                  At {l.name}
                 </option>
               ))}
             </SelectInput>
           ) : null}
-          <button type="button" data-variants-edit-all="" onClick={() => setBulk(true)} className={cn(BTN_SECONDARY, "h-9 px-3 text-[13.5px]")}>
+          <button type="button" data-variants-edit-all="" onClick={() => setBulk(true)} className={cn(BTN_SECONDARY, "h-8 px-2.5 text-[13px]")}>
             <SlidersHorizontal className="h-3.5 w-3.5" />
             Edit all
           </button>
         </div>
       </div>
-      <div className="overflow-hidden rounded-xl border border-[#eceef1]">
-        <div className={cn("hidden gap-3 border-b border-[#eceef1] bg-[#f8f9fa] px-3 py-2 text-[12px] font-medium text-[#6b7280] md:grid", GRID)}>
+      <div className="overflow-hidden rounded-xl border border-[#eceef1] bg-white">
+        <div className={cn(GRID, "border-b border-[#eceef1] bg-[#f8f9fa] px-2.5 py-1.5 text-[12px] font-medium text-[#6b7280] md:px-3")} data-variant-head="">
           <span />
-          <span>{grouped ? `Variant, by ${options[0].name.toLowerCase()}` : "Variant"}</span>
+          <span className="truncate">{grouped ? `By ${options[0].name.toLowerCase()}` : "Variant"}</span>
           <span>Price</span>
-          <span>{trackInventory ? "Quantity" : "Stock"}</span>
+          <span>{trackInventory ? "Qty" : "Stock"}</span>
           <span />
         </div>
         {grouped
@@ -93,20 +143,16 @@ export function VariantTable(props: VariantTableProps) {
               const isFolded = folded.has(g.value.toLowerCase())
               return (
                 <div key={g.value} className="border-b border-[#eceef1] last:border-b-0" data-variant-group={g.value}>
-                  <GroupLine {...props} value={g.value} rows={g.rows} folded={isFolded} toggle={() => setFolded((s) => { const n = new Set(s); const k = g.value.toLowerCase(); if (n.has(k)) n.delete(k); else n.add(k); return n })} />
-                  {isFolded ? null : (
-                    <div className="border-t border-[#f1f2f4] bg-[#fcfcfd]">
-                      {g.rows.map((r) => (
-                        <VariantLine key={combinationKey(r.options)} {...props} row={r} label={r.options.slice(1).filter(Boolean).join(" / ")} nested open={openRow === combinationKey(r.options)} setOpen={(o) => setOpenRow(o ? combinationKey(r.options) : null)} />
-                      ))}
-                    </div>
-                  )}
+                  <GroupLine {...props} value={g.value} rows={g.rows} folded={isFolded} toggle={() => toggleFold(g.value)} />
+                  <Reveal open={!isFolded}>
+                    <div className="border-t border-[#f1f2f4] bg-[#fcfcfd]">{g.rows.map((r) => line(r, r.options.slice(1).filter(Boolean).join(" / "), true))}</div>
+                  </Reveal>
                 </div>
               )
             })
           : rows.map((r) => (
               <div key={combinationKey(r.options)} className="border-b border-[#eceef1] last:border-b-0">
-                <VariantLine {...props} row={r} label={variantName(r.options)} open={openRow === combinationKey(r.options)} setOpen={(o) => setOpenRow(o ? combinationKey(r.options) : null)} />
+                {line(r, variantName(r.options), false)}
               </div>
             ))}
       </div>
@@ -122,16 +168,16 @@ function Thumb({ url, label, onClick, small }: { url: string | null; label: stri
       onClick={onClick}
       aria-label={url ? `Change the photo for ${label}` : `Add a photo for ${label}`}
       className={cn(
-        "grid shrink-0 place-items-center overflow-hidden rounded-lg border bg-[#fafafa] text-[#9ca3af] transition-colors hover:border-[#9ca3af] hover:text-[#4b5563]",
+        "grid shrink-0 place-items-center overflow-hidden rounded-lg border bg-[#fafafa] text-[#9ca3af] outline-none transition-colors hover:border-[#9ca3af] hover:text-[#4b5563] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40",
         url ? "border-[#e5e7eb]" : "border-dashed border-[#d1d5db]",
-        small ? "h-9 w-9" : "h-11 w-11",
+        small ? "h-8 w-8 md:h-9 md:w-9" : "h-[34px] w-[34px] md:h-10 md:w-10",
       )}
     >
       {url ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={url} alt="" className="h-full w-full object-cover" />
       ) : (
-        <ImagePlus className="h-4 w-4" />
+        <ImagePlus className="h-3.5 w-3.5" />
       )}
     </button>
   )
@@ -144,95 +190,111 @@ function GroupLine({ value, rows, folded, toggle, basePrice, trackInventory, sto
   const shared = prices.size === 1 ? rows[0].price : ""
   const images = new Set(rows.map((r) => r.imageUrl))
   const image = images.size === 1 ? rows[0].imageUrl : rows.find((r) => r.imageUrl)?.imageUrl ?? null
-  const qty = rows.reduce((n, r) => n + (Number.parseInt(r.stock[stockAt] ?? "", 10) || 0), 0)
+  const qty = rows.reduce((n, r) => n + Math.max(0, Number.parseInt(r.stock[stockAt] ?? "", 10) || 0), 0)
   const range = priceRange(rows, basePrice, (c) => formatStoreMoney(c, currency))
   return (
-    <div className={cn("grid grid-cols-[44px_minmax(0,1fr)_36px] items-center gap-x-3 gap-y-2 px-3 py-3", GRID)}>
+    <div className={cn(GRID, "px-2.5 py-2 md:px-3")}>
       <Thumb url={image} label={`every ${value}`} onClick={() => pickImage(keys, value)} />
-      <button type="button" onClick={toggle} aria-expanded={!folded} className="flex min-w-0 flex-col items-start text-left">
-        <span className="truncate text-[14px] font-medium text-[#1a1a2e]">{value}</span>
-        <span className="text-[12.5px] text-[#6b7280]">
+      <button type="button" onClick={toggle} aria-expanded={!folded} className="flex min-w-0 flex-col items-start text-left outline-none focus-visible:underline">
+        <span className="max-w-full truncate text-[14px] font-medium leading-5 text-[#1a1a2e]">{value}</span>
+        <span className="max-w-full truncate text-[12px] leading-4 text-[#6b7280]">
           {rows.length} {rows.length === 1 ? "variant" : "variants"}
           {prices.size > 1 && range ? `, ${range}` : ""}
         </span>
       </button>
-      <div className="col-span-3 col-start-1 row-start-2 grid grid-cols-2 gap-2 md:col-span-1 md:col-start-auto md:row-start-auto md:contents">
-        <label className="md:contents">
-          <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Price for all {value}</span>
-          <MoneyInput aria-label={`Price for every ${value}`} value={shared} placeholder={prices.size > 1 ? "Mixed" : basePrice || undefined} onChange={(v) => patchRows(keys, () => ({ price: v }))} />
-        </label>
-        <div>
-          <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Quantity</span>
-          <span className="flex h-10 items-center text-[13.5px] tabular-nums text-[#4b5563]">{trackInventory && stockAt ? `${qty} in all` : "Not tracked"}</span>
-        </div>
-      </div>
-      <button type="button" onClick={toggle} aria-label={folded ? `Show ${value}` : `Hide ${value}`} className={cn(BTN_GHOST, "col-start-3 row-start-1 h-9 w-9 px-0 md:col-start-auto md:row-start-auto")}>
-        <ChevronDown className={cn("h-4 w-4 transition-transform", !folded && "rotate-180")} />
+      <MoneyInput compact aria-label={`Price for every ${value}`} value={shared} placeholder={prices.size > 1 ? "Mixed" : basePrice || undefined} onChange={(v) => patchRows(keys, () => ({ price: v }))} />
+      <span className={cn("truncate text-[13px] tabular-nums text-[#4b5563]", trackInventory && stockAt && "text-center")} aria-label={trackInventory && stockAt ? `${qty} in all` : undefined}>{trackInventory && stockAt ? qty : "Not tracked"}</span>
+      <button type="button" onClick={toggle} aria-label={folded ? `Show ${value}` : `Hide ${value}`} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
+        <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", !folded && "rotate-180")} />
       </button>
     </div>
   )
 }
 
-function VariantLine({ row, label, nested, open, setOpen, basePrice, trackInventory, stockAt, weightUnit, setRow, pickImage }: VariantTableProps & { row: VariantRow; label: string; nested?: boolean; open: boolean; setOpen: (o: boolean) => void }) {
+function VariantLine({
+  row,
+  label,
+  nested,
+  entering,
+  skuShared,
+  open,
+  setOpen,
+  basePrice,
+  trackInventory,
+  stockAt,
+  weightUnit,
+  setRow,
+  pickImage,
+}: VariantTableProps & { row: VariantRow; label: string; nested?: boolean; entering: boolean; skuShared: boolean; open: boolean; setOpen: (o: boolean) => void }) {
   const key = combinationKey(row.options)
   const name = variantName(row.options)
   const committed = stockAt ? row.committed[stockAt] ?? 0 : 0
   const margin = marginPercent(centsOf(row.price) ?? centsOf(basePrice) ?? 0, centsOf(row.cost))
-  const extra = [row.sku && `SKU ${row.sku}`, row.compareAt && "On sale"].filter(Boolean).join(" · ")
+  const priceNow = row.price.trim() ? row.price : basePrice
+  const saleProblem = compareAtProblem(row.compareAt, priceNow)
+  const codeProblem = barcodeProblem(row.barcode)
+  const flagged = !!saleProblem || !!codeProblem || skuShared
+  const extra = [row.sku && `SKU ${row.sku}`, row.compareAt && !saleProblem && "On sale", committed > 0 && `${committed} held`].filter(Boolean).join(" · ")
   return (
-    <div data-variant-row={name} className={cn(!row.active && "bg-[#fafafa]")}>
-      <div className={cn("grid grid-cols-[44px_minmax(0,1fr)_36px] items-center gap-x-3 gap-y-2 py-2.5 pr-3", nested ? "pl-6 md:pl-3" : "pl-3", GRID)}>
-        <div className={cn(nested && "md:pl-1")}>
-          <Thumb url={row.imageUrl} label={name} onClick={() => pickImage([key], name)} small={nested} />
-        </div>
-        <button type="button" onClick={() => setOpen(!open)} className="flex min-w-0 flex-col items-start text-left">
-          <span className={cn("max-w-full truncate text-[14px]", row.active ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af] line-through")}>{label || name}</span>
-          {!row.active ? <span className="text-[12px] text-[#6b7280]">Not sold</span> : extra ? <span className="max-w-full truncate text-[12px] text-[#6b7280]">{extra}</span> : null}
+    <div data-variant-row={name} className={cn(!row.active && "bg-[#fafafa]", entering && ENTER)}>
+      <div className={cn(GRID, "py-2 pr-2.5 md:pr-3", nested ? "pl-4 md:pl-5" : "pl-2.5 md:pl-3")}>
+        <Thumb url={row.imageUrl} label={name} onClick={() => pickImage([key], name)} small={nested} />
+        <button type="button" onClick={() => setOpen(!open)} className="flex min-w-0 flex-col items-start text-left outline-none focus-visible:underline">
+          <span className={cn("line-clamp-2 max-w-full break-words text-[13.5px] leading-[18px] md:text-[14px]", row.active ? "font-medium text-[#1a1a2e]" : "text-[#9ca3af] line-through")}>{label || name}</span>
+          {!row.active ? (
+            <span className="text-[12px] leading-4 text-[#6b7280]">Not sold</span>
+          ) : flagged ? (
+            <span className="text-[12px] leading-4 text-[#b45309]">Check details</span>
+          ) : extra ? (
+            <span className="max-w-full truncate text-[12px] leading-4 text-[#6b7280]">{extra}</span>
+          ) : null}
         </button>
-        <div className="col-span-3 col-start-1 row-start-2 grid grid-cols-2 gap-2 md:col-span-1 md:col-start-auto md:row-start-auto md:contents">
-          <label className="md:contents">
-            <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Price</span>
-            <MoneyInput aria-label={`Price for ${name}`} value={row.price} placeholder={basePrice || undefined} onChange={(v) => setRow(key, { price: v })} />
-          </label>
-          <label className="md:contents">
-            <span className="mb-1 block text-[12px] text-[#6b7280] md:hidden">Quantity</span>
-            {trackInventory && stockAt ? (
-              <div>
-                <NumberInput allowNegative aria-label={`Quantity for ${name}`} value={row.stock[stockAt] ?? ""} placeholder="0" onChange={(v) => setRow(key, { stock: { ...row.stock, [stockAt]: v } })} />
-                {committed > 0 ? <span className="mt-0.5 block text-[11.5px] text-[#6b7280]">{committed} held for orders</span> : null}
-              </div>
-            ) : (
-              <span className="flex h-10 items-center text-[13px] text-[#6b7280]">Not tracked</span>
-            )}
-          </label>
-        </div>
-        <button type="button" aria-expanded={open} aria-label={`More for ${name}`} onClick={() => setOpen(!open)} className={cn(BTN_GHOST, "col-start-3 row-start-1 h-9 w-9 px-0 md:col-start-auto md:row-start-auto")}>
-          <ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} />
+        <MoneyInput compact aria-label={`Price for ${name}`} value={row.price} placeholder={basePrice || undefined} onChange={(v) => setRow(key, { price: v })} />
+        {trackInventory && stockAt ? (
+          <NumberInput compact inputMode="numeric" aria-label={`Quantity for ${name}`} value={row.stock[stockAt] ?? ""} placeholder="0" onChange={(v) => setRow(key, { stock: { ...row.stock, [stockAt]: v } })} className="px-2 text-center" />
+        ) : (
+          <span className="text-[12px] leading-4 text-[#6b7280]">Not tracked</span>
+        )}
+        <button type="button" aria-expanded={open} aria-label={`More for ${name}`} onClick={() => setOpen(!open)} className={cn(BTN_GHOST, "h-8 w-7 px-0 md:w-8")}>
+          <ChevronDown className={cn("h-4 w-4 transition-transform duration-200", open && "rotate-180")} />
         </button>
       </div>
-      {open ? (
-        <div className="grid gap-3 border-t border-dashed border-[#eceef1] bg-white px-3 py-3 sm:grid-cols-2 lg:grid-cols-3" data-variant-details="">
-          <Field label="Compare-at price" hint="Shown crossed out, when higher">
-            <MoneyInput value={row.compareAt} onChange={(v) => setRow(key, { compareAt: v })} />
-          </Field>
-          <Field label="SKU" hint="Your code, on orders and packing slips">
-            <TextInput value={row.sku} maxLength={64} placeholder="Optional" onChange={(e) => setRow(key, { sku: e.target.value })} />
-          </Field>
-          <Field label="Barcode" hint="ISBN, UPC, EAN or GTIN">
-            <TextInput value={row.barcode} maxLength={64} inputMode="numeric" placeholder="Optional" onChange={(e) => setRow(key, { barcode: e.target.value })} />
-          </Field>
-          <Field label="Weight" hint="Empty uses the product's">
-            <DecimalInput value={row.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} />
-          </Field>
-          <Field label="Cost per item" hint={margin !== null ? `${margin}% margin. Buyers never see this.` : "Buyers never see this."}>
-            <MoneyInput value={row.cost} onChange={(v) => setRow(key, { cost: v })} />
-          </Field>
-          <div className="flex flex-col justify-end pb-1">
-            <Toggle label="Sell this variant" description={row.active ? "Buyers can choose it." : "Hidden from buyers. Its stock and orders stay."} checked={row.active} onChange={(v) => setRow(key, { active: v })} />
+      <Reveal open={open}>
+        <div className="grid grid-cols-2 gap-x-2.5 gap-y-3 border-t border-dashed border-[#eceef1] bg-white px-3 pb-3.5 pt-3 sm:grid-cols-3 md:px-4" data-variant-details="">
+          <Small label="Compare-at price" note={saleProblem} hint="Shown crossed out">
+            <MoneyInput compact value={row.compareAt} onChange={(v) => setRow(key, { compareAt: v })} placeholder="Optional" />
+          </Small>
+          <Small label="Cost per item" hint={margin !== null ? `${margin}% margin` : "Buyers never see it"}>
+            <MoneyInput compact value={row.cost} onChange={(v) => setRow(key, { cost: v })} placeholder="Optional" />
+          </Small>
+          <Small label="SKU" note={skuShared ? "Another variant has this SKU" : null}>
+            <TextInput value={row.sku} maxLength={64} autoComplete="off" placeholder="Optional" onChange={(e) => setRow(key, { sku: skuTyped(e.target.value) })} className={FIELD_COMPACT} />
+          </Small>
+          <Small label="Barcode" note={codeProblem} hint="UPC, EAN or ISBN">
+            <TextInput value={row.barcode} maxLength={14} inputMode="numeric" autoComplete="off" placeholder="Optional" onChange={(e) => setRow(key, { barcode: barcodeTyped(e.target.value) })} className={FIELD_COMPACT} />
+          </Small>
+          <Small label="Weight" hint="Blank: the product's">
+            <DecimalInput compact value={row.weight} onChange={(v) => setRow(key, { weight: v })} suffix={weightUnit} placeholder="Same" />
+          </Small>
+          <div className="col-span-2 flex items-end sm:col-span-1">
+            <div className="w-full rounded-lg bg-[#f8f9fa] px-3 py-2">
+              <Toggle label="Sell this variant" description={row.active ? "Buyers can choose it" : "Hidden. Stock and orders stay"} checked={row.active} onChange={(v) => setRow(key, { active: v })} />
+            </div>
           </div>
         </div>
-      ) : null}
+      </Reveal>
     </div>
+  )
+}
+
+/** A field in a variant's details: a small label, the field, then a warning or a hint, in one line of 12px. */
+function Small({ label, hint, note, children }: { label: string; hint?: string; note?: string | null; children: React.ReactNode }) {
+  return (
+    <label className="block min-w-0 space-y-1">
+      <span className="block text-[12.5px] font-medium text-[#4b5563]">{label}</span>
+      {children}
+      {note ? <span className="block text-[12px] leading-4 text-[#b45309]">{note}</span> : hint ? <span className="block truncate text-[12px] leading-4 text-[#9ca3af]">{hint}</span> : null}
+    </label>
   )
 }
 
@@ -302,7 +364,7 @@ function BulkEdit({ open, onClose, rows, options, trackInventory, stockAt, locat
             )}
           </SelectInput>
         </Field>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Price">
             <MoneyInput value={price} onChange={setPrice} placeholder="Unchanged" />
           </Field>
@@ -311,7 +373,7 @@ function BulkEdit({ open, onClose, rows, options, trackInventory, stockAt, locat
           </Field>
           {trackInventory && stockAt ? (
             <Field label="Quantity" hint={locations.length > 1 && where ? `At ${where.name}` : undefined}>
-              <NumberInput allowNegative value={qty} onChange={setQty} placeholder="Unchanged" />
+              <NumberInput value={qty} onChange={setQty} placeholder="Unchanged" />
             </Field>
           ) : null}
           <Field label="Weight">

@@ -1,7 +1,7 @@
 -- ===========================================================================
 --  GITHUB SYNC OF THE WHOLE THEME, AND AGENT KEYS THAT EXPIRE OR ONLY READ
 -- ===========================================================================
--- The same statements as supabase/sql/run-now/131_github_whole_theme_and_agent_keys.sql.
+-- The same statements as supabase/sql/run-now/132_github_whole_theme_and_agent_keys.sql.
 --
 -- theme_github_links.sync_state
 --   What GitHub and Storelib last agreed on, file by file (path to git blob

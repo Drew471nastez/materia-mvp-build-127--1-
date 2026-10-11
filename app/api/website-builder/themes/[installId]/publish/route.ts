@@ -6,13 +6,18 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { takeBackup } from "@/lib/website-builder/backups"
-import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
-import { sendWholeTheme } from "@/lib/github-sync/sync"
+import { promoteFileDrafts, recordVersion } from "@/lib/website-builder/theme-file-drafts"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
+import { mirrorWholeTheme } from "@/lib/github-sync/mirror"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
 type Params = { params: Promise<{ installId: string }> }
+
+/** Part 130 not run yet: the function, or a column it writes, is not there. Anything else is a real failure. */
+function publishStepMissing(error: { code?: string; message?: string }): boolean {
+  return ["PGRST202", "42883", "42703", "42P01"].includes(error.code ?? "") || /could not find the function/i.test(error.message ?? "")
+}
 
 // POST /api/website-builder/themes/[installId]/publish
 // body: { action: "publish" | "unpublish" | "save_draft" }
@@ -87,7 +92,7 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ error: message }, { status: 500 })
     }
 
-    // Promote draft_settings if present
+    // What is about to go live: the settings draft and every page draft
     const { data: settingsRow, error: settingsReadErr } = await admin
       .from("store_theme_settings")
       .select("settings, draft_settings")
@@ -95,6 +100,16 @@ export async function POST(req: Request, { params }: Params) {
       .maybeSingle()
     if (settingsReadErr) return failed("Could not read the website's settings. Nothing was published.", settingsReadErr.message)
 
+    // (and the pages)
+    const { data: pagesRows, error: pagesReadErr } = await admin
+      .from("store_theme_pages")
+      .select("id, sections, draft_sections")
+      .eq("install_id", installId)
+    if (pagesReadErr) return failed("Could not read the website's pages. Nothing was published.", pagesReadErr.message)
+
+    /* A section type the install wrote itself is cleaned by its own file: lib/website-builder/sanitize-sections.ts. */
+    const drafts = (pagesRows ?? []).filter((page) => page.draft_sections)
+    const own = await readOwnSectionFields(admin, installId, drafts.flatMap((page) => (page.draft_sections as SectionInstance[]).map((s) => s.type)))
     /*
       ======================================================================
        PUBLISHING IS THE MOMENT IT STOPS BEING PRIVATE
@@ -109,82 +124,108 @@ export async function POST(req: Request, { params }: Params) {
       them in future, a feed, an export, a cache warmer, a migration, gets
       safe content without having to know to ask for it.
     */
-    if (settingsRow?.draft_settings) {
-      const { error: settingsErr } = await admin
-        .from("store_theme_settings")
-        .update({
-          settings: sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>),
-          draft_settings: null,
-        })
-        .eq("install_id", installId)
-      if (settingsErr) return failed("Could not publish the website's settings. Nothing was published.", settingsErr.message)
+    /*
+      ======================================================================
+       ALL OF IT OR NONE OF IT
+      ======================================================================
+      The settings, every page, every saved section file and the switch of
+      which website is live, in one transaction (SQL part 130,
+      publish_theme_install). Step by step, a failure part way left some
+      pages new and some old until Publish was pressed again; in one step it
+      changes nothing. A draft saved while this runs stays the draft: only
+      the draft that was read here is cleared.
+
+      Until part 130 has been run the function is not there, and the steps
+      below do the same work one write at a time, as they always have.
+    */
+    const pages = drafts.map((page) => ({
+      id: page.id,
+      sections: sanitizeSections(page.draft_sections as SectionInstance[], own),
+      draft: page.draft_sections,
+    }))
+    const oneStep = await admin.rpc("publish_theme_install", {
+      p_install: installId,
+      p_creator: creator.id,
+      p_settings: settingsRow?.draft_settings ? sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>) : null,
+      p_settings_draft: settingsRow?.draft_settings ?? null,
+      p_pages: pages,
+    })
+    if (oneStep.error && !publishStepMissing(oneStep.error)) {
+      return failed("Could not publish. Nothing changed: the website that was live still is.", oneStep.error.message)
+    }
+    if (!oneStep.error) {
       touchedLive = true
-    }
-
-    // Promote draft_sections for all pages
-    const { data: pagesRows, error: pagesReadErr } = await admin
-      .from("store_theme_pages")
-      .select("id, sections, draft_sections")
-      .eq("install_id", installId)
-    if (pagesReadErr) return failed("Could not read the website's pages. Publish again to finish.", pagesReadErr.message)
-
-    /* A section type the install wrote itself is cleaned by its own file: lib/website-builder/sanitize-sections.ts. */
-    const drafts = (pagesRows ?? []).filter((page) => page.draft_sections)
-    const own = await readOwnSectionFields(admin, installId, drafts.flatMap((page) => (page.draft_sections as SectionInstance[]).map((s) => s.type)))
-    for (const page of drafts) {
-      const { error: pageErr } = await admin
-        .from("store_theme_pages")
-        .update({
-          sections: sanitizeSections(page.draft_sections as SectionInstance[], own),
-          draft_sections: null,
-        })
-        .eq("id", page.id)
-      if (pageErr) return failed("Could not publish every page. Publish again to finish.", pageErr.message)
-      touchedLive = true
-    }
-
-    /**
-     * And every section file somebody has saved since the last publish. Same
-     * promotion as draft_sections above, for the same reason: what is on the
-     * site changes when a person says so, not when they press Save.
-     */
-    await promoteFileDrafts(admin, installId)
-
-    /* Now the switch: whatever else was live goes down, and this goes up. */
-    const { data: previous, error: downErr } = await admin
-      .from("store_theme_installs")
-      .update({ status: "unpublished" })
-      .eq("creator_id", creator.id)
-      .eq("status", "published")
-      .neq("id", installId)
-      .select("id")
-    if (downErr) return failed("Could not switch the live website. The one that was live still is.", downErr.message)
-    const wasLive = ((previous ?? []) as { id: string }[]).map((row) => row.id)
-    if (wasLive.length > 0) touchedLive = true
-
-    // The moment, as well as the fact. "Changes since published 4 minutes
-    // ago" needs to know when, and status alone cannot say. The column is
-    // added by RUN_THEME_PUBLISHED_AT.sql; until it has been run the write
-    // falls back to status only, so publishing never fails on a timestamp.
-    let { error } = await admin
-      .from("store_theme_installs")
-      .update({ status: "published", published_at: new Date().toISOString() })
-      .eq("id", installId)
-    if (error && /published_at/.test(error.message)) {
-      ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
-    }
-
-    if (error) {
-      /* This one would not go up, so the one that was live goes back up rather than leaving nothing. */
-      if (wasLive.length > 0) {
-        const { error: backErr } = await admin.from("store_theme_installs").update({ status: "published" }).in("id", wasLive)
-        if (backErr) {
-          console.error("[publish] the previous website could not be put back:", backErr.message)
-          return failed("Could not publish, and the website that was live is now offline. Publish again.", error.message)
-        }
-        return failed("Could not publish. The website that was live still is.", error.message)
+      /* Each section file that went live, in its history, as the step by step path records it. */
+      const moved = ((oneStep.data as { files?: { path: string; content: string }[] } | null)?.files ?? [])
+      for (const file of moved) await recordVersion(admin, installId, file.path, file.content, "publish")
+    } else {
+      if (settingsRow?.draft_settings) {
+        const { error: settingsErr } = await admin
+          .from("store_theme_settings")
+          .update({
+            settings: sanitizeThemeSettings(settingsRow.draft_settings as Record<string, unknown>),
+            draft_settings: null,
+          })
+          .eq("install_id", installId)
+        if (settingsErr) return failed("Could not publish the website's settings. Nothing was published.", settingsErr.message)
+        touchedLive = true
       }
-      return failed("Could not publish. Try again.", error.message)
+
+      for (const page of drafts) {
+        const { error: pageErr } = await admin
+          .from("store_theme_pages")
+          .update({
+            sections: sanitizeSections(page.draft_sections as SectionInstance[], own),
+            draft_sections: null,
+          })
+          .eq("id", page.id)
+        if (pageErr) return failed("Could not publish every page. Publish again to finish.", pageErr.message)
+        touchedLive = true
+      }
+
+      /**
+       * And every section file somebody has saved since the last publish. Same
+       * promotion as draft_sections above, for the same reason: what is on the
+       * site changes when a person says so, not when they press Save.
+       */
+      await promoteFileDrafts(admin, installId)
+
+      /* Now the switch: whatever else was live goes down, and this goes up. */
+      const { data: previous, error: downErr } = await admin
+        .from("store_theme_installs")
+        .update({ status: "unpublished" })
+        .eq("creator_id", creator.id)
+        .eq("status", "published")
+        .neq("id", installId)
+        .select("id")
+      if (downErr) return failed("Could not switch the live website. The one that was live still is.", downErr.message)
+      const wasLive = ((previous ?? []) as { id: string }[]).map((row) => row.id)
+      if (wasLive.length > 0) touchedLive = true
+
+      // The moment, as well as the fact. "Changes since published 4 minutes
+      // ago" needs to know when, and status alone cannot say. The column is
+      // added by RUN_THEME_PUBLISHED_AT.sql; until it has been run the write
+      // falls back to status only, so publishing never fails on a timestamp.
+      let { error } = await admin
+        .from("store_theme_installs")
+        .update({ status: "published", published_at: new Date().toISOString() })
+        .eq("id", installId)
+      if (error && /published_at/.test(error.message)) {
+        ;({ error } = await admin.from("store_theme_installs").update({ status: "published" }).eq("id", installId))
+      }
+
+      if (error) {
+        /* This one would not go up, so the one that was live goes back up rather than leaving nothing. */
+        if (wasLive.length > 0) {
+          const { error: backErr } = await admin.from("store_theme_installs").update({ status: "published" }).in("id", wasLive)
+          if (backErr) {
+            console.error("[publish] the previous website could not be put back:", backErr.message)
+            return failed("Could not publish, and the website that was live is now offline. Publish again.", error.message)
+          }
+          return failed("Could not publish. The website that was live still is.", error.message)
+        }
+        return failed("Could not publish. Try again.", error.message)
+      }
     }
 
     // Audit log
@@ -225,8 +266,8 @@ export async function POST(req: Request, { params }: Params) {
        take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
     const announced = creator.id
     after(() => announce(() => websiteAddresses(announced)))
-    /* A linked GitHub repository gets the theme as published: pages and settings included (lib/github-sync/sync.ts). */
-    after(() => sendWholeTheme(installId))
+    /* And the whole theme to its linked GitHub repository, pages and settings with it, if it sends builder changes. */
+    after(() => mirrorWholeTheme(installId, "Published in the builder"))
 
     return NextResponse.json({ ok: true, status: "published" })
   }

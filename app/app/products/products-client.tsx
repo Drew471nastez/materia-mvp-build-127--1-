@@ -1528,7 +1528,7 @@ const PhoneRow = memo(function PhoneRow({
       />
       <Thumb src={product.thumbnail_url} title={product.title} size="phone" />
       <span className="pointer-events-none min-w-0 flex-1">
-        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title}</span>
+        <span data-name="" className="block truncate text-[14px] font-medium leading-[18px] tracking-[-0.01em] text-[#1a1a2e]">{product.title || "Untitled draft"}</span>
         <span data-meta="" className="mt-1 block h-4 truncate text-[12px] leading-4 text-[#6b7280]">
           {mark ? (
             <>
@@ -1602,7 +1602,7 @@ const TableRow = memo(function TableRow({
             onClick={(e) => api.current?.open(product.id)(e)}
             className="min-w-0 truncate text-[13px] font-medium text-[#1a1a2e] outline-none hover:underline focus-visible:underline lg:text-[14.5px] xl:text-[15.5px]"
           >
-            {product.title}
+            {product.title || "Untitled draft"}
           </Link>
         </div>
       </td>
