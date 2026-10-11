@@ -326,7 +326,16 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const shown = painted && slots.length > 0
   /* A failure is said over the canvas, so the editor's own loader steps aside for it as it does for a page. */
   const stuck = failure !== null || themeUnreadable
-  useEffect(() => { if (shown || stuck) onPainted.current?.() }, [shown, stuck])
+  /*
+    One frame after the page has been told it is shown (below), so its
+    entrance is back at its start under the loader before the loader starts
+    to fade, never put back in view.
+  */
+  useEffect(() => {
+    if (!shown && !stuck) return
+    let id = requestAnimationFrame(() => { id = requestAnimationFrame(() => onPainted.current?.()) })
+    return () => cancelAnimationFrame(id)
+  }, [shown, stuck])
   const slotsRef = useRef<Slot[]>([])
   slotsRef.current = slots
   const frames = useRef(new Map<number, HTMLIFrameElement>())
@@ -641,7 +650,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const list = slotsRef.current
     const at = list.findIndex((x) => x.n === n)
     if (at <= 0) return
-    if (paintedRef.current && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
+    /* Another page: the one being left fades off it. The same page drawn again (an edit) is a cut: it looks as the one it replaces does. */
+    if (paintedRef.current && list[0].key !== list[at].key && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
     setPainted(true)
     setSlots((prev) => {
       const i = prev.findIndex((x) => x.n === n)
@@ -715,7 +725,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
         slot.loaded = true
         if (isFront) setPainted(true)
         /* Where it should stand (the same page drawn again stays where it was; another page opens at its top), and told to say when it is drawn there. */
-        if (!isFront) win.postMessage({ storelib: 1, type: "scroll", top: slot.key === slotsRef.current[0]?.key ? scrollY.current : 0, settle: true }, "*")
+        if (!isFront) {
+          const same = slot.key === slotsRef.current[0]?.key
+          /* The same page drawn again (an edit): settled where it ends before it replaces the one in front (canvas-network.ts, instant). */
+          if (same) win.postMessage({ storelib: 1, type: "shown", instant: true }, "*")
+          win.postMessage({ storelib: 1, type: "scroll", top: same ? scrollY.current : 0, settle: true }, "*")
+        }
       } else if (m.type === "settled") {
         if (!isFront && slot.loaded) promote(slot.n)
       } else if (m.type === "reload") {
@@ -788,9 +803,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
     if (at < 0) return
     const slot = slotsRef.current[at]
     if (!slot.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
-    if (at === 0) setPainted(true)
-    /* Behind: its own "loaded" brings it forward in a frame; this is for a page whose message never comes. */
-    else window.setTimeout(() => { if (!slot.loaded) promote(n) }, 400)
+    /*
+      In front: shown once it says its first screen is in ("loaded"), or
+      FIRST_PAINT_MS after it said it was ready. A page that has said
+      neither by its load event is shown a moment after it. The load event
+      itself is not the first screen: a picture the theme loads lazily is
+      not waited for by it, and the page landed with its hero still empty.
+    */
+    if (at === 0) {
+      if (!slot.ready) window.setTimeout(() => setPainted(true), 400)
+    } else {
+      /* Behind: its own "loaded" brings it forward in a frame; this is for a page whose message never comes. */
+      window.setTimeout(() => { if (!slot.loaded) promote(n) }, 400)
+    }
   }
 
   /*

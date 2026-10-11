@@ -3,11 +3,14 @@
  *
  *   the next page is drawn UNDER the one on screen (never `visibility:
  *   hidden`, where the browser neither draws it nor runs its frames) and
- *   replaces it in one frame, once its first screen is done: no fade, never
- *   two pages at once, and the page left cannot come back
- *   "done" is the fonts, the first screen's pictures in and decoded, the
- *   theme's entrance on it finished, and the page where it should stand;
- *   the window's load (the slowest file of the page) no longer counts
+ *   comes forward once its first screen is done, the page being left fading
+ *   off it (round G: a cut with the entrance already over read as "too
+ *   flat"); the page left is never a page again, so it cannot come back
+ *   "done" is the fonts, the first screen's pictures in and decoded, and the
+ *   page where it should stand; the window's load (the slowest file of the
+ *   page) no longer counts. The theme's entrance is NOT finished for it any
+ *   more: told it is shown, the page plays its first screen's entrance from
+ *   the beginning, in view, as the live site's page does
  *   the editor does not dim an imported theme's canvas when the page changes
  *   the sections panel keeps its list (no grey bars) until the canvas shows
  *   the next page, then both change in the same frame
@@ -38,10 +41,13 @@ function check(name: string, ok: boolean, detail?: unknown) {
 const read = (p: string) => readFileSync(p, "utf8")
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
-/** CANVAS_SHOWN in a pretend page: what it finishes, and when it says "loaded". */
-async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; animations: { top: number; endTime: number; state?: string }[] }) {
+/** CANVAS_SHOWN in a pretend page: what it finishes, what it plays again once shown, and when it says "loaded". */
+async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; animations: { top: number; endTime: number; state?: string }[]; shown?: number; instant?: boolean }) {
   const said: string[] = []
   const finished: number[] = []
+  const replayed: number[] = []
+  const heard: ((e: { data: unknown }) => void)[] = []
+  const held = { css: "", in: false, released: false }
   const decoded: number[] = []
   let dcl: (() => void) | null = null
   const rafs: (() => void)[] = []
@@ -56,6 +62,8 @@ async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; a
     effect: { getComputedTiming: () => ({ endTime: a.endTime }), target: { getBoundingClientRect: () => ({ width: 100, height: 100, top: a.top, bottom: a.top + 100 }) } },
     finished: new Promise(() => {}),
     finish: () => { if (!isFinite(a.endTime)) throw new Error("InvalidStateError"); finished.push(i) },
+    set currentTime(v: number) { if (v === 0) replayed.push(i) },
+    play: () => {},
   }))
   const ctx: Record<string, unknown> = {
     innerHeight: 800,
@@ -66,9 +74,13 @@ async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; a
       fonts: { ready: Promise.resolve() },
       getAnimations: () => animations,
       addEventListener: (n: string, f: () => void) => { if (n === "DOMContentLoaded") dcl = f },
+      createElement: () => ({ setAttribute: () => {}, set textContent(v: string) { held.css = v }, remove: () => { held.in = false; held.released = true } }),
+      head: { appendChild: () => { held.in = true } },
     },
     parent: { postMessage: (m: { type: string }) => said.push(m.type) },
-    setTimeout: (f: () => void) => { void Promise.resolve().then(f); return 0 },
+    addEventListener: (n: string, f: (e: { data: unknown }) => void) => { if (n === "message") heard.push(f) },
+    /* At once, but for the page's own long stop (the hold let go after 12s), which a test does not wait for. */
+    setTimeout: (f: () => void, ms?: number) => { if ((ms ?? 0) < 10_000) void Promise.resolve().then(f); return 0 },
     requestAnimationFrame: (f: () => void) => { rafs.push(f); return 0 },
     Promise,
     Array,
@@ -82,7 +94,15 @@ async function shownIn(opts: { pictures: { complete: boolean; top: number }[]; a
     const now = rafs.splice(0)
     now.forEach((f) => f())
   }
-  return { said, finished, decoded }
+  /* The canvas shows it (compat-canvas.tsx): told so, as many times as asked. */
+  for (let i = 0; i < (opts.shown ?? 0); i++) heard.forEach((f) => f({ data: { storelib: 1, type: "shown", instant: opts.instant === true } }))
+  /* And the frames it asks for after. */
+  for (let i = 0; i < 10; i++) {
+    await flush()
+    const now = rafs.splice(0)
+    now.forEach((f) => f())
+  }
+  return { said, finished, decoded, replayed, held }
 }
 
 async function main() {
@@ -92,22 +112,45 @@ async function main() {
     let parses = true
     try { new Function(body) } catch { parses = false }
     check("it reads as JavaScript", parses)
-    const r = await shownIn({ pictures: [{ complete: true, top: 10 }, { complete: true, top: 2000 }], animations: [{ top: 40, endTime: 900 }, { top: 40, endTime: Infinity }, { top: 3000, endTime: 900 }, { top: 40, endTime: 500, state: "finished" }] })
+    const animations = [{ top: 40, endTime: 900 }, { top: 40, endTime: Infinity }, { top: 3000, endTime: 900 }, { top: 40, endTime: 500, state: "finished" }, { top: 40, endTime: 900, state: "idle" }]
+    const r = await shownIn({ pictures: [{ complete: true, top: 10 }, { complete: true, top: 2000 }], animations })
     check("it says loaded, once", r.said.filter((x) => x === "loaded").length === 1, r.said)
     check("the first screen's pictures are decoded first, not the ones far down", r.decoded.join() === "0", r.decoded)
-    check("the first screen's entrance is put where it ends; a marquee that never ends, one far down, and one done are left alone", r.finished.join() === "0", r.finished)
+    check("the theme's entrance is never finished for a page arriving (round G: that landed every page flat)", r.finished.length === 0, r.finished)
+    check("  and nothing plays again before the canvas shows the page", r.replayed.length === 0, r.replayed)
+    check("its CSS animations are held at their start, out of sight, until it is shown (play state only)", r.held.in && !r.held.released && r.held.css === "*,*::before,*::after{animation-play-state:paused!important}", r.held)
+    const s = await shownIn({ pictures: [{ complete: true, top: 10 }], animations, shown: 2 })
+    check("shown, the first screen's entrance plays from the start, in view: one under way and one already over out of sight; a marquee, one far down and one not started are left alone", s.replayed.join() === "0,3", s.replayed)
+    check("  once, however often it is told", s.replayed.length === 2, s.replayed)
+    check("  and shown, they are let go", s.held.released && !s.held.in, s.held)
+    const same = await shownIn({ pictures: [{ complete: true, top: 10 }], animations, shown: 1, instant: true })
+    check("the same page drawn again (an edit) is told so: let go, and its first screen's entrance put where it ends, nothing played again", same.held.released && [...new Set(same.finished)].join() === "0" && same.replayed.length === 0, same)
+    check("a page never shown lets them go by itself", /setTimeout\(function\(\)\{if\(!replayed\)\{replayed=true;hold\.remove\(\)\}\},12000\)/.test(body))
   }
 
   console.log("\nThe canvas (compat-canvas.tsx)\n")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
     check("the page behind is under the front, never visibility: hidden", !/visibility: "hidden"/.test(canvas) && /\{ zIndex: 0, pointerEvents: "none" \}/.test(canvas))
-    check("it comes forward in one frame: the front is taken out, no fade", /return at <= 0 \? prev : prev\.slice\(at\)/.test(canvas) && !/FADE_MS|entering|\{ opacity: 0 \}, \{ opacity: 1 \}/.test(canvas))
+    check("it comes forward whole: the front is taken out of the pages at once, so it can never come back", /return i <= 0 \? prev : prev\.slice\(i\)/.test(canvas))
+    check("the same page drawn again (an edit) is settled before it comes forward, and replaces the front as a cut", /if \(same\) win\.postMessage\(\{ storelib: 1, type: "shown", instant: true \}, "\*"\)/.test(canvas) && /list\[0\]\.key !== list\[at\]\.key/.test(canvas))
+    check("  and fades off the page that came forward (HANDOVER_MS), over it and taking no pointer; nothing is ever faded up from white", /const HANDOVER_MS = 180/.test(canvas) && /setHandover\(list\[0\]\)/.test(canvas) && /el\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: HANDOVER_MS/.test(canvas) && /i < 0 \? \{ zIndex: 2, pointerEvents: "none" \}/.test(canvas) && !/\{ opacity: 0 \}, \{ opacity: 1 \}/.test(canvas))
+    check("  not under reduced motion, and not over a first page nobody has seen yet", /if \(paintedRef\.current && list\[0\]\.key !== list\[at\]\.key && !\(typeof window\.matchMedia === "function" && window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\)\) setHandover/.test(canvas))
+    check("the page in front is told when it can be seen, so its entrance plays there", /if \(!shown \|\| !frontN\) return\s*\n\s*frames\.current\.get\(frontN\)\?\.contentWindow\?\.postMessage\(\{ storelib: 1, type: "shown" \}, "\*"\)/.test(canvas))
     check("only once it is where it should stand: loaded, then scrolled, then settled", /type: "scroll", top: [^}]*settle: true/.test(canvas) && /m\.type === "settled"[\s\S]{0,80}promote\(slot\.n\)/.test(canvas))
     check("a page behind that never says so still comes forward", /setTimeout\(\(\) => promote\(slot\.n\), 2500\)/.test(canvas))
     check("a link that opens another page leaves the page in front without pointer events until the next is in front", /=== true\) setLeavingFrom\(slot\.n\)/.test(canvas) && /pointerEvents: leavingFrom === slot\.n \? "none"/.test(canvas) && /setTimeout\(\(\) => setLeavingFrom\(null\), 4000\)/.test(canvas))
     check("the page in front is said to the editor when it changes", /onPageShown\.current\?\.\(frontPage\)/.test(canvas) && /page: `\$\{pageKey\}\|\$\{productId \?\? ""\}`/.test(canvas))
     check("a link under the pointer is said to the editor", /m\.type === "intent" && isFront/.test(canvas))
+  }
+
+  console.log("\nThe first page, drawn once (round G)\n")
+  {
+    const canvas = read("components/website-builder/compat/compat-canvas.tsx")
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    check("not drawn before the install's .storelib files are in (drawn without its layout it was a white page, then the real page loaded over it)", /const rows = useMemo\(\(\) => \(compatFiles && sourcesReady \?/.test(canvas) && /sourcesReady=\{storelibSourcesRead\}/.test(editor) && /finally \{\s*setStorelibSourcesRead\(true\)/.test(editor))
+    check("the first page waits for the shop's cards, DATA_WAIT_MS at most, rather than being drawn again when they come", /const holdForData = props\.dataReady === false && !dataWaitOver && slots\.length === 0/.test(canvas) && /setTimeout\(\(\) => setDataWaitOver\(true\), DATA_WAIT_MS\)/.test(canvas) && /if \(!compatTheme \|\| holdForData\) return/.test(canvas) && /dataReady=\{liveCardsRead\}/.test(editor) && /finally \{\s*setLiveCardsRead\(true\)/.test(editor))
+    check("a change to the same page while it loads is sent to it when it is ready, never a second copy loaded behind it", /if \(plan && !now\.ready\) \{\s*stale\.current = true\s*return\s*\}/.test(canvas) && /if \(isFront && stale\.current\) drawAndPatchRef\.current\(\)/.test(canvas))
   }
 
   console.log("\nThe bridge (canvas-bridge.ts)\n")

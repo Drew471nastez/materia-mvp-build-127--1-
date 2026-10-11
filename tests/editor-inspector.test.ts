@@ -112,7 +112,8 @@ async function main() {
   check("the page it draws carries the switch", /window\.__slInspect=\$\{inspecting\.current \? "true" : "false"\}/.test(canvas))
   check("every ready page hears a change, not only the one in front", /slotsRef\.current\.forEach\(\(slot, i\) => \{\s*if \(!slot\.ready\) return/.test(canvas) && /inspect: props\.inspectorEnabled/.test(canvas))
   check("the toolbar's stand-in goes with the inspector", /ghost && props\.inspectorEnabled && props\.selectedSectionId === ghost\.id/.test(canvas))
-  check("it says when its first page has painted, 250ms after ready at the most", /const FIRST_PAINT_MS = 250/.test(canvas) && /onPainted\.current\?\.\(\)/.test(canvas))
+  /* Round G: once its first screen is in ("loaded": fonts, the first screen's pictures decoded), so the loader never comes off a page whose pictures then pop in; never later than FIRST_PAINT_MS after ready. */
+  check("it says when its first page has painted: its first screen in, FIRST_PAINT_MS after ready at the most", /const FIRST_PAINT_MS = 1200/.test(canvas) && /if \(isFront\) setTimeout\(\(\) => setPainted\(true\), FIRST_PAINT_MS\)/.test(canvas) && /m\.type === "loaded"\) \{\s*slot\.loaded = true\s*if \(isFront\) setPainted\(true\)/.test(canvas) && /onPainted\.current\?\.\(\)/.test(canvas))
 
   console.log("The editor")
   const editor = read("app/website-builder/editor/[installId]/page.tsx")

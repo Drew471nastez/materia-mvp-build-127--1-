@@ -221,7 +221,7 @@ async function film(page: Page): Promise<{ cdp: CDPSession; stop: () => Promise<
     cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
   })
   await cdp.send("Page.startScreencast", { format: "jpeg", quality: 70, everyNthFrame: 1 })
-  return { cdp, stop: async () => { await cdp.send("Page.stopScreencast").catch(() => {}); return shots } }
+  return { cdp, stop: async () => { await cdp.send("Page.stopScreencast").catch(() => {}); return shots.sort((a, b) => a.t - b.t) } }
 }
 
 const SW = 72, SH = 45
@@ -253,7 +253,17 @@ type Row = { t: number; all: number; hero: number; rest: number; blank: boolean 
  * the end than the nearest an earlier frame had come, by more than `slack`:
  * something shown that went away again.
  */
-async function timeline(shots: Shot[], crop: { left: number; top: number; width: number; height: number } | null, t0: number, label: string): Promise<{ rows: Row[]; relapses: number; relapseFrames: number; firstContent: number; settled: number; blankAfterContent: number }> {
+/**
+ * From the moment the page is revealed (`from`, ms after t0; the first frame
+ * with anything on it when not given), after a grace of GRACE_MS for the
+ * reveal's own fade: frames that are blank (white), and JUMPS, frames that
+ * differ from the one before by more than JUMP in the top or bottom half.
+ * A theme's entrance fades or slides over many frames; a picture popping in,
+ * a section swapped or a page replaced is one frame.
+ */
+const JUMP = Number(process.env.JUMP ?? 0.08)
+const GRACE_MS = 120
+async function timeline(shots: Shot[], crop: { left: number; top: number; width: number; height: number } | null, t0: number, label: string, from = -1): Promise<{ rows: Row[]; relapses: number; relapseFrames: number; firstContent: number; settled: number; blankAfterContent: number; jumps: string[]; blankAfterReveal: number; revealed: number }> {
   if (process.env.DUMP) {
     mkdirSync(`${OUT}/${label}`, { recursive: true })
     for (const s of shots) {
@@ -278,6 +288,16 @@ async function timeline(shots: Shot[], crop: { left: number; top: number; width:
     bestHero = Math.min(bestHero, r.hero)
     bestRest = Math.min(bestRest, r.rest)
   }
+  /* After the reveal. */
+  const revealed = from >= 0 ? from : rows.find((r) => !r.blank)?.t ?? 0
+  const jumps: string[] = []
+  let blankAfterReveal = 0
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].t < revealed + GRACE_MS) continue
+    if (rows[i].blank) blankAfterReveal++
+    const top = dist(px[i].rgb, px[i - 1].rgb, 0, heroTo), bottom = dist(px[i].rgb, px[i - 1].rgb, heroTo, SH)
+    if (top > JUMP || bottom > JUMP) jumps.push(`${rows[i].t}ms (${top.toFixed(2)}/${bottom.toFixed(2)})`)
+  }
   let settled = rows[rows.length - 1].t
   for (let i = rows.length - 1; i >= 0; i--) { if (rows[i].all > 0.01) break; settled = rows[i].t }
   writeFileSync(`${OUT}/${label}-timeline.txt`, rows.map((r) => `${String(r.t).padStart(6)}ms  all ${r.all.toFixed(3)}  hero ${r.hero.toFixed(3)}  rest ${r.rest.toFixed(3)}${r.blank ? "  BLANK" : ""}`).join("\n"))
@@ -291,13 +311,17 @@ async function timeline(shots: Shot[], crop: { left: number; top: number; width:
   await sharp({ create: { width: 240 * 6, height: 150 * Math.ceil(tiles.length / 6), channels: 3, background: "#000" } })
     .composite(tiles.map((input, i) => ({ input, left: (i % 6) * 240, top: Math.floor(i / 6) * 150 })))
     .png().toFile(`${OUT}/${label}-strip.png`)
-  return { rows, relapses, relapseFrames, firstContent, settled, blankAfterContent }
+  return { rows, relapses, relapseFrames, firstContent, settled, blankAfterContent, jumps, blankAfterReveal, revealed }
 }
 
 /* In the theme's page: every animation started, per element, and every picture asked for, per address. */
 const COUNT = `(function(){var a=window.__slAnim={starts:0,per:{},restarted:0,names:{}};var key=function(el){if(!el||!el.tagName)return"?";if(!el.__slk)el.__slk=el.tagName+"#"+(el.id||"")+"."+String(el.className&&el.className.baseVal!==undefined?el.className.baseVal:el.className||"").slice(0,40)+"@"+Math.random().toString(36).slice(2,6);return el.__slk};
 var on=function(e){var k=key(e.target)+":"+(e.animationName||e.propertyName||"");a.starts++;a.per[k]=(a.per[k]||0)+1;if(a.per[k]===2)a.restarted++;a.names[e.animationName||e.propertyName]=(a.names[e.animationName||e.propertyName]||0)+1};
-addEventListener("animationstart",on,true);a.msgs=[];addEventListener("message",function(e){var m=e.data;if(m&&m.storelib===1&&m.type!=="select")a.msgs.push(m.type+(m.id?":"+m.id:""))});addEventListener("transitionrun",function(e){if(e.propertyName==="opacity"||e.propertyName==="transform"||e.propertyName==="clip-path")on(e)},true);})();`
+addEventListener("animationstart",on,true);a.msgs=[];addEventListener("message",function(e){var m=e.data;if(m&&m.storelib===1&&m.type!=="select")a.msgs.push(m.type+(m.id?":"+m.id:""))});addEventListener("transitionrun",function(e){if(e.propertyName==="opacity"||e.propertyName==="transform"||e.propertyName==="clip-path")on(e)},true);
+var log=a.log=[],ids=new WeakMap(),n=0,last=new Map();var fcp=0;try{new PerformanceObserver(function(l){l.getEntries().forEach(function(e){if(!fcp&&e.name==="first-contentful-paint")fcp=performance.timeOrigin+e.startTime;a.fcp=fcp})}).observe({type:"paint",buffered:true})}catch(e){}
+var idOf=function(el){var i=ids.get(el);if(i===undefined){i=++n;ids.set(el,i)}return i};
+var look=function(){if(!document.body){requestAnimationFrame(look);return}var t=Date.now(),h=innerHeight;var els=document.querySelectorAll(".shopify-section,.shopify-section .scroll-trigger,.shopify-section [class*='animate'],.shopify-section [class*='reveal'],.shopify-section img");for(var k=0;k<els.length&&k<400;k++){var el=els[k];var r=el.getBoundingClientRect();if(r.width<2||r.height<2||r.bottom<=0||r.top>=h)continue;var id=idOf(el);var v;if(el.tagName==="IMG"){v=(el.complete&&el.naturalWidth>0?"P":"-")+(el.currentSrc||el.src||"").slice(-40)}else{var o=parseFloat(getComputedStyle(el).opacity);v=String(Math.round(o*10)/10)}if(last.get(id)!==v){last.set(id,v);log.push([t,id,el.tagName==="IMG"?"img":"el",v])}}requestAnimationFrame(look)};requestAnimationFrame(look);
+})();`
 
 /* In the editor: when its loader, the canvas's outline and each frame came and went, and what each frame said. */
 const EVENTS = `(function(){var ev=window.__ev=[];var log=function(w){ev.push([Date.now(),w])};var last="";
@@ -305,8 +329,48 @@ addEventListener("message",function(e){var m=e.data;if(m&&m.storelib===1&&m.type
 var look=function(){var l=document.querySelector(".wb-canvas-loader");var p=document.querySelector("[data-canvas-placeholder]");var f=[].map.call(document.querySelectorAll("[data-compat-frame]"),function(x){return x.getAttribute("data-compat-frame")}).join(",");var k="loader "+(l?(l.getAttribute("data-leaving")==="true"?"leaving":"up"):"none")+" | outline "+(p?p.getAttribute("data-canvas-placeholder"):"none")+" | frames "+(f||"none");if(k!==last){last=k;log(k)}};
 new MutationObserver(look).observe(document,{subtree:true,childList:true,attributes:true,attributeFilter:["data-leaving","data-canvas-placeholder","data-compat-frame"]});})();`
 
-async function readCount(target: { evaluate: Page["evaluate"] }): Promise<{ starts: number; restarted: number; names: Record<string, number>; msgs?: string[] } | null> {
-  return within(target.evaluate(() => { const a = (window as unknown as { __slAnim?: { starts: number; restarted: number; names: Record<string, number>; msgs: string[] } }).__slAnim; return a ? { starts: a.starts, restarted: a.restarted, names: a.names, msgs: a.msgs } : null })).catch(() => null)
+type Log = [number, number, string, string][]
+async function readCount(target: { evaluate: Page["evaluate"] }): Promise<{ starts: number; restarted: number; names: Record<string, number>; msgs?: string[]; log?: Log; fcp?: number } | null> {
+  return within(target.evaluate(() => { const a = (window as unknown as { __slAnim?: { starts: number; restarted: number; names: Record<string, number>; msgs: string[]; log: [number, number, string, string][]; fcp: number } }).__slAnim; return a ? { starts: a.starts, restarted: a.restarted, names: a.names, msgs: a.msgs, log: a.log, fcp: a.fcp } : null }), 5000).catch(() => null)
+}
+
+/**
+ * What the page did in view, from the moment it was revealed, read from
+ * inside it (every animation frame, every element on its first screen):
+ *   HIDDEN AGAIN   an element that had been shown (opacity up) and then went
+ *                  down by 0.3 or more: a section or picture that flashed out
+ *   PICTURES LATE  a picture on the first screen that arrived after the reveal
+ *                  (popped in over a page already shown), or changed address
+ *   ENTRANCES      elements that went from hidden (< 0.5) to shown after the
+ *                  reveal: the theme's own entrance, played where it is seen
+ */
+function inView(log: Log, reveal: number) {
+  const byId = new Map<number, { kind: string; v: string; t: number }[]>()
+  for (const [t, id, kind, v] of log) { const l = byId.get(id) ?? []; l.push({ kind, v, t }); byId.set(id, l) }
+  let hiddenAgain = 0, picturesLate = 0, entrances = 0
+  const late: string[] = []
+  for (const [, l] of byId) {
+    if (l[0].kind === "img") {
+      const at = l.filter((x) => x.t <= reveal).pop()
+      const after = l.filter((x) => x.t > reveal)
+      if (after.some((x) => x.v.startsWith("P")) && (!at || !at.v.startsWith("P") || after.some((x) => x.v.slice(1) !== at.v.slice(1)))) { picturesLate++; late.push(`${after.find((x) => x.v.startsWith("P"))!.t - reveal}ms`) }
+      continue
+    }
+    /* What stood when the page was revealed, and every change after: shown is the highest it has been since. */
+    const standing = l.filter((z) => z.t <= reveal).pop()
+    const seen = [...(standing ? [standing] : []), ...l.filter((z) => z.t > reveal)]
+    let max = -1, low = 2, hid = false, rose = false
+    for (const x of seen) {
+      const o = Number(x.v)
+      if (max >= 0 && o <= max - 0.3) hid = true
+      if (low < 0.5 && o >= 0.9) rose = true
+      max = Math.max(max, o)
+      low = Math.min(low, o)
+    }
+    if (hid) hiddenAgain++
+    if (rose) entrances++
+  }
+  return { hiddenAgain, picturesLate, entrances, late }
 }
 
 async function frontFrame(page: Page) {
@@ -344,9 +408,18 @@ async function first(browser: Browser, liveBase: string, editorBase: string, pic
   const f = await frontFrame(ed)
   const anim = await readCount(f)
   const canvasPics = pics.log.length
-  const c = await timeline(shots, box, shots[0]?.t ?? t0, "canvas-first")
   const ev = await ed.evaluate(() => (window as unknown as { __ev: [number, string][] }).__ev)
-  writeFileSync(`${OUT}/canvas-first-events.txt`, ev.map(([t, w]) => `${String(Math.round(t - (shots[0]?.t ?? t0))).padStart(6)}ms  ${w}`).join("\n"))
+  const s0 = shots[0]?.t ?? t0
+  writeFileSync(`${OUT}/canvas-first-events.txt`, ev.map(([t, w]) => `${String(Math.round(t - s0)).padStart(6)}ms  ${w}`).join("\n"))
+  /* Revealed: the editor's loader has faded off the page (its fade is the reveal, not a jump of the page's). */
+  const reveal = ev.find(([, w]) => /^loader none \| outline (gone|none) \| frames front/.test(w))
+  const c = await timeline(shots, box, s0, "canvas-first", reveal ? Math.round(reveal[0] - s0) : -1)
+  /* Every frame the canvas made for this one page: one is the page drawn once. */
+  /* In view from the moment the loader starts to fade off it. */
+  const leaving = ev.find(([, w]) => /^loader (leaving|none) \| outline \w+ \| frames front/.test(w)) ?? reveal
+  const cin = anim?.log && leaving ? inView(anim.log, leaving[0]) : null
+  const looks = ev.filter(([, w]) => w.startsWith("loader"))
+  const pageLoads = looks.filter(([, w], k) => /frames [^|]*behind/.test(w) && !(k > 0 && /frames [^|]*behind/.test(looks[k - 1][1]))).length + 1
 
   const lv = await browser.newPage()
   await lv.setViewport({ width: box.width, height: box.height })
@@ -360,16 +433,21 @@ async function first(browser: Browser, liveBase: string, editorBase: string, pic
   const lanim = await readCount(lv)
   const livePics = pics.log.length
   const l = await timeline(shots2, null, shots2[0]?.t ?? Date.now(), "live-first")
+  const lin = lanim?.log && lanim.fcp ? inView(lanim.log, lanim.fcp) : null
 
   console.log(`\nfirst load of the home page (canvas ${box.width}x${box.height})`)
-  const say = (n: string, x: typeof c, a: typeof anim, p: number) => console.log(`  ${n.padEnd(7)} frames ${String(x.rows.length).padStart(3)}  content at ${x.firstContent}ms  settled ${x.settled}ms  RELAPSES ${x.relapses} (${x.relapseFrames} frames)  blank after content ${x.blankAfterContent}  animations ${a?.starts ?? "?"} restarted ${a?.restarted ?? "?"}  picture requests ${p}`)
+  const say = (n: string, x: typeof c, a: typeof anim, p: number) => console.log(`  ${n.padEnd(7)} frames ${String(x.rows.length).padStart(3)}  revealed ${x.revealed}ms  blank after reveal ${x.blankAfterReveal}  JUMPS ${x.jumps.length}${x.jumps.length ? ` [${x.jumps.slice(0, 8).join(", ")}]` : ""}  animations ${a?.starts ?? "?"} restarted ${a?.restarted ?? "?"}  picture requests ${p}`)
   say("live", l, lanim, livePics)
   say("canvas", c, anim, canvasPics)
+  console.log(`    canvas page loads ${pageLoads}`)
+  const sayIn = (n: string, x: ReturnType<typeof inView> | null) => console.log(`  ${n.padEnd(7)} in view: HIDDEN AGAIN ${x?.hiddenAgain ?? "?"}  PICTURES LATE ${x?.picturesLate ?? "?"}${x?.late.length ? ` [${x.late.slice(0, 6).join(", ")}]` : ""}  ENTRANCES ${x?.entrances ?? "?"}`)
+  sayIn("live", lin)
+  sayIn("canvas", cin)
   console.log("    canvas frame was sent:", (anim?.msgs ?? []).join(", ") || "nothing")
   if (process.env.DEBUG) console.log("    canvas names", anim?.names, "\n    live names", lanim?.names)
   await ed.close()
   await lv.close()
-  return { canvas: c, live: l, anim, lanim }
+  return { canvas: c, live: l, anim, lanim, pageLoads, cin, lin }
 }
 
 /* ── a page switch ────────────────────────────────────────────────────────── */
@@ -381,6 +459,7 @@ async function nav(browser: Browser, liveBase: string, editorBase: string) {
   const cdp0 = await ed.createCDPSession()
   await cdp0.send("Page.enable")
   await cdp0.send("Page.addScriptToEvaluateOnNewDocument", { source: COUNT, runImmediately: true } as never).catch(() => {})
+  await ed.evaluateOnNewDocument(EVENTS)
   await ed.goto(editorBase, { waitUntil: "domcontentloaded" })
   let f = await frontFrame(ed)
   await sleep(2500)
@@ -394,6 +473,7 @@ async function nav(browser: Browser, liveBase: string, editorBase: string) {
   if (!href) { console.log("  no header link to press"); await ed.close(); return }
   const before = await ed.screenshot({ type: "png", clip: { x: box.left, y: box.top, width: box.width, height: box.height } })
   const rec = await film(ed)
+  const clickedAt = Date.now()
   await f.evaluate((h) => { const a = [...document.querySelectorAll<HTMLAnchorElement>("a[href]")].find((x) => x.getAttribute("href") === h && x.getBoundingClientRect().width > 0); a?.click() }, href)
   await sleep(FILM_MS)
   const shots = await rec.stop()
@@ -401,6 +481,12 @@ async function nav(browser: Browser, liveBase: string, editorBase: string) {
   const anim = await readCount(f)
   const after = shots[shots.length - 1].data
   const c = await switchTimeline(shots, box, before, after, "canvas-nav")
+  /* The new page came forward: the first change after the click from a page behind to none behind. */
+  const ev = (await ed.evaluate(() => (window as unknown as { __ev: [number, string][] }).__ev)).filter(([t, w]) => t >= clickedAt && w.startsWith("loader"))
+  writeFileSync(`${OUT}/canvas-nav-events.txt`, ev.map(([t, w]) => `${String(t - clickedAt).padStart(6)}ms  ${w}`).join("\n"))
+  const behindAt = ev.findIndex(([, w]) => /behind/.test(w))
+  const forward = behindAt >= 0 ? ev.slice(behindAt).find(([, w]) => !/behind/.test(w)) : undefined
+  const cin = anim?.log && forward ? inView(anim.log, forward[0]) : null
 
   const lv = await browser.newPage()
   await lv.setViewport({ width: box.width, height: box.height })
@@ -410,46 +496,86 @@ async function nav(browser: Browser, liveBase: string, editorBase: string) {
   await sleep(1500)
   const lbefore = await lv.screenshot({ type: "png" })
   const rec2 = await film(lv)
-  await lv.evaluate((h) => { const a = [...document.querySelectorAll<HTMLAnchorElement>("a[href]")].find((x) => x.getAttribute("href") === h && x.getBoundingClientRect().width > 0); a?.click() }, href)
+  /* Followed as a visitor's press is: the link clicked, or (a link in a closed menu, which a click does not reach) the address opened. */
+  await lv.evaluate((h) => { const a = [...document.querySelectorAll<HTMLAnchorElement>("a[href]")].find((x) => x.getAttribute("href") === h && x.getBoundingClientRect().width > 0); a?.click(); setTimeout(() => { if (location.pathname === "/") location.assign(h) }, 300) }, href)
   await sleep(FILM_MS)
   const shots2 = await rec2.stop()
   const lanim = await readCount(lv)
   const l = await switchTimeline(shots2, null, lbefore, shots2[shots2.length - 1].data, "live-nav")
+  const lin = lanim?.log && lanim.fcp ? inView(lanim.log, lanim.fcp) : null
   console.log(`\npage switch: header link ${href}`)
-  const say = (n: string, x: typeof c, a: typeof anim) => console.log(`  ${n.padEnd(7)} frames ${String(x.frames).padStart(3)}  old until ${x.oldUntil}ms  new from ${x.newFrom}ms  between ${x.between}  blank ${x.blank}  back to old ${x.backToOld}  moving after new shown ${x.movingAfter}  animations in new page ${a?.starts ?? "?"}`)
+  const say = (n: string, x: typeof c, a: typeof anim) => console.log(`  ${n.padEnd(7)} frames ${String(x.frames).padStart(3)}  leaves the old page at ${x.startsAt}ms  new page settled at ${x.arrivedAt}ms  ARRIVAL ${x.arrival}ms over ${x.between} frames  blank ${x.blank}  back to old ${x.backToOld}  animations started in the new page ${a?.starts ?? "?"}`)
   say("live", l, lanim)
   say("canvas", c, anim)
+  const sayIn = (n: string, x: ReturnType<typeof inView> | null) => console.log(`  ${n.padEnd(7)} new page in view: HIDDEN AGAIN ${x?.hiddenAgain ?? "?"}  PICTURES LATE ${x?.picturesLate ?? "?"}  ENTRANCES ${x?.entrances ?? "?"}`)
+  sayIn("live", lin)
+  sayIn("canvas", cin)
+  console.log(`    canvas: came forward ${forward ? `${forward[0] - clickedAt}ms after the press` : "?"}`)
   await ed.close()
   await lv.close()
-  return { canvas: c, live: l, anim, lanim }
+  return { canvas: c, live: l, anim, lanim, cin, lin }
 }
 
+/**
+ * A switch, frame by frame, against the page left (`before`) and the page
+ * arrived at (the last frame). It starts at the first frame unlike the page
+ * left and ends at the last frame unlike the page arrived at: in between is
+ * the arrival (a cut is no frame at all; a hand over and the new page's own
+ * entrance are frames in between). Blank frames and frames that went back to
+ * the page left are counted on their own.
+ */
 async function switchTimeline(shots: Shot[], crop: { left: number; top: number; width: number; height: number } | null, before: Uint8Array, after: Buffer, label: string) {
-  const a = (await pixels(Buffer.from(before), crop ? { left: crop.left, top: crop.top, width: crop.width, height: crop.height } : null)).rgb
   /* `before` is a clip already for the canvas. */
-  const old = crop ? (await pixels(Buffer.from(before), null)).rgb : a
+  const old = (await pixels(Buffer.from(before), null)).rgb
   const neu = (await pixels(after, crop)).rgb
   const t0 = shots[0]?.t ?? 0
-  let oldUntil = 0, newFrom = -1, between = 0, blank = 0, backToOld = 0, movingAfter = 0
-  let prev: Buffer | null = null
-  const lines: string[] = []
+  const rows: { t: number; dOld: number; dNew: number; blank: boolean }[] = []
   for (const s of shots) {
     const p = await pixels(s.data, crop)
     const dOld = dist(p.rgb, old), dNew = dist(p.rgb, neu)
-    const t = Math.round(s.t - t0)
-    const isOld = dOld < 0.02, isNew = dNew < 0.02
-    if (isOld && newFrom < 0) oldUntil = t
-    if (isOld && newFrom >= 0) backToOld++
-    if (!isOld && !isNew && newFrom < 0) between++
-    if (p.std < 6) blank++
-    if (newFrom >= 0 && prev && dist(p.rgb, prev) > 0.004) movingAfter++
-    if (newFrom < 0 && dNew < 0.12) newFrom = t
-    prev = p.rgb
-    lines.push(`${String(t).padStart(6)}ms  old ${dOld.toFixed(3)}  new ${dNew.toFixed(3)}${p.std < 6 ? "  BLANK" : ""}`)
+    /* Blank: a sheet of one colour that is neither page (a page that is mostly white is not a blank). */
+    rows.push({ t: Math.round(s.t - t0), dOld, dNew, blank: p.std < 6 && dOld > 0.05 && dNew > 0.05 })
   }
-  writeFileSync(`${OUT}/${label}-timeline.txt`, lines.join("\n"))
-  await timeline(shots, crop, t0, label).catch(() => null)
-  return { frames: shots.length, oldUntil, newFrom, between, blank, backToOld, movingAfter }
+  const start = rows.findIndex((r) => r.dOld > 0.02)
+  let end = rows.length - 1
+  while (end > 0 && rows[end - 1].dNew <= 0.015) end--
+  let blank = 0, backToOld = 0, seenNew = false
+  for (const r of rows) {
+    if (r.blank) blank++
+    if (r.dNew < 0.05) seenNew = true
+    if (seenNew && r.dOld < 0.02) backToOld++
+  }
+  writeFileSync(`${OUT}/${label}-timeline.txt`, rows.map((r) => `${String(r.t).padStart(6)}ms  old ${r.dOld.toFixed(3)}  new ${r.dNew.toFixed(3)}${r.blank ? "  BLANK" : ""}`).join("\n"))
+  if (process.env.DUMP) await timeline(shots, crop, t0, label).catch(() => null)
+  return { frames: shots.length, startsAt: start < 0 ? -1 : rows[start].t, arrivedAt: rows[end].t, between: start < 0 ? 0 : Math.max(0, end - start), arrival: start < 0 ? 0 : rows[end].t - rows[start].t, blank, backToOld }
+}
+
+/* ── the same page drawn again (an edit it could not take in place) ───────── */
+
+async function redraw(browser: Browser, editorBase: string) {
+  const ed = await browser.newPage()
+  await ed.setViewport({ width: W, height: H })
+  await ed.evaluateOnNewDocument("window.__name = (f) => f")
+  const cdp0 = await ed.createCDPSession()
+  await cdp0.send("Page.enable")
+  await cdp0.send("Page.addScriptToEvaluateOnNewDocument", { source: COUNT, runImmediately: true } as never).catch(() => {})
+  await ed.evaluateOnNewDocument(EVENTS)
+  await ed.goto(editorBase, { waitUntil: "domcontentloaded" })
+  const f = await frontFrame(ed)
+  await sleep(3000)
+  const at = Date.now()
+  /* As the bridge asks when a change cannot be made in place (canvas-bridge.ts, reload). */
+  await f.evaluate(() => parent.postMessage({ storelib: 1, type: "reload", why: "probe" }, "*"))
+  await sleep(4000)
+  const ev = (await ed.evaluate(() => (window as unknown as { __ev: [number, string][] }).__ev)).filter(([t, w]) => t >= at && w.startsWith("loader"))
+  const behindAt = ev.findIndex(([, w]) => /behind/.test(w))
+  const forward = behindAt >= 0 ? ev.slice(behindAt).find(([, w]) => !/behind/.test(w)) : undefined
+  const handed = ev.some(([, w]) => /leaving/.test(w.split("frames ")[1] ?? ""))
+  const anim = await readCount(await frontFrame(ed))
+  const x = anim?.log && forward ? inView(anim.log, forward[0]) : null
+  console.log(`\nthe same page drawn again: came forward ${forward ? forward[0] - at : "?"}ms after, hand over ${handed ? "yes" : "no"}, in view: HIDDEN AGAIN ${x?.hiddenAgain ?? "?"}  ENTRANCES ${x?.entrances ?? "?"}  PICTURES LATE ${x?.picturesLate ?? "?"}`)
+  await ed.close()
+  return { forward: !!forward, handed, x }
 }
 
 async function main() {
@@ -466,16 +592,27 @@ async function main() {
   try {
     if (all || parts.has("first")) {
       const r = await first(browser, live.base, editor.base, pics)
-      check("canvas: no frame goes back from the page it is arriving at (no flash)", r.canvas.relapses <= r.live.relapses, `canvas ${r.canvas.relapses}, live ${r.live.relapses}`)
-      check("canvas: no blank frame once the page has content", r.canvas.blankAfterContent === 0, r.canvas.blankAfterContent)
+      check("canvas: the page is drawn once", r.pageLoads === 1, r.pageLoads)
+      check("canvas: no white frame once the page is revealed", r.canvas.blankAfterReveal === 0, r.canvas.blankAfterReveal)
+      check("canvas: nothing on the first screen is hidden again once it is in view", r.cin?.hiddenAgain === 0, r.cin?.hiddenAgain)
+      check("canvas: no picture on the first screen pops in after the page is revealed", r.cin?.picturesLate === 0, r.cin?.late)
+      check("canvas: the theme's entrance plays in view as it does live", (r.lin?.entrances ?? 0) === 0 || (r.cin?.entrances ?? 0) > 0, `canvas ${r.cin?.entrances}, live ${r.lin?.entrances}`)
       check("canvas: no entrance plays twice", (r.anim?.restarted ?? 0) <= (r.lanim?.restarted ?? 0), `canvas ${r.anim?.restarted}, live ${r.lanim?.restarted}`)
+    }
+    if (parts.has("redraw")) {
+      const r = await redraw(browser, editor.base)
+      check("redrawn: it comes forward", r.forward)
+      check("redrawn: as a cut, no hand over (it looks as the page it replaces)", !r.handed)
+      check("redrawn: nothing on it fades or rises again, nothing hidden again", (r.x?.entrances ?? 1) === 0 && (r.x?.hiddenAgain ?? 1) === 0, r.x)
     }
     if (all || parts.has("nav")) {
       const r = await nav(browser, live.base, editor.base)
       if (r) {
         check("canvas switch: never blank", r.canvas.blank === 0, r.canvas.blank)
         check("canvas switch: never back to the old page once the new one shows", r.canvas.backToOld === 0, r.canvas.backToOld)
-        check("canvas switch: the new page's entrance plays where it can be seen", r.canvas.movingAfter > 2 || r.live.movingAfter <= 2, `canvas ${r.canvas.movingAfter} moving frames, live ${r.live.movingAfter}`)
+        check("canvas switch: the new page's own entrance plays in view, as live", (r.lin?.entrances ?? 0) === 0 || (r.cin?.entrances ?? 0) > 0, `canvas ${r.cin?.entrances}, live ${r.lin?.entrances}`)
+        check("canvas switch: nothing on the new page is hidden again once it is in front", (r.cin?.hiddenAgain ?? 0) === 0, r.cin?.hiddenAgain)
+        check("canvas switch: no picture on its first screen pops in after it came forward", (r.cin?.picturesLate ?? 0) === 0, r.cin?.late)
       }
     }
   } finally {
