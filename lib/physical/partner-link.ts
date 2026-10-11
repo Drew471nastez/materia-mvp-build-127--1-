@@ -7,6 +7,7 @@ import "server-only"
  * without importing what the link then does.
  */
 import { createHmac, timingSafeEqual } from "node:crypto"
+import type { ShipmentStatus } from "./types"
 
 /* ── the signed link in the partner's email ─────────────────────────────── */
 
@@ -66,5 +67,22 @@ export function webhookSignatureOk(secret: string, timestamp: string | null, sig
   if (!/^[0-9a-f]{64}$/i.test(given)) return false
   const expected = createHmac("sha256", secret).update(`${timestamp}.${body}`).digest("hex")
   return timingSafeEqual(Buffer.from(given.toLowerCase(), "hex"), Buffer.from(expected, "hex"))
+}
+
+
+/* ── what a partner may say ──────────────────────────────────────────── */
+
+const STATUSES: ShipmentStatus[] = ["shipped", "in_transit", "out_for_delivery", "delivered", "failed"]
+
+export function readPartnerStatus(value: unknown): ShipmentStatus | null {
+  return typeof value === "string" && (STATUSES as string[]).includes(value) ? (value as ShipmentStatus) : null
+}
+
+/** The items of an order this location still has to ship, as fulfilItems takes them. */
+export function openItemsAt(order: { lines: { orderId: string; requiresShipping: boolean; locationId: string | null; quantity: number; fulfilled: number }[] }, locationId: string | null): { orderId: string; quantity: number }[] {
+  return order.lines
+    .filter((l) => l.requiresShipping && (!locationId || l.locationId === locationId))
+    .map((l) => ({ orderId: l.orderId, quantity: Math.max(0, l.quantity - l.fulfilled) }))
+    .filter((i) => i.quantity > 0)
 }
 

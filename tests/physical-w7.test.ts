@@ -22,8 +22,7 @@ import { orderLinkEmail, supplierOrderEmail } from "@/lib/physical/email-templat
 import { resetPasswordEmail } from "@/lib/account/reset-email"
 import { siteCheckoutRouteFor } from "@/lib/checkout/site-checkout"
 import { siteSubdomainForWallets } from "@/lib/custom-domains/payment-hosts"
-import { signPartnerLink, verifyPartnerLink, webhookSignatureOk, PARTNER_LINK_TTL_MS } from "@/lib/physical/partner-link"
-import { openItemsAt, readPartnerStatus } from "@/lib/physical/partner-server"
+import { openItemsAt, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, PARTNER_LINK_TTL_MS } from "@/lib/physical/partner-link"
 
 process.env.SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "test-service-role-key-for-partner-links-0123456789"
 
@@ -116,7 +115,7 @@ async function main() {
     const mail = orderLinkEmail({ shopName: "Ana's <Shop>", orders: [{ number: "#3F2A9C1B", date: "Sep 20, 2026", url: "https://ana.storelib.com/checkout/physical/order/tok", status: "Shipped" }], brand: { logoUrl: null, email: "hi@ana.test", phone: null, websiteUrl: "https://ana.storelib.com" } })
     check("the email: the order, its link on the store's site, the store escaped", mail.subject === "Your order #3F2A9C1B from Ana's <Shop>" && mail.html.includes('href="https://ana.storelib.com/checkout/physical/order/tok"') && mail.html.includes("Ana's &lt;Shop&gt;") && !mail.html.includes("<Shop>"), mail.subject)
     check("  and as text", mail.text.includes("https://ana.storelib.com/checkout/physical/order/tok") && !/Get help with this order/.test(mail.text))
-    check("both sign in pages link to it", /href="\/checkout\/track"/.test(read("themes/default/sections/main_login.storelib")) && /href="\/checkout\/track"/.test(read("lib/storelib-theme/compat/account.ts")))
+    check("both sign in pages link to it", /href="\{\{ routes\.order_lookup_url \}\}"/.test(read("themes/default/sections/main_login.storelib")) && /href="\/checkout\/track"/.test(read("lib/storelib-theme/compat/account.ts")))
   }
 
   section("Routing on a website's host")

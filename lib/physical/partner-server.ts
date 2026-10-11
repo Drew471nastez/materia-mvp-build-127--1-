@@ -32,8 +32,8 @@ import { fulfilItems, loadOrder, updateShipment, type PhysicalOrder } from "./or
 import { canMoveShipment, orderNumber } from "./status"
 import { normaliseTrackingNumber } from "./carriers"
 import { openSecret } from "./secrets"
-export { PARTNER_LINK_TTL_MS, PARTNER_PAGE_PREFIX, signPartnerLink, verifyPartnerLink, webhookSignatureOk, type PartnerLink } from "./partner-link"
-import type { ShipmentStatus } from "./types"
+import { openItemsAt, readPartnerStatus } from "./partner-link"
+export { PARTNER_LINK_TTL_MS, PARTNER_PAGE_PREFIX, openItemsAt, readPartnerStatus, signPartnerLink, verifyPartnerLink, webhookSignatureOk, type PartnerLink } from "./partner-link"
 
 /** The shop's own webhook secret (Settings > Integrations > Your own system), opened, or null. */
 export async function shopWebhookSecret(db: Db, creatorId: string): Promise<string | null> {
@@ -43,22 +43,14 @@ export async function shopWebhookSecret(db: Db, creatorId: string): Promise<stri
 
 /* ── what a partner's word does ─────────────────────────────────────────── */
 
-const STATUSES: ShipmentStatus[] = ["shipped", "in_transit", "out_for_delivery", "delivered", "failed"]
-
-export function readPartnerStatus(value: unknown): ShipmentStatus | null {
-  return typeof value === "string" && (STATUSES as string[]).includes(value) ? (value as ShipmentStatus) : null
-}
-
 export type PartnerOutcome =
   | { ok: true; kind: "shipped" | "updated" | "unchanged"; order: PhysicalOrder }
   | { ok: false; error: string; status: number }
 
-/** The items of an order this location still has to ship, as fulfilItems takes them. */
-export function openItemsAt(order: Pick<PhysicalOrder, "lines">, locationId: string | null): { orderId: string; quantity: number }[] {
-  return order.lines
-    .filter((l) => l.requiresShipping && (!locationId || l.locationId === locationId))
-    .map((l) => ({ orderId: l.orderId, quantity: Math.max(0, l.quantity - l.fulfilled) }))
-    .filter((i) => i.quantity > 0)
+/** An outcome that did not go through, as the partner hears it. */
+function failure(o: { ok: boolean }): PartnerOutcome {
+  const f = o as { error?: string; status?: number }
+  return { ok: false, error: f.error ?? "That did not work.", status: f.status ?? 400 }
 }
 
 /**
@@ -80,7 +72,7 @@ export async function partnerShipped(
   if (existing) {
     if (status === "shipped" || !canMoveShipment(existing.status, status)) return { ok: true, kind: "unchanged", order }
     const moved = await updateShipment(db, input.creatorId, existing.id, { status, partner: { name: input.partner.name } })
-    return moved.ok ? { ok: true, kind: "updated", order: moved.order } : { ok: false, error: moved.error, status: moved.status ?? 400 }
+    return moved.ok ? { ok: true, kind: "updated", order: moved.order } : failure(moved)
   }
   const items = openItemsAt(order, input.locationId)
   if (items.length === 0) return { ok: true, kind: "unchanged", order }
@@ -94,7 +86,7 @@ export async function partnerShipped(
     locationId: input.locationId,
     partner: input.partner,
   })
-  if (!shipped.ok) return { ok: false, error: shipped.error, status: shipped.status ?? 400 }
+  if (!shipped.ok) return failure(shipped)
   /* Delivered in the same breath (a partner that only reports the end): the shipment just made moves on too. */
   if (status !== "shipped" && number) {
     const made = shipped.order.shipments.find((s) => (s.trackingNumber ?? "").toUpperCase() === number.toUpperCase() && s.status === "shipped")

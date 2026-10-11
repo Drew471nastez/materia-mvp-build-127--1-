@@ -35,7 +35,7 @@
       </form>
       {% if settings.note %}<p class="login__note">{{ settings.note }}</p>{% endif %}
       {# A buyer who checked out as a guest follows an order by its number and email (app/checkout/site/track). #}
-      {% if settings.track_label %}<p class="login__track"><a class="login__link" href="/checkout/track">{{ settings.track_label }}</a></p>{% endif %}
+      {% if settings.track_label %}<p class="login__track"><a class="login__link" href="{{ routes.order_lookup_url }}">{{ settings.track_label }}</a></p>{% endif %}
     {% endif %}
   </div>
 </section>
