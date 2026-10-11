@@ -5,6 +5,7 @@ import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/web
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
+import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
@@ -5531,9 +5532,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
+    /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
+    const t0 = performance.now()
     try {
       const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
       if (!settingsRes.ok) {
+        perfFail("/step/editor/save", `http_${settingsRes.status}`)
         const d = await settingsRes.json().catch(() => ({}))
         setSaveProblem(explainSaveProblem(settingsRes.status, d))
         return false
@@ -5541,6 +5545,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
+        perfFail("/step/editor/save", `http_${sectionsRes.status}`)
         const d = await sectionsRes.json().catch(() => ({}))
         // A FAILED autosave is not quiet. Silence here is how somebody keeps
         // working for an hour against a server that stopped accepting writes.
@@ -5559,9 +5564,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * trains somebody to ignore the one that matters — the bar already shows
        * the state.
        */
+      perfStep("/step/editor/save", performance.now() - t0)
       if (!options.quiet) showNotification("Saved")
       return true
     } catch {
+      perfFail("/step/editor/save", typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "network")
       setSaveProblem(explainSaveProblem(typeof navigator !== "undefined" && navigator.onLine === false ? null : 503, null))
       return false
     }
@@ -7534,6 +7541,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.clearTimeout(id)
   }, [compatFirstPaint, canvasBusy])
   const canvasLoaderUp = canvasBusy || compatFirstPaint
+  /*
+    THE EDITOR OPENING, TIMED for /admin/performance (lib/perf/mark): from
+    the screen opening (the page load, or the tap that opened it) to the
+    canvas showing the page, and from the editor's data arriving to that.
+    Once per editor.
+  */
+  const openTimed = useRef<{ dataAt: number | null; done: boolean }>({ dataAt: null, done: false })
+  useEffect(() => {
+    const t = openTimed.current
+    if (t.done) return
+    if (!loading && t.dataAt === null) t.dataAt = performance.now()
+    if (canvasLoaderUp) return
+    t.done = true
+    perfStep("/step/editor/open", sinceScreenStart())
+    if (t.dataAt !== null) perfStep("/step/editor/canvas", performance.now() - t.dataAt)
+  }, [loading, canvasLoaderUp])
   /**
    * See `useDelayedFlag`: a fast load should show nothing at all. Half a
    * second, the wait every other loader in Storelib keeps before it shows

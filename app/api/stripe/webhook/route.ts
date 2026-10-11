@@ -24,6 +24,7 @@ import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
 import { reportError } from "@/lib/observability/report"
 import { handleMembershipEvent, isMembershipEventType } from "@/lib/memberships/webhook"
 import { subscriptionIdOf } from "@/lib/memberships/sync"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
@@ -80,7 +81,7 @@ function periodEndOf(sub: any): number | null {
  * already finished; nothing is written for a delivery until the handler,
  * which checks the signature, has answered 200.
  */
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const body = await request.text()
   let eventId: string | null = null
   let eventType = ""
@@ -1832,3 +1833,6 @@ function amountText(minor: number, currency: string): string {
   const d = decimalsOf(currency)
   return `${(minor / 10 ** d).toFixed(d)} ${currency.toUpperCase()}`
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("infra", "/api/stripe/webhook", handlePOST)

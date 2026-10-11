@@ -35,6 +35,7 @@ import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
+import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
@@ -325,7 +326,8 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
-    extraHead: draft ? undefined : liveNavigationMarkup(),
+    /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
+    extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(row.id),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }

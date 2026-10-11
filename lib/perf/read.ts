@@ -101,13 +101,18 @@ export function extrasFrom(parts: {
 
 export async function readScoreHistory(r: Reader, days = 30): Promise<ScoreDay[] | null> {
   const since = new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
-  const rows = await r.rows<{ day: string; score: number | null; subs: unknown }>("score history", "perf_scores", "day, score, subs", (q) => q.gte("day", since).order("day", { ascending: true }).limit(days + 1))
+  const rows = await r.rows<{ day: string; score: number | null; subs: unknown; provisional: unknown }>("score history", "perf_scores", "day, score, subs, provisional:inputs->provisional", (q) => q.gte("day", since).order("day", { ascending: true }).limit(days + 1))
   if (!rows) return null
-  return rows.map((row) => ({
-    day: String(row.day).slice(0, 10),
-    score: row.score === null ? null : Number(row.score),
-    subs: (Array.isArray(row.subs) ? row.subs : []).map((s: { id?: unknown; score?: unknown }) => ({ id: String(s.id ?? ""), score: s.score === null || s.score === undefined ? null : Number(s.score) })),
-  }))
+  return rows.map((row) => {
+    const p = row.provisional as { score?: unknown; confidence?: unknown } | null
+    const confidence = p && (p.confidence === "high" || p.confidence === "medium" || p.confidence === "low") ? p.confidence : null
+    return {
+      day: String(row.day).slice(0, 10),
+      score: row.score === null ? null : Number(row.score),
+      subs: (Array.isArray(row.subs) ? row.subs : []).map((s: { id?: unknown; score?: unknown }) => ({ id: String(s.id ?? ""), score: s.score === null || s.score === undefined ? null : Number(s.score) })),
+      provisional: p && confidence && Number.isFinite(Number(p.score)) ? { score: Number(p.score), confidence } : null,
+    }
+  })
 }
 
 export async function readPerfReport(window: WindowId, now = Date.now()): Promise<PerfReport> {
