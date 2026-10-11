@@ -2,8 +2,11 @@
  * ===========================================================================
  *  A CREATOR'S AGENT CONNECTIONS FOR ONE SITE
  * ===========================================================================
- *   GET     the connections this site has, without their tokens
- *   POST    { name } makes one, and answers with its token ONCE
+ *   GET     the connections this site has, without their tokens, each with
+ *           when it expires and whether it can change the site
+ *   POST    { name, access?: "write" | "read", days?: number } makes one,
+ *           and answers with its token ONCE. It works for `days` (180 when
+ *           not said, 0 for no end); a "read" key can look and not change.
  *   DELETE  ?id= disconnects one. It stops working on the next request.
  *
  * Signed in, and only for a site that is this creator's. The token is never
@@ -12,7 +15,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { createAdminClient } from "@/lib/supabase/admin"
-import { mintToken } from "@/lib/agent-access/tokens"
+import { expiryFor, keyExpired, mintToken } from "@/lib/agent-access/token-format"
 import { rateLimit } from "@/lib/api/rate-limit"
 
 export const runtime = "nodejs"
@@ -22,6 +25,8 @@ type Params = { params: Promise<{ installId: string }> }
 
 /** A site can hold a few; nobody needs a hundred live tokens for one site. */
 const MAX_CONNECTIONS = 10
+
+const BASE_COLUMNS = "id, name, prefix, created_at, last_used_at"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -51,18 +56,28 @@ export async function GET(_req: Request, { params }: Params) {
   const { installId } = await params
   const own = await ownInstall(installId)
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
-  const { data, error } = await createAdminClient()
-    .from("theme_agent_tokens")
-    .select("id, name, prefix, created_at, last_used_at")
-    .eq("install_id", own.installId)
-    .is("revoked_at", null)
-    .order("created_at", { ascending: false })
-    .limit(MAX_CONNECTIONS)
+  const read = (cols: string) =>
+    createAdminClient()
+      .from("theme_agent_tokens")
+      .select(cols)
+      .eq("install_id", own.installId)
+      .is("revoked_at", null)
+      .order("created_at", { ascending: false })
+      .limit(MAX_CONNECTIONS)
+  /* expires_at and scopes arrived with part 131. */
+  let { data, error } = await read(`${BASE_COLUMNS}, expires_at, scopes`)
+  if (error && /expires_at|scopes/.test(error.message ?? "")) ({ data, error } = await read(BASE_COLUMNS))
   if (error) {
     if (notSetUp(error.message)) return NextResponse.json({ connections: [], ready: false })
     return NextResponse.json({ error: "Could not read connections" }, { status: 500 })
   }
-  return NextResponse.json({ connections: data ?? [], ready: true })
+  const rows = ((data ?? []) as unknown as Record<string, unknown>[]).map((r) => ({
+    ...r,
+    expires_at: (r.expires_at as string | null | undefined) ?? null,
+    expired: keyExpired(r.expires_at as string | null | undefined),
+    access: Array.isArray(r.scopes) && !(r.scopes as string[]).includes("write") ? "read" : "write",
+  }))
+  return NextResponse.json({ connections: rows, ready: true })
 }
 
 export async function POST(req: Request, { params }: Params) {
@@ -71,9 +86,13 @@ export async function POST(req: Request, { params }: Params) {
   if (!own) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
   let name = ""
+  let access: "read" | "write" = "write"
+  let days: unknown = undefined
   try {
-    const body = (await req.json()) as { name?: unknown }
+    const body = (await req.json()) as { name?: unknown; access?: unknown; days?: unknown }
     name = typeof body.name === "string" ? body.name.replace(/\s+/g, " ").trim().slice(0, 60) : ""
+    if (body.access === "read") access = "read"
+    days = body.days
   } catch {
     /* an empty body falls through to the default name */
   }
@@ -106,14 +125,25 @@ export async function POST(req: Request, { params }: Params) {
   }
 
   const minted = mintToken()
-  const { data, error } = await db
+  const row = { install_id: own.installId, creator_id: own.creatorId, name, token_hash: minted.hash, prefix: minted.prefix }
+  const expires_at = expiryFor(days)
+  const scopes = access === "read" ? ["read"] : ["read", "write"]
+  let { data, error } = await db
     .from("theme_agent_tokens")
-    .insert({ install_id: own.installId, creator_id: own.creatorId, name, token_hash: minted.hash, prefix: minted.prefix })
-    .select("id, name, prefix, created_at, last_used_at")
+    .insert({ ...row, expires_at, scopes })
+    .select(`${BASE_COLUMNS}, expires_at, scopes`)
     .single()
+  /* Before part 131: a key that never expires and can write, as every key was. A read only key is refused rather than made writable. */
+  if (error && /expires_at|scopes/.test(error.message ?? "")) {
+    if (access === "read") return NextResponse.json({ error: "Read only keys need a database update first (part 131)." }, { status: 503 })
+    ;({ data, error } = await db.from("theme_agent_tokens").insert(row).select(BASE_COLUMNS).single())
+  }
   if (error) return NextResponse.json({ error: "Could not make a connection" }, { status: 500 })
-
-  return NextResponse.json({ connection: data, token: minted.token })
+  const made = data as unknown as Record<string, unknown>
+  return NextResponse.json({
+    connection: { ...made, expires_at: made.expires_at ?? null, expired: false, access: Array.isArray(made.scopes) && !(made.scopes as string[]).includes("write") ? "read" : "write" },
+    token: minted.token,
+  })
 }
 
 export async function DELETE(req: Request, { params }: Params) {

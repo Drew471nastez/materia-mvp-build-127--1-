@@ -17,7 +17,12 @@
  *                          the button that goes to GitHub
  *   connected, no repo     Continue: pick the repository
  *   linked                 Manage: Pull, Push, which way changes travel,
- *                          what happened lately, change or disconnect
+ *                          what the last sync did file by file (each file a
+ *                          push could not bring in, with its fix), the
+ *                          built-in files this site has its own copy of
+ *                          (Edited in GitHub, Reset to Storelib's version),
+ *                          how to work with an AI on it, what happened
+ *                          lately, change or disconnect
  */
 import { useCallback, useEffect, useState } from "react"
 import { ArrowDownToLine, ArrowUpFromLine, ExternalLink, Loader2 } from "lucide-react"
@@ -36,6 +41,25 @@ interface Link {
   lastError: string | null
   pushOnSave: boolean
   pullOnPush: boolean
+  /** What the last sync did, file by file (part 131). */
+  last?: {
+    at: string
+    direction: "to_github" | "from_github"
+    ok: boolean
+    commit: string | null
+    saved: number
+    failed: { path: string; error: string }[]
+    notes: { path: string; note: string }[]
+    skipped: { path: string; reason: string }[]
+  } | null
+}
+
+/** A built-in section or block this site has its own copy of. */
+interface Edited {
+  path: string
+  type: string
+  kind: "section" | "block"
+  from: "github" | "builder"
 }
 
 interface SyncEvent {
@@ -55,6 +79,7 @@ interface Status {
   reposError?: string | null
   accounts: { installationId: number; account: string }[]
   events: SyncEvent[]
+  overrides?: Edited[]
 }
 
 /** What GitHub's round trip came back with, from ?github= on the editor's URL. */
@@ -74,7 +99,7 @@ export function GitHubMark({ className }: { className?: string }) {
   )
 }
 
-type Action = "select" | "export" | "disconnect" | "reuse" | "pull" | "settings"
+type Action = "select" | "export" | "disconnect" | "reuse" | "pull" | "settings" | "reset"
 
 /**
  * A direction and its switch. The switch is drawn here rather than borrowed:
@@ -113,10 +138,21 @@ function SyncRow({ title, detail, on, busy, onChange }: {
 }
 
 const STEPS = [
-  ["Connect a repository", "Storelib writes this website's sections into it, with an AGENTS.md your tool reads first."],
+  ["Connect a repository", "Storelib writes this website's whole theme into it: settings, pages, sections and blocks, with an AGENTS.md your tool reads first."],
   ["Ask your agent for a change", "Open the repository in Codex in ChatGPT or Claude Code on the web and ask for a section."],
   ["It appears here", "Each push arrives within seconds, as a draft. Publish when you like it."],
 ] as const
+
+/** Where an AI works on the repository, from the web. */
+const AI_TOOLS = [
+  { name: "Claude Code", href: "https://claude.ai/code" },
+  { name: "Codex", href: "https://chatgpt.com/codex" },
+] as const
+
+/** A built-in's line: which file, and where its copy came from. Pure, tested as words. */
+export function editedLabel(e: Pick<Edited, "path" | "from">): { name: string; badge: string } {
+  return { name: e.path, badge: e.from === "github" ? "Edited in GitHub" : "Edited in the builder" }
+}
 
 /** What GitHub's line says. Pure, so the words are tested as words. */
 export function githubStatus(
@@ -155,6 +191,7 @@ export function GitHubSyncPanel({
   const [folder, setFolder] = useState("")
   const [notice, setNotice] = useState<string | null>(null)
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [confirmReset, setConfirmReset] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -188,12 +225,13 @@ export function GitHubSyncPanel({
       })
       const d = (await res.json().catch(() => ({}))) as { error?: string; upToDate?: boolean; saved?: number; failed?: unknown[] }
       if (!res.ok) throw new Error(d.error || "GitHub did not answer")
-      if (kind === "export" || kind === "select") setNotice(d.upToDate ? "GitHub already has the latest." : "Pushed to GitHub.")
+      if (kind === "export" || kind === "select") setNotice(d.upToDate ? "GitHub already has the whole theme." : "Sent the whole theme to GitHub.")
       if (kind === "pull") {
         const n = d.saved ?? 0
         const bad = d.failed?.length ?? 0
-        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} section${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} did not compile` : ""}.`)
+        setNotice(n === 0 && bad === 0 ? "Already up to date." : `${n} file${n === 1 ? "" : "s"} pulled as a draft${bad ? `, ${bad} not taken (listed below)` : ""}.`)
       }
+      if (kind === "reset") setNotice("Back to Storelib's version. GitHub gets it too.")
       await load()
     } catch (e) {
       setError(e instanceof Error ? e.message : "GitHub did not answer")
@@ -287,6 +325,9 @@ export function GitHubSyncPanel({
               className="mt-1.5 h-11 w-full rounded-lg border border-white/12 bg-[#171717] px-3 font-mono text-[16px] text-white outline-none placeholder:font-sans placeholder:text-white/30 focus:border-white/35 md:h-10 md:text-[14px]"
             />
           </label>
+          <p className="text-[13px] leading-relaxed text-white/50 md:col-span-3">
+            An empty repository works best. If the branch is protected on GitHub, type a new one, such as storelib, and Storelib makes it.
+          </p>
           <button
             type="button"
             disabled={busy !== null || !repo}
@@ -294,7 +335,7 @@ export function GitHubSyncPanel({
             className={`${primaryButtonClass} md:col-span-3 md:justify-self-start`}
           >
             {busy === "select" && <Loader2 className="h-4 w-4 animate-spin" />}
-            Link and send sections
+            Link and send the theme
           </button>
         </div>
       )}
@@ -380,6 +421,62 @@ export function GitHubSyncPanel({
         {link.lastError && !error && <RowNote tone="bad">{link.lastError}</RowNote>}
         {messages}
 
+        {/* Every file the last sync could not bring in, with what to fix. The rest of that push is already in. */}
+        {link.last && link.last.failed.length > 0 && (
+          <div className="mt-4">
+            <p className="text-[13px] font-medium text-white/60">
+              Not taken from {link.last.commit ? <span className="font-mono">{link.last.commit.slice(0, 7)}</span> : "the last sync"}. Fix these in the repository and push again:
+            </p>
+            <ul className="mt-1.5 space-y-1.5">
+              {link.last.failed.map((f) => (
+                <li key={f.path + f.error} className="text-[13px] leading-relaxed text-red-200/90">
+                  {f.error}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {link.last && link.last.notes.length > 0 && (
+          <ul className="mt-3 space-y-1">
+            {link.last.notes.slice(0, 6).map((n) => (
+              <li key={n.path + n.note} className="text-[13px] leading-relaxed text-white/50">{n.note}</li>
+            ))}
+          </ul>
+        )}
+
+        {/* Built-ins this site has its own copy of: drawn here only, and one press from Storelib's again. */}
+        {(status.overrides?.length ?? 0) > 0 && (
+          <div className="mt-6">
+            <p className="text-[13px] font-medium text-white/50">Built-in files this site has its own copy of</p>
+            <ul className="mt-1.5 divide-y divide-white/[0.05]">
+              {status.overrides!.map((o) => {
+                const label = editedLabel(o)
+                return (
+                  <li key={o.path} className="flex min-h-[48px] flex-wrap items-center gap-x-3 gap-y-1 py-2 text-[13px]">
+                    <span className="min-w-0 flex-1 truncate font-mono text-white/80">{label.name}</span>
+                    <span className="shrink-0 rounded-md bg-white/[0.06] px-2 py-0.5 text-[12px] text-white/60">{label.badge}</span>
+                    {confirmReset === o.path ? (
+                      <span className="flex shrink-0 items-center gap-3">
+                        <button type="button" onClick={() => setConfirmReset(null)} className="h-11 text-white/70 hover:text-white md:h-auto">Keep</button>
+                        <button
+                          type="button"
+                          disabled={busy !== null}
+                          onClick={() => void post({ action: "reset-override", path: o.path }, "reset").then(() => setConfirmReset(null))}
+                          className="h-11 font-medium text-red-300 hover:text-red-200 md:h-auto"
+                        >
+                          {busy === "reset" ? "Resetting" : "Reset"}
+                        </button>
+                      </span>
+                    ) : (
+                      <InlineButton onClick={() => setConfirmReset(o.path)}>Reset to Storelib&apos;s version</InlineButton>
+                    )}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+
         {/* Which way changes travel: two switches, named as the two directions they are. */}
         <div className="mt-5 divide-y divide-white/[0.07] border-y border-white/[0.07]">
           <SyncRow
@@ -396,6 +493,25 @@ export function GitHubSyncPanel({
             busy={busy === "settings"}
             onChange={(v) => void post({ action: "settings", pullOnPush: v }, "settings")}
           />
+        </div>
+
+        {/* Working with an AI on it: the repository is the whole theme, and its AGENTS.md tells the tool the rest. */}
+        <div className="mt-6">
+          <p className="text-[13px] font-medium text-white/50">Use it with an AI</p>
+          <ol className="mt-1.5 list-decimal space-y-1 pl-5 text-[13.5px] leading-relaxed text-white/70">
+            <li>
+              Open {link.repo} in{" "}
+              {AI_TOOLS.map((t, i) => (
+                <span key={t.name}>
+                  {i > 0 && " or "}
+                  <a href={t.href} target="_blank" rel="noopener noreferrer" className="text-white underline underline-offset-2 hover:text-white/80">{t.name}</a>
+                </span>
+              ))}
+              .
+            </li>
+            <li>Ask for a change, such as &ldquo;make the hero taller&rdquo;. It reads AGENTS.md first.</li>
+            <li>When it pushes to <span className="font-mono">{link.branch}</span>, the change shows here as a draft within seconds.</li>
+          </ol>
         </div>
 
         {/* What went each way, lately. */}

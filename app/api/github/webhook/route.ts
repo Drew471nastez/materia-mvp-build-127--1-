@@ -3,6 +3,7 @@
  *
  *   push                          a linked branch changed: sync its section files
  *   installation (deleted)        the app was removed: unlink every site it served
+ *   installation (suspend)        the app was suspended: every site it serves says so
  *   installation_repositories     a repository was taken away: unlink sites on it
  *   ping                          GitHub checking the address works
  *
@@ -55,6 +56,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true })
   }
 
+  /* Suspended on GitHub: nothing syncs until it is unsuspended, and the card says so and how. */
+  if (event === "installation" && (body.action === "suspend" || body.action === "unsuspend")) {
+    const id = Number((body.installation as { id?: number } | undefined)?.id)
+    if (Number.isSafeInteger(id)) {
+      await db
+        .from("theme_github_links")
+        .update({
+          last_error: body.action === "suspend" ? "The Storelib app is suspended on your GitHub account, so nothing syncs. Unsuspend it on GitHub under Settings, Applications, Storelib." : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("installation_id", id)
+    }
+    return NextResponse.json({ ok: true })
+  }
+
   if (event === "installation_repositories" && body.action === "removed") {
     const gone = ((body.repositories_removed as { id?: number }[] | undefined) ?? []).map((r) => Number(r.id)).filter(Number.isSafeInteger).slice(0, 1000)
     const installation = Number((body.installation as { id?: number } | undefined)?.id)
@@ -62,7 +78,7 @@ export async function POST(req: Request) {
       /* Only the links that reached it through THIS installation. */
       await db
         .from("theme_github_links")
-        .update({ repo_id: null, repo_full_name: null, branch: null, last_error: "Storelib can no longer reach this repository", updated_at: new Date().toISOString() })
+        .update({ repo_id: null, repo_full_name: null, branch: null, last_error: "Storelib can no longer reach this repository. Give the Storelib app access to it again on GitHub, or pick another one.", updated_at: new Date().toISOString() })
         .eq("installation_id", installation)
         .in("repo_id", gone)
     }

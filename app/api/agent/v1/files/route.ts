@@ -14,7 +14,7 @@
  */
 import { NextResponse, after } from "next/server"
 import { mirrorToGitHub } from "@/lib/github-sync/mirror"
-import { authenticateAgent } from "@/lib/agent-access/tokens"
+import { authenticateAgent, READ_ONLY_REFUSAL } from "@/lib/agent-access/tokens"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { listFiles, readFile, writeSection, type OpResult } from "@/lib/agent-access/operations"
 import { MAX_AGENT_BODY, readJsonCapped } from "@/lib/agent-access/body"
@@ -39,6 +39,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const who = await authenticateAgent(request)
   if (who instanceof NextResponse) return who
+  if (who.canWrite === false) return NextResponse.json({ error: READ_ONLY_REFUSAL }, { status: 403 })
   const read = await readJsonCapped<{ path?: unknown; source?: unknown; base_updated_at?: unknown } | null>(request, MAX_AGENT_BODY)
   if (read.ok === false) {
     return NextResponse.json({ error: read.status === 413 ? "Request too large" : "Send JSON: { path, source }" }, { status: read.status })

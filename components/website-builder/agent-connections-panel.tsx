@@ -58,6 +58,21 @@ interface Connection {
   prefix: string
   created_at: string
   last_used_at: string | null
+  /** Part 131: when the key stops working (null for never), whether it has, and whether it can change the site. */
+  expires_at?: string | null
+  expired?: boolean
+  access?: "read" | "write"
+}
+
+/** A key's second line: when it was used, how long it works, and if it only reads. Pure, tested as words. */
+export function keyLine(c: Pick<Connection, "last_used_at" | "expires_at" | "expired" | "access">, now = Date.now()): string {
+  const used = c.last_used_at ? `Used ${relativeTime(c.last_used_at, now)}` : "Not used yet"
+  const until = c.expired
+    ? "Expired. Make a new key"
+    : c.expires_at
+      ? `Works until ${new Date(c.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}`
+      : null
+  return [used, until, c.access === "read" ? "Read only" : null].filter(Boolean).join(" · ")
 }
 
 const TOOLS: Record<AgentTool, { name: string; tokenName: string; web?: string }> = {
@@ -242,6 +257,8 @@ export function agentStatus(
   if (list === null) return { tone: "off", loading: true }
   if (!ready) return { tone: "none", status: "Not available on this Storelib yet" }
   if (list.length === 0) return { tone: "off", status: "Not connected", action: "Connect" }
+  /* Every key past its day: the tool cannot reach the site until a new one is made. */
+  if ((list as Connection[]).every((c) => c.expired)) return { tone: "attention", status: "Key expired", detail: "make a new one", action: "Manage" }
   const used = lastUsed(list as Connection[])
   if (used) return { tone: "on", status: "Connected", detail: `used ${relativeTime(used, now)}`, action: "Manage" }
   return { tone: "waiting", status: "Not used yet", action: "Manage" }
@@ -308,7 +325,7 @@ function KeyList({ tool, agents, list }: { tool: AgentTool; agents: AgentConnect
               Key <span className="font-mono text-[13px] text-white/70">{c.prefix}…</span>
             </p>
             <p className="mt-0.5 truncate text-[13px] text-white/45">
-              {c.last_used_at ? `Used ${relativeTime(c.last_used_at)}` : "Not used yet"}
+              {keyLine(c)}
             </p>
           </div>
           {confirmingId === c.id ? (

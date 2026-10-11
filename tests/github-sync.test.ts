@@ -30,7 +30,6 @@ import {
   branchOf,
   changedFiles,
   changedFromCompare,
-  exportPlan,
   isOwnPush,
   normalizeRoot,
   pushedBy,
@@ -44,6 +43,7 @@ import {
   verifyState,
 } from "@/lib/github-sync/core"
 import { changesFor, describeChange } from "@/lib/github-sync/core"
+import { themeFiles } from "@/lib/github-sync/layout"
 
 let passed = 0
 let failed = 0
@@ -154,11 +154,14 @@ function main() {
 
   console.log("\nWhat is written into the repository")
 
-  const plan = exportPlan(
-    [{ path: "sections/faq.storelib", source: "<template/>" }, { path: "templates/home.json", source: "{}" }, { path: "sections/hero.storelib", source: "h" }],
-    { siteName: "Astrid", branch: "main", root: "" },
-  )
-  check("the site's section files, and only those", plan.filter((f) => f.path.startsWith("sections/")).length === 2 && !plan.some((f) => f.path.startsWith("templates/")))
+  // Changed on purpose: the repository is the whole theme now, not its section files (tests/github-theme-sync.test.ts runs it end to end).
+  const guides = () => ({ readme: "r", agents: agentsGuide({ siteName: "Astrid", branch: "main", root: "" }), claude: CLAUDE_MD })
+  const plan = themeFiles(
+    { name: "Astrid", compat: false, settings: { a: 1 }, pages: [{ page_key: "home", sections: [{ id: "x", type: "hero", settings: {} }] }], files: { "sections/faq.storelib": "<template/>", "templates/home.json": "{}" }, defaults: { "sections/hero.storelib": "h" } },
+    guides,
+  ).files
+  check("the whole theme: sections, settings and pages, the pages from the builder rather than a saved row",
+    plan.filter((f) => /^sections\/.*\.storelib$/.test(f.path)).length === 2 && plan.some((f) => f.path === "config/settings.json") && JSON.parse(plan.find((f) => f.path === "templates/home.json")!.text!).order[0] === "x")
   check("with an AGENTS.md and a CLAUDE.md", plan.some((f) => f.path === "AGENTS.md") && plan.some((f) => f.path === "CLAUDE.md"))
   check("CLAUDE.md pulls in AGENTS.md, so there is one text to keep right", /@AGENTS\.md/.test(CLAUDE_MD))
   const guide = agentsGuide({ siteName: "Astrid", branch: "main", root: "" })
@@ -166,19 +169,20 @@ function main() {
   check("and where the full reference is", /storelib\.com\/developers/.test(guide) && /llms-full\.txt/.test(guide))
   check("that a removed file does not remove a section", /Deleting a section file here does not remove/.test(guide))
   check("and has no em dash", !/\u2014/.test(guide))
-  check("in a folder, everything is written into it", exportPlan([{ path: "sections/a.storelib", source: "" }], { siteName: "A", branch: "main", root: "site/" }).every((f) => f.path.startsWith("site/")))
+  check("in a folder, everything is written into it", /repoPathFor|`\$\{root\}\$\{f\.path\}`/.test(read("lib/github-sync/sync.ts")) && repoPathFor("site/", "sections/a.storelib") === "site/sections/a.storelib")
   check("a status line fits GitHub's 140 characters", statusLine("x".repeat(500)).length === 140 && statusLine("  a   b ") === "a b")
 
   console.log("\nSaving what a push brought")
 
   const sync = read("lib/github-sync/sync.ts")
-  check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, path, source\)/.test(sync))
-  check("a file already saved with the same text is skipped, so a redelivered webhook changes nothing",
-    /current\.get\(path\) === source/.test(sync) && /out\.unchanged\.push\(path\)/.test(sync))
+  check("through the one save every editor uses: compiled first, a draft, versioned", /saveThemeFile\(db, link\.install_id, f\.path, text\)/.test(sync))
+  // Changed on purpose: "the same" is now the same bytes, by git blob sha, against what GitHub and Storelib last agreed on.
+  check("a file Storelib already has is skipped, so a redelivered webhook changes nothing",
+    /agreed\[f\.path\] === f\.sha \|\| currentSha\.get\(f\.path\) === f\.sha/.test(sync) && /out\.unchanged\.push\(f\.path\)/.test(sync))
   check("what the site has now is read once for the whole push, not once per file",
-    /current = await sectionSources\(db, link\.install_id, paths\)/.test(sync) && !/await readFile\(/.test(sync))
-  check("sending to GitHub reads every section in one query, not a list and a read each",
-    /all = await sectionSources\(db, link\.install_id\)/.test(sync) && !/listFiles\(/.test(sync))
+    /snap = await readSnapshot\(db, link\.install_id/.test(sync) && !/await readFile\(/.test(sync))
+  check("sending to GitHub reads the whole theme in one snapshot, not a list and a read each",
+    /snap = await readSnapshot\(db, link\.install_id, \{ name: siteName/.test(sync) && !/listFiles\(/.test(sync))
   check("a database's own words never go into a commit status", /publicError\(saved\.status, saved\.error\)/.test(sync))
   check("an open builder hears about it through the same activity log agents write",
     /from\("theme_agent_activity"\)\.insert\(/.test(sync) && /token_id: null/.test(sync))
@@ -283,7 +287,7 @@ function main() {
   check("a site with incoming changes switched off is left alone", /\(l\) => l\.pull_on_push !== false &&/.test(sync2))
   check("and so is a link made through another installation than the one that sent the push",
     /Number\(l\.installation_id\) === from/.test(sync2) && /const from = Number\(payload\.installation\?\.id\)/.test(sync2))
-  check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /takeFiles\(db, token, link, link\.repo_full_name, tree\.sha/.test(sync2))
+  check("Pull from GitHub reads the whole branch through the same save loop", /export async function pullNow/.test(sync2) && /listTree\(token/.test(sync2) && /applyFiles\(db, link, snap, read\.incoming, "GitHub"/.test(sync2))
   check("each way is written to the activity list", (sync2.match(/recordEvent\(db/g) ?? []).length >= 3)
   const route = read("app/api/website-builder/themes/[installId]/github/route.ts")
   check("the route takes pull, settings and change-repo", /body\.action === "pull"/.test(route) && /body\.action === "settings"/.test(route) && /body\.action === "change-repo"/.test(route))
@@ -306,7 +310,7 @@ function main() {
   console.log("\nGitHub, safely")
   check("an error that is not GitHub's own, or written for the creator, is not shown as it is",
     /if \(e instanceof SyncError\) return e\.message/.test(route) && !/return e instanceof Error \? e\.message/.test(route))
-  check("  including in what a failed commit writes to the activity list", /const why = e instanceof GitHubError \? e\.message : "GitHub did not answer"/.test(mirror))
+  check("  including in what a failed commit writes to the activity list", /const why = e instanceof GitHubError \? failureLine\(explainFailure\(e/.test(mirror))
   check("Pull, Push and linking are rate limited per site", /bucket: "github-sync"/.test(route) && /subjects: \[`install:\$\{own\.installId\}`\]/.test(route))
   check("the webhook refuses an oversized body before reading it",
     hook.indexOf('req.headers.get("content-length")') > 0 && hook.indexOf('req.headers.get("content-length")') < hook.indexOf("await req.text()"))

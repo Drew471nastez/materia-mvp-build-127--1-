@@ -6098,6 +6098,26 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       changes.push({ key: ev.path, text: describeChange(ev, (t) => custom[t]?.name ?? SECTION_SCHEMAS[t]?.name), sectionType: type })
     }
     flush()
+    /*
+      A PAGE OR THE THEME'S SETTINGS CHANGED IN A PUSH FROM GITHUB
+      (lib/github-sync/sync.ts logs them as templates/<page>.json and
+      config/settings.json). Already in the draft, so the page on screen is
+      read again, unless something here is not saved yet: then the next save
+      keeps what is on screen, and the notice above still says what changed.
+    */
+    if (!isDirty && events.some((ev) => ev.path === `templates/${currentPageRef.current}.json`)) {
+      await loadSections(currentPageRef.current)
+    }
+    if (!isDirty && events.some((ev) => ev.path === "config/settings.json")) {
+      try {
+        const res = await fetch(`/api/website-builder/themes/${installId}`, { cache: "no-store" })
+        const d = res.ok ? ((await res.json()) as { install?: ThemeInstall }) : null
+        const fresh = d?.install?.settings ? (d.install.settings.draft_settings ?? d.install.settings.settings) : null
+        if (fresh) setSettingsDraft((previous) => ({ ...(fresh as ThemeSettingsValues), menus: (previous as Record<string, unknown>).menus } as ThemeSettingsValues))
+      } catch {
+        /* the next load shows it */
+      }
+    }
   }
   const { brief: connectionsBrief, following: agentConnected, settled: connectionsSettled } = useSiteActivity({
     installId,

@@ -7,6 +7,7 @@ import { LIMITS, rateLimit } from "@/lib/api/rate-limit"
 import { BODY_LIMITS, readEditorBody } from "@/lib/website-builder/request-body"
 import { takeBackup } from "@/lib/website-builder/backups"
 import { promoteFileDrafts } from "@/lib/website-builder/theme-file-drafts"
+import { sendWholeTheme } from "@/lib/github-sync/sync"
 import { revalidatePublishedSite } from "@/lib/website-builder/published-site"
 import { readOwnSectionFields, sanitizeSections, sanitizeThemeSettings } from "@/lib/website-builder/sanitize-sections"
 import type { SectionInstance } from "@/lib/website-builder/types"
@@ -224,6 +225,8 @@ export async function POST(req: Request, { params }: Params) {
        take IndexNow (lib/seo/indexnow.ts). Never in the way of the publish. */
     const announced = creator.id
     after(() => announce(() => websiteAddresses(announced)))
+    /* A linked GitHub repository gets the theme as published: pages and settings included (lib/github-sync/sync.ts). */
+    after(() => sendWholeTheme(installId))
 
     return NextResponse.json({ ok: true, status: "published" })
   }
