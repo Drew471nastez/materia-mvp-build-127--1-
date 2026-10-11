@@ -55,6 +55,7 @@ const SAMPLE_LINES: EmailLine[] = [
 ]
 const SAMPLE_ADDRESS = { name: "Maria Popescu", line1: "Strada Lipscani 12", line2: "Ap. 4", city: "Bucharest", postalCode: "030031", country: "RO" }
 const STATUS = "https://storelib.com/checkout/physical/order/preview"
+export const SAMPLE_DATE = "10 October 2026"
 
 /**
  * One email as its template draws it, with the store's name and sample
@@ -69,7 +70,8 @@ export function previewCustomerEmail(
   const shopName = shop.name || "Your store"
   const brand: EmailBrand = { logoUrl: shop.logoUrl ?? null, email: shop.supportEmail ?? null, phone: shop.phone ?? null, websiteUrl: shop.storeUrl ?? null, helpUrl: `${STATUS}#get-help` }
   const currency = (shop.currency || "USD").toUpperCase()
-  const pickup = { name: "Studio", address: ["Strada Lipscani 12", "Bucharest"], ready: "Usually ready in 24 hours", instructions: "Ring the bell at the side door." }
+  const pickup = { name: "Studio", address: ["Strada Lipscani 12", "Bucharest"], ready: "Usually ready in 24 hours", instructions: "Ring the bell at the side door.", hours: "Mon to Fri, 10:00 to 18:00" }
+  const orderDate = SAMPLE_DATE
   const sampleLines = id === "receipt" ? [{ title: "The bread baking course" }] : id.startsWith("return_") ? [SAMPLE_LINES[0]] : SAMPLE_LINES
   const copy = resolveCopy(words, { customer_name: "Maria", order_number: "#1042", shop_name: shopName, items: itemsText(sampleLines.map((l) => l.title)) })
   switch (id) {
@@ -78,7 +80,7 @@ export function previewCustomerEmail(
         firstName: "Maria",
         sellerName: shopName,
         orderNumber: "#1042",
-        dateText: "10 October 2026",
+        dateText: SAMPLE_DATE,
         items: [{ title: "The bread baking course", variantName: null, amountText: "$49.00", note: null, thumbnailUrl: null }],
         subtotalText: null,
         tipText: null,
@@ -113,6 +115,7 @@ export function previewCustomerEmail(
         supportEmail: shop.supportEmail ?? null,
         brand: { ...brand, websiteUrl: null },
         copy,
+        orderDate,
       })
       return { subject: m.subject, html: m.html }
     }
@@ -121,12 +124,12 @@ export function previewCustomerEmail(
     case "out_for_delivery":
     case "delivered": {
       const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id
-      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy })
+      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate })
       return { subject: m.subject, html: m.html }
     }
     case "ready_for_pickup":
     case "picked_up": {
-      const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand, copy })
+      const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand, copy, orderDate })
       return { subject: m.subject, html: m.html }
     }
     case "return_approved":
@@ -145,15 +148,16 @@ export function previewCustomerEmail(
         returnAddress: status === "approved" ? [shopName, "Strada Lipscani 12", "030031 Bucharest", "RO"] : null,
         brand,
         copy,
+        orderDate,
       })
       return { subject: m.subject, html: m.html }
     }
     case "order_cancelled": {
-      const m = orderCancelledEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", reason: "The apron in Sage sold out.", refundedCents: 9300, totalCents: 9300, currency, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy })
+      const m = orderCancelledEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", reason: "The apron in Sage sold out.", refundedCents: 9300, totalCents: 9300, currency, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy, orderDate })
       return { subject: m.subject, html: m.html }
     }
     case "refund": {
-      const m = refundEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 3200, refundedCents: 3200, totalCents: 9300, currency, paymentLabel: "Visa ending 4242", statusUrl: STATUS, brand, copy })
+      const m = refundEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", amountCents: 3200, refundedCents: 3200, totalCents: 9300, currency, paymentLabel: "Visa ending 4242", statusUrl: STATUS, brand, copy, orderDate })
       return { subject: m.subject, html: m.html }
     }
     default:

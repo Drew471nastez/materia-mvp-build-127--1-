@@ -26,6 +26,28 @@ export async function addOrderEvent(
     idempotency_key: e.key ?? null,
   })
   if (error && error.code !== "23505") console.error("[physical] timeline entry failed:", e.kind, error.code)
+  /*
+    THE SELLER IS TOLD (lib/notify/seller-commerce.ts): a buyer asked to
+    return items, cancelled, a parcel ran into a problem on the way, a
+    payment failed. Only for an entry written now: a retried webhook or a
+    second press finds its key taken (23505) and queues nothing, and the
+    job is keyed by the entry, so one thing is one email.
+  */
+  if (!error && e.creatorId && sellerEmailFor(e.kind, e.actor)) {
+    try {
+      const { queueSellerEmail } = await import("./jobs-server")
+      await queueSellerEmail(db, { checkoutId: e.checkoutId, creatorId: e.creatorId, kind: e.kind, message: e.message, detail: e.detail ?? null, key: e.key ?? null })
+    } catch (err) {
+      console.error("[physical] seller email not queued:", e.kind, err instanceof Error ? err.message : err)
+    }
+  }
+}
+
+/** Order events the seller gets an email for. A cancellation is told only when the buyer did it. */
+export function sellerEmailFor(kind: string, actor: EventActor | undefined): boolean {
+  if (kind === "return.requested") return true
+  if (kind === "order.cancelled") return actor === "buyer"
+  return kind === "delivery.exception" || kind === "fulfillment.exception" || kind === "payment.failed"
 }
 
 export interface OrderEvent {

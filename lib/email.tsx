@@ -594,6 +594,8 @@ type SaleRow = {
   variant_name?: string | null
   stripe_session_id?: string | null
   status?: string | null
+  /** A physical order's checkout (commerce_checkouts), when the row came from one. */
+  checkout_id?: string | null
 }
 
 const whole = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null)
@@ -693,7 +695,7 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
   const customerName = nameOf(first?.buyer_first_name, first?.buyer_last_name) || nameOf(params.buyerFirstName, params.buyerLastName)
   const customerEmail = normalizeEmail(first?.buyer_email || params.buyerEmail || "")
   const country = safeText(first?.buyer_country || first?.buyer_country_code || sale.country || "")
-  const data: Record<string, unknown> = {
+  let data: Record<string, unknown> = {
     orderId: rows[0]?.id ?? params.orderId,
     orderNumber: number ? String(number) : "",
     productTitle: lines[0]?.title ?? safeText(params.productTitle),
@@ -714,6 +716,22 @@ export async function saleEmailData(admin: any, params: SendSellerEmailParams): 
     cardBrand: first?.card_brand ?? "",
     cardLast4: first?.card_last4 ?? "",
     occurredAt,
+  }
+  /* An order that ships or is picked up: where, how, who fulfils it, and its shipping (lib/notify/seller-commerce.ts). */
+  const checkoutId = typeof first?.checkout_id === "string" && first.checkout_id ? first.checkout_id : null
+  if (checkoutId && params.creatorId) {
+    try {
+      const { data: co } = await admin
+        .from("commerce_checkouts")
+        .select("delivery_method, shipping_address, shipping_rate, shipping_cents, shipping_discount_cents, tax_cents, items_subtotal_cents, discount_cents, total_cents, lines, pickup, buyer_note")
+        .eq("id", checkoutId)
+        .eq("creator_id", params.creatorId)
+        .maybeSingle()
+      const { physicalSaleFacts, withPhysicalSale } = await import("@/lib/notify/seller-commerce")
+      data = withPhysicalSale(data, physicalSaleFacts(co))
+    } catch (e) {
+      console.error("[email] sale email: the order's delivery was not read:", e instanceof Error ? e.message : e)
+    }
   }
   return { data, orderIds, first: isFirst, occurredAt }
 }

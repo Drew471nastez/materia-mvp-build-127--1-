@@ -32,6 +32,8 @@ import type { Fact, OrderSummary, SummaryRow } from "./layout"
 const SALE_KEYS = [
   "lines", "variantName", "subtotalCents", "discountCents", "couponCode", "tipCents", "taxCents", "feeCents", "netCents",
   "customerEmail", "customerCountry", "paymentMethod", "cardBrand", "cardLast4",
+  /* An order that ships or is picked up (lib/notify/seller-commerce.ts withPhysicalSale): shipping, and the `fulfil` block. */
+  "shippingCents", "taxIncluded", "fulfil",
 ] as const
 
 /**
@@ -276,6 +278,17 @@ export class Data {
   child(record: Record<string, unknown>): Data {
     return new Data({ ...record, currency: this.raw?.currency })
   }
+  /** A nested record read the same safe way, in this data's currency, or null when there is none. */
+  record(key: string): Data | null {
+    const v = this.raw?.[key]
+    return v && typeof v === "object" && !Array.isArray(v) ? this.child(v as Record<string, unknown>) : null
+  }
+  /** A list of short texts (an address's lines), each cleaned, the empty ones left out. */
+  texts(key: string, max = 120, count = 12): string[] {
+    const v = this.raw?.[key]
+    if (!Array.isArray(v)) return []
+    return v.slice(0, count).map((x) => cleanText(x, max)).filter(Boolean)
+  }
   /** A list of records (a basket's lines), each read the same safe way, in the parent's currency. */
   list(key: string, max = 50): Data[] {
     const v = this.raw?.[key]
@@ -458,6 +471,23 @@ function paymentLabel(d: Data): string {
   return last4 ? `Card ending in ${last4}` : ""
 }
 
+/** Where an order that ships goes and who sends it, or where it is collected: the seller's to-do, as facts. */
+function fulfilSections(f: Data, pickup: boolean): { title: string; rows: Fact[] }[] {
+  const rows: Fact[] = pickup
+    ? [
+        { label: "Collect at", value: [f.text("pickupName", 80), ...f.texts("pickupAddress", 120)].filter(Boolean).join(", ") },
+        { label: "Fulfilment", value: "Local pickup" },
+      ]
+    : [
+        { label: "Ship to", value: f.texts("shipTo", 120).join(", ") },
+        { label: "Phone", value: f.text("phone", 40) },
+        { label: "Method", value: f.text("method", 120) },
+        { label: "Fulfilment", value: f.texts("fulfilment", 60).join(", ") },
+      ]
+  const note = f.text("note", 500)
+  return [{ title: pickup ? "Pickup" : "Delivery", rows: [...rows, { label: "Buyer's note", value: note }].filter((r) => r.value) }]
+}
+
 /**
  * NEW_SALE, and FIRST_SALE for the creator's first paid one: the email a
  * store platform sends its seller for a new order. The subject names what
@@ -504,6 +534,13 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   else if (free) subject = fitSubject("You sold ", title, moreShort)
   else if (total) subject = fitSubject("You sold ", title, `${moreShort} for ${total}`)
   if (!subject) subject = first ? (total && !free ? `Your first sale: ${total}` : "You made your first sale") : total && !free ? `You made a sale for ${total}` : "You made a sale"
+  /* An order that ships or is picked up asks for something: the subject says so, with its number. */
+  const fulfil = d.record("fulfil")
+  const pickup = fulfil?.text("kind", 10) === "pickup"
+  if (fulfil && !first) {
+    const lead = pickup ? `Pickup order${orderLabel ? ` ${orderLabel}` : ""} to prepare: ` : `New order${orderLabel ? ` ${orderLabel}` : ""} to fulfil: `
+    subject = fitSubject(lead, title, moreShort) || `${lead.replace(/: $/, "")}`
+  }
 
   const buyer = firstName || "A customer"
   const preview = free
@@ -511,14 +548,15 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
     : join(`${buyer} bought ${thing}.`, (netText || total) && `${netText || total} goes to your balance.`)
 
   const sentence = free ? `${who} got ${thing} from your store for free.` : `${who} bought ${thing} from your store.`
+  const next = fulfil?.text("nextStep", 300) ?? ""
   const paragraphs = first
-    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details."]
-    : [sentence]
+    ? [sentence, "Congratulations on your first sale on Storelib. Here are the details.", next]
+    : [sentence, next]
 
   /* The order: items, totals, then what the seller receives. */
   const orderLines = lines.map((l) => {
     const qty = l.cents("quantity")
-    const detail = [l.text("variantName", 80), qty !== null && qty > 1 ? `Qty ${qty}` : ""].filter(Boolean).join(" \u00b7 ")
+    const detail = [l.text("variantName", 80), qty !== null && (qty > 1 || fulfil) ? `Qty ${qty}` : "", l.text("fulfilment", 60)].filter(Boolean).join(" \u00b7 ")
     const amount = l.cents("amountCents") === 0 ? "Free" : l.moneyOf("amountCents")
     return { title: l.text("title", 120), detail: detail || null, amount: amount || (count === 1 ? total : "") }
   })
@@ -528,11 +566,13 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
   const tip = d.cents("tipCents")
   const tax = d.cents("taxCents")
   const code = d.text("couponCode", 40)
-  const adjusted = (discount ?? 0) > 0 || (tip ?? 0) > 0 || (tax ?? 0) > 0
+  const shipping = d.cents("shippingCents")
+  const adjusted = (discount ?? 0) > 0 || (tip ?? 0) > 0 || (tax ?? 0) > 0 || shipping !== null
   if (subtotal && (adjusted || count > 1)) totals.push({ label: "Subtotal", value: subtotal })
   if (discount !== null && discount > 0) totals.push({ label: code ? `Discount (${code})` : "Discount", value: `\u2212${d.moneyOf("discountCents")}` })
+  if (shipping !== null) totals.push({ label: "Shipping", value: shipping === 0 ? "Free" : d.moneyOf("shippingCents") })
   if (tip !== null && tip > 0) totals.push({ label: "Tip", value: d.moneyOf("tipCents") })
-  if (tax !== null && tax > 0) totals.push({ label: "Tax", value: d.moneyOf("taxCents") })
+  if (tax !== null && tax > 0) totals.push({ label: d.bool("taxIncluded") ? "Tax (included)" : "Tax", value: d.moneyOf("taxCents") })
   /* Honest money: a free claim reads "Free", never $0.00. */
   if (total) totals.push({ label: free ? "Total" : "Total paid", value: free ? "Free" : total, strong: true })
   const payout: SummaryRow[] = []
@@ -556,7 +596,7 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
           lines: orderLines.filter((l) => l.title),
           totals,
           payout,
-          sections: [{ title: "Customer", rows: customer }],
+          sections: [...(fulfil ? fulfilSections(fulfil, pickup) : []), { title: "Customer", rows: customer }],
         }
       : null
 
@@ -566,11 +606,11 @@ function saleMessage(d: Data, ctx: TemplateContext, first: boolean): Message {
     audience: "creator",
     subject,
     preview,
-    heading: first ? "You made your first sale" : "You made a sale",
+    heading: first ? "You made your first sale" : fulfil ? (pickup ? "Pickup order to prepare" : "New order to fulfil") : "You made a sale",
     greet: false,
-    paragraphs,
+    paragraphs: paragraphs.filter(Boolean),
     order,
-    action: { label: "View order", path },
+    action: { label: fulfil ? (pickup ? "Prepare order" : "Fulfil order") : "View order", path },
     reply: email ? { label: "Reply to the customer", email, subject: orderLabel ? `Your order ${orderLabel}` : "Your order" } : null,
     note: "You get sale emails because they are on in your notification settings. You can turn them off there and still see every order in the app.",
     inApp: first
