@@ -158,7 +158,8 @@ export function conversionSummary(report: ConversionReport): string {
   const count = (re: RegExp) => report.converted.filter((f) => re.test(f)).length
   const sections = count(/^sections\/[^/]+\.liquid$/)
   const blocks = count(/^blocks\//)
-  const pages = count(/^templates\/[^/]+\.json$/)
+  /* A page from a JSON template or from one written in Liquid (Skeleton, an older theme): both are pages of the website. */
+  const pages = count(/^templates\/[^/]+\.(json|liquid)$/)
   const parts = [`${sections} section${sections === 1 ? "" : "s"}`]
   if (blocks) parts.push(`${blocks} block${blocks === 1 ? "" : "s"}`)
   parts.push(`${pages} page${pages === 1 ? "" : "s"}`)
@@ -414,8 +415,9 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
     (below it) under its own name, so it is selected and edited like any
     other; the engine draws the page's copy where the tag stands.
   */
+  const currentValues = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
   const staticValues = (() => {
-    const v = themeValues(parseJson(src.text.get("config/settings_data.json") ?? "")).sections
+    const v = currentValues.sections
     return v && typeof v === "object" ? (v as Record<string, Tree>) : {}
   })()
   for (const { name, afterContent, afterFooter } of drawn.sections) {
@@ -446,6 +448,23 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
       const key = compatPageKey(name)
       if (key && !pages.some((p) => p.page_key === key) && !src.text.has(`templates/${name}.json`)) {
         checkSyntax(text, (msg) => report.note(path, msg))
+        /*
+          AN OLDER THEME'S HOME PAGE (Debut, Brooklyn, Slate's starter):
+          templates/index.liquid writes {{ content_for_index }}, and the
+          sections it stands for are settings_data.json's `content_for_index`,
+          in that order, their values beside the static ones in `sections`.
+          They are the home page's sections, edited in the builder like a
+          JSON template's; the template still draws around them.
+        */
+        const homeIds = name === "index" && /\bcontent_for_index\b/.test(text) ? indexSectionIds(currentValues) : []
+        if (homeIds.length) {
+          const all = (currentValues.sections ?? {}) as Record<string, Tree>
+          const home = templateSections({ sections: Object.fromEntries(homeIds.filter((id) => all[id]).map((id) => [id, all[id]])), order: homeIds }, sectionTypes, report, "config/settings_data.json")
+          pages.push({ page_key: key, template: name, sections: [...groups.header, ...home, ...groups.footer, ...groups.overlay] })
+          report.converted.push(path)
+          report.note(path, `Its home page sections (content_for_index in settings_data.json) are the page's sections, edited in the builder`)
+          continue
+        }
         pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer, ...groups.overlay] })
         report.converted.push(path)
         report.note(path, `A template written in Liquid rather than JSON draws as written; it has no sections to edit in the builder`)
@@ -1124,6 +1143,12 @@ function settingsPanel(schema: unknown, current: Record<string, unknown>, tr: (v
     if (settings.length) out.push({ name: tr(g.name, humanise(String(g.name ?? "Settings"))).slice(0, 60), settings })
   }
   return out
+}
+
+/** The ids of an older theme's home page sections, in order: settings_data.json's `content_for_index`. */
+function indexSectionIds(current: Record<string, unknown>): string[] {
+  const ids = Array.isArray(current.content_for_index) ? (current.content_for_index as unknown[]) : []
+  return [...new Set(ids.filter((id): id is string => typeof id === "string" && id !== ""))]
 }
 
 /** settings_data.json's current values, as the theme's settings, whole. */

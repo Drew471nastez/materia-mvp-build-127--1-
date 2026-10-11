@@ -36,6 +36,10 @@
  *   PRODUCT DATA       /search/suggest.json gave prices in cents where Shopify
  *                      gives "40.00"; /products/<handle>.json had the .js
  *                      shape; /recommendations/products.json had no intent
+ *   OLDER THEMES       an index.liquid of {{ content_for_index }} (Debut,
+ *                      Brooklyn, Slate) drew an empty home page: its sections
+ *                      in settings_data.json were never placed; and the
+ *                      import said "0 pages" for a theme of Liquid templates
  *   CUSTOM CSS         a section's Custom CSS from Shopify's editor
  *                      (`custom_css` in templates/*.json) was dropped
  *   PICTURES           `image_url | image_tag` lost the picture's alt
@@ -49,7 +53,7 @@ import { parseCompat } from "../lib/storelib-theme/compat/parser"
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
 import { answer, type SiteData } from "../lib/storelib-theme/compat/site"
-import { convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
+import { conversionSummary, convertShopifyTheme } from "../lib/storelib-theme/shopify/convert"
 
 let passed = 0
 let failed = 0
@@ -239,6 +243,35 @@ async function main() {
     const password = await get("/password")
     check("the password page draws in layout/password.liquid", password.includes(`<body class="password">`), password.slice(0, 300))
     check("with no header of the shop, as on Shopify", !password.includes("The shop's header") && password.includes(`class="hero"`))
+  }
+
+  console.log("\nAn older theme's home page: {{ content_for_index }}\n")
+  {
+    const zip = new JSZip()
+    zip.file("layout/theme.liquid", `<html><body>{% section 'header' %}<main>{{ content_for_layout }}</main></body></html>`)
+    zip.file("config/settings_schema.json", JSON.stringify([{ name: "theme_info", theme_name: "Vintage" }]))
+    zip.file("config/settings_data.json", JSON.stringify({ current: "Default", presets: { Default: {
+      sections: { header: { type: "header", settings: { tagline: "Old shop" } }, "1525295772132": { type: "slideshow", settings: { title: "Spring" } }, "rich": { type: "rich-text", settings: { text: "Made by hand" } }, unused: { type: "rich-text", settings: { text: "Not on the page" } } },
+      content_for_index: ["rich", "1525295772132"],
+    } } }))
+    zip.file("sections/header.liquid", `<header>{{ section.settings.tagline }}</header>` + schema({ name: "Header", settings: [{ type: "text", id: "tagline" }] }))
+    zip.file("sections/slideshow.liquid", `<div class="slides">{{ section.settings.title }}</div>` + schema({ name: "Slideshow", settings: [{ type: "text", id: "title" }], presets: [{ name: "Slideshow" }] }))
+    zip.file("sections/rich-text.liquid", `<div class="rte">{{ section.settings.text }}</div>` + schema({ name: "Rich text", settings: [{ type: "text", id: "text" }], presets: [{ name: "Rich text" }] }))
+    zip.file("templates/index.liquid", `<div class="index">{{ content_for_index }}</div>`)
+    zip.file("templates/product.liquid", `<div class="product">{{ product.title }}</div>`)
+    const r = await convertShopifyTheme(zip, { fallbackName: "v" })
+    if (!r.ok) throw new Error(r.error)
+    const home = r.theme.pages.find((p) => p.page_key === "home")
+    const ids = (home?.sections ?? []).filter((x) => !x.group).map((x) => x.id)
+    check("content_for_index's sections are the home page's, in that order, editable", ids.join(",") === "rich,1525295772132", ids)
+    check("with their values from settings_data.json", (home?.sections ?? []).find((x) => x.id === "1525295772132")?.settings.title === "Spring")
+    check("a section not in content_for_index is not on the page", !ids.includes("unused") && !ids.includes("header"))
+    check("the report says so", r.report.notes.some((n) => n.file === "templates/index.liquid" && /content_for_index/.test(n.message)))
+    check("the summary counts the pages a Liquid template makes", /and 2 pages from Shopify/.test(conversionSummary(r.report)), conversionSummary(r.report))
+    const { get } = await site(zip)
+    const page = await get("/")
+    check("the home page draws them inside index.liquid, where it says", /<div class="index"><div id="shopify-section-rich"[^>]*><div class="rte">Made by hand<\/div><\/div><div id="shopify-section-1525295772132"[^>]*><div class="slides">Spring<\/div>/.test(page), page.slice(page.indexOf("<main>"), page.indexOf("<main>") + 400))
+    check("and the static header keeps its own values", page.includes("<header>Old shop</header>"))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)
