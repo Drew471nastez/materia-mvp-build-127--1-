@@ -17,6 +17,7 @@ import { OUTPUT, LFloat } from "./runtime"
 import { handleize, parseColor, toHex } from "./filters"
 import { shopifyAddress } from "./links"
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import { isColorOption, swatchColor } from "@/lib/products/product-page-model"
 
 type O = Record<string, unknown>
 
@@ -139,7 +140,10 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
 
   const options_with_values = optionNames.map((name, pos) => {
     const values = optionsIn[pos]?.values ?? [...new Set(variants.map((v) => (v.options as string[])[pos]))]
+    /* A colour option's values as colours, as Storelib's own product page draws them (lib/products/product-page-model.ts): the swatch a theme's card and picker read. */
+    const colour = isColorOption(name)
     const optionValues = values.map((value, vi) => {
+      const hex = colour ? swatchColor(String(value)) : null
       const match = variants.find((v) => (v.options as string[])[pos] === value)
       return {
         [OUTPUT]: value,
@@ -150,7 +154,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
         available: variants.some((v) => (v.options as string[])[pos] === value && v.available),
         variant: match ?? null,
         product_url: null,
-        swatch: null,
+        swatch: hex ? { [OUTPUT]: hex, color: colorObject(hex), image: null } : null,
       }
     })
     return { [OUTPUT]: name, name, position: pos + 1, values: optionValues, selected_value: optionValues.find((v) => v.selected)?.name ?? null }
@@ -332,17 +336,50 @@ export interface MenuLinkLike {
   links?: MenuLinkLike[]
 }
 
+/** What a menu link points at, as Shopify types it: a catalog, a collection, a product, a page. */
+function linkType(url: string): string {
+  const path = url.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (path === "/") return "frontpage_link"
+  if (path === "/collections/all") return "catalog_link"
+  if (path === "/collections") return "collections_link"
+  if (/^\/collections\/[^/]+$/.test(path)) return "collection_link"
+  if (/^(?:\/collections\/[^/]+)?\/products\/[^/]+$/.test(path)) return "product_link"
+  if (path.startsWith("/pages/")) return "page_link"
+  if (path === "/search") return "search_link"
+  if (/^\/blogs\/[^/]+\/[^/]+$/.test(path)) return "article_link"
+  if (path.startsWith("/blogs/")) return "blog_link"
+  if (path.startsWith("/policies/")) return "policy_link"
+  return "http_link"
+}
+
+/**
+ * `link.object`: the collection or product a menu link opens, made when a
+ * theme reads it. A mega menu draws a collection's picture or a few of its
+ * products from it (Horizon's featured collections and products); it was
+ * always nil, and those menus drew empty columns.
+ */
+export function linkTarget(r: Resources): (url: string) => O | null {
+  return (url) => {
+    const path = url.split(/[?#]/)[0].replace(/\/+$/, "")
+    const collection = path.match(/^\/collections\/([^/]+)$/)
+    if (collection) return collectionByHandle(r, decodeURIComponent(collection[1]))
+    const product = path.match(/^(?:\/collections\/[^/]+)?\/products\/([^/]+)$/)
+    if (product) return productById(r, product[1])
+    return null
+  }
+}
+
 /** Where a link goes on this website (./links.ts siteLink), or the address as written where nothing resolves it. */
 export type LinkResolver = (url: string) => string
 
-export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, resolve?: LinkResolver): O {
+export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, resolve?: LinkResolver, target?: (url: string) => O | null): O {
   const title = String(l.title ?? l.label ?? "")
   const written = String(l.url ?? "#")
   const url = resolve ? resolve(written) || written : written
-  const links = (l.links ?? []).map((c) => linkObject(c, currentPath, level + 1, resolve))
+  const links = (l.links ?? []).map((c) => linkObject(c, currentPath, level + 1, resolve, target))
   const active = url === currentPath
   const child_active = links.some((c) => c.active || c.child_active)
-  return {
+  const out: O = {
     [OUTPUT]: title,
     title,
     url,
@@ -353,13 +390,19 @@ export function linkObject(l: MenuLinkLike, currentPath: string, level = 1, reso
     child_current: child_active,
     links,
     levels: links.length ? 1 + Math.max(0, ...links.map((c) => Number(c.levels ?? 0))) : 0,
-    type: url.startsWith("/collections/") ? "collection_link" : url.startsWith("/products/") ? "product_link" : url.startsWith("/pages/") ? "page_link" : url === "/" ? "frontpage_link" : "http_link",
+    type: linkType(url),
     object: null,
   }
+  if (target) {
+    let made = false
+    let value: O | null = null
+    Object.defineProperty(out, "object", { enumerable: true, configurable: true, get: () => { if (!made) { made = true; value = target(url) } return value } })
+  }
+  return out
 }
 
-export function linklistObject(handle: string, title: string, links: MenuLinkLike[], currentPath: string, resolve?: LinkResolver): O {
-  const items = links.map((l) => linkObject(l, currentPath, 1, resolve))
+export function linklistObject(handle: string, title: string, links: MenuLinkLike[], currentPath: string, resolve?: LinkResolver, target?: (url: string) => O | null): O {
+  const items = links.map((l) => linkObject(l, currentPath, 1, resolve, target))
   return { [OUTPUT]: handle, handle, title, links: items, levels: items.length ? 1 + Math.max(0, ...items.map((c) => Number(c.levels ?? 0))) : 0 }
 }
 
@@ -566,7 +609,7 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       const handle = String(value ?? "")
       /* A menu of the store the theme came from ("main-menu-1", "mega-menu") is the shop's own: its footer menu for a footer's, its main menu for the rest. */
       const menu = r.menus[handle] ?? (handle ? r.menus[/footer/i.test(handle) ? "footer" : "main-menu"] ?? r.menus["main-menu"] : undefined)
-      return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath, r.link) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
+      return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath, r.link, linkTarget(r)) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
     }
     /*
       A PALETTE (Horizon's color_palette): each of its colours a colour, as

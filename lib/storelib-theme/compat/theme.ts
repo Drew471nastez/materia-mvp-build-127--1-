@@ -39,6 +39,7 @@ import {
   fontLinks,
   fontObject,
   linklistObject,
+  linkTarget,
   localizationObject,
   productObject,
   requestObject,
@@ -489,7 +490,8 @@ export class CompatTheme {
 
     const linklists: O = {}
     const link = pageLinks(page)
-    for (const [handle, m] of Object.entries(page.menus)) linklists[handle] = linklistObject(handle, m.title ?? handle, m.links, page.path, link)
+    const target = linkTarget(res)
+    for (const [handle, m] of Object.entries(page.menus)) linklists[handle] = linklistObject(handle, m.title ?? handle, m.links, page.path, link, target)
     const all_products: O = {}
     for (const p of page.products) {
       const handle = String(p.settings.slug ?? "")
@@ -706,8 +708,9 @@ export class CompatTheme {
       settings: typedSettings(settingsSchema, instance.settings, res, dyn),
       blocks,
       block_order: blocks.map((b) => b.id),
-      index: index + 1,
-      index0: index,
+      /* Nil when drawn alone for the Section Rendering API (index -1), as on Shopify: Horizon's header fills its mega menu only then. */
+      index: index < 0 ? null : index + 1,
+      index0: index < 0 ? null : index,
       /* Shopify's own words: header, footer, aside, custom.<name>, or template. */
       location: !group ? "template" : this.opts.chromeGroups?.[group] ?? (/^(header|footer|aside)(-group)?$/.test(group) ? group.replace(/-group$/, "") : `custom.${group.replace(/-group$/, "")}`),
       __instance: instance,
