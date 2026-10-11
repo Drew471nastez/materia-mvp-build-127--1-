@@ -972,7 +972,7 @@ export function DomainsPanel({
             </button>
             <Reveal open={helpOpen} id="domains-help" data-domains-help="">
               <ul className="space-y-1.5 pb-1 text-[12px] text-[#6b7280]">
-                <li>Your storelib.com addresses keep working.</li>
+                <li>Your storelib.com addresses keep working. Once your website&apos;s domain is connected, its storelib.com address sends visitors there.</li>
                 <li>
                   {example} opens at www.{example}.
                 </li>
