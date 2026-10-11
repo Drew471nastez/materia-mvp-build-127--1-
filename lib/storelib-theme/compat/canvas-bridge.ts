@@ -134,20 +134,59 @@ export const CANVAS_BRIDGE = `
     lent = a;
   }, true);
   document.addEventListener("mouseleave", giveBack);
-  document.addEventListener("click", function (e) {
-    giveBack();
-    var s = sectionOf(e.target);
-    var link = e.target.closest && e.target.closest("a[href]");
-    if (link) {
-      e.preventDefault();
+  /*
+    A LINK THE THEME TAKES IS THE THEME'S. The header's cart is a link to
+    /cart that the theme's own script turns into "open the drawer" (it calls
+    preventDefault). Opened as a page here as well, the drawer slid in and
+    the canvas went to the cart page under it. So the builder hears about a
+    link only once every listener of the theme's has had the click, at the
+    window, last: a click the theme prevented is left to the theme. The frame
+    itself never follows a link either way. A theme that stops the click
+    going further (stopPropagation) is asked the same thing as soon as that
+    listener returns.
+  */
+  var taken = null;
+  /* A theme that takes every link to play its own exit and then opens the page itself (location.href): the page it opened, as the builder would. */
+  addEventListener("pagehide", function () {
+    if (taken && Date.now() - taken.at < 3000) post({ type: "navigate", href: taken.href, chrome: taken.chrome });
+  });
+  var follow = function (e, link) {
+    var themeTook = false;
+    var settled = false;
+    var own = e.preventDefault;
+    e.preventDefault = function () { themeTook = true; return own.call(e); };
+    var decide = function () {
+      if (settled) return;
+      settled = true;
+      removeEventListener("click", last);
+      if (!e.defaultPrevented) own.call(e);
       /*
         The builder decides whether a link opens its page: the header's, the
         footer's and the Overlay group's (a phone tab bar, a menu drawer)
         always do, as the site's own navigation.
       */
       var chrome = !!link.closest("[class*='shopify-section-group-'], header, footer, nav, mobile-navigation-bar, [class*='mobile-nav'], [class*='bottom-nav'], [class*='drawer']");
-      post({ type: "navigate", href: link.getAttribute("href") || "", chrome: chrome });
-    }
+      var href = link.getAttribute("href") || "";
+      if (themeTook) { taken = { href: href, chrome: chrome, at: Date.now() }; return; }
+      taken = null;
+      post({ type: "navigate", href: href, chrome: chrome });
+    };
+    var last = function (ev) { if (ev === e) decide(); };
+    addEventListener("click", last);
+    ["stopPropagation", "stopImmediatePropagation"].forEach(function (n) {
+      var stop = e[n];
+      e[n] = function () {
+        stop.call(e);
+        /* Not now: the same listener may prevent it on its next line. Still inside the click, before the browser would follow it. */
+        if (!settled) { own.call(e); Promise.resolve().then(decide); }
+      };
+    });
+  };
+  document.addEventListener("click", function (e) {
+    giveBack();
+    var s = sectionOf(e.target);
+    var link = e.target.closest && e.target.closest("a[href]");
+    if (link && !e.defaultPrevented) follow(e, link);
     if (!s || !inspect) return;
     /* The block and every block around it, outermost first: the path the sidebar's tree reads. */
     var path = [];
@@ -602,8 +641,23 @@ export const CANVAS_REQUESTS = `
     opened, as the website would. One the theme handles (it prevents the
     submit and adds by fetch) is left to it.
   */
+  /*
+    SIGNING IN IS THE LIVE SITE'S. The account pages draw here, in the
+    theme, so they can be seen and styled; sending one of their forms (sign
+    in, Create account, a code, a password reset) says that works on the
+    live site, and nothing is sent. A newsletter form posted to /account is
+    the newsletter, and is left alone.
+  */
+  var accountPost = function (path, data) {
+    if (path === null) return false;
+    var p = String(path).split(/[?#]/)[0].replace(/\\/+$/, "");
+    if (/^\\/api\\/site-account\\//.test(p)) return true;
+    if (/^\\/account\\/(login|register|recover|reset|activate)(\\/|$)/.test(p)) return true;
+    return p === "/account" && !(data && data.form_type === "customer");
+  };
   var postForm = function (method, action, data) {
     var path = routed(action || pagePath) || pagePath;
+    if (method === "POST" && accountPost(path, data)) { liveOnly("account"); return; }
     if (data && data.checkout !== undefined || checkoutPath(path)) { liveOnly("checkout"); return; }
     if (method !== "POST") { post({ type: "navigate", href: path, chrome: false }); return; }
     ask("POST", path, data, false).then(function (r) {
@@ -620,6 +674,12 @@ export const CANVAS_REQUESTS = `
       e.preventDefault();
       e.stopImmediatePropagation();
       liveOnly("checkout");
+      return;
+    }
+    if (String(form.getAttribute("method") || "GET").toUpperCase() === "POST" && accountPost(routed(form.getAttribute("action") || pagePath), data)) {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      liveOnly("account");
       return;
     }
     /* After every other listener: whether the theme took the submit for itself. */

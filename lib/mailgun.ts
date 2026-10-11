@@ -180,8 +180,13 @@ function fromForSend(requested: string | undefined, _transactional?: boolean): s
   const addr = (built.match(/<([^<>\s]+@[^<>\s]+)>/)?.[1] || built).toLowerCase()
   const fromDomain = addr.split("@")[1] || ""
   /* Only swap when the named From is not on the domain Mailgun is sending as.
-     A signed address on a different domain is refused, and the code never leaves. */
-  if (signed && fromDomain && fromDomain !== sendingDomain) return signed
+     A signed address on a different domain is refused, and the code never leaves.
+     The address is swapped, never the name: a store's email (a website's
+     sign in code, a receipt) still says the store, not "Storelib". */
+  if (signed && fromDomain && fromDomain !== sendingDomain) {
+    const named = built.match(/^\s*([\s\S]*?)\s*<[^<>]+>\s*$/)?.[1]?.trim() ?? ""
+    return named ? quotedFrom(`${named} <${signedEmail}>`) : signed
+  }
   return built
 }
 

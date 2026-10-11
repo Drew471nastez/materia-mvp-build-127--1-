@@ -70,6 +70,7 @@ import {
   wishlistCards,
 } from "@/lib/site-accounts/wishlist-store"
 import { customerOrders, likeExact, siteCustomer } from "@/lib/site-accounts/account-data"
+import { customerOrderAccess, downloadPath, fileSize } from "@/lib/site-accounts/order-files"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
 process.env.SITE_ACCOUNT_SECRET = "test-secret-for-site-accounts-0123456789abcdef"
@@ -137,7 +138,7 @@ function sitesDb(): FakeSupabase {
 }
 
 function deps(db: FakeSupabase, now: number, over: Partial<SignInDeps> = {}) {
-  const sent: { to: string; subject: string; html: string; text: string; fromName: string }[] = []
+  const sent: { to: string; subject: string; html: string; text: string; fromName: string; replyTo?: string | null }[] = []
   const d: SignInDeps = {
     db,
     owner: (h) => siteOwnerOfHost(db, h, RULES),
@@ -607,6 +608,69 @@ async function main() {
 
     const account = await siteCustomer(db, { id: CUSTOMER_A, creator_id: CREATOR, email: "a_b@mail.test", name: "Ana Pop", created_at: null }, "https://storelib.com")
     check("the customer object: name, email, orders, and never a sample", account.name === "Ana Pop" && account.first_name === "Ana" && account.email === "a_b@mail.test" && account.orders_count === 4 && account.sample === false)
+
+    /* An imported theme's account draws an order's own page: a download opens it on the website, never a storelib.com receipt. */
+    const paged = await customerOrders(db, { creatorId: CREATOR, email: "a_b@mail.test" }, "https://storelib.com", { orderPages: true })
+    const pagedBasket = paged.find((o) => o.id === "o-basket-1")!
+    check("with order pages, a download opens /account/orders/<id> on the website", pagedBasket.action_label === "Download" && pagedBasket.action_url === "/account/orders/o-basket-1", pagedBasket.action_url)
+    check("  a course still opens its receipt (taking it needs a Storelib account), and a refund its order", paged[0].action_url.startsWith("https://storelib.com/receipt/") && paged.find((o) => o.id === "o-refund")?.action_url.startsWith("https://storelib.com/receipt/") === true)
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("Downloads on the website: only the buyer's own order, only its own files")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const O1 = "40000000-0000-4000-8000-000000000001"
+    const O2 = "40000000-0000-4000-8000-000000000002"
+    const O_REFUND = "40000000-0000-4000-8000-000000000003"
+    const O_OTHER = "40000000-0000-4000-8000-000000000004"
+    const O_ELSEWHERE = "40000000-0000-4000-8000-000000000005"
+    const A1 = "50000000-0000-4000-8000-000000000001"
+    const A2 = "50000000-0000-4000-8000-000000000002"
+    const A_OTHER = "50000000-0000-4000-8000-000000000003"
+    const db = new FakeSupabase()
+    db.table("creators", {}, [{ id: CREATOR, slug: "maralind", user_id: "u-maralind" }, { id: OTHER_CREATOR, slug: "otherone", user_id: "u-other" }])
+    db.table("profiles", {}, [{ id: "u-maralind", username: "maralind", display_name: "Mara Lind" }])
+    db.table("products", {}, [
+      { id: P1, creator_id: CREATOR, status: "published", title: "Linen apron pattern", slug: "linen-apron", thumbnail_url: null, type: "digital" },
+      { id: P_OTHER, creator_id: OTHER_CREATOR, status: "published", title: "Elsewhere", slug: "else", thumbnail_url: null, type: "digital" },
+    ])
+    db.table("digital_assets", {}, [
+      { id: A1, product_id: P1, file_name: "apron.pdf", file_size: 2_400_000, created_at: "2026-09-01T00:00:00Z", file_path: "x/apron.pdf" },
+      { id: A2, product_id: P1, file_name: "sizes.pdf", file_size: 900, created_at: "2026-09-02T00:00:00Z", file_path: "x/sizes.pdf" },
+      { id: A_OTHER, product_id: P_OTHER, file_name: "else.zip", file_size: 10, created_at: "2026-09-01T00:00:00Z", file_path: "x/else.zip" },
+    ])
+    const row = (o: Record<string, unknown>) => ({ creator_id: CREATOR, currency: "usd", tip_cents: 0, amount_cents: 1200, refund_amount_cents: null, stripe_session_id: null, variant_id: null, variant_name: null, created_at: "2026-09-20T10:00:00Z", ...o })
+    db.table("orders", {}, [
+      row({ id: O1, product_id: P1, buyer_email: "ana@mail.test", status: "completed", receipt_token: "tok-dl-1-aaaaaaaaaaaaaaaa" }),
+      row({ id: O_REFUND, product_id: P1, buyer_email: "ana@mail.test", status: "refunded", refund_amount_cents: 1200, receipt_token: "tok-dl-r-aaaaaaaaaaaaaaaa" }),
+      row({ id: O2, product_id: P1, buyer_email: "ana@mail.test", status: "failed", receipt_token: "tok-dl-f-aaaaaaaaaaaaaaaa" }),
+      row({ id: O_OTHER, product_id: P1, buyer_email: "bea@mail.test", status: "completed", receipt_token: "tok-dl-b-aaaaaaaaaaaaaaaa" }),
+      row({ id: O_ELSEWHERE, creator_id: OTHER_CREATOR, product_id: P_OTHER, buyer_email: "ana@mail.test", status: "completed", receipt_token: "tok-dl-e-aaaaaaaaaaaaaaaa" }),
+    ])
+    const mine = await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, O1)
+    const files = mine?.detail.lines[0]?.files ?? []
+    check("the buyer's own paid order lists its files, by name and size", files.map((f) => `${f.name} ${f.size}`).join() === "apron.pdf 2.3 MB,sizes.pdf 900 B", mine?.detail)
+    check("  each downloads from the website itself, never a storage path or a receipt token", files.every((f) => f.url === downloadPath(O1, f.id) && f.url.startsWith("/api/site-account/download?")) && !JSON.stringify(mine?.detail).includes("tok-dl-") && !JSON.stringify(mine?.detail).includes("x/apron"))
+    check("  the receipt token stays on the server, for the download to be decided with", mine?.tokens.get(O1) === "tok-dl-1-aaaaaaaaaaaaaaaa")
+    check("the same email in another case is the same buyer", (await customerOrderAccess(db, { creatorId: CREATOR, email: "ANA@mail.test" }, O1)) !== null)
+    check("somebody else's order on this website is not found", (await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, O_OTHER)) === null)
+    check("the buyer's order on another creator's website is not found here", (await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, O_ELSEWHERE)) === null)
+    check("a failed payment is not an order to show", (await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, O2)) === null)
+    const refunded = await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, O_REFUND)
+    check("a refunded order is shown, with its files closed and why", refunded !== null && refunded.detail.lines[0].files.length === 0 && /Refunded/.test(refunded.detail.lines[0].note), refunded?.detail)
+    check("an address that is not an order id finds nothing", (await customerOrderAccess(db, { creatorId: CREATOR, email: "ana@mail.test" }, "o-1")) === null)
+    check("file sizes read as people write them", fileSize(0) === "" && fileSize(512) === "512 B" && fileSize(1536) === "1.5 KB" && fileSize(52_428_800) === "50 MB")
+
+    const route = code("app/api/site-account/download/route.ts")
+    check("the download route: who is the website's own session, for this host's creator", /siteOwnerOfHost\(db, host\)/.test(route) && /visitorOfRequest\(request, \{ creatorId: owner\.creatorId \}\)/.test(route) && /customerById\(db, visitor\)/.test(route))
+    check("  the order must be this customer's, by the email the session proved", /customerOrderAccess\(db, \{ creatorId: owner\.creatorId, email: customer\.email \}, orderId\)/.test(route))
+    check("  only a file that order lists, asked against its own line's token", /access\.detail\.lines\.find\(\(l\) => l\.files\.some\(\(f\) => f\.id === fileId\)\)/.test(route) && /access\.tokens\.get\(line\.orderId\)/.test(route))
+    check("  then the door every download goes through, with the same limits and scan gate", /resolveDownloadAccess\(db, \{ assetId: fileId, receiptToken: token, userId: null \}\)/.test(route) && /downloadRateLimit\(/.test(route) && /purchaseRateLimit\(/.test(route) && /gateDownload\(db, asset, \{ isCreator: false \}\)/.test(route))
+    check("  a guest is sent to sign in, and back to the order after", /\/account\/login/.test(route) && /searchParams\.set\("return", `\/account\/orders\/\$\{orderId\}`\)/.test(route))
+    check("  never a storage path, an id or a database error in what it answers", !/file_path\s*[,}]/.test(route.replace(/asset\.file_path/g, "")) && !/NextResponse\.json\(\{ error: (error|e)/.test(route))
+    const visitor = code("lib/site-accounts/theme-visitor.ts")
+    check("an imported theme's account links downloads to the order's page", /siteCustomer\(db, row, `https:\/\/\$\{getMainDomain\(\)\}`, \{ orderPages: true \}\)/.test(visitor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -617,6 +681,32 @@ async function main() {
     check("the code and the store in the subject, on one line with no markup", mail.subject === "042917 is your code for Mara b Lind /b" && mail.fromName === "Mara b Lind /b", mail.subject)
     check("a store name cannot put markup in the email", !mail.html.includes("<b>Lind</b>") && mail.text.includes("10 minutes") && mail.html.includes("maralind.com"))
     check("no link to follow: a code to type, on the website that asked", !/href=/i.test(mail.html))
+    const logo = codeEmail({ store: "Maralind", code: "042917", host: "maralind.com", minutes: 10, logoUrl: "https://cdn.test/logo.png" })
+    check("the store's logo on top, with the store's name as its words", /<img src="https:\/\/cdn\.test\/logo\.png" alt="Maralind"/.test(logo.html))
+    for (const bad of ["javascript:alert(1)", "http://cdn.test/logo.png", 'https://cdn.test/a.png" onerror="x', "data:image/png;base64,AAAA"]) {
+      check(`  not a logo the email shows: ${bad.slice(0, 30)}`, !/<img/.test(codeEmail({ store: "M", code: "1", host: "m.com", minutes: 10, logoUrl: bad }).html))
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  section("The code email comes from the store, reliably")
+  // ═══════════════════════════════════════════════════════════════════════
+  {
+    const db = sitesDb()
+    const t = Date.parse("2026-09-25T12:00:00Z")
+    const { d, sent } = deps(db, t, { brand: async () => ({ name: "Mara Lind Studio", logoUrl: "https://cdn.test/m.png", replyTo: "hello@maralind.com" }) })
+    const r = await requestCode({ host: HOST, email: "visitor@mail.test", returnPath: "/account" }, d)
+    const mail = sent[0]
+    check("from the store by name, with its logo, and a reply reaches the store", r.ok && mail?.fromName === "Mara Lind Studio" && mail.html.includes("https://cdn.test/m.png") && mail.replyTo === "hello@maralind.com", mail && { fromName: mail.fromName, replyTo: mail.replyTo })
+    const plain = deps(sitesDb(), t)
+    await requestCode({ host: HOST, email: "visitor@mail.test", returnPath: "/account" }, plain.d)
+    check("a store given only by name still sends, with no reply-to of its own", plain.sent[0]?.fromName === "Maralind" && (plain.sent[0]?.replyTo ?? null) === null && !/<img/.test(plain.sent[0]?.html ?? ""))
+    const route = code("app/api/site-account/code/route.ts")
+    check("the route sends it as a code they just asked for: transactional, at once, never held by a stale bounce", /transactional: true/.test(route) && /replyTo: mail\.replyTo \|\| undefined/.test(route))
+    check("  and signs it with the store's identity, the same as its receipts and order emails", /brand: \(creatorId\) => siteBrand\(db, creatorId\)/.test(route) && /storeIdentity\(db, creatorId\)/.test(code("lib/site-accounts/site-brand.ts")))
+    check("  a reply-to only the store chose: never the owner's own login address", /store_settings"\)\.select\("contact_email"\)/.test(code("lib/site-accounts/site-brand.ts")) && /replyTo \}/.test(code("lib/site-accounts/site-brand.ts")) && !/identity\?\.email/.test(code("lib/site-accounts/site-brand.ts")))
+    const mg = code("lib/mailgun.ts")
+    check("when the sending address is swapped for the signed one, the store's name stays on it", /const named = built\.match\(/.test(mg) && /quotedFrom\(`\$\{named\} <\$\{signedEmail\}>`\)/.test(mg))
   }
 
   // ═══════════════════════════════════════════════════════════════════════

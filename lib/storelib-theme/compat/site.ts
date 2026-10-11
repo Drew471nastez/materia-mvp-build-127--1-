@@ -42,7 +42,7 @@ import { facet } from "./facets"
 import { CLEAR_CART_PARAM, basketCheckoutHref } from "@/lib/checkout/basket-link"
 import { getMainDomain } from "@/lib/url-helpers"
 import { fixThemeCss } from "./css-fixes"
-import { accountContent, addressesContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
+import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 
 type O = Record<string, unknown>
@@ -334,8 +334,37 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
   }
   if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
+  if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
+    const o = req.account.order
+    return shell(site, req, path, `Order #${o.number}`, orderContent(o, { notice: downloadNotice(req.query.get("download")) }), "customers/order")
+  }
   /* An order's own page is its receipt, which each order on the account page links to. */
   return { ...shell(site, req, path, "Account", ""), redirect: "/account" }
+}
+
+/** The account pages the builder's canvas can open, as a visitor reaches them. */
+export const CANVAS_ACCOUNT_PATHS = ["/account", "/account/login", "/account/register", "/account/addresses"] as const
+
+/** A customer the builder shows the account page about: no orders, plainly a sample. */
+const SAMPLE_CUSTOMER = { name: "Sample customer", first_name: "Sample", email: "customer@example.com", orders: [], orders_count: 0, addresses: [] }
+
+/**
+ * AN ACCOUNT PAGE IN THE BUILDER'S CANVAS, drawn by the theme exactly as the
+ * website draws it (accountPage above): sign in and Create account as a
+ * guest sees them, the account page about a sample customer. Nothing here
+ * signs anybody in; the canvas says that works on the live site when a form
+ * on it is sent (canvas-bridge.ts). Null for any other address.
+ */
+export function canvasAccountPage(site: SiteData, path: string, opts: { extraHead?: string; extraBodyEnd?: string } = {}): { path: string; html: string } | null {
+  const clean = path.split(/[?#]/)[0].replace(/\/+$/, "") || "/"
+  if (!(CANVAS_ACCOUNT_PATHS as readonly string[]).includes(clean)) return null
+  const signIn = /^\/account\/(login|register)$/.test(clean)
+  const req: SiteRequest = { method: "GET", path: clean, query: new URLSearchParams(), body: null, cart: [], account: { customer: signIn ? null : SAMPLE_CUSTOMER } }
+  const route = accountPage({ ...site, designMode: true }, req, clean)
+  if (route.redirect) return null
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: opts.extraHead, extraBodyEnd: opts.extraBodyEnd, content: route.content })
+  return { path: clean, html: drawn.html }
 }
 
 /** Below a theme's own account page: the Storelib parts it has no place for, editing the name and deleting the account. */

@@ -27,7 +27,8 @@ import { fixInlineStyles, fixThemeCss } from "../lib/storelib-theme/compat/css-f
 import { inlineSpriteFiles } from "../lib/storelib-theme/compat/icons"
 import { compatFilter } from "../lib/storelib-theme/compat/filters"
 import { CompatTheme, wrapCompatTemplate } from "../lib/storelib-theme/compat/theme"
-import { themeAsset } from "../lib/storelib-theme/compat/site"
+import { canvasAccountPage, themeAsset, type SiteData } from "../lib/storelib-theme/compat/site"
+import { CANVAS_BRIDGE } from "../lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
 let failed = 0
@@ -100,6 +101,74 @@ async function main() {
     const dec = compatFilter("base64_decode")!
     check("base64 of UTF-8 text, both ways", enc("✓ ok", [], {}, undefined as never) === "4pyTIG9r" && dec("4pyTIG9r", [], {}, undefined as never) === "✓ ok")
     check("url-safe base64", compatFilter("base64_url_safe_encode")!("??>", [], {}, undefined as never) === "Pz8-")
+  }
+
+  console.log("\nThe header's cart in the canvas\n")
+  {
+    check("a link is followed only once every listener of the theme's has had the click, at the window, last", /var last = function \(ev\) \{ if \(ev === e\) decide\(\); \};\s*addEventListener\("click", last\);/.test(CANVAS_BRIDGE))
+    check("  a click the theme prevented is the theme's: no page opened under its drawer", /e\.preventDefault = function \(\) \{ themeTook = true; return own\.call\(e\); \};/.test(CANVAS_BRIDGE) && /if \(themeTook\) \{ taken = /.test(CANVAS_BRIDGE))
+    check("  the frame itself never follows a link either way", /if \(!e\.defaultPrevented\) own\.call\(e\);/.test(CANVAS_BRIDGE))
+    check("  a theme that stops the click going further is asked as soon as its listener returns", /\["stopPropagation", "stopImmediatePropagation"\]\.forEach/.test(CANVAS_BRIDGE) && /Promise\.resolve\(\)\.then\(decide\)/.test(CANVAS_BRIDGE))
+    check("  a theme that takes the link and opens the page itself still opens it in the builder", /addEventListener\("pagehide", function \(\) \{\s*if \(taken && Date\.now\(\) - taken\.at < 3000\) post\(\{ type: "navigate"/.test(CANVAS_BRIDGE))
+    /* Run it: a page whose header cart opens a drawer, and a plain link. */
+    const posted: unknown[] = []
+    const listeners: Record<string, { fn: (e: unknown) => void; capture: boolean }[]> = {}
+    const add = (type: string, fn: (e: unknown) => void, opt?: unknown) => { (listeners[type] ??= []).push({ fn, capture: opt === true || (typeof opt === "object" && !!(opt as { capture?: boolean })?.capture) }) }
+    const remove = (type: string, fn: (e: unknown) => void) => { listeners[type] = (listeners[type] ?? []).filter((l) => l.fn !== fn) }
+    const docListeners: Record<string, { fn: (e: unknown) => void; capture: boolean }[]> = {}
+    const fakeDoc = { addEventListener: (t: string, fn: (e: unknown) => void, o?: unknown) => { (docListeners[t] ??= []).push({ fn, capture: o === true }) }, querySelectorAll: () => [], querySelector: () => null, getElementById: () => null, createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, addEventListener() {}, classList: { add() {}, remove() {} } }), createTextNode: () => ({}), elementFromPoint: () => null, documentElement: { scrollHeight: 0 }, readyState: "complete", head: { appendChild() {} }, body: {} }
+    const env = { window: { addEventListener: add, removeEventListener: remove } as Record<string, unknown>, document: fakeDoc, addEventListener: add, removeEventListener: remove, parent: { postMessage: (m: unknown) => posted.push(m) }, requestAnimationFrame: () => 0, CSS: { escape: (x: string) => x }, MutationObserver: class { observe() {} }, ResizeObserver: class { observe() {} }, innerHeight: 800, scrollY: 0, location: { pathname: "/" } }
+    let ran = true
+    try {
+      new Function(...Object.keys(env), CANVAS_BRIDGE)(...Object.values(env))
+    } catch (err) {
+      ran = false
+      console.log("   bridge:", String(err).slice(0, 200))
+    }
+    const click = (link: { href: string; inHeader: boolean }, theme: "prevents" | "stops" | "nothing") => {
+      posted.length = 0
+      let prevented = false
+      const el = { closest: (sel: string) => (sel === "a[href]" ? { getAttribute: () => link.href, closest: () => (link.inHeader ? {} : null) } : null), getAttribute: () => null }
+      const e: Record<string, unknown> = { target: el, defaultPrevented: false, preventDefault() { prevented = true; e.defaultPrevented = true }, stopPropagation() {}, stopImmediatePropagation() {} }
+      for (const l of docListeners.click ?? []) if (l.capture) l.fn(e)
+      let stopped = false
+      if (theme === "prevents") (e.preventDefault as () => void)()
+      if (theme === "stops") { (e.stopPropagation as () => void)(); stopped = true }
+      if (!stopped) for (const l of [...(listeners.click ?? [])]) if (!l.capture) l.fn(e)
+      return { prevented, nav: () => posted.filter((m) => (m as { type?: string }).type === "navigate") }
+    }
+    if (ran && docListeners.click) {
+      const drawer = click({ href: "/cart", inHeader: true }, "prevents")
+      check("run: the header's cart the theme opens a drawer from posts no page to open", drawer.nav().length === 0 && drawer.prevented)
+      const plain = click({ href: "/collections/all", inHeader: true }, "nothing")
+      check("run: a plain link nobody took opens its page, and the frame does not follow it", plain.nav().length === 1 && plain.prevented)
+      const stopped = click({ href: "/pages/about", inHeader: true }, "stops")
+      check("run: a click the theme stopped is kept from the frame at once", stopped.prevented)
+      await Promise.resolve()
+      check("  and, untaken, opens its page", stopped.nav().length === 1)
+    } else check("the bridge runs", false, "it did not run in the fake page")
+  }
+
+  console.log("\nAccount pages in the canvas\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{% sections 'header-group' %}<main>{{ content_for_layout }}</main></body></html>`),
+      "sections/hdr.storelib": section("hdr", `<header class="hdr">{% if customer %}Hi {{ customer.first_name }}{% else %}Log in{% endif %}</header>`),
+    }
+    const site: SiteData = { creatorId: "", theme: new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` }), pages: { home: [{ id: "h", type: "hdr", group: "header" }] }, products: [], collections: [], menus: {}, shop: { name: "S", currency: "USD", moneyFormat: "${{amount}}" }, host: "" }
+    const login = canvasAccountPage(site, "/account/login", { extraBodyEnd: "<script>bridge</script>" })
+    check("/account/login draws in the theme's header, as a guest sees it", !!login && /class="hdr">Log in/.test(login.html) && /<h1>Sign in<\/h1>/.test(login.html) && login.html.includes("<script>bridge</script>"), login?.html.slice(0, 200))
+    const register = canvasAccountPage(site, "/account/register/")
+    check("/account/register too, worded for a new account", !!register && /<h1>Create account<\/h1>/.test(register.html) && register.path === "/account/register")
+    const account = canvasAccountPage(site, "/account?x=1")
+    check("/account draws the account page, about a sample customer, never a real one", !!account && /Sample customer/.test(account.html) && /Hi Sample/.test(account.html))
+    check("any other address is not an account page of the canvas", canvasAccountPage(site, "/account/orders/1") === null && canvasAccountPage(site, "/cart") === null)
+    check("sending a sign in form in the canvas says it works on the live site, and sends nothing", /var accountPost = function \(path, data\)/.test(CANVAS_BRIDGE.length ? read("lib/storelib-theme/compat/canvas-bridge.ts") : "") && /liveOnly\("account"\)/.test(read("lib/storelib-theme/compat/canvas-bridge.ts")))
+    const canvas = read("components/website-builder/compat/compat-canvas.tsx")
+    check("the canvas opens the account pages itself, drawn by the theme", /canvasAccountPage\(canvasSite\(\), accountPath, extra\)/.test(canvas) && /CANVAS_ACCOUNT_PATHS as readonly string\[\]\)\.includes\(to\)/.test(canvas))
+    check("  and leaves them for any other link or page", /if \(accountRef\.current\) setAccountPath\(null\)/.test(canvas) && /useEffect\(\(\) => setAccountPath\(null\), \[pageKey, productId\]\)/.test(canvas))
+    const editor = read("app/website-builder/editor/[installId]/page.tsx")
+    check("the editor says so in its toast: Sign in works on your live site", /toast\("Sign in works on your live site"/.test(editor) && /what === "account" \? "account" : "checkout"/.test(canvas))
   }
 
   console.log(`\n${passed} passed, ${failed} failed`)

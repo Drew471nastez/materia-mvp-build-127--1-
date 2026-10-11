@@ -36,7 +36,7 @@ import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
 import { themeOfInstall } from "../lib/storelib-theme/compat/page"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
-import { answer, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
+import { answer, canvasAccountPage, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "../lib/storelib-theme/compat/canvas-cart"
 
@@ -131,10 +131,12 @@ async function serve(zipPath: string) {
     /* The builder's canvas, as compat-canvas.tsx draws it: the page in a sandboxed frame, what its scripts ask answered by the parent. */
     if (url.pathname === "/__canvas") {
       const path = url.searchParams.get("path") ?? "/"
-      const drawn = await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
+      /* An account page, as the builder's canvas draws it (compat-canvas.tsx, site.ts canvasAccountPage). */
+      const account = /^\/account/.test(path) ? canvasAccountPage({ ...site, designMode: true }, path, { extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }) : null
+      const drawn = account ? { body: account.html } : await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
       const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed={};</script>${CANVAS_HEAD}`)
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
-      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type==="navigate")(window.__nav=window.__nav||[]).push(m.href);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
       return
     }
     if (url.pathname === "/__canvas-answer") {
@@ -210,8 +212,12 @@ async function run(zipPath: string) {
       if (process.env.DEBUG) page.on("console", (m) => { if (m.type() === "error" || m.type() === "warn") console.log("    console:", m.text().slice(0, 200)) })
       await page.setRequestInterception(true)
       let checkoutHits = 0
+      /* While the header's cart is pressed: a page load it starts is held and counted, so whether the drawer ALSO opened can be seen. */
+      let holdNavigation = false
+      const heldNavigations: string[] = []
       page.on("request", (r) => {
         const u = r.url()
+        if (holdNavigation && r.isNavigationRequest() && r.frame() === page.mainFrame()) { heldNavigations.push(u.slice(base.length)); return r.abort() }
         /* Anything on its way to checkout: /checkout, the basket checkout, or the cart posted with \`checkout\`. */
         if (u.startsWith(base) && (/^\/(checkout|cart\/checkout|api\/checkout)/.test(u.slice(base.length)) || (r.method() === "POST" && /^\/cart/.test(u.slice(base.length)) && /(^|&|name="|\b)checkout/.test(r.postData() ?? "")))) checkoutHits++
         /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
@@ -357,6 +363,35 @@ async function run(zipPath: string) {
         check("the drawer's own Check out reaches checkout", pressed === "pressed" && checkoutHits > 0, `${pressed}, ${checkoutHits} checkout requests`)
       }
 
+      /*
+        THE HEADER'S CART: the theme's drawer, or the cart page, never both.
+        A drawer that slides in while the page leaves for /cart is the bug a
+        click handler of Storelib's that ignores the theme's preventDefault
+        makes. Pressed with something in the cart; a page load it starts is
+        held, so the drawer can still be looked at.
+      */
+      await visit("/products/linen-shirt-3")
+      const cartIcon = await page.evaluate(() => {
+        const icon = [...document.querySelectorAll<HTMLElement>("header cart-icon, header .header__icon--cart, header [ref='cartIcon'], header a[href='/cart'], #cart-icon-bubble, header button[aria-controls*='cart' i], .header-actions__cart-icon")].find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+        const target = (icon?.closest("button, a") as HTMLElement | null) ?? icon ?? null
+        target?.setAttribute("data-probe-cart", "")
+        return !!target
+      })
+      let liveCartOpensDrawer: boolean | null = null
+      if (cartIcon) {
+        /* A theme that keeps its drawer open from page to page (Horizon, after its Check out was pressed) has it closed first: the press is to open it. */
+        if ((await findOpen()).ok) { await page.keyboard.press("Escape"); await new Promise((r) => setTimeout(r, 700)) }
+        heldNavigations.length = 0
+        holdNavigation = true
+        await page.click("[data-probe-cart]").catch(() => {})
+        await new Promise((r) => setTimeout(r, 1500))
+        holdNavigation = false
+        const drawer = await findOpen()
+        const went = heldNavigations.filter((u) => /^\/cart(\?|$)/.test(u))
+        liveCartOpensDrawer = drawer.ok
+        check("the header's cart opens the drawer or the cart page, never both", drawer.ok !== went.length > 0, `drawer ${drawer.ok ? "open" : "closed"}, page loads: ${went.join(" ") || "none"}`)
+      }
+
       await visit("/cart")
       await page.screenshot({ path: `${OUT}/${name}-${label}-cart.png` })
       const lines = await page.evaluate(() => document.body.innerText.includes("Linen shirt 2"))
@@ -441,7 +476,55 @@ async function run(zipPath: string) {
       const addInCanvas = await pressIn("form[data-type='add-to-cart-form'] button[type='submit'], form[action='/cart/add'] button[name='add'], form[action='/cart/add'] button[type='submit']:not([name='checkout'])")
       await new Promise((r) => setTimeout(r, 2500))
       check("in the canvas, Add to cart fills the builder's cart, with nothing sent to the network", addInCanvas && canvasCart.cart.length >= 1 && canvasLeaks.length === 0 && errors.length === 0, `pressed ${addInCanvas}, ${canvasCart.cart.length} lines, leaks: ${canvasLeaks.join(" ") || "none"}${errors[0] ? `, ${errors[0]}` : ""}`)
+      /* The header's cart in the canvas does what it does on the website: the drawer the theme opens, and no cart page under it; the cart page where the theme's cart is a plain link. */
+      if (liveCartOpensDrawer !== null) {
+        await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+        const pressedCart = await frame!.evaluate(() => {
+          const icon = [...document.querySelectorAll<HTMLElement>("header cart-icon, header .header__icon--cart, header [ref='cartIcon'], header a[href='/cart'], #cart-icon-bubble, header button[aria-controls*='cart' i], .header-actions__cart-icon")].find((el) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+          const target = (icon?.closest("button, a") as HTMLElement | null) ?? icon ?? null
+          if (!target) return false
+          target.click()
+          return true
+        })
+        await new Promise((r) => setTimeout(r, 1200))
+        const nav = await page.evaluate(() => ((window as unknown as { __nav?: string[] }).__nav ?? []).join(" "))
+        const toCart = /(^|\s)\/cart(\?|\s|$)/.test(nav)
+        check(`in the canvas, the header's cart ${liveCartOpensDrawer ? "opens the drawer and not the cart page" : "opens the cart page"}, as on the website`, pressedCart && (liveCartOpensDrawer ? !toCart : toCart), `pressed ${pressedCart}, navigations: ${nav || "none"}`)
+      }
       await page.screenshot({ path: `${OUT}/${name}-${label}-canvas.png` })
+
+      /* The account pages in the canvas: drawn by the theme, so they can be seen and styled; sending one says sign in works on the live site, and nothing leaves. */
+      for (const at of ["/account/login", "/account/register", "/account"]) {
+        canvasLeaks.length = 0
+        errors.length = 0
+        await page.goto(`${base}/__canvas?path=${encodeURIComponent(at)}`, { waitUntil: "networkidle0", timeout: 60_000 })
+        await new Promise((r) => setTimeout(r, 600))
+        const accFrame = page.frames().find((f) => f !== page.mainFrame())!
+        const drawn = await accFrame.evaluate(() => {
+          const shown = (el: Element) => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden" }
+          const form = [...document.querySelectorAll<HTMLFormElement>("form")].find((f) => shown(f) && !!f.querySelector("input[type=email], input[name='customer[email]'], input[name=email]"))
+          const email = form?.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")
+          return { header: !!document.querySelector(".shopify-section-group-header-group"), footer: !!document.querySelector(".shopify-section-group-footer-group"), form: !!form, account: /Sample customer|Account/i.test(document.body.innerText), mark: (form?.setAttribute("data-probe-account", ""), !!email) }
+        })
+        if (at === "/account") {
+          check("in the canvas, /account draws the theme's account page, about a sample customer", drawn.header && drawn.footer && drawn.account && errors.length === 0, JSON.stringify(drawn))
+          continue
+        }
+        const sent = await accFrame.evaluate(() => {
+          const form = document.querySelector<HTMLFormElement>("[data-probe-account]")
+          if (!form) return false
+          const email = form.querySelector<HTMLInputElement>("input[type=email], input[name='customer[email]'], input[name=email]")!
+          email.value = "visitor@example.com"
+          form.querySelectorAll<HTMLInputElement>("input[required]").forEach((i) => { if (!i.value) i.value = i.type === "password" ? "x" : "x" })
+          const button = form.querySelector<HTMLElement>("button[type=submit], input[type=submit], button:not([type])")
+          if (button) button.click()
+          else form.requestSubmit()
+          return true
+        })
+        await new Promise((r) => setTimeout(r, 800))
+        const said = await page.evaluate(() => (window as unknown as { __events: string[] }).__events.join())
+        check(`in the canvas, ${at} draws in the theme, and sending it says sign in works on the live site, with nothing sent`, drawn.header && drawn.footer && drawn.form && sent && /account/.test(said) && canvasLeaks.length === 0, `${JSON.stringify(drawn)}, said "${said}", leaks: ${canvasLeaks.join(" ") || "none"}`)
+      }
 
       check("nothing was asked of Shopify's servers", shopifyHits.length === 0, shopifyHits[0] ?? "")
       await page.deleteCookie({ name: CART_COOKIE, url: base })
