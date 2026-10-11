@@ -322,6 +322,10 @@ async function main() {
       "lib/site-accounts/account-data.ts": { count: 2, why: "a website customer's own orders, which they keep" },
       "lib/site-accounts/order-files.ts": { count: 1, why: "the creator of one of a website customer's own orders, to keep it to that website" },
       "lib/website-builder/site-performance-read.ts": { count: 1, why: "the creator's own speed report" },
+      "lib/checkout/access-link.ts": { count: 2, why: "which of the shop's products a buyer's own receipts are for, emailed to that buyer; one taken off sale is still theirs" },
+      "lib/site-accounts/owned-products.ts": { count: 1, why: "the type of products a signed in customer already owns, nothing shown" },
+      "app/api/checkout/access-link/route.ts": { count: 1, why: "the shop of the product asked about, to find that buyer's own receipts; nothing shown" },
+      "app/api/checkout/site/route.ts": { count: 1, why: "the type of each line already in an imported theme's cart, to take out what the signed in customer owns" },
     }
     const reads = new Map<string, number>()
     const unfiltered: string[] = []

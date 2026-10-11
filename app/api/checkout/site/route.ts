@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { stripe } from "@/lib/stripe"
 import { getMainDomain } from "@/lib/url-helpers"
 import { MIN_CHARGE_CENTS } from "@/lib/checkout/pricing"
-import { digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
+import { allOwned, digitalCartTax, priceSiteCart, siteQuote } from "@/lib/checkout/site-quote-server"
 import { packItems } from "@/lib/checkout/cart-items"
 import { methodsFrom } from "@/lib/checkout/payment-methods"
 import { businessToMetadata, checkBusiness } from "@/lib/checkout/business"
@@ -56,6 +56,17 @@ export const dynamic = "force-dynamic"
  *   free      a code took it to $0: the order, no card
  *   abandon   the buyer changed the order after Pay: the held stock and the
  *             code's place go back at once
+ *   access    "Bought this before? Email me my link": the receipts of this
+ *             shop's orders placed with that email, sent to it, and the
+ *             same answer whatever the email (lib/checkout/access-link)
+ *   forget    the cart was all the signed in customer's already: those lines
+ *             leave an imported theme's cart cookie
+ *
+ * ALREADY YOURS. A customer signed in to the website proved their email with
+ * a code, so what it already owns is left out of every price here (quote,
+ * intent, free) and named as theirs (lib/checkout/site-quote-server, owned).
+ * A guest's typed email never decides it: that would tell anyone typing an
+ * address what its owner bought.
  *
  * TWO WAYS A CART IS PAID, ONE PAGE. A cart of downloads is a basket
  * PaymentIntent (metadata `cart` and `site_basket`, lib/checkout/
@@ -101,6 +112,10 @@ async function handlePOST(request: Request) {
       return confirm(request, admin, site, body)
     case "free":
       return free(request, admin, site, body)
+    case "access":
+      return access(request, admin, site, body)
+    case "forget":
+      return forget(request, admin, site)
     case "abandon": {
       const { abandonCheckout } = await import("@/lib/physical/checkout-server")
       return json({ ok: await abandonCheckout(admin, { shopId: site.creatorId, clientKey: body.clientKey }) })
@@ -117,8 +132,55 @@ type Admin = ReturnType<typeof createAdminClient>
 async function quote(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
   const limited = await rateLimit({ bucket: "coupon", subjects: [addressSubject(request)], windows: [{ limit: 120, seconds: 600 }], message: "Too many requests. Wait a moment and try again." })
   if (limited) return limited
-  const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers))
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const answer = await siteQuote(admin, site.creatorId, body, detectedCountry(request.headers), owner ? { email: owner.email } : null)
   return answer.ok ? json(answer.quote) : json({ error: answer.error }, answer.status)
+}
+
+/* ── Already yours ────────────────────────────────────────────────────── */
+
+/**
+ * "Bought this before? Email me my link." The receipts (their downloads) of
+ * this shop's orders placed with the email go to that email, on this site's
+ * address. The answer never says whether there were any, and the sending
+ * happens after it, so neither the words nor the time it takes tell a
+ * visitor what somebody else bought (lib/checkout/access-link).
+ */
+async function access(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
+  const { ACCESS_SENT, accessLinkLimited, sendAccessLinks } = await import("@/lib/checkout/access-link")
+  const email = clean(body.email, 254).toLowerCase()
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Enter the email you bought it with.", field: "email" }, 400)
+  const limited = await accessLinkLimited(request, email)
+  if (limited) return limited
+  const productIds = Array.isArray(body.items) ? (body.items as { productId?: unknown }[]).map((i) => (typeof i?.productId === "string" ? i.productId : "")).filter(Boolean).slice(0, 50) : []
+  after(() => sendAccessLinks(admin, { creatorId: site.creatorId, email, productIds, receiptBase: site.origin }).catch(() => undefined))
+  return json({ ok: true, message: ACCESS_SENT })
+}
+
+/**
+ * The cart was nothing but what the signed in customer already owns: those
+ * lines leave an imported theme's cart cookie, so the cart stops offering
+ * them. Decided again here from the session, never from what the page says.
+ */
+async function forget(request: Request, admin: Admin, site: SiteOfCheckout) {
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  if (!owner) return json({ ok: false }, 401)
+  const { readCartCookie, writeCartCookie } = await import("@/lib/storelib-theme/compat/site")
+  const { ownedLines, ownedKey } = await import("@/lib/checkout/owned")
+  const cookie = (request.headers.get("cookie") ?? "").match(new RegExp(`(?:^|;\\s*)${THEME_CART_COOKIE}=([^;]*)`))?.[1]
+  const theme = readCartCookie(cookie)
+  if (theme.cart.length === 0) return json({ ok: true, removed: 0 })
+  const ids = [...new Set(theme.cart.map((e) => e.p))]
+  const { data: rows } = await admin.from("products").select("id, type, creator_id").in("id", ids)
+  const typeOf = new Map(((rows ?? []) as { id: string; type: string; creator_id: string }[]).filter((p) => p.creator_id === site.creatorId).map((p) => [p.id, p.type]))
+  const owned = await ownedLines(admin, { provenEmail: owner.email }, theme.cart.map((e) => ({ productId: e.p, variantId: e.v, type: typeOf.get(e.p) ?? "physical" })))
+  const kept = theme.cart.filter((e) => !owned.has(ownedKey(e.p, e.v)))
+  if (kept.length === theme.cart.length) return json({ ok: true, removed: 0 })
+  const secure = site.origin.startsWith("https:") ? "; Secure" : ""
+  return NextResponse.json(
+    { ok: true, removed: theme.cart.length - kept.length },
+    { headers: { "Cache-Control": "no-store", "Set-Cookie": `${THEME_CART_COOKIE}=${writeCartCookie(kept, theme.note)}; Path=/; Max-Age=1209600; SameSite=Lax; HttpOnly${secure}` } },
+  )
 }
 
 /* ── Who, and what they typed ─────────────────────────────────────────── */
@@ -130,6 +192,8 @@ interface Contact {
   optedIn: boolean
   config: CheckoutConfig
   signedIn: boolean
+  /** The signed in customer's address, proven by their sign in code: what it owns is not charged again. Null for a guest. */
+  ownerEmail: string | null
 }
 
 /**
@@ -153,7 +217,7 @@ async function contactOf(request: Request, admin: Admin, site: SiteOfCheckout, b
   if (missing === "email") return json({ error: "Enter a valid email address.", field: "email" }, 400)
   if (missing === "name" || missing === "last") return json({ error: missing === "last" ? "Enter your first and last name." : "Enter your name.", field: "name" }, 400)
   if (body.agreedToTerms !== true) return json({ error: "Agree to the Terms and Conditions to continue." }, 400)
-  return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer }
+  return { email, first, last, optedIn: config.marketingOptIn && body.emailOptIn === true, config, signedIn: !!buyer, ownerEmail: buyer?.email ?? null }
 }
 
 function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
@@ -164,7 +228,10 @@ function originFor(site: SiteOfCheckout, body: Body): OrderOrigin {
 /* ── Pay ──────────────────────────────────────────────────────────────── */
 
 async function intent(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
-  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body)
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
+  /* Everything in it is already the signed in customer's: nothing is charged. */
+  if (allOwned(priced)) return json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409)
   /* A code the page showed as taken and the server no longer takes is said, never charged without. */
   if (couponError) return json({ error: couponError, field: "code" }, 400)
   const ships = decision.kind === "ships"
@@ -342,6 +409,7 @@ async function shippedIntent(request: Request, admin: Admin, site: SiteOfCheckou
     attribution,
     buyerId: null,
     buyerSignedIn: contact.signedIn,
+    ownerEmail: contact.ownerEmail,
     /* A website account is only ever made by typing back a code sent to its address. */
     buyerEmailConfirmed: contact.signedIn,
     platformOrigin: `https://${getMainDomain()}`,
@@ -459,7 +527,9 @@ function basketError(reason: string): string {
 /* ── Free ─────────────────────────────────────────────────────────────── */
 
 async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: Body) {
-  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body)
+  const owner = await siteBuyerOfRequest(admin, request, site.creatorId)
+  const { priced, decision, couponError } = await priceSiteCart(admin, site.creatorId, body, owner ? { email: owner.email } : null)
+  if (allOwned(priced)) return json({ error: "You already own this. It's in your downloads.", code: "already_owned" }, 409)
   if (couponError) return json({ error: couponError, field: "code" }, 400)
   const ships = decision.kind === "ships"
   const pickup = ships && isPickupOptionId(body.deliveryOptionId)
@@ -494,6 +564,7 @@ async function free(request: Request, admin: Admin, site: SiteOfCheckout, body: 
       attribution,
       buyerId: null,
       buyerSignedIn: contact.signedIn,
+      ownerEmail: contact.ownerEmail,
       buyerEmailConfirmed: contact.signedIn,
       platformOrigin: `https://${getMainDomain()}`,
       backUrl: site.origin,

@@ -165,6 +165,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const orderId = sitePath.match(/^\/account\/orders\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i)?.[1] ?? null
   const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
+  const shopId = found.site.creatorId
   const out = await answer(found.site, {
     method: req.method,
     path: sitePath,
@@ -175,6 +176,14 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     ajax,
     referer: refererPath(req.headers.get("referer")),
     account,
+    /* A signed in customer's product page says "You already own this" for a download they have (lib/site-accounts/owned-products). */
+    owned: account?.customer?.email
+      ? async (productId: string) => {
+          const { customerOwns } = await import("@/lib/site-accounts/owned-products")
+          const { createAdminClient } = await import("@/lib/supabase/admin")
+          return (await customerOwns(createAdminClient(), { creatorId: shopId, email: account.customer!.email }, [productId]))[productId] ?? null
+        }
+      : undefined,
     submit: token
       ? undefined
       : async (kind, payload) => {
