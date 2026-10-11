@@ -147,6 +147,16 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
   /* Printful and Printify: orders go there and tracking comes back (lib/integrations/fulfilment). */
   const sendsOrders = provider.availability === "connect"
 
+  const sendTest = async () => {
+    setBusy(true)
+    setError(null)
+    setDone(null)
+    const r = await api<{ status: number }>(`/api/physical/integrations/${provider.id}/test`, { method: "POST", body: {} })
+    setBusy(false)
+    if (!r.ok) return setError(r.error)
+    setDone(`Sent. Your address answered ${r.data.status}.`)
+  }
+
   const save = async (body: Record<string, unknown>, said: string) => {
     setBusy(true)
     setError(null)
@@ -200,7 +210,14 @@ export function IntegrationCard({ provider, state, loading, onSaved, startOpen =
           <button type="button" className={saved ? BTN_SECONDARY : BTN_PRIMARY} onClick={() => setOpen((v) => !v)} aria-expanded={open} data-integration-connect="">
             {open ? "Close" : saved ? "Manage" : "Connect"}
           </button>
-        ) : comingSoon && saved ? (
+        ) : null}
+        {provider.id === "custom_webhook" && saved && !open ? (
+          /* A signed ping, as an order is signed, so the seller's system can be checked before a real order. */
+          <button type="button" className={BTN_SECONDARY} disabled={busy} onClick={() => void sendTest()} data-integration-test="">
+            {busy ? "Sending" : "Send a test"}
+          </button>
+        ) : null}
+        {connectable ? null : comingSoon && saved ? (
           /* A key kept from before this was marked Coming soon: it does nothing, and it can go. */
           <button type="button" className={BTN_DANGER} disabled={busy} onClick={() => void save({ disconnect: true }, "Removed.")} data-integration-remove-key="">
             {busy ? "Removing" : "Remove saved key"}

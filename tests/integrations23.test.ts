@@ -328,7 +328,7 @@ console.log("\nTracking comes back: Printify's shipments ship the order\n")
         : null,
   ])
   await syncProviderTracking(db, { checkoutId: CHECKOUT, locationId, integrationId, providerOrderId: "5a96f649b2439217d070f507", creatorId: CREATOR, round: 1 }, deps(orderFixture(locationId), shippedLog))
-  check("the parcel ships this location's items with its carrier and number", shippedLog.length === 1 && shippedLog[0].trackingNumber === "9400110200828911663274" && shippedLog[0].carrier === "usps" && shippedLog[0].locationId === locationId && shippedLog[0].status === "shipped")
+  check("the parcel ships this location's items with its carrier (as buyers read it) and number", shippedLog.length === 1 && shippedLog[0].trackingNumber === "9400110200828911663274" && shippedLog[0].carrier === "USPS" && shippedLog[0].locationId === locationId && shippedLog[0].status === "shipped")
   check("  a link that is not https is left out (the carrier's own link is used)", shippedLog[0].trackingUrl === null)
   check("  named as Printify on the shipment", shippedLog[0].partner?.provider === "printify" && shippedLog[0].partner?.name === "Printify")
   check("not delivered yet: checked again later", db.rows("commerce_jobs").some((j) => j.kind === "tracking_sync" && j.payload.round === 2))
@@ -445,6 +445,18 @@ console.log("\nThe job queue sends orders to connected providers\n")
   check("  otherwise the order is still marked to send by hand", /is set to forward through a provider that is not connected/.test(jobs))
   check("the queue runs both jobs, with backoff and a dead letter said on the order", /case "forward_fulfillment":\s*return forwardToProvider/.test(jobs) && /case "tracking_sync":\s*return syncProviderTracking/.test(jobs) && /could not be sent to your print partner/.test(jobs))
   check("tracking is checked for about three weeks, then left to the seller", nextCheckDelayMs(1) === 2 * 3600_000 && nextCheckDelayMs(10) === 6 * 3600_000)
+}
+
+console.log("\nYour own system (webhook): signed, retried, its failures shown, a test to send\n")
+{
+  const jobs = read("lib/physical/jobs-server.ts")
+  check("each order is signed v1=HMAC-SHA256 of timestamp.body with the seller's secret", /createHmac\("sha256", secret\)\.update\(`\$\{timestamp\}\.\$\{payload\}`\)/.test(jobs) && /"x-storelib-signature": `v1=\$\{signature\}`/.test(jobs))
+  check("to a public https address only, the socket refusing private addresses", /lookup: publicLookup/.test(jobs) && /publicUrlProblem\(url\)/.test(jobs))
+  check("a failed delivery is kept on the integration, so its card says so", /last_error: `Your webhook answered \$\{status\}\. Storelib tries again\.`/.test(jobs) && /Your webhook could not be reached/.test(jobs))
+  check("Send a test: a signed ping, what the address answered said back", /export async function sendTestWebhook/.test(jobs) && /event: "ping"/.test(jobs) && /data-integration-test=""/.test(read("components/physical/integrations-marketplace.tsx")))
+  const test = read("app/api/physical/integrations/[provider]/test/route.ts")
+  check("  the owner only, a few a minute, custom_webhook only", /physicalCaller\(\)/.test(test) && /rateLimit\(/.test(test) && /provider !== "custom_webhook"/.test(test))
+  check("saving a key is rate limited, as it asks the provider", /bucket: "integration-save"/.test(read("app/api/physical/integrations/[provider]/route.ts")))
 }
 
 console.log("\nEntering and leaving an integration's page\n")

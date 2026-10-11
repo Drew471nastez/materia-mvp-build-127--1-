@@ -38,6 +38,7 @@ import { loadOrder as loadOrderReal, type PhysicalOrder } from "@/lib/physical/o
 import { partnerShipped as partnerShippedReal } from "@/lib/physical/partner-server"
 import { orderNumber } from "@/lib/physical/status"
 import { regionCode } from "@/lib/physical/regions"
+import { carrierOf } from "@/lib/physical/carriers"
 import { openSecret, sealSecret } from "@/lib/physical/secrets"
 import { getMainDomain } from "@/lib/url-helpers"
 import { ProviderError, externalIdOf, checkoutIdOf } from "./http"
@@ -345,7 +346,8 @@ export async function applyProviderState(
       creatorId,
       checkoutId,
       locationId,
-      carrier: s.carrier,
+      /* "usps" as the buyer reads it, "USPS"; a carrier we don't know as the provider wrote it. */
+      carrier: (s.carrier && carrierOf(s.carrier)?.name) || s.carrier,
       trackingNumber: s.trackingNumber,
       trackingUrl: s.trackingUrl && /^https:\/\//.test(s.trackingUrl) ? s.trackingUrl : null,
       status: s.delivered ? "delivered" : "shipped",

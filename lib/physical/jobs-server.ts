@@ -566,8 +566,41 @@ async function deliverWebhook(db: Db, p: Record<string, any>): Promise<void> {
   })
   const timestamp = Math.floor(Date.now() / 1000).toString()
   const signature = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex")
-  const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": String(p.event ?? "order.paid") })
-  if (status < 200 || status >= 300) throw new Error(`Your webhook answered ${status}.`)
+  /* A failure is kept on the integration too, so Settings › Integrations shows it, not only the order (round 23). */
+  const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": String(p.event ?? "order.paid") }).catch(async (e) => {
+    await db.from("commerce_integrations").update({ last_error: `Your webhook could not be reached (${e instanceof Error ? e.message : "no answer"}). Storelib tries again.`.slice(0, 500) }).eq("id", integration.id)
+    throw e
+  })
+  if (status < 200 || status >= 300) {
+    await db.from("commerce_integrations").update({ last_error: `Your webhook answered ${status}. Storelib tries again.` }).eq("id", integration.id)
+    throw new Error(`Your webhook answered ${status}.`)
+  }
   await db.from("commerce_integrations").update({ last_sync_at: new Date().toISOString(), last_error: null, status: "connected" }).eq("id", integration.id)
   await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "fulfillment.forwarded", message: "Order sent to your webhook", key: `forwarded_webhook:${co.id}:${p.locationId ?? ""}:${p.event ?? ""}` })
+}
+
+/**
+ * Settings › Integrations › Your own system: Send a test. A `ping`, signed
+ * exactly as an order is (X-Storelib-Timestamp, X-Storelib-Signature
+ * v1=HMAC-SHA256 of "<timestamp>.<body>"), so the seller's system can be
+ * checked before a real order arrives. What the address answered, said back.
+ */
+export async function sendTestWebhook(db: Db, creatorId: string): Promise<{ ok: true; status: number } | { ok: false; error: string }> {
+  const { data: integration } = await db.from("commerce_integrations").select("id, config, webhook_secret_ciphertext").eq("creator_id", creatorId).eq("provider", "custom_webhook").maybeSingle()
+  const url = integration?.config?.url as string | undefined
+  if (!integration || !url) return { ok: false, error: "Save a webhook address first." }
+  if (!url.startsWith("https://") || publicUrlProblem(url)) return { ok: false, error: "The webhook address must be a public https address." }
+  const secret = openSecret(integration.webhook_secret_ciphertext)
+  if (!secret) return { ok: false, error: "The signing secret could not be read. Set it again." }
+  const payload = JSON.stringify({ event: "ping", created: Math.floor(Date.now() / 1000), test: true })
+  const timestamp = Math.floor(Date.now() / 1000).toString()
+  const signature = createHmac("sha256", secret).update(`${timestamp}.${payload}`).digest("hex")
+  try {
+    const status = await postJson(url, payload, { "x-storelib-timestamp": timestamp, "x-storelib-signature": `v1=${signature}`, "x-storelib-event": "ping" })
+    const ok = status >= 200 && status < 300
+    await db.from("commerce_integrations").update(ok ? { last_sync_at: new Date().toISOString(), last_error: null } : { last_error: `Your webhook answered ${status} to a test.` }).eq("id", integration.id)
+    return ok ? { ok: true, status } : { ok: false, error: `Your address answered ${status}. It should answer 2xx.` }
+  } catch (e) {
+    return { ok: false, error: `Your address could not be reached (${e instanceof Error ? e.message : "no answer"}).` }
+  }
 }
