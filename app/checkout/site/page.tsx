@@ -120,6 +120,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       items={items}
       wholeCart={wholeCart}
       couponCode={params.couponCode}
+      initialNote={params.note}
       initialQuote={answer?.ok ? answer.quote : null}
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}

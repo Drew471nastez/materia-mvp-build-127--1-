@@ -71,6 +71,8 @@ export interface SiteCheckoutProps {
   items: LinkItem[]
   wholeCart: boolean
   couponCode: string | null
+  /** The cart's note (an imported theme's cart note, lib/checkout/site-checkout cartNote): the note for the shop starts with it. */
+  initialNote?: string | null
   /** The server's price of `items` for the first frame, or null when the cart is read in the browser. */
   initialQuote: SiteQuote | null
   initialError: string | null
@@ -150,6 +152,7 @@ export function SiteCheckout({
   items: linkItems,
   wholeCart: linkWhole,
   couponCode,
+  initialNote = null,
   initialQuote,
   initialError,
   config = DEFAULT_CHECKOUT,
@@ -206,7 +209,7 @@ export function SiteCheckout({
   const [address, setAddress] = React.useState<Address>(EMPTY_ADDRESS)
   const [mode, setMode] = React.useState<"ship" | "pickup">("ship")
   const [optionId, setOptionId] = React.useState<string | null>(null)
-  const [note, setNote] = React.useState("")
+  const [note, setNote] = React.useState(initialNote ?? "")
   React.useEffect(() => setAddress((a) => (a.country ? a : { ...a, country: guessCountry() })), [])
   const ships = !!quote?.requiresShipping
   const plan = fieldPlan(config, { ships, pickup: mode === "pickup" })
@@ -765,7 +768,7 @@ export function SiteCheckout({
   const beforePay = (
     <>
       {ships ? (
-        <details className="group">
+        <details className="group" open={initialNote ? true : undefined} data-shop-note="">
           <summary className="cursor-pointer list-none text-[14px] font-medium text-[#1a1a2e] underline decoration-[#c9ccd2] underline-offset-4">Add a note for the shop</summary>
           <textarea value={note} onChange={(e) => setNote(e.target.value.slice(0, 1000))} rows={3} className={cn(inputClass, "mt-2 h-auto py-2.5")} placeholder="Gift wrap, delivery instructions..." />
         </details>
