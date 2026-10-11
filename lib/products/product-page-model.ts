@@ -88,6 +88,10 @@ export interface ProductSectionData {
   created_at?: string | null
   /** The product's category, when it has one. */
   category?: string | null
+  /** The product's own questions and answers (the editor's FAQ card), plain text. */
+  faqs?: { question: string; answer: string }[]
+  /** The custom fields the creator shows to buyers, in order (lib/products/custom-fields.ts shownCustomFields). */
+  details?: { key: string; label: string; value: string; type: "text" | "multiline" | "number" | "url" }[]
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */

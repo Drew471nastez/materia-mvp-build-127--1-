@@ -29,6 +29,7 @@ import { variantSoldOut } from "@/lib/checkout/pricing"
 import { SAY_LEFT_FROM, liveVariant, physicalStock } from "@/lib/physical/storefront-stock"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
+import { shownCustomFields } from "./custom-fields"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -53,6 +54,8 @@ export interface ProductSectionRow {
   continue_selling?: boolean | null
   created_at?: string | null
   category?: string | null
+  faqs?: unknown
+  custom_fields?: unknown
 }
 
 const VARIANT_TIERS = [
@@ -214,5 +217,17 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
       typeof row.inventory_count === "number" && type !== "physical" && row.inventory_count <= SAY_LEFT_FROM ? Math.max(0, row.inventory_count) : null,
     created_at: row.created_at ?? null,
     category: row.category ?? null,
+    faqs: productFaqs(row.faqs),
+    details: shownCustomFields(row.custom_fields),
   }
+}
+
+/** The product's questions as plain text, the answered ones only, at most 30. Never markup: a block prints them as text. */
+export function productFaqs(raw: unknown): { question: string; answer: string }[] {
+  if (!Array.isArray(raw)) return []
+  const plain = (v: unknown, max: number) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, " ").trim().slice(0, max) : "")
+  return raw
+    .map((f) => ({ question: plain((f as { question?: unknown })?.question, 300), answer: plain((f as { answer?: unknown })?.answer, 3000) }))
+    .filter((f) => f.question && f.answer)
+    .slice(0, 30)
 }

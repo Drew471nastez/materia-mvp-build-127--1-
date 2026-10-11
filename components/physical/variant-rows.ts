@@ -11,7 +11,7 @@
  *   a value removed      its rows are put aside, and come back as they were
  *                        if it is typed again in the same visit
  *   a value renamed      its rows follow the new name
- *   an option moved      every row's values move with it
+ *   an option moved      every row's values move with it (remapRows)
  *   an option removed    rows that become the same keep the first one
  *
  * Pure, so tests/product-editor-physical.test.ts holds it without a browser.
@@ -88,25 +88,17 @@ export function renameValueInRows(rows: VariantRow[], position: number, from: st
   })
 }
 
-/** An option moved from one place to another: every row's values move the same way. */
-export function moveOptionInRows(rows: VariantRow[], from: number, to: number): VariantRow[] {
-  return rows.map((r) => {
-    const values = [r.options[0], r.options[1], r.options[2]]
-    const [moved] = values.splice(from, 1)
-    values.splice(to, 0, moved)
-    return { ...r, options: values as Combination }
-  })
-}
-
-/** An option removed: its values go from every row, and rows that are now the same keep the first. */
-export function removeOptionFromRows(rows: VariantRow[], position: number): VariantRow[] {
+/**
+ * The options were moved or one was removed: each row's values follow their
+ * option by name (Size stays with Size), and rows that are now the same keep
+ * the first. `before` and `after` are the option names in order.
+ */
+export function remapRows(rows: VariantRow[], before: string[], after: string[]): VariantRow[] {
+  const from = after.map((name) => before.findIndex((b) => b.toLowerCase() === name.toLowerCase()))
   const seen = new Set<string>()
   const out: VariantRow[] = []
   for (const r of rows) {
-    const values = [r.options[0], r.options[1], r.options[2]]
-    values.splice(position, 1)
-    values.push(null)
-    const options = values as Combination
+    const options = [0, 1, 2].map((i) => (from[i] !== undefined && from[i] >= 0 ? r.options[from[i]] ?? null : null)) as Combination
     const key = combinationKey(options)
     if (seen.has(key)) continue
     seen.add(key)
@@ -127,7 +119,7 @@ export function groupByFirst(rows: VariantRow[]): { value: string; rows: Variant
   return groups
 }
 
-/** "$12.00 – $18.00", or one price when they agree; empty when none is set. */
+/** "$12.00 to $18.00", or one price when they agree; empty when none is set. */
 export function priceRange(rows: VariantRow[], base: string, format: (cents: number) => string): string {
   const cents = rows.map((r) => Math.round(Number.parseFloat(r.price || base || "") * 100)).filter((n) => Number.isFinite(n))
   if (!cents.length) return ""

@@ -66,7 +66,7 @@ import { useConfirm } from "./confirm-sheet"
 import { FaqList } from "./faq-list"
 import { CustomFieldsCard } from "./custom-fields-card"
 import { SalesChannelsCard, type SalesChannelsHandle } from "./sales-channels-card"
-import { cleanCustomFields, type CustomField } from "@/lib/products/custom-fields"
+import { fieldKey, fieldProblem, storedCustomFields, type CustomField } from "@/lib/products/custom-fields"
 import { MediaGrid, type PendingMedia } from "./media-grid"
 import { precheckUpload, sanitizeDisplayName } from "@/lib/security/uploads"
 import { DigitalFiles, useFileUploads } from "./file-uploads"
@@ -990,7 +990,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
         part 107 has no column for them, and the product must still save.
       */
       if (finalProductId) {
-        const { error: fieldsError } = await supabase.from("products").update({ custom_fields: cleanCustomFields(customFields) }).eq("id", finalProductId)
+        const { error: fieldsError } = await supabase.from("products").update({ custom_fields: storedCustomFields(customFields) }).eq("id", finalProductId)
         if (fieldsError) console.warn("Custom fields were not saved:", fieldsError.message)
       }
 
@@ -1575,6 +1575,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
     if (!selectedCategory) {
       showToast("Pick a category")
       scrollToSection("category")
+      return false
+    }
+
+    /* Custom fields: each value fits its type, and no two share a name (lib/products/custom-fields.ts). */
+    const fieldNames = customFields.map((f) => fieldKey(f.key)).filter(Boolean)
+    const fieldIssue = customFields.map(fieldProblem).find(Boolean) ?? (new Set(fieldNames).size !== fieldNames.length ? "Two custom fields have the same name" : null)
+    if (fieldIssue) {
+      showToast(fieldIssue)
+      document.getElementById("custom-fields")?.scrollIntoView({ behavior: "smooth", block: "center" })
       return false
     }
 
@@ -2444,16 +2453,6 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 )}
               </div>
 
-              {/* A physical product: stock, shipping and variants in place of the files (components/physical/product-cards.tsx). */}
-              {productType === "physical" ? <StoreCurrencyProvider currency={creator.currency}><PhysicalProductCards
-                  productId={productId}
-                  basePrice={price}
-                  handle={physicalRef}
-                  onDirty={markPhysicalDirty}
-                  openSettings={openSettings}
-                  images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
-                  uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
-                /></StoreCurrencyProvider> : null}
               {productType === "course" ? null : filesCard}
 
               {/* Variants Section: a download's. A physical product's are in its own cards above. */}
@@ -2765,7 +2764,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   <div className="min-w-0">
                     <h2 className={CARD_TITLE}>Pricing</h2>
                     <p className="text-[13px] leading-5 text-[#6b7280] sm:text-[14px]">
-                      {PRICE_MODE_HINT[priceMode]}
+                      {productType === "physical" ? "What buyers pay. Variants can each have their own price." : PRICE_MODE_HINT[priceMode]}
                     </p>
                   </div>
                   {productType === "physical" ? null : (
@@ -2931,6 +2930,16 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 />
               </div>
 
+              {/* A physical product: stock, variants, shipping and the rest under its price, in place of the files (components/physical/product-cards.tsx). */}
+              {productType === "physical" ? <StoreCurrencyProvider currency={creator.currency}><PhysicalProductCards
+                  productId={productId}
+                  basePrice={price}
+                  handle={physicalRef}
+                  onDirty={markPhysicalDirty}
+                  openSettings={openSettings}
+                  images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
+                  uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
+                /></StoreCurrencyProvider> : null}
               {/* FAQ Section */}
               <div
                 className={CARD}
