@@ -32,6 +32,7 @@ import { checkoutItems, lineKey } from "@/lib/website-builder/cart"
 import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
+import { CartReturnsNote } from "./theme/shop-commerce"
 
 export interface CartPalette {
   bg: string
@@ -381,6 +382,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               Payment is handled by Stripe.
             </p>
           )}
+          {/* Website settings › Commerce › Returns line in the cart. */}
+          <CartReturnsNote className="w-full text-right text-[12.5px] opacity-70 sm:w-[300px]" />
         </div>
       </div>
     </div>

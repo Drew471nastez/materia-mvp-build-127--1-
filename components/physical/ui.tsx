@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TONE_CLASS, type Tone } from "@/lib/physical/status"
 import { HowItWorks } from "@/components/app/settings/how-it-works"
+import { CountryFlag } from "@/components/app/settings/country-picker"
 import type { ExplainerId } from "@/lib/settings/explainers"
 
 export const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_rgba(0,0,0,0.04)]"
@@ -194,42 +195,75 @@ export function Empty({ title, children, action }: { title: string; children?: R
 }
 
 /** Countries to ship to: search, tick, see what is chosen. */
+/**
+ * Countries for a shipping zone: a search, every country with its flag (the
+ * local sprite, components/app/settings/country-picker CountryFlag, no CDN),
+ * and Select all and Clear for the list as it is filtered. A country already
+ * in another zone of the profile is shown, greyed, and can't be picked: one
+ * country is in one zone, or its price would depend on which came first.
+ */
 export function CountryPicker({ value, onChange, taken }: { value: string[]; onChange: (v: string[]) => void; taken?: string[] }) {
   const [query, setQuery] = React.useState("")
   const chosen = new Set(value)
+  const elsewhere = new Set((taken ?? []).filter((c) => !chosen.has(c)))
   const q = query.trim().toLowerCase()
-  const list = COUNTRIES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q).slice(0, 300)
+  const list = COUNTRIES.filter((c) => !q || c.name.toLowerCase().includes(q) || c.code.toLowerCase() === q)
+  const free = list.filter((c) => !elsewhere.has(c.code))
+  const allOn = free.length > 0 && free.every((c) => chosen.has(c.code))
+  const selectAll = () => onChange([...new Set([...value, ...free.map((c) => c.code)])])
+  const clear = () => {
+    const shown = new Set(list.map((c) => c.code))
+    onChange(q ? value.filter((c) => !shown.has(c)) : [])
+  }
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-country-picker="">
       {value.length ? (
-        <div className="flex flex-wrap gap-1.5">
-          {value.map((c) => (
-            <button key={c} type="button" onClick={() => onChange(value.filter((x) => x !== c))} className="inline-flex h-7 items-center gap-1 rounded-full bg-[#f1f2f4] pl-2.5 pr-1.5 text-[12.5px] font-medium text-[#374151] hover:bg-[#e8e9ec]">
-              {countryName(c)}
-              <X aria-hidden className="h-3 w-3" />
-              <span className="sr-only">Remove</span>
-            </button>
-          ))}
+        <div className="flex max-h-[92px] flex-wrap gap-1.5 overflow-y-auto">
+          {value.length > 12 ? (
+            <span className="inline-flex h-7 items-center rounded-full bg-[#f1f2f4] px-2.5 text-[12.5px] font-medium text-[#374151]">{value.length} countries</span>
+          ) : (
+            value.map((c) => (
+              <button key={c} type="button" onClick={() => onChange(value.filter((x) => x !== c))} className="inline-flex h-7 items-center gap-1.5 rounded-full bg-[#f1f2f4] pl-1.5 pr-1.5 text-[12.5px] font-medium text-[#374151] hover:bg-[#e8e9ec]">
+                <CountryFlag code={c} className="h-[12px] w-[18px]" />
+                {countryName(c)}
+                <X aria-hidden className="h-3 w-3" />
+                <span className="sr-only">Remove</span>
+              </button>
+            ))
+          )}
         </div>
       ) : null}
-      <div className="relative">
-        <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search countries" className={cn(FIELD, "pl-9")} />
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-0 flex-1">
+          <Search aria-hidden className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search countries" aria-label="Search countries" className={cn(FIELD, "pl-9")} />
+        </div>
+        <button type="button" className={cn(BTN_GHOST, "shrink-0 px-2.5")} onClick={allOn ? clear : selectAll} disabled={!allOn && free.length === 0} data-select-all="">
+          {allOn ? "Clear" : q ? "Select these" : "Select all"}
+        </button>
+        {value.length && !allOn ? (
+          <button type="button" className={cn(BTN_GHOST, "shrink-0 px-2.5")} onClick={clear} data-clear-all="">
+            Clear
+          </button>
+        ) : null}
       </div>
-      <ul className="max-h-[220px] overflow-y-auto rounded-lg border border-[#eceef1]">
+      <ul className="max-h-[240px] overflow-y-auto rounded-lg border border-[#eceef1]" data-choice-scroll="">
         {list.map((c) => {
           const on = chosen.has(c.code)
-          const elsewhere = !on && taken?.includes(c.code)
+          const blocked = elsewhere.has(c.code)
           return (
             <li key={c.code}>
               <button
                 type="button"
+                disabled={blocked}
+                aria-pressed={on}
                 onClick={() => onChange(on ? value.filter((x) => x !== c.code) : [...value, c.code])}
-                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-[#1a1a2e] hover:bg-[#f7f7f8]"
+                className="flex w-full items-center gap-2.5 px-3 py-2 text-left text-[14px] text-[#1a1a2e] hover:bg-[#f7f7f8] disabled:cursor-default disabled:text-[#9ca3af] disabled:hover:bg-transparent"
               >
                 <span className={cn("grid h-4 w-4 shrink-0 place-items-center rounded border", on ? "border-[#1a1a2e] bg-[#1a1a2e]" : "border-[#d1d5db] bg-white")}>{on ? <Check className="h-3 w-3 text-white" strokeWidth={3} /> : null}</span>
+                <CountryFlag code={c.code} near={false} className={blocked ? "opacity-50" : undefined} />
                 <span className="min-w-0 flex-1 truncate">{c.name}</span>
-                {elsewhere ? <span className="shrink-0 text-[12px] text-[#9ca3af]">In another zone</span> : null}
+                {blocked ? <span className="shrink-0 text-[12px] text-[#9ca3af]">In another zone</span> : null}
               </button>
             </li>
           )

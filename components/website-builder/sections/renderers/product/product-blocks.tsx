@@ -33,9 +33,11 @@ import { schemeTokenName } from "@/lib/storelib-theme/color-schemes"
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { breadcrumbTrail } from "@/lib/products/breadcrumbs"
 import {
+  DEFAULT_LOW_STOCK_TEXT,
   isColorOption,
   isNew,
   lowStock,
+  lowStockThreshold,
   pickerOptions,
   stockLeft,
   suggestedAmounts,
@@ -47,6 +49,7 @@ import {
   type ProductVariantData,
 } from "@/lib/products/product-page-model"
 import { DynamicIcon, type SectionPalette } from "../../_shared"
+import { useStorefront } from "../../../theme/storefront-context"
 
 /* ── What every block is handed ───────────────────────────────────────────── */
 
@@ -463,15 +466,22 @@ function LowStock({ s, ctx }: { s: S; ctx: ProductCtx }) {
   const left = stockLeft(ctx.product, ctx.variant)
   const color = colorOf(s.color, ctx.palette, "accent")
   const dot = on(s.show_dot, true)
+  /* Website settings › Commerce: whether stock is shown at all, and the site's own wording. */
+  const commerce = useStorefront().commerce
   const line = (text: string) => (
     <p className="m-0 flex items-center gap-2 text-[14px] font-medium" style={{ color }} data-low-stock="">
       {dot ? <span aria-hidden className="inline-block h-2 w-2 rounded-full" style={{ background: color }} /> : null}
       {text}
     </p>
   )
-  if (lowStock(left, num(s.threshold, 5))) return line(str(s.text, "Only {count} left").replace(/\{count\}/g, String(left)))
+  if (commerce?.showStockLeft === false) return <EditorNote ctx={ctx}>Stock is hidden in Website settings › Commerce</EditorNote>
+  /* 0 (the new default): the product's own low stock line, else the shop's (Settings › Locations). */
+  const threshold = lowStockThreshold(s.threshold, ctx.product.low_stock_at)
+  const own = str(s.text)
+  const text = own && own !== DEFAULT_LOW_STOCK_TEXT ? own : commerce?.lowStockText || DEFAULT_LOW_STOCK_TEXT
+  if (lowStock(left, threshold)) return line(text.replace(/\{count\}/g, String(left)))
   if (str(s.in_stock_text) && ctx.canBuy && !ctx.sample) return line(str(s.in_stock_text))
-  return <EditorNote ctx={ctx}>Shows when {num(s.threshold, 5)} or fewer are left</EditorNote>
+  return <EditorNote ctx={ctx}>Shows when {threshold} or fewer are left</EditorNote>
 }
 
 /** The description as safe markup: the server's cleaned copy, or cleaned here from the raw text. */

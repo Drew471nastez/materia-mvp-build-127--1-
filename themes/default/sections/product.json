@@ -960,11 +960,12 @@
           "id": "threshold",
           "label": "Show at or under",
           "type": "range",
-          "min": 1,
-          "max": 10,
+          "min": 0,
+          "max": 20,
           "step": 1,
           "unit": "",
-          "default": 5
+          "default": 0,
+          "info": "0 uses each product's low stock line (Settings, Locations)."
         },
         {
           "id": "text",
@@ -1680,7 +1681,7 @@
           "id": "pb-low_stock",
           "type": "low_stock",
           "settings": {
-            "threshold": 5,
+            "threshold": 0,
             "text": "Only {count} left",
             "in_stock_text": "",
             "show_dot": true,

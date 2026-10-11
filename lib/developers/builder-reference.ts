@@ -296,7 +296,7 @@ export const THEME_SETTING_DOCS: Record<string, { does: string; as?: Partial<Spe
 
   cart_type: { does: "What Add to cart does: open the cart drawer, go to the cart page, or show a short notice. Read as `theme.cart.type` and as `data-cart-type` on the page." },
   currency_code_enabled: { does: "Prices read $48.00 USD rather than $48.00, on every price a section draws from the shop." },
-  free_shipping_threshold: { does: "The order total above which shipping is free. 0 turns it off." },
+  free_shipping_threshold: { does: "The order total above which shipping is free. 0 uses the amount the store's own shipping rates make free." },
   free_shipping_bar: { does: "Shows the cart how far it is from free shipping." },
 
 

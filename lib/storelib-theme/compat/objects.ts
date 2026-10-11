@@ -88,7 +88,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
 
-  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url }]).map((v, i) => {
+  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left }]).map((v, i) => {
     const vName = String(v.name ?? "Default Title")
     const opts = variantOptions(vName, optionNames.length)
     const vPrice = v.price !== undefined && v.price !== "" ? priceCents(v.price) : price
@@ -101,9 +101,10 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
       price: vPrice,
       compare_at_price: vCompare > vPrice ? vCompare : null,
       available: v.available !== false,
-      inventory_management: null,
+      /* Counted by Storelib and few left (lib/website-builder/compat-site.ts compatStock): the number, so a theme's "Only 3 left" shows. */
+      inventory_management: typeof v.left === "number" ? "shopify" : null,
       inventory_policy: "deny",
-      inventory_quantity: v.available === false ? 0 : 10,
+      inventory_quantity: typeof v.left === "number" ? v.left : v.available === false ? 0 : 10,
       option1: opts[0] ?? null,
       option2: opts[1] ?? null,
       option3: opts[2] ?? null,

@@ -33,7 +33,7 @@ import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
 import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
-import { fromGrams, toGrams, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
+import { dimensionUnitFor, formatSize, fromGrams, fromMm, smallWeightUnitFor, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
 import { PICKUP_READY, type FulfillmentModel, type Location, type LocationKind, type PickupReady, type RateKind, type RateTier, type ShippingProfile, type ShippingRate, type ShippingZone } from "@/lib/physical/types"
 import { BTN_DANGER, BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, CountryPicker, DecimalInput, Empty, FIELD, Field, MoneyInput, MUTED, Notice, NumberInput, Pill, SelectInput, TextInput, Toggle, api, centsOf, dollarsOf, money, peekGet } from "./ui"
 
@@ -77,6 +77,13 @@ interface Integration {
   lastSyncAt: string | null
   lastError: string | null
 }
+interface ShippingProduct {
+  id: string
+  title: string
+  imageUrl: string | null
+  /** Null: the general profile. */
+  profileId: string | null
+}
 interface Data {
   settings: Settings
   locations: Location[]
@@ -84,6 +91,7 @@ interface Data {
   packages: Pack[]
   taxRates: TaxRow[]
   integrations: Integration[]
+  shippingProducts?: ShippingProduct[]
 }
 
 const MODELS: { id: FulfillmentModel; title: string; line: string }[] = [

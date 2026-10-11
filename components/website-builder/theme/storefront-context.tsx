@@ -19,6 +19,7 @@
  * thing it offers.
  */
 import { createContext, useContext, type ReactNode } from "react"
+import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 
 export interface Storefront {
   /** The creator whose site this is. Absent in the editor's canvas. */
@@ -32,6 +33,14 @@ export interface Storefront {
    * policies row reads it to list a shipping page only where one exists.
    */
   pages?: string[]
+  /** The page being drawn ("refund-policy"), when the surface knows it. */
+  pageKey?: string
+  /**
+   * Website settings › Commerce: stock on product pages, the free shipping
+   * banner, the cart's returns line. Filled in by ThemePage from the theme's
+   * settings (lib/website-builder/site-commerce.ts), never by a page.
+   */
+  commerce?: SiteCommerce
 }
 
 const StorefrontContext = createContext<Storefront>({})

@@ -236,7 +236,7 @@ export async function renderSite(
         theme={site.themeSettings}
         sections={site.sections}
         // Whose site this is, for the sections that send something somewhere.
-        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages) }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, pages: Object.keys(site.pages), pageKey }}
         emptyDetail="Check back soon!"
       />
       {/* Every page of the published site is one view in Analytics, with its
