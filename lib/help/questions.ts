@@ -11,7 +11,19 @@
  * while physical commerce is on, like the rest of that guide.
  *
  * Text may carry links as [label](/path), as in the articles.
+ *
+ * Pictures: a screen is shown as its real screenshot (`image`, the same
+ * files and sizes the physical products guide uses, lib/help/physical-shots);
+ * a drawing (`figure`) is only for an idea, like an order's steps.
  */
+import { PHYSICAL_SHOTS } from "./physical-shots"
+
+type Shot = keyof typeof PHYSICAL_SHOTS
+function screen(name: Shot, alt: string, caption?: string): NonNullable<HelpQuestion["image"]> {
+  const [width, height] = PHYSICAL_SHOTS[name]
+  const phoneSize = (PHYSICAL_SHOTS as Record<string, readonly [number, number]>)[`${name}-phone`]
+  return { src: `/help/physical/${name}.webp`, alt, caption, width, height, ...(phoneSize ? { phone: { src: `/help/physical/${name}-phone.webp`, width: phoneSize[0], height: phoneSize[1] } } : {}) }
+}
 
 export interface HelpQuestion {
   id: string
@@ -22,8 +34,10 @@ export interface HelpQuestion {
   store?: string[]
   /** What the buyer does, or sees. */
   buyer?: string[]
-  /** A drawn picture from components/help/help-figures. */
+  /** A drawn diagram from components/help/help-figures, for an idea rather than a screen. */
   figure?: { figure: string; caption: string }
+  /** A screenshot of the real screen. */
+  image?: { src: string; alt: string; caption?: string; width: number; height: number; phone?: { src: string; width: number; height: number } }
   /** About things that ship: hidden while physical commerce is off. */
   physical?: boolean
 }
@@ -47,12 +61,12 @@ export const HELP_TOPICS: HelpTopic[] = [
         q: "What happens if someone orders something I don't have in stock?",
         a: "With Track inventory on, nobody can buy more than you have: at zero the product shows as sold out and can't go in a cart. The only way an order comes in without stock is if you turned on Keep selling when out of stock for that product. Then the order is placed, its quantity goes below zero in Inventory, and it waits in Orders as Unfulfilled until you ship it.",
         store: [
-          "Restock, then ship it as normal: Mark as shipped with the tracking number. The buyer gets the shipping email.",
+          "Restock, then ship it as normal: Fulfill items on the order, with the tracking number. The buyer gets the shipping email.",
           "If it will take a while, tell the buyer: reply to their order email, which goes straight to them.",
           "If you can't get it, cancel the order (the stock is released) and refund it. The buyer gets a cancellation email and then a refund email.",
         ],
         buyer: ["Their order page shows the order as confirmed and not yet shipped. If they're worried, Get help with this order on that page writes to the store."],
-        figure: { figure: "inventory-card", caption: "Track inventory, the quantity, and Keep selling when out of stock, in the product's Inventory card." },
+        image: screen("product-inventory", "The product's Inventory card with Track inventory on, a Low stock alert and Keep selling when out of stock off.", "Track inventory and Keep selling when out of stock, in the product's Inventory card."),
       },
       {
         id: "last-one",
@@ -71,8 +85,8 @@ export const HELP_TOPICS: HelpTopic[] = [
         id: "low-stock",
         physical: true,
         q: "Can Storelib tell me before I run out?",
-        a: "Yes. Turn on Email me when stock runs low in Settings › Locations. At most one email a day lists what sold down to its low stock line. Each product can have its own line.",
-        figure: { figure: "low-stock-email", caption: "The low stock email." },
+        a: "Yes. Turn on Email me when stock runs low in Settings › Locations. After a sale, one email lists what sold down to its low stock line, and the same items don't email you twice in a day. Each product can have its own line.",
+        image: screen("low-stock-email", "The low stock email listing a sold out mug, a mug with 3 left and an apron with 4 left, with an Open Inventory button.", "The low stock email, as it's sent."),
       },
     ],
   },
@@ -86,23 +100,23 @@ export const HELP_TOPICS: HelpTopic[] = [
         physical: true,
         q: "What happens if a buyer's address is somewhere I don't ship?",
         a: "Checkout says shipping isn't available to that address, and they can't pay. Nothing is charged.",
-        store: ["Add the country to a zone in Settings › Shipping and delivery, or add a Rest of world zone. See [Shipping profiles, zones and rates](/help/physical-products/shipping-profiles-zones-and-rates)."],
-        figure: { figure: "zone-rates", caption: "A zone and its rates." },
+        store: ["Add the country to a zone in Settings › Shipping and delivery, or add a Rest of world zone. See [Shipping zones](/help/physical-products/shipping-zones)."],
+        image: screen("shipping-general-profile", "The General shipping profile with a United States zone and a Rest of world zone, each with its rates.", "Zones and their rates, in Settings › Shipping and delivery."),
       },
       {
         id: "tracking",
         physical: true,
         q: "How does the buyer follow their parcel?",
-        a: "When you press Mark as shipped and add the carrier and tracking number, the buyer gets an email with where the parcel is (confirmed, on its way, out for delivery, delivered) and a Track your package button that opens the carrier's own live tracking. Their order page shows it too. Change the number later and they get an email with the new one.",
-        store: ["Mark as shipped from the order, with the carrier and tracking number. Out for delivery and Delivered each send the buyer an email as well."],
+        a: "When you press Fulfill items and add the tracking number and carrier, the buyer gets an email with where the parcel is (confirmed, on its way, out for delivery, delivered) and a Track your package button that opens the carrier's own live tracking. Their order page shows it too. Change the number later and they get an email with the new one.",
+        store: ["Fulfill items from the order, with the tracking number and carrier. Out for delivery and Delivered each send the buyer an email as well."],
         buyer: ["Track your package in the email, or View your order for the order page."],
-        figure: { figure: "mark-shipped", caption: "Mark as shipped, with the carrier and number." },
+        image: screen("order-fulfill-items", "The Fulfill items window with the quantities, a USPS tracking number and Send shipment details to the buyer on.", "Fulfill items, with the tracking number."),
       },
       {
         id: "part-shipped",
         physical: true,
         q: "Can I ship part of an order now and the rest later?",
-        a: "Yes. Mark only the items you're sending as shipped. The buyer's email says part of the order is on the way and the rest follows. Each shipment has its own tracking.",
+        a: "Yes. In Fulfill items, lower the quantities to what you're sending now. The buyer's email says part of the order is on the way and the rest follows. Each shipment has its own tracking.",
         figure: { figure: "split-order", caption: "One order, two shipments." },
       },
       {
@@ -130,7 +144,7 @@ export const HELP_TOPICS: HelpTopic[] = [
         physical: true,
         q: "How does local pickup work for the buyer?",
         a: "At checkout they choose Pick up instead of an address. When you mark the order ready, they get an email with where to come, your instructions and a Get directions button. When you mark it picked up, they get a thank you.",
-        figure: { figure: "checkout-pickup", caption: "Pick up at checkout." },
+        image: screen("checkout-pickup", "The website checkout with Pick up chosen: the studio's address, Usually ready in 24 hours and the instructions.", "Pick up at checkout."),
       },
     ],
   },
@@ -143,9 +157,9 @@ export const HELP_TOPICS: HelpTopic[] = [
         id: "return",
         physical: true,
         q: "How does a return work?",
-        a: "With returns on, the buyer sees Request a return on their order page until your return window ends. They pick the items and a reason. You approve or decline it from the order. Approved, they get an email with where to send it (your default location's address). Mark it received when it's back, choose whether it goes back into stock, and refund from the same screen.",
+        a: "With returns on, the buyer sees Return items on their order page until your return window ends. They pick the items and a reason. You approve or decline it from the order. Approved, they get an email with where to send it (your default location's address). Mark it received when it's back, choose whether it goes back into stock, and refund from the same screen.",
         store: ["Turn returns on and set the window in Settings › Returns and refunds. Edit the reasons buyers choose from there too."],
-        buyer: ["Request a return on the order page. Each step comes by email: approved, received, refunded."],
+        buyer: ["Return items on the order page, then Request return. Each step comes by email: approved, received, refunded."],
       },
       {
         id: "refund",

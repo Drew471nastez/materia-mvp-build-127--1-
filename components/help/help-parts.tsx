@@ -7,7 +7,7 @@
  */
 import Link from "next/link"
 import type { ReactNode } from "react"
-import { SUPPORT_EMAIL, type HelpBlock } from "@/lib/help/articles"
+import { SUPPORT_EMAIL, headingId, plainText, type HelpBlock } from "@/lib/help/articles"
 import { HelpFigure } from "./help-figures"
 
 /** The page container every /app page uses, so help sits in the same frame. */
@@ -80,8 +80,16 @@ export function Breadcrumbs({ items }: { items: { label: string; href?: string }
  * room above them and little below, so each belongs to what follows it.
  */
 export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
+  /* Each heading gets the id the contents list links to (lib/help/articles helpToc): the same words, the same id. */
+  const seen = new Map<string, number>()
+  const idOf = (text: string) => {
+    const base = headingId(text)
+    const n = (seen.get(base) ?? 0) + 1
+    seen.set(base, n)
+    return n === 1 ? base : `${base}-${n}`
+  }
   return (
-    <div className="max-w-[36rem] text-[16px] leading-[1.7] text-[#374151]">
+    <div className="text-[16px] leading-[1.7] text-[#374151] sm:text-[16.5px]" data-help-body="">
       {blocks.map((b, i) => {
         const gap = i === 0 ? "" : "mt-5"
         switch (b.type) {
@@ -93,15 +101,18 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
             )
           case "h":
             return (
-              <h2 key={i} className="mt-10 text-[20px] font-semibold leading-snug tracking-tight text-[#1a1a2e]">
+              <h2 key={i} id={idOf(b.text)} className="mt-12 scroll-mt-24 text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#1a1a2e] first:mt-0 sm:text-[22px]">
                 {b.text}
               </h2>
             )
           case "steps":
             return (
-              <ol key={i} className={`${gap} list-decimal space-y-2 pl-6 marker:font-medium marker:text-[#6b7280]`}>
+              <ol key={i} className={`${gap} help-steps space-y-3`}>
                 {b.items.map((item, j) => (
-                  <li key={j} className="pl-1">
+                  <li key={j} className="relative pl-10">
+                    <span aria-hidden className="absolute left-0 top-[3px] flex h-[26px] w-[26px] items-center justify-center rounded-full bg-[#f1f2f4] text-[13px] font-semibold tabular-nums text-[#1a1a2e]">
+                      {j + 1}
+                    </span>
                     <RichText text={item} />
                   </li>
                 ))}
@@ -125,67 +136,116 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
             )
           case "image":
             return (
-              <figure key={i} className={`${gap} -mx-1 sm:mx-0`} data-help-image="">
-                {/* A screenshot of the real screen (public/help/), at its own size, never wider than the column; pressed, it opens full size (a wide screen is small on a phone). */}
-                <a href={b.src} target="_blank" rel="noreferrer" className="block" aria-label={`${b.alt} Opens the full size picture.`}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={b.src}
-                  alt={b.alt}
-                  width={b.width}
-                  height={b.height}
-                  loading="lazy"
-                  decoding="async"
-                  className="block h-auto w-full max-w-full rounded-xl border border-[#e5e7eb] bg-[#f8f9fa]"
-                  style={{ maxWidth: b.width }}
-                />
+              <figure key={i} className={`${gap} my-8`} data-help-image="">
+                {/* A screenshot of the real screen (public/help/), at its own size, never wider than the column. On a phone the
+                    phone sized picture of the same screen, when there is one. Pressed, it opens full size. */}
+                <a href={b.src} target="_blank" rel="noreferrer" className="block overflow-hidden rounded-2xl border border-[#e5e7eb] bg-[#f8f9fa] shadow-[0_1px_3px_rgba(0,0,0,0.04)]" style={{ maxWidth: b.width }} aria-label={`${b.alt} Opens the full size picture.`}>
+                  <picture>
+                    {b.phone ? <source media="(max-width: 639px)" srcSet={b.phone.src} width={b.phone.width} height={b.phone.height} /> : null}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={b.src} alt={b.alt} width={b.width} height={b.height} loading="lazy" decoding="async" className="block h-auto w-full" />
+                  </picture>
                 </a>
-                {b.caption ? <figcaption className="mt-2 text-[14px] leading-snug text-[#6b7280]">{b.caption}</figcaption> : null}
+                {b.caption ? <figcaption className="mt-2.5 text-[14px] leading-snug text-[#6b7280]">{b.caption}</figcaption> : null}
               </figure>
             )
           case "note":
             return (
-              <p key={i} className={`${gap} rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] px-4 py-3 text-[15px] leading-relaxed`}>
+              <p key={i} className={`${gap} border-l-[3px] border-[#d1d5db] py-0.5 pl-4 text-[15.5px] leading-relaxed text-[#4b5563]`} data-help-note="">
                 <RichText text={b.text} />
               </p>
             )
           case "table":
-            return (
-              <div key={i} className={`${gap} -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0`}>
-                {/* A wide table scrolls sideways on a phone rather than squeezing
-                    every cell into two lines; a narrow one simply fits. */}
-                <table
-                  className={`w-full border-separate border-spacing-0 overflow-hidden rounded-xl border border-[#e5e7eb] text-left text-[14px] leading-normal ${b.head.length >= 4 ? "min-w-[540px] whitespace-nowrap" : "min-w-[420px]"}`}
-                >
-                  <thead>
-                    <tr>
-                      {b.head.map((h, j) => (
-                        <th key={j} scope="col" className="border-b border-[#e5e7eb] bg-[#f8f9fa] px-4 py-2.5 font-semibold text-[#1a1a2e]">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {b.rows.map((row, j) => (
-                      <tr key={j}>
-                        {row.map((cell, k) => (
-                          <td
-                            key={k}
-                            className={`px-4 py-2.5 align-top ${j < b.rows.length - 1 ? "border-b border-[#f0f0f2]" : ""} ${k === 0 ? "font-medium text-[#1a1a2e]" : ""}`}
-                          >
-                            <RichText text={cell} />
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )
+            return <HelpTable key={i} head={b.head} rows={b.rows} className={gap} />
         }
       })}
     </div>
+  )
+}
+
+/**
+ * A TABLE THAT READS ON A PHONE. Wide, it is a table. Narrow, each row
+ * becomes a little block: its first cell as the heading and every other cell
+ * under the column's name, so nothing scrolls sideways or squeezes into one
+ * word per line. One markup for both, so a search engine reads one table.
+ */
+function HelpTable({ head, rows, className }: { head: string[]; rows: string[][]; className?: string }) {
+  return (
+    <div className={`${className ?? ""} overflow-hidden rounded-xl border border-[#e5e7eb]`} data-help-table="">
+      <table className="w-full border-separate border-spacing-0 text-left text-[14px] leading-normal max-sm:block">
+        <thead className="max-sm:hidden">
+          <tr>
+            {head.map((h, j) => (
+              <th key={j} scope="col" className="border-b border-[#e5e7eb] bg-[#f8f9fa] px-4 py-2.5 font-semibold text-[#1a1a2e]">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="max-sm:block">
+          {rows.map((row, j) => (
+            <tr key={j} className={`max-sm:block max-sm:px-4 max-sm:py-3 ${j < rows.length - 1 ? "max-sm:border-b max-sm:border-[#f0f0f2]" : ""}`}>
+              {row.map((cell, k) => (
+                <td
+                  key={k}
+                  data-label={head[k] ? plainText(head[k]) : undefined}
+                  className={[
+                    "px-4 py-2.5 align-top max-sm:block max-sm:p-0",
+                    j < rows.length - 1 ? "sm:border-b sm:border-[#f0f0f2]" : "",
+                    k === 0 ? "font-medium text-[#1a1a2e] max-sm:text-[15px]" : "max-sm:mt-1 max-sm:text-[14px] max-sm:text-[#4b5563]",
+                    k > 0 && head[k] ? "max-sm:before:mr-1.5 max-sm:before:font-medium max-sm:before:text-[#6b7280] max-sm:before:content-[attr(data-label)':']" : "",
+                    !cell ? "max-sm:hidden" : "",
+                  ].join(" ")}
+                >
+                  <RichText text={cell} />
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/**
+ * ON THIS PAGE. The article's headings as links. Beside the article on a
+ * wide screen, it stays in view while the article scrolls; on a phone it is
+ * a closed list under the title, opened with one tap.
+ */
+export function OnThisPage({ items, variant }: { items: { id: string; text: string }[]; variant: "side" | "inline" }) {
+  if (items.length < 2) return null
+  const list = (
+    <ol className="space-y-0.5 border-l border-[#e5e7eb]" data-help-toc="">
+      {items.map((t) => (
+        <li key={t.id}>
+          <a href={`#${t.id}`} className="-ml-px block border-l border-transparent py-1.5 pl-4 text-[14px] leading-snug text-[#6b7280] transition-colors hover:border-[#9ca3af] hover:text-[#1a1a2e] aria-[current=true]:border-[#1a1a2e] aria-[current=true]:font-medium aria-[current=true]:text-[#1a1a2e]">
+            {t.text}
+          </a>
+        </li>
+      ))}
+    </ol>
+  )
+  if (variant === "side") {
+    return (
+      <nav aria-label="On this page">
+        <h2 className="mb-3 text-[13px] font-semibold text-[#1a1a2e]">On this page</h2>
+        {list}
+      </nav>
+    )
+  }
+  return (
+    <details className="group rounded-xl border border-[#e5e7eb] bg-[#f8f9fa] lg:hidden" data-help-toc-inline="">
+      <summary className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-4 text-[14px] font-medium text-[#1a1a2e] [&::-webkit-details-marker]:hidden">
+        On this page
+        <svg aria-hidden viewBox="0 0 20 20" className="h-4 w-4 text-[#6b7280] transition-[rotate] group-open:rotate-180" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 8l5 5 5-5" />
+        </svg>
+      </summary>
+      <nav aria-label="On this page" className="px-4 pb-3">
+        {list}
+      </nav>
+    </details>
   )
 }
 

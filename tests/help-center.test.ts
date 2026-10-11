@@ -12,7 +12,7 @@
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs"
 import { join } from "node:path"
-import { articleText, HELP_ARTICLES, HELP_CATEGORIES, helpArticle, helpArticlePath, helpArticlesIn, helpSectionsIn, SUPPORT_EMAIL } from "../lib/help/articles"
+import { articleText, HELP_ARTICLES, HELP_CATEGORIES, HELP_MOVED, helpArticle, helpArticlePath, helpArticlesIn, helpSectionsIn, SUPPORT_EMAIL } from "../lib/help/articles"
 import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY, PHYSICAL_SECTIONS } from "../lib/help/physical-articles"
 import { PHYSICAL_SHOTS } from "../lib/help/physical-shots"
 import { EXPLAINERS } from "../lib/settings/explainers"
@@ -107,8 +107,8 @@ console.log("\nThe physical products guide")
   const slugsP = P.map((a) => a.slug)
   check("no two physical articles share an address", new Set(slugsP).size === slugsP.length)
   check("every one is in the physical topic", P.every((a) => a.category === PHYSICAL_CATEGORY.slug))
-  check("the sixteen groups asked for, in order",
-    PHYSICAL_SECTIONS.join(" | ") === "Getting started | Products | Orders | Payouts | Website builder | Email | Policies | Account and billing | Shipping and delivery | Locations and inventory | Taxes | Returns and refunds | Checkout settings | Sales channels | Customer accounts on your website | Domains")
+  check("the groups read like a book, in order (round 23)",
+    PHYSICAL_SECTIONS.join(" | ") === "Getting started | Set up your store | Products | Shipping and delivery | Locations and inventory | Taxes | Orders and tracking | Returns and refunds | Customer emails | Website and integrations | Payouts, fees and policies")
   const groups = helpSectionsIn(PHYSICAL_CATEGORY.slug)
   check("the topic page reads them in those groups, each with at least one article",
     groups.map((g) => g.title).join(" | ") === PHYSICAL_SECTIONS.join(" | ") && groups.every((g) => g.articles.length >= 1))
@@ -117,7 +117,9 @@ console.log("\nThe physical products guide")
   check("and links on to at least ten of the detailed articles", zeroLinks.size >= 10, [...zeroLinks])
   /* Addresses already linked from the app, emails and search engines are kept. */
   const kept = ["how-physical-products-work", "create-a-physical-product", "inventory-and-stock", "variants-and-options", "fulfillment-methods", "shipping-profiles-zones-and-rates", "shipping-rate-examples", "local-pickup", "ship-your-orders", "returns-physical", "taxes", "tax-and-units", "upsells-and-bundles", "physical-products-questions"]
-  check("every address the guide had before still answers", kept.every((k) => slugsP.includes(k)), kept.filter((k) => !slugsP.includes(k)))
+  /* An article that moved answers at its old address by sending people on (HELP_MOVED). */
+  const answers = (k: string) => slugsP.includes(k) || !!HELP_MOVED[`physical-products/${k}`]
+  check("every address the guide had before still answers", kept.every(answers), kept.filter((k) => !answers(k)))
   check("every summary fits a meta description", P.every((a) => a.summary.length >= 30 && a.summary.length <= 160), P.filter((a) => a.summary.length > 160).map((a) => a.slug))
   check("step by step: most articles have numbered steps", P.filter((a) => a.body.some((b) => b.type === "steps")).length >= 20)
 
@@ -144,7 +146,8 @@ console.log("\nThe physical products guide")
   check("each one is a WebP in public/help/physical", images.every((b) => /^\/help\/physical\/[a-z0-9-]+\.webp$/.test(b.src) && existsSync(join(process.cwd(), "public", b.src))), images.filter((b) => !existsSync(join(process.cwd(), "public", b.src))).map((b) => b.src))
   check("each says what it shows, for a screen reader", images.every((b) => b.alt.length >= 20 && !/[\u2014\u2013]/.test(b.alt)))
   const files = readdirSync(join(process.cwd(), "public/help/physical")).filter((f) => f.endsWith(".webp")).map((f) => f.slice(0, -5))
-  const used = new Set(images.map((b) => b.src.replace(/^\/help\/physical\/|\.webp$/g, "")))
+  /* A phone picture is used by the screenshot it belongs to. */
+  const used = new Set(images.flatMap((b) => [b.src, b.phone?.src].filter((x): x is string => !!x)).map((src) => src.replace(/^\/help\/physical\/|\.webp$/g, "")))
   check("every file is used by an article, and the size table lists exactly the files", files.every((f) => used.has(f)) && files.length === Object.keys(PHYSICAL_SHOTS).length && files.every((f) => f in PHYSICAL_SHOTS), files.filter((f) => !used.has(f)))
   const webpSize = (f: string) => { const b = readFileSync(join(process.cwd(), "public/help/physical", `${f}.webp`)); const chunk = b.toString("ascii", 12, 16); if (chunk === "VP8X") return [1 + b.readUIntLE(24, 3), 1 + b.readUIntLE(27, 3)]; if (chunk === "VP8L") { const bits = b.readUInt32LE(21); return [1 + (bits & 0x3fff), 1 + ((bits >> 14) & 0x3fff)] } return [b.readUInt16LE(26) & 0x3fff, b.readUInt16LE(28) & 0x3fff] }
   const wrong = files.filter((f) => { const [w, h] = webpSize(f); const [cw, ch] = PHYSICAL_SHOTS[f as keyof typeof PHYSICAL_SHOTS]; return Math.abs(w / 2 - cw) > 1 || Math.abs(h / 2 - ch) > 1 })
@@ -169,7 +172,7 @@ console.log("\nThe physical products guide")
 console.log("\nThe sitemap")
 const sitemap = read("lib/seo/sitemaps.ts")
 check("the Help Center is in the pages sitemap, from the same list",
-  /\{ url: `\$\{BASE\}\/help` \}/.test(sitemap) && /helpCategoriesFor\(physicalGuide\)\.map/.test(sitemap) && /helpArticlesFor\(physicalGuide\)\.map\(\(a\) => \(\{ url: `\$\{BASE\}\$\{helpArticlePath\(a\)\}` \}\)\)/.test(sitemap))
+  /\{ url: `\$\{BASE\}\/help` \}/.test(sitemap) && /helpCategoriesFor\(physicalGuide\)\.map/.test(sitemap) && /helpArticlesFor\(physicalGuide\)\.map\(\(a\) => \(\{ url: `\$\{BASE\}\$\{helpArticlePath\(a\)\}`/.test(sitemap))
 check("article addresses are /help/<category>/<article>", helpArticlePath({ category: "products", slug: "coupons" }) === "/help/products/coupons")
 
 console.log(`\n${passed} passed, ${failed} failed`)

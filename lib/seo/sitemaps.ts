@@ -50,7 +50,7 @@ import { CATEGORIES } from "@/lib/marketplace/categories"
 import { getMainDomain, getProductShareUrl } from "@/lib/url-helpers"
 import { onePageUrl } from "@/lib/onepage/address"
 import { DEV_PAGES, devPath } from "@/lib/developers/pages"
-import { helpArticlePath, helpArticlesFor, helpCategoriesFor } from "@/lib/help/articles"
+import { helpArticlePath, helpArticlesFor, helpArticlesIn, helpCategoriesFor, helpImages } from "@/lib/help/articles"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { isMissingColumn, isMissingTable } from "@/lib/custom-domains/store"
 import { communitiesEnabled } from "@/lib/communities/flag"
@@ -282,8 +282,9 @@ export async function pagesSitemap(): Promise<SitemapEntry[]> {
     */
     { url: `${BASE}/help` },
     { url: `${BASE}/help/questions` },
-    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}` })),
-    ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}` })),
+    ...helpCategoriesFor(physicalGuide).map((c) => ({ url: `${BASE}/help/${c.slug}`, lastModified: newestOf(...helpArticlesIn(c.slug).map((a) => a.updated)) })),
+    /* Each article with the day it was last checked against the product, and its screenshots for Google Images. */
+    ...helpArticlesFor(physicalGuide).map((a) => ({ url: `${BASE}${helpArticlePath(a)}`, lastModified: a.updated ?? null, images: helpImages(a).map((src) => `${BASE}${src}`) })),
   ]
 
   /**
