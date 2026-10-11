@@ -73,6 +73,13 @@ const PROOFS: [string, RegExp][] = [
   ["the signed-in person, for a course", /await sessionUserId\(\)[\s\S]*(lessonContext|productAccess|ownerOf|verifyLink|\.eq\("buyer_id", userId\))/],
   /* lib/memberships/viewer.ts: auth.getUser() as a member; the route answers 401 without one and checks the membership is theirs. */
   ["a signed-in member", /await requestViewer\(\)[\s\S]*if \(!viewer\)/],
+  /* lib/businesses/server.ts requestUser: auth.getUser() on the session, or
+     a bearer token checked with Supabase; the route answers 401 without one. */
+  ["a signed-in account, cookie or bearer", /await requestUser\(req(uest)?\)[\s\S]*if \(!user\)/],
+  /* lib/team/server.ts storeIdFor: auth.getUser(), then the store this
+     account owns or is an active member of for that area, read from the
+     database on every request; 401 or 403 otherwise. */
+  ["the store behind the session, for one area", /await storeIdFor\("[a-z]+"\)[\s\S]*(if \(store\.ok === false\)|return store\.ok \? store\.creatorId : null)/],
 ]
 
 /**
