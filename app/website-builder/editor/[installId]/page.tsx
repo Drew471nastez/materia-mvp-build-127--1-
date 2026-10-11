@@ -2778,6 +2778,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * one is a hit.
    */
   const [storelibSources, setStorelibSources] = useState<Record<string, string>>({})
+  /* The first read of them has answered (or failed): an imported theme's canvas draws from them, so it waits for this (CompatCanvas sourcesReady). */
+  const [storelibSourcesRead, setStorelibSourcesRead] = useState(false)
   /** Raised when an imported theme's files changed elsewhere (a push to GitHub), so its canvas reads them again. */
   const [compatFilesVersion, setCompatFilesVersion] = useState(0)
   /** Also hands back what it loaded, for a caller that needs it this tick: see handleWriteDone. */
@@ -2792,6 +2794,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     } catch {
       /* the bundled sources still render; the next save reloads */
       return null
+    } finally {
+      setStorelibSourcesRead(true)
     }
   }, [installId])
   useEffect(() => { void loadStorelibSources() }, [loadStorelibSources])
@@ -4041,6 +4045,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    * read that found what it already had.
    */
   const [liveCards, setLiveCards] = useState<{ shop: ProductCard[]; catalog: ProductCard[] } | null>(null)
+  /* The first read of them has answered (or failed): an imported theme's first page waits for it (CompatCanvas dataReady). */
+  const [liveCardsRead, setLiveCardsRead] = useState(false)
   const liveCardsKey = useRef("")
   const loadCards = useCallback(async () => {
     try {
@@ -4053,7 +4059,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       if (key === liveCardsKey.current) return
       liveCardsKey.current = key
       setLiveCards({ shop, catalog })
-    } catch {}
+    } catch {
+    } finally {
+      setLiveCardsRead(true)
+    }
   }, [])
   useEffect(() => {
     void loadCards()
@@ -9906,6 +9915,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                   onIntent={intentInCompatCanvas}
                   onLiveOnly={liveOnlyInCompatCanvas}
                   onPainted={onCompatPainted}
+                  sourcesReady={storelibSourcesRead}
+                  dataReady={liveCardsRead}
                   siteUrl={websiteUrl}
                 />
               ) : (
