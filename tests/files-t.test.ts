@@ -138,7 +138,7 @@ async function main() {
   const lib = read("components/files/files-library.tsx")
   check("uploads go to the owner's library folder, without the photo's location details", /\$\{user\.id\}\/files\//.test(lib) && /withoutMetadata\(f\)/.test(lib) && /confirmUpload\("store-builder-images"/.test(lib))
   check("an uploaded picture's address is Storelib's", /mediaUrl\(supabase\.storage/.test(lib))
-  check("the chooser is drawn into the body, a sheet on a phone", /createPortal\(/.test(lib) && /<Modal open/.test(lib))
+  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /label="Choose from your files"/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("every image field offers Choose from your files", /Choose from your files/.test(picker) && /<FilesLibraryChooser/.test(picker))
   check("Files sits under Products in the sidebar", /href: "\/app\/files", label: "Files"/.test(read("components/app/sidebar.tsx")))

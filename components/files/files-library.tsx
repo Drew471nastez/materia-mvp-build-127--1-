@@ -137,8 +137,12 @@ function useLibraryList() {
     const r = await fetchList()
     if (r.error) setError(r.error)
     else if (r.files) {
-      setFilesState(r.files)
-      setError(null)
+      const list = r.files
+      /* A list that arrives while the chooser is still rising is drawn in pieces the browser can stop between, so no frame of the rise and no tap waits on sixty tiles. */
+      React.startTransition(() => {
+        setFilesState(list)
+        setError(null)
+      })
     }
   }, [])
   React.useEffect(() => {
@@ -218,6 +222,7 @@ const IMG_FADE = "absolute inset-0 h-full w-full object-contain opacity-0 transi
 const Tile = React.memo(function Tile({
   file,
   index,
+  hidden,
   mode,
   chosen,
   menuOpen,
@@ -226,6 +231,7 @@ const Tile = React.memo(function Tile({
 }: {
   file: LibraryFile
   index: number
+  hidden: boolean
   mode: "manage" | "pick"
   chosen: boolean
   menuOpen: boolean
@@ -234,7 +240,7 @@ const Tile = React.memo(function Tile({
 }) {
   const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
   return (
-    <li className="group/tile relative" data-file-tile={file.id}>
+    <li className="group/tile relative" data-file-tile={file.id} hidden={hidden}>
       <button
         type="button"
         onClick={() => onPress(file)}
@@ -383,7 +389,7 @@ export function FilesLibrary({
   const crossFade = React.useCallback(() => {
     const wrap = gridWrapRef.current
     const host = fill ? viewRef.current : wrap
-    const grid = wrap?.querySelector<HTMLElement>(":scope > [data-files-grid]")
+    const grid = wrap?.querySelector<HTMLElement>(":scope > [data-files-grid]:not([hidden])")
     if (!wrap || !host || !grid) return
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
     ghostRef.current?.remove()
@@ -394,15 +400,12 @@ export function FilesLibrary({
     ghost.dataset.filesGhost = ""
     ghost.style.cssText = "position:absolute;inset:0;pointer-events:none;z-index:2;overflow:hidden;will-change:opacity"
     for (const li of Array.from(grid.children) as HTMLElement[]) {
+      if (li.hidden) continue
       const r = li.getBoundingClientRect()
       if (r.bottom <= view.top || r.top >= view.bottom) continue
       const copy = li.cloneNode(true) as HTMLElement
       copy.removeAttribute("data-file-tile")
       copy.style.cssText = `position:absolute;margin:0;list-style:none;left:${r.left - hostBox.left}px;top:${r.top - hostBox.top}px;width:${r.width}px;height:${r.height}px`
-      /* The same bytes the tile has on screen, drawn on the copy's first frame rather than a frame later. */
-      copy.querySelectorAll("img").forEach((img) => {
-        img.decoding = "sync"
-      })
       ghost.append(copy)
     }
     if (!ghost.childElementCount) return
@@ -416,6 +419,8 @@ export function FilesLibrary({
     () => (files ?? []).filter((f) => (source === "All" || f.source === source) && (!words || f.name.toLowerCase().includes(words))),
     [files, source, words],
   )
+  /* Where each shown file is in the grid, for which are drawn at once. */
+  const shownAt = React.useMemo(() => new Map(shown.map((f, i) => [f.id, i])), [shown])
 
   /* The new grid is drawn: it starts its fade under the copy, before this frame is painted. */
   React.useLayoutEffect(() => {
@@ -423,7 +428,7 @@ export function FilesLibrary({
     swappedRef.current = false
     if (fill && scrollRef.current) scrollRef.current.scrollTop = 0
     const ghost = ghostRef.current
-    const next = gridWrapRef.current?.querySelector<HTMLElement>(":scope > :not([data-files-ghost])")
+    const next = gridWrapRef.current?.querySelector<HTMLElement>(":scope > :not([data-files-ghost]):not([hidden])")
     next?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: SWAP_MS, easing: SWAP_EASE })
     if (ghost) {
       const out = ghost.animate([{ opacity: 1 }, { opacity: 0 }], { duration: SWAP_MS, easing: "ease-out", fill: "forwards" })
@@ -557,26 +562,34 @@ export function FilesLibrary({
                   <li key={i} className="aspect-square rounded-xl border border-[#eceef1] bg-[#f3f4f6]" />
                 ))}
               </ul>
-            ) : shown.length === 0 ? (
-              <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
-                <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
-                <p className="mt-1 text-[13px] text-[#6b7280]">{files.length === 0 ? "Upload pictures here, or drop them in, and use them anywhere on your website." : "Try another word or filter."}</p>
-              </div>
             ) : (
-              <ul className={cn("grid gap-2.5", gridCols)} data-files-grid="">
-                {shown.map((f, i) => (
-                  <Tile
-                    key={f.id}
-                    file={f}
-                    index={i}
-                    mode={mode}
-                    chosen={mode === "pick" && !!selectedUrl && selectedUrl === f.url}
-                    menuOpen={menu?.file.id === f.id && (!menu.phone || sheetOpen)}
-                    onPress={onPress}
-                    onMenu={onMenu}
-                  />
-                ))}
-              </ul>
+              <>
+                {shown.length === 0 ? (
+                  <div className="flex min-h-[220px] flex-col items-center justify-center rounded-2xl border border-dashed border-[#e3e5e8] px-4 py-10 text-center" data-files-empty="">
+                    <p className="text-[14px] font-medium text-[#1a1a2e]">{files.length === 0 ? "No files yet" : "Nothing matches"}</p>
+                    <p className="mt-1 text-[13px] text-[#6b7280]">{files.length === 0 ? "Upload pictures here, or drop them in, and use them anywhere on your website." : "Try another word or filter."}</p>
+                  </div>
+                ) : null}
+                {/* Every tile stays built; a pill or a search only hides the ones that do not match, so going back shows them as they were, pictures and all. */}
+                <ul className={cn("grid gap-2.5", gridCols)} data-files-grid="" hidden={shown.length === 0}>
+                  {files.map((f) => {
+                    const at = shownAt.get(f.id)
+                    return (
+                      <Tile
+                        key={f.id}
+                        file={f}
+                        index={at ?? EAGER}
+                        hidden={at === undefined}
+                        mode={mode}
+                        chosen={mode === "pick" && !!selectedUrl && selectedUrl === f.url}
+                        menuOpen={menu?.file.id === f.id && (!menu.phone || sheetOpen)}
+                        onPress={onPress}
+                        onMenu={onMenu}
+                      />
+                    )
+                  })}
+                </ul>
+              </>
             )}
           </div>
         </div>
@@ -821,7 +834,7 @@ export function FilesLibraryChooser({ open, onClose, onPick, selectedUrl }: { op
       label="Choose from your files"
       showCloseButton={false}
       className="flex h-[min(760px,calc(100dvh-48px))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px] sm:rounded-2xl"
-      sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT }}
+      sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, keepMounted: true }}
     >
       <div className="flex min-h-0 flex-1 flex-col" data-files-chooser="">
         <div className="flex shrink-0 items-center justify-between gap-3 px-4 pb-3 pt-1 sm:px-5 sm:pb-4 sm:pt-4">
