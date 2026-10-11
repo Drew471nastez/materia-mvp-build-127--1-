@@ -47,7 +47,7 @@ function Header() {
     <header
       data-shell-chrome=""
       className="fixed top-0 left-0 right-0 z-50 md:hidden bg-[#111111]"
-      style={{ height: "calc(68px + env(safe-area-inset-top, 0px))", transform: "translateZ(0)" }}
+      style={{ height: "calc(68px + env(safe-area-inset-top, 0px))" }}
     >
       <div className="flex h-[68px] items-center px-4 text-[16px] text-white">Calvin</div>
       <AppTopCorners className="text-[#111111]" />
