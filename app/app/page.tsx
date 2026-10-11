@@ -2,6 +2,8 @@ import { redirect } from "next/navigation"
 import { cache } from "react"
 import { currentUserForRequest } from "@/lib/auth/request-scope"
 import { createAdminClient } from "@/lib/supabase/admin"
+import { actingStore } from "@/lib/team/server"
+import { roleHome } from "@/lib/team/roles"
 import { DashboardClient } from "@/components/app/dashboard-client"
 import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
@@ -74,6 +76,10 @@ export default async function AppDashboard() {
   /* Supabase did not answer in time: the layout's gate recovers the
      session in the browser. Not /login (lib/auth/page-user.ts). */
   if (!user) return null
+
+  /* Working in a store they were invited to: Home is the owner's (its money and setup), so a member starts where their role does (lib/team). */
+  const acting = await actingStore(adminSupabase, user.id)
+  if (acting) redirect(roleHome(acting.role))
 
   /*
     THREE TRIPS, WHERE THERE WERE FOUR. The creator row, the profile and the
