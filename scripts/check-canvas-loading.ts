@@ -53,7 +53,7 @@ async function main() {
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
   const compat = { settings: r.theme.settings, pages, sources, files }
   /* The first deferred script the theme's layout asks for: the one made to stall. */
-  const layout = String(r.theme.files["shopify/layout/theme.liquid"] ?? "")
+  const layout = String(Object.entries(r.theme.files).find(([p]) => /(^|\/)layout\/theme\.(liquid|storelib)$/.test(p))?.[1] ?? "")
   const stallName = /['"]([\w.-]+\.js)['"]\s*\|\s*asset_url[^>]*>\s*<\/script>/.exec(layout)?.[1] ?? /['"]([\w.-]+\.js)['"]\s*\|\s*asset_url/.exec(layout)?.[1] ?? null
   console.log(`${r.theme.name}: the canvas through a bad network${stallName ? ` (stalled script: ${stallName})` : ""}`)
 
@@ -89,7 +89,7 @@ async function main() {
   })
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok))
   const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`
-  const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox"] })
+  const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox"], protocolTimeout: 300_000 })
 
   const open = async (globals: string, view = { width: 1440, height: 900 }, path = "/"): Promise<Page> => {
     const page = await browser.newPage()
@@ -117,7 +117,10 @@ async function main() {
   }
   const drawn = (s: Awaited<ReturnType<typeof state>>) => s.frame && s.outline === "gone"
 
+  /* ONLY=compat or ONLY=native runs the one half. */
+  const only = process.env.ONLY ?? ""
   try {
+    if (only !== "native") {
     {
       const page = await open("window.PROBE_FILES_FAIL=2;")
       const { s, ms } = await until(page, drawn, 20_000)
@@ -208,10 +211,14 @@ async function main() {
       await page.close()
     }
 
+    }
+
     /* ── The builder's own theme ── */
-    {
+    if (only !== "compat") {
       const pagesGlobals = `window.PROBE_PAGES={home:["hero_centered","features_grid","footer"],about:["about_image","about_timeline","footer"]};window.PROBE_PAGE_DELAY_MS=400;`
       const page = await open(pagesGlobals, { width: 1440, height: 900 }, "/native")
+      const logged: string[] = []
+      page.on("console", (m) => logged.push(m.text()))
       for (let i = 0; i < 60; i++) {
         if (await page.evaluate(() => document.querySelectorAll("#wb-preview-root [data-section-box]").length > 0)) break
         await sleep(200)
@@ -237,10 +244,11 @@ async function main() {
       })
       await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => /^Home( page)?$/i.test((b.textContent ?? "").trim()))?.click())
       await sleep(400)
+      /* A page's row says which page it is (page-switcher.tsx): the Add section library's own "About" category is mounted behind its closed dialog. */
       const picked = await page.evaluate(() => {
-        const el = [...document.querySelectorAll<HTMLElement>("[role='option'], [role='menuitem'], button")].find((b) => /^About( page| us)?$/i.test((b.textContent ?? "").trim()))
+        const el = document.querySelector<HTMLElement>("[data-page-row='about']")
         el?.click()
-        return el?.textContent?.trim() ?? null
+        return el ? "About" : null
       })
       await sleep(2000)
       const frames = await page.evaluate(() => { const w = window as unknown as { probeFrames: { still: boolean; stillOpacity: number; pageOpacity: number; types: string }[]; probeStop: boolean }; w.probeStop = true; return w.probeFrames })
@@ -267,9 +275,10 @@ async function main() {
       })
       await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("button")].find((b) => /^About( page| us)?$/i.test((b.textContent ?? "").trim()))?.click())
       await sleep(400)
-      await page.evaluate(() => [...document.querySelectorAll<HTMLElement>("[role='option'], [role='menuitem'], button")].find((b) => /^Home( page)?$/i.test((b.textContent ?? "").trim()))?.click())
+      await page.evaluate(() => document.querySelector<HTMLElement>("[data-page-row='home']")?.click())
       await sleep(1500)
-      const said = await page.evaluate(() => document.body.innerText.includes("Couldn't open that page"))
+      /* The toast is the editor layout's (EditorToaster), which the probe does not mount: what it is told is read from the log beside it. */
+      const said = logged.some((t) => /a page could not be opened/.test(t))
       const still = await page.evaluate(() => [...document.querySelectorAll("#wb-preview-root [data-section-box]")].map((b) => b.getAttribute("data-section-type")).join(","))
       const skeleton = await page.evaluate(() => !!document.querySelector("[aria-busy='true'].skeleton-deferred"))
       check("  a page whose sections answer 500 is said, not drawn empty", said && /about_image/.test(still), still)

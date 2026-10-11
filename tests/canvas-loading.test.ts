@@ -108,7 +108,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("and every one of these is told to the error log", (canvas.match(/reportLoadProblem\("compat-canvas"/g) ?? []).length >= 4)
     const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
     check("the page answers hello with ready, in whatever order the two happen", /m\.type === "hello"\) \{[\s\S]{0,200}ready\(\);/.test(bridge))
-    check("  and says ready anyway when a deferred script of the theme's holds DOMContentLoaded back", /setTimeout\(function \(\) \{ if \(document\.readyState === "loading"\) ready\(\); \}, 2500\)/.test(bridge))
+    check("  and says ready anyway when a deferred script of the theme's holds DOMContentLoaded back", /setTimeout\(function \(\) \{ if \(!saidReady\) ready\(\); \}, 2500\)/.test(bridge))
     const settings = code("components/website-builder/compat/compat-theme-settings.tsx")
     check("Theme settings never stays on Loading when the files do not come", /\}, \(\) => \{\s*if \(live\) setGroups\(\[OVERRIDE_GROUP as unknown as Group\]\)/.test(settings))
   }
@@ -148,7 +148,7 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     const preview = code("components/website-builder/compat/compat-section-preview.tsx")
     check("a card's height is remembered for the theme, so it opens at it", /rememberedHeights\(ctx\.installId, renderWidth\)\[key\]/.test(preview) && /window\.localStorage\.setItem\(k, JSON\.stringify\(all\)\)/.test(preview))
     check("a card is never made shorter where it can be seen", /if \(wanted > kept\.h \|\| !inSight\(box\.current\)\)/.test(preview) && /releaseCompatHeld\(\)/.test(read("components/website-builder/editor/section-library.tsx")))
-    check("a card that is coming shimmers, and only while the library is open", /wb-compat-shimmer/.test(preview) && /\.wb-library-layer\[data-state="closed"\] \.wb-compat-shimmer::after/.test(read("app/globals.css")))
+    check("a card that is coming shimmers, and only while the library is open", /wb-preview-shimmer/.test(preview) && /\.wb-library-layer\[data-state="closed"\] \.wb-preview-shimmer::after/.test(read("app/globals.css")))
     check("the pages are drawn ahead in quiet moments, the first cards loaded ahead", /return seen \? whenIdle\(job\) : whenQuiet\(job\)/.test(preview) && /eager=\{eager\} \/>/.test(read("components/website-builder/editor/section-library.tsx")))
     check("files that never come name each card instead of a shimmer for good", /failed: failed \|\| \(!!files && !theme\)/.test(preview) && /const unavailable = !!ctx\?\.failed/.test(preview))
   }

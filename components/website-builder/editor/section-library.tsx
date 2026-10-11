@@ -673,6 +673,8 @@ const PreviewBox = memo(function PreviewBox({
       }}
     >
       {live && empty ? <EmptyPreview title={title} /> : null}
+      {/* Until its preview is in: a soft band of light crossing the grey, only while the library is open (app/globals.css, .wb-preview-shimmer). */}
+      {!html && !(live && empty) ? <span aria-hidden data-preview-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
       {html && (
         <div
           ref={innerRef}

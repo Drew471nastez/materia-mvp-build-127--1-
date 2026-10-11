@@ -5357,30 +5357,31 @@ html.capacitor:has([data-page="auth"]) .rotation-guard-overlay {
    (components/website-builder/editor/section-library.tsx). A preview drawn
    ahead into the closed library does not fade at all. */
 
-/* An imported theme's card whose frame is still loading: a soft band of
-   light crossing the grey, on the compositor (a transform), and only while
-   the library is open and somebody can see it
-   (components/website-builder/compat/compat-section-preview.tsx). */
-.wb-compat-shimmer {
+/* A section library card whose preview is still on its way (Storelib's own,
+   and an imported theme's frame): a soft band of light crossing the grey, on
+   the compositor (a transform), and only while the library is open and
+   somebody can see it (components/website-builder/editor/section-library.tsx,
+   components/website-builder/compat/compat-section-preview.tsx). */
+.wb-preview-shimmer {
   overflow: hidden;
 }
-.wb-compat-shimmer::after {
+.wb-preview-shimmer::after {
   content: "";
   position: absolute;
   inset: 0;
   background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.55) 50%, transparent 100%);
   transform: translateX(-100%);
-  animation: wb-compat-shimmer 1.6s ease-in-out infinite;
+  animation: wb-preview-shimmer 1.6s ease-in-out infinite;
 }
-@keyframes wb-compat-shimmer {
+@keyframes wb-preview-shimmer {
   to { transform: translateX(100%); }
 }
-.wb-library-layer[data-state="closed"] .wb-compat-shimmer::after,
-[data-section-library="phone"]:not([data-library-open]) .wb-compat-shimmer::after {
+.wb-library-layer[data-state="closed"] .wb-preview-shimmer::after,
+[data-section-library="phone"]:not([data-library-open]) .wb-preview-shimmer::after {
   animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
-  .wb-compat-shimmer::after { animation: none; }
+  .wb-preview-shimmer::after { animation: none; }
 }
 
 /* The page switcher's menu: it opens and closes by opacity and a short drop,

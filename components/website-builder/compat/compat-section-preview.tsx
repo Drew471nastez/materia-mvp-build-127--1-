@@ -317,9 +317,10 @@ function drainLater() {
     return
   }
   job()
+  /* Only when the editor is truly idle, never on a deadline: somebody typing is never held up by a card nobody has asked for. */
   const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }
-  if (w.requestIdleCallback) w.requestIdleCallback(drainLater, { timeout: 1000 })
-  else window.setTimeout(drainLater, 50)
+  if (w.requestIdleCallback) w.requestIdleCallback(drainLater)
+  else window.setTimeout(drainLater, 400)
 }
 function whenQuiet(job: () => void): () => void {
   later.push(job)
@@ -477,7 +478,7 @@ export const CompatPreviewBox = memo(function CompatPreviewBox({
       style={{ height }}
     >
       {/* Until the frame has drawn: a quiet light passing over the grey, so a card that is coming reads as coming. */}
-      {!shown && !named ? <span aria-hidden data-compat-shimmer="" className="wb-compat-shimmer absolute inset-0" /> : null}
+      {!shown && !named ? <span aria-hidden data-compat-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
       {srcDoc && !unavailable ? (
         <iframe
           title={`${schema.name} preview`}

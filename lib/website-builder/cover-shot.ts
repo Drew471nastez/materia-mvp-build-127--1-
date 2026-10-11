@@ -104,7 +104,7 @@ export async function launchPacked<B>(puppeteer: Starter<B>, pack: Pack, wait = 
    EVERY WAIT IN HERE ENDS, AND A SLOW PAGE IS STILL PHOTOGRAPHED
   ═══════════════════════════════════════════════════════════════════════
   "Preparing preview" stayed on the Website page's card for good. The
-  photograph waited for `networkidle0`, no request at all for half a second,
+  photograph waited for a network with no request at all for half a second,
   which a theme that keeps something open (a video, a polling script, a
   carousel fetching its next picture, an analytics beacon) never reaches: the
   page load timed out at 25 seconds, the phone picture then did the same,
