@@ -30,13 +30,21 @@ import type { SellerProduct, SellerReview } from "./load-reviews"
  *            at once and Storelib decides; the seller cannot bring it back
  *            or delete it, so reporting is not a way to lose bad reviews.
  *
- * A seller never edits or deletes a buyer's words.
+ * A seller never edits a buyer's words.
+ *
+ * WITH STORELIB REVIEWS ON (Settings › Integrations, run-now part 133) the
+ * store moderates as on Judge.me: a review that waits for approval is under
+ * Pending with Publish and Hide beside it; any review can be hidden from the
+ * store (kept, out of the rating), published again, featured (first in
+ * Featured order and in the website's reviews carousel), have a photo taken
+ * off, or be deleted. A review hidden by a report stays Storelib's to bring
+ * back. Import takes a CSV of reviews from another app.
  *
  * `?review=<id>` (the bell and the new review email link here) brings that
  * review into view with a short grey tint.
  */
 
-type Filter = "all" | "1" | "2" | "3" | "4" | "5" | "unanswered" | "hidden"
+type Filter = "all" | "pending" | "published" | "unanswered" | "hidden"
 
 const shortDate = (iso?: string | null) => {
   if (!iso) return ""
@@ -50,7 +58,24 @@ const TAB = (selected: boolean) =>
     selected ? "bg-[#eceef1] text-[#1a1a2e]" : "text-[#4b5563] hover:bg-[#f4f5f7]",
   )
 
-export function ReviewsClient({ initialReviews, products, ready }: { initialReviews: SellerReview[]; products: SellerProduct[]; ready: boolean }) {
+const SELECT =
+  "h-10 w-full cursor-pointer appearance-none truncate md:h-8 md:w-auto md:max-w-[220px] rounded-lg border border-[#e3e4e8] bg-white py-0 pl-3 pr-8 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:text-[13px]"
+
+const SETTINGS_HREF = "/app/settings?tab=integrations&integration=storelib-reviews"
+
+type Moderation = "publish" | "hide" | "feature" | "unfeature" | "remove_photo" | "restore_photo"
+
+export function ReviewsClient({
+  initialReviews,
+  products,
+  ready,
+  app = { enabled: false, ready: false },
+}: {
+  initialReviews: SellerReview[]
+  products: SellerProduct[]
+  ready: boolean
+  app?: { enabled: boolean; ready: boolean }
+}) {
   const router = useRouter()
   const [reviews, setReviews] = useState(initialReviews)
   const [seen, setSeen] = useState(initialReviews)
@@ -59,9 +84,17 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
     setReviews(initialReviews)
   }
   const [filter, setFilter] = useState<Filter>("all")
+  /* ?status=pending from the bell's "waiting for approval": that list, once the page is in the browser. */
+  useEffect(() => {
+    const asked = new URLSearchParams(window.location.search).get("status")
+    if (asked === "pending" || asked === "hidden" || asked === "published") setFilter(asked)
+  }, [])
+  const [stars, setStars] = useState(0)
   const [productId, setProductId] = useState<string>("")
   const [replying, setReplying] = useState<string | null>(null)
   const [reporting, setReporting] = useState<SellerReview | null>(null)
+  const [deleting, setDeleting] = useState<SellerReview | null>(null)
+  const [importing, setImporting] = useState(false)
   const [notice, say] = usePill()
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -70,20 +103,26 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
   const published = useMemo(() => inProduct.filter((r) => r.status === "published"), [inProduct])
   const stats = useMemo(() => summarize(published.map((r) => r.rating)), [published])
   const unanswered = published.filter((r) => !r.seller_reply).length
-  const hiddenCount = inProduct.length - published.length
+  const pendingCount = inProduct.filter((r) => r.status === "pending").length
+  const hiddenCount = inProduct.filter((r) => r.status === "hidden").length
 
   const shown = useMemo(() => {
-    switch (filter) {
-      case "all":
-        return inProduct
-      case "unanswered":
-        return published.filter((r) => !r.seller_reply)
-      case "hidden":
-        return inProduct.filter((r) => r.status === "hidden")
-      default:
-        return published.filter((r) => r.rating === Number(filter))
-    }
-  }, [filter, inProduct, published])
+    const byStatus = (() => {
+      switch (filter) {
+        case "pending":
+          return inProduct.filter((r) => r.status === "pending")
+        case "published":
+          return published
+        case "unanswered":
+          return published.filter((r) => !r.seller_reply)
+        case "hidden":
+          return inProduct.filter((r) => r.status === "hidden")
+        default:
+          return inProduct
+      }
+    })()
+    return stars ? byStatus.filter((r) => r.rating === stars) : byStatus
+  }, [filter, stars, inProduct, published])
 
   /* From the bell or the email: bring that review into view, tinted for a moment. */
   useEffect(() => {
@@ -125,17 +164,47 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
       say(data.error || "The report did not save.", "error")
       return false
     }
-    patch(review.id, { status: "hidden" })
+    patch(review.id, { status: "hidden", hidden_by: "report" })
     say("Reported. The review is hidden while Storelib looks at it.")
     router.refresh()
     return true
   }
 
+  /* Publish, hide, feature, a photo off or back (Storelib Reviews). */
+  const moderate = async (review: SellerReview, action: Moderation, photo?: string) => {
+    const res = await fetch(`/api/app/reviews/${review.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action, photo }) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) return say(data.error || "That did not save.", "error")
+    const r = data.review ?? {}
+    patch(review.id, {
+      status: r.status === "hidden" ? "hidden" : r.status === "pending" ? "pending" : "published",
+      hidden_by: r.hidden_by ?? null,
+      featured: r.featured === true,
+      ...(Array.isArray(r.photos) ? { photos: r.photos } : {}),
+    })
+    say(
+      action === "publish" ? "Published" : action === "hide" ? "Hidden from your store" : action === "feature" ? "Featured" : action === "unfeature" ? "No longer featured" : action === "remove_photo" ? "Photo removed" : "Photo back",
+    )
+  }
+
+  const remove = async (review: SellerReview): Promise<boolean> => {
+    const res = await fetch(`/api/app/reviews/${review.id}`, { method: "DELETE" })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      say(data.error || "That did not delete.", "error")
+      return false
+    }
+    setReviews((prev) => prev.filter((r) => r.id !== review.id))
+    say("Review deleted")
+    return true
+  }
+
   const TABS: { value: Filter; label: string; count: number }[] = [
     { value: "all", label: "All", count: inProduct.length },
+    ...(app.ready || pendingCount > 0 ? [{ value: "pending" as Filter, label: "Pending", count: pendingCount }] : []),
+    { value: "published", label: "Published", count: published.length },
     { value: "unanswered", label: "No reply", count: unanswered },
-    ...([5, 4, 3, 2, 1] as const).map((n) => ({ value: String(n) as Filter, label: `${n} star`, count: stats.stars[n] })),
-    ...(hiddenCount > 0 ? [{ value: "hidden" as Filter, label: "Hidden", count: hiddenCount }] : []),
+    ...(hiddenCount > 0 || app.ready ? [{ value: "hidden" as Filter, label: "Hidden", count: hiddenCount }] : []),
   ]
 
   return (
@@ -144,6 +213,16 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
 
       <PaneBar width={LIST_WIDTH} className={LIST_BAR}>
         <h1 className="text-[24px] font-bold text-[#1a1a2e] sm:text-[28px]">Reviews</h1>
+        <div className="flex items-center gap-2">
+          {app.ready ? (
+            <button type="button" onClick={() => setImporting(true)} className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-reviews-import="">
+              Import
+            </button>
+          ) : null}
+          <a href={SETTINGS_HREF} className={cn(buttonSecondary, "max-md:h-10 max-md:px-3.5 max-md:text-[14px]")} data-reviews-settings="">
+            Settings
+          </a>
+        </div>
       </PaneBar>
 
       <div className={cn("mx-auto pb-24 md:pb-8", LIST_WIDTH, GUTTER)}>
@@ -154,44 +233,60 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
             <span>
               from {stats.count} {stats.count === 1 ? "review" : "reviews"}
               {unanswered > 0 ? ` · ${unanswered} without a reply` : ""}
+              {pendingCount > 0 ? ` · ${pendingCount} waiting for you` : ""}
             </span>
           </p>
         ) : null}
 
         {!ready ? (
           <p className="mt-3 rounded-xl bg-[#fff8e6] px-3.5 py-2.5 text-[13px] text-[#5c4300]">Replies and reports turn on after the database update (run-now part 52).</p>
+        ) : !app.enabled ? (
+          <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white px-3.5 py-2.5 text-[13px] text-[#4b5563] shadow-[0_0_0_1px_rgba(16,24,40,0.06)]" data-reviews-app-off="">
+            <span>Show these reviews on your website and ask buyers for one by email with Storelib Reviews.</span>
+            <a href={SETTINGS_HREF} className="font-medium text-[#1a1a2e] underline underline-offset-4">
+              Turn it on
+            </a>
+          </p>
         ) : null}
 
         <section aria-label="Reviews" className={cn(card, "mt-3 overflow-hidden")}>
           <div className="flex min-h-[52px] flex-wrap items-center gap-2 border-b border-[#eef0f2] px-2 py-1.5 md:min-h-12">
-            <div role="tablist" aria-label="Filter by stars" className="orders-strip -my-2 flex min-w-0 flex-1 basis-full items-center gap-0.5 overflow-x-auto py-2 md:basis-auto">
+            <div role="tablist" aria-label="Filter reviews" className="orders-strip -my-2 flex min-w-0 flex-1 basis-full items-center gap-0.5 overflow-x-auto py-2 md:basis-auto">
               {TABS.map((t) => (
-                <button key={t.value} type="button" role="tab" aria-selected={filter === t.value} onClick={() => setFilter(t.value)} className={TAB(filter === t.value)}>
+                <button key={t.value} type="button" role="tab" aria-selected={filter === t.value} onClick={() => setFilter(t.value)} className={TAB(filter === t.value)} data-reviews-tab={t.value}>
                   {t.label}
                   <span className="tabular-nums text-[#9ca3af]">{t.count}</span>
                 </button>
               ))}
             </div>
-            {products.length > 1 ? (
-              <label className="relative mx-1 mb-1 w-full shrink-0 md:mb-0 md:ml-0 md:w-auto">
-                <span className="sr-only">Product</span>
-                <select
-                  value={productId}
-                  onChange={(e) => setProductId(e.target.value)}
-                  className="h-10 w-full cursor-pointer appearance-none truncate md:h-8 md:w-auto md:max-w-[220px] rounded-lg border border-[#e3e4e8] bg-white py-0 pl-3 pr-8 text-[14px] font-medium text-[#1a1a2e] shadow-[0_1px_0_rgba(17,24,39,0.05)] outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/20 md:text-[13px]"
-                >
-                  <option value="">All products</option>
-                  {products.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.title}
+            <div className="mx-1 mb-1 flex w-full gap-2 md:mb-0 md:ml-0 md:w-auto">
+              <label className="relative flex-1 md:flex-none">
+                <span className="sr-only">Stars</span>
+                <select value={stars} onChange={(e) => setStars(Number(e.target.value))} className={SELECT} data-reviews-stars="">
+                  <option value={0}>Any rating</option>
+                  {[5, 4, 3, 2, 1].map((n) => (
+                    <option key={n} value={n}>
+                      {n} {n === 1 ? "star" : "stars"} ({inProduct.filter((r) => r.rating === n).length})
                     </option>
                   ))}
                 </select>
-                <svg aria-hidden viewBox="0 0 16 16" className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]">
-                  <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <Chevron />
               </label>
-            ) : null}
+              {products.length > 1 ? (
+                <label className="relative flex-1 md:flex-none">
+                  <span className="sr-only">Product</span>
+                  <select value={productId} onChange={(e) => setProductId(e.target.value)} className={SELECT}>
+                    <option value="">All products</option>
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.title}
+                      </option>
+                    ))}
+                  </select>
+                  <Chevron />
+                </label>
+              ) : null}
+            </div>
           </div>
 
           {shown.length > 0 ? (
@@ -202,22 +297,29 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
                   review={review}
                   product={byProduct.get(review.product_id) ?? null}
                   ready={ready}
+                  moderation={app.ready}
                   replying={replying === review.id}
                   onReply={() => setReplying(review.id)}
                   onCancelReply={() => setReplying(null)}
                   onSaveReply={(text) => saveReply(review, text)}
                   onRemoveReply={() => removeReply(review)}
                   onReport={() => setReporting(review)}
+                  onModerate={(action, photo) => moderate(review, action, photo)}
+                  onDelete={() => setDeleting(review)}
                 />
               ))}
             </div>
           ) : (
             <div className="flex flex-col items-center px-6 py-14 text-center">
-              <p className="text-[15px] font-semibold text-[#1a1a2e]">{reviews.length === 0 ? "No reviews yet" : "No reviews here"}</p>
+              <p className="text-[15px] font-semibold text-[#1a1a2e]">{reviews.length === 0 ? "No reviews yet" : filter === "pending" ? "Nothing waiting" : "No reviews here"}</p>
               <p className="mt-1 max-w-[380px] text-[14px] text-[#6b7280] md:text-[13px]">
                 {reviews.length === 0
-                  ? "Buyers review from their receipt or their library. Storelib asks them a week after they buy on Storelib, and again a week later if they have not."
-                  : "Try another filter."}
+                  ? app.enabled
+                    ? "Buyers are asked by email after they buy, on your schedule in Storelib Reviews."
+                    : "Buyers review from their receipt or their library. Storelib asks them a week after they buy on Storelib, and again a week later if they have not."
+                  : filter === "pending"
+                    ? "New reviews that need your approval show here."
+                    : "Try another filter."}
               </p>
             </div>
           )}
@@ -225,42 +327,76 @@ export function ReviewsClient({ initialReviews, products, ready }: { initialRevi
       </div>
 
       {reporting ? <ReportDialog review={reporting} onClose={() => setReporting(null)} onReport={(reason, note) => report(reporting, reason, note)} /> : null}
+      {deleting ? <DeleteDialog review={deleting} onClose={() => setDeleting(null)} onDelete={() => remove(deleting)} /> : null}
+      {importing ? (
+        <ImportDialog
+          onClose={() => setImporting(false)}
+          onDone={(n) => {
+            say(`${n} ${n === 1 ? "review" : "reviews"} imported`)
+            router.refresh()
+          }}
+        />
+      ) : null}
     </div>
   )
 }
+
+function Chevron() {
+  return (
+    <svg aria-hidden viewBox="0 0 16 16" className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#6b7280]">
+      <path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+const SOURCE_WORD: Record<string, string> = { import: "Imported", site: "From your website", request: "From a review email", website: "From your website" }
 
 function ReviewRow({
   review,
   product,
   ready,
+  moderation,
   replying,
   onReply,
   onCancelReply,
   onSaveReply,
   onRemoveReply,
   onReport,
+  onModerate,
+  onDelete,
 }: {
   review: SellerReview
   product: SellerProduct | null
   ready: boolean
+  moderation: boolean
   replying: boolean
   onReply: () => void
   onCancelReply: () => void
   onSaveReply: (text: string) => Promise<boolean>
   onRemoveReply: () => void
   onReport: () => void
+  onModerate: (action: Moderation, photo?: string) => void
+  onDelete: () => void
 }) {
   const { name, avatarUrl, avatarName } = reviewerOf(review)
   const hidden = review.status === "hidden"
+  const pending = review.status === "pending"
+  const reported = hidden && review.hidden_by !== "seller"
+  const live = review.status === "published"
   const items = [
-    ...(ready && !hidden ? [{ label: review.seller_reply ? "Edit reply" : "Reply", onClick: onReply }] : []),
+    ...(moderation && (pending || (hidden && !reported)) ? [{ label: "Publish", onClick: () => onModerate("publish") }] : []),
+    ...(moderation && !hidden ? [{ label: pending ? "Hide" : "Hide from store", onClick: () => onModerate("hide") }] : []),
+    ...(moderation && live ? [{ label: review.featured ? "Stop featuring" : "Feature", onClick: () => onModerate(review.featured ? "unfeature" : "feature") }] : []),
+    ...(ready && !hidden ? [{ label: review.seller_reply ? "Edit reply" : "Reply", onClick: onReply, separatorBefore: moderation }] : []),
     ...(ready && review.seller_reply ? [{ label: "Remove reply", onClick: onRemoveReply }] : []),
-    ...(product?.slug && !hidden ? [{ label: "View on product page", href: `/p/${product.slug}#reviews`, target: "_blank" as const, separatorBefore: true }] : []),
-    ...(ready && !hidden ? [{ label: "Report review", variant: "destructive" as const, separatorBefore: true, onClick: onReport }] : []),
+    ...(product?.slug && live ? [{ label: "View on product page", href: `/p/${product.slug}#reviews`, target: "_blank" as const, separatorBefore: true }] : []),
+    ...(ready && !hidden && review.source !== "import" ? [{ label: "Report review", variant: "destructive" as const, separatorBefore: true, onClick: onReport }] : []),
+    ...(moderation && !reported ? [{ label: "Delete", variant: "destructive" as const, separatorBefore: !(ready && !hidden && review.source !== "import"), onClick: onDelete }] : []),
   ]
+  const photos = review.photos ?? []
 
   return (
-    <article data-review-row={review.id} className={cn("px-4 py-4 md:px-5", hidden && "bg-[#fafbfb]")}>
+    <article data-review-row={review.id} data-review-status={review.status} className={cn("px-4 py-4 md:px-5", (hidden || pending) && "bg-[#fafbfb]")}>
       <div className="flex items-start gap-3">
         <AppAvatar src={avatarUrl} name={avatarName} alt="" size={36} markWhileLoading />
         <div className="min-w-0 flex-1">
@@ -268,7 +404,9 @@ function ReviewRow({
             <div className="min-w-0">
               <p className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
                 <span className="truncate text-[14px] font-semibold text-[#1a1a2e]">{name}</span>
-                {hidden ? <StatusBadge tone="attention">Hidden, reported</StatusBadge> : null}
+                {pending ? <StatusBadge tone="attention">Waiting for approval</StatusBadge> : null}
+                {hidden ? <StatusBadge tone={reported ? "attention" : "neutral"}>{reported ? "Hidden, reported" : "Hidden"}</StatusBadge> : null}
+                {review.featured && live ? <StatusBadge tone="success">Featured</StatusBadge> : null}
               </p>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[13px] text-[#6b7280]">
                 <Stars rating={review.rating} size={14} />
@@ -278,6 +416,8 @@ function ReviewRow({
                   {shortDate(review.created_at)}
                   {review.edited_at ? " · Edited" : ""}
                 </span>
+                <span aria-hidden className="max-sm:hidden">·</span>
+                <span className="max-sm:basis-full" data-review-verified={review.verified ? "yes" : "no"}>{review.verified ? "Verified buyer" : SOURCE_WORD[review.source] ?? "Not verified"}</span>
               </p>
             </div>
             {items.length ? (
@@ -286,9 +426,39 @@ function ReviewRow({
           </div>
 
           {product ? <p className="mt-1.5 truncate text-[13px] text-[#6b7280]">On {product.title}</p> : null}
-          <p className="mt-2 whitespace-pre-line text-[14px] leading-relaxed text-[#374151] [overflow-wrap:anywhere]">{review.content}</p>
+          {review.title ? <p className="mt-2 text-[14px] font-semibold text-[#1a1a2e] [overflow-wrap:anywhere]">{review.title}</p> : null}
+          <p className={cn(review.title ? "mt-1" : "mt-2", "whitespace-pre-line text-[14px] leading-relaxed text-[#374151] [overflow-wrap:anywhere]")}>{review.content}</p>
 
-          {replying ? (
+          {photos.length ? (
+            <div className="mt-3 flex flex-wrap gap-2" data-review-photos="">
+              {photos.map((ph) => (
+                <div key={ph.path} className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={ph.url} alt="" className={cn("h-16 w-16 rounded-lg object-cover", ph.status === "removed" && "opacity-35 grayscale")} />
+                  {moderation ? (
+                    <button
+                      type="button"
+                      onClick={() => onModerate(ph.status === "removed" ? "restore_photo" : "remove_photo", ph.path)}
+                      className="absolute inset-x-1 bottom-1 rounded-md bg-white/90 px-1 py-0.5 text-[11px] font-medium text-[#1a1a2e] shadow-[0_0_0_1px_rgba(16,24,40,0.08)]"
+                    >
+                      {ph.status === "removed" ? "Show" : "Remove"}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+
+          {pending && moderation ? (
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => onModerate("publish")} className={cn(buttonPrimary, "max-md:h-10 max-md:px-4 max-md:text-[14px]")} data-review-publish="">
+                Publish
+              </button>
+              <button type="button" onClick={() => onModerate("hide")} className={cn(buttonSecondary, "max-md:h-10 max-md:px-4 max-md:text-[14px]")}>
+                Hide
+              </button>
+            </div>
+          ) : replying ? (
             <ReplyEditor initial={review.seller_reply ?? ""} onCancel={onCancelReply} onSave={onSaveReply} />
           ) : review.seller_reply ? (
             <div className="mt-3 rounded-xl bg-[#f6f7f9] px-3.5 py-3">
@@ -303,10 +473,106 @@ function ReviewRow({
             </button>
           ) : null}
 
-          {hidden ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your product page or in its rating while Storelib looks at your report.</p> : null}
+          {reported ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your product page or in its rating while Storelib looks at your report.</p> : null}
+          {hidden && !reported ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store or in its rating. Publish it to show it again.</p> : null}
+          {pending ? <p className="mt-2 text-[13px] text-[#6b7280]">Not on your store until you publish it.</p> : null}
         </div>
       </div>
     </article>
+  )
+}
+
+function DeleteDialog({ review, onClose, onDelete }: { review: SellerReview; onClose: () => void; onDelete: () => Promise<boolean> }) {
+  const [busy, setBusy] = useState(false)
+  const { name } = reviewerOf(review)
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
+      <div className="relative w-full rounded-t-2xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5">
+        <h3 id="delete-title" className="text-[17px] font-semibold text-[#1a1a2e]">
+          Delete the review by {name}?
+        </h3>
+        <p className="mt-1 text-[14px] text-[#6b7280]">It is gone for good, with its photos. To take it off your store and keep it, hide it instead.</p>
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true)
+              const ok = await onDelete()
+              setBusy(false)
+              if (ok) onClose()
+            }}
+            className="inline-flex h-11 flex-1 cursor-pointer items-center justify-center rounded-xl bg-[#c4290c] text-[15px] font-medium text-white transition-colors hover:bg-[#a82309] disabled:cursor-default disabled:opacity-50 sm:h-10 sm:text-[14px]"
+          >
+            {busy ? "Deleting" : "Delete"}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: (n: number) => void }) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const run = async (file: File) => {
+    setBusy(true)
+    setError(null)
+    const csv = await file.text().catch(() => "")
+    const res = await fetch("/api/app/reviews/import", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ csv }) }).catch(() => null)
+    const data = res ? await res.json().catch(() => ({})) : {}
+    setBusy(false)
+    if (!res?.ok) return setError(data.error || "The file did not import.")
+    setResult({ imported: data.imported ?? 0, skipped: data.skippedCount ?? 0 })
+    if (data.imported) onDone(data.imported)
+  }
+  return (
+    <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="import-title">
+      <div className="absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
+      <div className="relative w-full rounded-t-2xl bg-white p-5 pb-[calc(20px+env(safe-area-inset-bottom))] shadow-xl sm:max-w-md sm:rounded-2xl sm:pb-5" data-reviews-import-dialog="">
+        <h3 id="import-title" className="text-[17px] font-semibold text-[#1a1a2e]">
+          Import reviews
+        </h3>
+        {result ? (
+          <p className="mt-2 text-[14px] text-[#374151]">
+            {result.imported} imported{result.skipped ? `, ${result.skipped} skipped (no matching product, or no rating or words)` : ""}.
+          </p>
+        ) : (
+          <p className="mt-1 text-[14px] leading-relaxed text-[#6b7280]">
+            A CSV with a row per review and columns for the product (its address or title), the rating and the review. Exports from Judge.me and Shopify Product Reviews work as they are. Imported reviews are not marked Verified buyer.
+          </p>
+        )}
+        {error ? <p className="mt-3 rounded-xl bg-[#fef3f2] px-3.5 py-2.5 text-[14px] text-[#b42318]">{error}</p> : null}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,text/csv"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            e.target.value = ""
+            if (f) void run(f)
+          }}
+        />
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} disabled={busy} className={cn(buttonSecondary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
+            {result ? "Done" : "Cancel"}
+          </button>
+          {!result ? (
+            <button type="button" disabled={busy} onClick={() => fileRef.current?.click()} className={cn(buttonPrimary, "h-11 flex-1 rounded-xl text-[15px] sm:h-10 sm:text-[14px]")}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              {busy ? "Importing" : "Choose CSV"}
+            </button>
+          ) : null}
+        </div>
+      </div>
+    </div>
   )
 }
 

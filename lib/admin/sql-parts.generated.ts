@@ -119,4 +119,5 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "129", file: "129_customer_email_words_and_tax_on_receipts.sql", sha256: "aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b" },
   { part: "131", file: "131_github_whole_theme_and_agent_keys.sql", sha256: "37a725896306d209806fab7556e8d36f47ecd5e23dff3c5cc4b3a18bbe318135" },
   { part: "132", file: "132_perf_collect_everywhere.sql", sha256: "d0cb76a717c9b34c4df43f836bf81147699307c932c7fdb8f704a49546d56091" },
+  { part: "133", file: "133_storelib_reviews.sql", sha256: "2902625caf9be5e3a373c27a2311cdc9a6c397b0a77bd32b83afb3ce88d6518c" },
 ]

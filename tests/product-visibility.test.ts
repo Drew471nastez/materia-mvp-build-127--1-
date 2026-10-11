@@ -313,6 +313,7 @@ async function main() {
     const ALLOWED: Record<string, { count: number; why: string }> = {
       "app/api/reviews/route.ts": { count: 1, why: "a buyer writing a review of a product they have, whatever its status" },
       "app/api/reviews/stats/route.ts": { count: 1, why: "two numbers for a product page, which is a 404 when the product is not published" },
+      "app/api/reviews/storefront/route.ts": { count: 1, why: "the signed in owner's own product, previewed in their builder's canvas, whatever its status" },
       "components/website-builder/theme/render-product.tsx": { count: 1, why: "the pricing columns of a product the page already read as published" },
       "lib/checkout/fulfil-cart-session.ts": { count: 1, why: "titles for a paid order: the buyer paid while it was on sale" },
       "lib/checkout/fulfil-payment.ts": { count: 1, why: "the title on a paid order's receipt" },

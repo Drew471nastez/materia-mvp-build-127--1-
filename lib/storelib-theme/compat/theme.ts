@@ -57,6 +57,9 @@ import { shopifyBootstrap, withoutShopifyCdn } from "./shims"
 import { fixInlineStyles, fixThemeCss } from "./css-fixes"
 import { assetNameOf, inlineSpriteFiles } from "./icons"
 import { blocksIntoDetails, contentForStatics } from "@/lib/website-builder/product-details-rule"
+import { REVIEWS_DEFAULTS, REVIEWS_WIDGET_LIQUID, isReviewsAppBlock } from "./storelib-reviews"
+import { sampleStorefrontReviews } from "@/lib/reviews/storefront"
+import { readReviewsApp } from "@/lib/reviews/app-settings"
 import { linkFactsOf, siteLink } from "./links"
 
 /** One resolver per page drawn, each address worked out once: a menu is read by the header, its drawer and the footer. */
@@ -192,6 +195,8 @@ export interface CompatPage {
   predictive?: { terms: string; products: CardLike[]; collections: CollectionLike[]; queries?: string[] } | null
   /** The filters, sort and pages a collection or the search draws: lib/products/catalog-filters.ts. */
   catalog?: { filters?: O[]; sortBy?: string; pagination?: O } | null
+  /** Storelib Reviews for this page (lib/reviews/storefront.ts), as `storelib_reviews`: ./storelib-reviews.ts. */
+  reviews?: O | null
 }
 
 export interface CompatThemeOptions {
@@ -481,6 +486,8 @@ export class CompatTheme {
       collection,
       search,
       customer: page.customer ?? null,
+      /* Storelib Reviews (./storelib-reviews.ts): the page's, or in the builder before any arrive, sample ones. */
+      storelib_reviews: page.reviews ?? (page.designMode ? { ...sampleStorefrontReviews(readReviewsApp({ enabled: true }), "", page.product ? { id: page.product.id, title: String(page.product.settings?.title ?? "") } : null), enabled: true } : null),
       page: page.pageObject ? { [OUTPUT]: page.pageObject.title, ...page.pageObject, id: page.pageObject.handle, template_suffix: page.suffix ?? null, metafields: {} } : null,
       /* A blog page draws the theme's blog with its title and no posts (Storelib keeps none), never a white page with nothing in it. */
       blog: page.template === "blog" || page.template === "article" ? emptyBlog(page.path) : null,
@@ -544,6 +551,7 @@ export class CompatTheme {
       section: (ctx, name) => this.renderStaticSection(ctx, name),
       sections: (ctx, group) => this.renderGroup(ctx, group),
       contentFor: (ctx, what, args) => this.contentFor(ctx, what, args),
+      appBlock: (ctx, block) => (isReviewsAppBlock(block.app_type ?? block.type) ? this.reviewsBlock(ctx, String(block.id ?? ""), (block.settings as O | undefined) ?? {}) : null),
       placedBlock: (ctx, name, args, content) => this.placedBlock(ctx, name, args, content),
       form: (ctx, type, obj, args) => formMarkup(ctx, type, obj, args),
       paginate: (ctx, list, by) => paginateList(ctx, list, by, page),
@@ -644,15 +652,29 @@ export class CompatTheme {
     const schema = local ?? this.schemaOf("blocks", b.type)
     const settingsSchema = (Array.isArray(schema.settings) ? schema.settings : []) as ShopifySetting[]
     const children = (b.blocks ?? []).filter((c) => !c.disabled && !c.hidden)
+    /* An app block reads as Shopify gives it to a theme: `block.type` is "@app" (Dawn's `when '@app'` then renders it), its own type kept beside it. */
+    const app = /^shopify:\/\/apps\//.test(b.type)
     return {
       [OUTPUT]: b.id,
       id: b.id,
-      type: b.type,
+      type: app ? "@app" : b.type,
+      ...(app ? { app_type: b.type } : {}),
       settings: typedSettings(settingsSchema, b.settings, res, dyn),
       shopify_attributes: blockAttributes(b.id),
       blocks: children.map((c) => this.blockObject(c, [], res, dyn)),
       __instance: b,
       __local: !!local,
+    }
+  }
+
+  /** A reviews app's block from Shopify, drawn as Storelib Reviews in its place (./storelib-reviews.ts). Its own settings are an app's and mean nothing here. */
+  private reviewsBlock(ctx: Ctx, id: string, _settings: unknown): string {
+    void _settings
+    try {
+      return `<div class="shopify-app-block" ${blockAttributes(id)}>${renderString(REVIEWS_WIDGET_LIQUID, ctx.child({ rv: { ...REVIEWS_DEFAULTS } }))}</div>`
+    } catch (e) {
+      this.warnings.push(`Storelib Reviews: ${(e as Error).message}`)
+      return ""
     }
   }
 
@@ -674,7 +696,7 @@ export class CompatTheme {
     const draw = (b: CompatBlockInstance) => {
       const path = this.fileFor("blocks", b.type)
       const tree = path ? this.tree(path) : null
-      if (!tree) return ""
+      if (!tree) return isReviewsAppBlock(b.type) ? this.reviewsBlock(ctx, b.id, b.settings) : ""
       let holder: Ctx | null = null
       const block = this.blockObject(b, [], res, resolverFor(() => holder))
       const c = ctx.child({ block, closest, ...extra })

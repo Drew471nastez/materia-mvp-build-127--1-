@@ -207,6 +207,8 @@ const CUSTOM_DOMAIN_PLATFORM_PATHS = [
   "order-help",
   "purchase",
   "receipt",
+  /* Storelib Reviews' request links: one buyer's page, never a page to index. */
+  "review",
   "sell",
   "signup",
   "wishlist",

@@ -289,7 +289,8 @@ export function checkSectionIntegration(source: string): QualityFinding[] {
     const blockDefs = schema.blocks ?? []
     const productBlocks = blockDefs.filter((bl) => /product|item|card/i.test(String((bl as { type?: unknown }).type ?? "")))
     const readsStore =
-      /\{%-?\s*for\s+\w+\s+in\s+(products|page\.product|settings\.\w+)\b/.test(parsed.value.template.text) ||
+      /* Storelib Reviews' own (reviews.here, reviews.all): the store's reviews of its products, read from the store. */
+      /\{%-?\s*for\s+\w+\s+in\s+(products|page\.product|settings\.\w+|reviews\.\w+)\b/.test(parsed.value.template.text) ||
       /\{\{[^}]*\b(products|page\.product|page\.collection)\b/.test(parsed.value.template.text) ||
       allSettings.some((st) => RESOURCE_TYPES.has(String(st.type)))
     /*

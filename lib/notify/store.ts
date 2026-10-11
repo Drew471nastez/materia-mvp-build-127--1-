@@ -945,6 +945,12 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         /* Only the address the seller published for support: never their login, which they did not give a buyer. */
         creatorSupportEmail = clip(c?.support_email ?? null, 200)
       }
+      /* Storelib Reviews on: the store's own app asks, on its own schedule (lib/reviews/request-schedule.ts). A read that fails is "not on". */
+      let appHandles = false
+      if (p?.creator_id) {
+        const { data: app } = await db.from("store_settings").select("reviews").eq("creator_id", p.creator_id).maybeSingle()
+        appHandles = (app as { reviews?: { enabled?: unknown } | null } | null)?.reviews?.enabled === true
+      }
       return {
         order: {
           id: o.id,
@@ -967,6 +973,7 @@ export function supabaseNotifyStore(db: AdminDb, log: (line: string, code?: stri
         productSlug: p?.slug ?? null,
         productImage: clip(p?.thumbnail_url ?? null, 1000),
         creatorSupportEmail,
+        appHandles,
       }
     },
 

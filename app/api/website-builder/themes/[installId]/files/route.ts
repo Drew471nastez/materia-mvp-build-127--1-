@@ -9,6 +9,7 @@ import { getDefaultFileContent } from "@/lib/website-builder/theme-file-tree"
 import { compileThemeFile } from "@/lib/storelib-theme"
 import { DEFAULT_THEME_SOURCES } from "../../../../../../themes/default/sources.generated"
 import { timed } from "@/lib/perf/server-timing"
+import { withStorelibReviewsSection } from "@/lib/storelib-theme/compat/storelib-reviews"
 
 type Params = { params: Promise<{ installId: string }> }
 
@@ -140,7 +141,8 @@ async function handleGET(req: Request, { params }: Params) {
       ? ((await supabase!.from("store_theme_custom_files").select("path, content").eq("install_id", installId).like("path", "%.storelib")).data ?? [])
       : (data ?? [])
     const files = sourceMap(rows as { path: string; content: string; draft_content?: string | null }[])
-    return NextResponse.json({ files })
+    /* An imported theme offers Storelib Reviews' section in Add section like one of its own (lib/storelib-theme/compat/storelib-reviews.ts). */
+    return NextResponse.json({ files: withStorelibReviewsSection(files) })
   }
 
   // List all custom files if no path

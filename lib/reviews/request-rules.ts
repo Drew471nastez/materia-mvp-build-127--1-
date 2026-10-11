@@ -13,6 +13,11 @@
  *
  * ALL of these must hold:
  *
+ *   NOT THE APP'S      the store does not have Storelib Reviews on. With it
+ *                      on, the store's own settings decide when and whether
+ *                      to ask, for every order it sells
+ *                      (lib/reviews/request-schedule.ts), and these two
+ *                      stand aside so nobody is asked twice.
  *   SOLD ON STORELIB   orders.source is "storelib" and the page Buy was
  *                      pressed on (source_detail.surface) was not a website
  *                      the creator built, nor a test sale from the admin.
@@ -93,6 +98,8 @@ export interface ReviewRequestFacts {
   reviewed: boolean
   /** The address's live suppression scopes (email_suppressions). */
   suppressed: readonly string[]
+  /** The store has Storelib Reviews on, which asks on its own schedule (lib/reviews/request-schedule.ts). */
+  appHandles?: boolean
 }
 
 export type ReviewRequestBlock =
@@ -107,6 +114,7 @@ export type ReviewRequestBlock =
   | "unsubscribed"
   | "too_early"
   | "no_receipt"
+  | "app_handles"
 
 function surfaceOf(detail: unknown): string | null {
   if (!detail || typeof detail !== "object" || Array.isArray(detail)) return null
@@ -130,6 +138,7 @@ export function reviewRequestBlock(facts: ReviewRequestFacts, step: ReviewEmailS
   if (!order) return "no_order"
   const source = soldOnStorelib(order)
   if (source) return source
+  if (facts.appHandles) return "app_handles"
   if (accessStateOf(order) !== "open") return "not_open"
   if (!facts.product || facts.product.status === "deleted") return "no_product"
   if (order.buyer_id && facts.sellerUserId && order.buyer_id === facts.sellerUserId) return "own_product"
