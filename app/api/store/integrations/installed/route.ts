@@ -5,6 +5,7 @@ import { INTEGRATIONS } from "@/lib/integrations/catalog"
 import { applyCatalogOverrides } from "@/lib/integrations/overrides"
 import { cachedCatalogOverrides } from "@/lib/integrations/overrides-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
+import { loadReviewsApp } from "@/lib/reviews/app-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -18,10 +19,11 @@ export const dynamic = "force-dynamic"
 export async function GET() {
   const c = await shopCaller()
   if (c instanceof NextResponse) return c
-  const [{ tracking }, physical, overrides] = await Promise.all([
+  const [{ tracking }, physical, overrides, reviewsApp] = await Promise.all([
     loadTracking(c.db, c.creatorId).catch(() => ({ tracking: {} as Record<string, string> })),
     isPhysicalCommerceEnabled().catch(() => false),
     cachedCatalogOverrides().catch(() => []),
+    loadReviewsApp(c.db, c.creatorId).catch(() => null),
   ])
   let providers: { provider: string; status: string }[] = []
   if (physical) {
@@ -30,6 +32,7 @@ export async function GET() {
   }
   /* The directory as /admin left it (lib/integrations/overrides.ts): a hidden one is not in the sidebar either, and its name is the admin's. */
   const installed = applyCatalogOverrides(INTEGRATIONS, overrides, physical).filter((i) => {
+    if (i.kind === "app") return i.appId === "storelib_reviews" && reviewsApp?.settings.enabled === true
     if (i.kind === "tracker") return !!(i.trackerId && (tracking as Record<string, string>)[i.trackerId])
     if (i.kind === "commerce" && !i.builtIn) return providers.some((p) => p.provider === i.providerId && p.status !== "disconnected")
     return false

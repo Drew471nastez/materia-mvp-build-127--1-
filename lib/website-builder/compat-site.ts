@@ -35,6 +35,7 @@ import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike } from "@/lib/storelib-theme/compat/objects"
 import { compatMenus } from "@/lib/storelib-theme/compat/menus"
 import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
+import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
@@ -107,8 +108,25 @@ interface Held {
 const held = new Map<string, Held>()
 const HELD_MAX = 12
 
+/*
+  BY WHAT THE SETTINGS SAY, NOT HOW LONG THEY ARE. The key was the length of
+  the settings' JSON, so a live setting saved without a publish that kept the
+  length (one colour for another, #111111 to #222222) found the theme held
+  for the old one, and the site kept drawing the old colour on this server
+  until the theme was pushed out. A hash of the whole text tells them apart.
+*/
+function settingsKey(settings: unknown): string {
+  const text = JSON.stringify(settings) ?? ""
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return `${text.length}.${h.toString(36)}`
+}
+
 function holdTheme(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
-  const key = `${installId}:${version}:${JSON.stringify(settings).length}`
+  const key = `${installId}:${version}:${settingsKey(settings)}`
   const hit = held.get(key)
   if (hit) return hit.theme
   const theme = compatThemeFor(installId, version, rows, settings)
@@ -324,8 +342,11 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const withStock = physical && card.settings.kind === "physical" && siteCommerce(settings as Record<string, unknown>).showStockLeft ? await compatStock(admin, creator.creatorId, card) : card
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
+    /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
+    reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
-    extraHead: draft ? undefined : liveNavigationMarkup(),
+    /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
+    extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(row.id),
     extraBodyEnd: draft ? `<div style="position:fixed;left:12px;bottom:12px;z-index:2147483647;background:#1a1a2e;color:#fff;font:600 12px/1 Inter,system-ui,sans-serif;padding:8px 10px;border-radius:8px">Preview: changes not yet published</div>` : liveNavigationEnd(),
   }
   return { kind: "site", site }

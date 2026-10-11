@@ -162,7 +162,8 @@ async function main() {
   check("the list is asked for ahead and kept, and the first screen of pictures warmed on a hover", /export function prefetchLibrary/.test(lib) && /warmFirst/.test(lib) && /const FRESH_MS = 60_000/.test(lib))
   check("  kept per kind, and a video setting's list is the API's videos", /const kept: Record<LibraryKind, LibraryFile\[\] \| null>/.test(lib) && /kind === "video" \? "\/api\/files\?kind=video" : "\/api\/files"/.test(lib))
   check("tiles load a resized copy, the first screen eagerly, fade in once decoded, at a fixed square", /\/_next\/image\?url=\$\{encodeURIComponent\(url\)\}&w=\$\{w\}&q=\$\{THUMB_QUALITY\}/.test(thumb) && /fileThumb\(file\.url\)/.test(lib) && /loading=\{index < EAGER \? "eager" : "lazy"\}/.test(lib) && /data-\[loaded\]:opacity-100/.test(lib) && /aspect-square/.test(lib))
-  check("  and a resized copy that is refused falls back to the original", /onError=\{\(e\) => fallBack\(e\.currentTarget, file\.url\)\}/.test(lib) && /img\.src = original/.test(lib))
+  /* Round W6: and when the original fails too, the tile asks whether the file is gone from storage (onGone), and leaves the list if so. */
+  check("  and a resized copy that is refused falls back to the original", /onError=\{\(e\) => fallBack\(e\.currentTarget, file\.url, \(\) => onGone\(file\)\)\}/.test(lib) && /img\.src = original/.test(lib))
   check("  a video tile is its first frame, or a clean tile with a film mark", /<VideoFrame url=\{file\.url\} \/>/.test(lib) && /src=\{`\$\{url\}#t=0\.1`\}/.test(lib) && /preload="metadata"/.test(lib))
   check("  and a pick hands over the copy the tile decoded, for the field to show at once", /return \{ thumb: img\.currentSrc \}/.test(lib) && /onPickRef\.current\?\.\(f\.url, hintFor\(f\)\)/.test(lib))
   check("dropping files anywhere on the library uploads them, with how far each one is", /onDrop=\{\(e\) => \{/.test(lib) && /x\.upload\.onprogress/.test(lib) && /data-file-pending/.test(lib))
@@ -170,7 +171,7 @@ async function main() {
   check("each tile has a menu: Use, Download, Copy link, Open in Files, Delete (asked first)", ["\"Use this picture\"", "\"Download\"", "\"Copy link\"", "\"Open in Files\"", "\"Delete\""].every((l) => lib.includes(`label: ${l}`)) && /href: `\/app\/files\?file=\$\{encodeURIComponent\(f\.id\)\}`/.test(lib) && /data-file-confirm/.test(lib))
   check("  shown on hover with a mouse and always on a phone", /\[@media\(hover:hover\)_and_\(pointer:fine\)\]:opacity-0 group-hover\/tile:opacity-100/.test(lib))
   check("Delete goes through the API, which checks the file is the caller's", /api\("\/api\/files", \{ method: "DELETE", body: \{ bucket: f\.bucket, path: f\.path \} \}\)/.test(lib))
-  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? "Choose a video" : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
+  check("the chooser is drawn into the body, a sheet on a phone", /<SheetDialog/.test(lib) && /phone=\{phone\}/.test(lib) && /const title = kind === "video" \? \(multiple \? "Choose videos" : "Choose a video"\) : "Choose from your files"/.test(lib) && /label=\{title\}/.test(lib))
   check("Open in Files lands on that file's details", /<FilesLibrary mode="manage" openId=\{openId\} \/>/.test(read("app/app/files/files-client.tsx")) && /const f = files\.find\(\(x\) => x\.id === openId\)/.test(lib))
   const picker = read("components/website-builder/editor/image-picker.tsx")
   check("every image field offers Choose from your files", /Choose from your files/.test(picker) && /<FilesLibraryChooser/.test(picker))

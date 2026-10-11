@@ -119,5 +119,8 @@ export const SQL_PARTS: ReadonlyArray<{ part: string; file: string; sha256: stri
   { part: "129", file: "129_customer_email_words_and_tax_on_receipts.sql", sha256: "aa1c1c717afd65e39400d26542f3a94f0d35fbe166a8ad1c8898c9547ce2c87b" },
   { part: "130", file: "130_theme_publish_in_one_step.sql", sha256: "20561e14e27f6ea10622df2fa617fed5b86a973f9a4df016943b148ad0134ea8" },
   { part: "131", file: "131_products_max_per_order.sql", sha256: "6d2388941730e3490474a62561f5224313ced2db03639b34684edf4b2c055453" },
-  { part: "133", file: "133_products_sales_limit.sql", sha256: "0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18" },
+  { part: "132", file: "132_github_whole_theme_and_agent_keys.sql", sha256: "9b2454b668c87a9ea1356281c8b91728258408d32f0899d332a5549fd6711e76" },
+  { part: "133", file: "133_perf_collect_everywhere.sql", sha256: "d0cb76a717c9b34c4df43f836bf81147699307c932c7fdb8f704a49546d56091" },
+  { part: "134", file: "134_storelib_reviews.sql", sha256: "eb9e12375cee76a8f92245172d2a83e3593ac83ecf54294fe6ba7e57ce4b83f3" },
+  { part: "150", file: "150_products_sales_limit.sql", sha256: "0ccb84e7c42b7e1e7e8abd3ac09bf139b1d9f233f1b406594962db46509eac18" },
 ]

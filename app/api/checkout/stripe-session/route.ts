@@ -1,4 +1,5 @@
 import { personName } from "@/lib/profile/display-name"
+import { rowsOwn } from "@/lib/checkout/owned"
 import { detectedCountry, loadCheckoutConfig } from "@/lib/store/settings-server"
 import { loadTaxForCheckout } from "@/lib/tax/server"
 import { checkoutTaxFor, digitalTax } from "@/lib/tax/rules"
@@ -160,12 +161,12 @@ async function handlePOST(request: Request) {
     return NextResponse.json({ error: BUYER_UNAVAILABLE, code: "seller_unavailable" }, { status: 409 })
   }
 
-  /* Owning this exact thing already: the same variant, or the product without one. */
+  /* Owning this already: this option, or the whole product (lib/checkout/owned, the rule every checkout uses). */
   if (user) {
-    let owned = admin.from("entitlements").select("id").eq("buyer_id", user.id).eq("product_id", product.id)
-    owned = variant ? owned.eq("variant_id", variant.id) : owned.is("variant_id", null)
-    const { data } = await owned.limit(1)
-    if (data && data.length > 0) return NextResponse.json({ error: "You already own this. It is in your library." }, { status: 400 })
+    const { data } = await admin.from("entitlements").select("product_id, variant_id").eq("buyer_id", user.id).eq("product_id", product.id).limit(50)
+    if (rowsOwn((data ?? []) as { product_id: string; variant_id: string | null }[], product.id, variant?.id ?? null)) {
+      return NextResponse.json({ error: "You already own this. It is in your library.", code: "already_owned", url: `/account/library/products/${encodeURIComponent(product.id)}` }, { status: 400 })
+    }
   }
 
   /* A code with a use limit takes a place under it before a PaymentIntent

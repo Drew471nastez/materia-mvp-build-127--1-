@@ -204,7 +204,8 @@ function main() {
     "a number that is not measured is worse than no number")
   check("the box cannot be re-opened while it is busy",
     /const pick = \(\) => \{ if \(!uploading\) inputRef\.current\?\.click\(\) \}/.test(picker)
-      && /if \(uploading\) return; const f = e\.dataTransfer\.files\[0\]/.test(picker))
+      /* Round W6: a list's add field takes several files dropped at once (handleFiles), still refused while busy. */
+      && /if \(uploading\) return; const list = Array\.from\(e\.dataTransfer\.files\)/.test(picker))
 
   console.log("\nA row with a label at each end does not wrap when the column is narrow")
 

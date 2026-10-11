@@ -108,8 +108,8 @@ export const DATA_KEYS: Record<NotificationType, readonly string[]> = {
   PURCHASE_CONFIRMATION: ["productTitle", "productId", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken", "occurredAt"],
   DIGITAL_PRODUCT_ACCESS: ["productTitle", "productId", "storeName", "creatorName", "receiptToken"],
   CUSTOMER_REFUND_PROCESSED: ["productTitle", "amountCents", "currency", "orderNumber", "storeName", "creatorName", "receiptToken"],
-  REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
-  REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId"],
+  REVIEW_REQUEST: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken", "reminderOn"],
+  REVIEW_REMINDER: ["productTitle", "productId", "productImage", "creatorName", "creatorSupportEmail", "receiptToken", "orderId", "reviewToken"],
   MEMBERSHIP_STARTED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_RENEWED: [...MEMBERSHIP_KEYS],
   MEMBERSHIP_RENEWAL_REMINDER: [...MEMBERSHIP_KEYS],
@@ -164,6 +164,8 @@ export const PATHS = {
   receipt: (token: string) => `/receipt/${token}`,
   /** The receipt, open at its review card, with the stars already chosen when `rate` is given. */
   review: (token: string, rate?: number) => `/receipt/${token}${rate ? `?rate=${rate}` : ""}#review`,
+  /** Storelib Reviews' own review page (lib/reviews/request-token.ts), on the website's host or Storelib's, the stars chosen when `rate` is given. */
+  reviewPage: (token: string, rate?: number) => `/review/${token}${rate ? `?rate=${rate}` : ""}`,
   library: "/account/library",
   libraryProduct: (id: string) => `/account/library/products/${id}`,
   /** A member's page for one membership: its posts, what it includes, and Manage. */
@@ -2039,10 +2041,33 @@ function reviewAsk(d: Data, reminder: boolean): Message {
   const creator = d.text("creatorName", 40)
   const token = d.id("receiptToken")
   const product = d.id("productId")
-  const action = token ? { label: "Write a review", path: PATHS.review(token) } : product ? { label: "Write a review", path: PATHS.libraryProduct(product) } : null
-  const rate = token ? { label: "Tap a star to start", paths: [1, 2, 3, 4, 5].map((n) => PATHS.review(token, n)) } : null
+  /* Storelib Reviews (lib/reviews/requests-server.ts): its own page, on the host the buyer bought on, with the store's own timing. */
+  const app = d.id("reviewToken")
+  const page = (n?: number) => (app ? PATHS.reviewPage(app, n) : PATHS.review(token, n))
+  const action = app || token ? { label: "Write a review", path: page() } : product ? { label: "Write a review", path: PATHS.libraryProduct(product) } : null
+  const rate = app || token ? { label: "Tap a star to start", paths: [1, 2, 3, 4, 5].map((n) => page(n)) } : null
   const what = title || "your purchase"
   const from = creator ? ` from ${creator}` : ""
+  if (app) {
+    return {
+      family: "lifecycle",
+      audience: "customer",
+      subject: reminder ? fitSubject("A quick review of ", title, "?") || "A quick review of your purchase?" : fitSubject("How is ", title, "?") || "How is your purchase?",
+      preview: reminder ? "One line and a rating is plenty." : "A few honest words help other buyers decide.",
+      heading: reminder ? `Would you review ${what}?` : `How is ${what}?`,
+      media: title ? { title, subtitle: creator ? `by ${creator}` : null, imageUrl: d.text("productImage", 500) } : null,
+      paragraphs: reminder
+        ? [`If you have had a chance to use ${what}${title ? "" : from}, a rating and a line or two is all it takes.`, "Good or bad, an honest review helps the next buyer."]
+        : [`If you have had a chance to use ${what}${title ? "" : from}, how was it?`, `Your review helps other buyers decide, and tells ${creator || "the seller"} what works.`],
+      rate,
+      action,
+      note: reminder ? "This is the last email about reviewing this purchase." : d.bool("reminderOn") ? "If you have not reviewed it, we will ask once more." : null,
+      sender: creator ? { name: creator, replyTo: d.text("creatorSupportEmail", 200) } : null,
+      unsubscribeLabel: "Turn off review emails",
+      greet: false,
+      inApp: { title: reminder ? "Review your purchase" : "How was your purchase?", body: title ? `Tell other buyers about ${title}.` : "Tell other buyers about it.", actionLabel: action?.label ?? null, actionPath: action?.path ?? null },
+    }
+  }
   return {
     family: "lifecycle",
     audience: "customer",

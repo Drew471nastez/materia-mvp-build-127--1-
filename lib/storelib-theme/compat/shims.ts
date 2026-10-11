@@ -307,6 +307,21 @@ const FORMS = `if(!S.designMode)document.addEventListener("submit",function(e){v
 /* The next page fetched while the visitor rests on its link, as on a Storelib theme's site (lib/website-builder/prefetch-rules.ts). */
 const PREFETCH = `if(!S.designMode&&HTMLScriptElement.supports&&HTMLScriptElement.supports("speculationrules")){var sr=document.createElement("script");sr.type="speculationrules";sr.textContent=${JSON.stringify(JSON.stringify(SITE_PREFETCH_RULES))};document.head.appendChild(sr)}`
 
+/*
+  WHAT SHOPIFY'S OWN SCRIPTS GAVE A THEME. An older theme loads api.jquery.js
+  or option_selection.js from Shopify's servers (left out here) for
+  Shopify.formatMoney and Shopify.resizeImage, and builds a product card in
+  script with them: a recently viewed row, a quick view, a cart drawer.
+  Without them the card threw and stayed empty. A theme that defines its
+  own (most do) replaces these as it loads.
+
+  A PICTURE ASKED FOR AT A SHOPIFY SIZE. Those scripts size a picture by
+  its name ("shirt_400x.jpg", Shopify's CDN), which Storelib's files do not
+  answer: a picture that fails with a size in its name is asked for once
+  more without it.
+*/
+const HELPERS = `S.formatMoney=S.formatMoney||function(c,f){if(typeof c==="string")c=c.replace(".","");c=Number(c)||0;f=f||"\${{amount}}";var d=function(n,p,t,s){n=(n/100).toFixed(p);var x=n.split("."),i=x[0].replace(/(\\d)(?=(\\d\\d\\d)+(?!\\d))/g,"$1"+t);return i+(x[1]?s+x[1]:"")};return f.replace(/\\{\\{\\s*(\\w+)\\s*\\}\\}/,function(m,k){switch(k){case"amount":return d(c,2,",",".");case"amount_no_decimals":return d(c,0,",",".");case"amount_with_comma_separator":return d(c,2,".",",");case"amount_no_decimals_with_comma_separator":return d(c,0,".",",");case"amount_with_apostrophe_separator":return d(c,2,"'",".");case"amount_with_space_separator":return d(c,2," ",",");case"amount_no_decimals_with_space_separator":return d(c,0," ",",");case"amount_with_period_and_space_separator":return d(c,2," ",".");default:return d(c,2,",",".")}})};S.resizeImage=S.resizeImage||function(src){return src};document.addEventListener("error",function(e){var im=e.target;if(!im||im.tagName!=="IMG"||im.getAttribute("data-sl-sized"))return;var core="_(?:[0-9]+x[0-9]*|[0-9]*x[0-9]+|pico|icon|thumb|small|compact|medium|large|grande|original|master)(?:@2x)?(?:_crop_[a-z]+)?([.](?:jpe?g|png|gif|webp|avif))";var one=new RegExp(core+"(?=[?#]|$)","i");var src=im.getAttribute("src")||"";if(!one.test(src))return;im.setAttribute("data-sl-sized","");var set=im.getAttribute("srcset");if(set)im.setAttribute("srcset",set.replace(new RegExp(core+"(?=[?# ,]|$)","gi"),"$1"));im.setAttribute("src",src.replace(one,"$1"))},true);`
+
 export function shopifyBootstrap(i: BootstrapInput): string {
   const data = {
     shop: i.host ?? "",
@@ -319,7 +334,7 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     storelib: true,
     storelibSignedIn: i.signedIn === true,
   }
-  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var SID=${js(i.storeId ?? "")};${BUY_NOW}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}})();</script>`
+  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var SID=${js(i.storeId ?? "")};${HELPERS}${BUY_NOW}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */

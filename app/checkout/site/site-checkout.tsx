@@ -26,6 +26,13 @@
  * code, the country or the delivery changes, and Pay makes the PaymentIntent
  * for the server's total. Paid, the order is written (action "confirm") and
  * the buyer lands on the thank you page, on the site.
+ *
+ * ALREADY YOURS (./owned.tsx). A customer signed in to the website is never
+ * charged for a download they already own: the quote leaves it out and
+ * names it (`owned`), a cart of nothing else is "You already own this" with
+ * the website's own downloads, and a guest gets "Bought this before? Email
+ * me my link" under the email, which never says whether that email bought
+ * anything.
  */
 
 import * as React from "react"
@@ -37,7 +44,7 @@ import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { regionsOf } from "@/lib/physical/regions"
 import { addressFormat } from "@/lib/address/format"
-import { cartStorageKey, parseCart } from "@/lib/website-builder/cart"
+import { cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import type { LinkItem } from "@/lib/physical/cart-link"
 import { checkoutOrigin } from "@/lib/orders/checkout-origin-browser"
 import { adoptCarriedTouches } from "@/lib/attribution/browser"
@@ -50,6 +57,8 @@ import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
+import { OwnedNote, SiteOwned } from "./owned"
+import { AccessLink } from "../parts/access-link"
 
 export interface SiteCheckoutProps {
   shopId: string
@@ -71,6 +80,8 @@ export interface SiteCheckoutProps {
   /** The email cannot be changed: the store asks for an account, and this is its address. */
   lockedEmail: string | null
   needsSignIn: boolean
+  /** The website's own account page, where a signed in customer's downloads are (never storelib.com). */
+  accountUrl?: string
 }
 
 const PAID_SCREEN_MS = 1100
@@ -145,6 +156,7 @@ export function SiteCheckout({
   buyer,
   lockedEmail,
   needsSignIn,
+  accountUrl = "/account",
 }: SiteCheckoutProps) {
   /* ── The cart ────────────────────────────────────────────────────── */
   const [items, setItems] = React.useState<LinkItem[] | null>(linkItems.length ? linkItems : null)
@@ -254,6 +266,33 @@ export function SiteCheckout({
     return () => window.clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, appliedCode, shipsKey, optionId])
+
+  /* ── Already yours ───────────────────────────────────────────────── */
+  const owned = React.useMemo(() => quote?.owned ?? [], [quote])
+  const onlyOwned = !!quote && quote.lines.length === 0 && owned.length > 0
+  /* The whole cart was already theirs: it leaves the cart, here and in an imported theme's cookie (decided again on the server). */
+  const forgotten = React.useRef(false)
+  React.useEffect(() => {
+    if (!onlyOwned || !wholeCart || forgotten.current) return
+    forgotten.current = true
+    try {
+      const key = cartStorageKey(shopId)
+      const raw = window.localStorage.getItem(key)
+      if (raw) {
+        const mine = new Set(owned.map((o) => `${o.productId}::${o.variantId ?? ""}`))
+        const kept = parseCart(raw).filter((l) => !mine.has(`${l.productId}::${l.variantId ?? ""}`))
+        window.localStorage.setItem(key, serializeCart(kept))
+      }
+    } catch {
+      /* storage refused: the cart keeps them, and checkout leaves them out again */
+    }
+    void call({ action: "forget" }).catch(() => undefined)
+  }, [onlyOwned, wholeCart, owned, shopId])
+  const hasDownloads = !!quote && quote.lines.some((l) => l.type !== "physical")
+  const sendAccess = async (to: string) => {
+    const res = await call<{ message?: string }>({ action: "access", email: to, items: (items ?? []).map((i) => ({ productId: i.productId })) })
+    return { ok: res.ok, message: res.data.message || res.data.error || (res.ok ? "Check your inbox." : "That didn't go through. Try again in a moment.") }
+  }
 
   const t = quote?.totals
   const total = t?.totalCents ?? 0
@@ -560,6 +599,8 @@ export function SiteCheckout({
     <div className="space-y-3">
       {newsBox}
       {account}
+      {/* A guest who bought a download before gets the link by email, never a yes or no on screen (./owned.tsx). */}
+      {!buyer && !lockedEmail && !needsSignIn && hasDownloads ? <AccessLink email={email} send={sendAccess} /> : null}
       {ships ? null : nameFields}
     </div>
   )
@@ -857,6 +898,7 @@ export function SiteCheckout({
   if (!quote && quoteError && !quoting) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="This cart can't be paid for yet" message={quoteError} />
   }
+  if (onlyOwned) return <SiteOwned brand={brand} backTo={backTo} shopUrl={shopUrl} owned={owned} accountUrl={accountUrl} />
 
   let payment: React.ReactNode
   if (isFree) {
@@ -963,9 +1005,10 @@ export function SiteCheckout({
 
           <main className="checkout-enter px-5 pb-[max(2.5rem,env(safe-area-inset-bottom))] pt-7 sm:px-8 lg:px-16 lg:pb-16 lg:pt-12 [animation-delay:60ms]">
             <div className="mx-auto w-full max-w-[440px] lg:ml-0 lg:mr-auto">
+              <OwnedNote owned={owned} accountUrl={accountUrl} />
               {dropped.length > 0 ? (
                 <p role="status" className="mb-5 rounded-[8px] border border-[#fde68a] bg-[#fffbeb] px-3.5 py-2.5 text-[13.5px] text-[#92400e]">
-                  Left out of this order: {dropped.slice(0, 4).join(", ")}. Already yours, or no longer on sale.
+                  Left out of this order: {dropped.slice(0, 4).join(", ")}. {dropped.length === 1 ? "It isn't" : "They aren't"} on sale right now.
                 </p>
               ) : null}
               {quote?.stockIssues.length ? (

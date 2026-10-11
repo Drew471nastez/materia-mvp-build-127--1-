@@ -42,6 +42,13 @@
  *   copy fades out while the new grid fades in (`crossFade`): opacity only,
  *   on the compositor, 180ms.
  *
+ * NEVER A BROKEN PICTURE. A copy the optimizer refuses falls back to the
+ * original; an original that will not draw either leaves a clean tile with
+ * the file's type on it (PNG, HEIC), and when its address answers not found
+ * the file is gone from storage, so the tile leaves the list. A picture
+ * smaller than its tile (an icon) is drawn at its own size, centred, not
+ * stretched into a blur (lib/files/thumb.ts, rawSize).
+ *
  * THE THREE DOTS. One menu for the whole grid, not one per tile: on a
  * computer a dropdown held against the dots that were pressed, on a phone
  * the shared action sheet. Preview, Copy link, Download and Delete, each the
@@ -73,16 +80,17 @@
  *   the one picked.
  */
 import * as React from "react"
+import { createPortal } from "react-dom"
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu"
-import { Check, Copy, Download, ExternalLink, Eye, Film, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
+import { Check, Copy, Download, ExternalLink, Eye, Film, ImageIcon, ImagePlus, MoreHorizontal, Search, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
 import { withoutMetadata } from "@/lib/images/compress"
 import { confirmUpload } from "@/lib/storage/confirm-upload"
-import { mediaUrl } from "@/lib/storage/media-url"
-import { fileThumb, filePreview } from "@/lib/files/thumb"
-import { saveFile, savedMessage } from "@/lib/platform/save-file"
+import { isOwnMedia, mediaUrl } from "@/lib/storage/media-url"
+import { fileThumb, filePreview, rawSize, tooSmallFor } from "@/lib/files/thumb"
+import { downloadBlob, saveFile, savedMessage, savePlatform } from "@/lib/platform/save-file"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Notice, api } from "@/components/physical/ui"
 import { SheetDialog, SheetDialogTitle } from "@/components/ui/sheet-dialog"
 import { BottomSheet } from "@/components/ui/bottom-sheet"
@@ -286,6 +294,41 @@ async function downloadFile(f: LibraryFile) {
   }
 }
 
+/**
+ * Several files as one zip (Files, Select, Download): one download, not a
+ * prompt from the browser for each file. Stored as they are, since pictures
+ * do not compress. In the app there is no download manager to hand a zip
+ * to, so there Download takes one file at a time (`manyAtOnce`).
+ */
+async function downloadMany(list: LibraryFile[]) {
+  if (list.length === 1) return downloadFile(list[0])
+  try {
+    const { default: JSZip } = await import("jszip")
+    const zip = new JSZip()
+    const taken = new Set<string>()
+    const named = list.map((f) => {
+      let name = f.name
+      for (let n = 2; taken.has(name); n++) name = f.name.replace(/(\.[^.]*)?$/, (ext) => `-${n}${ext}`)
+      taken.add(name)
+      return { f, name }
+    })
+    await Promise.all(
+      named.map(async ({ f, name }) => {
+        const res = await fetch(f.url, { credentials: "omit" })
+        if (!res.ok) throw new Error(String(res.status))
+        zip.file(name, await res.blob())
+      }),
+    )
+    downloadBlob(await zip.generateAsync({ type: "blob", compression: "STORE" }), "storelib-files.zip")
+    toast.success(`${list.length} files downloaded`)
+  } catch {
+    toast.error("The files could not be downloaded.")
+  }
+}
+
+/** Whether Download can take several at once here: a browser, not the app. */
+const manyAtOnce = () => savePlatform() === "web"
+
 /* ── Uploads, each with how far it is ──────────────────────────────────── */
 
 function putWithProgress(endpoint: string, token: string, key: string, body: Blob, type: string, onProgress: (p: number) => void): Promise<void> {
@@ -359,10 +402,54 @@ const localPreview = new Map<string, string>()
 
 /* ── A picture, shown once it is ready ─────────────────────────────────── */
 
+/**
+ * A picture smaller than its box (an icon, a favicon) at its own size,
+ * centred, rather than stretched into a blur: the optimizer never enlarges,
+ * so the copy is the original's pixels (lib/files/thumb.ts). Written onto
+ * the element before it is shown, so it never jumps.
+ */
+function fitSmall(img: HTMLImageElement) {
+  const box = img.parentElement
+  if (!box || img.dataset.small !== undefined || !img.naturalWidth || /\.svg(?:$|[?#&])/i.test(img.currentSrc || img.src)) return
+  const side = Math.min(box.clientWidth, box.clientHeight)
+  /* In a pill that is not showing (a hidden tile has no size): measured when it shows (the layout effect after a switch). */
+  if (!side) {
+    img.dataset.fitLater = ""
+    return
+  }
+  delete img.dataset.fitLater
+  const src = img.currentSrc || img.src
+  const raw = rawSize({ naturalWidth: img.naturalWidth, naturalHeight: img.naturalHeight, currentSrc: src, sizes: img.getAttribute("sizes") ?? "" }, window.innerWidth)
+  if (!tooSmallFor(raw, side)) return
+  const size = (r: { w: number; h: number }) => {
+    img.style.width = `${r.w}px`
+    img.style.height = `${r.h}px`
+    img.style.margin = "auto"
+  }
+  img.dataset.small = ""
+  size(raw)
+  /*
+    A copy picked from a srcset reports its size rounded to whole CSS pixels,
+    so the estimate can be a pixel out: the same address, already in the
+    cache, read without a srcset gives the exact pixels.
+  */
+  if (!img.getAttribute("sizes")) return
+  const exact = new Image()
+  exact.onload = () => {
+    if (img.currentSrc !== src && img.src !== src) return
+    const r = { w: exact.naturalWidth, h: exact.naturalHeight }
+    if (tooSmallFor(r, side)) return size(r)
+    delete img.dataset.small
+    img.style.width = img.style.height = img.style.margin = ""
+  }
+  exact.src = src
+}
+
 /** Shown once decoded: straight onto the element, so nothing renders for it. */
 function reveal(img: HTMLImageElement) {
   if (img.dataset.loaded !== undefined) return
   const show = () => {
+    fitSmall(img)
     img.dataset.loaded = ""
   }
   if (typeof img.decode === "function") img.decode().then(show, show)
@@ -372,16 +459,40 @@ function reveal(img: HTMLImageElement) {
 /** A picture the browser already has is there on the first frame, with no fade to sit through. */
 function revealIfReady(img: HTMLImageElement | null) {
   if (img && img.complete && img.naturalWidth > 0 && img.dataset.loaded === undefined) {
+    fitSmall(img)
     img.dataset.instant = ""
     img.dataset.loaded = ""
   }
 }
 
-/** The resized copy failed (a host the optimizer refused, say): the original, once. */
-function fallBack(img: HTMLImageElement, original: string) {
+/**
+ * Whether a file's address answers that there is nothing there: not found
+ * (storage says 400 or 404 for a missing object), or an empty body. Asked
+ * only of Storelib's own addresses; anything it cannot tell (offline, a
+ * refused request) is not gone.
+ */
+async function objectGone(url: string): Promise<boolean> {
+  if (!isOwnMedia(url)) return false
+  try {
+    const r = await fetch(url, { method: "HEAD", credentials: "omit", cache: "no-store" })
+    if (r.status === 400 || r.status === 404 || r.status === 410) return true
+    return r.ok && r.headers.get("content-length") === "0"
+  } catch {
+    return false
+  }
+}
+
+/**
+ * The resized copy failed (a host the optimizer refused, say): the original,
+ * once. When that fails too the tile shows its placeholder (data-failed),
+ * never the browser's broken picture, and `gone` hears whether the file is
+ * missing from storage altogether.
+ */
+function fallBack(img: HTMLImageElement, original: string, gone?: () => void) {
   if (img.dataset.fallback !== undefined || img.src === original) {
     img.dataset.failed = ""
     img.dataset.loaded = ""
+    if (gone) void objectGone(original).then((yes) => yes && gone())
     return
   }
   img.dataset.fallback = ""
@@ -390,9 +501,26 @@ function fallBack(img: HTMLImageElement, original: string) {
   img.src = original
 }
 
-const IMG_FADE = "absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:opacity-0"
+/** What a placeholder says a file is: its type (PNG, HEIC), from what storage recorded or its name. */
+function typeLabel(f: LibraryFile): string {
+  const fromType = (f.type ?? "").split("/")[1]?.replace(/^(x-|vnd\.)/, "").replace("jpeg", "jpg").replace("quicktime", "mov").replace("svg+xml", "svg")
+  const fromName = /\.([a-z0-9]{2,5})$/i.exec(f.name)?.[1]
+  return (fromType || fromName || "file").toUpperCase()
+}
+
+/** A clean tile for a file that will not draw: its kind and its type, on the same grey. */
+function Placeholder({ file, className }: { file: LibraryFile; className?: string }) {
+  return (
+    <span className={cn("pointer-events-none absolute inset-0 flex-col items-center justify-center gap-1.5", className)} data-file-placeholder="">
+      <ImageIcon className="h-5 w-5 text-[#9ca3af]" strokeWidth={1.75} aria-hidden />
+      <span className="rounded-md bg-white px-1.5 py-0.5 text-[10.5px] font-semibold tracking-[0.04em] text-[#6b7280] shadow-[0_0_0_1px_rgba(17,24,39,0.06)]">{typeLabel(file)}</span>
+    </span>
+  )
+}
+
+const IMG_FADE = "absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:invisible"
 /* A video's first frame, the same fade; one that cannot be drawn leaves the clean tile under it (a film mark on the grey). */
-const VIDEO_FADE = "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:opacity-0"
+const VIDEO_FADE = "pointer-events-none absolute inset-0 h-full w-full object-cover opacity-0 transition-opacity duration-200 ease-out data-[instant]:transition-none data-[loaded]:opacity-100 data-[failed]:invisible"
 
 /** A video that already has its first frame (seen before in this tab) is there at once. */
 function frameIfReady(v: HTMLVideoElement | null) {
@@ -443,22 +571,31 @@ const Tile = React.memo(function Tile({
   hidden,
   mode,
   chosen,
+  selecting,
+  ticked,
   menuOpen,
   onPress,
   onMenu,
+  onGone,
 }: {
   file: LibraryFile
   index: number
   hidden: boolean
   mode: "manage" | "pick"
   chosen: boolean
+  /** Several at once: a press ticks the tile rather than picking or opening it. */
+  selecting: boolean
+  ticked: boolean
   menuOpen: boolean
   onPress: (f: LibraryFile) => void
   onMenu: (f: LibraryFile, button: HTMLButtonElement) => void
+  /** Its address answers that there is nothing there. */
+  onGone: (f: LibraryFile) => void
 }) {
   const thumb = React.useMemo(() => fileThumb(file.url), [file.url])
   const video = isVideo(file)
   const local = localPreview.get(file.url)
+  const label = selecting ? `${ticked ? "Unselect" : "Select"} ${file.name}` : mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`
   return (
     <li className="group/tile relative" data-file-tile={file.id} hidden={hidden}>
       <button
@@ -466,10 +603,11 @@ const Tile = React.memo(function Tile({
         onClick={() => onPress(file)}
         className={cn(
           "relative block w-full overflow-hidden rounded-xl border bg-white text-left transition-[border-color,box-shadow] duration-150 hover:border-[#d1d5db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent]",
-          chosen ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#eceef1]",
+          chosen || ticked ? "border-[#1a1a2e] shadow-[0_0_0_1px_#1a1a2e]" : "border-[#eceef1]",
         )}
         data-file={file.id}
-        aria-label={mode === "pick" ? `Use ${file.name}` : `Open ${file.name}`}
+        aria-label={label}
+        aria-pressed={selecting ? ticked : undefined}
       >
         <span className="relative block aspect-square w-full bg-[#f3f4f6]" data-file-box="">
           {video ? (
@@ -488,16 +626,31 @@ const Tile = React.memo(function Tile({
                 alt=""
                 draggable={false}
                 loading={index < EAGER ? "eager" : "lazy"}
+                /* A tile in another pill is fetched ahead, behind the ones on screen. */
+                fetchPriority={hidden ? "low" : "auto"}
                 decoding="async"
                 onLoad={(e) => reveal(e.currentTarget)}
-                onError={(e) => fallBack(e.currentTarget, file.url)}
-                className={IMG_FADE}
+                onError={(e) => fallBack(e.currentTarget, file.url, () => onGone(file))}
+                className={cn("peer", IMG_FADE)}
                 data-file-img=""
               />
+              {/* Only once the picture has failed: a clean tile with its type, never the broken picture. */}
+              <Placeholder file={file} className="hidden peer-data-[failed]:flex" />
             </>
           )}
         </span>
-        {chosen ? (
+        {selecting ? (
+          <span
+            aria-hidden
+            data-file-tick={ticked ? "on" : "off"}
+            className={cn(
+              "absolute left-1.5 top-1.5 grid h-[22px] w-[22px] place-items-center rounded-[7px] border transition-[background-color,border-color,scale] duration-150 ease-out",
+              ticked ? "scale-100 border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db] bg-white/95 text-transparent shadow-[0_1px_2px_rgba(17,24,39,0.12)] group-active/tile:scale-95",
+            )}
+          >
+            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+          </span>
+        ) : chosen ? (
           <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">
             <Check className="h-3 w-3" strokeWidth={3} aria-hidden />
           </span>
@@ -544,11 +697,75 @@ function PendingTile({ row }: { row: Pending }) {
 
 /* ── The library ────────────────────────────────────────────────────────── */
 
-type Menu = { file: LibraryFile; anchor: HTMLButtonElement; box: DOMRect; phone: boolean }
+type Menu = { file: LibraryFile; anchor: HTMLButtonElement; box: DOMRect; phone: boolean; bound: Element | null }
+
+/** One picked from several: its address, and what is already on screen for it. */
+export type PickMany = Array<{ url: string; hint?: PickHint }>
+
+/* ── The pills, with one white mark that slides between them ───────────── */
+
+/**
+ * Where a picture came from, as the segmented control Storelib's own pages
+ * use (Support, Analytics): a grey track and a white mark under the one
+ * chosen. The mark is one element that slides (`translate`, on the compositor)
+ * rather than a fill that blinks from one pill to the next, and every pill
+ * is the same height, so nothing below moves on a switch. Until the row is
+ * measured the chosen pill draws its own white, so the first frame is
+ * already right.
+ */
+function SourcePills({ sources, value, onChange }: { sources: readonly Source[]; value: Source; onChange: (s: Source) => void }) {
+  const row = React.useRef<HTMLDivElement>(null)
+  const [mark, setMark] = React.useState<{ x: number; w: number } | null>(null)
+  const measure = React.useCallback(() => {
+    const el = row.current?.querySelector<HTMLElement>(`[data-files-pill="${CSS.escape(value)}"]`)
+    if (el) setMark((m) => (m && m.x === el.offsetLeft && m.w === el.offsetWidth ? m : { x: el.offsetLeft, w: el.offsetWidth }))
+  }, [value])
+  React.useLayoutEffect(measure, [measure])
+  React.useEffect(() => {
+    const el = row.current
+    if (!el || typeof ResizeObserver === "undefined") return
+    const ro = new ResizeObserver(() => measure())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [measure])
+  return (
+    <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div ref={row} className="relative inline-flex h-10 items-center gap-0.5 rounded-xl bg-[#eef0f2] p-1" role="tablist" aria-label="Where it came from" data-files-pills="">
+        <span
+          aria-hidden
+          data-files-pill-mark=""
+          className={cn("absolute left-0 top-1 h-8 rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.04)] transition-[translate,width] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", !mark && "opacity-0")}
+          style={mark ? { width: mark.w, translate: `${mark.x}px 0` } : undefined}
+        />
+        {sources.map((s) => (
+          <button
+            key={s}
+            type="button"
+            role="tab"
+            aria-selected={value === s}
+            data-files-pill={s}
+            onClick={() => onChange(s)}
+            className={cn(
+              "relative z-[1] inline-flex h-8 shrink-0 items-center rounded-lg px-3.5 text-[13.5px] font-medium transition-colors duration-200 [-webkit-tap-highlight-color:transparent]",
+              value === s ? "text-[#1a1a2e]" : "text-[#6b7280] hover:text-[#1a1a2e]",
+              value === s && !mark && "bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1)]",
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function FilesLibrary({
   mode = "manage",
   onPick,
+  onPickMany,
+  multiple = false,
+  max,
+  resetKey,
   selectedUrl,
   kind = "image",
   fill = false,
@@ -556,6 +773,14 @@ export function FilesLibrary({
 }: {
   mode?: "manage" | "pick"
   onPick?: (url: string, hint?: PickHint) => void
+  /** Picking several (`multiple`): every one ticked, in the order ticked. */
+  onPickMany?: (picks: PickMany) => void
+  /** Pick several at once, for a field that takes a list. */
+  multiple?: boolean
+  /** The most that can be ticked (the room left in the list). */
+  max?: number
+  /** Changes on each opening of the chooser, which starts with nothing ticked. */
+  resetKey?: number
   selectedUrl?: string | null
   /** Pictures (the default) or videos. */
   kind?: LibraryKind
@@ -569,12 +794,23 @@ export function FilesLibrary({
   const [source, setSource] = React.useState<Source>("All")
   const [open, setOpen] = React.useState<LibraryFile | null>(null)
   const [confirming, setConfirming] = React.useState<LibraryFile | null>(null)
+  const [confirmingMany, setConfirmingMany] = React.useState<LibraryFile[] | null>(null)
   const [deleting, setDeleting] = React.useState(false)
   const [pending, setPending] = React.useState<Pending[]>([])
   const [dragOver, setDragOver] = React.useState(false)
   /* The three dots: which file, and the dots it opened from. */
   const [menu, setMenu] = React.useState<Menu | null>(null)
   const [sheetOpen, setSheetOpen] = React.useState(false)
+  /* Several at once: picking for a list, or Select in Files. The ids ticked, in the order ticked. */
+  const [selectingFiles, setSelectingFiles] = React.useState(false)
+  const selecting = mode === "pick" ? multiple : selectingFiles
+  const limit = mode === "pick" && multiple ? max : undefined
+  const [ticked, setTickedState] = React.useState<string[]>([])
+  const tickedRef = React.useRef<string[]>([])
+  const setTicked = React.useCallback((next: string[]) => {
+    tickedRef.current = next
+    setTickedState(next)
+  }, [])
   const pendingRef = React.useRef<(() => void) | null>(null)
   /* The dots whose dropdown a press outside just closed: the same press must not open it again. */
   const closedRef = React.useRef<{ anchor: HTMLElement; at: number } | null>(null)
@@ -586,9 +822,16 @@ export function FilesLibrary({
   const ghostRef = React.useRef<HTMLDivElement | null>(null)
 
   const onPickRef = React.useRef(onPick)
+  const onPickManyRef = React.useRef(onPickMany)
   React.useEffect(() => {
     onPickRef.current = onPick
+    onPickManyRef.current = onPickMany
   })
+
+  /* A new opening of the chooser starts with nothing ticked; drawn that way before its first frame. */
+  React.useLayoutEffect(() => {
+    if (resetKey !== undefined) setTicked([])
+  }, [resetKey, setTicked])
 
   /* What the tile on screen already decoded, for the field to show while the stored copy loads. */
   const hintFor = React.useCallback((f: LibraryFile): PickHint | undefined => {
@@ -597,6 +840,48 @@ export function FilesLibrary({
     return undefined
   }, [])
   const pickFile = React.useCallback((f: LibraryFile) => onPickRef.current?.(f.url, hintFor(f)), [hintFor])
+
+  /* ── Ticking ── */
+
+  const tick = React.useCallback(
+    (f: LibraryFile) => {
+      const now = tickedRef.current
+      if (now.includes(f.id)) return setTicked(now.filter((id) => id !== f.id))
+      if (limit !== undefined && now.length >= limit) {
+        toast.error(limit <= 0 ? "This list is full." : `You can add up to ${limit} here.`)
+        return
+      }
+      setTicked([...now, f.id])
+    },
+    [limit, setTicked],
+  )
+  /* Files just uploaded while picking several are ticked, as far as there is room. */
+  const tickMany = (list: LibraryFile[]) => {
+    const now = tickedRef.current.slice()
+    for (const f of list) if (!now.includes(f.id) && (limit === undefined || now.length < limit)) now.push(f.id)
+    setTicked(now)
+  }
+  const tickedFiles = React.useCallback((): LibraryFile[] => {
+    const byId = new Map((files ?? []).map((f) => [f.id, f]))
+    return tickedRef.current.map((id) => byId.get(id)).filter((f): f is LibraryFile => !!f)
+  }, [files])
+  const addTicked = () => {
+    const picks = tickedFiles().map((f) => ({ url: f.url, hint: hintFor(f) }))
+    if (picks.length) onPickManyRef.current?.(picks)
+  }
+  const stopSelecting = () => {
+    setTicked([])
+    setSelectingFiles(false)
+  }
+
+  /* A file whose address answers that nothing is there: out of the list, and unticked. */
+  const onGone = React.useCallback(
+    (f: LibraryFile) => {
+      setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
+      if (tickedRef.current.includes(f.id)) setTicked(tickedRef.current.filter((id) => id !== f.id))
+    },
+    [setFiles, setTicked],
+  )
 
   const upload = async (list: FileList | File[]) => {
     const picked = Array.from(list).slice(0, 20)
@@ -639,8 +924,10 @@ export function FilesLibrary({
       }
     }, 60_000)
     void load()
+    /* Picking several: what was just uploaded is ticked, to be added with the rest. */
+    if (mode === "pick" && multiple) tickMany(added)
     /* One file dropped or chosen while picking: it is the one picked, with the file itself to show at once. */
-    if (mode === "pick" && added.length === 1 && good.length === 1) onPickRef.current?.(added[0].url, { file: good[0] })
+    else if (mode === "pick" && added.length === 1 && good.length === 1) onPickRef.current?.(added[0].url, { file: good[0] })
     else if (added.length > 1) toast.success(`${added.length} files uploaded`)
   }
 
@@ -660,9 +947,35 @@ export function FilesLibrary({
       return
     }
     setFiles((list) => list?.filter((x) => x.id !== f.id) ?? null)
+    if (tickedRef.current.includes(f.id)) setTicked(tickedRef.current.filter((id) => id !== f.id))
     setConfirming(null)
     setOpen((o) => (o?.id === f.id ? null : o))
     toast.success("Deleted")
+  }
+
+  /* Several at once (Files, Select, Delete): the API takes up to MAX_DELETE_AT_ONCE (100) a request. */
+  const removeMany = async (list: LibraryFile[]) => {
+    setDeleting(true)
+    const done = new Set<string>()
+    let failed: string | null = null
+    for (let i = 0; i < list.length && !failed; i += 100) {
+      const part = list.slice(i, i + 100)
+      const r = await api("/api/files", { method: "DELETE", body: { files: part.map((f) => ({ bucket: f.bucket, path: f.path })) } })
+      if ("error" in r) failed = r.error
+      else part.forEach((f) => done.add(f.id))
+    }
+    setDeleting(false)
+    if (done.size) {
+      setFiles((all) => all?.filter((x) => !done.has(x.id)) ?? null)
+      setTicked(tickedRef.current.filter((id) => !done.has(id)))
+    }
+    if (failed) {
+      toast.error(failed)
+      return
+    }
+    setConfirmingMany(null)
+    stopSelecting()
+    toast.success(done.size === 1 ? "Deleted" : `${done.size} files deleted`)
   }
 
   /* ── The swap ── */
@@ -707,9 +1020,27 @@ export function FilesLibrary({
   )
   /* Where each shown file is in the grid, for which are drawn at once. */
   const shownAt = React.useMemo(() => new Map(shown.map((f, i) => [f.id, i])), [shown])
+  /*
+    Where each file is in its own pill. A tile hidden now is still fetched
+    and decoded ahead when it is on the first screen of its pill, so a
+    switch shows pictures, not grey squares filling in.
+  */
+  const rankInSource = React.useMemo(() => {
+    const seen = new Map<string, number>()
+    const out = new Map<string, number>()
+    for (const f of files ?? []) {
+      const n = seen.get(f.source) ?? 0
+      seen.set(f.source, n + 1)
+      out.set(f.id, n)
+    }
+    return out
+  }, [files])
+  const tickedSet = React.useMemo(() => new Set(ticked), [ticked])
 
   /* The new grid is drawn: it starts its fade under the copy, before this frame is painted. */
   React.useLayoutEffect(() => {
+    /* Pictures that arrived while their pill was hidden are measured now that they have a size. */
+    gridWrapRef.current?.querySelectorAll<HTMLImageElement>("img[data-fit-later]").forEach(fitSmall)
     if (!swappedRef.current) return
     swappedRef.current = false
     if (fill && scrollRef.current) scrollRef.current.scrollTop = 0
@@ -740,10 +1071,11 @@ export function FilesLibrary({
 
   const onPress = React.useCallback(
     (f: LibraryFile) => {
-      if (mode === "pick") pickFile(f)
+      if (selecting) tick(f)
+      else if (mode === "pick") pickFile(f)
       else setOpen(f)
     },
-    [mode, pickFile],
+    [mode, pickFile, selecting, tick],
   )
   const onMenu = React.useCallback((f: LibraryFile, anchor: HTMLButtonElement) => {
     const closed = closedRef.current
@@ -753,15 +1085,24 @@ export function FilesLibrary({
     }
     const phone = window.matchMedia(PHONE).matches
     pendingRef.current = null
-    setMenu({ file: f, anchor, box: anchor.getBoundingClientRect(), phone })
+    /* Inside the chooser the menu stays in its window, flipping above the dots near its bottom edge. */
+    const bound = anchor.closest('[data-slot="dialog-content"]')
+    setMenu({ file: f, anchor, box: anchor.getBoundingClientRect(), phone, bound })
     if (phone) setSheetOpen(true)
   }, [])
 
   const items = React.useMemo<ActionMenuItem[]>(() => {
     if (!menu) return []
     const f = menu.file
+    const on = tickedSet.has(f.id)
     const use: ActionMenuItem[] =
-      mode !== "pick" ? [] : isVideo(f) ? [{ label: "Use this video", icon: <Check />, onClick: () => pickFile(f) }] : [{ label: "Use this picture", icon: <Check />, onClick: () => pickFile(f) }]
+      mode !== "pick"
+        ? []
+        : selecting
+          ? [{ label: on ? "Unselect" : "Select", icon: <Check />, onClick: () => tick(f) }]
+          : isVideo(f)
+            ? [{ label: "Use this video", icon: <Check />, onClick: () => pickFile(f) }]
+            : [{ label: "Use this picture", icon: <Check />, onClick: () => pickFile(f) }]
     /* While picking, the file in the Files page itself, in a new tab so the builder stays as it is. */
     const inFiles: ActionMenuItem[] = mode === "pick" ? [{ label: "Open in Files", icon: <ExternalLink />, href: `/app/files?file=${encodeURIComponent(f.id)}`, target: "_blank" }] : []
     return [
@@ -772,7 +1113,7 @@ export function FilesLibrary({
       ...inFiles,
       { label: "Delete", icon: <Trash2 />, variant: "destructive", separatorBefore: true, onClick: () => setConfirming(f) },
     ]
-  }, [menu, mode, pickFile])
+  }, [menu, mode, pickFile, selecting, tick, tickedSet])
   const groups = React.useMemo(() => groupsOf(items), [items])
 
   /* A dropdown held against the dots is closed by a scroll, since the dots move and it would not. */
@@ -788,11 +1129,17 @@ export function FilesLibrary({
 
   const gridCols = mode === "pick" ? "grid-cols-3 sm:grid-cols-4" : "grid-cols-2 sm:grid-cols-4 lg:grid-cols-5"
   const sources = kind === "video" ? VIDEO_SOURCES : SOURCES
+  /* The bar's words stay as they were while it slides away, rather than reading "Add 0". */
+  const lastCount = React.useRef(0)
+  if (ticked.length) lastCount.current = ticked.length
+  const count = ticked.length || lastCount.current
+  const nouns = kind === "video" ? ["video", "videos"] : ["picture", "pictures"]
 
   return (
     <div
       className={cn(fill ? "flex min-h-0 flex-1 flex-col" : "space-y-3")}
       data-files-library={mode}
+      data-files-multiple={selecting ? "" : undefined}
       onDragOver={(e) => {
         if (e.dataTransfer.types.includes("Files")) {
           e.preventDefault()
@@ -816,6 +1163,11 @@ export function FilesLibrary({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#9ca3af]" aria-hidden />
             <input type="search" data-no-autofocus="" value={query} onChange={(e) => type(e.target.value)} placeholder="Search files" className="h-10 w-full rounded-xl border border-[#e5e7eb] bg-white pl-9 pr-3 text-[16px] outline-none transition-[border-color] focus:border-[#9ca3af] sm:text-[14px]" />
           </label>
+          {mode === "manage" ? (
+            <button type="button" className={cn(BTN_SECONDARY, "shrink-0 rounded-xl px-3 sm:px-4")} onClick={() => (selectingFiles ? stopSelecting() : setSelectingFiles(true))} aria-pressed={selectingFiles} data-files-select="">
+              {selectingFiles ? "Cancel" : "Select"}
+            </button>
+          ) : null}
           <button type="button" className={cn(BTN_SECONDARY, "shrink-0 gap-1.5 rounded-xl px-3 sm:px-4")} onClick={() => input.current?.click()} data-files-upload="">
             <ImagePlus className="h-4 w-4" aria-hidden />
             {pending.length > 0 ? `Uploading ${pending.length}` : "Upload"}
@@ -833,31 +1185,14 @@ export function FilesLibrary({
             }}
           />
         </div>
-        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Where it came from">
-          {sources.map((s) => (
-            <button
-              key={s}
-              type="button"
-              role="tab"
-              aria-selected={source === s}
-              data-files-pill={s}
-              onClick={() => chooseSource(s)}
-              className={cn(
-                "inline-flex h-8 shrink-0 items-center rounded-full border px-3 text-[13px] font-medium transition-[background-color,border-color,color] duration-200 ease-out [-webkit-tap-highlight-color:transparent]",
-                source === s ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:bg-[#f5f6f7]",
-              )}
-            >
-              {s}
-            </button>
-          ))}
-        </div>
+        <SourcePills sources={sources} value={source} onChange={chooseSource} />
         {error && files === null ? <Notice>{error}</Notice> : null}
       </div>
 
       <div ref={viewRef} className={cn("relative", fill && "flex min-h-0 flex-1 flex-col overflow-hidden")}>
         <div
           ref={scrollRef}
-          className={cn(fill && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-0.5 sm:px-5 sm:pb-5")}
+          className={cn(fill && "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-0.5 sm:px-5 sm:pb-5", fill && selecting && "pb-[calc(88px+env(safe-area-inset-bottom))] sm:pb-24")}
           data-files-scroll={fill ? "" : undefined}
         >
           <div ref={gridWrapRef} className={cn("relative rounded-2xl transition-[box-shadow]", dragOver && "shadow-[0_0_0_2px_#1a1a2e]")}>
@@ -888,13 +1223,16 @@ export function FilesLibrary({
                       <Tile
                         key={f.id}
                         file={f}
-                        index={at ?? EAGER}
+                        index={at ?? rankInSource.get(f.id) ?? EAGER}
                         hidden={at === undefined}
                         mode={mode}
-                        chosen={mode === "pick" && !!selectedUrl && selectedUrl === f.url}
+                        chosen={mode === "pick" && !selecting && !!selectedUrl && selectedUrl === f.url}
+                        selecting={selecting}
+                        ticked={tickedSet.has(f.id)}
                         menuOpen={menu?.file.id === f.id && (!menu.phone || sheetOpen)}
                         onPress={onPress}
                         onMenu={onMenu}
+                        onGone={onGone}
                       />
                     )
                   })}
@@ -903,9 +1241,64 @@ export function FilesLibrary({
             )}
           </div>
         </div>
+
+        {/* Picking several: what is ticked, and the one press that adds them all. */}
+        {fill && selecting ? (
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-x-0 bottom-0 z-[3] px-3 pb-[max(12px,env(safe-area-inset-bottom))] pt-3 transition-[translate,opacity] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none sm:px-5 sm:pb-4",
+              ticked.length ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0",
+            )}
+            data-files-add-bar={ticked.length ? "open" : "closed"}
+            aria-hidden={!ticked.length}
+          >
+            <div className={cn("flex items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]", ticked.length ? "pointer-events-auto" : "pointer-events-none")}>
+              <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">
+                {count} selected{limit !== undefined ? <span className="text-[#9ca3af]"> of {limit}</span> : null}
+              </span>
+              <button type="button" tabIndex={ticked.length ? 0 : -1} className="h-10 shrink-0 rounded-lg px-3 text-[13.5px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => setTicked([])}>
+                Clear
+              </button>
+              <button type="button" tabIndex={ticked.length ? 0 : -1} className={cn(BTN_PRIMARY, "shrink-0 rounded-xl px-4")} onClick={addTicked} data-files-add="">
+                Add {count} {count === 1 ? nouns[0] : nouns[1]}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {/* On a computer: one dropdown, held against the dots that were pressed. */}
+      {/* Files, Select: what is ticked, and what can be done to all of it at once. */}
+      {!fill && selecting ? (
+        <div className="sticky bottom-[calc(var(--app-nav-top,0px)+10px)] z-[3] md:bottom-4" data-files-bulk-bar="">
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-[#e5e7eb] bg-white p-2 pl-4 shadow-[0_16px_40px_-12px_rgba(17,24,39,0.28),0_2px_6px_rgba(17,24,39,0.06)]">
+            <span className="min-w-0 flex-1 truncate text-[13.5px] text-[#4b5563]">{ticked.length ? `${ticked.length} selected` : "Tap pictures to select them"}</span>
+            {shown.length > 0 ? (
+              <button type="button" className="h-9 shrink-0 rounded-lg px-2.5 text-[13px] font-medium text-[#4b5563] hover:bg-[#f3f4f6]" onClick={() => setTicked(ticked.length === shown.length ? [] : shown.map((f) => f.id))}>
+                {ticked.length === shown.length ? "Clear" : "Select all"}
+              </button>
+            ) : null}
+            {ticked.length > 0 && (ticked.length === 1 || manyAtOnce()) ? (
+              <button type="button" className={cn(BTN_SECONDARY, "h-9 shrink-0 gap-1.5 px-3")} onClick={() => void downloadMany(tickedFiles())} data-files-bulk-download="">
+                <Download className="h-4 w-4" aria-hidden />
+                Download
+              </button>
+            ) : null}
+            {ticked.length > 0 ? (
+              <button type="button" className={cn(BTN_DANGER, "h-9 shrink-0 gap-1.5 px-3")} onClick={() => setConfirmingMany(tickedFiles())} data-files-bulk-delete="">
+                <Trash2 className="h-4 w-4" aria-hidden />
+                Delete
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/*
+        On a computer: one dropdown, held against the dots that were pressed.
+        The stand in it is held against is drawn into the body: inside the
+        chooser's window, which is transformed, `position: fixed` is measured
+        from the window and the menu opened a window's offset away.
+      */}
       {desktopMenu ? (
         <DropdownMenuPrimitive.Root
           open
@@ -916,13 +1309,19 @@ export function FilesLibrary({
             setMenu(null)
           }}
         >
-          <DropdownMenuPrimitive.Trigger asChild>
-            <span aria-hidden style={{ position: "fixed", left: desktopMenu.box.left, top: desktopMenu.box.top, width: desktopMenu.box.width, height: desktopMenu.box.height, pointerEvents: "none" }} />
-          </DropdownMenuPrimitive.Trigger>
+          {createPortal(
+            <DropdownMenuPrimitive.Trigger asChild>
+              <span aria-hidden data-files-menu-anchor="" style={{ position: "fixed", left: desktopMenu.box.left, top: desktopMenu.box.top, width: desktopMenu.box.width, height: desktopMenu.box.height, pointerEvents: "none" }} />
+            </DropdownMenuPrimitive.Trigger>,
+            document.body,
+          )}
           <ActionDropdownContent
             groups={groups}
             align="end"
             menuWidth="w-52"
+            sideOffset={4}
+            collisionBoundary={desktopMenu.bound}
+            collisionPadding={8}
             onCloseAutoFocus={(e) => {
               e.preventDefault()
               desktopMenu.anchor.focus({ preventScroll: true })
@@ -957,10 +1356,13 @@ export function FilesLibrary({
       <FileDetails
         file={open}
         mode={mode}
+        selecting={selecting}
         onClose={() => setOpen(null)}
         onUse={(f) => {
           setOpen(null)
-          pickFile(f)
+          if (selecting) {
+            if (!tickedRef.current.includes(f.id)) tick(f)
+          } else pickFile(f)
         }}
         onDelete={(f) => setConfirming(f)}
       />
@@ -971,6 +1373,14 @@ export function FilesLibrary({
           if (!deleting) setConfirming(null)
         }}
         onConfirm={(f) => void remove(f)}
+      />
+      <ConfirmDeleteMany
+        files={confirmingMany}
+        busy={deleting}
+        onClose={() => {
+          if (!deleting) setConfirmingMany(null)
+        }}
+        onConfirm={(list) => void removeMany(list)}
       />
     </div>
   )
@@ -999,7 +1409,7 @@ function useLastOpen<T>(value: T | null): T | null {
 
 /* ── A picture's details ────────────────────────────────────────────────── */
 
-function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFile | null; mode: "manage" | "pick"; onClose: () => void; onUse: (f: LibraryFile) => void; onDelete: (f: LibraryFile) => void }) {
+function FileDetails({ file, mode, selecting = false, onClose, onUse, onDelete }: { file: LibraryFile | null; mode: "manage" | "pick"; selecting?: boolean; onClose: () => void; onUse: (f: LibraryFile) => void; onDelete: (f: LibraryFile) => void }) {
   const phone = usePhoneNow()
   const f = useLastOpen(file)
   return (
@@ -1034,9 +1444,10 @@ function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFi
                   decoding="async"
                   onLoad={(e) => reveal(e.currentTarget)}
                   onError={(e) => fallBack(e.currentTarget, f.url)}
-                  className={IMG_FADE}
+                  className={cn("peer", IMG_FADE)}
                 />
               )}
+              {isVideo(f) ? null : <Placeholder file={f} className="hidden peer-data-[failed]:flex" />}
             </div>
             <div className="space-y-3">
               <dl className="grid grid-cols-2 gap-2.5 text-[13.5px] sm:grid-cols-1">
@@ -1055,7 +1466,7 @@ function FileDetails({ file, mode, onClose, onUse, onDelete }: { file: LibraryFi
               <div className="flex flex-wrap gap-2">
                 {mode === "pick" ? (
                   <button type="button" className={cn(BTN_PRIMARY, "w-full")} onClick={() => onUse(f)}>
-                    {isVideo(f) ? "Use this video" : "Use this picture"}
+                    {selecting ? "Select" : isVideo(f) ? "Use this video" : "Use this picture"}
                   </button>
                 ) : null}
                 <button type="button" className={cn(BTN_SECONDARY, "flex-1 gap-1.5 px-3")} onClick={() => copyLink(f)}>
@@ -1114,46 +1525,111 @@ function ConfirmDelete({ file, busy, onClose, onConfirm }: { file: LibraryFile |
   )
 }
 
+/** Several at once (Files, Select): how many, and that anything still showing them will show nothing. */
+function ConfirmDeleteMany({ files, busy, onClose, onConfirm }: { files: LibraryFile[] | null; busy: boolean; onClose: () => void; onConfirm: (list: LibraryFile[]) => void }) {
+  const phone = usePhoneNow()
+  const list = useLastOpen(files)
+  const n = list?.length ?? 0
+  const title = n === 1 ? "Delete this file?" : `Delete ${n} files?`
+  return (
+    <SheetDialog
+      open={!!files}
+      onClose={onClose}
+      phone={phone}
+      label={title}
+      showCloseButton={false}
+      className="max-w-[420px] gap-0 rounded-2xl p-6"
+      sheet={{ zIndex: OVER_SHEET_Z + 10, fill: false, aboveKeyboard: false, dismissible: !busy }}
+    >
+      {list ? (
+        <div className="max-sm:px-5 max-sm:pb-[max(16px,env(safe-area-inset-bottom))] max-sm:pt-2" data-file-confirm-many="">
+          <SheetDialogTitle className="text-[17px] font-semibold text-[#1a1a2e]">{title}</SheetDialogTitle>
+          <p className="mt-2 text-[14px] leading-[20px] text-[#6b7280]">They are removed from your files, and anything that still shows one of them will show nothing.</p>
+          <div className="mt-5 flex gap-2 sm:justify-end">
+            <button type="button" className={cn(BTN_SECONDARY, "max-sm:h-11 max-sm:flex-1")} onClick={onClose} disabled={busy}>
+              Cancel
+            </button>
+            <button type="button" className={cn(BTN_PRIMARY, "bg-[#b42318] hover:bg-[#9a1d14] max-sm:h-11 max-sm:flex-1")} onClick={() => onConfirm(list)} disabled={busy} data-file-confirm-delete-many="">
+              {busy ? "Deleting" : n === 1 ? "Delete" : `Delete ${n}`}
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </SheetDialog>
+  )
+}
+
 /* ── "Choose from your files" ───────────────────────────────────────────── */
 
-/** Fixed, so a list that arrives, or a pill with fewer pictures, never moves the top edge. */
-const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.88)"
+/**
+ * Fixed, so a list that arrives, or a pill with fewer pictures, never moves
+ * the top edge. Four fifths of what is visible: a tenth lower than it was
+ * (0.88), so the page behind still shows above it on a phone.
+ */
+const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.79)"
 
 /**
  * "Choose from your files": the library in pick mode. On a phone the app's
  * one bottom sheet (components/ui/bottom-sheet.tsx, through SheetDialog), so
  * it follows the finger the way every other sheet does; on a computer the
- * app's dialog, which fades and scales in and out on the compositor. Both
- * are drawn into the body, so a sidebar or editor panel that is moved or scaled
- * can't trap or clip them. Built on the first open and kept, so it can leave
- * with its own motion and a second open is already there.
+ * app's dialog, which fades and scales in and out on the compositor, a
+ * little under 720px wide, with the deeper shadow and the scrim Storelib's
+ * other windows have. Both are drawn into the body, so a sidebar or editor
+ * panel that is moved or scaled can't trap or clip them. Built on the first
+ * open and kept, so it can leave with its own motion and a second open is
+ * already there.
+ *
+ * `multiple` is for a field that takes a list: pictures are ticked and added
+ * together through `onPickMany`, at most `max`.
  */
 export function FilesLibraryChooser({
   open,
   onClose,
   onPick,
+  onPickMany,
+  multiple = false,
+  max,
   selectedUrl,
   kind = "image",
 }: {
   open: boolean
   onClose: () => void
-  onPick: (url: string, hint?: PickHint) => void
+  onPick?: (url: string, hint?: PickHint) => void
+  /** With `multiple`: every picture ticked, in the order ticked. */
+  onPickMany?: (picks: PickMany) => void
+  multiple?: boolean
+  /** The room left in the list. */
+  max?: number
   selectedUrl?: string | null
   /** A video setting's chooser lists the store's videos. */
   kind?: LibraryKind
 }) {
   const [used, setUsed] = React.useState(open)
   if (open && !used) setUsed(true)
+  /* Each opening is a new round: nothing ticked from the last one. */
+  const [round, setRound] = React.useState(0)
+  const [wasOpen, setWasOpen] = React.useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setRound((r) => r + 1)
+  }
   const phone = usePhoneNow()
   const pick = React.useCallback(
     (url: string, hint?: PickHint) => {
-      onPick(url, hint)
+      onPick?.(url, hint)
       onClose()
     },
     [onPick, onClose],
   )
+  const pickMany = React.useCallback(
+    (picks: PickMany) => {
+      onPickMany?.(picks)
+      onClose()
+    },
+    [onPickMany, onClose],
+  )
   if (!used) return null
-  const title = kind === "video" ? "Choose a video" : "Choose from your files"
+  const title = kind === "video" ? (multiple ? "Choose videos" : "Choose a video") : "Choose from your files"
   return (
     <SheetDialog
       open={open}
@@ -1161,7 +1637,9 @@ export function FilesLibraryChooser({
       phone={phone}
       label={title}
       showCloseButton={false}
-      className="flex h-[min(760px,calc(100dvh-48px))] flex-col gap-0 overflow-hidden p-0 sm:max-w-[760px] sm:rounded-2xl"
+      className="flex h-[min(700px,calc(100dvh-64px))] w-[min(720px,calc(100vw-48px))] max-w-none flex-col gap-0 overflow-hidden rounded-2xl border-0 bg-white p-0 shadow-[0_32px_80px_-24px_rgba(17,24,39,0.45),0_2px_8px_rgba(17,24,39,0.08)] sm:max-w-none"
+      /* The scrim Storelib's other windows use (components/physical/ui), a little deeper for a window of pictures. */
+      dialog={{ overlayClassName: "bg-[rgba(17,24,39,0.42)]" }}
       sheet={{ height: SHEET_HEIGHT, maxHeight: SHEET_HEIGHT, keepMounted: true }}
     >
       <div className="flex min-h-0 flex-1 flex-col" data-files-chooser={kind}>
@@ -1171,7 +1649,7 @@ export function FilesLibraryChooser({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <FilesLibrary mode="pick" kind={kind} fill selectedUrl={selectedUrl} onPick={pick} />
+        <FilesLibrary mode="pick" kind={kind} fill selectedUrl={selectedUrl} onPick={pick} onPickMany={pickMany} multiple={multiple} max={max} resetKey={round} />
       </div>
     </SheetDialog>
   )

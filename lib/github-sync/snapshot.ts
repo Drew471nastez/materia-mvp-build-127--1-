@@ -1,85 +1,115 @@
 /**
  * ===========================================================================
- *  A SITE'S WHOLE THEME, AS FILES IN ITS REPOSITORY
+ *  THE WHOLE THEME, READ FOR GITHUB
  * ===========================================================================
- * What a linked repository holds, built the way "Export theme" builds the
- * package (app/api/website-builder/themes/[installId]/export), from what the
- * builder shows: every draft where there is one.
+ * Everything an install is, as the builder has it (drafts first): its
+ * settings, its pages, every file it saved, and for a theme of Storelib's own
+ * the built-in files under them. ./layout.ts turns it into a repository.
  *
- *   A Storelib theme    config/settings.json, templates/<page>.json, the
- *                       header, footer and overlay groups, every section and
- *                       block file (the theme's own and the creator's)
- *   An imported Shopify theme
- *                       its own folders and names (layout, templates,
- *                       sections, blocks, snippets, config, locales, assets),
- *                       through lib/storelib-theme/compat/export.ts
- *
- * Text only. A picture stays where the site serves it from, and a setting
- * keeps its address, so nothing in the repository is a copy that can go
- * stale. The export route rewrites addresses into the package's own assets;
- * a repository is not a package to carry somewhere else.
+ * Reads only. A read that fails throws: a half-read theme sent to GitHub
+ * would look like files deleted.
  */
-import "server-only"
-import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
-import { compatOf } from "@/lib/storelib-theme/compat/install"
-import { exportShopifyTheme } from "@/lib/storelib-theme/compat/export"
-import type { StoredSection } from "@/lib/storelib-theme/compat/page"
-import { installFiles } from "@/lib/website-builder/compat-site"
-import { kindLookup, repairChrome } from "@/lib/storelib-theme/section-groups"
-import { packageFilesFromPages } from "@/lib/website-builder/theme-pages"
+import { compatOf, ASSET_MAP_PATH } from "@/lib/storelib-theme/compat/install"
 import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
-import type { SectionInstance } from "@/lib/website-builder/types"
-import { codeFile } from "./core"
+import { THEME_SETTINGS_GROUPS } from "@/lib/website-builder/theme-settings-schema"
+import { DEFAULT_THEME_SOURCES } from "../../themes/default/sources.generated"
+import type { ThemeSnapshot } from "./layout"
 
 type Db = { from: (table: string) => any } // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export interface SiteSnapshot {
-  kind: "storelib" | "shopify"
-  /** Repository paths (before the link's folder) to text. */
-  files: Record<string, string>
-  /** The theme settings, draft first. */
-  settings: Record<string, unknown>
-  /** Every page, draft first, as the database holds it. */
-  pages: { page_key: string; sections: SectionInstance[] }[]
-  /** The builder's files, draft first, by their builder path. */
-  rows: Record<string, string>
+export class SnapshotError extends Error {}
+
+/** Pictures fetched for one export, at most, and in all. */
+const MEDIA_FILE_MAX = 15 * 1024 * 1024
+const MEDIA_TOTAL_MAX = 60 * 1024 * 1024
+
+async function allFiles(db: Db, installId: string): Promise<Record<string, string>> {
+  const out: Record<string, string> = {}
+  const page = 1000
+  for (let from = 0; from < 20_000; from += page) {
+    let res = await db.from("store_theme_custom_files").select("path, content, draft_content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    if (res.error) res = await db.from("store_theme_custom_files").select("path, content").eq("install_id", installId).order("path").range(from, from + page - 1)
+    if (res.error) throw new SnapshotError("Could not read this website's files. Try again.")
+    const rows = (res.data ?? []) as { path: string; content: string | null; draft_content?: string | null }[]
+    for (const r of rows) {
+      const text = r.draft_content ?? r.content
+      if (typeof text === "string" && text.trim() !== "") out[r.path] = text
+    }
+    if (rows.length < page) break
+  }
+  return out
 }
 
-/** A JSON file's text as the repository holds it, so two writes of the same value are the same bytes. */
-export function jsonFile(value: unknown): string {
-  return `${JSON.stringify(value, null, 2)}\n`
+/** The built-in sections Storelib draws itself, with no .storelib file: their schemas, to read. */
+export function referenceSchemas(): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const [type, schema] of Object.entries(SECTION_SCHEMAS)) {
+    if (`sections/${type}.storelib` in DEFAULT_THEME_SOURCES) continue
+    out[type] = schema
+  }
+  return out
 }
 
-export async function siteSnapshot(db: Db, installId: string): Promise<SiteSnapshot> {
-  const [settingsRes, pagesRes, rows] = await Promise.all([
+export async function readSnapshot(
+  db: Db,
+  installId: string,
+  opts: { name: string; fetchMedia?: (url: string, maxBytes: number) => Promise<Uint8Array | null> },
+): Promise<ThemeSnapshot> {
+  const [settingsRow, pagesRes, files] = await Promise.all([
     db.from("store_theme_settings").select("settings, draft_settings").eq("install_id", installId).maybeSingle(),
     db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", installId),
-    installFiles(db as never, installId, true),
+    allFiles(db, installId),
   ])
-  if (settingsRes.error || pagesRes.error) throw new Error("Could not read this website's theme")
-  const settingsRow = settingsRes.data as { settings?: unknown; draft_settings?: unknown } | null
-  const settings = ((settingsRow?.draft_settings ?? settingsRow?.settings ?? {}) || {}) as Record<string, unknown>
-  const pages = ((pagesRes.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]).map((p) => ({
-    page_key: String(p.page_key),
-    sections: (Array.isArray(p.draft_sections) ? p.draft_sections : Array.isArray(p.sections) ? p.sections : []) as SectionInstance[],
-  }))
+  if (settingsRow.error) throw new SnapshotError("Could not read this website's settings. Try again.")
+  if (pagesRes.error) throw new SnapshotError("Could not read this website's pages. Try again.")
+  const settings = ((settingsRow.data?.draft_settings ?? settingsRow.data?.settings) ?? {}) as Record<string, unknown>
+  const pages = ((pagesRes.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[])
+    .map((p) => ({ page_key: p.page_key, sections: (p.draft_sections ?? p.sections ?? []) as unknown }))
+    .sort((a, b) => (a.page_key < b.page_key ? -1 : 1))
+  const compat = compatOf(settings) !== null
 
-  if (compatOf(settings)) {
-    const out = exportShopifyTheme(rows, settings, Object.fromEntries(pages.map((p) => [p.page_key, p.sections as unknown as StoredSection[]])))
-    const files: Record<string, string> = {}
-    for (const [path, body] of Object.entries(out.files)) if (typeof body === "string") files[path] = body
-    return { kind: "shopify", files, settings, pages, rows }
+  const snap: ThemeSnapshot = {
+    name: opts.name,
+    compat,
+    settings,
+    pages,
+    files,
+    defaults: compat ? {} : { ...(DEFAULT_THEME_SOURCES as Record<string, string>) },
+    referenceSchemas: compat ? undefined : referenceSchemas(),
+    settingsSchema: compat ? undefined : THEME_SETTINGS_GROUPS,
   }
 
-  const files: Record<string, string> = {}
-  for (const [path, source] of Object.entries(DEFAULT_THEME_SOURCES as Record<string, string>)) if (codeFile(path)) files[path] = rows[path] ?? source
-  for (const [path, source] of Object.entries(rows)) if (codeFile(path)) files[path] = source
-  files["config/settings.json"] = jsonFile(settings)
-  /* The header and footer once, in their group files, as the export writes them. */
-  const kinds = kindLookup(files, SECTION_SCHEMAS as never)
-  Object.assign(
-    files,
-    packageFilesFromPages(pages.map((p) => ({ page_key: p.page_key, sections: repairChrome(p.sections, kinds).sections }))),
-  )
-  return { kind: "storelib", files, settings, pages, rows }
+  /* An imported theme's pictures live in storage; the repository gets their bytes, within limits. */
+  if (compat && opts.fetchMedia) {
+    let map: Record<string, string> = {}
+    try {
+      map = JSON.parse(files[ASSET_MAP_PATH] ?? "{}") as Record<string, string>
+    } catch {
+      map = {}
+    }
+    const media: Record<string, Uint8Array> = {}
+    const skipped: { name: string; reason: string }[] = []
+    let total = 0
+    for (const [name, url] of Object.entries(map).sort(([a], [b]) => (a < b ? -1 : 1))) {
+      if (typeof url !== "string" || !url) continue
+      if (total >= MEDIA_TOTAL_MAX) {
+        skipped.push({ name, reason: `Pictures over ${MEDIA_TOTAL_MAX / 1048576} MB in all stay in Storelib` })
+        continue
+      }
+      try {
+        const bytes = await opts.fetchMedia(url, Math.min(MEDIA_FILE_MAX, MEDIA_TOTAL_MAX - total))
+        if (!bytes) {
+          skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
+          continue
+        }
+        total += bytes.byteLength
+        media[name] = bytes
+      } catch {
+        skipped.push({ name, reason: "It could not be downloaded from Storelib's storage" })
+      }
+    }
+    snap.media = media
+    snap.mediaSkipped = skipped
+  }
+  return snap
 }

@@ -4,7 +4,7 @@ import "server-only"
  * ===========================================================================
  *  THE LAST COPY GOES TO ONE BUYER, EVEN TWO AT ONCE
  * ===========================================================================
- * A download with "Limit sales" on (products.sales_limit, SQL part 133) sells
+ * A download with "Limit sales" on (products.sales_limit, SQL part 150) sells
  * that many copies and no more. Counting orders before charging is not
  * enough: with one copy left, two buyers pressing Pay together both see one
  * left, both pay, and the limit is passed. So, as a discount code's last use
@@ -33,7 +33,7 @@ import "server-only"
  * under the browser's own holder, as its code does.
  *
  * NEVER A NEW WAY TO FAIL A PAYMENT. A product with no limit is never asked
- * about. Until part 133 has run, and whenever the database cannot be asked,
+ * about. Until part 150 has run, and whenever the database cannot be asked,
  * the answer is yes: the only new refusal is the database saying there is
  * no copy left. Nothing the browser sends is counted.
  */
@@ -53,7 +53,7 @@ export const SALE_HOLDER_KEY = "sale_holder"
 /** The holder for a buyer's address: the same address is the same holder, and the table never sees it. */
 export const saleHolderForEmail = holderForEmail
 
-/** A product's limit from a row read with `*`, or null: no limit, or a database before part 133. */
+/** A product's limit from a row read with `*`, or null: no limit, or a database before part 150. */
 export function limitOf(row: unknown): number | null {
   if (!row || typeof row !== "object") return null
   return readSalesLimit((row as { sales_limit?: unknown }).sales_limit)
@@ -119,7 +119,7 @@ export async function holdBasket(
   return { ok: true, held }
 }
 
-/** The product's limit, read on its own so a database without the column (before part 133) answers "none". */
+/** The product's limit, read on its own so a database without the column (before part 150) answers "none". */
 export async function readLimit(db: Db, productId: string): Promise<number | null> {
   try {
     const { data, error } = await db.from("products").select("sales_limit").eq("id", productId).maybeSingle()
@@ -143,7 +143,7 @@ export async function readLimits(db: Db, productIds: string[]): Promise<Map<stri
       if (limit !== null) out.set(r.id, limit)
     }
   } catch {
-    /* no limits: sells as before part 133 */
+    /* no limits: sells as before part 150 */
   }
   return out
 }
@@ -163,7 +163,7 @@ export async function claimSale(db: Db, productId: string, holder: string, quant
 /**
  * Each limited product's standing: its limit, copies sold, copies held.
  * Products with no limit are absent, and so is everything on a database
- * before part 133 or one that cannot be asked: the page sells as before.
+ * before part 150 or one that cannot be asked: the page sells as before.
  */
 export async function salesStandings(db: Db, productIds: string[]): Promise<Map<string, SalesStanding>> {
   const out = new Map<string, SalesStanding>()

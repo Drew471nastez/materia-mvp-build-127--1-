@@ -5,6 +5,7 @@ import { explainSaveProblem, type SaveAction, type SaveProblem } from "@/lib/web
 import { SaveProblemBanner } from "@/components/website-builder/editor/save-problem-banner"
 import { putJsonWithRetry } from "@/lib/website-builder/save-request"
 import { useEffect, useState, useLayoutEffect, useCallback, useDeferredValue, useMemo, useRef, use, memo, startTransition } from "react"
+import { perfFail, perfStep, sinceScreenStart } from "@/lib/perf/mark"
 import { installSteadyFocus } from "@/lib/website-builder/steady-focus"
 import { ownOpen, useOwnMarker } from "@/lib/analytics/own-site"
 import { createPortal } from "react-dom"
@@ -64,7 +65,7 @@ import { LEGACY_OVERRIDE_FIELDS } from "@/lib/website-builder/section-overrides"
 import { remapScheme, themeColorSchemes } from "@/lib/storelib-theme/color-schemes"
 import { sameSettingValue } from "@/lib/website-builder/same-setting"
 import { THEME_ROOT_ATTRIBUTE, themeVars } from "@/lib/website-builder/theme-css"
-import { deferLive, isLive, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
+import { deferLive, echoBlockSetting, echoSectionSetting, isLive, reconcileEchoes, useLiveTheme, setLiveBlockSetting, setLiveSectionSetting, setLiveThemeSetting } from "@/lib/website-builder/live-settings"
 import { PAGE_META } from "@/lib/website-builder/types"
 import { customPageSections, searchListsTheShop } from "@/lib/website-builder/shop-page"
 import { storeLinkTargets } from "@/lib/website-builder/link-targets"
@@ -125,6 +126,8 @@ import {
   type WritingAnchor,
 } from "@/lib/website-builder/ai-placement"
 import { WritingSection } from "@/components/website-builder/editor/writing-section"
+import { EditedBuiltInNote, isEditedBuiltIn } from "@/components/website-builder/editor/edited-built-in-note"
+import { DEFAULT_THEME_SOURCES } from "../../../../themes/default/sources.generated"
 import { AiWorkingOverlay, SETTLE_MS } from "@/components/website-builder/editor/ai-working-overlay"
 import { StorelibLiveProvider } from "@/components/website-builder/sections/storelib-live"
 import { headerLogoOf } from "@/lib/website-builder/chrome-logo"
@@ -154,10 +157,14 @@ import { switchKnob, switchTrack } from "@/components/ui/switch-style"
 import { DynamicSourceField, EditorFieldProvider, SiblingSettingsProvider, controlCarriesOwnLabel, renderRegisteredControl, type EditorFieldEnv } from "@/components/website-builder/editor/controls"
 import { MenuPickerControl } from "@/components/website-builder/editor/controls/menu-picker-control"
 import { dynamicContext, productFacts, siteMenus, storefrontData, withDynamicSources, type CreatorFacts } from "@/lib/website-builder/storefront-data"
+import { useCanvasReviews } from "@/components/website-builder/use-canvas-reviews"
 import { MAIN_MENU, adoptHeaderLinks, headerReadsMenu } from "@/lib/website-builder/main-menu"
 import { MenusEditor } from "@/components/website-builder/editor/controls/menus-editor"
 import { THEME_BREADCRUMBS_ID, withThemeBreadcrumbs } from "@/lib/website-builder/theme-breadcrumbs"
 import { cleanMenus } from "@/lib/storelib-theme/values"
+import { fetchWithin, reportLoadProblem, retrying } from "@/lib/website-builder/load-guard"
+import { CanvasProblem, CompatCanvasWaiting } from "@/components/website-builder/canvas-problem"
+import { holdCanvasStill, STILL_ATTR as CANVAS_STILL_ATTR } from "@/lib/website-builder/canvas-still"
 import type { StorefrontCollection, StorefrontCommunity } from "@/lib/storelib-theme/types"
 import type { PickerCollection, PickerCommunity } from "@/components/website-builder/editor/controls"
 
@@ -890,6 +897,8 @@ function FieldControl({
 
   if (kind === "image_gallery") {
     const list = Array.isArray(raw) ? raw.filter((x): x is string => typeof x === "string") : []
+    /* The registry's ceiling for a gallery (lib/storelib-theme/controls/registry.ts), or the setting's own `max` under it. */
+    const cap = Math.min(typeof field.max === "number" && field.max > 0 ? field.max : 60, 60)
     return (
       <div className="space-y-2">
         {list.map((url, i) => (
@@ -902,7 +911,16 @@ function FieldControl({
             layout="row"
           />
         ))}
-        <WbImagePicker value={undefined} onChange={next => { if (next) onChange([...list, next]) }} aspectRatio="video" folder="sections" layout="row" />
+        {/* The add field takes several at once: ticked in Your files, or chosen or dropped together, up to the setting's `max`. */}
+        <WbImagePicker
+          value={undefined}
+          onChange={next => { if (next) onChange([...list, next].slice(0, cap)) }}
+          onAddMany={urls => onChange([...list, ...urls].slice(0, cap))}
+          max={Math.max(0, cap - list.length)}
+          aspectRatio="video"
+          folder="sections"
+          layout="row"
+        />
       </div>
     )
   }
@@ -2621,6 +2639,10 @@ function newBlockId(): string {
 const INSPECT_FADE_MS = 200
 /** The longest the editor's loader waits for an imported theme's first page to paint. */
 const COMPAT_PAINT_CAP_MS = 8000
+/** The longest one request for the website or a page's sections is waited for before it counts as failed. */
+const SECTIONS_WAIT_MS = 20_000
+/** The longest the canvas is held for a product opened from the address. */
+const CANVAS_HOLD_CAP_MS = 6000
 /** The longest the sections panel keeps the page being left's list while an imported theme's canvas draws the next page. */
 const LIST_HOLD_MS = 3000
 /** How long a page's sections read ahead on a hover stay good, unless an edit comes first. */
@@ -2637,7 +2659,8 @@ const loadThemeChat = () => import("@/components/website-builder/theme-chat")
 const loadProjectSettings = () => import("@/components/website-builder/project-settings")
 /* An imported Shopify theme's canvas: only such a site needs it, and its code is asked for with the theme's files (warmCompat). */
 const loadCompatCanvas = () => import("@/components/website-builder/compat/compat-canvas")
-const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false })
+/* Until its code is in: the outline the canvas itself starts with, never a white page (canvas-problem.tsx). */
+const CompatCanvas = dynamic(() => loadCompatCanvas().then((m) => m.CompatCanvas), { ssr: false, loading: () => <CompatCanvasWaiting /> })
 function warmCompat(installId: string) {
   void loadCompatFiles(installId)
   void loadCompatCanvas().catch(() => {})
@@ -2713,6 +2736,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
    */
   const [canvasInspecting, setCanvasInspecting] = useState<boolean>(true)
   const [loading, setLoading] = useState(true)
+  /* The editor's first load ended without the website (a request that failed or never answered): said over the canvas, with Try again. */
+  const [loadFailed, setLoadFailed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishOpen, setPublishOpen] = useState(false)
@@ -3412,6 +3437,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
+  /* A change drawn ahead of the deferred canvas is only ever what the editor holds now (lib/website-builder/live-settings.ts, echoes). */
+  useLayoutEffect(() => {
+    reconcileEchoes((id) => sectionsRef.current.find((s) => s.id === id))
+  })
   const settingsRef = useRef(settingsDraft)
   settingsRef.current = settingsDraft
   const undoRef = useRef(undoStack)
@@ -3579,7 +3608,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // home's header/footer rather than its own persisted copy, so custom/about/
   // contact/product pages can never drift visually from home.
   const fetchHomeHeaderFooter = useCallback(async (): Promise<Chrome> => {
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=home`)
+    /* Every wait here ends (lib/website-builder/load-guard.ts): a request that never answers is an error, not a canvas that never draws. */
+    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=home`, {}, SECTIONS_WAIT_MS)
     if (!res.ok) return {}
     const data = await res.json()
     const loaded: SectionInstance[] = data.sections ?? []
@@ -3596,7 +3626,9 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   const mergeWithHomeHeaderFooter = withUniversalChrome
 
   const fetchPageSections = useCallback(async (page: PageKey): Promise<SectionInstance[]> => {
-    const res = await fetch(`/api/website-builder/themes/${installId}/sections?page=${page}`)
+    const res = await fetchWithin(`/api/website-builder/themes/${installId}/sections?page=${page}`, {}, SECTIONS_WAIT_MS)
+    /* A server error is not an empty page: drawn as one, the next autosave would have written it over the real one. */
+    if (res.status >= 500) throw new Error(`the ${page} page answered ${res.status}`)
     if (!res.ok) return []
     const data = await res.json()
     // The server's own answer to "is the draft ahead of live". See `unpublished`.
@@ -3714,6 +3746,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   // forever, which is exactly what the user reported.
   const loadData = useCallback(async () => {
     setLoading(true)
+    setLoadFailed(false)
     /*
       ALL AT ONCE, NOT ONE AFTER ANOTHER. The page's sections waited for the
       install to come back before they were even asked for, which put two
@@ -3727,8 +3760,18 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
       currentPage !== "home" ? fetchHomeHeaderFooter() : Promise.resolve<Chrome>({}),
     ]).then((v) => ({ ok: true as const, v }), (e: unknown) => ({ ok: false as const, e }))
     try {
-    const res = await fetch(`/api/website-builder/themes/${installId}`)
-    if (!res.ok) { setLoading(false); return }
+    /* Asked again on a dropped connection or a 5xx, and never waited on forever; one that cannot be had is said over the canvas. */
+    const res = await retrying(async () => {
+      const r = await fetchWithin(`/api/website-builder/themes/${installId}`, {}, SECTIONS_WAIT_MS)
+      if (r.status >= 500) throw new Error(`the website answered ${r.status}`)
+      return r
+    }, [700, 2000])
+    if (!res.ok) {
+      reportLoadProblem("editor", `the website answered ${res.status}`)
+      setLoadFailed(true)
+      setLoading(false)
+      return
+    }
     const data = await res.json()
     const inst: ThemeInstall = data.install
     setInstall(inst)
@@ -3864,6 +3907,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     setSections(loaded)
     } catch (err) {
       console.error("[editor] loadData failed:", err)
+      reportLoadProblem("editor", err)
+      setLoadFailed(true)
     } finally {
       setLoading(false)
     }
@@ -4157,7 +4202,13 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * content for it is in hand. React batches these into one commit, so
        * the canvas goes from the old page straight to the new one with no
        * frame in between.
+       *
+       * And the old one is held over it, copied, until the new one is drawn
+       * with its first pictures in, then faded off it (lib/website-builder/
+       * canvas-still.ts). Not over an imported theme's canvas, whose frames
+       * cross-fade on their own (compat-canvas.tsx).
        */
+      if (!importedTheme.current) holdCanvasStill(() => currentPageRef.current === page)
       setCurrentPage(page)
       setSelectedProductPage(null)
       setSelectedProductId(null)
@@ -4167,9 +4218,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       setSectionsLoading(false)
       setCanvasLoading(false)
+    } catch (err) {
+      /* The page you were on stays, and says why it is still there; the sidebar's skeleton and the canvas's hold go. */
+      pageOpenFailed(err)
     } finally {
       switchingPage.current = false
     }
+  }
+
+  /** A page or product that could not be opened: nothing is left waiting on it, and it is said once. */
+  function pageOpenFailed(err: unknown) {
+    console.error("[editor] a page could not be opened:", err)
+    reportLoadProblem("editor", err)
+    setSectionsLoading(false)
+    setCanvasLoading(false)
+    openingPage.current = false
+    toast.error("Couldn't open that page. Try again.", { id: "wb-page-open" })
   }
 
   /**
@@ -4222,6 +4286,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     if (importedTheme.current) return
     const page = document.getElementById("wb-preview-root")?.firstElementChild as HTMLElement | null
     const calm = typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches
+    /* The page being left is held over this one and fades off it (canvas-still.ts): fading this one up as well showed the white behind both. */
+    if (document.querySelector(`[${CANVAS_STILL_ATTR}]`)) return
     if (page && !calm && typeof page.animate === "function") page.animate([{ opacity: 0.35 }, { opacity: 1 }], { duration: 180, easing: "ease-out" })
   }, [currentPage, selectedProductPage])
   /* Opened by a link to one of its sections (`/about#section-x`): from the
@@ -4298,18 +4364,24 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     const fetchProductWithRetry = async (): Promise<{ product?: unknown } | null> => {
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const r = await fetch(`/api/website-builder/products?id=${productId}`, { cache: "no-store" })
+          const r = await fetchWithin(`/api/website-builder/products?id=${productId}`, { cache: "no-store" }, SECTIONS_WAIT_MS)
           if (r.ok) return await r.json()
         } catch {}
       }
       return null
     }
 
-    const [pageSections, productRes, homeHF] = await Promise.all([
-      fetchPageSections("product"),
-      fetchProductWithRetry(),
-      leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
-    ])
+    let pageSections: SectionInstance[], productRes: { product?: unknown } | null, homeHF: Chrome
+    try {
+      ;[pageSections, productRes, homeHF] = await Promise.all([
+        fetchPageSections("product"),
+        fetchProductWithRetry(),
+        leavingHomeHF ? Promise.resolve(leavingHomeHF) : fetchHomeHeaderFooter(),
+      ])
+    } catch (err) {
+      if (nav === pageNav.current) pageOpenFailed(err)
+      return
+    }
     if (nav !== pageNav.current) return
 
     // Use API response first, fall back to list data
@@ -4334,7 +4406,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     // Splice home's header/footer around this product template
     const merged = mergeWithHomeHeaderFooter(pageSections, homeHF)
 
-    /** One commit: the page, the product it is showing, and its sections. */
+    /** One commit: the page, the product it is showing, and its sections, under the page being left (see handlePageChange). */
+    if (!importedTheme.current) holdCanvasStill(() => selectedProductIdRef.current === productId)
     setSelectedProductPage(productTitle)
     setSelectedProductId(productId)
     setCurrentPage("product")
@@ -4819,6 +4892,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const current = sectionsRef.current.find(s => s.id === sectionId)
     if (current && sameSettingValue(current.settings?.[key], value)) return
+    /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
+    if (current) echoSectionSetting(sectionId, key, value)
     debouncedPushUndo()
     setSections(prev => {
       const section = prev.find(s => s.id === sectionId)
@@ -4891,6 +4966,8 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     const block = blockAt(section.blocks, path)?.block
     if (block && sameSettingValue(block.settings?.[key], value)) return
+    /* Drawn by its section now, ahead of the deferred canvas (live-settings.ts, echoes). */
+    if (block) echoBlockSetting(sectionId, blockKey, key, value)
     debouncedPushUndo()
     setSections(prev => prev.map(s =>
       s.id === sectionId
@@ -5544,9 +5621,12 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   }
 
   const saveDraft = async (options: { quiet?: boolean } = {}): Promise<boolean> => {
+    /* Timed for /admin/performance (lib/perf/mark): how long a save took, or that it failed. */
+    const t0 = performance.now()
     try {
       const settingsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/settings`, { draft_settings: settingsDraft })
       if (!settingsRes.ok) {
+        perfFail("/step/editor/save", `http_${settingsRes.status}`)
         const d = await settingsRes.json().catch(() => ({}))
         setSaveProblem(explainSaveProblem(settingsRes.status, d))
         return false
@@ -5554,6 +5634,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
       const sectionsRes = await putJsonWithRetry(`/api/website-builder/themes/${installId}/sections`, { page_key: currentPage, sections: sectionsForSave(sections), mode: "draft" })
       if (!sectionsRes.ok) {
+        perfFail("/step/editor/save", `http_${sectionsRes.status}`)
         const d = await sectionsRes.json().catch(() => ({}))
         // A FAILED autosave is not quiet. Silence here is how somebody keeps
         // working for an hour against a server that stopped accepting writes.
@@ -5572,9 +5653,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
        * trains somebody to ignore the one that matters — the bar already shows
        * the state.
        */
+      perfStep("/step/editor/save", performance.now() - t0)
       if (!options.quiet) showNotification("Saved")
       return true
     } catch {
+      perfFail("/step/editor/save", typeof navigator !== "undefined" && navigator.onLine === false ? "offline" : "network")
       setSaveProblem(explainSaveProblem(typeof navigator !== "undefined" && navigator.onLine === false ? null : 503, null))
       return false
     }
@@ -6206,7 +6289,7 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }
     /*
       REWRITTEN WHOLE, NOT EDITED (a push to the linked GitHub repository,
-      lib/github-sync/apply.ts). There are no operations to replay, and the
+      lib/github-sync/sync.ts). There are no operations to replay, and the
       copy held here would be autosaved over the new draft, so it is read
       again from the draft. An edit made here and not saved yet is kept
       instead, and the line says how to take GitHub's version.
@@ -6944,6 +7027,10 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
           </PanelBack>
 
           <div data-sheet-scroll className="flex-1 overflow-y-auto wb-slim-scroll">
+            {/* A built-in this site has its own copy of (edited in GitHub or the code editor): said, with the way back. */}
+            {!compatInstall && isEditedBuiltIn(section.type, storelibSources, { defaults: DEFAULT_THEME_SOURCES as Record<string, string>, drawnByStorelib: (t) => !!SECTION_SCHEMAS[t] }) && (
+              <EditedBuiltInNote installId={installId} type={section.type} onReset={() => void loadStorelibSources()} />
+            )}
             {/* The section's design: its scheme, Customize, heading and body style. Storelib's own:
                 an imported theme reads none of them, and its scheme and any such settings of its
                 own are drawn below as the theme declares them. */}
@@ -7466,9 +7553,11 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     }),
     [activeThemeSettings, creatorFacts, websiteUrl, products.length, previewedProduct, currentPage],
   )
+  /* Storelib Reviews: a page with a review section draws the store's reviews, or samples (components/website-builder/use-canvas-reviews.ts). */
+  const canvasReviews = useCanvasReviews(canvasSections.some((s) => s.type.startsWith("reviews_")), previewedProduct?.id ?? null)
   const canvasData = useMemo(
-    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards }),
-    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections],
+    () => storefrontData({ dynamic: canvasDynamic, catalog: catalogCardsForCanvas, menus: canvasMenus, communities: builderCommunities?.cards, collections: builderCollections?.cards, reviews: canvasReviews }),
+    [canvasDynamic, catalogCardsForCanvas, canvasMenus, builderCommunities, builderCollections, canvasReviews],
   )
   /* What the canvas draws: the page with its placeholders filled. Never saved. */
   const drawnSections = useMemo(
@@ -7519,6 +7608,21 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
 
   const canvasBusy = loading || canvasLoading
   /*
+    A PRODUCT OPENED FROM THE ADDRESS holds the canvas until its product is
+    in (the `canvasLoading` initializer). A product that is not in the list
+    (deleted, renamed, a shop with none) never let go of it: the loader
+    stayed for good. It lets go by CANVAS_HOLD_CAP_MS whatever happened, and
+    shows the product page as it is.
+  */
+  useEffect(() => {
+    if (!canvasLoading || loading) return
+    const t = window.setTimeout(() => {
+      setCanvasLoading(false)
+      reportLoadProblem("editor", "a product opened from the address never arrived")
+    }, CANVAS_HOLD_CAP_MS)
+    return () => window.clearTimeout(t)
+  }, [canvasLoading, loading])
+  /*
     AN IMPORTED THEME'S FIRST PAGE IS PART OF THE SAME WAIT. Its canvas is a
     frame that still has the theme's files to read and its page to draw once
     the editor has loaded, and that used to be a second loading screen after
@@ -7537,6 +7641,22 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
     return () => window.clearTimeout(id)
   }, [compatFirstPaint, canvasBusy])
   const canvasLoaderUp = canvasBusy || compatFirstPaint
+  /*
+    THE EDITOR OPENING, TIMED for /admin/performance (lib/perf/mark): from
+    the screen opening (the page load, or the tap that opened it) to the
+    canvas showing the page, and from the editor's data arriving to that.
+    Once per editor.
+  */
+  const openTimed = useRef<{ dataAt: number | null; done: boolean }>({ dataAt: null, done: false })
+  useEffect(() => {
+    const t = openTimed.current
+    if (t.done) return
+    if (!loading && t.dataAt === null) t.dataAt = performance.now()
+    if (canvasLoaderUp) return
+    t.done = true
+    perfStep("/step/editor/open", sinceScreenStart())
+    if (t.dataAt !== null) perfStep("/step/editor/canvas", performance.now() - t.dataAt)
+  }, [loading, canvasLoaderUp])
   /**
    * See `useDelayedFlag`: a fast load should show nothing at all. Half a
    * second, the wait every other loader in Storelib keeps before it shows
@@ -9526,6 +9646,17 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
                     }
                   />
                 )}
+              </div>
+            )}
+
+            {loadFailed && !loading && (
+              <div className="absolute inset-0 z-10 bg-white">
+                <CanvasProblem
+                  kind="editor"
+                  title="Your website didn't load"
+                  body="Check your connection and try again."
+                  onRetry={() => void loadData()}
+                />
               </div>
             )}
 

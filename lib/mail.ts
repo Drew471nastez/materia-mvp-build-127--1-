@@ -46,6 +46,8 @@ export interface SendEmailOptions {
   attachments?: MailAttachment[]
   /** A code or other mail they just asked for: no tracking, sent on the first request. */
   transactional?: boolean
+  /** Transactional, for an address anybody may have typed: the bounce list is not cleared (lib/mailgun.ts). */
+  keepBounce?: boolean
 }
 
 // Email send result
@@ -99,6 +101,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<SendEmailRes
     tags,
     attachments: options.attachments,
     transactional: options.transactional,
+    keepBounce: options.keepBounce,
   })
 
   if (result.success) {

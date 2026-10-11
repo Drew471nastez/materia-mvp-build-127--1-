@@ -30,6 +30,7 @@ import { CATEGORY_NAMES, CATEGORY_ORDER, STATUS_LABEL, searchIntegrations, visib
 import { applyCatalogOverrides, type CatalogOverride } from "@/lib/integrations/overrides"
 import { providerInfo } from "@/lib/physical/providers"
 import { TRACKERS, type Tracking } from "@/lib/store/tracking"
+import { ReviewsAppPanel } from "@/components/app/settings/reviews-app-panel"
 
 type Filter = "all" | "installed" | IntegrationCategory
 
@@ -72,6 +73,13 @@ export function IntegrationsDirectory() {
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
+  /* Storelib's own apps: on or off (Storelib Reviews, lib/reviews/app-settings.ts). */
+  const [appsOn, setAppsOn] = React.useState<Record<string, boolean>>(() => ({ storelib_reviews: peekGet<{ settings: { enabled: boolean } }>("/api/store/reviews-app")?.settings?.enabled === true }))
+  React.useEffect(() => {
+    void api<{ settings: { enabled: boolean } }>("/api/store/reviews-app").then((r) => {
+      if (r.ok) setAppsOn((a) => ({ ...a, storelib_reviews: r.data.settings?.enabled === true }))
+    })
+  }, [])
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward. It was read once on mount, so a second row did nothing. */
@@ -98,12 +106,13 @@ export function IntegrationsDirectory() {
 
   const installed = React.useCallback(
     (i: Integration): boolean => {
+      if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && tracking?.[i.trackerId])
       if (i.kind !== "commerce") return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
-    [tracking, states],
+    [tracking, states, appsOn],
   )
 
   /* One word for where each stands, read off what is really saved: never an installed state that isn't. */
@@ -246,6 +255,10 @@ export function IntegrationsDirectory() {
             setStates(st)
             window.dispatchEvent(new Event("storelib:integrations-changed"))
           }}
+          onApp={(appId, on) => {
+            setAppsOn((a) => ({ ...a, [appId]: on }))
+            window.dispatchEvent(new Event("storelib:integrations-changed"))
+          }}
           onBack={() => open(null)}
         />
       </div>
@@ -323,7 +336,7 @@ export function IntegrationsDirectory() {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <Mark item={i} />
-                    <StatusBadge status={status} />
+                    {i.kind === "app" && status === "available" ? <Badge>Storelib</Badge> : <StatusBadge status={status} />}
                   </div>
                   <div className="min-w-0">
                     <p className="text-[14.5px] font-semibold text-[#1a1a2e]">{i.name}</p>
@@ -409,6 +422,7 @@ function IntegrationPage({
   states,
   onTracking,
   onStates,
+  onApp,
   onBack,
 }: {
   item: Integration
@@ -419,6 +433,7 @@ function IntegrationPage({
   states: IntegrationState[] | null
   onTracking: (t: Tracking) => void
   onStates: (s: IntegrationState[]) => void
+  onApp: (appId: string, on: boolean) => void
   onBack: () => void
 }) {
   const setupRef = React.useRef<HTMLElement>(null)
@@ -480,6 +495,8 @@ function IntegrationPage({
             <div className="px-4 py-4 sm:px-6 sm:py-5">
               {notifyOnly ? (
                 <NotifyMe item={item} />
+              ) : item.kind === "app" && item.appId === "storelib_reviews" ? (
+                <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
               ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (

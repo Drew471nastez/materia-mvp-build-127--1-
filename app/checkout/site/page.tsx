@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
+import { after } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { getMainDomain } from "@/lib/url-helpers"
 import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
@@ -12,6 +13,7 @@ import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { CART_COOKIE, readCartCookie } from "@/lib/storelib-theme/compat/site"
 import type { LinkItem } from "@/lib/physical/cart-link"
+import { ensureSiteWalletDomain } from "@/lib/custom-domains/stripe-pmd"
 import { SiteCheckout, SiteProblem } from "./site-checkout"
 
 export const dynamic = "force-dynamic"
@@ -36,7 +38,10 @@ export const metadata: Metadata = { title: "Checkout", robots: { index: false, f
  *
  * Priced by the server for the first frame (lib/checkout/site-quote-server),
  * branded with the website's logo (lib/checkout/brand-server), and Settings ›
- * Checkout read for who may pay and what is asked (siteGate).
+ * Checkout read for who may pay and what is asked (siteGate). A customer
+ * signed in to the website is not charged for what they already own: the
+ * page says "You already own this" with the website's own downloads
+ * (/account), never storelib.com.
  */
 export default async function SiteCheckoutPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams
@@ -45,6 +50,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const admin = createAdminClient()
   const site = await siteOfHost(admin, h.get("host"))
   if (!site) notFound()
+  /* Apple Pay and Google Pay on a website's own subdomain: registered with Stripe once, after this page is sent (lib/custom-domains/stripe-pmd). */
+  if (site.kind === "subdomain") after(() => ensureSiteWalletDomain(admin, site.host))
 
   const params = readSiteCheckoutParams(q)
   let items: LinkItem[] = params.items
@@ -96,7 +103,8 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
   const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
-  const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }) : null
+  /* Priced for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
+  const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, buyer ? { email: buyer.email } : null) : null
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
   if (answer && answer.ok && answer.quote.totals.totalCents > 0 && !ready) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Checkout is closed" message={BUYER_UNAVAILABLE} />
@@ -116,6 +124,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       initialError={answer && answer.ok === false ? answer.error : null}
       config={config}
       buyer={buyer ? { email: buyer.email, name: buyer.name } : null}
+      accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
     />

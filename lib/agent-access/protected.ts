@@ -94,3 +94,39 @@ export function agentMayWrite(path: string): AgentWriteCheck {
   }
   return { ok: true }
 }
+
+/* ── a linked GitHub repository ──────────────────────────────────────── */
+
+export type RepoWriteCheck = { ok: true; override: boolean } | { ok: false; status: 403; error: string }
+
+/**
+ * WHAT A PUSH TO A LINKED REPOSITORY MAY CHANGE. More than an agent over MCP:
+ * the repository is the creator's own copy of the whole theme, and a built-in
+ * section edited there is the creator's decision, made in their repository.
+ *
+ * So a built-in section or block is not refused. It is kept as THIS theme's
+ * own copy (copy on write): a row in store_theme_custom_files at the
+ * built-in's path, which the renderer already reads first for this install
+ * and only this install (lib/website-builder/storelib-runtime.ts,
+ * sectionSource). Every other site keeps Storelib's. The builder marks it
+ * Edited in GitHub, with Reset to Storelib's version, which deletes the row.
+ * It goes through the same save and the same checks as a section of the
+ * creator's own, scripts included (lib/github-sync/sync.ts).
+ *
+ * An imported Shopify theme has no Storelib built-ins: every section in it is
+ * the theme's own, whatever its name, and is changed in place. That is the
+ * "slideshow is one of Storelib's built-in sections" refusal an imported
+ * theme's own slideshow used to get.
+ *
+ * The built-in header and footer stay refused, by the save itself
+ * (chromeRefusal): every page's chrome settings are stored for them.
+ */
+export function repoMayWrite(path: string, opts: { compat: boolean }): RepoWriteCheck {
+  if (!safeThemePath(path)) return { ok: false, status: 403, error: `${path} is not a path a theme file can have` }
+  if (opts.compat) return { ok: true, override: false }
+  const block = AGENT_WRITABLE_BLOCK.test(path) ? path.slice("blocks/".length, -".storelib".length) : null
+  if (block) return { ok: true, override: BUILT_IN_BLOCK_TYPES.has(block) }
+  const type = sectionTypeOf(path)
+  if (type) return { ok: true, override: BUILT_IN_SECTION_TYPES.has(type) }
+  return { ok: true, override: false }
+}

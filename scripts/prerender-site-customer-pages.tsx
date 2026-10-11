@@ -48,8 +48,19 @@ const customer = {
       items: [{ title: String(PRODUCTS[0].settings.title), image: String(PRODUCTS[0].settings.image), url: "/products/x", variant: "Sand" }, { title: "Card wallet", image: String(PRODUCTS[1].settings.image), url: "", variant: "" }],
       item_count: 2, action_label: "Download", action_url: "https://storelib.com/receipt/probe", title: "Linen apron and 1 more", image: "", url: "", price: "$102.00",
     },
+    /* Something that ships, with two parcels: one a carrier we link, one we don't (its number alone), a long name to wrap on a phone. */
+    {
+      id: "o2", number: "7C1D0E2F", date: "Sep 24, 2026", status: "Partly shipped", state: "open", total: "$64.00",
+      items: [{ title: "Card wallet", image: String(PRODUCTS[1].settings.image), url: "", variant: "Black" }],
+      item_count: 1, action_label: "Track order", action_url: "/checkout/physical/order/probe-token-aaaaaaaa", title: "Card wallet", image: "", url: "", price: "$64.00",
+      fulfillment_status: "partially_fulfilled", order_url: "/checkout/physical/order/probe-token-aaaaaaaa",
+      tracking: [
+        { company: "La Poste / Colissimo", number: "6A12345678901", url: "https://www.laposte.fr/outils/suivre-vos-envois?code=6A12345678901", status: "In transit" },
+        { company: "Courier Express Nationwide", number: "CEN-0000123456789012345", url: "", status: "Shipped" },
+      ],
+    },
   ],
-  orders_count: 1,
+  orders_count: 2,
   addresses: [{ lines: ["Ana Pop", "9 Elm Row, Flat 4", "Cluj-Napoca, CJ 400000", "Romania"] }],
   sample: false,
 }

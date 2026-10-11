@@ -15,10 +15,11 @@ import { baseFor } from "@/lib/checkout/pricing"
 import { communityAccessAfterEntitlement } from "@/lib/communities/server/payment-hooks"
 import { CLAIM_HOLD_SECONDS, holdSale, limitOf, releaseSale, saleHolderForEmail } from "@/lib/checkout/sales-limit"
 import { soldOutMessage } from "@/lib/products/sales-limit"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   try {
     const supabase = await createClient()
     const admin = createAdminClient()
@@ -353,3 +354,6 @@ export async function POST(request: Request) {
     )
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("checkout", "/api/checkout/quick-free", handlePOST)

@@ -5,7 +5,7 @@
  * The product editor's "Limit sales" for a download, a course or anything
  * else that does not ship (a thing that ships has stock and "up to N per
  * order" instead, lib/physical/order-limit.ts). Kept on the product as
- * `products.sales_limit` (SQL part 133). The words and the arithmetic every
+ * `products.sales_limit` (SQL part 150). The words and the arithmetic every
  * surface shares live here, with no server code, so the editor, the product
  * page and the shop's cards say the same thing. The checkout's side, which
  * holds a copy before anything is charged, is lib/checkout/sales-limit.ts.
@@ -40,7 +40,7 @@ export function typedSalesLimit(raw: string): string {
   return raw.replace(/\D/g, "").replace(/^0+/, "").slice(0, 7)
 }
 
-/** The column is missing: part 133 has not run. */
+/** The column is missing: part 150 has not run. */
 export function missingSalesLimit(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false
   return error.code === "42703" || error.code === "PGRST204" || /sales_limit/.test(error.message ?? "")

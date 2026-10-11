@@ -495,6 +495,8 @@ export interface RenderContext {
   creator?: StorefrontData["creator"]
   /** The product this page is about. Present on the product template only. */
   product?: StorefrontData["product"]
+  /** Storelib Reviews, as StorefrontData.reviews: read by sections/reviews_*.storelib. */
+  reviews?: Record<string, unknown> | null
   /**
    * The collection this page is about, on /collections/<handle>: title,
    * handle, description, image, url, products_count and its products,
@@ -617,6 +619,13 @@ export interface StorefrontData {
   } | null
   /** The collection the page is about, on a collection page only. */
   collection?: StorefrontCollection | null
+  /**
+   * Storelib Reviews (lib/reviews/storefront.ts): the shop's published
+   * reviews and, on a product page, the product's, as `reviews` in a
+   * template. Absent or `enabled: false` and a review section draws nothing
+   * on a live page.
+   */
+  reviews?: Record<string, unknown> | null
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────

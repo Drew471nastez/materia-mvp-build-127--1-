@@ -23,6 +23,7 @@ import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
 import { formFields } from "@/lib/storelib-theme/compat/form-fields"
+import { timed } from "@/lib/perf/server-timing"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -145,6 +146,7 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   const orderId = sitePath.match(/^\/account\/orders\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\/?$/i)?.[1] ?? null
   const account = token || !page ? undefined : await siteAccountOf(req, found.site.creatorId, { orders: accountPath, pending: accountPath, order: orderId })
 
+  const shopId = found.site.creatorId
   const out = await answer(found.site, {
     method: req.method,
     path: sitePath,
@@ -155,6 +157,13 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     ajax,
     referer: refererPath(req.headers.get("referer")),
     account,
+    /* A signed in customer's product page says "You already own this" for a download they have (lib/site-accounts/owned-products). */
+    owned: account?.customer?.email
+      ? async (productId: string) => {
+          const { customerOwnsProduct } = await import("@/lib/site-accounts/owned-products")
+          return customerOwnsProduct({ creatorId: shopId, email: account.customer!.email }, productId)
+        }
+      : undefined,
     submit: token
       ? undefined
       : async (kind, payload) => {
@@ -173,6 +182,8 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
   return new NextResponse(body, { status: out.status, headers })
 }
 
-export const GET = handle
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts): an imported theme's pages, cart and section calls. */
+const timedHandle = timed("sites", "/api/site-theme/site", handle)
+export const GET = timedHandle
 export const HEAD = handle
-export const POST = handle
+export const POST = timedHandle

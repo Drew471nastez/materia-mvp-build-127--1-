@@ -47,6 +47,19 @@
                 </li>
                 {% endfor %}
               </ul>
+              {# A parcel on its way: the carrier and number, linked to the
+                 carrier's own tracking page when it has one. The order's
+                 own page (Track order) has the whole story. #}
+              {% if order.tracking.size > 0 %}
+              <ul class="track">
+                {% for t in order.tracking %}
+                <li class="track__row">
+                  <span class="track__status">{{ t.status }}</span>
+                  {% if t.url %}<a class="acct__inline" href="{{ t.url | url }}" target="_blank" rel="noopener">{% if t.company %}{{ t.company }} {% endif %}{{ t.number }}</a>{% else %}<span>{% if t.company %}{{ t.company }} {% endif %}{{ t.number }}</span>{% endif %}
+                </li>
+                {% endfor %}
+              </ul>
+              {% endif %}
               <div class="order__foot">
                 <p class="order__total"><span class="order__total-label">{{ settings.total_label }}</span> {{ order.total }}</p>
                 {% if order.action_url %}<a class="order__go" href="{{ order.action_url | url }}">{{ order.action_label }}</a>{% endif %}
@@ -190,6 +203,9 @@
 .item__title { display: block; font-size: var(--section-text-size, 15px); line-height: 1.4; font-weight: 500; color: var(--s-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.item__row:hover .item__title { text-decoration: underline; text-underline-offset: 3px; }
 .item__meta { margin-top: 2px; font-size: 13px; color: var(--s-para); }
+.track { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 14px; line-height: 1.4; color: var(--s-para); }
+.track__row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; overflow-wrap: anywhere; }
+.track__status { font-weight: 500; color: var(--s-heading); }
 .order__foot { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 14px; }
 .order__total { margin: 0; font-size: 15px; font-weight: 600; color: var(--s-heading); font-variant-numeric: tabular-nums; }
 .order__total-label { margin-right: 6px; font-weight: 400; color: var(--s-para); }

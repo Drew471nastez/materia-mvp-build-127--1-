@@ -86,7 +86,7 @@ import { StorelibLiveProvider } from "@/components/website-builder/sections/stor
 import { SECTION_CATEGORIES, SECTION_CATEGORY_ORDER } from "@/lib/website-builder/section-schemas"
 import { CUSTOM_SECTION_CATEGORY } from "@/lib/website-builder/storelib-schemas"
 import { lazyImages, previewCardHeight, previewCentered, previewKey, splitStyles } from "@/lib/website-builder/preview-markup"
-import { CompatPreviewBox, CompatPreviewProvider } from "@/components/website-builder/compat/compat-section-preview"
+import { CompatPreviewBox, CompatPreviewProvider, releaseCompatHeld } from "@/components/website-builder/compat/compat-section-preview"
 import type { SectionInstance, SectionSchema, ThemeSettingsValues } from "@/lib/website-builder/types"
 
 /* ── What a preview is drawn at ────────────────────────────────────────── */
@@ -673,6 +673,8 @@ const PreviewBox = memo(function PreviewBox({
       }}
     >
       {live && empty ? <EmptyPreview title={title} /> : null}
+      {/* Until its preview is in: a soft band of light crossing the grey, only while the library is open (app/globals.css, .wb-preview-shimmer). */}
+      {!html && !(live && empty) ? <span aria-hidden data-preview-shimmer="" className="wb-preview-shimmer absolute inset-0" /> : null}
       {html && (
         <div
           ref={innerRef}
@@ -743,7 +745,7 @@ const LibraryCard = memo(function LibraryCard({
         )}
       >
         {compat ? (
-          <CompatPreviewBox type={entry.type} presetIndex={entry.presetIndex} schema={entry.schema} width={width} renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} />
+          <CompatPreviewBox type={entry.type} presetIndex={entry.presetIndex} schema={entry.schema} width={width} renderWidth={phone ? renderWidth : COMPAT_RENDER_WIDTH} eager={eager} />
         ) : (
           <PreviewBox markupKey={entry.keyFor(renderWidth)} title={entry.title} width={width} renderWidth={renderWidth} ratio={ratio} live={live} eager={eager} />
         )}
@@ -849,6 +851,7 @@ export const SectionLibrary = memo(function SectionLibrary({
       setQuery("")
       /* Before its first frame: a card held at the crop last time opens at its own height. */
       releaseHeld(true)
+      releaseCompatHeld()
     }
   }, [open])
 
@@ -1230,7 +1233,7 @@ export const SectionLibrary = memo(function SectionLibrary({
         layer="raised"
         peekHeight={0}
       >
-        <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone">
+        <div className="flex min-h-0 flex-1 flex-col" data-section-library="phone" data-library-open={open ? "" : undefined}>
           <div className="shrink-0 px-4 pb-3 pt-0.5">
             <h2 className="text-[17px] font-semibold tracking-tight text-[#1a1a2e]">Add a section</h2>
           </div>

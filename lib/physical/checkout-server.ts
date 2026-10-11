@@ -114,6 +114,8 @@ export interface StartInput {
   paymentMethods?: unknown
   /** Signed in to the website's own customer account (lib/site-accounts), which counts as an account here. */
   buyerSignedIn?: boolean
+  /** That account's address, proven by its sign in code: what it already owns is left out (lib/checkout/owned). Never a typed email. */
+  ownerEmail?: string | null
 }
 
 export type StartResult =
@@ -159,7 +161,7 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
   if (clientKey.length < 8) return { ok: false, status: 400, error: "Refresh the page and try again." }
 
   const items = readItems(input.items)
-  const priced = await priceCheckout(db, { items, couponCode: input.couponCode, buyerId: input.buyerId, buyerEmail: email, shopId: input.shopId })
+  const priced = await priceCheckout(db, { items, couponCode: input.couponCode, buyerId: input.buyerId, buyerEmail: email, ownerEmail: input.ownerEmail ?? null, shopId: input.shopId })
   if (priced.ok === false) return { ok: false, status: priced.status, error: priced.error }
   if (priced.stockIssues.length) {
     return {

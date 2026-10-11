@@ -8,12 +8,13 @@ import { noteStripeEvent, stripeEventHandled } from "@/lib/payments/ledger"
 import { createClient } from "@supabase/supabase-js"
 import { reportError } from "@/lib/observability/report"
 import { verifyStripeEvent } from "@/lib/stripe/webhook-secrets"
+import { timed } from "@/lib/perf/server-timing"
 
 export const runtime = "nodejs"
 
 const supabaseAdmin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 
-export async function POST(request: Request) {
+async function handlePOST(request: Request) {
   const secret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET
   if (!secret) return NextResponse.json({ error: "Connect webhook not configured" }, { status: 503 })
 
@@ -55,3 +56,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Handler failed" }, { status: 500 })
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const POST = timed("infra", "/api/stripe/webhook/connect", handlePOST)

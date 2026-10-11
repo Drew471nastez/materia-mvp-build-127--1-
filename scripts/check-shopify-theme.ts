@@ -32,6 +32,27 @@
  *   in the canvas, /account, /account/login and /account/register draw in
  *   the theme, and sending a sign in form says it works on the live site
  *
+ * And, on a page of their own (CHECKS=header,cards,recent,overlay,loading
+ * runs any of these alone; `core` adds the checks above):
+ *
+ *   header     every link of the header pressed as a visitor presses it
+ *              (a menu, a mega menu or a drawer opened first), on the
+ *              website (the page opens) and in the canvas (the builder is
+ *              told to open it); after scrolling, a sticky header's too;
+ *              on a phone, the Overlay group's tab bar links
+ *   cards      every product card has its name, a price and its pictures
+ *              loaded (home, collections, search, a product's related
+ *              products), no Liquid error; a card's picture opens it
+ *   recent     three products looked at show in every recently viewed
+ *              section, on the website and in the canvas
+ *   overlay    each Overlay group section drawn once, in order, none
+ *              switched off; a word changed in one shows in the canvas
+ *   loading    home and a collection hold still (layout shift), no first
+ *              screen picture left waiting, every section a script asks
+ *              for (section rendering) answered
+ *
+ * SERVE=1 serves the site and the canvas alone, to look at by hand.
+ *
  * Measurements, not opinions: each line prints what it measured. Exits 1 on
  * any failure. Screenshots go to $OUT (default /tmp/shopify-theme-check).
  */
@@ -40,16 +61,18 @@ import { mkdirSync, readFileSync } from "node:fs"
 import { basename } from "node:path"
 import { readBasketParams } from "../lib/checkout/basket-link"
 import JSZip from "jszip"
-import puppeteer from "puppeteer-core"
+import puppeteer, { type Frame, type Page } from "puppeteer-core"
 import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
 import { shopifyGlobalAsset } from "../lib/storelib-theme/compat/shopify-global-assets"
 import { formFields } from "../lib/storelib-theme/compat/form-fields"
-import { themeOfInstall } from "../lib/storelib-theme/compat/page"
+import { drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "../lib/storelib-theme/compat/page"
+import { splitCompatFile } from "../lib/storelib-theme/compat/theme"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, canvasAccountPage, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "../lib/storelib-theme/compat/canvas-cart"
+import { liveNavigationEnd, liveNavigationMarkup } from "../lib/website-builder/live-navigation"
 
 const OUT = process.env.OUT ?? "/tmp/shopify-theme-check"
 /** What the page last sent to the basket checkout. */
@@ -119,7 +142,7 @@ async function serve(zipPath: string) {
   })
   const { products, collections, menus } = shop()
   const pages = Object.fromEntries(r.theme.pages.map((p) => [p.page_key, p.sections]))
-  const site: SiteData = { creatorId: "c", theme, pages, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}", policies: [{ handle: "refund-policy", title: "Refund Policy", body: "<p>Returns are accepted within 30 days of delivery.</p>" }] }, host: "127.0.0.1" }
+  const site: SiteData = { creatorId: "c", theme, pages, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}", policies: [{ handle: "refund-policy", title: "Refund Policy", body: "<p>Returns are accepted within 30 days of delivery.</p>" }] }, host: "127.0.0.1", extraHead: liveNavigationMarkup(), extraBodyEnd: liveNavigationEnd() }
 
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://127.0.0.1")
@@ -149,11 +172,53 @@ async function serve(zipPath: string) {
     if (url.pathname === "/__canvas") {
       const path = url.searchParams.get("path") ?? "/"
       /* An account page, as the builder's canvas draws it (compat-canvas.tsx, site.ts canvasAccountPage). */
-      const account = /^\/account/.test(path) ? canvasAccountPage({ ...site, designMode: true }, path, { extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }) : null
-      const drawn = account ? { body: account.html } : await answer({ ...site, designMode: true, extraBodyEnd: `<script>window.__slSite="";${CANVAS_BRIDGE}</script>` }, { method: "GET", path, query: new URLSearchParams(), body: null, cart: [] })
-      const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed={};</script>${CANVAS_HEAD}`)
+      const account = /^\/account/.test(path) ? canvasAccountPage({ ...site, designMode: true, extraHead: undefined }, path, { extraBodyEnd: `<script>window.__slSite="https://linen.example";${CANVAS_BRIDGE}</script>` }) : null
+      const drawn = account ? { body: account.html } : await answer({ ...site, designMode: true, extraHead: undefined, extraBodyEnd: `<script>window.__slSite="https://linen.example";${CANVAS_BRIDGE}</script>` }, { method: "GET", path: path.split("?")[0], query: new URLSearchParams(path.split("?")[1] ?? ""), body: null, cart: [] })
+      /* What the website's visit left in the browser's storage, handed to the frame as the builder hands its own (compat-canvas.tsx canvasStorage). */
+      const seed = (() => { try { return JSON.parse(url.searchParams.get("seed") ?? "{}") } catch { return {} } })()
+      const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed=${JSON.stringify(seed).replace(/</g, "\\u003c")};</script>${CANVAS_HEAD}`)
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
       res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type==="navigate")(window.__nav=window.__nav||[]).push(m.href);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      return
+    }
+    /*
+      A section of the home page drawn again with one of its words changed,
+      as the builder draws it when a value changes in the sidebar
+      (compat-canvas.tsx syncSlot): the first text setting whose value the
+      section shows.
+    */
+    if (url.pathname === "/__redraw") {
+      const list = (pages.home ?? []) as StoredSection[]
+      const s = list.find((x) => x.id === url.searchParams.get("id"))
+      if (!s) { res.writeHead(404); res.end(); return }
+      const page = { template: "index", path: "/", designMode: true, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}" } }
+      const ctx = pageContextFor(theme, page as never, list)
+      const group = s.group === "header" || s.group === "footer" ? s.group : undefined
+      const before = drawSection(theme, ctx, s, sectionIndexIn(list, s), group).html
+      type Field = { id?: string; type?: string; default?: unknown }
+      const schema = splitCompatFile(theme.files[`sections/${theme.typeOf(s.type)}.storelib`] ?? "").schema as { settings?: Field[]; blocks?: { type?: string; settings?: Field[] }[] } | null
+      let changed: string | null = null
+      let next = s
+      const words = (f: Field, values: Record<string, unknown> | undefined) => (f.id && /^(text|inline_richtext|textarea)$/.test(f.type ?? "") ? String((values ?? {})[f.id] ?? f.default ?? "").replace(/<[^>]+>/g, "").trim() : "")
+      for (const f of schema?.settings ?? []) {
+        const value = words(f, s.settings)
+        if (value.length < 3 || !before.includes(value)) continue
+        changed = f.id!
+        next = { ...s, settings: { ...(s.settings ?? {}), [f.id!]: "W5 changed this" } }
+        break
+      }
+      /* Or a word of one of its blocks (a popup's heading). */
+      for (const b of changed ? [] : s.blocks ?? []) {
+        const def = (schema?.blocks ?? []).find((x) => x.type === b.type)
+        const f = (def?.settings ?? []).find((x) => { const v = words(x, b.settings); return v.length >= 3 && before.includes(v) })
+        if (!f) continue
+        changed = `${b.type}.${f.id}`
+        next = { ...s, blocks: (s.blocks ?? []).map((x) => (x === b ? { ...x, settings: { ...(x.settings ?? {}), [f.id!]: "W5 changed this" } } : x)) }
+        break
+      }
+      const html = changed ? drawSection(theme, pageContextFor(theme, page as never, list.map((x) => (x === s ? next : x))), next, sectionIndexIn(list, s), group).html : before
+      res.writeHead(200, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ html, changed }))
       return
     }
     if (url.pathname === "/__canvas-answer") {
@@ -211,16 +276,575 @@ async function serve(zipPath: string) {
   })
   await new Promise<void>((ok) => server.listen(0, "127.0.0.1", ok))
   const port = (server.address() as { port: number }).port
+  /* The Overlay group as the home page holds it: what every page should draw once, in this order. */
+  const overlay = (pages.home ?? []).filter((x) => x.group === "overlay").map((x) => ({ id: x.id, hidden: (x as { hidden?: boolean }).hidden === true }))
   /* What the theme draws at all, so a check for something it never had (Timber has no Buy it now) is skipped, not failed. */
   const source = Object.entries(files).filter(([k]) => /\.(liquid|js)$/.test(k)).map(([, v]) => v).join("\n")
   const uses = { svgIcons: Object.entries(files).some(([k, v]) => /\/(layout|sections|snippets|templates|blocks)\//.test(k) && /<svg/.test(v)), paymentButton: /payment_button/.test(source), filters: /\.filters\b/.test(source), predictive: /predictive|search\/suggest/i.test(source) }
-  return { server, base: `http://127.0.0.1:${port}`, name: r.theme.name.toLowerCase().replace(/\W+/g, "-"), uses }
+  return { server, base: `http://127.0.0.1:${port}`, name: r.theme.name.toLowerCase().replace(/\W+/g, "-"), overlay, uses }
+}
+
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   W5 CHECKS: the header's links, product cards, recently viewed, the
+   Overlay group and the page holding still as it loads.
+   CHECKS=header,cards,recent,overlay,loading runs these alone (any of
+   them, comma separated); unset, they run before the others.
+  ═══════════════════════════════════════════════════════════════════════
+*/
+const ONLY = (process.env.CHECKS ?? "").split(",").map((s) => s.trim()).filter(Boolean)
+/* A page opened and settled. On a busy machine "settled" can take long; a page still busy after 90s is looked at as it is, and says so. */
+/* Where a page ends up after a press: polled until the path is the one wanted (or 8s), since a theme may write the history first. */
+const loads = new WeakMap<Page, { n: number }>()
+/* How many times the page's main frame has gone somewhere (a new page, or the same one written into the history). */
+const loadCount = (page: Page) => {
+  let c = loads.get(page)
+  if (!c) { const counter = { n: 0 }; c = counter; loads.set(page, counter); page.on("framenavigated", (f) => { if (f === page.mainFrame()) counter.n++ }) }
+  return c.n
+}
+/*
+  A link the theme opens in a new tab (target=_blank: Posturex's mega menu
+  items, its "Open link in new tab" on by default) opens there, not here:
+  the tab it opened is read, then closed.
+*/
+const newTabs = (page: Page) => {
+  const opened: Page[] = []
+  const on = (p: Page | null) => { if (p) opened.push(p) }
+  page.on("popup", on)
+  return {
+    any: () => opened.length > 0,
+    take: async () => {
+      page.off("popup", on)
+      const p = opened[0]
+      if (!p) return null
+      for (let t = 0; t < 30 && /^about:/.test(p.url()); t++) await new Promise((r) => setTimeout(r, 200))
+      let path = ""
+      try { const u = new URL(p.url()); path = `${u.pathname}${u.search}` } catch {}
+      for (const x of opened) await x.close().catch(() => {})
+      return path
+    },
+  }
+}
+const settledPath = async (page: Page, want: RegExp, withSearch = false, since = -1, stop: () => boolean = () => false) => {
+  let got = ""
+  for (let t = 0; t < 40; t++) {
+    try { const u = new URL(page.url()); got = withSearch ? `${u.pathname}${u.search}` : u.pathname } catch { got = "" }
+    if ((want.test(got) && (since < 0 || loadCount(page) > since)) || stop()) break
+    await new Promise((r) => setTimeout(r, 200))
+  }
+  await page.waitForNetworkIdle({ idleTime: 300, timeout: 8000 }).catch(() => {})
+  return got
+}
+const inFlight = new WeakMap<Page, Map<unknown, string>>()
+const go = async (page: Page, url: string) => {
+  if (!inFlight.has(page)) {
+    const open = new Map<unknown, string>()
+    inFlight.set(page, open)
+    page.on("request", (r) => open.set(r, `${r.resourceType()} ${r.url().slice(0, 90)}`))
+    for (const ev of ["requestfinished", "requestfailed"] as const) page.on(ev, (r) => open.delete(r))
+  }
+  await page.goto(url, { waitUntil: "networkidle0", timeout: 90_000 }).catch(async (e) => {
+    /* What it was still waiting for, and whether the page itself still answers. */
+    const answers = await Promise.race([page.evaluate(() => document.readyState).catch((x) => `no: ${String(x).slice(0, 40)}`), new Promise((r) => setTimeout(() => r("no answer in 5s"), 5000))])
+    console.log(`        (${url.replace(/^https?:\/\/[^/]+/, "").slice(0, 60)}: ${String(e).slice(0, 60)}; page: ${answers}; waiting for: ${[...(inFlight.get(page)?.values() ?? [])].slice(0, 4).join(" | ") || "nothing"})`)
+  })
+}
+const wants = (what: string) => !ONLY.length || ONLY.includes(what)
+/* A group of checks that stopped part way (the browser stopped answering on a busy machine) is one failure, and the rest still run. */
+/*
+  A PAGE OF THEIR OWN for these checks, as the visitor's browser has it:
+  the made up shop's pictures, Shopify's CDN pictures answered (as live),
+  nothing else from outside. A group that stopped part way (a browser that
+  stopped answering, on a busy machine) is one failure; the next group gets
+  a new page, so one stuck tab does not fail the rest.
+*/
+async function w5Page(browser: import("puppeteer-core").Browser, base: string, label: string): Promise<Page> {
+  const p = await browser.newPage()
+  await p.setViewport({ width: label === "phone" ? 390 : 1440, height: label === "phone" ? 844 : 900, isMobile: label === "phone", hasTouch: label === "phone" })
+  await p.evaluateOnNewDocument("window.__name = (f) => f")
+  /* Layout shift and the largest picture, from the first byte of every page (read by loadingChecks). */
+  await p.evaluateOnNewDocument(() => { const W = window as unknown as { __w5cls: number; __w5lcp: string }; W.__w5cls = 0; W.__w5lcp = ""; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) W.__w5cls += e.value }).observe({ type: "layout-shift", buffered: true }); new PerformanceObserver((l) => { const e = l.getEntries().pop() as unknown as { element?: Element; url?: string } | undefined; if (e) W.__w5lcp = `${e.element?.tagName.toLowerCase() ?? ""} ${(e.url ?? "").split("/").pop()?.slice(0, 40) ?? ""}` }).observe({ type: "largest-contentful-paint", buffered: true }) } catch {} })
+  await p.setRequestInterception(true)
+  p.on("request", (r) => {
+    const u = r.url()
+    if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
+    if (/shopify(cdn|cloud)?\.com/.test(u)) { if (r.resourceType() !== "image") return r.abort(); return /\.svg(\?|$)/i.test(u) ? r.respond({ status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#ccc"/></svg>' }) : r.respond({ status: 200, contentType: "image/png", body: PNGS[0] }) }
+    if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
+    if (u.startsWith(base) || u.startsWith("data:")) return r.continue()
+    return r.abort()
+  })
+  return p
+}
+const guard = async (what: string, label: string, run: () => Promise<void>): Promise<boolean> => {
+  try { await run(); return true } catch (e) { check(`${label}: the ${what} checks ran to the end`, false, String(e).slice(0, 160)); return false }
+}
+
+/* Where the header is, and where the Overlay group's bars (a phone tab bar) are. */
+const HEADER_SCOPE = ".shopify-section-group-header-group, #shopify-section-header, [id^='shopify-section-'][id$='__header'], header"
+const OVERLAY_SCOPE = ".shopify-section-group-overlay-group"
+const linksOf = (scope: string) => scope.split(",").map((x) => `${x.trim()} a[href]`).join(", ")
+
+/* What a header link is, read in the page: its address, and a mark to find it again. */
+type HeaderLink = { href: string; text: string; shown: boolean }
+
+/** Every link of the header group's that goes somewhere on this site (the cart aside: the theme's drawer has its own check). */
+const headerLinksIn = (frame: Frame, scope = HEADER_SCOPE) => frame.evaluate((scope: string) => {
+  const groups = [...document.querySelectorAll(scope)]
+  const seen = new Map<string, { href: string; text: string; shown: boolean }>()
+  /* In the canvas the page is a srcdoc frame, with no address of its own: its links are read against the site's. */
+  const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
+  for (const g of groups) {
+    for (const a of g.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+      if (a.closest("template, noscript")) continue
+      const raw = a.getAttribute("href") ?? ""
+      let u: URL
+      try { u = new URL(raw, here) } catch { continue }
+      if (u.origin !== new URL(here).origin || /^#|^javascript:|^mailto:|^tel:/i.test(raw)) continue
+      if (u.pathname === location.pathname && u.hash && !u.search) continue
+      /* The cart's own check is elsewhere; the account has its own pages. */
+      if (/^\/cart(\/|$)/.test(u.pathname)) continue
+      const href = `${u.pathname}${u.search}`
+      const r = a.getBoundingClientRect()
+      const shown = r.width > 1 && r.height > 1 && r.top < innerHeight && r.bottom > 0 && a.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+      const had = seen.get(href)
+      if (!had) seen.set(href, { href, shown, text: (a.textContent ?? "").replace(/\s+/g, " ").trim().slice(0, 30) || (a.getAttribute("aria-label") ?? "") })
+      else if (shown) had.shown = true
+    }
+  }
+  return [...seen.values()]
+}, scope)
+
+/*
+  REACHING A LINK AS A VISITOR DOES. Visible and on top: pressed. Otherwise
+  whatever opens the menu it is in, found from the link itself: the summary
+  of a closed <details> around it, a button or link that says it controls
+  something around it (aria-controls, data-target, href="#id", a label for
+  the checkbox that shows it), the item it hangs from (hovered, on a
+  computer), and last any menu button in the header. Each press is a real
+  one, at the middle of what is pressed, so a popup or a bar over the header
+  that eats the press fails the same way it would for a visitor.
+*/
+async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: boolean, scope = HEADER_SCOPE): Promise<{ pressed: boolean; trail: string[] }> {
+  const linkSel = linksOf(scope)
+  const trail: string[] = []
+  const tried = new Set<string>()
+  for (let round = 0; round < 6; round++) {
+    const step = await frame.evaluate((want: string, phone: boolean, tried: string[], linkSel: string, scope: string) => {
+      const W = window as unknown as { __probeId?: number }
+      const shown = (el: Element) => {
+        const r = el.getBoundingClientRect()
+        if (r.width < 2 || r.height < 2 || r.bottom <= 0 || r.right <= 0 || r.top >= innerHeight || r.left >= innerWidth) return false
+        /* Its own visibility (a child may be visible inside a hidden parent), and no parent undrawn or see-through. */
+        return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })
+      }
+      /* Where on it a visitor can press it: its middle, or failing that a part of it nothing else covers (a card's picture above the label laid over it). */
+      const spotOn = (el: Element): { x: number; y: number } | null => {
+        const r = el.getBoundingClientRect()
+        const xs = [r.left + Math.min(r.width / 2, 20), r.left + r.width / 2, r.left + r.width * 0.25]
+        const ys = [r.top + r.height / 2, r.top + r.height * 0.25, r.top + r.height * 0.75]
+        for (const y0 of ys) for (const x0 of xs) {
+          const x = Math.min(innerWidth - 1, Math.max(0, x0)), y = Math.min(innerHeight - 1, Math.max(0, y0))
+          const hit = document.elementFromPoint(x, y)
+          if (hit && (el === hit || el.contains(hit))) return { x, y }
+        }
+        return null
+      }
+      const onTop = (el: Element) => !!spotOn(el)
+      const mark = (el: Element) => { if (!el.hasAttribute("data-probe-id")) el.setAttribute("data-probe-id", String((W.__probeId = (W.__probeId ?? 0) + 1))); return el.getAttribute("data-probe-id")! }
+      const name = (el: Element) => `${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ""}${el.className && typeof el.className === "string" ? `.${el.className.trim().split(/\s+/).slice(0, 2).join(".")}` : ""}`
+      const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
+      const links = [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].filter((a) => { try { const u = new URL(a.getAttribute("href") ?? "", here); return `${u.pathname}${u.search}` === want } catch { return false } })
+      const ready = links.find((a) => shown(a) && onTop(a))
+      if (ready) return { kind: "press", id: mark(ready), what: name(ready), at: spotOn(ready) }
+      /* What would open one of the links. */
+      const openers: { el: Element; how: "click" | "hover" }[] = []
+      /* A link on screen with something of the menu's own over it (a toggle laid over "Shop" on a phone): a tap lands on that, which opens its submenu. */
+      for (const a of links) {
+        if (!shown(a)) continue
+        const r = a.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
+        if (hit && hit !== a && !a.contains(hit) && hit.closest(scope)) openers.push({ el: hit, how: "click" })
+      }
+      for (const a of links) {
+        const chain: Element[] = []
+        for (let e: Element | null = a.parentElement; e && e !== document.body; e = e.parentElement) chain.push(e)
+        for (const e of chain.reverse()) {
+          if (e instanceof HTMLDetailsElement && !e.open) { const s = e.querySelector(":scope > summary"); if (s) openers.push({ el: s, how: "click" }) }
+          if (e.id) for (const o of document.querySelectorAll(`[aria-controls~="${CSS.escape(e.id)}"], [data-target="#${CSS.escape(e.id)}"], [data-drawer="${CSS.escape(e.id)}"], a[href="#${CSS.escape(e.id)}"], label[for="${CSS.escape(e.id)}"]`)) openers.push({ el: o, how: "click" })
+          const box = e.querySelector(":scope > input[type=checkbox]") as HTMLInputElement | null
+          if (box?.id && !box.checked) for (const l of document.querySelectorAll(`label[for="${CSS.escape(box.id)}"]`)) openers.push({ el: l, how: "click" })
+        }
+        if (!phone) {
+          /* The item it hangs from, on a computer: the nearest shown one around it. */
+          for (let e: Element | null = a.parentElement; e && e !== document.body; e = e.parentElement) if (shown(e)) { const top = e.querySelector(":scope > a, :scope > summary, :scope > button, :scope > div > a, :scope > menu-item > a") ?? e; openers.push({ el: top, how: "hover" }); break }
+        }
+      }
+      for (const g of document.querySelectorAll(scope)) for (const t of g.querySelectorAll("summary, button[aria-expanded], [aria-controls], [class*='hamburger' i], [class*='menu-toggle' i], [class*='menu-drawer' i] summary, [class*='mobile-menu' i] button, [class*='nav-toggle' i], [data-action*='menu' i], [aria-label*='menu' i]")) openers.push({ el: t, how: "click" })
+      for (const o of openers) {
+        if (!shown(o.el) || !onTop(o.el)) continue
+        const id = mark(o.el)
+        if (tried.includes(`${o.how}:${id}`)) continue
+        return { kind: o.how, id, what: name(o.el) }
+      }
+      /* Nothing left to open: one on screen under something else is a link a visitor cannot press. */
+      const covered = links.find((a) => shown(a))
+      if (covered) {
+        const r = covered.getBoundingClientRect()
+        const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
+        if (hit && !hit.closest(scope)) return { kind: "covered", id: "", what: `${name(covered)} under ${hit ? name(hit) : "nothing"}` }
+      }
+      return { kind: "none", id: "", what: links.length ? `${links.length} links, none shown` : "no such link" }
+    }, href, phone, [...tried], linkSel, scope)
+    if (step.kind === "none" || step.kind === "covered") { trail.push(`${step.kind}: ${step.what}`); return { pressed: false, trail } }
+    tried.add(`${step.kind}:${step.id}`)
+    trail.push(`${step.kind} ${step.what}`)
+    const handle = await frame.$(`[data-probe-id="${step.id}"]`)
+    const box = await handle?.boundingBox()
+    if (!box) return { pressed: false, trail }
+    let x = box.x + Math.min(box.width / 2, 20), y = box.y + box.height / 2
+    if (step.kind === "hover") { await page.mouse.move(x, y, { steps: 4 }); await new Promise((r) => setTimeout(r, 500)); continue }
+    if (process.env.W5_SHOTS) await page.screenshot({ path: `${OUT}/press-${Date.now()}-${step.kind}.png` })
+    if (step.kind === "press") {
+      /* The spot read in the page, moved by where the frame sits (the canvas's frame fills the page). */
+      const at = (step as { at?: { x: number; y: number } | null }).at
+      if (at) { const fb = await (await frame.frameElement())?.boundingBox().catch(() => null); x = at.x + (fb?.x ?? 0); y = at.y + (fb?.y ?? 0) }
+      /* A finger has no pointer to move: on a phone the press is a tap alone. */
+      if (!phone) await page.mouse.move(x, y, { steps: 2 })
+      if (phone) await page.touchscreen.tap(x, y)
+      else await page.mouse.click(x, y)
+      return { pressed: true, trail }
+    }
+    if (phone) await page.touchscreen.tap(x, y)
+    else await page.mouse.click(x, y)
+    /* A drawer slides in: up to 1.6s for the link to come into view. */
+    for (let t = 0; t < 8; t++) {
+      await new Promise((r) => setTimeout(r, 200))
+      const there = await frame.evaluate((want: string, linkSel: string) => {
+        const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
+        return [...document.querySelectorAll<HTMLAnchorElement>(linkSel)].some((a) => {
+          try { const u = new URL(a.getAttribute("href") ?? "", here); if (`${u.pathname}${u.search}` !== want) return false } catch { return false }
+          const r = a.getBoundingClientRect()
+          if (r.width < 2 || r.height < 2 || r.top >= innerHeight || r.left >= innerWidth || r.right <= 0 || r.bottom <= 0) return false
+          const hit = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2)
+          return !!hit && (a === hit || a.contains(hit))
+        })
+      }, href, linkSel).catch(() => false)
+      if (there) break
+    }
+  }
+  return { pressed: false, trail }
+}
+
+/*
+  THE HEADER'S LINKS, EVERY ONE, AS A VISITOR PRESSES THEM. On the website:
+  the page the link names opens. In the builder's canvas: the builder is
+  told to open it. A link the menu hides is reached by opening the menu.
+*/
+async function headerChecks(page: Page, base: string, phone: boolean, label: string, name: string) {
+  let shot = 0
+  const env = [["the website", (p: string) => `${base}${p}`], ["the canvas", (p: string) => `${base}/__canvas?path=${encodeURIComponent(p)}`]] as const
+  for (const [where, at] of env) {
+    for (const from of ["/", "/products/linen-shirt-2"]) {
+      await go(page, at(from))
+      await new Promise((r) => setTimeout(r, 500))
+      const frameOf = () => (where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame())
+      /* The shop's menus (shop() above) and whatever the header shows as the page opens must work; another link the header holds hidden (a product in a mega menu kept for a wider screen) is tried and said, not counted. */
+      const MENU = ["/", "/collections/all", "/collections/summer", "/collections/winter", "/pages/contact"]
+      /* W5_LINKS=/a,/b: those links alone (to look at one closely); W5_FROM, W5_WHERE likewise. */
+      if (process.env.W5_FROM && process.env.W5_FROM !== from) continue
+      if (process.env.W5_WHERE && !where.includes(process.env.W5_WHERE)) continue
+      const only = (process.env.W5_LINKS ?? "").split(",").filter(Boolean)
+      const links = (await headerLinksIn(frameOf())).filter((l) => !only.length || only.includes(l.href)).sort((a, b) => Number(MENU.includes(b.href) || b.shown) - Number(MENU.includes(a.href) || a.shown)).slice(0, 14)
+      const required = (l: HeaderLink) => MENU.includes(l.href) || l.shown
+      const failed: string[] = []
+      const optional: string[] = []
+      let ok = 0
+      for (const l of links) {
+        await go(page, at(from))
+        await new Promise((r) => setTimeout(r, 400))
+        await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+        const before = loadCount(page)
+        const tabs = newTabs(page)
+        const r = await pressHeaderLink(page, frameOf(), l.href, phone)
+        const miss = required(l) ? failed : optional
+        if (!r.pressed) { if (required(l)) await page.screenshot({ path: `${OUT}/${name}-${label}-header-${++shot}.png` }); miss.push(`${l.text || l.href} ${l.href} unreachable [${r.trail.join(" > ")}]`); continue }
+        if (where === "the website") {
+          const want = l.href.split("?")[0]
+          const here = await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\?|$)|^/account|^/collections/all`), true, before, tabs.any)
+          const tab = await tabs.take()
+          const got = tab ?? here
+          if (got === l.href || (l.href === "/products" && got.startsWith("/collections/all")) || (/^\/account/.test(l.href) && /^\/account/.test(got))) ok++
+          else miss.push(`${l.text} ${l.href} opened ${got}${tab !== null ? " in a new tab" : ""} [${r.trail.join(" > ")}]`)
+        } else {
+          await tabs.take()
+          await new Promise((r) => setTimeout(r, 700))
+          const navs = await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])
+          if (navs.some((h) => { try { const u = new URL(h, "http://x"); return `${u.pathname}${u.search}` === l.href } catch { return false } })) ok++
+          else miss.push(`${l.text} ${l.href} told the builder ${navs.join(" ") || "nothing"} [${r.trail.join(" > ")}]`)
+        }
+      }
+      check(`${where}, ${label}, from ${from}: every header link opens its page`, links.length > 0 && failed.length === 0, `${ok} of ${links.length}${failed.length ? `; ${failed.slice(0, 4).join(" | ")}` : ""}${optional.length ? `; not reached, kept hidden at this width: ${optional.slice(0, 3).join(" | ")}` : ""}`)
+      /* The Overlay group's bars (a phone tab bar, a back to top): each link shown on the page opens its page too. */
+      if (from === "/") {
+        await go(page, at(from))
+        const bar = (await headerLinksIn(frameOf(), OVERLAY_SCOPE)).filter((l) => l.shown)
+        const barFailed: string[] = []
+        for (const l of bar) {
+          await go(page, at(from))
+          await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+          const before = loadCount(page)
+          const tabs = newTabs(page)
+          const r = await pressHeaderLink(page, frameOf(), l.href, phone, OVERLAY_SCOPE)
+          const want = l.href.split("?")[0]
+          const here = !r.pressed ? "" : where === "the website" ? await settledPath(page, new RegExp(`^${want.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$|^/account|^/collections/all|^/wishlist`), false, before, tabs.any) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          const got = (await tabs.take()) ?? here
+          const ok = r.pressed && (got.split(/\s/).some((g) => g.split("?")[0] === want) || (/^\/account/.test(want) && /\/account/.test(got)) || (/wishlist/.test(want) && /wishlist/.test(got)) || (want === "/products" && /\/collections\/all|\/products/.test(got)))
+          if (!ok) barFailed.push(`${l.text || l.href} ${l.href}: ${got || "nothing"} [${r.trail.join(" > ")}]`)
+        }
+        if (bar.length) check(`${where}, ${label}: the Overlay group's bar links open their pages`, barFailed.length === 0, `${bar.length - barFailed.length} of ${bar.length}${barFailed.length ? `; ${barFailed.slice(0, 3).join(" | ")}` : ""}`)
+      }
+      /* Scrolled down the page and a little back up, as a visitor reaches for the menu: a header that stays (sticky, or shown again on the way up) still opens its links. */
+      if (from === "/") {
+        await go(page, at("/products/linen-shirt-2"))
+        const f = frameOf()
+        await f.evaluate(async () => { scrollTo(0, Math.min(1600, document.documentElement.scrollHeight - innerHeight)); await new Promise((r) => setTimeout(r, 400)); scrollBy(0, -120); await new Promise((r) => setTimeout(r, 700)) })
+        const target = await f.evaluate((menu: string[]) => {
+          const here = location.protocol === "about:" ? "http://canvas.invalid/" : location.href
+          const a = [...document.querySelectorAll<HTMLAnchorElement>("header a[href], .shopify-section-group-header-group a[href]")].find((x) => { try { const u = new URL(x.getAttribute("href") ?? "", here); const r = x.getBoundingClientRect(); return menu.includes(u.pathname) && u.pathname !== "/" && r.top >= 0 && r.bottom <= innerHeight && r.width > 1 && x.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && (() => { const h = document.elementFromPoint(r.left + Math.min(r.width / 2, 20), r.top + r.height / 2); return !!h && (h === x || x.contains(h)) })() } catch { return false } })
+          return a ? new URL(a.getAttribute("href") ?? "", here).pathname : null
+        }, MENU)
+        if (!target) console.log(`  --    ${where}, ${label}: the header is not on screen once the page is scrolled (not sticky)`)
+        else {
+          await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+          const before = loadCount(page)
+          const tabs = newTabs(page)
+          const r = await pressHeaderLink(page, f, target, phone)
+          const got = where === "the website" ? ((await settledPath(page, new RegExp(`^${target}$`), false, before, tabs.any)) && ((await tabs.take()) ?? new URL(page.url()).pathname)) : (await new Promise((res) => setTimeout(res, 900)), (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" "))
+          check(`${where}, ${label}: scrolled down the page, the sticky header's ${target} still opens`, r.pressed && got.split(/[?\s]/).includes(target), `${got || "nothing"} [${r.trail.join(" > ")}]`)
+        }
+      }
+    }
+  }
+}
+
+/* Down the page and back, slowly, as a visitor reads it: what loads as it is reached has loaded. */
+async function readDown(page: Page, frame: Frame) {
+  const h = await frame.evaluate(() => document.documentElement.scrollHeight)
+  for (let y = 0; y < h; y += 500) { await frame.evaluate((y) => window.scrollTo(0, y), y); await new Promise((r) => setTimeout(r, 120)) }
+  await new Promise((r) => setTimeout(r, 800))
+  await frame.evaluate(() => window.scrollTo(0, 0))
+  void page
+}
+
+/*
+  EVERY PRODUCT CARD DRAWS: for each product the page links to, the card
+  around the link (the largest box holding links to that product alone) has
+  its name, a price, and a picture that loaded. A card the engine could not
+  draw is missing, or empty, or prints a Liquid error.
+*/
+const cardsIn = (frame: Frame) => frame.evaluate(async () => {
+  const main = document.querySelector("main, #MainContent, [role=main]") ?? document.body
+  const handleOf = (a: Element) => (a.getAttribute("href") ?? "").match(/\/products\/([^/?#]+)/)?.[1] ?? null
+  const byHandle = new Map<string, Element>()
+  for (const a of main.querySelectorAll("a[href*='/products/']")) {
+    if (a.closest("template, noscript, .shopify-section-group-header-group, .shopify-section-group-footer-group, .shopify-section-group-overlay-group")) continue
+    const h = handleOf(a)
+    if (!h || !/^linen-shirt-\d$/.test(h)) continue
+    let card: Element = a
+    while (card.parentElement && card.parentElement !== main) {
+      const p = card.parentElement
+      const others = [...p.querySelectorAll("a[href*='/products/']")].some((x) => handleOf(x) !== h)
+      if (others) break
+      card = p
+    }
+    const had = byHandle.get(h)
+    if (!had || had.contains(card) === false && card.contains(had)) byHandle.set(h, card)
+  }
+  const out: { handle: string; title: boolean; price: boolean; pictures: number; loaded: number; shown: boolean; text: string }[] = []
+  /* Each card brought into view, as a visitor scrolls to it: the pictures it shows there (not a slide waiting off to its side, not a picture shown on hover) have loaded. */
+  for (const [handle, card] of byHandle) {
+    const r0 = card.getBoundingClientRect()
+    if (!(card as HTMLElement).checkVisibility?.({ checkVisibilityCSS: true }) || r0.width < 20) continue
+    card.scrollIntoView({ block: "center" })
+    await new Promise((r) => setTimeout(r, 250))
+    const n = Number(handle.split("-").pop())
+    const text = (card as HTMLElement).innerText.replace(/\s+/g, " ").trim()
+    const onScreen = (i: HTMLImageElement) => {
+      const b = i.getBoundingClientRect()
+      if (b.width <= 20 || b.height <= 20 || !i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true })) return false
+      const x = Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), y = Math.min(innerHeight - 1, Math.max(0, b.top + b.height / 2))
+      return document.elementsFromPoint(x, y).includes(i)
+    }
+    const imgs = [...card.querySelectorAll("img")].filter(onScreen)
+    for (let t = 0; t < 10 && imgs.some((i) => !(i.complete && i.naturalWidth > 0)); t++) await new Promise((r) => setTimeout(r, 150))
+    out.push({ handle, shown: true, title: new RegExp(`Linen shirt ${n}\\b`, "i").test(text + " " + [...card.querySelectorAll("img")].map((i) => i.alt).join(" ")), price: /\$\s?\d/.test(text), pictures: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, text: text.slice(0, 60) })
+  }
+  scrollTo(0, 0)
+  const errors = (document.body.innerText.match(/Liquid (syntax )?error[^\n]{0,80}/gi) ?? []).slice(0, 3)
+  return { cards: out, errors }
+})
+
+async function cardChecks(page: Page, base: string, label: string) {
+  for (const [where, at] of [["the website", (p: string) => `${base}${p}`], ["the canvas", (p: string) => `${base}/__canvas?path=${encodeURIComponent(p)}`]] as const) {
+    for (const path of ["/", "/collections/all", "/collections/summer", "/search?q=linen", "/products/linen-shirt-2"]) {
+      await go(page, at(path))
+      const frame = where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame()
+      await readDown(page, frame)
+      const { cards, errors } = await cardsIn(frame)
+      const bad = cards.filter((c) => !c.title || !c.price || c.pictures === 0 || c.loaded < c.pictures)
+      const want = path === "/collections/all" ? 8 : path === "/collections/summer" ? 4 : 0
+      if (!cards.length && !want) { console.log(`  --    ${where}, ${label}, ${path}: no product cards`); continue }
+      check(`${where}, ${label}, ${path}: every product card has its name, price and picture${want ? ` (${want} cards)` : ""}`, bad.length === 0 && cards.length >= want && errors.length === 0, `${cards.length} cards${bad.length ? `; ${bad.slice(0, 3).map((c) => `${c.handle}: title ${c.title}, price ${c.price}, pictures ${c.loaded}/${c.pictures} "${c.text}"`).join(" | ")}` : ""}${errors.length ? `; ${errors.join(" | ")}` : ""}`)
+    }
+    /* A card's picture pressed, as a visitor presses it: the product opens (in the canvas, the builder is told to open it). */
+    await go(page, at("/collections/all"))
+    const frame = where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame()
+    await page.evaluate(() => { (window as unknown as { __nav: string[] }).__nav = [] })
+    const spot = await frame.evaluate(() => {
+      const main = document.querySelector("main, #MainContent") ?? document.body
+      const img = [...main.querySelectorAll<HTMLImageElement>("img")].find((i) => { const b = i.getBoundingClientRect(); return b.width > 60 && b.height > 60 && i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && (() => { for (let e: Element | null = i.parentElement, n = 0; e && n < 8; e = e.parentElement, n++) if (e.querySelector("a[href*='/products/linen-shirt-']")) return true; return false })() })
+      if (!img) return null
+      img.scrollIntoView({ block: "center" })
+      const b = img.getBoundingClientRect()
+      return { x: b.left + b.width / 2, y: b.top + b.height / 2 }
+    })
+    if (!spot) { console.log(`  --    ${where}, ${label}: no card picture on /collections/all`); continue }
+    if (label === "phone") await page.touchscreen.tap(spot.x, spot.y)
+    else await page.mouse.click(spot.x, spot.y)
+    let opened = ""
+    /* The address the page ends at: a theme may first write its own into the history (Horizon keeps the card to come back to), then leave. */
+    if (where === "the website") opened = await settledPath(page, /^\/products\//)
+    else { await new Promise((r) => setTimeout(r, 1500)); opened = (await page.evaluate(() => (window as unknown as { __nav?: string[] }).__nav ?? [])).join(" ") }
+    check(`${where}, ${label}: a product card's picture, pressed, opens the product`, /\/products\/linen-shirt-\d/.test(opened), opened || "nothing opened")
+  }
+}
+
+/*
+  RECENTLY VIEWED: three products looked at, then a fourth and the home
+  page. Every section of the theme's that says it is about recently viewed
+  products (by its type or its id) shows the ones looked at, each with its
+  picture loaded; in the canvas too, with what the website's visit left in
+  the browser's storage handed to the frame (as the builder does).
+*/
+const recentIn = (frame: Frame) => frame.evaluate(() => {
+  const handleOf = (a: Element) => (a.getAttribute("href") ?? "").match(/\/products\/([^/?#]+)/)?.[1] ?? null
+  const out: { id: string; handles: string[]; pictures: number; loaded: number }[] = []
+  for (const s of document.querySelectorAll<HTMLElement>(".shopify-section")) {
+    const name = `${s.id} ${s.getAttribute("data-section-type") ?? ""}`
+    if (!/recent/i.test(name) || s.closest(".shopify-section-group-header-group, .shopify-section-group-footer-group")) continue
+    const handles = [...new Set([...s.querySelectorAll("a[href*='/products/']")].map(handleOf).filter((h): h is string => !!h))]
+    const imgs = [...s.querySelectorAll("img")].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 20 && b.height > 20 })
+    out.push({ id: s.id.replace(/^shopify-section-/, ""), handles, pictures: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length })
+  }
+  return out
+})
+
+async function recentChecks(page: Page, base: string, label: string) {
+  const seen = ["linen-shirt-1", "linen-shirt-2", "linen-shirt-3"]
+  for (const h of seen) { await go(page, `${base}/products/${h}`); await new Promise((r) => setTimeout(r, 300)) }
+  const storage = await page.evaluate(() => { const o: Record<string, string> = {}; for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; o[k] = localStorage.getItem(k) ?? "" } return o })
+  for (const [where, at] of [["the website", (p: string) => `${base}${p}`], ["the canvas", (p: string) => `${base}/__canvas?path=${encodeURIComponent(p)}&seed=${encodeURIComponent(JSON.stringify({ localStorage: storage }))}`]] as const) {
+    for (const path of ["/products/linen-shirt-4", "/"]) {
+      await go(page, at(path))
+      const frame = where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame()
+      await readDown(page, frame)
+      await new Promise((r) => setTimeout(r, 600))
+      const found = await recentIn(frame)
+      if (!found.length) { console.log(`  --    ${where}, ${label}, ${path}: no recently viewed section`); continue }
+      const bad = found.filter((f) => !seen.every((h) => f.handles.includes(h)) || f.loaded < f.pictures || f.pictures === 0)
+      check(`${where}, ${label}, ${path}: every recently viewed section shows the three products looked at, pictures loaded`, bad.length === 0, `${found.length} sections${bad.length ? `; ${bad.map((b) => `${b.id}: [${b.handles.join(" ")}] pictures ${b.loaded}/${b.pictures}`).join(" | ")}` : ""}`)
+    }
+  }
+  await page.evaluate(() => { try { localStorage.clear() } catch {} })
+}
+
+/*
+  THE OVERLAY GROUP: every section of it the page should draw is drawn,
+  once, in the group's order, and none that was switched off; no section
+  anywhere is drawn twice. In the canvas, each one drawn is a section the
+  builder can select (it carries its id), and a value changed in the
+  sidebar shows on the page.
+*/
+async function overlayChecks(page: Page, base: string, label: string, overlay: { id: string; hidden: boolean }[]) {
+  if (!overlay.length) { console.log(`  --    ${label}: the theme has no Overlay group`); return }
+  for (const [where, at] of [["the website", (p: string) => `${base}${p}`], ["the canvas", (p: string) => `${base}/__canvas?path=${encodeURIComponent(p)}`]] as const) {
+    for (const path of ["/", "/products/linen-shirt-2", "/collections/all"]) {
+      await go(page, at(path))
+      const frame = where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame()
+      const r = await frame.evaluate((want: { id: string; hidden: boolean }[]) => {
+        const all = [...document.querySelectorAll("[id^='shopify-section-']")].filter((e) => e.classList.contains("shopify-section")).map((e) => e.id)
+        const twice = [...new Set(all.filter((id, i) => all.indexOf(id) !== i))]
+        const count = (id: string) => document.querySelectorAll(`[id="shopify-section-${CSS.escape(id)}"]`).length
+        const missing = want.filter((w) => !w.hidden && count(w.id) !== 1).map((w) => `${w.id}×${count(w.id)}`)
+        const shownOff = want.filter((w) => w.hidden && count(w.id) > 0).map((w) => w.id)
+        const order = want.filter((w) => !w.hidden && count(w.id) === 1).map((w) => all.indexOf(`shopify-section-${w.id}`))
+        const inOrder = order.every((v, i) => i === 0 || v > order[i - 1])
+        const unpickable = want.filter((w) => !w.hidden).map((w) => document.getElementById(`shopify-section-${w.id}`)).filter((e) => e && e.getAttribute("data-section-id") === null && !/^shopify-section-/.test(e.id)).length
+        return { twice, missing, shownOff, inOrder, unpickable }
+      }, overlay)
+      check(`${where}, ${label}, ${path}: the Overlay group's ${overlay.filter((o) => !o.hidden).length} sections each drawn once, in order, none switched off drawn, no section twice`, !r.twice.length && !r.missing.length && !r.shownOff.length && r.inOrder && !r.unpickable, JSON.stringify(r))
+    }
+  }
+  /* A word changed in the sidebar shows in the canvas at once, in that section alone, and the page keeps working. */
+  const errors: string[] = []
+  const onError = (e: unknown) => { errors.push(String(e).slice(0, 160)) }
+  page.on("pageerror", onError)
+  const changedOk: string[] = []
+  const changedBad: string[] = []
+  for (const o of overlay.filter((x) => !x.hidden)) {
+    const r = await (await fetch(`${base}/__redraw?id=${encodeURIComponent(o.id)}`)).json() as { html: string; changed: string | null }
+    if (!r.changed) continue
+    await go(page, `${base}/__canvas?path=%2F`)
+    const frame = page.frames().find((f) => f !== page.mainFrame())!
+    errors.length = 0
+    await page.evaluate((id: string, html: string) => { const f = document.querySelector("iframe") as HTMLIFrameElement; f.contentWindow!.postMessage({ storelib: 1, type: "section", id, html }, "*") }, o.id, r.html)
+    await new Promise((res) => setTimeout(res, 1200))
+    const after = await frame.evaluate((id: string) => ({ copies: document.querySelectorAll(`[id="shopify-section-${CSS.escape(id)}"]`).length, shows: /W5 changed this|w5-changed-this/i.test(document.getElementById(`shopify-section-${id}`)?.innerHTML ?? "") }), o.id)
+    if (after.copies === 1 && after.shows && errors.length === 0) changedOk.push(o.id)
+    else changedBad.push(`${o.id} (${r.changed}): ${after.copies} copies, shows ${after.shows}${errors[0] ? `, ${errors[0]}` : ""}`)
+  }
+  page.off("pageerror", onError)
+  if (changedOk.length + changedBad.length) check(`the canvas, ${label}: a word changed in an Overlay section shows at once, in that section alone, with no script error`, changedBad.length === 0, `${changedOk.length} changed${changedBad.length ? `; ${changedBad.slice(0, 3).join(" | ")}` : ""}`)
+  else console.log(`  --    the canvas, ${label}: no Overlay section shows a word of its settings`)
+}
+
+/*
+  THE PAGE HOLDS STILL AS IT LOADS: home and a collection, layout shift
+  under 0.1, and no picture on the first screen waits to be lazy loaded (the
+  largest one is asked for first, as Shopify's own themes do).
+*/
+async function loadingChecks(page: Page, base: string, label: string) {
+  /* Every section a page's scripts ask for after it loads (Horizon's header fills its menus so), answered. */
+  const refused: string[] = []
+  const heard = (r: import("puppeteer-core").HTTPResponse) => { const u = r.url(); if (u.startsWith(base) && /[?&](section_id|sections)=/.test(u) && r.status() >= 400) refused.push(`${r.status()} ${u.slice(base.length, base.length + 90)}`) }
+  page.on("response", heard)
+  for (const path of ["/", "/collections/all", "/products/linen-shirt-2"]) {
+    await go(page, `${base}${path}`)
+    await new Promise((r) => setTimeout(r, 1200))
+  }
+  page.off("response", heard)
+  check(`${label}: every section a page's scripts ask for is answered`, refused.length === 0, refused.slice(0, 3).join(" | ") || "none refused")
+  for (const path of ["/", "/collections/all"]) {
+    await go(page, `${base}${path}`)
+    await new Promise((r) => setTimeout(r, 1500))
+    const r = await page.evaluate(() => {
+      const W = window as unknown as { __w5cls?: number; __w5lcp?: string }
+      const first = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 100 && b.height > 60 && b.top < innerHeight && b.bottom > 0 && i.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && !i.closest("[class*='popup' i], [class*='modal' i], dialog") && document.elementsFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + Math.min(b.height / 2, (innerHeight - b.top) / 2)))).includes(i) })
+      const lazyFirst = first.filter((i) => i.loading === "lazy" && !(i.complete && i.naturalWidth)).map((i) => (i.currentSrc || i.src).split("/").pop()?.slice(0, 40))
+      const unsized = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 40 && !i.getAttribute("width") && !i.getAttribute("height") && getComputedStyle(i).aspectRatio === "auto" && getComputedStyle(i).position !== "absolute" && !/(%|vw|vh)/.test(i.style.height) }).length
+      return { cls: W.__w5cls ?? -1, lcp: W.__w5lcp ?? "", lazyFirst, unsized }
+    })
+    check(`${label}, ${path}: holds still as it loads (layout shift under 0.1)`, r.cls >= 0 && r.cls < 0.1, `${r.cls.toFixed(4)}; largest paint: ${r.lcp || "none"}; pictures with no size of their own: ${r.unsized}`)
+    check(`${label}, ${path}: no picture on the first screen is still waiting to be lazy loaded`, r.lazyFirst.length === 0, r.lazyFirst.join(" ") || "none")
+  }
 }
 
 async function run(zipPath: string) {
-  const { server, base, name, uses } = await serve(zipPath)
+  const { server, base, name, overlay, uses } = await serve(zipPath)
   const themeUsesSvgIcons = uses.svgIcons, themeUsesPaymentButton = uses.paymentButton, themeUsesFilters = uses.filters, themeUsesPredictive = uses.predictive
-  const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--hide-scrollbars"] })
+  /* SERVE=1: the site alone, for a person (or a script) to look at it. */
+  if (process.env.SERVE) { console.log(`serving ${name} at ${base}  (the canvas: ${base}/__canvas?path=/)`); await new Promise(() => {}) }
+  const browser = await puppeteer.launch({ executablePath: process.env.CHROME ?? "/opt/pw-browsers/chromium", headless: true, args: ["--no-sandbox", "--hide-scrollbars"], protocolTimeout: 180_000, timeout: 120_000 })
   try {
     for (const [width, height, label] of [[1440, 900, "desktop"], [390, 844, "phone"]] as const) {
       console.log(` ${label}`)
@@ -243,7 +867,8 @@ async function run(zipPath: string) {
         /* Anything on its way to checkout: /checkout, the basket checkout, or the cart posted with \`checkout\`. */
         if (u.startsWith(base) && (/^\/(checkout|cart\/checkout|api\/checkout)/.test(u.slice(base.length)) || (r.method() === "POST" && /^\/cart/.test(u.slice(base.length)) && /(^|&|name="|\b)checkout/.test(r.postData() ?? "")))) checkoutHits++
         /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
-        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); return r.abort() }
+        /* A picture there is answered with one of the made up shop's, so the page loads as it does live (where Shopify's CDN answers it). */
+        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); if (r.resourceType() !== "image") return r.abort(); return /\.svg(\?|$)/i.test(u) ? r.respond({ status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#ccc"/></svg>' }) : r.respond({ status: 200, contentType: "image/png", body: PNGS[0] }) }
         if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
         if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
         /* A public script library from a public CDN (jQuery from Google's, as older themes load it) loads in a visitor's browser; here it is served from a local copy (JQUERY_FILE), or left out. */
@@ -315,6 +940,22 @@ async function run(zipPath: string) {
         return [...new Set([...atRest, ...hovered])]
       }
 
+      {
+        let wp = await w5Page(browser, base, label)
+        const groups: [string, (p: Page) => Promise<void>][] = [
+          ["loading", (p) => loadingChecks(p, base, label)],
+          ["overlay", (p) => overlayChecks(p, base, label, overlay)],
+          ["cards", (p) => cardChecks(p, base, label)],
+          ["recent", (p) => recentChecks(p, base, label)],
+          ["header", (p) => headerChecks(p, base, label === "phone", label, name)],
+        ]
+        for (const [what, fn] of groups) {
+          if (!wants(what)) continue
+          if (!(await guard(what, label, () => fn(wp)))) { await wp.close().catch(() => {}); wp = await w5Page(browser, base, label) }
+        }
+        await wp.close().catch(() => {})
+      }
+      if (ONLY.length && !ONLY.includes("core")) { await page.deleteCookie({ name: CART_COOKIE, url: base }); await page.close(); continue }
       for (const path of ["/", "/collections/all", "/collections/summer?sort_by=price-descending", "/search?q=linen", "/pages/contact", "/no-such-page"]) {
         const m = await visit(path)
         check(`${path} draws`, (m.sections > 0 || m.classic) && errors.length === 0, `${m.sections || (m.classic ? "classic" : 0)} sections, ${errors.length} script errors${errors[0] ? `: ${errors[0]}` : ""}`)
@@ -375,7 +1016,7 @@ async function run(zipPath: string) {
         return { shown: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, missing: imgs.filter((i) => !(i.complete && i.naturalWidth > 0)).map((i) => `${i.className} ${i.currentSrc || i.src}`.slice(0, 120)) }
       })
       check("product pictures load", pictures.shown > 0 && pictures.loaded === pictures.shown, `${pictures.loaded} of ${pictures.shown}${pictures.missing[0] ? `; not loaded: ${pictures.missing.join(" | ")}` : ""}`)
-      const priceBefore = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
+      const priceBefore = await page.evaluate(() => ((document.querySelector("main, #MainContent") ?? document).querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
       const picked = await page.evaluate(() => {
         /* variant-radios: Dawn before 2023. */
         const inputs = [...document.querySelectorAll<HTMLInputElement>("variant-picker input[type=radio], variant-selects input[type=radio], variant-radios input[type=radio], variant-picker select, variant-selects select")]
@@ -386,7 +1027,7 @@ async function run(zipPath: string) {
         return ""
       })
       await new Promise((r) => setTimeout(r, 1200))
-      const priceAfter = await page.evaluate(() => (document.querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
+      const priceAfter = await page.evaluate(() => ((document.querySelector("main, #MainContent") ?? document).querySelector("product-price, .price, [ref='priceContainer'], #ProductPrice")?.textContent ?? "").replace(/\s+/g, " ").trim())
       /* A product template with no picker (a bundle selector instead, as Posturex's demo) has nothing to choose. */
       if (picked) check("choosing Large changes the price", priceBefore !== priceAfter && /60\.00/.test(priceAfter), `${picked}: "${priceBefore.slice(0, 40)}" to "${priceAfter.slice(0, 40)}"`)
       else console.log("  --    this product template has no variant picker")

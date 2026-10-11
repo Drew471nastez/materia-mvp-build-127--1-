@@ -22,7 +22,9 @@ import { healthIndex } from "./scoring"
  *      stand when the job runs (none of those keep a history to read back);
  *   3. perf_scores gets one row for the day: the score (null when there was
  *      not enough data, which is kept as such rather than skipped), each
- *      sub score, and every input, so a score can always be explained.
+ *      sub score, and every input, so a score can always be explained. The
+ *      provisional score (scoring.ts rule 6) is kept in the inputs, beside
+ *      it, so a quiet day still shows something marked as provisional.
  *
  * Running a day again replaces its row. Before part 126 runs it does
  * nothing and says so.
@@ -40,7 +42,8 @@ export async function rollupAndScorePerfDay(day: string): Promise<DailyPerfResul
   const rolled = await r.db.rpc("perf_rollup_day", { p_day: day })
   if (rolled.error) return { day, rolledUp: null, score: null, error: /perf_rollup_day|PGRST202|42883/i.test(`${rolled.error.code} ${rolled.error.message}`) ? "part 126 has not run" : rolled.error.message }
 
-  const { data, error } = await r.db.from("perf_daily").select("area, device, route, metric, samples, p50, p75, p95, bad").eq("day", day).eq("route", "*").limit(2000)
+  /* The area totals, and the flow steps, which are only ever kept per route (lib/perf/config.ts STEPS). */
+  const { data, error } = await r.db.from("perf_daily").select("area, device, route, metric, samples, p50, p75, p95, bad").eq("day", day).or("route.eq.*,route.like./step/*").limit(4000)
   if (error) return { day, rolledUp: Number(rolled.data) || 0, score: null, error: error.message }
 
   const start = `${day}T00:00:00Z`
@@ -54,7 +57,8 @@ export async function rollupAndScorePerfDay(day: string): Promise<DailyPerfResul
       day,
       score: health.score,
       subs: health.subs.map((s) => ({ id: s.id, score: s.score, used: s.used })),
-      inputs: { measures: health.subs.flatMap((s) => s.measures.map((m) => ({ key: m.key, value: m.value, base: m.base, score: m.score }))), extras },
+      /* The provisional score (rule 6) is kept beside the official one, never in its place. */
+      inputs: { measures: health.subs.flatMap((s) => s.measures.map((m) => ({ key: m.key, value: m.value, base: m.base, score: m.score, pscore: m.pscore }))), extras, provisional: health.provisional },
       computed_at: new Date().toISOString(),
     },
     { onConflict: "day" },

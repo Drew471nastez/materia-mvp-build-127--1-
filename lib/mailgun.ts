@@ -101,6 +101,15 @@ export interface MailgunSendOptions {
    * send, so the message leaves on the first request.
    */
   transactional?: boolean
+  /**
+   * Transactional, but anybody may have typed this address (a signed-out
+   * "Forgot password", an order lookup): the bounce list is left as it is.
+   * Clearing it is for an address whose owner is the one asking (a sign in
+   * code they are waiting for); doing it for any typed address would let a
+   * stranger wipe a hard bounce over and over. The send is still made
+   * without tracking; Mailgun drops it if the address is still suppressed.
+   */
+  keepBounce?: boolean
 }
 
 export interface MailAttachment {
@@ -277,7 +286,7 @@ export async function sendMailgunEmail(options: MailgunSendOptions): Promise<Mai
   /* A code they just asked for must not die on a stale bounce. Mailgun
      drops those after it has already answered "queued", so the page looks
      sent and the inbox stays empty. A complaint is left in place. */
-  if (options.transactional) await clearBounce(options.to)
+  if (options.transactional && !options.keepBounce) await clearBounce(options.to)
 
   // Build form data for Mailgun API
   const formData = new FormData()

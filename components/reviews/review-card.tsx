@@ -12,8 +12,9 @@ import { Stars } from "./stars"
  *  ONE REVIEW, AS A VISITOR READS IT ON THE PRODUCT PAGE
  * ===========================================================================
  * The buyer's photo (AppAvatar: their initials on a neutral circle when there
- * is none), their name, "Verified purchase" (every review here is one:
- * nobody without an order can write one), the stars, the date, the words,
+ * is none), their name, "Verified purchase" when it is a buyer's (a website
+ * visitor's or an imported review, Storelib Reviews, has no label, or
+ * "Imported"), the stars, the date, the words,
  * and under them the seller's one reply. What Etsy, Shopify's product
  * reviews and the App Store show, and nothing else: no "New" badge, no
  * tooltip to find out what a blue tick means.
@@ -34,6 +35,9 @@ export interface ReviewCardData {
   reviewer_name?: string | null
   seller_reply?: string | null
   seller_reply_at?: string | null
+  /** False for a website visitor's or an imported review: no "Verified purchase" (absent before run-now part 134, when every review was a buyer's). */
+  verified?: boolean | null
+  source?: string | null
   buyer?: { id?: string; display_name?: string | null; avatar_url?: string | null } | null
 }
 
@@ -95,10 +99,16 @@ export function ReviewCard({ review, isMobile = false, textColor, starColor, car
           <p className="truncate text-[14px] font-semibold leading-5" style={{ color: textColor || "#1a1a2e" }}>
             {name}
           </p>
-          <p className="flex items-center gap-1 text-[12px] leading-4" style={{ color: tint(textColor, "99", "#6b7280") }}>
-            <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} style={{ color: tint(textColor, "99", "#067647") }} />
-            Verified purchase
-          </p>
+          {review.verified !== false ? (
+            <p className="flex items-center gap-1 text-[12px] leading-4" style={{ color: tint(textColor, "99", "#6b7280") }} data-review-verified="">
+              <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} style={{ color: tint(textColor, "99", "#067647") }} />
+              Verified purchase
+            </p>
+          ) : review.source === "import" ? (
+            <p className="text-[12px] leading-4" style={{ color: tint(textColor, "99", "#6b7280") }}>
+              Imported
+            </p>
+          ) : null}
         </div>
       </div>
 

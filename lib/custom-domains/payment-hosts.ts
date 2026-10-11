@@ -49,3 +49,19 @@ export function planPaymentDomain(existing: PaymentDomainSnap | null | undefined
 export function needsOneValidate(existing: PaymentDomainSnap | null | undefined): boolean {
   return planPaymentDomain(existing) === "validate"
 }
+
+/**
+ * A website's own address on Storelib (<name>.storelib.com) where its
+ * checkout runs (lib/checkout/site-checkout), as Stripe must register it for
+ * Apple Pay and Google Pay: one exact hostname, as Stripe takes no wildcard.
+ * Null for storelib.com itself, www, a deeper name, or any other host
+ * (a connected domain is registered when it is verified: checkoutHostsFor).
+ */
+export function siteSubdomainForWallets(host: string, mainDomain: string): string | null {
+  const h = host.toLowerCase().split(":")[0].replace(/\.$/, "")
+  const main = mainDomain.toLowerCase().split(":")[0]
+  if (!main || !h.endsWith(`.${main}`)) return null
+  const label = h.slice(0, -(main.length + 1))
+  if (!/^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label) || label === "www") return null
+  return h
+}

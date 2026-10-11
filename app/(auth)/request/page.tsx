@@ -24,7 +24,6 @@ export default function RequestPasswordResetPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
   const [maskedEmail, setMaskedEmail] = useState("")
-  const [googleOnlyHint, setGoogleOnlyHint] = useState(false)
   /*
     Sell on Storelib, and the page to go back to, from the login page that
     sent them here (lib/auth/continue.ts). They go into the reset email's
@@ -47,7 +46,6 @@ export default function RequestPasswordResetPage() {
 
     setIsLoading(true)
     setError(null)
-    setGoogleOnlyHint(false)
 
     try {
       const response = await fetch("/api/auth/request-password-reset", {
@@ -61,9 +59,6 @@ export default function RequestPasswordResetPage() {
       if (response.ok) {
         setMaskedEmail(maskEmail(email.trim().toLowerCase()))
         setSuccess(true)
-      } else if (response.status === 409 && data?.accountType === "google_only") {
-        setGoogleOnlyHint(true)
-        setError(data.message || "This account uses Google sign-in.")
       } else {
         setError(data.error || "Failed to send reset email")
       }
@@ -83,8 +78,8 @@ export default function RequestPasswordResetPage() {
             Check your email
           </h1>
           <p className="mb-8 text-[15px] text-neutral-500">
-            We just sent an email to reset your password to{" "}
-            <span className="font-medium text-neutral-700">{maskedEmail}</span>.
+            If there&apos;s an account for{" "}
+            <span className="font-medium text-neutral-700">{maskedEmail}</span>, we sent it an email to reset the password. An account that signs in with Google or Apple gets an email saying how to get in.
           </p>
 
           <Link href={loginHref}>
@@ -121,20 +116,6 @@ export default function RequestPasswordResetPage() {
           />
 
           {error && <p className="text-sm text-red-500">{error}</p>}
-
-          {googleOnlyHint && (
-            <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-left">
-              <p className="text-sm text-blue-900 mb-2">This account was created with Google. Use Google sign-in instead of password reset.</p>
-              <Link href={loginHref} className="inline-flex">
-                <Button type="button" variant="outline" className="h-9 text-sm border-blue-300 text-blue-700 hover:bg-blue-100 cursor-pointer">
-                  Continue with Google
-                </Button>
-              </Link>
-              <div className="mt-2">
-                <Link href="mailto:support@storelib.com" className="text-xs text-blue-700 underline">Can’t access Google?</Link>
-              </div>
-            </div>
-          )}
 
           <Button
             type="submit"

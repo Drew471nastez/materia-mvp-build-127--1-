@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createAdminClient } from "@/lib/supabase/admin"
 import { offChannelAmong } from "@/lib/store/channel-filter"
+import { timed } from "@/lib/perf/server-timing"
 
 /**
  * GET /api/v2/search?q=term&category=design&sort=relevance&limit=30
@@ -14,7 +15,7 @@ import { offChannelAmong } from "@/lib/store/channel-filter"
  *
  * Falls back to trigram ILIKE for short queries or when FTS returns no results.
  */
-export async function GET(request: Request) {
+async function handleGET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const query = (searchParams.get("q") || "").trim()
@@ -114,3 +115,6 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Search failed" }, { status: 500 })
   }
 }
+
+/* Timed on the server for /admin/performance (lib/perf/server-timing.ts). */
+export const GET = timed("explore", "/api/v2/search", handleGET)

@@ -449,7 +449,14 @@ function main() {
        * mistaken for handles, but /p/<slug> and /u/<handle> are the two
        * addresses we mean to frame. Everything else stays shut.
        */
-      const framablePrefixes = new Set(["p", "u"])
+      /*
+        And /cover-render/<pass>: the page a website's cover is photographed
+        from, shown small on the owner's Website page while the photograph is
+        on its way (app/app/website-builder, LiveMiniature). A two-minute pass
+        for one install, nothing on it that sends anything.
+      */
+      check("and the page a website's cover is taken of, with its pass", asks("/cover-render/pass"))
+      const framablePrefixes = new Set(["p", "u", "cover-render"])
       const escapedTwo = reserved.filter((r) => !framablePrefixes.has(r) && asks(`/${r}/anything`))
       check("nor with something after it", escapedTwo.length === 0, `framable: ${escapedTwo.join(", ")}`)
       check("nor in a different case", !asks("/Login") && !asks("/APP"))

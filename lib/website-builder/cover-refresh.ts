@@ -1,5 +1,7 @@
 "use client"
 
+import { fetchWithin } from "./load-guard"
+
 /**
  * ===========================================================================
  *  ASK THE SERVER FOR A NEW COVER, ONCE, AFTER THE SAVING HAS STOPPED
@@ -52,6 +54,15 @@
  */
 
 export const QUIET_MS = 12_000
+
+/**
+ * The longest a page waits on the cover route: its own 60 seconds and a
+ * little. A request the network dropped without a word used to leave the
+ * card "Preparing preview" for the rest of the visit.
+ */
+export const REQUEST_WAIT_MS = 70_000
+/** One look at the cover as it is (GET, one storage listing). */
+const LOOK_WAIT_MS = 10_000
 
 export interface Cover {
   url: string
@@ -107,10 +118,10 @@ export function requestCover(installId: string): Promise<Cover | null> {
   if (running) return running
   const ask = (async () => {
     try {
-      const res = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, {
+      const res = await fetchWithin(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, {
         method: "POST",
         keepalive: true,
-      })
+      }, REQUEST_WAIT_MS)
       if (!res.ok) return null
       const cover = (await res.json()) as Cover
       remember(installId, cover)
@@ -171,7 +182,7 @@ export function watchCover(installId: string, steps: readonly number[] = WATCH_S
       for (const wait of steps) {
         await new Promise((r) => setTimeout(r, wait))
         try {
-          const res = await fetch(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, { cache: "no-store" })
+          const res = await fetchWithin(`/api/website-builder/themes/${encodeURIComponent(installId)}/cover`, { cache: "no-store" }, LOOK_WAIT_MS)
           if (!res.ok) continue
           const cover = (await res.json()) as Cover | { url: null }
           if (cover?.url) {

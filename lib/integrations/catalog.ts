@@ -9,6 +9,8 @@
  *              (lib/store/tracking.ts); every store
  *   commerce   fulfilment, shipping, print on demand and suppliers
  *              (lib/physical/providers.ts); while physical commerce is on
+ *   app        made by Storelib and run inside it, with a page of its own
+ *              settings: Storelib Reviews (lib/reviews/app-settings.ts)
  *   listed     a service merchants ask for that Storelib does not connect
  *              to yet (LISTED below). It has a page that says so plainly
  *              and a "Tell me when it's ready" that is counted in /admin;
@@ -21,9 +23,10 @@
 import { PROVIDERS, type ProviderId, type ProviderInfo } from "@/lib/physical/providers"
 import { TRACKERS, TRACKER_ORDER, type TrackerId } from "@/lib/store/tracking"
 
-export type IntegrationCategory = "analytics" | "advertising" | "email" | "automation" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
+export type IntegrationCategory = "reviews" | "analytics" | "advertising" | "email" | "automation" | "shipping" | "print_on_demand" | "dropshipping" | "fulfillment" | "suppliers"
 
 export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
+  reviews: "Reviews",
   analytics: "Analytics",
   advertising: "Advertising",
   email: "Email marketing",
@@ -34,7 +37,7 @@ export const CATEGORY_NAMES: Record<IntegrationCategory, string> = {
   fulfillment: "Fulfillment",
   suppliers: "Suppliers",
 }
-export const CATEGORY_ORDER: IntegrationCategory[] = ["analytics", "advertising", "email", "automation", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
+export const CATEGORY_ORDER: IntegrationCategory[] = ["reviews", "analytics", "advertising", "email", "automation", "shipping", "print_on_demand", "dropshipping", "fulfillment", "suppliers"]
 
 export interface Integration {
   id: string
@@ -45,7 +48,9 @@ export interface Integration {
   builtIn: boolean
   /** Physical commerce only. */
   physical: boolean
-  kind: "tracker" | "commerce" | "listed"
+  kind: "tracker" | "commerce" | "listed" | "app"
+  /** Made by Storelib and run inside it (kind "app"): its settings are its Set up card. */
+  appId?: "storelib_reviews"
   trackerId?: TrackerId
   providerId?: ProviderId
   summary: string
@@ -275,7 +280,42 @@ function fromListed(l: (typeof LISTED)[number]): Integration {
   }
 }
 
-export const INTEGRATIONS: Integration[] = [...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
+/**
+ * STORELIB'S OWN APPS. Storelib Reviews: product reviews like Shopify's
+ * Product Reviews or Judge.me, on the store's own data (the reviews the
+ * creator page and Explore already show).
+ */
+const STORELIB_APPS: Integration[] = [
+  {
+    id: "storelib-reviews",
+    name: "Storelib Reviews",
+    category: "reviews",
+    logo: null,
+    builtIn: false,
+    physical: false,
+    kind: "app",
+    appId: "storelib_reviews",
+    summary: "Collect product reviews by email and show them on your website.",
+    about: [
+      "Buyers get an email from your store a few days after they buy, or after their parcel arrives, with five stars to tap. The link opens a review page on your website, with no account needed, and photos if you allow them.",
+      "Reviews show on your website with the Product reviews, Star rating, Reviews carousel and All reviews sections, and on a reviews page at /reviews. Imported Shopify themes show their own stars from the same ratings. Your creator page and Explore read the same reviews.",
+      "Approve, hide, feature and answer reviews in Reviews. A review hidden by you is kept but leaves your store and its rating.",
+    ],
+    glance: [
+      { label: "Made by", value: "Storelib" },
+      { label: "Works on", value: "Your website, creator page and Explore" },
+      { label: "Emails", value: "One ask and one reminder per item" },
+      { label: "Price", value: "Free on Storelib" },
+    ],
+    data: [
+      "Reviews stay in your Storelib store. Nothing is sent anywhere else.",
+      "A review shows the buyer's first name and last initial, never their email or order.",
+      "Buyers can turn review emails off from any of them, and are never asked again.",
+    ],
+  },
+]
+
+export const INTEGRATIONS: Integration[] = [...STORELIB_APPS, ...TRACKER_ORDER.map(fromTracker), ...PROVIDERS.map(fromProvider), ...LISTED.map(fromListed)]
 
 /** Where a card stands, in the words it shows (badges and the Install section). */
 export type IntegrationStatus = "built_in" | "installed" | "needs_attention" | "error" | "available" | "coming_soon"

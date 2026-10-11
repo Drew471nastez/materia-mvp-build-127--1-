@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PROVES PART 133's HOLD UNDER A RACE, on a database run.sh left behind.
+# PROVES PART 150's HOLD UNDER A RACE, on a database run.sh left behind.
 #
 # Run run.sh first (any scenario), then: bash scripts/sql-harness/sales-limit-race.sh [database]
 # Forty connections ask for the last five copies of one product at the same

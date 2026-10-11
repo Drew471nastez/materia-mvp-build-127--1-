@@ -139,7 +139,7 @@ async function main() {
   console.log("\nEvery agent path goes through it")
   check("MCP and the agent API (writeSection)", /validateSection\(source, \{ path, expectType: [^}]*strict: true \}\)/.test(read("lib/agent-access/operations.ts")))
   check("storelib_create_section and storelib_edit_section", /strict: true/.test(read("lib/agent-access/project.ts")))
-  check("a push from GitHub", /validateSection\(source, \{[^}]*strict: true \}\)/.test(read("lib/github-sync/apply.ts")))
+  check("a push from GitHub", /validateSection\(source, \{[^}]*strict: true \}\)/.test(read("lib/github-sync/sync.ts")))
   check("Storelib AI's section writer", /validateSection\(text, \{ path, expectType: type, strict: true \}\)/.test(read("lib/website-builder/agent/write-section.ts")))
   /* Checked in the loop now, before the route stages it (lib/website-builder/agent/compile-feedback.ts): the integration rules included. */
   check(
