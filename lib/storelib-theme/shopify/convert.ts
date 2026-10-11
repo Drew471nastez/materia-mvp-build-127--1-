@@ -111,7 +111,7 @@ export type ConvertResult = { ok: true; theme: ImportedTheme; report: Conversion
 
 /** Said once, wherever a Shopify theme is imported: the route's answer and the docs. */
 export const SHOPIFY_LICENSE_NOTICE =
-  "A Shopify theme's license decides whether it may be used outside Shopify. Shopify's own themes, such as Dawn and Horizon, are licensed for Shopify stores. Import only a theme you have the right to use."
+  "A theme's license decides where it may be used. Many store themes are licensed only for the platform they were made for. Import only a theme you have the right to use."
 
 // ── Recognising one ─────────────────────────────────────────────────────────
 
@@ -152,7 +152,7 @@ export function isShopifyTheme(zip: JSZip): boolean {
   return shopifyRoot(zip) !== null
 }
 
-/** "Imported 42 sections, 95 blocks and 9 pages from Shopify. 3 notes." */
+/** "42 sections, 95 blocks and 9 pages came across. 3 files were left out." */
 export function conversionSummary(report: ConversionReport): string {
   const count = (re: RegExp) => report.converted.filter((f) => re.test(f)).length
   const sections = count(/^sections\/[^/]+\.liquid$/)
@@ -164,7 +164,7 @@ export function conversionSummary(report: ConversionReport): string {
   const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0]
   const left = report.skipped.length
   const tail = left === 0 ? "" : left === 1 ? " 1 file was left out." : ` ${left} files were left out.`
-  return `Imported ${list} from Shopify.${tail}`
+  return `${list} came across.${tail}`
 }
 
 // ── Limits ──────────────────────────────────────────────────────────────────
@@ -275,7 +275,7 @@ export async function convertShopifyTheme(zip: JSZip, opts: ConvertOptions = {})
     return await convertUnguarded(zip, opts)
   } catch (e) {
     const why = e instanceof Error && e.message ? e.message.split("\n")[0].slice(0, 200) : "it is not in a shape Storelib can read"
-    return { ok: false, error: `This Shopify theme could not be imported: ${why}` }
+    return { ok: false, error: `This theme could not be imported: ${why}` }
   }
 }
 
@@ -286,7 +286,7 @@ interface SourceFiles {
 
 async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<ConvertResult> {
   const root = shopifyRoot(zip)
-  if (root === null) return { ok: false, error: "This is not a Shopify theme: it needs layout/theme.liquid and a home page (templates/index.json or templates/index.liquid)" }
+  if (root === null) return { ok: false, error: "This theme can't be imported: it needs layout/theme.liquid and a home page (templates/index.json or templates/index.liquid)" }
 
   const entries = Object.values(zip.files).filter((f) => !f.dir && f.name.startsWith(root))
   if (entries.length > MAX_ENTRIES) return { ok: false, error: `This theme has ${entries.length} files; the most Storelib reads is ${MAX_ENTRIES}` }
@@ -447,7 +447,7 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
         checkSyntax(text, (msg) => report.note(path, msg))
         pages.push({ page_key: key, template: name, sections: [...groups.header, ...groups.footer, ...groups.overlay] })
         report.converted.push(path)
-        report.note(path, `A template written in Liquid rather than JSON draws as written; it has no sections to edit in the builder`)
+        report.note(path, `A template written as code rather than JSON draws as written; it has no sections to edit in the builder`)
       } else if (!key) {
         report.note(path, `Kept with the theme's files; ${name.startsWith("customers/") ? "a visitor's account pages are Storelib's own" : "Storelib has no page for it"}`)
       }
@@ -488,13 +488,13 @@ async function convertUnguarded(zip: JSZip, opts: ConvertOptions): Promise<Conve
   const values = themeValues(parseJson(src.text.get("config/settings_data.json") ?? ""))
   for (const [k, v] of Object.entries(values)) {
     if (typeof v === "string" && v.startsWith("shopify://shop_images/")) {
-      report.note("config/settings_data.json", `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; choose it again in Theme settings`)
+      report.note("config/settings_data.json", `"${k}" is a picture from the old store's files, which is not part of the theme; choose it again in Theme settings`)
     }
   }
 
   files[`${COMPAT_PREFIX}config/settings_panel.json`] = JSON.stringify(settingsPanel(schemaSettings, values, tr, (m) => report.note("config/settings_schema.json", m)), null, 1)
 
-  const name = (typeof info?.theme_name === "string" && info.theme_name.trim()) || opts.fallbackName || "Shopify theme"
+  const name = (typeof info?.theme_name === "string" && info.theme_name.trim()) || opts.fallbackName || "Imported theme"
   const version = typeof info?.theme_version === "string" && /^\d+(\.\d+){0,2}/.test(info.theme_version) ? info.theme_version : "1.0.0"
   const theme: ImportedTheme = {
     name: name.slice(0, 80),
@@ -534,7 +534,7 @@ async function readSources(entries: JSZip.JSZipObject[], root: string, report: R
     }
     const ext = base.includes(".") ? base.split(".").pop()!.toLowerCase() : ""
     if (folder === "assets") {
-      if (parts.length > 2) { report.skip(path, `A folder inside assets/ is not part of a Shopify theme; asset_url reads assets/ itself`); continue }
+      if (parts.length > 2) { report.skip(path, `A folder inside assets/ is not part of a theme; asset_url reads assets/ itself`); continue }
       if (MEDIA_EXT.has(ext)) {
         const read = await readEntryCapped(f, LIMITS.assetBytes)
         if (read.bytes) binary.set(path, read.bytes)
@@ -562,7 +562,7 @@ async function readSources(entries: JSZip.JSZipObject[], root: string, report: R
       continue
     }
     if (parts.length > 2 && !(folder === "templates" && parts.length === 3 && parts[1] === "customers")) {
-      report.skip(path, `A folder inside ${folder}/ is not read by Shopify either`)
+      report.skip(path, `A folder inside ${folder}/ is not read by the theme either`)
       continue
     }
     const read = await readEntryTextCapped(f, LIMITS.sourceBytes)
@@ -778,7 +778,7 @@ function sectionSchema(raw: Tree, job: FileJob): Tree {
       if (!b || typeof b !== "object") continue
       const t = String(b.type ?? "")
       if (t === "@app") {
-        job.note(`It accepts app blocks; Storelib has no Shopify apps, so none can be added`)
+        job.note(`It accepts app blocks from outside apps, which Storelib does not have, so none can be added`)
         continue
       }
       if (b.name === undefined && b.settings === undefined) {
@@ -1022,7 +1022,7 @@ function blockList(blocks: Record<string, Tree> | undefined, order: unknown, dep
 function noteShopifyValues(settings: Tree, report: Report, path: string): void {
   for (const [k, v] of Object.entries(settings)) {
     if (typeof v !== "string") continue
-    if (v.startsWith("shopify://shop_images/")) report.note(path, `"${k}" is a picture in the Shopify store's Files, which is not part of the theme; the theme's placeholder draws until one is chosen`)
+    if (v.startsWith("shopify://shop_images/")) report.note(path, `"${k}" is a picture from the old store's files, which is not part of the theme; the theme's placeholder draws until one is chosen`)
     else if (/^shopify:\/\/(pages|blogs|articles|metaobjects)\//.test(v)) report.note(path, `"${k}" links to ${v.slice(10)}, which this website does not have yet`)
   }
 }

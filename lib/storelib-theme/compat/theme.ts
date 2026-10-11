@@ -638,7 +638,7 @@ export class CompatTheme {
   /** The page with Shopify's CDN taken out of it, each address it named kept in the diagnostics. */
   finish(html: string): string {
     /* And a button's label never painted a box of its own (./css-fixes.ts). */
-    const out = fixInlineStyles(withoutShopifyCdn(html, (url) => this.diagnostics.add(`A script or stylesheet from Shopify's servers was left out: ${url}`)))
+    const out = fixInlineStyles(withoutShopifyCdn(html, (url) => this.diagnostics.add(`A script or stylesheet from the old store's servers was left out: ${url}`)))
     /* An icon from one of the theme's own sprite files, drawn in place (./icons.ts). */
     return inlineSpriteFiles(out, (url) => {
       const name = assetNameOf(url)

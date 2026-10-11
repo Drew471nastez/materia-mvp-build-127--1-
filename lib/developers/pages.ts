@@ -128,11 +128,11 @@ export const DEV_PAGES: readonly DevPage[] = [
   },
   {
     slug: "imported-shopify-themes",
-    title: "Imported Shopify themes",
-    nav: "Imported Shopify themes",
-    summary: "A Shopify theme on Storelib: Liquid, the cart, checkout, accounts, the canvas.",
+    title: "Imported themes",
+    nav: "Imported themes",
+    summary: "An imported theme on Storelib: its templates, the cart, checkout, accounts, the canvas.",
     description:
-      "What happens when a Shopify theme is imported into Storelib: the Liquid tags, filters and objects it can use, section groups and the Section Rendering API, the AJAX cart, checkout, predictive search, forms, customer accounts with emailed codes, the wishlist, the theme's scripts, the builder's canvas, live navigation and what does not come across.",
+      "What happens when a theme from another platform is imported into Storelib: the template tags, filters and objects it can use, section groups and the Section Rendering API, the AJAX cart, checkout, predictive search, forms, customer accounts with emailed codes, the wishlist, the theme's scripts, the builder's canvas, live navigation and what does not come across.",
     group: "Themes",
   },
   {
@@ -168,7 +168,7 @@ export const DEV_PAGES: readonly DevPage[] = [
     nav: "Blocks",
     summary: "Section blocks, theme blocks, blocks inside blocks, static blocks and presets.",
     description:
-      "Blocks in Storelib, the way Shopify does them: section blocks, theme blocks in blocks/*.storelib, @theme, content_for, blocks inside blocks, static blocks, presets in Shopify's keyed form, limits, and how blocks are stored.",
+      "Blocks in Storelib: section blocks, theme blocks in blocks/*.storelib, @theme, content_for, blocks inside blocks, static blocks, presets in keyed form, limits, and how blocks are stored.",
     group: "Sections",
   },
   {
@@ -254,20 +254,20 @@ export const DEV_PAGES: readonly DevPage[] = [
   },
   {
     slug: "shopify",
-    title: "Coming from Shopify",
-    nav: "Coming from Shopify",
-    summary: "Shopify's theme structure, mapped to Storelib's.",
+    title: "Coming from another platform",
+    nav: "Coming from another platform",
+    summary: "The usual theme structure, mapped to Storelib's.",
     description:
-      "How Shopify's theme structure maps to the Storelib Builder Framework: setting types, schema keys, templates and pages, sections, menus and dynamic sources, and what Storelib does not have and why.",
+      "How the usual store theme structure maps to the Storelib Builder Framework: setting types, schema keys, templates and pages, sections, menus and dynamic sources, and what Storelib does not have and why.",
     group: "Reference",
   },
   {
     slug: "shopify-parity",
-    title: "Shopify parity",
-    nav: "Shopify parity",
-    summary: "Shopify's theme settings, input types and pages, against Storelib's.",
+    title: "Theme editor parity",
+    nav: "Theme editor parity",
+    summary: "The usual theme settings, input types and pages, against Storelib's.",
     description:
-      "How the Storelib website builder compares with Shopify's Online Store 2.0 theme editor: each theme settings group, each setting input type and each page template, marked Have, Partial or Missing.",
+      "How the Storelib website builder compares with other theme editors: each theme settings group, each setting input type and each page template, marked Have, Partial or Missing.",
     group: "Reference",
   },
   {

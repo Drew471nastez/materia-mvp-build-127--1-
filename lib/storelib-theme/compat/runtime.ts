@@ -364,7 +364,7 @@ export function renderNodes(nodes: Node[], ctx: Ctx, out: string[]): void {
       if (e instanceof Interrupt || e instanceof CompatRenderError || ctx.registers.strictErrors === true) throw e
       const line = "line" in n && typeof n.line === "number" ? ` (line ${n.line})` : ""
       const said = String((e as Error)?.message ?? e).replace(/--/g, "- -").replace(/[<>]/g, "").slice(0, 200)
-      push(out, ctx, `<!-- Liquid error${line}: ${said} -->`)
+      push(out, ctx, `<!-- Template error${line}: ${said} -->`)
       /* Kept for the editor's note on the section, as the error itself was. */
       if (Array.isArray(ctx.registers.liquidErrors)) (ctx.registers.liquidErrors as string[]).push(`${said}${line}`)
     }
