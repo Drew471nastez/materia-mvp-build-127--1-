@@ -256,7 +256,7 @@ export async function shipTransfer(db: Db, creatorId: string, transferId: string
       key: `transfer_out:${i.id}`,
       guard: true,
     })
-    if (!out.ok) return { ok: false, error: out.error }
+    if (out.ok === false) return { ok: false, error: out.error }
     await applyInventory(db, {
       creatorId,
       variantId: i.variant_id,
@@ -301,7 +301,7 @@ export async function receiveTransfer(
       refId: transferId,
       key: `transfer_in:${item.id}:${after}`,
     })
-    if (!done.ok) return { ok: false, error: done.error }
+    if (done.ok === false) return { ok: false, error: done.error }
     if (done.applied) {
       await db.from("inventory_transfer_items").update({ received_quantity: after }).eq("id", item.id)
       item.received_quantity = after

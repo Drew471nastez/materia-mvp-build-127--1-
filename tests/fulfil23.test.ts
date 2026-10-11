@@ -134,7 +134,7 @@ function shop(over: { rates?: Record<string, any>[]; studio?: Record<string, any
 type Priced = Extract<Awaited<ReturnType<typeof priceCheckout>>, { ok: true }>
 async function quote(db: ReturnType<typeof shop>, items: { productId: string; variantId: string | null; quantity: number }[], address: { country: string; region?: string | null; postalCode?: string | null } | null, optionId?: string) {
   const priced = await priceCheckout(db as never, { items, shopId: SHOP })
-  if (!priced.ok) throw new Error(`priced: ${priced.error}`)
+  if (priced.ok === false) throw new Error(`priced: ${priced.error}`)
   return { priced: priced as Priced, q: await quoteCheckout(db as never, priced as Priced, address ? { country: address.country, region: address.region ?? null, postalCode: address.postalCode ?? null } : null, optionId) }
 }
 const optionsOf = (q: Awaited<ReturnType<typeof quote>>["q"]) => (q.quote.ok && q.quote.required ? q.quote.options : [])
