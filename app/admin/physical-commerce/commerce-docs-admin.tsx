@@ -119,7 +119,7 @@ function JobRow({ job }: { job: JobStatus }) {
   )
 }
 
-function LiveStatus() {
+const LiveStatus = React.memo(function LiveStatus() {
   const [status, setStatus] = React.useState<CommerceStatus | null>(null)
   const [error, setError] = React.useState<string | null>(null)
   const [busy, setBusy] = React.useState(true)
@@ -297,7 +297,7 @@ function LiveStatus() {
       </div>
     </Panel>
   )
-}
+})
 
 /* ── 2 and 3. The documentation ─────────────────────────────────────────── */
 
@@ -392,7 +392,7 @@ function FactTable({ fact }: { fact: Fact }) {
   )
 }
 
-function SectionPanel({ section, topics, facts, help, showAll }: { section: DocSection; topics: Topic[]; facts: Partial<Record<FactKey, Fact>>; help: Map<string, string>; showAll: boolean }) {
+const SectionPanel = React.memo(function SectionPanel({ section, topics, facts, help, showAll }: { section: DocSection; topics: Topic[]; facts: Partial<Record<FactKey, Fact>>; help: Map<string, string>; showAll: boolean }) {
   const articles = (section.help ?? []).filter((slug) => help.has(slug))
   return (
     <section id={section.id} className="scroll-mt-4 min-w-0 rounded-[10px] border border-white/[0.08] bg-[#111116]" data-section={section.id}>
@@ -407,7 +407,7 @@ function SectionPanel({ section, topics, facts, help, showAll }: { section: DocS
             {section.physicalOnly ? <span className="text-[#9b9ba6]">While physical commerce is on</span> : null}
             {section.where ? (
               section.where.href ? (
-                <a href={section.where.href} className="text-[#ededf0] underline decoration-white/25 underline-offset-2 hover:decoration-white/70">
+                <a href={section.where.href} className="inline-flex min-h-10 items-center text-[#ededf0] underline decoration-white/25 underline-offset-2 hover:decoration-white/70 sm:min-h-0">
                   {section.where.label}
                 </a>
               ) : (
@@ -444,12 +444,13 @@ function SectionPanel({ section, topics, facts, help, showAll }: { section: DocS
       ) : null}
     </section>
   )
-}
+})
 
 export function CommerceDocsAdmin({ docs, facts, help, withStatus = true }: { docs: DocSection[]; facts: Partial<Record<FactKey, Fact>>; help: HelpLink[]; withStatus?: boolean }) {
   const [query, setQuery] = React.useState("")
   const helpMap = React.useMemo(() => new Map(help.map((h) => [h.slug, h.title])), [help])
-  const q = query.trim()
+  /* The box shows each key at once; the sections follow when the browser has a moment, so typing never waits on 46 topics redrawing. */
+  const q = React.useDeferredValue(query.trim())
 
   /* A section whose own title or intro matches shows whole; otherwise only its topics that match. */
   const shown = React.useMemo(
@@ -481,14 +482,14 @@ export function CommerceDocsAdmin({ docs, facts, help, withStatus = true }: { do
           </p>
         </div>
 
-        <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-6">
+        <div className="lg:grid lg:grid-cols-[220px_minmax(0,1fr)] lg:gap-6">
           <nav aria-label="Contents" className="mb-4 lg:mb-0">
             <div className="lg:sticky lg:top-5">
               <p className="mb-1 hidden px-2 text-[11px] font-medium uppercase tracking-[0.06em] text-[#6b6b76] lg:block">Contents</p>
               <ul className="-mx-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] lg:mx-0 lg:block lg:space-y-px lg:overflow-visible lg:px-0 lg:pb-0">
                 {withStatus ? (
                   <li className="shrink-0">
-                    <a href="#status" className="flex h-9 items-center whitespace-nowrap rounded-[7px] border border-white/[0.08] px-3 text-[13px] text-[#c9c9d1] hover:bg-white/[0.04] hover:text-[#ededf0] lg:h-8 lg:border-0 lg:px-2">
+                    <a href="#status" className="flex h-9 items-center whitespace-nowrap rounded-[7px] border border-white/[0.08] px-3 text-[13px] text-[#c9c9d1] hover:bg-white/[0.04] hover:text-[#ededf0] lg:h-auto lg:min-h-8 lg:whitespace-normal lg:border-0 lg:px-2 lg:py-1.5 lg:leading-[18px]">
                       Live status
                     </a>
                   </li>
@@ -500,7 +501,7 @@ export function CommerceDocsAdmin({ docs, facts, help, withStatus = true }: { do
                       <a
                         href={`#${s.id}`}
                         className={cx(
-                          "flex h-9 items-center whitespace-nowrap rounded-[7px] border border-white/[0.08] px-3 text-[13px] hover:bg-white/[0.04] hover:text-[#ededf0] lg:h-8 lg:border-0 lg:px-2",
+                          "flex h-9 items-center whitespace-nowrap rounded-[7px] border border-white/[0.08] px-3 text-[13px] hover:bg-white/[0.04] hover:text-[#ededf0] lg:h-auto lg:min-h-8 lg:whitespace-normal lg:border-0 lg:px-2 lg:py-1.5 lg:leading-[18px]",
                           on ? "text-[#c9c9d1]" : "text-[#4b4b55]",
                         )}
                       >
