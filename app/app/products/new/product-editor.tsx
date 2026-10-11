@@ -3,7 +3,7 @@
 import { announceChange } from "@/lib/seo/announce-client"
 import { forgetProduct } from "@/lib/products/forget-client"
 import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, rememberDeleted, rememberStatus } from "@/lib/products/delete-client"
-import React, { useState, useEffect, useCallback, useRef, useLayoutEffect, memo, startTransition } from "react"
+import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { getProductShareUrl } from "@/lib/url-helpers"
@@ -76,6 +76,8 @@ import { isCategoryFor } from "@/lib/products/category-groups"
 import { useCategorySuggestion } from "./category-suggestion"
 import { saveVariants } from "./variant-save"
 import { PhysicalProductCards, type PhysicalEditorHandle } from "@/components/physical/product-cards"
+import { currencyMark, formatStoreMoney, markInset } from "@/lib/store/currency"
+import { StoreCurrencyProvider } from "@/lib/store/currency-context"
 
 /*
   The cards a failed check scrolls to (handleSaveChanges). There is no row of
@@ -140,12 +142,12 @@ const OPTION_CHIP =
 const VARIANT_TOOL =
   "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#6b7280] outline-none transition-colors duration-100 hover:bg-[#eceef1] hover:text-[#1a1a2e] focus-visible:shadow-[inset_0_0_0_2px_#9ca3af] disabled:pointer-events-none disabled:opacity-35 sm:h-8 sm:w-8 [-webkit-tap-highlight-color:transparent]"
 
-/** The price a closed variant shows beside its name: its minimum and a plus for pay what you want, else its price. */
-function variantPriceLabel(v: ProductVariant): string {
+/** The price a closed variant shows beside its name, in the store's currency: its minimum and a plus for pay what you want, else its price. */
+function variantPriceLabel(v: ProductVariant, currency?: string): string {
   const cents = Math.round(Number.parseFloat((v.payWhatYouWant ? v.pwywMinPrice : v.price) || "0") * 100)
   if (!Number.isFinite(cents)) return ""
-  if (v.payWhatYouWant) return `$${(cents / 100).toFixed(cents % 100 ? 2 : 0)}+`
-  return v.price ? `$${(cents / 100).toFixed(2)}` : ""
+  if (v.payWhatYouWant) return `${formatStoreMoney(cents, currency)}+`
+  return v.price ? formatStoreMoney(cents, currency) : ""
 }
 
 // Limits
@@ -289,6 +291,20 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [error, setError] = useState<string | null>(null)
   const creatorId = loadedCreator.id
   const creator = loadedCreator
+  /* Every price field in the store's currency (lib/store/currency.ts): $ before the number, lei after it. */
+  const priceMark = useMemo(() => {
+    const mark = currencyMark(creator.currency)
+    const inset = markInset(creator.currency)
+    return {
+      mark,
+      node: (
+        <span aria-hidden data-currency-mark={mark.code} className={cn("pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-gray-400", mark.position === "prefix" ? "left-3" : "right-3")}>
+          {mark.symbol}
+        </span>
+      ),
+      pad: (mark.position === "prefix" ? { paddingLeft: inset } : { paddingRight: inset }) as React.CSSProperties,
+    }
+  }, [creator.currency])
   const [productId, setProductId] = useState<string | null>(initial.productId)
   const storedDescriptionRef = useRef<string | null>(initial.productId ? initial.description : null) // The description as the row holds it
   /* The saved name, for the more menu's sheet. The bar itself names no product: the title field does. */
@@ -2429,7 +2445,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
               </div>
 
               {/* A physical product: stock, shipping and variants in place of the files (components/physical/product-cards.tsx). */}
-              {productType === "physical" ? <PhysicalProductCards
+              {productType === "physical" ? <StoreCurrencyProvider currency={creator.currency}><PhysicalProductCards
                   productId={productId}
                   basePrice={price}
                   handle={physicalRef}
@@ -2437,7 +2453,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   openSettings={openSettings}
                   images={mediaItems.filter((m) => m.type === "image").map((m) => m.url)}
                   uploadImage={async (file) => (await uploadDescriptionImage(file, { creatorId, productId })).url}
-                /> : null}
+                /></StoreCurrencyProvider> : null}
               {productType === "course" ? null : filesCard}
 
               {/* Variants Section: a download's. A physical product's are in its own cards above. */}
@@ -2489,8 +2505,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                         >
                           <div className="min-w-0 flex-1 truncate">
                             <span className="text-sm font-medium text-[#1a1a2e]">{variant.name || "Untitled"}</span>
-                            {variantPriceLabel(variant) ? (
-                              <span className="ml-2 text-xs tabular-nums text-[#6b7280]">{variantPriceLabel(variant)}</span>
+                            {variantPriceLabel(variant, creator.currency) ? (
+                              <span className="ml-2 text-xs tabular-nums text-[#6b7280]">{variantPriceLabel(variant, creator.currency)}</span>
                             ) : null}
                           </div>
                           <div className="flex shrink-0 items-center">
@@ -2584,7 +2600,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   {variant.payWhatYouWant ? "Min amount" : "Price"}
                                 </Label>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                                  {priceMark.node}
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -2600,7 +2616,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                           : v
                                       ))
                                     }}
-                                    className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors font-medium"
+                                    className="h-11 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors font-medium"
+                                    style={priceMark.pad}
                                   />
                                 </div>
                               </div>
@@ -2609,7 +2626,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   {variant.payWhatYouWant ? "Suggested" : "Compare-at"}
                                 </Label>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-medium">$</span>
+                                  {priceMark.node}
                                   <Input
                                     type="text"
                                     inputMode="decimal"
@@ -2625,7 +2642,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                           : v
                                       ))
                                     }}
-                                    className="h-11 pl-8 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
+                                    className="h-11 border-gray-200 text-sm rounded-lg bg-gray-50 focus:bg-white transition-colors"
+                                    style={priceMark.pad}
                                   />
                                 </div>
                               </div>
@@ -2787,7 +2805,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             <div className="space-y-1.5">
                               <Label htmlFor="price" className="text-xs sm:text-sm font-medium text-gray-700">Price</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                {priceMark.node}
                                 <Input
                                   id="price"
                                   type="text"
@@ -2796,7 +2814,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   placeholder="0.00"
                                   value={price}
                                   onChange={(e) => setPrice(moneyTyped(e.target.value))}
-                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  className="h-11 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  style={priceMark.pad}
                                 />
                               </div>
                             </div>
@@ -2817,7 +2836,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   </button>
                                 </div>
                                 <div className="relative">
-                                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                  {priceMark.node}
                                   <Input
                                     id="comparePrice"
                                     ref={compareRef}
@@ -2827,7 +2846,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                     placeholder="0.00"
                                     value={compareAtPrice}
                                     onChange={(e) => setCompareAtPrice(moneyTyped(e.target.value))}
-                                    className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base tabular-nums"
+                                    className="h-11 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  style={priceMark.pad}
                                   />
                                 </div>
                               </div>
@@ -2863,7 +2883,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                             <div className="space-y-1.5">
                               <Label htmlFor="pwywMin" className="text-xs sm:text-sm font-medium text-gray-700">Minimum amount</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                {priceMark.node}
                                 <Input
                                   id="pwywMin"
                                   type="text"
@@ -2872,14 +2892,15 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   placeholder="0.00"
                                   value={pwywMinPrice}
                                   onChange={(e) => setPwywMinPrice(moneyTyped(e.target.value))}
-                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                                  className="h-11 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  style={priceMark.pad}
                                 />
                               </div>
                             </div>
                             <div className="space-y-1.5">
                               <Label htmlFor="pwywSuggested" className="text-xs sm:text-sm font-medium text-gray-700">Suggested amount</Label>
                               <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs sm:text-sm">$</span>
+                                {priceMark.node}
                                 <Input
                                   id="pwywSuggested"
                                   type="text"
@@ -2888,7 +2909,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                                   placeholder="0.00"
                                   value={pwywSuggestedPrice}
                                   onChange={(e) => setPwywSuggestedPrice(moneyTyped(e.target.value))}
-                                  className="h-11 pl-6 sm:pl-7 border-gray-200 text-sm sm:text-base"
+                                  className="h-11 border-gray-200 text-sm sm:text-base tabular-nums"
+                                  style={priceMark.pad}
                                 />
                               </div>
                             </div>

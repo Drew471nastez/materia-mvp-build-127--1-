@@ -5,6 +5,7 @@ import { creatorForRequest, currentUserForRequest, profileForRequest } from "@/l
 import type { EditorAssetRow, EditorCreator, EditorProductRow, EditorVariantRow, LoadedProduct } from "./new/editor-form"
 import { paymentsReadyFrom } from "@/lib/home/progress"
 import { providerPaymentsReady } from "@/lib/payments/readiness"
+import { storeCurrencyOf } from "@/lib/store/currency"
 
 /**
  * ===========================================================================
@@ -106,6 +107,11 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
   }
 
   if (!creatorRow) return { state: "no-creator" }
+  /* The store's currency, for every price field (lib/store/currency.ts), read beside the payments check. A failed read is US dollars, as before. */
+  const [paymentsReady, currencyRow] = await Promise.all([
+    providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
+    Promise.resolve(supabase.from("creators").select("payout_currency").eq("id", creatorRow.id).maybeSingle()).catch(() => ({ data: null })),
+  ])
   /* Only what the editor reads goes to the browser, not the whole shell row. */
   const creator: EditorCreator = {
     id: creatorRow.id,
@@ -114,7 +120,8 @@ export async function loadProductEditor(productId: string | null): Promise<Edito
     stripe_onboarding_status: creatorRow.stripe_onboarding_status,
     username: profileRow?.username ?? null,
     /* The editor's status line says when a live paid product cannot be bought yet. */
-    payments_ready: await providerPaymentsReady(creatorRow.id, paymentsReadyFrom(creatorRow)),
+    payments_ready: paymentsReady,
+    currency: storeCurrencyOf((currencyRow?.data as { payout_currency?: string | null } | null)?.payout_currency),
   }
 
   if (!productId) return { state: "ready", creator, loaded: null }
