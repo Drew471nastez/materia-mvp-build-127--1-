@@ -187,6 +187,8 @@ const SHOTS = [
   { name: "website-domains", view: "website-domains", width: 1280, height: 860, clip: viewport(860), settle: 2500 },
   { name: "store-details", view: "store", width: 820, phone: true, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot .rounded-2xl")].slice(0, 3))) },
   { name: "integrations-directory", view: "integrations", width: 1060, height: 900, phone: true, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integrations-search]"), document.querySelector("[data-integration-pills]"), ...[...document.querySelectorAll("[data-integration-card]")].slice(0, innerWidth < 600 ? 3 : 6)], 16)) },
+  /* Printful connected, its own page: the location it made, Send orders straight to production, how tracking comes back. */
+  { name: "integration-printful", view: "integrations", q: "integration=printful&printful=1", width: 1060, height: 1200, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-page]")?.firstElementChild, window.__card("Settings"), window.__card("At a glance")], 16)) },
   { name: "integration-page", view: "integrations", q: "integration=meta-pixel", width: 1060, height: 1000, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-page]")], 16)) },
   /* The real emails, as their templates write them. */
   { name: "low-stock-email", view: "email-low-stock", width: 640, height: 900, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot iframe")], 0)) },

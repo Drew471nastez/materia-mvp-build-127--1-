@@ -27,7 +27,8 @@ import { SiteCheckout } from "@/app/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
-import { lowStockEmail, shipmentEmail } from "@/lib/physical/email-templates"
+import { shipmentEmail } from "@/lib/physical/email-templates"
+import { lowStockEmail } from "@/lib/notify/seller-commerce"
 
 const params = new URLSearchParams(location.search)
 const view = params.get("view") || "delivery"
@@ -55,12 +56,14 @@ const BOWL = pic("bowl", "#ece7e1", "#a7988a")
 const APRON = pic("apron", "#e9e6e1", "#4b5563")
 
 const location1 = { id: LOC, name: "Studio", kind: "home", country: "US", city: "Portland", addressLine1: "120 Alder Street", addressLine2: null, region: "OR", postalCode: "97204", phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: true, priority: 0, forwarding: "none", pickupEnabled: true, pickupInstructions: "Ring the bell at the side door. Open Tuesday to Saturday, 10am to 5pm.", pickupReady: "24h" }
+/* The location Printful made when it was connected (lib/integrations/fulfilment/forward-server.ts ensureProviderLocation). */
+const location3 = { id: "loc-printful", name: "Printful", kind: "print_on_demand", country: null, city: null, addressLine1: null, addressLine2: null, region: null, postalCode: null, phone: null, email: null, active: true, fulfillsOrders: true, holdsInventory: false, priority: 2, forwarding: "provider", pickupEnabled: false, pickupInstructions: null, pickupReady: "24h", partner: { provider: "printful", name: "Printful", connected: true } }
 const location2 = { id: LOC2, name: "Print partner", kind: "print_on_demand", country: "US", city: null, addressLine1: null, addressLine2: null, region: null, postalCode: null, phone: null, email: "orders@printpartner.example", active: true, fulfillsOrders: true, holdsInventory: false, priority: 1, forwarding: "email", pickupEnabled: false, pickupInstructions: null, pickupReady: "24h" }
 
 const onboarded = !params.has("first")
 const physicalSettings = () => ({
   settings: { fulfillmentModel: onboarded ? "self" : null, defaultLocationId: LOC, defaultPackageId: "pk1", unitSystem: "metric", returnsEnabled: true, returnWindowDays: 30, taxMode: "manual", pricesIncludeTax: false, taxOnShipping: false, lowStockDefault: 5, lowStockAlerts: true, onboardedAt: onboarded ? "2026-10-01T00:00:00Z" : null },
-  locations: [location1, location2],
+  locations: [location1, location2, location3],
   profiles: [
     {
       id: "p1",
@@ -217,7 +220,8 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/physical/orders/")) return { order: order(params.get("order") === "shipped" ? "shipped" : params.get("order") === "pickup" ? "pickup" : "new"), locations: [{ id: LOC, name: "Studio" }] }
   if (path === "/api/store/integrations/catalog") return { overrides: [] }
   if (path.startsWith("/api/store/integrations")) return { tracking: { ga4: "G-1A2B3C4D5E" }, ready: true }
-  if (path.startsWith("/api/physical/integrations")) return { integrations: [] }
+  /* Printful connected to the demo store (?printful): the location it made, drafts to approve, tracking by webhook. */
+  if (path.startsWith("/api/physical/integrations")) return { integrations: params.has("printful") ? [{ provider: "printful", status: "connected", url: null, keyHint: "7Qx2", secretHint: null, lastSyncAt: "2026-10-10T09:12:00Z", lastError: null, account: "Fern & Clay", verifiedAt: "2026-10-10T09:12:00Z", mode: null, autoConfirm: false, webhooks: "on", webhookNote: null, location: { id: "loc-printful", name: "Printful" } }] : [] }
   if (path.startsWith("/api/store/reviews-app")) return { settings: { enabled: false } }
   if (path.startsWith("/api/store/taxes")) return taxes
   if (path.startsWith("/api/store/channels")) return channels
