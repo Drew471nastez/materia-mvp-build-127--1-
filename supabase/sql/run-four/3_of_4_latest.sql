@@ -2836,5 +2836,10 @@ REVOKE ALL ON FUNCTION public.perf_slow_queries(integer, double precision, integ
 GRANT EXECUTE ON FUNCTION public.perf_slow_queries(integer, double precision, integer) TO service_role;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('126', '126_perf_health.sql', '1d0ed8ad5f10b6509b14db32878baea26f532499e0c43e298fb612ae8f12d10b') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 127_checkout_start_basket.sql
+/* A started checkout remembers its whole cart. One more column on `checkout_starts` (part 13): `basket`, written by a website's own checkout (app/api/checkout/site) when the buyer presses Pay: the cart's lines (product, option, quantity, at most 50) and the website's address it was started on, so a checkout reminder can bring the buyer back to that same checkout with the same cart, not only to the first product. Server only, like the table. Until it runs, a website checkout still records its start with the first product (the reminder works as before), and only the cart is not kept. Safe to run again. */
+DO $do$ BEGIN IF to_regclass('public.checkout_starts') IS NULL THEN RAISE NOTICE 'checkout basket: checkout_starts is not there yet (part 13).'; RETURN; END IF; ALTER TABLE public.checkout_starts ADD COLUMN IF NOT EXISTS basket jsonb; ALTER TABLE public.checkout_starts DROP CONSTRAINT IF EXISTS checkout_starts_basket_shape; ALTER TABLE public.checkout_starts ADD CONSTRAINT checkout_starts_basket_shape CHECK (basket IS NULL OR (jsonb_typeof(basket) = 'object' AND pg_column_size(basket) <= 16384)) NOT VALID; END $do$;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('127', '127_checkout_start_basket.sql', '32b9a40e9f953a9b507f754c1f177d6cc411fcc8d5743314ef9bd5cc56039c17') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 3 of 4 ran. Next file.' as done;

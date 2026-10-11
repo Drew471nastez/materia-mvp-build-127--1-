@@ -445,7 +445,7 @@ export async function fulfilPaidCheckout(admin: Db, paid: PaidCheckout, opts: { 
   return { ok: true, created: true, orderId: order.id, receiptToken: order.receipt_token, sessionFingerprint: order.session_fingerprint ?? null, amountCents: total }
 }
 
-function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
+export function sameSecret(expected: string | null | undefined, given: string | null | undefined): boolean {
   if (typeof expected !== "string" || typeof given !== "string" || expected.length !== given.length) return false
   let diff = 0
   for (let i = 0; i < expected.length; i++) diff |= expected.charCodeAt(i) ^ given.charCodeAt(i)

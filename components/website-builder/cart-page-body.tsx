@@ -33,6 +33,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
+import { onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 
 export interface CartPalette {
   bg: string
@@ -155,8 +156,10 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
     /* Something that ships: the physical checkout, which asks for the address and the delivery (lib/physical). */
     if (shopId && lines.some((l) => l.physical)) {
       setBusy(true)
-      /* Relative: on a website the address is sent to storelib.com, where checkouts live (proxy.ts PLATFORM_APEX_PATHS). */
-      window.location.href = physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
+      /* On the website: its own checkout, on this same address (app/checkout/site), which asks for the address and the delivery. A preview on storelib.com keeps the platform's. */
+      window.location.href = onWebsiteHost(window.location.hostname, getMainDomain())
+        ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", couponCode: applied?.code ?? null, wholeCart: true })
+        : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
       return
     }
     setBusy(true)

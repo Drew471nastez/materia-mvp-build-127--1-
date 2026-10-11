@@ -25,6 +25,7 @@ import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
 import { timed } from "@/lib/perf/server-timing"
 import { basketDecision } from "@/lib/checkout/basket-decision"
 import { afterPaidTarget, basketCheckoutHref } from "@/lib/checkout/basket-link"
+import { siteCheckoutHref, siteThanksHref } from "@/lib/checkout/site-checkout"
 import { loadStoreName } from "@/lib/store/settings-server"
 
 export const runtime = "nodejs"
@@ -214,6 +215,10 @@ async function handlePOST(request: Request) {
     existed.
   */
   if (decision.kind === "ships") {
+    /* From the shop's own website: its own checkout, on its own address (app/checkout/site), which asks for the address and the delivery. */
+    if (siteOrigin !== platformOrigin) {
+      return NextResponse.json({ url: siteCheckoutHref({ origin: siteOrigin, items: decision.items, back: returnPath, couponCode: typeof body.couponCode === "string" ? body.couponCode : null, wholeCart: true }), ships: true })
+    }
     return NextResponse.json({ url: physicalCheckoutHref(creatorId, decision.items, `${siteOrigin}${returnPath}`, platformOrigin), ships: true })
   }
 
@@ -228,7 +233,7 @@ async function handlePOST(request: Request) {
   const attributionNow = () => attributionForCheckout(admin, { creatorId, source: "website", origin: { ...sent, surface: "website", site }, sent: body.origin })
 
   const totalCents = priced.totalCents
-  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
+  if (coupon && totalCents === 0) return freeBasket(request, { admin, user, body, priced, creatorId, platformOrigin, siteOrigin, origin: { ...sent, surface: "website", site }, attribution: await attributionNow() })
 
   /* Refused by basketDecision already; said again here so nothing under it can reach Stripe. */
   if (totalCents < MIN_CHARGE_CENTS) return NextResponse.json({ error: "Minimum payment amount is $0.50" }, { status: 400 })
@@ -261,6 +266,20 @@ async function handlePOST(request: Request) {
       }))
       .filter((i) => kept.has(`${i.productId}::${i.variantId ?? ""}`))
     const touches = body.origin && typeof body.origin === "object" ? (body.origin as { touches?: unknown }).touches : undefined
+    /* The shop's own website asked: its own checkout, on its own address (app/checkout/site, lib/checkout/site-checkout). */
+    if (siteOrigin !== platformOrigin) {
+      return NextResponse.json({
+        url: siteCheckoutHref({
+          origin: siteOrigin,
+          items,
+          back: returnPath,
+          couponCode: coupon?.code ?? null,
+          wholeCart: true,
+          visit: { from: sent?.from, utm_source: sent?.utm_source, utm_campaign: sent?.utm_campaign, touches: typeof touches === "string" ? touches : null },
+        }),
+        dropped,
+      })
+    }
     return NextResponse.json({
       url: basketCheckoutHref({
         base: platformOrigin,
@@ -469,6 +488,8 @@ async function freeBasket(
     priced: Extract<Awaited<ReturnType<typeof priceCart>>, { ok: true }>
     creatorId: string
     platformOrigin: string
+    /** The shop's own website the cart is on, or the platform. */
+    siteOrigin?: string
     origin: Parameters<typeof encodeOrigin>[0]
     attribution: Attribution
   },
@@ -529,7 +550,8 @@ async function freeBasket(
   })
 
   return NextResponse.json({
-    url: `${c.platformOrigin}/receipt/${encodeURIComponent(written.receiptToken)}`,
+    /* From the shop's own website: the thank you page there (app/checkout/site/thanks). */
+    url: c.siteOrigin && c.siteOrigin !== c.platformOrigin ? `${c.siteOrigin}${siteThanksHref(written.receiptToken, { whole: true })}` : `${c.platformOrigin}/receipt/${encodeURIComponent(written.receiptToken)}`,
     free: true,
     dropped: c.priced.dropped,
   })

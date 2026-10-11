@@ -19,6 +19,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { PLATFORM_CURRENCY } from "@/lib/checkout/currency"
 
 export const INK = "#1a1a2e"
 
@@ -336,5 +337,14 @@ export function PoweredByStripe() {
   )
 }
 
+/*
+  THE CURRENCY THE CARD IS CHARGED IN (lib/checkout/currency PLATFORM_CURRENCY,
+  the same NEXT_PUBLIC_PLATFORM_CURRENCY every PaymentIntent is made in, through
+  lib/payments/fees/currency-rules platformChargeCurrency). It said "USD" here
+  whatever was charged; production charges USD (the live build inlines it), so
+  nothing changes there, and a deployment charging lei now shows lei too.
+*/
+export const CHECKOUT_CURRENCY = PLATFORM_CURRENCY
+
 export const money = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format((cents || 0) / 100)
+  new Intl.NumberFormat("en-US", { style: "currency", currency: CHECKOUT_CURRENCY.toUpperCase() }).format((cents || 0) / 100)

@@ -211,6 +211,16 @@ export async function invoiceForOrder(admin: Db, order: OrderRow, context: Invoi
       } catch {
         /* The rows alone still make the document: one line each, as charged. */
       }
+    } else if ((!items || (!business && !businessKnown)) && first.stripe_session_id?.startsWith("pi_")) {
+      /* A website's basket paid on its own checkout (app/checkout/site): the same lines, on its PaymentIntent. */
+      try {
+        const m = ((await stripe.paymentIntents.retrieve(first.stripe_session_id)).metadata ?? {}) as Record<string, string>
+        items = items ?? unpackItems(m)
+        if (!businessKnown) business = business ?? businessFromMetadata(m)
+        discountCode = discountCode ?? (m.coupon_code || null)
+      } catch {
+        /* As above: the rows alone still make the document. */
+      }
     }
   } else if (!context.metadata && first.stripe_payment_intent_id) {
     try {
