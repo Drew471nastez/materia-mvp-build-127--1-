@@ -212,7 +212,7 @@ async function main() {
     const threshold = schema.blocks.find((b) => b.type === "low_stock")?.fields.find((f) => f.id === "threshold")
     check("  a new low stock block follows each product's line (0)", threshold?.default === 0 && threshold?.min === 0)
     check("the returns line sits under Check out in the cart drawer and on the cart page", /<CartReturnsNote/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /<CartReturnsNote/.test(read("components/website-builder/cart-page-body.tsx")))
-    check("the live site tells the page which page it is", /pageKey \}\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
+    check("the live site tells the page which page it is", /* Changed on purpose (round AB): the website in another language. */ /pageKey(, language)? \}\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
     const shop = read("app/api/physical/storefront/shop/route.ts")
     check("the website reads only returns and the free shipping amount, public, cached, behind the physical switch", /physicalApiGate\(\)/.test(shop) && /shopFacts\(createAdminClient\(\), creatorId\)/.test(shop) && /freeShippingFrom\(general, country\)/.test(read("lib/physical/storefront-facts.ts")) && /s-maxage=60/.test(shop) && !/price_cents|address_line/.test(shop))
     const ws = read("components/website-builder/website-settings/commerce.tsx")

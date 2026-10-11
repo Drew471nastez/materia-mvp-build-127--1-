@@ -26,7 +26,7 @@ import type { Db } from "./auth"
 import { addOrderEvent } from "./events-server"
 import { loadCustomerEmailCopy, replyAddress } from "@/lib/emails/customer-copy-server"
 import { emailIdForJob, itemsText, resolveCopy } from "@/lib/emails/customer-custom"
-import { orderCancelledEmail, orderConfirmationEmail, orderDateText, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
+import { orderCancelledEmail, orderConfirmationEmail, orderDateText, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, supplierOrderEmail, type EmailBrand, type EmailLine } from "./email-templates"
 import { creatorTimeZone } from "@/lib/account/time-zone"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { addressLines } from "./address"
@@ -36,7 +36,9 @@ import type { PickupReady } from "./types"
 import { deliveryEstimate } from "./rates"
 import { orderNumber, trackingUrl } from "./status"
 import { openSecret } from "./secrets"
-import { orderPageUrl } from "./order-link-server"
+import { orderPageUrl, storeOriginFor } from "./order-link-server"
+import { siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { physicalCheckoutHref } from "./cart-link"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
 import { lowStockEmail, sellerCommerceEmail, sellerKindForEvent } from "@/lib/notify/seller-commerce"
 import { EMAIL_REPLY_TO } from "@/lib/mail"
@@ -45,14 +47,14 @@ import { realForwardDeps } from "@/lib/integrations/fulfilment/forward-deps-serv
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
-export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean }): Promise<void> {
+export async function enqueueJob(db: Db, j: { creatorId: string | null; kind: JobKind; key: string; payload: Record<string, unknown>; runNow?: boolean; runAfter?: Date }): Promise<void> {
   const { data, error } = await db
     .from("commerce_jobs")
-    .insert({ creator_id: j.creatorId, kind: j.kind, payload: j.payload, idempotency_key: j.key })
+    .insert({ creator_id: j.creatorId, kind: j.kind, payload: j.payload, idempotency_key: j.key, ...(j.runAfter ? { run_after: j.runAfter.toISOString() } : {}) })
     .select("id")
     .maybeSingle()
   if (error && error.code !== "23505") console.error("[physical] job not queued:", j.kind, error.code)
-  if (data?.id && j.runNow !== false) {
+  if (data?.id && j.runNow !== false && !j.runAfter) {
     try {
       after(() => runJobs(db, 5).then(() => undefined))
     } catch {
@@ -65,7 +67,7 @@ export async function queueOrderConfirmation(db: Db, checkoutId: string, creator
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:confirmation:${checkoutId}`, payload: { template: "confirmation", checkoutId } })
 }
 
-export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking" | "failed", key?: string): Promise<void> {
+export async function queueShipmentEmail(db: Db, checkoutId: string, creatorId: string, fulfillmentId: string, kind: "shipped" | "out_for_delivery" | "delivered" | "tracking" | "issue", key?: string): Promise<void> {
   await enqueueJob(db, { creatorId, kind: "send_email", key: key ?? `email:${kind}:${fulfillmentId}`, payload: { template: "shipment", kind, checkoutId, fulfillmentId } })
 }
 
@@ -84,8 +86,37 @@ export async function queueRefundEmail(db: Db, checkoutId: string, creatorId: st
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:refund:${checkoutId}:${refundedCents}`, payload: { template: "refund", checkoutId, refundedCents, amountCents } })
 }
 
-export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "approved" | "rejected" | "received" | "completed"): Promise<void> {
+export async function queueReturnEmail(db: Db, checkoutId: string, creatorId: string, returnId: string, status: "requested" | "approved" | "rejected" | "received" | "completed"): Promise<void> {
   await enqueueJob(db, { creatorId, kind: "send_email", key: `email:return:${returnId}:${status}`, payload: { template: "return", status, checkoutId, returnId } })
+}
+
+/**
+ * The shipping address was changed before anything shipped (orders-server
+ * updateAddress). Keyed by the new address, so pressing Save twice sends one
+ * email, and a second change later sends its own.
+ */
+export async function queueOrderUpdatedEmail(db: Db, checkoutId: string, creatorId: string, addressKey: string): Promise<void> {
+  await enqueueJob(db, { creatorId, kind: "send_email", key: `email:order_updated:${checkoutId}:${addressKey}`.slice(0, 200), payload: { template: "order_updated", checkoutId } })
+}
+
+/** How long after a declined payment the buyer is told, if they still haven't paid: time to try another card first. */
+export const PAYMENT_FAILED_DELAY_MS = 30 * 60 * 1000
+
+/**
+ * A payment on this checkout was declined (Stripe's payment_intent.payment_failed).
+ * One email per checkout, ever, and half an hour later: a buyer who tries
+ * again and pays meanwhile gets nothing (sendBuyerEmail checks the checkout
+ * is still unpaid). The buyer's email rides along so the checkout reminder
+ * can see it was told and send nothing more for the same cart.
+ */
+export async function queuePaymentFailedEmail(db: Db, checkoutId: string, creatorId: string, buyerEmail: string | null): Promise<void> {
+  await enqueueJob(db, {
+    creatorId,
+    kind: "send_email",
+    key: `email:payment_failed:${checkoutId}`,
+    payload: { template: "payment_failed", checkoutId, buyerEmail: buyerEmail ? buyerEmail.trim().toLowerCase() : null },
+    runAfter: new Date(Date.now() + PAYMENT_FAILED_DELAY_MS),
+  })
 }
 
 /**
@@ -243,17 +274,22 @@ export async function queueSellerEmail(db: Db, e: { checkoutId: string; creatorI
 
 /**
  * A SHIPMENT THAT COULD NOT BE DELIVERED (its status moved to failed, by the
- * seller or a partner's tracking; lib/physical/events-server.ts calls this
- * for the "fulfillment.failed" entry). The newest failed shipment of the
- * order: the buyer is told what happened (Settings › Customer emails ›
- * Delivery problem) and the seller is told to act, each once per time it
- * fails (keyed by the shipment and when it changed).
+ * seller's Report a delivery problem or a partner's tracking, all through
+ * orders-server updateShipment; lib/physical/events-server.ts calls this for
+ * the "fulfillment.failed" entry). The ONE place a failed delivery is
+ * emailed: the newest failed shipment of the order, the buyer told what
+ * happened (Settings › Customer emails › Delivery issue, kind "issue") and
+ * the seller told to act, each once per time it fails (keyed by the shipment
+ * and when it changed). The buyer's email is left out when the shipment, or
+ * the press that failed it, says not to notify them.
  */
-export async function queueDeliveryProblem(db: Db, checkoutId: string, creatorId: string, message: string): Promise<void> {
+export async function queueDeliveryProblem(db: Db, checkoutId: string, creatorId: string, message: string, opts: { notifyBuyer?: boolean; problem?: string | null } = {}): Promise<void> {
   const { data: f } = await db.from("fulfillments").select("id, status, updated_at, carrier, tracking_number, notify_buyer").eq("checkout_id", checkoutId).eq("status", "failed").order("updated_at", { ascending: false }).limit(1).maybeSingle()
   if (!f?.id) return
   const at = String(f.updated_at ?? "")
-  if (f.notify_buyer !== false) await enqueueJob(db, { creatorId, kind: "send_email", key: `email:failed:${f.id}:${at}`.slice(0, 200), payload: { template: "shipment", kind: "failed", checkoutId, fulfillmentId: f.id } })
+  const problem = typeof opts.problem === "string" && opts.problem.trim() ? opts.problem.trim().slice(0, 200) : null
+  if (f.notify_buyer !== false && opts.notifyBuyer !== false)
+    await enqueueJob(db, { creatorId, kind: "send_email", key: `email:issue:${f.id}:${at}`.slice(0, 200), payload: { template: "shipment", kind: "issue", checkoutId, fulfillmentId: f.id, ...(problem ? { problem } : {}) } })
   await queueSellerEmail(db, { checkoutId, creatorId, kind: "delivery.exception", message, detail: { carrier: f.carrier ?? null, trackingNumber: f.tracking_number ?? null }, key: `failed:${f.id}:${at}` })
 }
 
@@ -323,6 +359,8 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
 interface CheckoutForEmail {
   id: string
   creator_id: string
+  /** pending, paid, partially_refunded, refunded, expired, failed. */
+  status?: string | null
   buyer_email: string | null
   buyer_name: string | null
   cancel_reason?: string | null
@@ -458,6 +496,8 @@ async function overBuyerLimit(db: Db, checkoutId: string): Promise<boolean> {
 async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const co = await loadCheckout(db, p.checkoutId)
   if (!co.buyer_email) return
+  /* A declined payment is only news while the order is still unpaid: paid since, cancelled or refunded, nothing goes. */
+  if (p.template === "payment_failed" && co.status !== "pending" && co.status !== "expired" && co.status !== "failed") return
   if (await overBuyerLimit(db, co.id)) {
     await addOrderEvent(db, { checkoutId: co.id, creatorId: co.creator_id, kind: "email.held", message: `An email to the buyer was held: this order already sent ${BUYER_EMAILS_PER_ORDER_PER_DAY} today.`, key: `email_held:${co.id}:${new Date().toISOString().slice(0, 13)}` })
     return
@@ -519,7 +559,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
     const shipped = await linesOfOrders(db, co.id, (items ?? []) as { order_id: string; quantity: number }[])
     const pickup = pickupOf(co)
     if (pickup) {
-      if (p.kind === "out_for_delivery" || p.kind === "tracking" || p.kind === "failed") return
+      if (p.kind === "out_for_delivery" || p.kind === "tracking" || p.kind === "issue") return
       mail = pickupEmail({ shopName, orderNumber: number, buyerFirstName: firstName, lines: shipped, kind: p.kind === "delivered" ? "picked_up" : "ready", pickup, statusUrl: orderUrl, brand, copy: copyFor(emailIdForJob("shipment", p.kind, null, true), shipped), orderDate })
     } else {
       /* Part of the order: what still has to ship after every live shipment so far. */
@@ -542,7 +582,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         /* Brought by the store itself (part 154): worded as its own delivery, with its note. */
         local: co.shipping_rate?.kind === "local",
         localNote: co.shipping_rate?.kind === "local" ? (co.shipping_rate.local_note ?? null) : null,
-        problem: p.kind === "failed" && typeof p.problem === "string" ? p.problem.slice(0, 200) : null,
+        problem: p.kind === "issue" && typeof p.problem === "string" ? p.problem.slice(0, 200) : null,
         brand,
         copy: copyFor(emailIdForJob("shipment", p.kind, null, false), shipped),
         orderDate,
@@ -568,6 +608,18 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
       copy: copyFor(emailIdForJob("return", null, p.status), returned),
       orderDate,
     })
+  } else if (p.template === "order_updated") {
+    mail = orderUpdatedEmail({ shopName, orderNumber: number, buyerFirstName: firstName, change: "address", address: addressOf(co.shipping_address), lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_updated", co.lines), orderDate })
+  } else if (p.template === "payment_failed") {
+    /* Back to the same cart on the store's own website when it has one, else on storelib.com. */
+    const items = (co.lines ?? [])
+      .filter((l) => typeof l.product_id === "string")
+      .map((l) => ({ productId: String(l.product_id), variantId: typeof l.variant_id === "string" ? l.variant_id : null, quantity: Math.max(1, Number(l.quantity) || 1) }))
+    if (items.length === 0) return
+    const origin = await storeOriginFor(db, co.creator_id, co.origin)
+    const site = origin !== `https://${getMainDomain()}`
+    const checkoutUrl = site ? siteCheckoutHref({ origin, items }) : physicalCheckoutHref(co.creator_id, items, null, origin)
+    mail = paymentFailedEmail({ shopName, buyerFirstName: firstName, lines: emailLines(co.lines), checkoutUrl, brand, copy: copyFor("payment_failed", co.lines) })
   } else if (p.template === "cancelled") {
     mail = orderCancelledEmail({ shopName, orderNumber: number, buyerFirstName: firstName, reason: co.cancel_reason ?? null, refundedCents: co.refunded_cents ?? 0, totalCents: co.total_cents, currency: co.currency, lines: emailLines(co.lines), statusUrl: orderUrl, brand, copy: copyFor("order_cancelled", co.lines), orderDate })
   } else if (p.template === "refund") {
@@ -602,11 +654,15 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
               ? "Delivery email sent to the buyer"
               : p.kind === "out_for_delivery"
                 ? "Out for delivery email sent to the buyer"
+                : p.kind === "issue"
+                  ? "Delivery issue emailed to the buyer"
                 : p.kind === "tracking"
                   ? "New tracking number emailed to the buyer"
-                  : p.kind === "failed"
-                    ? "Delivery problem emailed to the buyer"
                   : "Shipping email sent to the buyer"
+          : p.template === "order_updated"
+            ? "Order update emailed to the buyer"
+            : p.template === "payment_failed"
+              ? "Payment failed email sent to the buyer"
           : p.template === "cancelled"
             ? "Cancellation emailed to the buyer"
             : p.template === "refund"

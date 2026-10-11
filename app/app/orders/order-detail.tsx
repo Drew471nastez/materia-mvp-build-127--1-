@@ -337,7 +337,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
           <div className="grid min-w-0 content-start gap-4 lg:col-start-2 lg:row-span-4 lg:row-start-1">
             {physicalOrder ? <BuyerNoteCard order={parcel} /> : null}
             <CustomerCard order={order} phone={parcel?.buyerPhone ?? null} onEdit={() => setDialog("email")} onCopy={copy} />
-            {physicalOrder ? <ShippingCard order={parcel} onNotice={onNotice} /> : null}
+            {physicalOrder ? <ShippingCard order={parcel} onNotice={onNotice} onEditAddress={(address, notifyBuyer) => physical.act({ action: "address", address, notifyBuyer })} /> : null}
             <DetailsCard order={order} digital={digitalLines.length > 0} timeZone={timeZone} receipt={firstReceipt ?? null} onCopy={copy} />
           </div>
           <Timeline

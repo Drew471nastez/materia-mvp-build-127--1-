@@ -95,7 +95,7 @@ console.log("\nOn a computer (1440x900)\n")
 {
   const { p, errors } = await open(false)
   const ids = await p.$$eval("[data-customer-email]", (els) => els.map((e) => e.getAttribute("data-customer-email")))
-  expect(ids.length === 15, "every customer email is listed (15 with physical commerce on)", ids.length)
+  expect(ids.length === 19, "every customer email is listed (19 with physical commerce on)", ids.length)
   const opened = []
   for (const id of ids) {
     await p.waitForFunction(() => !document.querySelector('[role="dialog"]'), { timeout: 4000 }).catch(() => {})
@@ -300,7 +300,7 @@ for (const phone of [false, true]) {
     strip: [...document.querySelectorAll('section[aria-label="Email metrics"] *')].some((e) => e.textContent === "Replies go to"),
     wide: document.documentElement.scrollWidth <= window.innerWidth,
   }))
-  expect(seen.tab === "true" && seen.rows === 15, `${phone ? "phone" : "computer"}: the tab lists every customer email`, seen)
+  expect(seen.tab === "true" && seen.rows === 19, `${phone ? "phone" : "computer"}: the tab lists every customer email`, seen)
   expect(seen.strip && seen.wide, `${phone ? "phone" : "computer"}: its strip says where replies go, and the page never scrolls sideways`, seen)
   await p.screenshot({ path: join(shots, `emails-tab-list-${phone ? "phone" : "desktop"}.png`) })
   if (phone) {

@@ -33,11 +33,17 @@ export async function addOrderEvent(
     second press finds its key taken (23505) and queues nothing, and the
     job is keyed by the entry, so one thing is one email.
   */
-  /* A shipment that could not be delivered: the buyer and the seller are each told (jobs-server queueDeliveryProblem). */
+  /*
+    A shipment that could not be delivered: the buyer (Delivery issue) and the
+    seller are each told, from here only (jobs-server queueDeliveryProblem);
+    orders-server updateShipment queues no buyer email of its own for it. Its
+    detail may say not to tell the buyer, and what went wrong.
+  */
   if (!error && e.creatorId && e.kind === "fulfillment.failed") {
     try {
       const { queueDeliveryProblem } = await import("./jobs-server")
-      await queueDeliveryProblem(db, e.checkoutId, e.creatorId, e.message)
+      const d = e.detail ?? {}
+      await queueDeliveryProblem(db, e.checkoutId, e.creatorId, e.message, { notifyBuyer: d.notifyBuyer !== false, problem: typeof d.problem === "string" ? d.problem : null })
     } catch (err) {
       console.error("[physical] delivery problem emails not queued:", err instanceof Error ? err.message : err)
     }

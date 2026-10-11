@@ -102,14 +102,14 @@ function main() {
     check("and no draft came with them", !/draft_sections/.test(shape))
     check("what came out of the database is still cleaned on the way in", /sanitizeSections\(published, ownSchemas\)/.test(build) && /const ownSchemas = schemaLookupFrom\(sources\)/.test(build))
 
-    check("the lookup takes the page being asked for", /export async function publishedSiteByName\(name: string, pageKey = "home"\)/.test(cache))
+    check("the lookup takes the page being asked for", /* Changed on purpose (round AB): the website in another language. */ /export async function publishedSiteByName\(name: string, pageKey = "home", locale: string \| null = null\)/.test(cache))
     /* `stored` rather than `sections` since the chrome repair runs between the
        two: what the site stored, then what is actually drawn. The question
        here is unchanged — a key the site has not published is missing. */
     check(
       "a page the site has not published is missing, not the home page under another name",
-      /const stored = site\.pages\[pageKey\] \?\? \(pageKey === "home" \? site\.sections : undefined\)/.test(cache) &&
-        /if \(!stored\) return \{ kind: "missing" \}/.test(cache),
+      /* Changed on purpose (round AB): the website in another language. */ /const original = site\.pages\[pageKey\] \?\? \(pageKey === "home" \? site\.sections : undefined\)/.test(cache) &&
+        /if \(!original\) return \{ kind: "missing" \}/.test(cache),
     )
     check("and the template follows the page", /const template = templateForPage\(pageKey\)/.test(cache))
 
@@ -136,7 +136,7 @@ function main() {
      */
     check("it draws the site through the same renderer as the front page", /renderSite\(username, undefined, key\)/.test(sub) && /renderSite\(username, undefined, "home"\)/.test(home))
     check("a segment that is not a page key is a 404", /if \(!key\) notFound\(\)/.test(sub))
-    check("and /home goes to the front page rather than being served twice", /redirect\("\/"\)/.test(sub))
+    check("and /home goes to the front page rather than being served twice", /* Changed on purpose (round AB): the website in another language. */ /redirect\(locale \? `\/\$\{locale\}` : "\/"\)/.test(sub))
     check("one segment deep, because a page key is one segment", !/\[\.\.\./.test(sub))
 
     check("a sub-page says which page it is in the tab", /pageKey === "home" \? siteTitle : `\$\{pageTitleFromKey\(pageKey\)\} \| \$\{brand\}`/.test(renderer))
@@ -146,7 +146,7 @@ function main() {
        the creator makes their own (lib/website-builder/account-pages). */
     check("and a contact page nobody made previews as the generated one", /pageKey === "contact" \? contactSections\(/.test(renderer))
     check("the sections a visitor gets are cleaned", /sanitizeSections\(/.test(renderer))
-    check("and the page knows whose site it is on", /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)? \}\}/.test(renderer))
+    check("and the page knows whose site it is on", /* Changed on purpose (round AB): the website in another language. */ /storefront=\{\{ creatorId: site\.creatorId, installId: site\.installId(, pages: Object\.keys\(site\.pages\))?(, pageKey)?(, language)? \}\}/.test(renderer))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -211,11 +211,11 @@ function main() {
     check("and that address now has a route on the site", /export default async function SiteProductPage/.test(productRoute))
     check(
       "which draws it with the creator's theme, not a bare page",
-      /renderProduct\(slug, \{ creatorId: creator\.creatorId \}\)/.test(productRoute),
+      /* Changed on purpose (round AB): the website in another language. */ /renderProduct\(slug, \{ creatorId: creator\.creatorId, locale \}\)/.test(productRoute),
     )
     check(
       "a product belonging to somebody else is not at this creator's address",
-      /if \(owner && product\.creator_id !== owner\.creatorId\) notFound\(\)/.test(productRenderer),
+      /* Changed on purpose (round AB): the website in another language. */ /if \(owner && found\.creator_id !== owner\.creatorId\) notFound\(\)/.test(productRenderer),
     )
     check("and the platform's own address draws the same page", /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")))
 
@@ -271,7 +271,7 @@ function main() {
      * they built got the profile at it and their site only at the subdomain
      * they were replacing.
      */
-    check("a connected domain shows the website that was built", /rewritePath = `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`/.test(proxy))
+    check("a connected domain shows the website that was built", /* Changed on purpose (round AB): the website in another language. */ /rewritePath = inLanguage\?\.kind === "page" \? inLanguage\.path : `\/w\/\$\{username\}\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}`/.test(proxy))
     check("with the path kept, so About on a domain is About", /\$\{pathname === "\/" \|\| pathname === "" \? "" : pathname\}/.test(proxy))
     check("a creator with no published website keeps the profile they had", /hasPublishedWebsite\(username\)/.test(proxy) && /rewritePath = `\/u\/\$\{username\}`/.test(proxy))
     check("and an asset never pays for the two lookups", /const looksLikeFile = \/\\\.\[a-z0-9\]\{1,8\}\$\/i\.test\(pathname\)\s*\n\s*const builtSite/.test(proxy))
@@ -511,7 +511,7 @@ function main() {
     )
     check(
       "and a public request still gets the published version",
-      /export async function renderProduct\(\s*slug: string,\s*owner\?: \{ creatorId: string \},/.test(renderer) &&
+      /* Changed on purpose (round AB): the website in another language. */ /export async function renderProduct\(\s*slug: string,\s*(?:\/\*\*[^*]*\*\/\s*)?owner\?: \{ creatorId: string; locale\?: string \| null \},/.test(renderer) &&
         /renderProduct\(slug\)/.test(read("app/products/[slug]/page.tsx")),
     )
   }

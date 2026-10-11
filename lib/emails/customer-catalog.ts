@@ -8,15 +8,16 @@
  * order, lib/physical/email-templates.ts for anything shipped or picked up),
  * with the store's own name and sample items. Nothing here sends anything.
  *
- *   group       Orders, Shipping, Pickup, Returns
+ *   group       Digital products; Orders, Payments, Shipping, Local pickup,
+ *               Returns and Checkout for an order that ships (GROUP_ORDER)
  *   physical    only listed while physical commerce is on
  *   sentWhen    the moment it goes, in the store's words
  */
 import { buyerReceiptEmailHtml, type ReceiptEmailModel } from "@/lib/receipts/email"
-import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
+import { checkoutReminderEmail, orderCancelledEmail, orderConfirmationEmail, orderUpdatedEmail, paymentFailedEmail, pickupEmail, refundEmail, returnEmail, shipmentEmail, type EmailBrand, type EmailLine } from "@/lib/physical/email-templates"
 import { itemsText, resolveCopy, type EmailCopy } from "./customer-custom"
 
-export type CustomerEmailGroup = "orders" | "shipping" | "pickup" | "returns" | "marketing"
+export type CustomerEmailGroup = "digital" | "orders" | "payments" | "shipping" | "pickup" | "returns" | "checkout"
 
 export interface CustomerEmail {
   id: string
@@ -26,24 +27,50 @@ export interface CustomerEmail {
   physical: boolean
 }
 
-export const GROUP_NAMES: Record<CustomerEmailGroup, string> = { orders: "Orders", shipping: "Shipping", pickup: "Local pickup", returns: "Returns", marketing: "Checkout" }
+export const GROUP_NAMES: Record<CustomerEmailGroup, string> = {
+  digital: "Digital products",
+  orders: "Orders",
+  payments: "Payments",
+  shipping: "Shipping",
+  pickup: "Local pickup",
+  returns: "Returns",
+  checkout: "Checkout",
+}
+
+/**
+ * THE ORDER THEY ARE LISTED IN, and the two kinds kept apart: a download's
+ * receipt is Digital products; everything about an order that ships or is
+ * picked up is the online store's, in Shopify's six groups. Courses and
+ * communities send their own emails from their own settings, not from here.
+ *
+ * ONE EMAIL PER THING THAT HAPPENED. A paid order that ships gets its order
+ * confirmation and nothing else for the same payment (no separate "payment
+ * received"); a declined payment gets Payment failed, and then no checkout
+ * reminder for the same cart. There is no Order invoice email: every order
+ * is paid at checkout, and its invoice is a download on the order page.
+ */
+export const GROUP_ORDER: CustomerEmailGroup[] = ["digital", "orders", "payments", "shipping", "pickup", "returns", "checkout"]
 
 export const CUSTOMER_EMAILS: CustomerEmail[] = [
-  { id: "receipt", name: "Receipt", group: "orders", sentWhen: "Right after a buyer pays for a download, course or membership, with the link to it.", physical: false },
+  { id: "receipt", name: "Receipt", group: "digital", sentWhen: "Right after a buyer pays for a download, course or membership, with the link to it.", physical: false },
   { id: "order_confirmation", name: "Order confirmation", group: "orders", sentWhen: "Right after a buyer pays for something you ship or they pick up.", physical: true },
+  { id: "order_updated", name: "Order updated", group: "orders", sentWhen: "When you change the shipping address on an order before it ships.", physical: true },
+  { id: "order_cancelled", name: "Order cancelled", group: "orders", sentWhen: "When you cancel an order before it ships.", physical: true },
+  { id: "refund", name: "Refund", group: "orders", sentWhen: "When you refund all or part of an order, here or in Stripe.", physical: true },
+  { id: "payment_failed", name: "Payment failed", group: "payments", sentWhen: "Half an hour after a buyer's bank declines their payment, if they still haven't paid. Nothing was charged; it links back to their cart.", physical: true },
   { id: "shipping_confirmation", name: "Shipping confirmation", group: "shipping", sentWhen: "When you mark items shipped, with the tracking.", physical: true },
   { id: "tracking_changed", name: "Tracking number changed", group: "shipping", sentWhen: "When you change the tracking number on a shipment that already went out.", physical: true },
   { id: "out_for_delivery", name: "Out for delivery", group: "shipping", sentWhen: "When the carrier says it's out for delivery.", physical: true },
   { id: "delivered", name: "Delivered", group: "shipping", sentWhen: "When it's marked delivered.", physical: true },
-  { id: "delivery_problem", name: "Delivery problem", group: "shipping", sentWhen: "When the carrier, or your own delivery, can't deliver it.", physical: true },
+  { id: "delivery_issue", name: "Delivery issue", group: "shipping", sentWhen: "When a shipment is marked as failed: the carrier, or your own delivery, couldn't deliver it.", physical: true },
   { id: "ready_for_pickup", name: "Ready for pickup", group: "pickup", sentWhen: "When you mark a pickup order ready.", physical: true },
   { id: "picked_up", name: "Picked up", group: "pickup", sentWhen: "When you mark it collected.", physical: true },
-  { id: "order_cancelled", name: "Order cancelled", group: "orders", sentWhen: "When you cancel an order before it ships.", physical: true },
-  { id: "refund", name: "Refund", group: "orders", sentWhen: "When you refund all or part of an order, here or in Stripe.", physical: true },
+  { id: "return_requested", name: "Return requested", group: "returns", sentWhen: "When a buyer asks to return items, so they know it arrived.", physical: true },
   { id: "return_approved", name: "Return approved", group: "returns", sentWhen: "When you approve a return, with your instructions.", physical: true },
+  { id: "return_declined", name: "Return declined", group: "returns", sentWhen: "When you decline a return, with your note.", physical: true },
   { id: "return_received", name: "Return received", group: "returns", sentWhen: "When the items reach you.", physical: true },
   { id: "return_completed", name: "Return complete", group: "returns", sentWhen: "When the return is closed, with any refund.", physical: true },
-  { id: "checkout_reminder", name: "Checkout reminder", group: "marketing", sentWhen: "An hour after a buyer leaves checkout without paying, if they asked for news. Turn it on in Checkout.", physical: false },
+  { id: "checkout_reminder", name: "Checkout reminder", group: "checkout", sentWhen: "An hour after a buyer leaves checkout without paying, if they asked for news. Turn it on in Checkout.", physical: false },
 ]
 
 export function visibleCustomerEmails(physical: boolean): CustomerEmail[] {
@@ -120,13 +147,21 @@ export function previewCustomerEmail(
       })
       return { subject: m.subject, html: m.html }
     }
+    case "order_updated": {
+      const m = orderUpdatedEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", change: "address", address: SAMPLE_ADDRESS, lines: SAMPLE_LINES, statusUrl: STATUS, brand, copy, orderDate })
+      return { subject: m.subject, html: m.html }
+    }
+    case "payment_failed": {
+      const m = paymentFailedEmail({ shopName, buyerFirstName: "Maria", lines: SAMPLE_LINES, checkoutUrl: STATUS, brand, copy })
+      return { subject: m.subject, html: m.html }
+    }
     case "shipping_confirmation":
     case "tracking_changed":
     case "out_for_delivery":
     case "delivered":
-    case "delivery_problem": {
-      const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id === "delivery_problem" ? "failed" : id
-      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate, problem: kind === "failed" ? "Address not found" : null })
+    case "delivery_issue": {
+      const kind = id === "shipping_confirmation" ? "shipped" : id === "tracking_changed" ? "tracking" : id === "delivery_issue" ? "issue" : id
+      const m = shipmentEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, carrier: "DHL", trackingNumber: "JD014600006281234567", trackingUrl: "https://www.dhl.com/track?id=JD014600006281234567", address: SAMPLE_ADDRESS, deliveryName: "Standard, 3 to 5 business days", statusUrl: STATUS, kind, brand, copy, orderDate, problem: kind === "issue" ? "Address not found" : null })
       return { subject: m.subject, html: m.html }
     }
     case "ready_for_pickup":
@@ -134,15 +169,17 @@ export function previewCustomerEmail(
       const m = pickupEmail({ shopName, orderNumber: "#1042", buyerFirstName: "Maria", lines: SAMPLE_LINES, kind: id === "ready_for_pickup" ? "ready" : "picked_up", pickup, statusUrl: STATUS, brand, copy, orderDate })
       return { subject: m.subject, html: m.html }
     }
+    case "return_requested":
     case "return_approved":
+    case "return_declined":
     case "return_received":
     case "return_completed": {
-      const status = id === "return_approved" ? "approved" : id === "return_received" ? "received" : "completed"
+      const status = id === "return_requested" ? "requested" : id === "return_approved" ? "approved" : id === "return_declined" ? "rejected" : id === "return_received" ? "received" : "completed"
       const m = returnEmail({
         shopName,
         orderNumber: "#1042",
         status,
-        note: status === "approved" ? "Put a note with your order number in the box." : null,
+        note: status === "approved" ? "Put a note with your order number in the box." : status === "rejected" ? "The apron was worn, so we can't take it back." : null,
         refundedCents: status === "completed" ? 3200 : 0,
         currency,
         statusUrl: STATUS,

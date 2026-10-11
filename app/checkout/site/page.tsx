@@ -7,7 +7,7 @@ import { getMainDomain } from "@/lib/url-helpers"
 import { readSiteCheckoutParams, sameSitePath, siteGate } from "@/lib/checkout/site-checkout"
 import { siteBuyerFrom, siteOfHost, sessionCookieName } from "@/lib/checkout/site-checkout-server"
 import { siteQuote } from "@/lib/checkout/site-quote-server"
-import { checkoutBrand } from "@/lib/checkout/brand-server"
+import { checkoutBrandOf } from "@/lib/checkout/brand-server"
 import { loadCheckoutConfig } from "@/lib/store/settings-server"
 import { checkoutReadyForCreator } from "@/lib/payments/service"
 import { BUYER_UNAVAILABLE } from "@/lib/payments/stripe/readiness"
@@ -92,19 +92,23 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
     }
   }
 
-  const [brand, config, buyer, ready] = await Promise.all([
-    checkoutBrand(admin, site.creatorId),
+  /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
+  const buyerRead = siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId })
+  const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, b ? { email: b.email } : null) : null))
+  const [brand, config, buyer, ready, answer] = await Promise.all([
+    /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
+    checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
-    siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId }),
+    buyerRead,
     checkoutReadyForCreator(site.creatorId).catch(() => false),
+    quoteRead,
   ])
   const shopUrl = `${site.origin}/`
   /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
   const back = params.back ?? sameSitePath(q.get("cancel"), site.host) ?? sameSitePath(q.get("return"), site.host)
   const backTo = `${site.origin}${back ?? (wholeCart ? "/cart" : "/")}`
 
-  /* Priced for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
-  const answer = items.length ? await siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, buyer ? { email: buyer.email } : null) : null
+  /* Priced (above, beside the rest) for whoever is signed in to the website: what they already own is theirs, not a line to pay for (lib/checkout/owned). */
   /* A cart that cannot be paid at all is said here, styled, with the way back. A free one needs no card, so no readiness. */
   if (answer && answer.ok && answer.quote.totals.totalCents > 0 && !ready) {
     return <SiteProblem brand={brand} backTo={backTo} shopUrl={shopUrl} title="Checkout is closed" message={BUYER_UNAVAILABLE} />

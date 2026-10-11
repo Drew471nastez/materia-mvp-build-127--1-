@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { pageKeyFromSegment } from "@/lib/website-builder/site-pages"
 import { renderSite, siteMetadata } from "../render-site"
+import { splitSiteName } from "@/lib/markets/site-name"
 
 /** Same reasoning as the home route: see the comment in ../page.tsx. */
 export const revalidate = 60
@@ -49,7 +50,10 @@ export default async function WebsiteSubPage({ params }: PageProps) {
 
   // `/home` is the front page, which lives at `/`. Sent there rather than
   // served, so one page never answers on two addresses.
-  if (decodeURIComponent(page).toLowerCase() === "home") redirect("/")
+  if (decodeURIComponent(page).toLowerCase() === "home") {
+    const { locale } = splitSiteName(username)
+    redirect(locale ? `/${locale}` : "/")
+  }
 
   const key = pageKeyFromSegment(page)
   if (!key) notFound()

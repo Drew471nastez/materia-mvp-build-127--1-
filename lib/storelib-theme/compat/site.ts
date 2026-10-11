@@ -146,6 +146,22 @@ const MAX_QTY = 99
 // ── Answers ─────────────────────────────────────────────────────────────────
 
 const html = (body: string, status = 200): SiteResponse => ({ status, type: "text/html; charset=utf-8", body, headers: { "Cache-Control": "private, no-store" } })
+/*
+  A WHOLE PAGE A VISITOR NAVIGATES TO. "no-cache", not "no-store": still
+  never kept by any shared cache and checked with the server before it is
+  used again, but the browser may keep it in its back/forward cache, so Back
+  and Forward between a store's pages are instant, as on Shopify (Chrome
+  turns that cache off for a no-store page). The cart, checkout and account
+  pages, which show what is only this visitor's, stay no-store. A page that
+  comes back this way checks its cart count (./shims.ts BACK_FORWARD).
+*/
+const PRIVATE_PATH = /^\/(?:cart|checkout|account)(?:[/?#.]|$)/
+const pageHtml = (body: string, path: string, status = 200): SiteResponse => ({
+  status,
+  type: "text/html; charset=utf-8",
+  body,
+  headers: { "Cache-Control": PRIVATE_PATH.test(path) || status !== 200 ? "private, no-store" : "private, no-cache" },
+})
 const json = (value: unknown, status = 200, extra: Partial<SiteResponse> = {}): SiteResponse => ({ status, type: "application/json; charset=utf-8", body: JSON.stringify(value), headers: { "Cache-Control": "private, no-store" }, ...extra })
 /*
   A path on this site stays on it. A browser reads "//host" and "/\\host" in
@@ -288,7 +304,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}`
   const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
   const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
-  return html(withBodyStart(drawn.html, shop.bodyStart), route.status ?? 200)
+  return pageHtml(withBodyStart(drawn.html, shop.bodyStart), path, route.status ?? 200)
 }
 
 /**

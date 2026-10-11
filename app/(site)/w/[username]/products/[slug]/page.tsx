@@ -8,6 +8,9 @@ import { siteOrigin } from "@/lib/website-builder/site-seo-data"
 import { siteLocale } from "@/lib/website-builder/site-language"
 import { siteIcons } from "@/lib/website-builder/site-icon"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageAlternates, siteLanguages } from "@/lib/markets/live"
+import { localizedPath } from "@/lib/markets/locales"
 
 /**
  * RENDERED PER REQUEST, unlike the pages of the site around it.
@@ -25,17 +28,24 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { username, slug } = await params
+  const { username: segment, slug } = await params
+  /* "andrew~fr": the product in French (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
   const creator = await creatorByName(username)
   if (!creator) return productMetadata(slug)
-  const [origin, found] = await Promise.all([siteOrigin(creator.creatorId, username), publishedShopByName(username)])
+  const [origin, found, langs] = await Promise.all([siteOrigin(creator.creatorId, username), publishedShopByName(username), siteLanguages(creator.creatorId)])
+  const path = `/products/${encodeURIComponent(slug)}`
+  const pageLocale = (locale && langs.others.find((l) => l.toLowerCase() === locale)) || null
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
   const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
-  const meta = await productMetadata(slug, { url: productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
+  const meta = await productMetadata(slug, { url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
   /* The site's own icon in the tab, as on its other pages: the favicon, or its logo (site-icon.ts). */
   const icons = found.kind === "site" ? siteIcons(settings, found.site.pages.home ?? found.site.sections) : undefined
-  return icons ? { ...meta, icons } : meta
+  /* The product in every language of the website, for search engines (hreflang). */
+  const languages = await languageAlternates(creator.creatorId, origin, path)
+  const withLanguages = languages ? { ...meta, alternates: { ...(meta.alternates ?? {}), languages } } : meta
+  return icons ? { ...withLanguages, icons } : withLanguages
 }
 
 /**
@@ -53,12 +63,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * somebody else is not at this address.
  */
 export default async function SiteProductPage({ params }: PageProps) {
-  const { username, slug } = await params
+  const { username: segment, slug } = await params
+  const { name: username, locale } = splitSiteName(segment)
   const creator = await creatorByName(username)
   if (!creator) notFound()
   const origin = await siteOrigin(creator.creatorId, username)
   const [page, structured] = await Promise.all([
-    renderProduct(slug, { creatorId: creator.creatorId }),
+    renderProduct(slug, { creatorId: creator.creatorId, locale }),
     productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId }),
   ])
   return (

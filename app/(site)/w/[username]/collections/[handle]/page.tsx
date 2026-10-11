@@ -1,4 +1,6 @@
 import { notFound, permanentRedirect, redirect } from "next/navigation"
+import { splitSiteName } from "@/lib/markets/site-name"
+import { languageChoice, siteLocalizer } from "@/lib/markets/live"
 import type { Metadata } from "next"
 import { ThemePage } from "@/components/website-builder/theme/ThemePage"
 import { StorelibSourcesProvider } from "@/components/website-builder/sections/storelib-sources"
@@ -43,7 +45,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  * Featured collection's button, a menu link picked from Collections.
  */
 export default async function SiteCollectionPage({ params, searchParams }: PageProps) {
-  const { username, handle: rawHandle } = await params
+  const { username: segment, handle: rawHandle } = await params
+  /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
+  const { name: username, locale } = splitSiteName(segment)
   const handle = decodeURIComponent(rawHandle).toLowerCase()
   if (!HANDLE.test(handle) || handle.length > 80) notFound()
   const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
@@ -53,7 +57,10 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   if (found.kind === "missing") notFound()
   if (found.kind === "unpublished") redirect(`https://${getMainDomain()}/${username.toLowerCase()}`)
 
-  const { site, products, productCount } = found
+  const { site, productCount } = found
+  /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* Held with the shop for its minute (lib/website-builder/collection-members.ts). */
   const inIt = await collectionMembers(site.creatorId, handle)
   if (!inIt) notFound()
@@ -65,7 +72,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
     published products only).
   */
   const order = new Map(inIt.productIds.map((id, i) => [id, i]))
-  const catalogue = await siteCatalogue(site.creatorId).catch(() => products ?? [])
+  const catalogue = await siteCatalogue(site.creatorId).then((c) => (localizer ? localizer.cards(c) : c)).catch(() => products ?? [])
   const pool = catalogue.length ? catalogue : products ?? []
   const have = new Set(pool.map((p) => p.id))
   const older = inIt.productIds.filter((id) => !have.has(id)).slice(0, MAX_PICKED_PRODUCTS)
@@ -73,7 +80,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
   const cards = [...pool.filter((p) => order.has(p.id)), ...extra].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0))
 
   const arranged = collectionSections(site.pages.home ?? site.sections, site.themeSettings, inIt.collection, site.pages.collection)
-  const dressed = await dressPage(site, arranged, products, productCount, "collection", inIt.collection.title)
+  const dressed = await dressPage(site, localizer ? localizer.sections(arranged, site.sources) : arranged, products, productCount, "collection", inIt.collection.title)
   const sections = dressed.sections
   /* The page's own collection, as `collection` in a template and for a picker set to the current collection. */
   const data = { ...dressed.data, collection: dressed.data?.collections?.[inIt.collection.id] ?? null }
@@ -85,7 +92,7 @@ export default async function SiteCollectionPage({ params, searchParams }: PageP
       <ThemePage
         theme={site.themeSettings}
         sections={sections}
-        storefront={{ creatorId: site.creatorId, installId: site.installId }}
+        storefront={{ creatorId: site.creatorId, installId: site.installId, language }}
         emptyDetail="Nothing in this collection yet."
       />
       <TrackView creatorId={site.creatorId} />

@@ -13,7 +13,8 @@
  * the UI on mobile, smaller, smoother, cleaner." So:
  *
  *   one line     an option's line keeps its place and height whether it is
- *                open or not: its name, then Edit or Done at the end. Under
+ *                open or not: its name, then Edit (open, the one Done is a
+ *                button at its foot, beside a quiet Delete). Under
  *                it the values as chips fold away while the fields fold out,
  *                both through grid rows (Reveal), so nothing jumps
  *   reorder      the grip follows the finger at once (useGripDragSensors);
@@ -254,8 +255,9 @@ function OptionRow({
           className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-1.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40"
         >
           <span className="min-w-0 truncate text-[14.5px] font-medium text-[#1a1a2e] sm:text-[14px]">{option.name.trim() || "New option"}</span>
-          <span className={cn("shrink-0 text-[13px] font-medium", option.open ? (problem ? "text-[#9ca3af]" : "text-[#1a1a2e]") : "text-[#6b7280]")} data-option-done={option.open ? "" : undefined}>
-            {option.open ? "Done" : "Edit"}
+          {/* Open, the one Done is the button at its foot; closed, Edit says the line opens. */}
+          <span className={cn("shrink-0 text-[13px] font-medium text-[#6b7280] transition-opacity duration-150", option.open && "opacity-0")} aria-hidden={option.open}>
+            Edit
           </span>
         </button>
       </div>
@@ -280,8 +282,8 @@ function OptionRow({
       <Reveal open={option.open}>
         <div className="space-y-3 pb-3 pl-9 pr-3" data-option-fields="">
           <div className="space-y-1">
-            <label htmlFor={nameId} className="block text-[12.5px] font-medium text-[#4b5563]">
-              Option name
+            <label htmlFor={nameId} className="block text-[12.5px] font-medium text-[#6b7280]">
+              Name
             </label>
             <input
               id={nameId}
@@ -302,15 +304,27 @@ function OptionRow({
             </datalist>
           </div>
           <div className="space-y-1">
-            <p className="text-[12.5px] font-medium text-[#4b5563]">Values</p>
+            <p className="text-[12.5px] font-medium text-[#6b7280]">Values</p>
             <ValueList option={option} color={color} update={update} renameValue={renameValue} />
           </div>
-          <div className="flex min-h-[20px] items-center justify-between gap-3">
-            <p className={cn("text-[12.5px] leading-[18px]", problem ? "text-[#b45309]" : "text-[#9ca3af]")} aria-live="polite">
-              {problem ?? `${option.values.length} ${option.values.length === 1 ? "value" : "values"}`}
+          {problem ? (
+            <p className="text-[12.5px] leading-[18px] text-[#b45309]" aria-live="polite">
+              {problem}
             </p>
-            <button type="button" onClick={remove} className="-mr-1.5 h-8 shrink-0 rounded-md px-1.5 text-[13px] font-medium text-[#b42318] outline-none hover:bg-[#fef2f2] focus-visible:ring-2 focus-visible:ring-[#fca5a5]/50" data-option-delete="">
-              Delete option
+          ) : null}
+          {/* The foot, as Shopify's: a quiet Delete, and Done. */}
+          <div className="flex items-center justify-between gap-3 pt-0.5">
+            <button type="button" onClick={remove} className="-ml-1.5 h-8 shrink-0 rounded-md px-1.5 text-[13px] font-medium text-[#6b7280] outline-none transition-colors hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40" data-option-delete="">
+              Delete
+            </button>
+            <button
+              type="button"
+              disabled={!!problem}
+              onClick={() => update({ open: false })}
+              className="h-8 shrink-0 rounded-lg bg-[#1a1a2e] px-3.5 text-[13px] font-medium text-white shadow-[0_1px_2px_rgba(17,24,39,0.2)] outline-none transition-[background-color,opacity] hover:bg-[#2a2a40] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50 disabled:opacity-40"
+              data-option-done=""
+            >
+              Done
             </button>
           </div>
         </div>
@@ -448,7 +462,7 @@ function ValueField({
     <div
       ref={setNodeRef}
       className={cn(
-        "relative flex items-center gap-1",
+        "group/value relative flex items-center gap-1",
         isDragging && "z-10",
         entering && "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-top-1 motion-safe:duration-150",
         leaving && "pointer-events-none opacity-0 transition-opacity duration-150",
@@ -457,7 +471,17 @@ function ValueField({
       data-option-value={value}
       data-dragging={isDragging ? "" : undefined}
     >
-      {canMove ? <Grip label={`Move ${value}`} activator={setActivatorNodeRef} attributes={attributes} listeners={listeners} className="h-10 sm:h-9" /> : <span className="w-7 shrink-0" />}
+      {canMove ? (
+        <Grip
+          label={`Move ${value}`}
+          activator={setActivatorNodeRef}
+          attributes={attributes}
+          listeners={listeners}
+          className="h-10 transition-[color,opacity] sm:h-9 [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/value:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:focus-visible:opacity-100"
+        />
+      ) : (
+        <span className="w-7 shrink-0" />
+      )}
       <div className="relative min-w-0 flex-1">
         {color ? (
           <span className="pointer-events-none absolute left-2.5 top-1/2 z-[1] -translate-y-1/2">
@@ -481,7 +505,13 @@ function ValueField({
           className={cn(FIELD_COMPACT, isDragging && "shadow-[0_10px_24px_-10px_rgba(17,24,39,0.3)]", color && swatchColor(text) && "pl-7", clash && "border-[#f59e0b]")}
         />
       </div>
-      <button type="button" aria-label={`Remove ${value}`} onClick={onRemove} className="grid h-10 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] outline-none transition-colors hover:bg-[#fef2f2] hover:text-[#b42318] focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 sm:h-9">
+      {/* Always there on a touch screen; with a mouse, on the row the pointer is on. */}
+      <button
+        type="button"
+        aria-label={`Remove ${value}`}
+        onClick={onRemove}
+        className="grid h-10 w-8 shrink-0 place-items-center rounded-lg text-[#9ca3af] outline-none transition-[color,background-color,opacity] hover:bg-[#f4f4f6] hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#9ca3af]/40 sm:h-9 [@media(hover:hover)_and_(pointer:fine)]:opacity-0 [@media(hover:hover)_and_(pointer:fine)]:group-hover/value:opacity-100 [@media(hover:hover)_and_(pointer:fine)]:group-focus-within/value:opacity-100"
+      >
         <X className="h-4 w-4" />
       </button>
     </div>

@@ -663,15 +663,23 @@ const Tile = React.memo(function Tile({
           )}
         </span>
         {selecting ? (
+          /*
+            One small round check on a picked tile, the same as a single pick's
+            below, and nothing on the others: a square box on every picture read
+            as a form, not a gallery. With a mouse an unpicked tile shows a faint
+            ring where the check will go, so it is clear a press picks it.
+          */
           <span
             aria-hidden
             data-file-tick={ticked ? "on" : "off"}
             className={cn(
-              "absolute left-1.5 top-1.5 grid h-[22px] w-[22px] place-items-center rounded-[7px] border transition-[background-color,border-color,scale] duration-150 ease-out",
-              ticked ? "scale-100 border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#d1d5db] bg-white/95 text-transparent shadow-[0_1px_2px_rgba(17,24,39,0.12)] group-active/tile:scale-95",
+              "absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full transition-[opacity,scale,background-color] duration-150 ease-out motion-reduce:transition-none",
+              ticked
+                ? "scale-100 bg-[#1a1a2e] text-white opacity-100 shadow-[0_1px_2px_rgba(17,24,39,0.2)]"
+                : "scale-90 bg-white/70 text-transparent opacity-0 shadow-[inset_0_0_0_1.5px_rgba(255,255,255,0.95),0_1px_3px_rgba(17,24,39,0.25)] [@media(hover:hover)_and_(pointer:fine)]:group-hover/tile:opacity-100",
             )}
           >
-            <Check className="h-3.5 w-3.5" strokeWidth={3} />
+            <Check className="h-3 w-3" strokeWidth={3} />
           </span>
         ) : chosen ? (
           <span className="absolute left-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-[#1a1a2e] text-white">

@@ -18,6 +18,7 @@
  * the builder's canvas. A section reads it and decides whether it can do the
  * thing it offers.
  */
+import type { SiteLanguageChoice } from "./language-switch"
 import { createContext, useContext, type ReactNode } from "react"
 import type { SiteCommerce } from "@/lib/website-builder/site-commerce"
 
@@ -41,6 +42,13 @@ export interface Storefront {
    * settings (lib/website-builder/site-commerce.ts), never by a page.
    */
   commerce?: SiteCommerce
+  /**
+   * The language this page is drawn in and the website's others, on a
+   * website with more than one (Settings › Markets and languages,
+   * lib/markets/live.ts). ThemePage puts it on the page's `lang` and `dir`
+   * and draws the language switch under the footer.
+   */
+  language?: SiteLanguageChoice
 }
 
 const StorefrontContext = createContext<Storefront>({})

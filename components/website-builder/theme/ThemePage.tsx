@@ -44,6 +44,8 @@ import { cn } from "@/lib/utils"
 import { THEME_ROOT_ATTRIBUTE, themeCartType, themeCustomCss, themeStylesheet, themeVars } from "@/lib/website-builder/theme-css"
 import { fontStylesheetHref, sectionFamilies } from "@/lib/website-builder/font-link"
 import { siteDirection, siteLanguage } from "@/lib/website-builder/site-language"
+import { dirOf } from "@/lib/markets/locales"
+import { LanguageSwitch } from "./language-switch"
 import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
 import SectionRenderer from "../sections/SectionRenderer"
 import { useSiteMotion } from "./use-site-motion"
@@ -522,8 +524,8 @@ export function ThemePage({
       data-cart-type={themeCartType(theme)}
       /* Website Settings › General › Language. Absent until one is chosen,
          so the document's own `lang` stands. */
-      lang={siteLanguage(theme as Record<string, unknown>)}
-      dir={siteDirection(theme as Record<string, unknown>)}
+      lang={storefront?.language?.code ?? siteLanguage(theme as Record<string, unknown>)}
+      dir={storefront?.language ? dirOf(storefront.language.code) : siteDirection(theme as Record<string, unknown>)}
       className={className}
       /*
         A WIDTH CONTAINER, on the live page and in the canvas alike. The
@@ -609,6 +611,8 @@ export function ThemePage({
       )}
 
       {footers.map((section) => render(section, "footer", false))}
+      {/* The website's other languages, under its footer (./language-switch). */}
+      {storefront?.language && !storefront.inEditor ? <LanguageSwitch choice={storefront.language} /> : null}
       {/* The Overlay group: what floats over every page (a popup, a bar fixed to the bottom of a phone), after everything it floats over. */}
       {overlays.map((section) => render(section, "overlay", false))}
 

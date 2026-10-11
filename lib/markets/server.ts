@@ -1,0 +1,272 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  MARKETS, LANGUAGES AND TRANSLATIONS: READ AND WRITTEN ON THE SERVER ONLY
+ * ===========================================================================
+ * The three tables of SQL part 136 are the service role's alone; every page
+ * and route that reads them names the store it is for (the caller's own,
+ * through lib/team), and nothing here takes a store from a request.
+ *
+ *   localizationOf    the store's settings, or the default (one language,
+ *                     one market) when it has none or part 136 has not run
+ *   translationsOf    one language's values, by key
+ *   siteTexts         every piece of text on the store's website (its
+ *                     published pages, or its draft when nothing is
+ *                     published yet), products and collections, in order
+ *
+ * The live website reads the first two through the cached readers at the
+ * end, invalidated by tag when the settings or a translation is saved.
+ */
+import { unstable_cache, revalidateTag } from "next/cache"
+import { createAdminClient } from "@/lib/supabase/admin"
+import { pageSections } from "@/lib/website-builder/preview-link"
+import { sectionSources } from "@/lib/website-builder/storefront-render"
+import { schemaLookupFrom } from "@/lib/website-builder/custom-schemas"
+import { SECTION_SCHEMAS } from "@/lib/website-builder/section-schemas"
+import { sanitizeRichText } from "@/lib/website-builder/sanitize"
+import type { SectionInstance, SectionSchema } from "@/lib/website-builder/types"
+import { defaultLocalization, validateLocalization, type Localization } from "./model"
+import { normalizeLocale } from "./locales"
+import { MAX_TRANSLATION_LENGTH, isTranslationKey, sourceHash, translatablesOf, type Translatable, type TranslationRow } from "./translate"
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any
+
+export const MARKETS_NOT_SET_UP = "Markets and languages aren't set up yet. Run SQL part 136 in Supabase, then try again."
+
+/** Part 136 has not run: the table is not there (or not in the schema cache yet). */
+export function marketsMissing(error: { code?: string; message?: string } | null | undefined): boolean {
+  if (!error) return false
+  return error.code === "42P01" || error.code === "PGRST205" || error.code === "PGRST204" || /does not exist|schema cache/i.test(error.message ?? "")
+}
+
+export const localizationTag = (creatorId: string) => `site-localization:${creatorId}`
+export const translationsTag = (creatorId: string, locale: string) => `site-translations:${creatorId}:${locale.toLowerCase()}`
+
+/** The store's own country (Store details), the home market's first country when nothing is set. */
+async function homeCountryOf(db: Db, creatorId: string): Promise<string | null> {
+  const { data } = await db.from("store_settings").select("country").eq("creator_id", creatorId).maybeSingle().then(
+    (r: { data: unknown }) => r,
+    () => ({ data: null }),
+  )
+  const c = (data as { country?: unknown } | null)?.country
+  return typeof c === "string" && /^[A-Za-z]{2}$/.test(c) ? c.toUpperCase() : null
+}
+
+/** The language the website is written in (Website Settings › General › Language), the default before Markets and languages is saved. */
+async function websiteLanguageOf(db: Db, creatorId: string): Promise<string> {
+  const { data } = await db
+    .from("store_theme_installs")
+    .select("store_theme_settings ( lang:settings->>site_language )")
+    .eq("creator_id", creatorId)
+    .eq("status", "published")
+    .limit(1)
+    .maybeSingle()
+    .then(
+      (r: { data: unknown }) => r,
+      () => ({ data: null }),
+    )
+  const nested = (data as { store_theme_settings?: { lang?: unknown } | { lang?: unknown }[] } | null)?.store_theme_settings
+  const lang = Array.isArray(nested) ? nested[0]?.lang : nested?.lang
+  return normalizeLocale(lang) ?? "en"
+}
+
+export async function localizationOf(db: Db, creatorId: string, baseCurrency: string): Promise<{ ready: boolean; value: Localization }> {
+  const { data, error } = await db.from("store_localization").select("default_language, languages, markets").eq("creator_id", creatorId).maybeSingle()
+  const fresh = async () => defaultLocalization(...(await Promise.all([homeCountryOf(db, creatorId), websiteLanguageOf(db, creatorId)])))
+  if (error) return { ready: !marketsMissing(error), value: await fresh() }
+  if (!data) return { ready: true, value: await fresh() }
+  const row = data as { default_language: string; languages: unknown; markets: unknown }
+  const checked = validateLocalization({ defaultLanguage: row.default_language, languages: row.languages, markets: row.markets }, { baseCurrency })
+  return { ready: true, value: checked.ok ? checked.value : defaultLocalization(await homeCountryOf(db, creatorId), row.default_language) }
+}
+
+export async function saveLocalization(db: Db, creatorId: string, input: unknown, baseCurrency: string): Promise<{ ok: true; value: Localization } | { ok: false; status: number; error: string }> {
+  const checked = validateLocalization(input, { baseCurrency })
+  if (checked.ok === false) return { ok: false, status: 400, error: checked.error }
+  const v = checked.value
+  const { error } = await db
+    .from("store_localization")
+    .upsert({ creator_id: creatorId, default_language: v.defaultLanguage, languages: v.languages, markets: v.markets, updated_at: new Date().toISOString() }, { onConflict: "creator_id" })
+  if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save. Try again." }
+  revalidateTag(localizationTag(creatorId), { expire: 0 })
+  return { ok: true, value: v }
+}
+
+export async function translationsOf(db: Db, creatorId: string, locale: string): Promise<{ ready: boolean; rows: TranslationRow[] }> {
+  const rows: TranslationRow[] = []
+  for (let from = 0; from < 20_000; from += 1000) {
+    const { data, error } = await db
+      .from("site_translations")
+      .select("key, value, source_hash, status, source")
+      .eq("creator_id", creatorId)
+      .eq("locale", locale)
+      .order("id", { ascending: true })
+      .range(from, from + 999)
+    if (error) return { ready: !marketsMissing(error), rows: [] }
+    for (const r of (data ?? []) as { key: string; value: string; source_hash: string; status: string; source: string }[]) {
+      rows.push({ key: r.key, value: r.value, sourceHash: r.source_hash, status: r.status === "approved" ? "approved" : "draft", source: r.source === "ai" ? "ai" : "manual" })
+    }
+    if ((data ?? []).length < 1000) break
+  }
+  return { ready: true, rows }
+}
+
+export interface TranslationWrite {
+  key: string
+  /** An empty value takes the translation away: the original shows again. */
+  value: string
+  /** The original as the person saw it, so a later change to it reads as outdated. */
+  source: string
+  approved: boolean
+  /** Written by the AI and not yet looked at by a person. */
+  ai?: boolean
+  /** A rich text setting: its HTML is cleaned as the original's is. */
+  rich?: boolean
+}
+
+const escapeText = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+/** Plain words as rich text: a blank line starts a paragraph, a single line break stays one. */
+export function paragraphsOf(text: string): string {
+  return text
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter(Boolean)
+    .map((p) => `<p>${escapeText(p).replace(/\n/g, "<br>")}</p>`)
+    .join("")
+}
+
+/** One language's values, saved. Each is checked: a known key shape, a sane length, rich text cleaned, plain text kept plain. */
+export async function saveTranslations(db: Db, creatorId: string, locale: string, items: unknown, userId: string | null): Promise<{ ok: true; saved: number; removed: number } | { ok: false; status: number; error: string }> {
+  const lang = normalizeLocale(locale)
+  if (!lang) return { ok: false, status: 400, error: "That isn't a language we recognise." }
+  if (!Array.isArray(items) || items.length === 0) return { ok: true, saved: 0, removed: 0 }
+  if (items.length > 500) return { ok: false, status: 400, error: "Save up to 500 at a time." }
+  const upserts: Record<string, unknown>[] = []
+  const removals: string[] = []
+  const now = new Date().toISOString()
+  for (const raw of items as Partial<TranslationWrite>[]) {
+    if (!isTranslationKey(raw?.key)) return { ok: false, status: 400, error: "One of the texts isn't one we know." }
+    const source = typeof raw.source === "string" ? raw.source : ""
+    let value = typeof raw.value === "string" ? raw.value.replace(/\r\n?/g, "\n") : ""
+    /* Rich text typed as plain words (the Translate sheet's field): its paragraphs and line breaks made into the HTML the original is drawn from. */
+    if (raw.rich && !/<[a-z][\s\S]*>/i.test(value)) value = paragraphsOf(value)
+    value = raw.rich ? sanitizeRichText(value) : value.replace(/<[^>]*>/g, "")
+    value = value.slice(0, MAX_TRANSLATION_LENGTH)
+    if (!value.trim()) {
+      removals.push(raw.key)
+      continue
+    }
+    upserts.push({ creator_id: creatorId, locale: lang, key: raw.key, value, source_hash: sourceHash(source), status: raw.approved === false ? "draft" : "approved", source: raw.ai ? "ai" : "manual", updated_by: userId, updated_at: now })
+  }
+  if (upserts.length) {
+    const { error } = await db.from("site_translations").upsert(upserts, { onConflict: "creator_id,locale,key" })
+    if (error) return marketsMissing(error) ? { ok: false, status: 503, error: MARKETS_NOT_SET_UP } : { ok: false, status: 500, error: "Could not save the translations. Try again." }
+  }
+  if (removals.length) {
+    const { error } = await db.from("site_translations").delete().eq("creator_id", creatorId).eq("locale", lang).in("key", removals)
+    if (error && !marketsMissing(error)) return { ok: false, status: 500, error: "Could not save the translations. Try again." }
+  }
+  revalidateTag(translationsTag(creatorId, lang), { expire: 0 })
+  return { ok: true, saved: upserts.length, removed: removals.length }
+}
+
+/* ── What there is to translate ───────────────────────────────────────── */
+
+/** A page's name, as the translations list heads its group. */
+function pageName(key: string): string {
+  if (key === "home") return "Home page"
+  if (key === "product") return "Product page"
+  if (key === "collection" || key === "collections") return "Collections"
+  return key.replace(/[-_]+/g, " ").replace(/^./, (c) => c.toUpperCase())
+}
+
+export interface TextGroup {
+  id: string
+  title: string
+  items: Translatable[]
+}
+
+/**
+ * Every piece of text on the store's website, grouped by where it is: each
+ * page's sections (the header and footer once, under their own name), then
+ * products and collections. The website's published pages; when nothing is
+ * published yet, its draft, so a creator can prepare a language first.
+ */
+export async function siteTexts(db: Db, creatorId: string): Promise<TextGroup[]> {
+  const { data: install } = await db.from("store_theme_installs").select("id, status").eq("creator_id", creatorId).order("status", { ascending: false }).limit(5)
+  const installs = (install ?? []) as { id: string; status: string }[]
+  const chosen = installs.find((i) => i.status === "published") ?? installs[0]
+  const groups: TextGroup[] = []
+  if (chosen) {
+    const [sources, pagesRead] = await Promise.all([
+      sectionSources(db as never, chosen.id).catch(() => ({}) as Record<string, string>),
+      db.from("store_theme_pages").select("page_key, sections, draft_sections").eq("install_id", chosen.id),
+    ])
+    const lookup = schemaLookupFrom(sources) ?? ((t: string) => SECTION_SCHEMAS[t])
+    const fieldsOf = (t: string) => lookup(t)?.fields
+    const blockFieldsOf = (st: string, bt: string) => (lookup(st) as SectionSchema | undefined)?.blocks?.find((b) => b.type === bt)?.fields
+    const seenChrome = new Set<string>()
+    const rows = ((pagesRead?.data ?? []) as { page_key: string; sections: unknown; draft_sections: unknown }[]).sort((a, b) => (a.page_key === "home" ? -1 : b.page_key === "home" ? 1 : a.page_key.localeCompare(b.page_key)))
+    const chrome: Translatable[] = []
+    for (const r of rows) {
+      const sections = pageSections<SectionInstance[]>(r as never, chosen.status !== "published") ?? pageSections<SectionInstance[]>(r as never, true) ?? []
+      const body: SectionInstance[] = []
+      for (const s of sections) {
+        const isChrome = s.group === "header" || s.group === "footer" || (!s.group && (s.type === "header" || s.type === "footer"))
+        if (!isChrome) body.push(s)
+        else if (!seenChrome.has(s.id)) {
+          seenChrome.add(s.id)
+          chrome.push(...translatablesOf([s], fieldsOf, blockFieldsOf))
+        }
+      }
+      const items = translatablesOf(body, fieldsOf, blockFieldsOf)
+      if (items.length) groups.push({ id: `page:${r.page_key}`, title: pageName(r.page_key), items })
+    }
+    if (chrome.length) groups.unshift({ id: "chrome", title: "Header and footer", items: chrome })
+  }
+
+  const { data: products } = await db.from("products").select("id, title, description, seo_title, seo_description").eq("creator_id", creatorId).eq("status", "published").order("created_at", { ascending: false }).limit(200)
+  const productItems: Translatable[] = []
+  for (const p of (products ?? []) as Record<string, unknown>[]) {
+    const title = typeof p.title === "string" ? p.title : ""
+    const where = title || "Product"
+    if (title) productItems.push({ key: `product:${p.id}:title`, source: title, label: "Title", where, multiline: false })
+    if (typeof p.description === "string" && p.description.trim()) productItems.push({ key: `product:${p.id}:description`, source: p.description, label: "Description", where, multiline: true })
+    if (typeof p.seo_title === "string" && p.seo_title.trim()) productItems.push({ key: `product:${p.id}:seo_title`, source: p.seo_title, label: "Search engine title", where, multiline: false })
+    if (typeof p.seo_description === "string" && p.seo_description.trim()) productItems.push({ key: `product:${p.id}:seo_description`, source: p.seo_description, label: "Search engine description", where, multiline: true })
+  }
+  if (productItems.length) groups.push({ id: "products", title: "Products", items: productItems })
+
+  const { data: collections } = await db.from("product_collections").select("id, title, description").eq("creator_id", creatorId).limit(200).then(
+    (r: { data: unknown }) => r,
+    () => ({ data: [] }),
+  )
+  const collectionItems: Translatable[] = []
+  for (const c of (collections ?? []) as Record<string, unknown>[]) {
+    const title = typeof c.title === "string" ? c.title : ""
+    if (title) collectionItems.push({ key: `collection:${c.id}:title`, source: title, label: "Title", where: title, multiline: false })
+    if (typeof c.description === "string" && c.description.trim()) collectionItems.push({ key: `collection:${c.id}:description`, source: c.description, label: "Description", where: title || "Collection", multiline: true })
+  }
+  if (collectionItems.length) groups.push({ id: "collections", title: "Collections", items: collectionItems })
+  return groups
+}
+
+/* ── The live website's readers, cached ──────────────────────────────── */
+
+/** The store's settings for its website, cached until they are saved again. */
+export function cachedLocalization(creatorId: string, baseCurrency: string): Promise<Localization> {
+  return unstable_cache(async () => (await localizationOf(createAdminClient(), creatorId, baseCurrency)).value, ["site-localization", creatorId, baseCurrency], {
+    tags: [localizationTag(creatorId)],
+    revalidate: 300,
+  })()
+}
+
+/** One language's values for the live website, cached until one of them is saved again. */
+export function cachedTranslations(creatorId: string, locale: string): Promise<TranslationRow[]> {
+  return unstable_cache(async () => (await translationsOf(createAdminClient(), creatorId, locale)).rows, ["site-translations", creatorId, locale.toLowerCase()], {
+    tags: [translationsTag(creatorId, locale)],
+    revalidate: 300,
+  })()
+}

@@ -66,14 +66,18 @@ export const DEFAULT_COPY: Record<string, Required<EmailCopy>> = {
   shipping_confirmation: { subject: "Order {{order_number}} is on the way", heading: "Your order is on the way", body: "Good news, {{customer_name}}. Your order has shipped. Track it any time with the link below.", button: "Track your package" },
   tracking_changed: { subject: "New tracking number for order {{order_number}}", heading: "Your tracking number changed", body: "The carrier gave your package a new tracking number. Use this one to follow it from now on.", button: "Track your package" },
   out_for_delivery: { subject: "Order {{order_number}} is out for delivery", heading: "Your order is out for delivery", body: "{{customer_name}}, your package is with the driver and should arrive today.", button: "Track your package" },
-  delivery_problem: { subject: "A problem delivering order {{order_number}}", heading: "There's a problem with your delivery", body: "{{customer_name}}, the carrier ran into a problem delivering your package. We're on it and will be in touch. If something about the address is wrong, reply to this email.", button: "View your order" },
   delivered: { subject: "Order {{order_number}} was delivered", heading: "Your order was delivered", body: "{{customer_name}}, your package was delivered. If you can't find it, check around your door and with neighbours, then tell us and we'll sort it out.", button: "View your order" },
   ready_for_pickup: { subject: "Order {{order_number}} is ready to pick up", heading: "Your order is ready to pick up", body: "Good news, {{customer_name}}. Your order is waiting for you. Bring your order number, {{order_number}}, and we'll hand it over.", button: "Get directions" },
   picked_up: { subject: "Order {{order_number}} was picked up", heading: "Your order was picked up", body: "Thanks, {{customer_name}}. Your order was collected. We hope you love it.", button: "View your order" },
+  order_updated: { subject: "Order {{order_number}} was updated", heading: "Your order was updated", body: "{{customer_name}}, the shipping address on your order was changed. It will be sent to the address below. If that doesn't look right, reply to this email before it ships.", button: "View your order" },
+  payment_failed: { subject: "Your payment to {{shop_name}} didn't go through", heading: "Your payment didn't go through", body: "Hi {{customer_name}}, your bank declined the payment, so nothing was charged and your order wasn't placed. Your cart is saved: try again with the same card or another one.", button: "Try again" },
+  delivery_issue: { subject: "A problem delivering order {{order_number}}", heading: "There's a problem with your delivery", body: "{{customer_name}}, the carrier couldn't deliver your package. We're looking into it and will email you as soon as we know more. Nothing is needed from you yet; if you have a question, reply to this email.", button: "Track your package" },
   order_cancelled: { subject: "Order {{order_number}} was cancelled", heading: "Your order was cancelled", body: "{{customer_name}}, your order was cancelled and won't be shipped.", button: "View your order" },
   refund: { subject: "Refund for order {{order_number}}", heading: "Your order was refunded", body: "{{customer_name}}, we sent you a refund to your original payment method. Banks usually take 5 to 10 business days to show it.", button: "View your order" },
+  return_requested: { subject: "We got your return request (order {{order_number}})", heading: "We got your return request", body: "The store will look at your request and email you what happens next. Please don't send anything back until it's approved.", button: "View your order" },
   return_approved: { subject: "Your return was approved (order {{order_number}})", heading: "Your return was approved", body: "Pack the items securely and send them back to the address below. Keep the shipping receipt until your refund arrives.", button: "View your order" },
   return_received: { subject: "We received your return (order {{order_number}})", heading: "We received your return", body: "Your items arrived back at the store. They'll check them and send your refund.", button: "View your order" },
+  return_declined: { subject: "About your return (order {{order_number}})", heading: "About your return", body: "The store couldn't accept this return. Their note says why. If you think it's a mistake, reply to this email.", button: "View your order" },
   return_completed: { subject: "Your return is complete (order {{order_number}})", heading: "Your return is complete", body: "Your return is closed.", button: "View your order" },
   checkout_reminder: { subject: "You left {{items}} at checkout", heading: "Still thinking it over?", body: "Hi {{customer_name}}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.", button: "Finish checkout" },
 }
@@ -197,10 +201,23 @@ export function emailIdForJob(template: string, kind?: string | null, status?: s
   if (template === "confirmation") return "order_confirmation"
   if (template === "cancelled") return "order_cancelled"
   if (template === "refund") return "refund"
-  if (template === "return") return status === "approved" ? "return_approved" : status === "received" ? "return_received" : status === "completed" ? "return_completed" : null
+  if (template === "return")
+    return status === "requested"
+      ? "return_requested"
+      : status === "approved"
+        ? "return_approved"
+        : status === "rejected"
+          ? "return_declined"
+          : status === "received"
+            ? "return_received"
+            : status === "completed"
+              ? "return_completed"
+              : null
+  if (template === "order_updated") return "order_updated"
+  if (template === "payment_failed") return "payment_failed"
   if (template === "shipment") {
     if (pickup) return kind === "delivered" ? "picked_up" : "ready_for_pickup"
-    return kind === "delivered" ? "delivered" : kind === "out_for_delivery" ? "out_for_delivery" : kind === "tracking" ? "tracking_changed" : kind === "failed" ? "delivery_problem" : "shipping_confirmation"
+    return kind === "delivered" ? "delivered" : kind === "out_for_delivery" ? "out_for_delivery" : kind === "tracking" ? "tracking_changed" : kind === "issue" ? "delivery_issue" : "shipping_confirmation"
   }
   return null
 }

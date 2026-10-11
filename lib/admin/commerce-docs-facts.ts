@@ -87,7 +87,7 @@ export const STRIPE_COMMERCE_EVENTS: { type: string; why: string }[] = [
   { type: "checkout.session.completed", why: "A payment on Stripe's own page (a physical checkout): the order is written, if the buyer's return has not already" },
   { type: "checkout.session.expired", why: "Stripe's page closed unpaid: the stock held for it goes back" },
   { type: "payment_intent.canceled", why: "A payment given up: limited copies it held go back" },
-  { type: "payment_intent.payment_failed", why: "A card refused: logged; nothing is written" },
+  { type: "payment_intent.payment_failed", why: "A card refused: nothing is written; for an order that ships, the buyer's Payment failed email goes half an hour later if they still have not paid, once per checkout" },
   { type: "charge.refunded", why: "A refund, also one made in Stripe: the order and the seller's balance follow" },
   { type: "charge.dispute.created", why: "A dispute: saved and the creator told" },
 ]

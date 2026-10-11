@@ -45,7 +45,7 @@ function main() {
 
     // The front page and every sub-page hand their work to one renderer.
     const w = read("app/(site)/w/[username]/render-site.tsx")
-    check("the website route serves from the cache", /await publishedSiteByName\(username, pageKey\)/.test(w))
+    check("the website route serves from the cache", /* Changed on purpose (round AB): the website in another language. */ /await publishedSiteByName\(username, pageKey, locale\)/.test(w))
     /**
      * AND THEN THE REDIRECT CAME OFF. A website's address and its creator's
      * page are two things; sending one to the other made them look like one

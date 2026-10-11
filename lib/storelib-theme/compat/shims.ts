@@ -214,6 +214,8 @@ export interface BootstrapInput {
   storeId?: string
   /** A customer is signed in to this website (the page's `customer`): where the account button goes. */
   signedIn?: boolean
+  /** How many items the cart held when the page was drawn: a page brought back by Back checks it is still true (BACK_FORWARD). */
+  cartCount?: number
 }
 
 const js = (v: unknown) => JSON.stringify(v).replace(/</g, "\\u003c")
@@ -308,6 +310,28 @@ const FORMS = `if(!S.designMode)document.addEventListener("submit",function(e){v
 const PREFETCH = `if(!S.designMode&&HTMLScriptElement.supports&&HTMLScriptElement.supports("speculationrules")){var sr=document.createElement("script");sr.type="speculationrules";sr.textContent=${JSON.stringify(JSON.stringify(SITE_PREFETCH_RULES))};document.head.appendChild(sr)}`
 
 /*
+  BACK AND FORWARD ARE INSTANT. A page is now sent "private, no-cache"
+  (./site.ts), so the browser keeps it whole in its back/forward cache and
+  Back shows it at once, scrolled where it was, as on Shopify. The one thing
+  that can be out of date is the cart: something added on the next page is
+  not in this page's header. So a page brought back that way asks the cart
+  how many items it holds now and, if that is not what it was drawn with,
+  loads itself again. Nothing happens on an ordinary visit.
+*/
+const BACK_FORWARD = `if(!S.designMode)window.addEventListener("pageshow",function(e){if(!e.persisted)return;fetch("/cart.js",{credentials:"same-origin",headers:{Accept:"application/json"}}).then(function(r){return r.ok?r.json():null}).then(function(c){if(c&&Number(c.item_count)!==CART_AT_DRAW)location.reload()}).catch(function(){})});`
+
+/*
+  ONE PAGE FADES INTO THE NEXT. Between a store's own pages the browser
+  cross-fades the old page into the new one (cross-document view
+  transitions, as Shopify's Horizon does) instead of a white frame between
+  them: Chrome and Safari 18.2 on; elsewhere nothing changes. Added first in
+  the head, so a theme that sets its own rule (or turns it off) wins, and
+  never for a visitor who asked for less motion. Not in the editor, whose
+  canvas is not navigated.
+*/
+const VIEW_TRANSITION = `if(!S.designMode){var vt=document.createElement("style");vt.setAttribute("data-storelib-view-transition","");vt.textContent="@media (prefers-reduced-motion:no-preference){@view-transition{navigation:auto}}";(document.head||document.documentElement).appendChild(vt)}`
+
+/*
   WHAT SHOPIFY'S OWN SCRIPTS GAVE A THEME. An older theme loads api.jquery.js
   or option_selection.js from Shopify's servers (left out here) for
   Shopify.formatMoney and Shopify.resizeImage, and builds a product card in
@@ -334,7 +358,7 @@ export function shopifyBootstrap(i: BootstrapInput): string {
     storelib: true,
     storelibSignedIn: i.signedIn === true,
   }
-  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var SID=${js(i.storeId ?? "")};${HELPERS}${BUY_NOW}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}})();</script>`
+  return `<script data-storelib-shopify>(function(){var d=${js(data)};var S=window.Shopify=window.Shopify||{};for(var k in d)S[k]=d[k];S.cdnHost="";S.loadFeatures=function(f,cb){if(typeof cb==="function")setTimeout(function(){cb(new Error("This feature is not available on Storelib"))},0)};S.PaymentButton=S.PaymentButton||{init:function(){}};S.analytics=S.analytics||{publish:function(){},visitor:function(){}};var SID=${js(i.storeId ?? "")};var CART_AT_DRAW=${js(Math.max(0, Math.floor(i.cartCount ?? 0)))};${HELPERS}${BUY_NOW}${TERMS}${WISHLIST}${ACCOUNT_BUTTON}${FORMS}${PREFETCH}${BACK_FORWARD}${VIEW_TRANSITION}})();</script>`
 }
 
 /** Shopify's CDN and its other hosts, which a page drawn by Storelib never loads. */

@@ -77,6 +77,7 @@ export const CRON_JOBS = [
   { path: "/api/cron/notify", schedule: "*/5 * * * *", what: "Sends due notification emails and bell notices, and retries the ones that failed" },
   { path: "/api/cron/memberships", schedule: "7,22,37,52 * * * *", what: "Membership renewal reminders, half started checkouts closed, and creators' updates emailed to members" },
   { path: "/api/cron/physical", schedule: "3,13,23,33,43,53 * * * *", what: "Physical commerce: unpaid stock holds released, order emails, supplier emails and webhooks sent or retried" },
+  { path: "/api/cron/fx-rates", schedule: "35 15 * * 1-5", what: "Keeps the European Central Bank's exchange rates for the day (Markets and languages)" },
   { path: "/api/cron/community", schedule: "*/5 * * * *", what: "Community jobs: announcement and event fan outs, reminders, recounts, the daily rollup and trending" },
 ] as const
 

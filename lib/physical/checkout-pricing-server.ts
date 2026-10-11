@@ -17,6 +17,7 @@ import "server-only"
  * delivery and hold no stock. Something the buyer already owns is left out.
  */
 
+import { selectTolerant } from "@/lib/supabase/tolerant-select"
 import { salesStandings } from "@/lib/products/sales-standings"
 import { MAX_PWYW_CENTS, baseFor, wholeCents } from "@/lib/checkout/pricing"
 import { ownedKey, ownedLines } from "@/lib/checkout/owned"
@@ -128,6 +129,13 @@ interface ProductRow {
   category?: string | null
 }
 
+const PRODUCT_COLUMNS =
+  "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at, category"
+const OPTIONAL_PRODUCT_COLUMNS = PRODUCT_COLUMNS.split(",").map((c) => c.trim()).slice(7)
+const VARIANT_COLUMNS =
+  "id, product_id, name, price_cents, sku, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, fulfillment_method, pay_what_you_want, pwyw_min_price_cents"
+const OPTIONAL_VARIANT_COLUMNS = VARIANT_COLUMNS.split(",").map((c) => c.trim()).slice(4)
+
 export async function priceCheckout(
   db: Db,
   /* `buyerEmail` is the address typed (a code's per customer limit); `ownerEmail` one the buyer proved, whose orders count as owned (lib/checkout/owned). */
@@ -135,15 +143,18 @@ export async function priceCheckout(
 ): Promise<PricedCheckout> {
   if (req.items.length === 0) return { ok: false, status: 400, error: "Your cart is empty." }
   const productIds = [...new Set(req.items.map((i) => i.productId))]
-  const { data: products, error } = await db
-    .from("products")
-    .select(
-      "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at, category",
-    )
-    .in("id", productIds)
-    .eq("status", "published")
+  /* Every column past the first seven has a default below, so one a database
+     has not added yet is left out of the read rather than refusing the cart
+     (lib/supabase/tolerant-select). */
+  const { data: products, error } = await selectTolerant(
+    "checkout products",
+    PRODUCT_COLUMNS,
+    OPTIONAL_PRODUCT_COLUMNS,
+    (columns) => db.from("products").select(columns).in("id", productIds).eq("status", "published"),
+  )
   if (error) {
     const missing = error.code === "42703" || error.code === "PGRST204"
+    console.error("[checkout] products read failed:", error.code, missing ? error.message : "")
     return { ok: false, status: missing ? 503 : 500, error: missing ? "This shop is not ready to sell physical products yet." : "Could not read the cart." }
   }
   const rows = (products ?? []) as ProductRow[]
@@ -165,10 +176,12 @@ export async function priceCheckout(
   const physicalIds = rows.filter((p) => p.type === "physical").map((p) => p.id)
   const variantsByProduct = new Map<string, Record<string, any>[]>()
   if (physicalIds.length) {
-    const { data: vs } = await db
-      .from("product_variants")
-      .select("id, product_id, name, price_cents, sku, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, fulfillment_method, pay_what_you_want, pwyw_min_price_cents")
-      .in("product_id", physicalIds)
+    const { data: vs } = await selectTolerant(
+      "checkout variants",
+      VARIANT_COLUMNS,
+      OPTIONAL_VARIANT_COLUMNS,
+      (columns) => db.from("product_variants").select(columns).in("product_id", physicalIds),
+    )
     for (const v of (vs ?? []) as Record<string, any>[]) {
       const list = variantsByProduct.get(v.product_id) ?? []
       list.push(v)

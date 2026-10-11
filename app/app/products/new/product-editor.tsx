@@ -6,7 +6,7 @@ import { deleteProduct, deleteQuestion, leaveNotice, previewProductDelete, remem
 import React, { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, memo, startTransition } from "react"
 import { useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
-import { getProductShareUrl } from "@/lib/url-helpers"
+import { getCanonicalSiteUrl, getProductShareUrl } from "@/lib/url-helpers"
 import { isNativeApp } from "@/lib/platform-utils"
 import { hapticTap, openExternal } from "@/lib/native-bridge"
 import { Button } from "@/components/ui/button"
@@ -1909,13 +1909,17 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   }
 
   // Handle redirect to live product page
+  /* A product that ships is seen where it is bought: the store's website (app/api/app/products/[id]/live). */
+  const viewLabel = productType === "physical" ? "View on your store" : "View on your page"
   const handleRedirectToProduct = () => {
     if (slug && creator) {
       const sellerSubdomain = creator.username || creator.slug || 'store'
-      /* One address for both branches. The native one used to build
-         `<handle>.storelib.com/p/<slug>`, which is the old subdomain spelling
-         of a page that now lives at storelib.com/<handle>/<slug>. */
-      const productUrl = getProductShareUrl(sellerSubdomain, slug)
+      /* Saved and published, so the server knows the address: the store's live
+         website for a physical product, else the creator page. A new tab at
+         once, so no popup blocker stands in the way. */
+      const productUrl = productId
+        ? `${isNativeApp() ? getCanonicalSiteUrl() : ""}/api/app/products/${encodeURIComponent(productId)}/live`
+        : getProductShareUrl(sellerSubdomain, slug)
       if (isNativeApp()) {
         // In Capacitor, open in external browser (not inside the app)
         openExternal(productUrl)
@@ -1971,7 +1975,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
 
   /* Live and paid, with nowhere to take the money yet: the status says so, and where. */
   const sellsForMoney = payWhatYouWant || (Number.parseFloat(price) || 0) > 0
-  const liveLine = creator.payments_ready === false && sellsForMoney ? "Live. Checkout opens once payments are set up" : "Live on your page"
+  const liveLine = creator.payments_ready === false && sellsForMoney ? "Live. Checkout opens once payments are set up" : productType === "physical" ? "Live on your store" : "Live on your page"
 
   /* The more menu: in the top bar below lg, at the end of the page header from lg. */
   const moreMenu = productId ? (
@@ -1985,7 +1989,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
       }
       items={[
         ...[
-          ...(isPublished && slug ? [{ label: "View on your page", onClick: handleRedirectToProduct }] : []),
+          ...(isPublished && slug ? [{ label: viewLabel, onClick: handleRedirectToProduct }] : []),
           { label: isPublished ? "Unpublish" : "Publish", onClick: handleTogglePublish },
         ].map((item, i) => (i === 0 ? { ...item, section: isPublished ? liveLine : "Draft, hidden from your page" } : item)),
         /* Last and apart, as on the Products list's own row menu. */
@@ -3165,7 +3169,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                     {!productId
                       ? "Goes on your page when you save it."
                       : isPublished
-                        ? "Live on your page."
+                        ? productType === "physical" ? "Live on your store." : "Live on your page."
                         : "Draft, hidden from your page. Saving publishes it."}
                   </p>
                 </div>
@@ -3173,7 +3177,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                   <div className="flex flex-wrap gap-2">
                     {isPublished && slug ? (
                       <button type="button" onClick={handleRedirectToProduct} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>
-                        View on your page
+                        {viewLabel}
                       </button>
                     ) : null}
                     <button type="button" disabled={isLoading} onClick={() => void handleTogglePublish()} className={cn(secondaryDepth, "h-8 rounded-lg px-3 text-[13px]")}>

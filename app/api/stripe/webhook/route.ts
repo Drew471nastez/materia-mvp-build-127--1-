@@ -889,7 +889,23 @@ async function handleStripeEvent(request: Request) {
 
   if (event.type === "payment_intent.payment_failed") {
     const pi = event.data.object as Stripe.PaymentIntent
-    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.message)
+    console.error("[Webhook] Payment failed:", pi.id, pi.last_payment_error?.code ?? "")
+    /*
+      PAYMENT FAILED, for an order that ships: the buyer is told half an hour
+      later if they still haven't paid (lib/physical/jobs-server
+      queuePaymentFailedEmail), once per checkout however many cards were
+      declined. A retry that succeeds in the meantime sends nothing.
+    */
+    try {
+      const { data: co } = await supabaseAdmin.from("commerce_checkouts").select("id, creator_id, status, buyer_email").eq("stripe_payment_intent_id", pi.id).maybeSingle()
+      const row = co as { id: string; creator_id: string; status: string; buyer_email: string | null } | null
+      if (row && row.status === "pending" && row.buyer_email) {
+        const { queuePaymentFailedEmail } = await import("@/lib/physical/jobs-server")
+        await queuePaymentFailedEmail(supabaseAdmin, row.id, row.creator_id, row.buyer_email)
+      }
+    } catch (e) {
+      console.error("[Webhook] payment failed email not queued:", e instanceof Error ? e.message : "error")
+    }
   }
 
   // ============================================================================

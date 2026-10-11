@@ -441,6 +441,7 @@ const SUITES = [
   "tests/shown-email.test.ts",
   "tests/store-settings-t.test.ts",
   "tests/taxes-t.test.ts",
+  "tests/markets.test.ts",
   "tests/tax-settings-wiring.test.ts",
   "tests/customer-email-editor.test.ts",
   "tests/abandoned-cart-reminder.test.ts",

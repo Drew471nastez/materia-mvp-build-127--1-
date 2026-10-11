@@ -246,10 +246,11 @@ function seed(db: FakeDb, saved: Record<string, unknown> = {}) {
   db.tables.inventory_locations = [{ id: "l1", creator_id: CREATOR, name: "Studio", kind: "warehouse", address_line1: "Strada Lipscani 12", city: "Bucharest", postal_code: "030031", country: "RO", active: true }]
 }
 
-const ALL_IDS = ["order_confirmation", "shipping_confirmation", "tracking_changed", "out_for_delivery", "delivered", "delivery_problem", "ready_for_pickup", "picked_up", "order_cancelled", "refund", "return_approved", "return_received", "return_completed"]
+/* Changed on purpose (merge of main's e-commerce emails): main's Delivery issue (delivery_issue) is the failed delivery email, and its Order updated, Return requested and Return declined send through the same path, so they are proven the same way. */
+const ALL_IDS = ["order_confirmation", "order_updated", "shipping_confirmation", "tracking_changed", "out_for_delivery", "delivered", "delivery_issue", "ready_for_pickup", "picked_up", "order_cancelled", "refund", "return_requested", "return_approved", "return_declined", "return_received", "return_completed"]
 
 async function main() {
-  const { enqueueJob, runJobs, queueOrderConfirmation, queueShipmentEmail, queueCancelledEmail, queueRefundEmail, queueReturnEmail, BUYER_EMAILS_PER_ORDER_PER_DAY, legalOf } = await import("@/lib/physical/jobs-server")
+  const { enqueueJob, runJobs, queueOrderConfirmation, queueShipmentEmail, queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueOrderUpdatedEmail, BUYER_EMAILS_PER_ORDER_PER_DAY, legalOf } = await import("@/lib/physical/jobs-server")
   const { addOrderEvent } = await import("@/lib/physical/events-server")
   const { CUSTOMER_EMAILS, previewCustomerEmail, SAMPLE_DATE } = await import("@/lib/emails/customer-catalog")
   const { DEFAULT_COPY, COPY_FIELDS, resolveCopy, itemsText } = await import("@/lib/emails/customer-custom")
@@ -263,9 +264,10 @@ async function main() {
 
   /* Every email in the list has a word of its own for each of the four parts; the Button is never empty. */
   console.log("\nEvery email in Settings has its four parts, the Button included\n")
-  check("fifteen emails are listed (Delivery problem among them), each with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 15 && CUSTOMER_EMAILS.some((e) => e.id === "delivery_problem") && CUSTOMER_EMAILS.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
+  check("nineteen emails are listed (Delivery issue among them), each with defaults for subject, heading, text and button", CUSTOMER_EMAILS.length === 19 && CUSTOMER_EMAILS.some((e) => e.id === "delivery_issue") && !CUSTOMER_EMAILS.some((e) => e.id === "delivery_problem") && CUSTOMER_EMAILS.every((e) => COPY_FIELDS.every((f) => typeof DEFAULT_COPY[e.id]?.[f] === "string")))
   check("every button has words by default (the owner's screenshot had an empty Button)", CUSTOMER_EMAILS.every((e) => DEFAULT_COPY[e.id].button.trim().length > 0), CUSTOMER_EMAILS.filter((e) => !DEFAULT_COPY[e.id].button).map((e) => e.id))
-  check("each previews with the sample order's date", CUSTOMER_EMAILS.filter((e) => e.id !== "checkout_reminder").every((e) => previewCustomerEmail(e.id, { name: "Astrid" })!.html.includes(SAMPLE_DATE)))
+  /* The checkout reminder and Payment failed come before there is an order, so they carry no order date. */
+  check("each previews with the sample order's date", CUSTOMER_EMAILS.filter((e) => e.id !== "checkout_reminder" && e.id !== "payment_failed").every((e) => previewCustomerEmail(e.id, { name: "Astrid" })!.html.includes(SAMPLE_DATE)))
 
   /* ── The real send, every buyer email, with the store's own words saved ── */
   console.log("\nWhat is saved in Settings is what is sent\n")
@@ -290,11 +292,16 @@ async function main() {
   /* A delivery problem comes from the shipment's status moving to failed: the timeline entry queues it. */
   db.tables.fulfillments[0].status = "failed"
   db.tables.fulfillments[0].updated_at = "2026-10-11T08:00:00Z"
-  sentFor.delivery_problem = (await take(() => addOrderEvent(db as any, { checkoutId: CHECKOUT, creatorId: CREATOR, kind: "fulfillment.failed", message: "Shipment failed", actor: "webhook" }))).find((m) => m.to === "maria@example.com")!
+  const failedSent = await take(() => addOrderEvent(db as any, { checkoutId: CHECKOUT, creatorId: CREATOR, kind: "fulfillment.failed", message: "Shipment failed", actor: "webhook", detail: { problem: "Address not found" } }))
+  const failedToBuyer = failedSent.filter((m) => m.to === "maria@example.com")
+  sentFor.delivery_issue = failedToBuyer[0]
   db.tables.fulfillments[0].status = "shipped"
   sentFor.order_cancelled = (await take(() => queueCancelledEmail(db as any, CHECKOUT, CREATOR)))[0]
   sentFor.refund = (await take(() => queueRefundEmail(db as any, CHECKOUT, CREATOR, 3200, 3200)))[0]
+  sentFor.order_updated = (await take(() => queueOrderUpdatedEmail(db as any, CHECKOUT, CREATOR, "new-address")))[0]
+  sentFor.return_requested = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "requested")))[0]
   sentFor.return_approved = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "approved")))[0]
+  sentFor.return_declined = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "rejected")))[0]
   sentFor.return_received = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "received")))[0]
   sentFor.return_completed = (await take(() => queueReturnEmail(db as any, CHECKOUT, CREATOR, "r1", "completed")))[0]
   /* The same order picked up instead: ready, then collected. */
@@ -366,7 +373,27 @@ async function main() {
     check("pickup ready: the place, its opening hours and the store's instructions", sentFor.ready_for_pickup.html.includes("Strada Lipscani 12") && sentFor.ready_for_pickup.html.includes("Opening hours: Mon to Fri, 10:00 to 18:00") && sentFor.ready_for_pickup.html.includes("Ring the bell at the side door."))
     check("the pickup order confirmation says where and when to collect", pickupConfirmation.html.includes("Pick up at") && pickupConfirmation.html.includes("Opening hours: Mon to Fri, 10:00 to 18:00") && !pickupConfirmation.html.includes("Shipping address"))
     check("return approved: the store's instructions and where to send it", sentFor.return_approved.html.includes("Put a note with your order number in the box.") && sentFor.return_approved.html.includes("Send it to"))
-    check("delivery problem: the buyer is told, and so is the seller, once each", sentFor.delivery_problem?.html.includes("problem") && outbox.filter((m) => m.subject.startsWith("Delivery problem with order")).length === 1)
+    check("delivery issue: the buyer is told once, and so is the seller", failedToBuyer.length === 1 && !!sentFor.delivery_issue && outbox.filter((m) => m.subject.startsWith("Delivery problem with order")).length === 1)
+    {
+      /* In the store's default words, what went wrong is said. */
+      const said = new FakeDb()
+      seed(said)
+      said.tables.fulfillments[0].status = "failed"
+      said.tables.fulfillments[0].updated_at = "2026-10-11T08:30:00Z"
+      const [issue] = (await takeFrom(said, () => addOrderEvent(said as any, { checkoutId: CHECKOUT, creatorId: CREATOR, kind: "fulfillment.failed", message: "Shipment failed", actor: "webhook", detail: { problem: "Address not found" } }))).filter((m) => m.to === "maria@example.com")
+      check("  with what went wrong, and the order's date", !!issue && issue.subject === `A problem delivering order ${number}` && issue.text.includes("couldn't deliver your package: Address not found") && issue.html.includes("10 October 2026"), issue?.text.slice(0, 200))
+    }
+    {
+      /* A shipment failed with Notify the buyer unticked: the seller is still told, the buyer is not. */
+      const quiet = new FakeDb()
+      seed(quiet)
+      quiet.tables.fulfillments[0].status = "failed"
+      quiet.tables.fulfillments[0].updated_at = "2026-10-11T09:00:00Z"
+      const told = await takeFrom(quiet, () => addOrderEvent(quiet as any, { checkoutId: CHECKOUT, creatorId: CREATOR, kind: "fulfillment.failed", message: "Shipment failed", actor: "creator", detail: { notifyBuyer: false } }))
+      check("  unticked Notify the buyer: no buyer email, the seller still told", !told.some((m) => m.to === "maria@example.com") && told.some((m) => m.subject.startsWith("Delivery problem with order")), told.map((m) => m.to))
+    }
+    const ordersServer = read("lib/physical/orders-server.ts")
+    check("  one path for a failed delivery: updateShipment queues no buyer email of its own for it (the timeline entry does)", !/queueShipmentEmail\([^)]*"issue"/.test(ordersServer) && !/queueShipmentEmail\([^)]*"failed"/.test(ordersServer) && /kind: to \? `fulfillment\.\$\{to\}`/.test(ordersServer))
     /* Local delivery (part 154): the store brings it itself. */
     const ldb = new FakeDb()
     seed(ldb)

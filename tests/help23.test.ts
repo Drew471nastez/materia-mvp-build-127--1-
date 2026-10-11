@@ -149,7 +149,8 @@ check("the fulfilment answers in the guide are the seven in Settings, word for w
 check("every carrier Storelib makes a tracking link for is named in the tracking article", CARRIER_LIST.every((c) => text("tracking-and-order-status").includes(c.name)), CARRIER_LIST.filter((c) => !text("tracking-and-order-status").includes(c.name)).map((c) => c.name))
 const emails = CUSTOMER_EMAILS.filter((e) => e.physical && !e.id.startsWith("return_")).map((e) => e.name)
 check("every order email in Settings is in the customer emails article", emails.every((n) => text("physical-order-emails").includes(n)), emails.filter((n) => !text("physical-order-emails").includes(n)))
-check("  and the returns emails too", text("physical-order-emails").includes("Return approved, received and complete"))
+/* Changed on purpose (merge of main's e-commerce emails): Return requested and Return declined joined the returns emails. */
+check("  and the returns emails too", text("physical-order-emails").includes("Return requested") && text("physical-order-emails").includes("Return approved, declined, received and complete"))
 const live = PROVIDERS.filter((p) => p.availability === "live").map((p) => p.name)
 check("the integrations that send orders today are the ones the article says work today", live.length >= 3 && live.every((n) => text("integrations").includes(n)), live)
 check("  and the ones that only keep a key are said to not send orders yet", PROVIDERS.filter((p) => p.availability !== "live").every((p) => text("integrations").includes(p.name)) && /isn't available yet|aren't available yet/.test(text("integrations")))
