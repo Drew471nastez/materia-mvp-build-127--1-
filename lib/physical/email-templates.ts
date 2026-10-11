@@ -9,7 +9,7 @@
  */
 
 import { emailButton, finalizeEmailHtml } from "@/lib/mail-document"
-import type { ResolvedCopy } from "@/lib/emails/customer-custom"
+import { itemsText, type ResolvedCopy } from "@/lib/emails/customer-custom"
 import { addressLines } from "./address"
 import type { Address } from "./types"
 
@@ -539,9 +539,7 @@ export function checkoutReminderEmail(m: { shopName: string; buyerFirstName: str
   html: string
   text: string
 } {
-  const first = m.lines[0]?.title ?? "your order"
-  const named = m.lines.length > 1 ? `${first} and ${m.lines.length - 1} more` : first
-  const subject = m.copy?.subject ?? `You left ${named} at checkout`
+  const subject = m.copy?.subject ?? `You left ${itemsText(m.lines.map((l) => l.title))} at checkout`
   const heading = m.copy?.heading ?? "Still thinking it over?"
   const intro = m.copy?.introHtml ?? `Hi ${esc(m.buyerFirstName || "there")}, you got as far as checkout and stopped there. If the payment failed or something looked off, you can pick up where you left off.`
   const label = m.copy?.button ?? "Finish checkout"
