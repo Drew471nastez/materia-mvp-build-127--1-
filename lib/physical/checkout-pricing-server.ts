@@ -25,6 +25,7 @@ import type { Db } from "./auth"
 import { inSmartCollection, readRules, type RuleProduct } from "./collections"
 import { defaultPackageGrams, loadLocations, loadProfiles, loadSettings, loadTaxSettings, type CommerceSettings } from "./config-server"
 import { methodOf, readMethod } from "./fulfillment"
+import { madeToOrder } from "./partner"
 import { isPickupOptionId, pickupOptions } from "./pickup"
 import { localDeliveryOptions } from "./local-delivery"
 import { quoteDelivery, pickOption, unshippableMessage, type Quote } from "./rates"
@@ -272,10 +273,12 @@ export async function priceCheckout(
       dropped.push(p.title)
       continue
     }
-    const tracked = v.track_inventory ?? p.track_inventory ?? true
     const policy: "deny" | "continue" = v.inventory_policy === "continue" || p.continue_selling ? "continue" : "deny"
     /* Where it ships from: its own location, else the one with enough available, else the default. */
     const own = v.fulfillment_location_id ?? p.fulfillment_location_id ?? null
+    /* Printed when it sells at a location that holds no stock (Printful, Printify): never short for lack of stock there (./partner.ts). */
+    const printed = madeToOrder(methodOf(readMethod(v.fulfillment_method), readMethod(p.fulfillment_method)), locations.find((l) => l.id === own))
+    const tracked = printed ? false : (v.track_inventory ?? p.track_inventory ?? true)
     let locationId: string | null = own && fulfilling.includes(own) ? own : null
     if (!locationId) {
       locationId = fulfilling.find((l) => (levelOf.get(`${v.id}:${l}`) ?? 0) >= item.quantity) ?? defaultLocation

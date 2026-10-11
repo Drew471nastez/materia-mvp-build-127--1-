@@ -32,6 +32,7 @@ import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { CountryFlag } from "@/components/app/settings/country-picker"
 import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_SHORT } from "@/lib/physical/pickup"
+import { partnerPill, partnerSentence } from "@/lib/physical/partner"
 import { REGIONS, regionLabel, regionsOf } from "@/lib/physical/regions"
 import { addressFormat, postalLooksRight } from "@/lib/address/format"
 import { dimensionUnitFor, formatSize, fromGrams, fromMm, smallWeightUnitFor, toGrams, toMm, weightUnitFor, type UnitSystem } from "@/lib/physical/units"
@@ -125,7 +126,7 @@ const FORWARDING_HELP: Record<string, string> = {
   none: "You pack and ship orders from here, and mark them shipped in Orders with the tracking number.",
   email: "Each new order with items from here is emailed to this partner with the items and the address. You add their tracking number in Orders when they ship.",
   webhook: "Each new order is sent to your own system as a signed request. Set the address in Integrations.",
-  provider: "Storelib can't send orders to providers yet. Orders from here are flagged for you to send yourself.",
+  provider: "Orders from here go to the print partner connected in Settings › Integrations. While it isn't connected, they are flagged for you to send yourself.",
 }
 
 const RATE_KIND_LABEL: Record<RateKind, string> = {
@@ -1136,7 +1137,7 @@ function Locations({ data, reload, setData }: { data: Data; reload: () => void; 
                     {l.name}
                     {data.settings.defaultLocationId === l.id ? <Pill tone="gray">Default</Pill> : null}
                     {!l.active ? <Pill tone="gray">Off</Pill> : null}
-                    {l.forwarding === "email" ? <Pill tone="blue">Emails orders</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">Webhook</Pill> : l.forwarding === "provider" ? <Pill tone="amber">Provider not connected</Pill> : null}
+                    {l.forwarding === "email" ? <Pill tone="blue">Emails orders</Pill> : l.forwarding === "webhook" ? <Pill tone="blue">Webhook</Pill> : partnerPill(l) ? <Pill tone={partnerPill(l)!.tone}><span data-location-partner={l.partner?.connected ? "connected" : "off"}>{partnerPill(l)!.label}</span></Pill> : null}
                     {l.pickupEnabled && l.active ? <Pill tone="green">Local pickup</Pill> : null}
                     {l.localDelivery?.enabled && l.active ? <Pill tone="green">Local delivery</Pill> : null}
                     {savedId === l.id ? (
@@ -1295,13 +1296,13 @@ function LocationForm({ initial, startCountry = "", onCancel, onSaved }: { initi
         <Field label={format.postal.required ? format.postal.label : `${format.postal.label} (optional)`} hint={postalOff ? `That doesn't look like a ${format.postal.label.replace(/ \(.*\)$/, "")}${format.postal.example ? `, like ${format.postal.example}` : ""}.` : undefined}>
           <TextInput value={f.postalCode} maxLength={20} onChange={(e) => set({ postalCode: e.target.value })} autoComplete="postal-code" placeholder={format.postal.example} />
         </Field>
-        <Field label="Who ships the orders?" className="sm:col-span-2" hint={FORWARDING_HELP[f.forwarding]}>
+        <Field label="Who ships the orders?" className="sm:col-span-2" hint={f.forwarding === "provider" && initial ? partnerSentence({ ...initial, forwarding: "provider" }) : FORWARDING_HELP[f.forwarding]}>
           <SelectInput value={f.forwarding} onChange={(v) => set({ forwarding: v as typeof f.forwarding })}>
             <option value="none">I do, from here</option>
             <option value="email">A partner: email each order to them</option>
             <option value="webhook">My own system: send each order to my webhook</option>
-            {/* Kept readable on a location that already has it; not offered, since no provider takes orders yet. */}
-            {initial?.forwarding === "provider" ? <option value="provider">A fulfillment provider (not connected yet)</option> : null}
+            {/* Only on the location Printful or Printify made when it was connected (Settings › Integrations); never offered for another. */}
+            {initial?.forwarding === "provider" ? <option value="provider">{initial.partner ? `${initial.partner.name}${initial.partner.connected ? "" : " (not connected)"}` : "A fulfillment provider (not connected)"}</option> : null}
           </SelectInput>
         </Field>
         {/* The email is only asked for when it's used: orders are emailed there. */}

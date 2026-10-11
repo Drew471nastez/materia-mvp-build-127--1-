@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { isUuid, physicalCaller, physicalJson, readBody } from "@/lib/physical/auth"
-import { loadSettings, locationFromRow, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
+import { loadSettings, locationsWithPartners, readLocation, saveLocationExtra } from "@/lib/physical/config-server"
 import { recordActivity } from "@/lib/activity/log-server"
 
 export const runtime = "nodejs"
@@ -20,7 +20,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!data) return physicalJson({ error: "Not found." }, 404)
   const extra = await saveLocationExtra(c.db, c.creatorId, id, read.extra)
   await recordActivity(c.db, c, { action: "location.updated", subjectType: "location", subjectId: id, subjectLabel: String(data.name ?? "") })
-  return physicalJson({ location: locationFromRow(extra.row ?? data), ...(extra.notice ? { message: extra.notice } : {}) })
+  /* With its print partner (Connected to Printful), so the row keeps saying it after a save. */
+  const [location] = await locationsWithPartners(c.db, c.creatorId, [extra.row ?? data])
+  return physicalJson({ location, ...(extra.notice ? { message: extra.notice } : {}) })
 }
 
 /**

@@ -26,7 +26,8 @@ import type { Db } from "./auth"
 import { int, text } from "./config-server"
 import { normaliseOptions, planVariants, variantName, type Combination } from "./variants"
 import { readMethod } from "./fulfillment"
-import type { FulfillmentMethod, InventoryLevel, PhysicalVariant, ProductOption } from "./types"
+import type { FulfillmentMethod, InventoryLevel, Location, PhysicalVariant, ProductOption } from "./types"
+import { madeToOrder } from "./partner"
 import { applyInventory } from "./inventory-server"
 import { missingColumn, readOrderLimit } from "./order-limit"
 
@@ -214,6 +215,7 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
   const hs = body.hsCode ? String(body.hsCode).replace(/\s/g, "") : null
   if (hs && !/^[0-9.]{4,14}$/.test(hs)) return { ok: false, error: "An HS code is 6 to 10 digits." }
 
+  let fulfilFrom: { holdsInventory: boolean; forwarding: Location["forwarding"] } | null = null
   for (const [key, table] of [
     ["fulfillmentLocationId", "inventory_locations"],
     ["shippingProfileId", "shipping_profiles"],
@@ -221,9 +223,12 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
     const id = body[key]
     if (id === null || id === undefined || id === "") continue
     if (typeof id !== "string") return { ok: false, error: "Choose one of your own." }
-    const { data } = await db.from(table).select("id").eq("id", id).eq("creator_id", creatorId).maybeSingle()
+    const { data } = await db.from(table).select(table === "inventory_locations" ? "id, holds_inventory, forwarding" : "id").eq("id", id).eq("creator_id", creatorId).maybeSingle()
     if (!data) return { ok: false, error: "Choose one of your own." }
+    if (table === "inventory_locations") fulfilFrom = { holdsInventory: data.holds_inventory !== false, forwarding: data.forwarding ?? "none" }
   }
+  /* Print on demand where no stock is held (lib/physical/partner.ts): never counted, so never sold out for lack of it. */
+  const printedToOrder = madeToOrder(readMethod(body.fulfillmentMethod) ?? readMethod(product.fulfillment_method), fulfilFrom)
 
   /* Stock locations named in the request must be this shop's. */
   const stockLocations = [...new Set(variantsIn.flatMap((v) => Object.keys(v.stock)))]
@@ -249,7 +254,7 @@ export async function savePhysicalProduct(db: Db, creatorId: string, productId: 
     origin_country: origin,
     hs_code: hs,
     taxable: body.taxable !== false,
-    track_inventory: body.trackInventory !== false,
+    track_inventory: body.trackInventory !== false && !printedToOrder,
     continue_selling: body.continueSelling === true,
     low_stock_threshold: body.lowStockThreshold === null || body.lowStockThreshold === "" || body.lowStockThreshold === undefined ? null : int(body.lowStockThreshold, 0, 1_000_000),
     fulfillment_location_id: (body.fulfillmentLocationId as string) || null,

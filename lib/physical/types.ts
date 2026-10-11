@@ -104,6 +104,17 @@ export interface Location {
   pickupHours?: string | null
   /** Delivering it yourself to nearby postal codes (./local-delivery.ts). Part 154; absent before it runs. */
   localDelivery?: LocalDelivery | null
+  /**
+   * The print on demand service this location sends its orders to (Printful, Printify), read from its
+   * commerce_integrations row: `connected` only while that row says connected. Null for any other location.
+   */
+  partner?: LocationPartner | null
+}
+
+export interface LocationPartner {
+  provider: string
+  name: string
+  connected: boolean
 }
 
 /**
