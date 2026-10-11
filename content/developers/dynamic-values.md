@@ -20,7 +20,7 @@ A section's template prints values with `{{ }}` and decides what to draw with `{
 | `wishlist` | The visitor's saved products, on the account and Wishlist pages. `null` everywhere else. |
 | `creator` | The creator's public profile: `creator.name`, `creator.headline`, `creator.bio`, `creator.avatar`. |
 | `collection` | On a collection's page (`/collections/<handle>`), that collection: `title`, `handle`, `description`, `image`, `url`, `products_count` and `products`. In the builder's Collection page, the first collection stands in. `null` everywhere else. |
-| `request` | Where the page is, as Shopify's `request`: `request.page_type` (the template, as `page.template`), `request.path` when the route knows it, and `request.design_mode`, `true` in the builder's canvas. |
+| `request` | Where the page is: `request.page_type` (the template, as `page.template`), `request.path` when the route knows it, and `request.design_mode`, `true` in the builder's canvas. |
 | `product` | On a product page, the product it shows: `title`, `price`, `compare_price`, `description` (words), `description_html` (cleaned markup, printed with `raw`), `image`, `images`, `url`, `includes`, `id`. Empty everywhere else, so `{% if product %}` tells a section where it is. |
 | `forloop` | The loop being drawn: `index`, `index0`, `first`, `last`, `length`. |
 
@@ -172,7 +172,7 @@ The theme's tokens, which a section reads directly, and every theme setting as i
 
 ### The theme's general settings
 
-What a Shopify theme reads as `settings.logo` and the other general settings, a Storelib section reads under `theme`, because a section's own `settings` are its own. Each has Theme settings' default filled in, so a site that never opened a panel still gives a value:
+What other store themes read as `settings.logo` and the other general settings, a Storelib section reads under `theme`, because a section's own `settings` are its own. Each has Theme settings' default filled in, so a site that never opened a panel still gives a value:
 
 | Path | What it is |
 | --- | --- |
@@ -323,7 +323,7 @@ Post these forms with `data-storelib-form="native"`, so the browser sends them a
 
 ## customer
 
-The customer who is signed in, on the account page. A customer account belongs to your website alone, the way a Shopify store's does: it is made the first time somebody signs in with an email, and it is not a Storelib login. `null` on every other page, and on the account page for a visitor who is not signed in, so test it before reading it:
+The customer who is signed in, on the account page. A customer account belongs to your website alone, the way a store's does: it is made the first time somebody signs in with an email, and it is not a Storelib login. `null` on every other page, and on the account page for a visitor who is not signed in, so test it before reading it:
 
 | Path | What it is |
 | --- | --- |
@@ -366,7 +366,7 @@ Inside `{% for %}`, the innermost loop:
 
 Outside a loop, `forloop` is empty.
 
-A loop can take part of its list, as Shopify's does: `limit:` and `offset:` after the list, each a number or a setting, and `reversed`. The offset is taken first, then the limit, then the order is turned round, and `forloop` counts what is drawn.
+A loop can take part of its list: `limit:` and `offset:` after the list, each a number or a setting, and `reversed`. The offset is taken first, then the limit, then the order is turned round, and `forloop` counts what is drawn.
 
 ```storelib
 {% for block in products limit: settings.product_count %} … {% endfor %}
@@ -402,7 +402,7 @@ A section's `<script>` receives `settings`, `blocks`, `theme` and `page` too, bu
 
 ## What the language does not have
 
-It is not Liquid, although it looks like it. These are not in the language, and an unknown tag is a compile error:
+It looks like other template languages, but these are not in it, and an unknown tag is a compile error:
 
 - `assign`, `capture`, `include`, `render`, `unless`, `case`, `break`, `continue` and a `raw` tag,
 - whitespace control, `{%-` and `-%}`,

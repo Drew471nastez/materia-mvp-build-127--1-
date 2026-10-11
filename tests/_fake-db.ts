@@ -253,7 +253,8 @@ export function fakeDb(tables: Record<string, Row[]>, options: FakeDbOptions = {
       like: (c: string, v: unknown) => (state.filters.push(["like", c, v]), builder),
       gt: (c: string, v: unknown) => (state.filters.push(["gt", c, v]), builder),
       lt: (c: string, v: unknown) => (state.filters.push(["lt", c, v]), builder),
-      not: (c: string, op: string, v: unknown) => (state.filters.push([`not.${op}`, c, v], builder), builder),
+      /* One filter: it pushed the builder too, as a second "filter", and every query with .not() threw. */
+      not: (c: string, op: string, v: unknown) => (state.filters.push([`not.${op}`, c, v]), builder),
       /** PostgREST's `or=(...)`: the keyset cursors and the member search both use one. */
       or: (expr: string) => (state.filters.push(["or", "", expr]), builder),
       order: () => builder,

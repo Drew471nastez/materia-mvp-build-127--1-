@@ -680,7 +680,7 @@ const cardsIn = (frame: Frame) => frame.evaluate(async () => {
     out.push({ handle, shown: true, title: new RegExp(`Linen shirt ${n}\\b`, "i").test(text + " " + [...card.querySelectorAll("img")].map((i) => i.alt).join(" ")), price: /\$\s?\d/.test(text), pictures: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, text: text.slice(0, 60) })
   }
   scrollTo(0, 0)
-  const errors = (document.body.innerText.match(/Liquid (syntax )?error[^\n]{0,80}/gi) ?? []).slice(0, 3)
+  const errors = (document.body.innerText.match(/(Liquid|Template) (syntax )?error[^\n]{0,80}/gi) ?? []).slice(0, 3)
   return { cards: out, errors }
 })
 

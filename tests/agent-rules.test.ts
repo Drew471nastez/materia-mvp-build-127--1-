@@ -54,10 +54,11 @@ async function main() {
   const r = await writeSection(db, { installId: "i", tokenId: "t", name: "Claude Code" } as never, "sections/footer.storelib", "<template></template>")
   check("MCP and the agent API refuse a built-in with 403, before the database", r.ok === false && r.status === 403 && touched === 0)
   const sync = read("lib/github-sync/sync.ts")
+  // Round G: each refusal carries a kind, for the builder's words (lib/github-sync/editor-status.ts).
   // Changed on purpose (the owner asked): a built-in edited in the creator's own linked repository is kept as that site's
   // copy, never the global built-in, and checked like any section of theirs. MCP, the agent API and Ask AI still refuse.
   check("a GitHub push to a built-in is held to the repository rule, before the save",
-    /const allowed = repoMayWrite\(f\.path, compat\)\s*\n\s*if \(allowed\.ok === false\) \{\s*\n\s*out\.failed\.push\(\{ path: f\.path, error: allowed\.error \}\)/.test(sync)
+    /const allowed = repoMayWrite\(f\.path, compat\)\s*\n\s*if \(allowed\.ok === false\) \{\s*\n\s*out\.failed\.push\(\{ path: f\.path, error: allowed\.error, kind: "invalid" \}\)/.test(sync)
       && sync.indexOf("repoMayWrite(f.path, compat)") < sync.indexOf("await saveThemeFile(db, link.install_id, f.path, text)"))
   const chat = read("app/api/website-builder/themes/[installId]/agent/route.ts")
   check("the builder's AI is held to the same rule", /const allowed = agentMayWrite\(path\)\s*\n\s*if \(allowed\.ok === false\) return \{ ok: false, error: allowed\.error \}/.test(chat))

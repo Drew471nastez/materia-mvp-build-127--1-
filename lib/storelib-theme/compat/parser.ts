@@ -66,7 +66,7 @@ const ENDS: Record<string, string[]> = {
 /** Where a lenient reading met something it could not read: a comment in the page, as Shopify writes one. */
 const syntaxNote = (e: unknown, line: number): Node => ({
   k: "text",
-  v: `<!-- Liquid syntax error (line ${e instanceof CompatSyntaxError ? e.line : line}): ${String((e as Error)?.message ?? e).replace(/--/g, "- -").slice(0, 200)} -->`,
+  v: `<!-- Template syntax error (line ${e instanceof CompatSyntaxError ? e.line : line}): ${String((e as Error)?.message ?? e).replace(/--/g, "- -").slice(0, 200)} -->`,
 })
 
 /**

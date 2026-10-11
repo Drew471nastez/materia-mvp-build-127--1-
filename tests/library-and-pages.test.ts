@@ -191,7 +191,7 @@ async function main() {
   console.log("\nROWS AND WORDS: one section per row, no line saying where, Created")
   // ═════════════════════════════════════════════════════════════════════════
   {
-    check("the cards are one column", /data-library-grid="" className="flex flex-col"/.test(library) && !/grid-cols-2/.test(libraryCode))
+    check("the cards are one column", /data-library-grid="" className="(relative )?flex flex-col"/.test(library) && !/grid-cols-2/.test(libraryCode))
     check("each as wide as the list", /const cardWidth = gridWidth > 0 \? gridWidth - 2 : 0/.test(library))
     check("no where line in either shell", !/data-library-where|where\?: string|\{where &&/.test(libraryCode))
     check("and the editor no longer works one out", !/libraryWhere|whereItGoes|where=\{/.test(code(editor)))

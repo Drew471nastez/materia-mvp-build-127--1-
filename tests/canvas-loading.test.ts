@@ -99,14 +99,15 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     const filesCode = code("components/website-builder/compat/compat-files.ts")
     check("its files are tried again and each try has an end", /retrying\(/.test(filesCode) && /deadline\(/.test(filesCode) && /fetchWithin\(`\/api\/website-builder\/themes\/\$\{installId\}\/files\?compat=1`, \{\}, FILES_WAIT_MS\)/.test(filesCode))
     check("a theme that cannot be read, or a first page that cannot be drawn, is said with Try again", /setFailure\("files"\)/.test(canvas) && /setFailure\("draw"\)/.test(canvas) && /<CanvasProblem kind=/.test(canvas) && /onRetry=\{retry\}/.test(canvas))
-    // Changed on purpose (round AA): the files are also read again when a push to GitHub changed them (filesVersion).
-    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt(, filesVersion)?\]/.test(canvas) && /accountPath, attempt\]/.test(canvas))
-    check("the frame's own load event shows it, whatever the page said, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) setPainted\(true\)/.test(canvas))
+    // Changed on purpose (round AA): the files are also read again when a push to GitHub changed them (filesVersion). Round G: the first draw also waits for the shop's cards (holdForData).
+    check("  Try again asks for everything again", /setAttempt\(\(n\) => n \+ 1\)/.test(canvas) && /\[installId, attempt(, filesVersion)?\]/.test(canvas) && /accountPath, attempt, holdForData\]/.test(canvas))
+    /* Round G: not at once. The load event does not wait for a picture the theme loads lazily, so a page shown at it landed with its hero empty; a page that has said it is ready is shown by its own "loaded" or FIRST_PAINT_MS. */
+    check("the frame's own load event shows a page that has said nothing, and asks it again whether it is ready", /onLoad=\{\(\) => onFrameLoad\(slot\.n\)\}/.test(canvas) && /type: "hello"/.test(canvas) && /if \(at === 0\) \{\s*if \(!slot\.ready\) window\.setTimeout\(\(\) => setPainted\(true\), 400\)/.test(canvas))
     check("a frame that says nothing is shown as it is after FRAME_CAP_MS", /const FRAME_CAP_MS = 6_000/.test(canvas) && /\}, FRAME_CAP_MS\)/.test(canvas))
     check("a page behind that never says it loaded still comes forward", /window\.setTimeout\(\(\) => promote\(slot\.n\), BEHIND_CAP_MS\)/.test(canvas))
-    check("a page that comes forward takes the outline away with it (a first page replaced before it said ready)", /if \(slotsRef\.current\.some\(\(x, i\) => i > 0 && x\.n === n\)\) setPainted\(true\)/.test(canvas))
+    check("a page that comes forward takes the outline away with it (a first page replaced before it said ready)", /const at = list\.findIndex\(\(x\) => x\.n === n\)\s*\n\s*if \(at <= 0\) return[\s\S]{0,240}setPainted\(true\)/.test(canvas))
     check("nothing to show after SLOW_MS says so", /const SLOW_MS = 15_000/.test(canvas) && /setFailure\(\(f\) => f \?\? "slow"\)/.test(canvas))
-    check("the editor's loader steps aside for a failure as for a page", /if \(shown \|\| stuck\) onPainted\.current\?\.\(\)/.test(canvas))
+    check("the editor's loader steps aside for a failure as for a page", /if \(!shown && !stuck\) return\s*\n\s*let id = requestAnimationFrame\(\(\) => \{ id = requestAnimationFrame\(\(\) => onPainted\.current\?\.\(\)\) \}\)/.test(canvas))
     check("and every one of these is told to the error log", (canvas.match(/reportLoadProblem\("compat-canvas"/g) ?? []).length >= 3 && /reportLoadProblem\("compat-canvas", e\)/.test(filesCode))
     check("  and Try again after an answer that could not be drawn asks the server afresh", /forgetCompatFiles\(installId\)/.test(canvas))
     const bridge = read("lib/storelib-theme/compat/canvas-bridge.ts")
@@ -155,8 +156,8 @@ const code = (p: string) => read(p).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\
     check("a card's height is remembered for the theme, so it opens at it", /rememberedHeights\(ctx\.installId, renderWidth\)\[key\]/.test(preview) && /window\.localStorage\.setItem\(k, JSON\.stringify\(all\)\)/.test(preview))
     check("a card is never made shorter where it can be seen", /if \(wanted > kept\.h \|\| !inSight\(box\.current\)\)/.test(preview) && /releaseCompatHeld\(\)/.test(read("components/website-builder/editor/section-library.tsx")))
     check("a card that is coming shimmers, and only while the library is open", /wb-preview-shimmer/.test(preview) && /\.wb-library-layer\[data-state="closed"\] \.wb-preview-shimmer::after/.test(read("app/globals.css")))
-    check("the pages are drawn ahead in quiet moments, the first cards loaded ahead", /return seen \? whenIdle\(job\) : whenQuiet\(job\)/.test(preview) && /eager=\{eager\} \/>/.test(read("components/website-builder/editor/section-library.tsx")))
-    check("a card is drawn as it nears the list's own view, not the window's (the list clips the window's margin)", /root: el\.closest<HTMLElement>\("\[data-library-scroll\]"\), rootMargin: "800px 0px"/.test(preview))
+    check("the sections are drawn ahead in quiet moments, the first cards first", /onIdle\(\(d\) => this\.run\(/.test(preview) && /score = card\.eager \? i - 1e6 : i/.test(preview) && /eager=\{eager\} \/>/.test(read("components/website-builder/editor/section-library.tsx")))
+    check("an open list is filled nearest its own view first (the list, not the window)", /this\.grid\?\.closest\("\[data-library-scroll\]"\)\?\.getBoundingClientRect\(\)/.test(preview))
     check("files that never come name each card instead of a shimmer for good", /failed: failed \|\| \(!!files && !theme\)/.test(preview) && /const unavailable = !!ctx\?\.failed/.test(preview))
   }
 

@@ -603,7 +603,7 @@ function settingChecks(err: (path: string, message: string) => void, sectionValu
       const control = controlFor(f.type)
       if (!control) {
         const why = UNSUPPORTED_TYPES[f.type]
-        err(`${p}.type`, why ? `"${f.type}" is a Shopify type Storelib does not have. ${why}` : `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
+        err(`${p}.type`, why ? `"${f.type}" is a type Storelib does not have. ${why}` : `"${f.type}" is not a Storelib control. Use one of: ${CONTROL_TYPES.join(", ")}`)
         return
       }
       if (!ID.test(f.id)) err(`${p}.id`, `"${f.id}" is not a setting id: lowercase letters, digits and _`)

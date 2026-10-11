@@ -160,7 +160,7 @@ const ARTICLES: Article[] = [
           "Press Publish.",
         ],
       },
-      { type: "p", text: `More help: ${link("sell-on-your-website", "Sell physical products on your website")}. Moving from Shopify? ${link("import-a-shopify-theme", "Bring your Shopify theme")} with you.` },
+      { type: "p", text: `More help: ${link("sell-on-your-website", "Sell physical products on your website")}. Moving from another store? ${link("import-a-shopify-theme", "Bring your theme")} with you.` },
 
       { type: "h", text: "Step 8. Do a test order" },
       { type: "p", text: "Open your live website as a buyer would, add a product to the cart and go to checkout. Type your own address and check that the shipping options and prices are the ones you expect. You don't have to pay to check this: the prices show before Pay." },
@@ -325,7 +325,7 @@ const ARTICLES: Article[] = [
       { type: "list", items: [
         "Custom fields hold details like material, care or size. Turned on to show, they're listed under Details on the product page.",
         "Questions (FAQ) show on the product page in the Product questions block.",
-        "Both are optional, and imported Shopify themes can read them too.",
+        "Both are optional, and imported themes can read them too.",
       ] },
       { type: "h", text: "7. Publish" },
       { type: "p", text: "Press Publish. The product shows on your website straight away. Physical products are sold on your website, not on your creator page or Explore, so make sure your website is published too." },
@@ -663,16 +663,16 @@ const ARTICLES: Article[] = [
   {
     section: "Website builder",
     slug: "import-a-shopify-theme",
-    title: "Bring your Shopify theme to Storelib",
-    summary: "Import the theme file from Shopify and your store looks the same, with Storelib's products, cart, accounts and checkout behind it.",
+    title: "Bring your store's theme to Storelib",
+    summary: "Import your old store's theme file and your store looks the same, with Storelib's products, cart, accounts and checkout behind it.",
     keywords: ["shopify", "import", "theme", "dawn", "horizon", "migrate", "move from shopify", "liquid", "zip"],
     body: [
-      { type: "p", text: "If your store is on Shopify, you can bring its theme. Storelib draws the theme's own design, sections and scripts, and fills them with your Storelib products." },
+      { type: "p", text: "If your store is on another platform, you can bring its theme. Storelib draws the theme's own design, sections and scripts, and fills them with your Storelib products." },
       { type: "h", text: "Import it" },
       {
         type: "steps",
         items: [
-          "In Shopify, download your theme file. Shopify emails you a link to a .zip.",
+          "In your old store's admin, download your theme file. It usually comes as a link to a .zip by email.",
           "In Storelib, open Website in the dashboard menu.",
           "Press Import theme and choose the .zip. Don't unzip it.",
           "Wait for the upload and the import to finish. It says how many sections came across.",
@@ -699,23 +699,23 @@ const ARTICLES: Article[] = [
       {
         type: "list",
         items: [
-          "Shopify apps and anything they added to the theme.",
+          "Apps from your old store and anything they added to the theme.",
           "Metafields, apart from a product's custom fields and questions, which the theme can read. Settings that read other metafields show nothing.",
           "Blog posts. A blog page shows its title with no posts.",
-          "Shopify's own payment buttons, like Shop Pay. Storelib's checkout takes cards, Apple Pay and Google Pay.",
-          "Pictures kept in your Shopify store's Files rather than in the theme. Upload them again in the editor.",
+          "Your old store's own express payment buttons. Storelib's checkout takes cards, Apple Pay and Google Pay.",
+          "Pictures kept in your old store's files rather than in the theme. Upload them again in the editor.",
         ],
       },
       { type: "h", text: "Common mistakes" },
       {
         type: "list",
         items: [
-          "Unzipping the file first. Upload the .zip just as Shopify gives it.",
+          "Unzipping the file first. Upload the .zip just as you downloaded it.",
           "Testing checkout or sign in in the editor. Both only work on your live site. Add to cart and the cart drawer work in the editor, and you can open the account pages there to see their design.",
-          "Forgetting your products. The theme comes across, your Shopify products don't. Add them in Storelib.",
+          "Forgetting your products. The theme comes across, your old store's products don't. Add them in Storelib.",
         ],
       },
-      { type: "p", text: "Building or debugging themes? The developer guide is at [Imported Shopify themes](/developers/imported-shopify-themes)." },
+      { type: "p", text: "Building or debugging themes? The developer guide is at [Imported themes](/developers/imported-shopify-themes)." },
     ],
   },
 
@@ -802,7 +802,7 @@ const ARTICLES: Article[] = [
         ],
       },
       { type: "note", text: "The templates are a starting point, not legal advice. Check them with someone who knows the rules where you sell." },
-      { type: "p", text: "Each policy is a page of your website, linked from its footer. Imported Shopify themes link to them from their own footer too." },
+      { type: "p", text: "Each policy is a page of your website, linked from its footer. Imported themes link to them from their own footer too." },
     ],
   },
 
@@ -1458,12 +1458,12 @@ const ARTICLES: Article[] = [
         items: [
           "Orders show up when they were placed with the same email the buyer signs in with.",
           "An account on your website is only for your store. It doesn't create a Storelib account, and it never opens your dashboard.",
-          "Imported Shopify themes use the same sign in, inside the theme's own header and footer.",
+          "Imported themes use the same sign in, inside the theme's own header and footer.",
           "The sign in email comes from your store's name, so buyers recognise it.",
         ],
       },
       { type: "list", items: [
-        "On an imported Shopify theme, the account pages are drawn in the theme's own design, and bought downloads are listed there and download from your website.",
+        "On an imported theme, the account pages are drawn in the theme's own design, and bought downloads are listed there and download from your website.",
         "On other themes, each order opens its receipt, which is also the download page.",
       ] },
       { type: "note", text: `To make buyers sign in before they pay, turn on Require customers to sign in in Settings > Checkout. Checkout then sends them to this sign in, and back. See ${link("checkout-settings", "Checkout settings")}.` },
