@@ -33,7 +33,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { getMainDomain } from "@/lib/url-helpers"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { CartReturnsNote } from "./theme/shop-commerce"
-import { onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
+import { CART_NOTE_MAX, onWebsiteHost, siteCheckoutHref } from "@/lib/checkout/site-checkout"
 
 export interface CartPalette {
   bg: string
@@ -64,6 +64,8 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
 
   /* ── Discount code ─────────────────────────────────────────────── */
   const [code, setCode] = useState("")
+  /* A note for the shop, for a cart with something to post: the checkout's own note starts with it (lib/checkout/site-checkout cartNote), and the order keeps it. */
+  const [note, setNote] = useState("")
   const [applied, setApplied] = useState<AppliedCode | null>(null)
   const [codeBusy, setCodeBusy] = useState(false)
   const [codeError, setCodeError] = useState<string | null>(null)
@@ -158,7 +160,7 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
       setBusy(true)
       /* On the website: its own checkout, on this same address (app/checkout/site), which asks for the address and the delivery. A preview on storelib.com keeps the platform's. */
       window.location.href = onWebsiteHost(window.location.hostname, getMainDomain(), window.location.pathname)
-        ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", couponCode: applied?.code ?? null, wholeCart: true })
+        ? siteCheckoutHref({ items: checkoutItems(lines), back: "/cart", couponCode: applied?.code ?? null, wholeCart: true, note })
         : physicalCheckoutHref(shopId, checkoutItems(lines), window.location.href)
       return
     }
@@ -359,6 +361,20 @@ export function CartPageBody({ palette, radius }: { palette: CartPalette; radius
               onAgreed={setAgreed}
             />
           )}
+
+          {lines.some((l) => l.physical) && !showDetails ? (
+            <label className="block w-full sm:w-[300px]" data-cart-note="">
+              <span className="mb-1.5 block text-[13px] opacity-70">Note for the shop</span>
+              <textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value.slice(0, CART_NOTE_MAX))}
+                rows={2}
+                placeholder="Gift wrap, delivery instructions..."
+                className="block w-full resize-y bg-transparent px-3.5 py-2.5 text-[16px] outline-none placeholder:opacity-50 focus:ring-2 focus:ring-current/20 sm:text-[14px]"
+                style={{ border: `1px solid ${palette.border}`, borderRadius: Math.min(radius, 12), color: palette.text }}
+              />
+            </label>
+          ) : null}
 
           {error && (
             <p role="alert" className="w-full text-right text-[13px] font-medium text-[#b91c1c]">

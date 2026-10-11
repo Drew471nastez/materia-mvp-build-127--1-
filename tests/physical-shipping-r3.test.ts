@@ -214,12 +214,12 @@ async function main() {
     check("the returns line sits under Check out in the cart drawer and on the cart page", /<CartReturnsNote/.test(read("components/website-builder/sections/renderers/HeaderSection.tsx")) && /<CartReturnsNote/.test(read("components/website-builder/cart-page-body.tsx")))
     check("the live site tells the page which page it is", /pageKey \}\}/.test(read("app/(site)/w/[username]/render-site.tsx")))
     const shop = read("app/api/physical/storefront/shop/route.ts")
-    check("the website reads only returns and the free shipping amount, public, cached, behind the physical switch", /physicalApiGate\(\)/.test(shop) && /freeShippingFrom\(general, country\)/.test(shop) && /s-maxage=60/.test(shop) && !/price_cents|address_line/.test(shop))
+    check("the website reads only returns and the free shipping amount, public, cached, behind the physical switch", /physicalApiGate\(\)/.test(shop) && /shopFacts\(createAdminClient\(\), creatorId\)/.test(shop) && /freeShippingFrom\(general, country\)/.test(read("lib/physical/storefront-facts.ts")) && /s-maxage=60/.test(shop) && !/price_cents|address_line/.test(shop))
     const ws = read("components/website-builder/website-settings/commerce.tsx")
     check("Website settings › Commerce › On this website: four controls, written through the editor", ["show_stock_left", "low_stock_text", "free_shipping_bar", "free_shipping_threshold", "cart_returns_note"].every((k) => ws.includes(`ctx.onSettingChange("${k}"`)) && /\{physical \? <OnThisWebsite ctx=\{ctx\} \/> : null\}/.test(ws))
     const compat = read("lib/website-builder/compat-site.ts")
     const objects = read("lib/storelib-theme/compat/objects.ts")
-    check("imported themes: real stock as Shopify's inventory fields, hidden when the website hides it", /compatStock\(admin, creator\.creatorId, card\)/.test(compat) && /siteCommerce\(settings as Record<string, unknown>\)\.showStockLeft/.test(compat) && /inventory_management: typeof v\.left === "number" \? "shopify" : null/.test(objects) && /inventory_quantity: typeof v\.left === "number" \? v\.left/.test(objects))
+    check("imported themes: real stock as Shopify's inventory fields, hidden when the website hides it", /compatStock\(admin, creator\.creatorId, card, siteCommerce\(settings as Record<string, unknown>\)\.showStockLeft\)/.test(compat) && /showLeft \? \{ left: s\.left \} : \{\}/.test(compat) && /inventory_management: typeof v\.left === "number" \? "shopify" : null/.test(objects) && /inventory_quantity: typeof v\.left === "number" \? v\.left/.test(objects))
     check("  and the refund policy (shop.refund_policy, /policies/refund-policy) ends with the store's returns", /handle === "refund-policy" && returnFacts \? `\$\{body\}\$\{returnFacts\}` : body/.test(compat))
   }
 

@@ -4542,6 +4542,49 @@ export default function StoreEditorPage({ params }: { params: Promise<{ installI
   selectProductRef.current = handleSelectProductPage
   const productsRef = useRef(products)
   productsRef.current = products
+
+  /**
+   * THE PRODUCT THE PRODUCT PAGE SHOWS, READ AGAIN WHEN THE BUILDER COMES
+   * BACK INTO VIEW. Stock, a price or an option is usually changed in
+   * Products in another tab; the cards are read again then (loadCards), and
+   * so is this product, so the canvas says what a visitor sees now: the
+   * price, the options, Sold out, Only 3 left, delivery and pickup. Only its
+   * `_product_data` is replaced, which is never saved (sectionsForSave), so
+   * nothing becomes unsaved and nothing goes on the undo stack.
+   */
+  useEffect(() => {
+    let last = Date.now()
+    const again = async () => {
+      const id = selectedProductIdRef.current
+      if (document.visibilityState !== "visible" || Date.now() - last < 15_000 || !id || currentPageRef.current !== "product") return
+      last = Date.now()
+      try {
+        const r = await fetch(`/api/website-builder/products?id=${encodeURIComponent(id)}`, { cache: "no-store" })
+        if (!r.ok) return
+        const fresh = ((await r.json()) as { product?: unknown } | null)?.product
+        if (!fresh || selectedProductIdRef.current !== id || currentPageRef.current !== "product") return
+        const key = JSON.stringify(fresh)
+        setSections((prev) => {
+          let changed = false
+          const next = prev.map((sec) => {
+            if (sec.type !== "product") return sec
+            const s = (sec.settings ?? {}) as Record<string, unknown>
+            if (JSON.stringify(s._product_data) === key) return sec
+            changed = true
+            return { ...sec, settings: { ...s, _product_data: fresh } }
+          })
+          return changed ? next : prev
+        })
+      } catch {}
+    }
+    const onBack = () => void again()
+    document.addEventListener("visibilitychange", onBack)
+    window.addEventListener("focus", onBack)
+    return () => {
+      document.removeEventListener("visibilitychange", onBack)
+      window.removeEventListener("focus", onBack)
+    }
+  }, [])
   const customPagesRef = useRef(customPages)
   customPagesRef.current = customPages
   const inspectorRef = useRef(inspectorEnabled)

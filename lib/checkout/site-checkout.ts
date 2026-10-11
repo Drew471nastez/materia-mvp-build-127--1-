@@ -47,6 +47,8 @@ export interface SiteCheckoutLink {
   back?: string | null
   couponCode?: string | null
   wholeCart?: boolean
+  /** The cart's note (a theme's "Order special instructions"): the checkout's note for the shop starts with it. */
+  note?: string | null
   /** What the website knows about the visit, for the order's Source (lib/orders/checkout-origin). */
   visit?: { from?: string | null; utm_source?: string | null; utm_campaign?: string | null; touches?: string | null } | null
 }
@@ -68,6 +70,8 @@ export function siteCheckoutHref(link: SiteCheckoutLink): string {
   const code = typeof link.couponCode === "string" ? link.couponCode.trim().slice(0, 64) : ""
   if (code) params.set("code", code)
   if (link.wholeCart) params.set(WHOLE_CART_PARAM, "1")
+  const note = cartNote(link.note)
+  if (note) params.set("note", note)
   const v = link.visit ?? {}
   const add: Array<[string, unknown, number]> = [
     ["ref", v.from, 64],
@@ -91,6 +95,19 @@ export interface SiteCheckoutParams {
   back: string | null
   couponCode: string | null
   wholeCart: boolean
+  /** The cart's note, for the checkout's note to the shop. */
+  note: string | null
+}
+
+/** The checkout's own limit on a note to the shop (app/checkout/site/site-checkout.tsx). */
+export const CART_NOTE_MAX = 1000
+
+/** A cart note as the checkout may take it: plain text, trimmed, at most CART_NOTE_MAX characters, or null. */
+export function cartNote(raw: unknown): string | null {
+  if (typeof raw !== "string") return null
+  // eslint-disable-next-line no-control-regex
+  const v = raw.replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, "").trim().slice(0, CART_NOTE_MAX)
+  return v || null
 }
 
 /** The page's reading of its own address: well formed or left out, nothing more. */
@@ -110,6 +127,7 @@ export function readSiteCheckoutParams(q: { get(key: string): string | null }): 
     back,
     couponCode: code || null,
     wholeCart: q.get(WHOLE_CART_PARAM) === "1",
+    note: cartNote(q.get("note")),
   }
 }
 

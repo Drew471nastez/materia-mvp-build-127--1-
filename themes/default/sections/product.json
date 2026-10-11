@@ -1016,6 +1016,53 @@
       ]
     },
     {
+      "type": "delivery",
+      "name": "Delivery and pickup",
+      "limit": 1,
+      "fields": [
+        {
+          "id": "show_delivery",
+          "label": "Delivery",
+          "type": "toggle",
+          "default": true,
+          "info": "The cheapest rate to your home country and how long it takes (Settings, Shipping and delivery)."
+        },
+        {
+          "id": "show_pickup",
+          "label": "Pickup",
+          "type": "toggle",
+          "default": true,
+          "info": "Where the chosen option can be picked up (Settings, Locations)."
+        },
+        {
+          "id": "color",
+          "label": "Color",
+          "type": "color",
+          "default": "scheme.text"
+        },
+        {
+          "id": "margin_top",
+          "label": "Space above",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 0
+        },
+        {
+          "id": "margin_bottom",
+          "label": "Space below",
+          "type": "range",
+          "min": 0,
+          "max": 64,
+          "step": 2,
+          "unit": "px",
+          "default": 20
+        }
+      ]
+    },
+    {
       "type": "description",
       "name": "Description",
       "limit": 1,
@@ -1772,6 +1819,17 @@
             "color": "#b45309",
             "margin_top": 0,
             "margin_bottom": 16
+          }
+        },
+        {
+          "id": "pb-delivery",
+          "type": "delivery",
+          "settings": {
+            "show_delivery": true,
+            "show_pickup": true,
+            "color": "scheme.text",
+            "margin_top": 0,
+            "margin_bottom": 20
           }
         },
         {

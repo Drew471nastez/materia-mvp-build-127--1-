@@ -30,6 +30,7 @@
  * at once, not so a payment is right.
  */
 
+import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 
 /* ── The product, as the section receives it ─────────────────────────────── */
@@ -94,6 +95,8 @@ export interface ProductSectionData {
   faqs?: { question: string; answer: string }[]
   /** The custom fields the creator shows to buyers, in order (lib/products/custom-fields.ts shownCustomFields). */
   details?: { key: string; label: string; value: string; type: "text" | "multiline" | "number" | "url" }[]
+  /** A product that ships: the cheapest delivery home and how long it takes, and the pickup points holding each option (lib/physical/storefront-facts.ts). Null: nothing to say. */
+  delivery?: ProductDelivery | null
 }
 
 /* ── Pictures ─────────────────────────────────────────────────────────────── */

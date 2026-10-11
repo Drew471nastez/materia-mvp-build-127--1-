@@ -26,7 +26,7 @@ import { mayPreview, pageSections, themeSettings as themeSettingsOf } from "@/li
 import { sanitizeRichText } from "@/lib/website-builder/sanitize"
 import { assetAddresses, compatOf } from "@/lib/storelib-theme/compat/install"
 import { drawPage, themeOfInstall, type StoredSection } from "@/lib/storelib-theme/compat/page"
-import { POLICY_HANDLES, type SiteData } from "@/lib/storelib-theme/compat/site"
+import { POLICY_HANDLES, type CartStock, type SiteData } from "@/lib/storelib-theme/compat/site"
 import { isBlankHtml, policyBodyOf } from "@/lib/website-builder/policy-editing"
 import { POLICY_PAGES, SHIPPING_POLICY } from "@/lib/website-builder/policy-pages"
 
@@ -38,8 +38,10 @@ import { liveNavigationEnd, liveNavigationMarkup } from "./live-navigation"
 import { siteVitalsScript } from "@/lib/perf/site-vitals-inline"
 import { storeIdentity } from "@/lib/store/identity-server"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
-import { physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
-import { returnFactsHtml, siteCommerce } from "./site-commerce"
+import { liveVariant, physicalStock, type StockVariant } from "@/lib/physical/storefront-stock"
+import { orderLimits } from "@/lib/physical/order-limit"
+import { returnFactsHtml, returnsLine, siteCommerce } from "./site-commerce"
+import { productDelivery, shopFacts } from "@/lib/physical/storefront-facts"
 import { productFaqs } from "@/lib/products/product-section-data"
 
 /** Theme settings › Branding's store name, when the website has one of its own. */
@@ -310,6 +312,12 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
     return [{ handle, title: POLICY_TITLES[handle] ?? handle, body: handle === "refund-policy" && returnFacts ? `${body}${returnFacts}` : body }]
   })
   const theme = draft ? compatThemeFor(row.id, version, rows, settings) : holdTheme(row.id, version, rows, settings)
+  /* Website settings › Commerce: the free shipping banner and the cart's returns line, put on the theme's own pages (lib/storelib-theme/compat/site-commerce-markup.ts). Read only when one is on. */
+  const onSite = siteCommerce(settings as Record<string, unknown>)
+  const readFacts = () => shopFacts(admin, creator.creatorId)
+  const facts = physical && (onSite.freeShippingBar || onSite.cartReturnsNote)
+    ? await (draft ? readFacts() : heldUnless(["compat-shop-facts", creator.creatorId], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readFacts, () => false))
+    : null
 
   const site: SiteData = {
     creatorId: creator.creatorId,
@@ -338,12 +346,27 @@ async function compatSiteFresh(name: string, host: string, previewToken: string 
       const found = draft ? await readDescription() : await heldUnless(["compat-description", creator.creatorId, card.id], [creatorShopTag(creator.creatorId)], SHOP_HOLD_S, readDescription, (v) => v === null)
       const raw = found?.text ?? ""
       const descriptionHtml = /<[a-z][\s\S]*>/i.test(raw) ? sanitizeRichText(raw) : raw.split(/\n{2,}/).filter(Boolean).map((p) => `<p>${p.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>")}</p>`).join("")
-      /* A shipped product's stock, as the native product page reads it: "Only 3 left" in a theme's inventory block (Website settings › Commerce can hide it). */
-      const withStock = physical && card.settings.kind === "physical" && siteCommerce(settings as Record<string, unknown>).showStockLeft ? await compatStock(admin, creator.creatorId, card) : card
+      /* A shipped product's stock, as the native product page reads it: "Only 3 left" in a theme's inventory block (Website settings › Commerce can hide it), and the most the quantity picker may take. */
+      const shipped = physical && card.settings.kind === "physical"
+      const [stocked, delivery] = shipped
+        ? await Promise.all([compatStock(admin, creator.creatorId, card, siteCommerce(settings as Record<string, unknown>).showStockLeft), productDelivery(admin, creator.creatorId, card.id)])
+        : [card, null]
+      /* Where each option can be picked up, for the theme's pickup block (`variant.store_availabilities`). */
+      const withStock = delivery && Object.keys(delivery.pickup).length && Array.isArray(stocked.settings.variants)
+        ? { ...stocked, settings: { ...stocked.settings, variants: (stocked.settings.variants as unknown as Record<string, unknown>[]).map((v) => ({ ...v, pickup: delivery.pickup[String(v.id)] ?? [] })) } }
+        : stocked
       return { ...withStock, descriptionHtml, settings: { ...withStock.settings, faqs: found?.faqs ?? [] } }
     },
     /* Storelib Reviews: the shop's reviews and the product's, held a minute (lib/reviews/storefront-server.ts). */
     reviews: async (p) => (await import("@/lib/reviews/storefront-server")).storefrontReviews(creator.creatorId, p) as unknown as Promise<Record<string, unknown>>,
+    /* What one cart may hold of a product that ships: its stock and Limit sales, as the checkout counts them (cart/add refuses more, cart/change brings it down). */
+    commerce: facts
+      ? {
+          freeShippingFromCents: onSite.freeShippingBar ? (onSite.freeShippingAmount !== null ? Math.round(onSite.freeShippingAmount * 100) : facts.freeShippingFromCents) : null,
+          returnsLine: onSite.cartReturnsNote ? returnsLine(facts.returns) : null,
+        }
+      : undefined,
+    stock: physical ? (productId) => cartStock(admin, creator.creatorId, products.find((p) => p.id === productId) ?? null) : undefined,
     /* A live page's links are fetched ahead and its pages cross-fade (lib/website-builder/live-navigation.ts). */
     /* A live page also measures its own speed for Published websites (lib/perf/site-vitals-inline.ts); a preview never does. */
     extraHead: draft ? undefined : liveNavigationMarkup() + siteVitalsScript(row.id),
@@ -412,32 +435,67 @@ async function storeReturnFacts(admin: ReturnType<typeof createAdminClient>, cre
 
 /**
  * A product card with its variants' stock: how many are left when that is
- * few, and the low stock line, so Shopify's inventory block (`inventory_
- * management`, `inventory_quantity`) says what Storelib's own does. Never
- * throws: a card without stock draws as before.
+ * few (only when Website settings › Commerce shows it), the low stock line,
+ * and the most one order may take of each option (its stock held to Limit
+ * sales), so Shopify's inventory block (`inventory_management`,
+ * `inventory_quantity`) and quantity picker (`quantity_rule.max`) say what
+ * Storelib's own product page does. Never throws: a card without stock
+ * draws as before.
  */
-async function compatStock<T extends { id: string; settings: Record<string, unknown> }>(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: T): Promise<T> {
+async function compatStock<T extends { id: string; settings: Record<string, unknown> }>(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: T, showLeft = true): Promise<T> {
   try {
-    const { data: product } = await admin.from("products").select("track_inventory, continue_selling, low_stock_threshold").eq("id", card.id).eq("creator_id", creatorId).eq("status", "published").maybeSingle()
-    const { data: variants } = await admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", card.id)
-    const list = (variants ?? []) as StockVariant[]
-    if (!product || list.length === 0) return card
-    const stock = await physicalStock(admin, { creator_id: creatorId, ...(product as Record<string, unknown>) }, list)
+    const read = await readStock(admin, creatorId, card.id)
+    if (!read) return card
+    const { list, stock } = read
     const cards = Array.isArray(card.settings.variants) ? (card.settings.variants as Record<string, unknown>[]) : []
     const only = list.length === 1 ? stock.get(list[0].id) : undefined
+    const most = (n: number | undefined) => (typeof n === "number" && n < 999 ? n : null)
     return {
       ...card,
       settings: {
         ...card.settings,
         low_stock_at: [...stock.values()][0]?.lowAt ?? null,
-        ...(only ? { left: only.left } : {}),
+        ...(only ? { ...(showLeft ? { left: only.left } : {}), max: most(only.maxQuantity) } : {}),
         variants: cards.map((v) => {
           const s = stock.get(String(v.id))
-          return s ? { ...v, left: s.left } : v
+          return s ? { ...v, ...(showLeft ? { left: s.left } : {}), max: most(s.maxQuantity) } : v
         }),
       },
     }
   } catch {
     return card
+  }
+}
+
+/** A published product's live variants and their stock, by the one rule the buy box reads (lib/physical/storefront-stock.ts); null when it has none. */
+async function readStock(admin: ReturnType<typeof createAdminClient>, creatorId: string, productId: string) {
+  const { data: product } = await admin.from("products").select("id, track_inventory, continue_selling, low_stock_threshold").eq("id", productId).eq("creator_id", creatorId).eq("status", "published").maybeSingle()
+  const { data: variants } = await admin.from("product_variants").select("id, name, active, track_inventory, inventory_policy").eq("product_id", productId)
+  const list = ((variants ?? []) as StockVariant[]).filter(liveVariant)
+  if (!product || list.length === 0) return null
+  /* With the product's id, so Limit sales holds each option's most too (lib/physical/order-limit.ts). */
+  const stock = await physicalStock(admin, { creator_id: creatorId, ...(product as Record<string, unknown>), id: productId }, list)
+  return { list, stock }
+}
+
+/**
+ * What one cart may hold of a product that ships, for the theme's cart
+ * (lib/storelib-theme/compat/site.ts roomFor): each option's most, a
+ * product with one option's by its own id too, and Limit sales in all.
+ * Null for anything else, or when it cannot be read: the checkout still
+ * counts it again before taking payment.
+ */
+async function cartStock(admin: ReturnType<typeof createAdminClient>, creatorId: string, card: { id: string; settings: Record<string, unknown> } | null): Promise<CartStock | null> {
+  if (!card || card.settings.kind !== "physical") return null
+  try {
+    const [read, limits] = await Promise.all([readStock(admin, creatorId, card.id), orderLimits(admin, [card.id])])
+    const perOrder = limits.get(card.id) ?? null
+    if (!read) return perOrder === null ? null : { variants: {}, perOrder }
+    const variants: Record<string, number> = {}
+    for (const [id, s] of read.stock) if (s.maxQuantity < 999) variants[id] = s.soldOut ? 0 : s.maxQuantity
+    if (read.list.length === 1 && read.list[0].id in variants) variants[card.id] = variants[read.list[0].id]
+    return { variants, perOrder }
+  } catch {
+    return null
   }
 }

@@ -47,6 +47,7 @@ import { fixThemeCss } from "./css-fixes"
 import { accountContent, addressesContent, downloadNotice, orderContent, signInContent, themeCustomer, themeSignInFields, type SiteAccount } from "./account"
 import { signInNotice } from "@/lib/website-builder/account-pages"
 import { ownedBanner } from "./owned-banner"
+import { commerceMarkup, withBodyStart, type CompatCommerce } from "./site-commerce-markup"
 
 type O = Record<string, unknown>
 
@@ -76,6 +77,20 @@ export interface SiteData {
   seo?: (pageKey: string) => { title?: string; description?: string; image?: string; noindex?: boolean } | null
   /** Storelib Reviews for a page: the shop's, and the product's on its page (lib/reviews/storefront.ts). Absent: none. */
   reviews?: (product: { id: string; title: string } | null) => Promise<O | null>
+  /**
+   * How many of a product that ships one cart may hold (lib/website-builder/
+   * compat-site.ts cartStock): each option's most, from its stock, and the
+   * product's Limit sales across its options. Null: no limit beyond sold out.
+   */
+  stock?: (productId: string) => Promise<CartStock | null>
+  /** Website settings › Commerce: the free shipping banner and the cart's returns line (./site-commerce-markup.ts). Absent: neither. */
+  commerce?: CompatCommerce
+}
+
+/** What a cart may hold of one product: by variant id (a product with one option: also by its own id), and in all. */
+export interface CartStock {
+  variants: Record<string, number>
+  perOrder: number | null
 }
 
 /** The policies a shop has, by their Shopify handle: also the page key Storelib keeps each under. */
@@ -158,6 +173,11 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const body: Record<string, unknown> = { id: req.query.get("id"), quantity: req.query.get("quantity") ?? "1" }
     return await cartAction(site, { ...req, method: "POST", body }, "add", false)
   }
+  /* A link that changes a line, as Shopify's do: /cart/change?id=<key>&quantity=0 (a line's url_to_remove) or ?line=1&quantity=2, then the cart. */
+  if (method === "GET" && path === "/cart/change" && (req.query.get("id") || req.query.get("line"))) {
+    const body: Record<string, unknown> = { quantity: req.query.get("quantity") ?? "1", ...(req.query.get("line") ? { line: req.query.get("line") } : { id: req.query.get("id") }) }
+    return await cartAction(site, { ...req, method: "POST", body }, "change", false)
+  }
   /* A cart permalink, /cart/<variant>:<quantity>,<variant>:<quantity>: those lines, straight to checkout. */
   const permalink = method === "GET" ? path.match(/^\/cart\/([^/]+:\d+(?:,[^/]+:\d+)*)$/) : null
   if (permalink) {
@@ -179,7 +199,7 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     if (method !== "POST") return json({ status: 405, message: "Method not allowed" }, 405)
     return await cartAction(site, req, action ?? "update", !!ext || (req.ajax === true && !!action))
   }
-  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true)
+  if (path === "/checkout" || path === "/cart/checkout") return checkoutHandoff(site, req.cart, true, req.note ?? "")
 
   /* ── forms ── */
   if (method === "POST" && (path === "/contact" || path === "/contact/" || (path === "/account" && String(req.body?.form_type ?? "") === "customer"))) return await formSubmit(site, req)
@@ -263,8 +283,12 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
   const sections = req.query.get("sections")
   if (sectionId) return sectionsAnswer(site, route.page, route.sections, [sectionId], false)
   if (sections) return sectionsAnswer(site, route.page, route.sections, sections.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 5), true)
-  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: route.head ? `${site.extraHead ?? ""}${route.head}` : site.extraHead, extraBodyEnd: route.bodyEnd ? `${site.extraBodyEnd ?? ""}${route.bodyEnd}` : site.extraBodyEnd, content: route.content })
-  return html(drawn.html, route.status ?? 200)
+  /* Website settings › Commerce, said with this visitor's cart (./site-commerce-markup.ts). */
+  const shop = commerceMarkup(site.commerce, site.commerce ? Number(cartObject(cartLines(site, req.cart), site.shop.currency ?? "USD").total_price) || 0 : 0)
+  const head = `${site.extraHead ?? ""}${shop.head}${route.head ?? ""}`
+  const bodyEnd = `${site.extraBodyEnd ?? ""}${route.bodyEnd ?? ""}${shop.bodyEnd}`
+  const drawn = drawPage(site.theme, route.page, route.sections, { scripts: true, extraHead: head || undefined, extraBodyEnd: bodyEnd || undefined, content: route.content })
+  return html(withBodyStart(drawn.html, shop.bodyStart), route.status ?? 200)
 }
 
 /**
@@ -1013,6 +1037,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     const added: CartEntry[] = []
     /* What was asked for, alone and at the quantity asked: what Buy it now sends to checkout. */
     const asked: CartEntry[] = []
+    const buyNow = !ajax && field(req.body, "checkout") !== undefined
     for (const item of items) {
       const hit = index.get(item.id)
       if (!hit) return error("This product is not available.", 404)
@@ -1024,6 +1049,12 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       const k = lineKey(hit.card.id, v, item.properties)
       const existing = cart.find((e) => e.k === k)
       const qty = Math.max(1, Math.min(MAX_QTY, Math.floor(item.quantity)))
+      /* More than the stock, or than Limit sales lets one order take, is refused as Shopify refuses it (422), and nothing is added. */
+      const room = await roomFor(site, hit.card.id, v, buyNow ? asked : cart)
+      if (room !== null && qty > room) {
+        const title = String(hit.card.settings.title ?? "this product")
+        return error(room <= 0 ? `You can't add more ${title} to the cart.` : `You can only add ${room} more of ${title} to the cart.`)
+      }
       asked.push({ k, p: hit.card.id, v, q: qty, ...(item.properties ? { props: item.properties } : {}) })
       if (existing) existing.q = Math.min(MAX_QTY, existing.q + qty)
       else {
@@ -1033,7 +1064,7 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
       added.push(cart.find((e) => e.k === k)!)
     }
     /* Buy it now: that item alone goes to checkout, and the cart stays as it was (Shopify's own rule). */
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, asked, false), cart: req.cart, note: req.note ?? "" }
+    if (buyNow) return { ...checkoutHandoff(site, asked, false), cart: req.cart, note: req.note ?? "" }
     if (!ajax) return redirect("/cart", { cart, note })
     const lines = (cartJson(site, cart, note).items as O[])
     const out = added.map((a) => lines.find((l) => l.key === a.k)).filter(Boolean) as O[]
@@ -1076,10 +1107,13 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
     }
     cart = cart.filter((e) => e.q > 0)
     if (typeof field(req.body, "note") === "string") note = String(field(req.body, "note")).slice(0, 500)
-    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true), cart, note }
+    cart = await heldToStock(site, cart)
+    if (!ajax && field(req.body, "checkout") !== undefined) return { ...checkoutHandoff(site, cart, true, note), cart, note }
   } else if (action === "clear") {
     cart = []
   }
+  /* A quantity typed over what is left, or over Limit sales, comes down to it, as Shopify's cart does. */
+  if (action === "change") cart = await heldToStock(site, cart)
   if (!ajax) return redirect(safeReturn(field(req.body, "return_to")) ?? "/cart", { cart, note })
   const body = cartJson(site, cart, note)
   const sections = await sectionsFor(site, req, cart, note)
@@ -1098,10 +1132,51 @@ async function cartAction(site: SiteData, req: SiteRequest, action: string, ajax
  * from this host; the theme never sees a price it could set. `whole`: the
  * whole cart (emptied once paid), not a Buy it now of one item.
  */
-function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean): SiteResponse {
+function checkoutHandoff(_site: SiteData, cart: CartEntry[], whole: boolean, note = ""): SiteResponse {
   const items = cart.map((e) => ({ productId: e.p, variantId: e.v, quantity: e.q }))
   if (!items.length) return redirect("/cart")
-  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole }))
+  /* The cart's note goes on with the lines: the checkout's "Add a note for the shop" opens with it, and the order keeps it. */
+  return redirect(siteCheckoutHref({ items, back: "/cart", wholeCart: whole, note }))
+}
+
+/**
+ * How many more of an option the cart may take: what is left of it, less
+ * what the cart already holds of it, and Limit sales less what the cart
+ * holds of the product in all. Null when the shop says nothing (a download,
+ * stock not counted, no limit).
+ */
+async function roomFor(site: SiteData, productId: string, variantId: string | null, cart: CartEntry[]): Promise<number | null> {
+  const s = site.stock ? await site.stock(productId).catch(() => null) : null
+  if (!s) return null
+  const most = s.variants[variantId ?? productId]
+  const ofOption = cart.filter((e) => e.p === productId && e.v === variantId).reduce((n, e) => n + e.q, 0)
+  const ofProduct = cart.filter((e) => e.p === productId).reduce((n, e) => n + e.q, 0)
+  const limits = [typeof most === "number" ? most - ofOption : null, s.perOrder !== null ? s.perOrder - ofProduct : null].filter((n): n is number => n !== null)
+  return limits.length ? Math.max(0, Math.min(...limits)) : null
+}
+
+/** The cart with each line brought down to what is left of it and to Limit sales, lines that come to nothing removed. */
+async function heldToStock(site: SiteData, cart: CartEntry[]): Promise<CartEntry[]> {
+  if (!site.stock || cart.length === 0) return cart
+  const ids = [...new Set(cart.map((e) => e.p))]
+  const stock = new Map(await Promise.all(ids.map(async (id) => [id, await site.stock!(id).catch(() => null)] as const)))
+  const out: CartEntry[] = []
+  for (const e of cart) {
+    const s = stock.get(e.p)
+    if (!s) {
+      out.push(e)
+      continue
+    }
+    const most = s.variants[e.v ?? e.p]
+    const before = out.filter((x) => x.p === e.p)
+    const ofOption = before.filter((x) => x.v === e.v).reduce((n, x) => n + x.q, 0)
+    const ofProduct = before.reduce((n, x) => n + x.q, 0)
+    let q = e.q
+    if (typeof most === "number") q = Math.min(q, Math.max(0, most - ofOption))
+    if (s.perOrder !== null) q = Math.min(q, Math.max(0, s.perOrder - ofProduct))
+    if (q > 0) out.push(q === e.q ? e : { ...e, q })
+  }
+  return out
 }
 
 /**

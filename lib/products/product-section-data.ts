@@ -27,6 +27,7 @@
 import { cleanStoredHtml, looksLikeHtml, plainTextToHtml } from "@/lib/rich-text/html"
 import { variantSoldOut } from "@/lib/checkout/pricing"
 import { SAY_LEFT_FROM, liveVariant, physicalStock } from "@/lib/physical/storefront-stock"
+import { productDelivery } from "@/lib/physical/storefront-facts"
 import { mediaUrl } from "@/lib/storage/media-url"
 import { uniqueImages, type ProductOptionData, type ProductSectionData, type ProductVariantData } from "./product-page-model"
 import { shownCustomFields } from "./custom-fields"
@@ -143,12 +144,14 @@ export function descriptionHtml(description: string | null | undefined): string 
  */
 export async function productSectionData(db: Db, row: ProductSectionRow, opts: { files?: boolean } = {}): Promise<ProductSectionData> {
   const type = row.type ?? ""
-  const [rawVariants, options, files, standing] = await Promise.all([
+  const [rawVariants, options, files, standing, delivery] = await Promise.all([
     readVariants(db, row.id),
     type === "physical" ? readOptions(db, row.id) : Promise.resolve([] as ProductOptionData[]),
     opts.files && type !== "physical" ? readFiles(db, row.id) : Promise.resolve([] as NonNullable<ProductSectionData["files"]>),
     /* Limit sales (lib/products/sales-limit.ts): a download's copies left, counted on the server. None for no limit, or a client that may not ask. */
     type !== "physical" ? salesStanding(db as Parameters<typeof salesStanding>[0], row.id).catch(() => null) : Promise.resolve(null),
+    /* Delivery and pickup (lib/physical/storefront-facts.ts): the cheapest delivery home and how long, the pickup points that hold each option. */
+    type === "physical" && row.creator_id ? productDelivery(db, row.creator_id, row.id) : Promise.resolve(null),
   ])
 
   const variantsLive = rawVariants.filter((v) => liveVariant({ id: v.id, name: v.name ?? "", active: v.active }))
@@ -229,6 +232,7 @@ export async function productSectionData(db: Db, row: ProductSectionRow, opts: {
     low_stock_at: [...stock.values()][0]?.lowAt ?? null,
     faqs: productFaqs(row.faqs),
     details: shownCustomFields(row.custom_fields),
+    delivery,
   }
 }
 

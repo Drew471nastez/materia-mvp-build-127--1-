@@ -19,6 +19,8 @@ interface DomainRow {
   verification_token?: string | null
   /** From app/api/domains: what it is for, where it is served, and the records it needs. */
   purpose?: string | null
+  /** The one every other website domain, and the Storelib address, send visitors to once it is live. */
+  is_primary?: boolean | null
   host?: string | null
   apex?: boolean | null
   records?: { type: string; name: string; value: string }[] | null
@@ -86,6 +88,9 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   }, [])
 
   const manage = () => ctx.onNavigate("/app/settings?tab=domains")
+  /* The address visitors end up at: the primary domain once it is live with HTTPS; the Storelib address sends them there (lib/custom-domains/subdomain-redirect.ts). */
+  const primaryLive = (domains ?? []).find((d) => (d.is_primary ?? true) && d.status === "active" && d.ssl_status !== "failed") ?? null
+  const liveHost = primaryLive ? primaryLive.host || `www.${primaryLive.domain}` : null
 
   /* ── Adding one, here ─────────────────────────────────────────────── */
   const [draft, setDraft] = useState("")
@@ -179,13 +184,18 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
   return (
     <>
       <PageTitle>Domains</PageTitle>
-      <Lead>Every address here shows your live website.</Lead>
+      <Lead>{liveHost ? `Your website is at ${liveHost}. Its other addresses send visitors there.` : "Every address here shows your live website."}</Lead>
 
       <Card title="Storelib address">
         <StorelibAddress ctx={ctx} />
         <Row label="HTTPS" inline>
           <Badge tone="live">Secured</Badge>
         </Row>
+        {liveHost ? (
+          <Row label="Visitors" hint="Pages opened here go to your domain. Checkout links already sent keep working.">
+            <span className="text-[14px] text-white/60" data-domain-redirect="">Sent to {liveHost}</span>
+          </Row>
+        ) : null}
       </Card>
 
       <Card title="Custom domain">
@@ -199,12 +209,13 @@ export function DomainSettings({ ctx }: { ctx: SettingsContext }) {
             const waiting = d.status !== "active"
             return (
               <Fragment key={d.id}>
-                <Row label={d.host || `www.${d.domain}`} hint="Primary address" inline>
+                <Row label={d.host || `www.${d.domain}`} hint={(d.is_primary ?? true) ? "Primary address" : "Sends visitors to the primary address"} inline>
                   <Badge tone={s.tone}>{s.label}</Badge>
                 </Row>
                 {d.apex !== false && (
                   <Row label={d.domain} hint="Redirects">
-                    <span className="text-[14px] text-white/60">to www.{d.domain}</span>
+                    {/* A second domain sends its visitors on to the primary one, once that is live (proxy.ts, a domain that is not primary). */}
+                    <span className="text-[14px] text-white/60">to {d.is_primary === false && liveHost ? liveHost : `www.${d.domain}`}</span>
                   </Row>
                 )}
                 <Row label="HTTPS" inline>

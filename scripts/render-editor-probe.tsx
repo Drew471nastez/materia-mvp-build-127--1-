@@ -88,6 +88,8 @@ const probeGlobals = globalThis as unknown as {
    * shopify/, as the routes answer them for such an install.
    */
   PROBE_COMPAT?: { settings: Record<string, unknown>; pages: Record<string, unknown[]>; sources: Record<string, string>; files: Record<string, string> }
+  /** Each product's stock, as /api/physical/storefront/product answers, by product id; read on every request, so a probe can change it. */
+  PROBE_STOREFRONT?: Record<string, unknown>
 }
 const compat = probeGlobals.PROBE_COMPAT
 const install = {
@@ -175,6 +177,11 @@ window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   if (/\/website-builder\/menus$/.test(url) && init?.method === "PUT") {
     ;(window as unknown as { probeMenusSaved: unknown[] }).probeMenusSaved = [...((window as unknown as { probeMenusSaved?: unknown[] }).probeMenusSaved ?? []), JSON.parse(String(init.body)).menus]
     return json({ menus: JSON.parse(String(init.body)).menus })
+  }
+  const storefront = url.match(/\/api\/physical\/storefront\/product\?productId=([^&]+)/)
+  if (storefront && probeGlobals.PROBE_STOREFRONT) {
+    const found = probeGlobals.PROBE_STOREFRONT[decodeURIComponent(storefront[1])]
+    return found ? json(found) : new Response(JSON.stringify({ error: "Not found." }), { status: 404, headers: { "content-type": "application/json" } })
   }
   /* One product, as the product route answers it, after PROBE_PRODUCT_DELAY_MS[id] (scripts/check-product-switch.mjs: the first asked answering last). */
   const one = new URL(url, location.href).searchParams.get("id")

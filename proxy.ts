@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js"
 import { NextResponse, type NextRequest } from "next/server"
 import { previewTokenFrom } from "@/lib/website-builder/preview-token"
 import { isApexHost } from "@/lib/custom-domains/hostname"
+import { domainAddress, sendsToDomain } from "@/lib/custom-domains/subdomain-redirect"
 import { quietAuthRefusals } from "@/lib/auth/quiet-refusals"
 import { onePageRoute } from "@/lib/onepage/host-route"
 import { COMMUNITY_PATH_HEADER } from "@/lib/communities/slug-move"
@@ -370,6 +371,48 @@ async function hasPublishedWebsite(username: string): Promise<boolean> {
     const { facts, failed } = await siteFactsFor(createClient(supabaseUrl, supabaseKey), lower)
     return { value: facts.published, failed }
   })
+}
+
+/**
+ * The host a website is served at on its own domain, when it has one live:
+ * its primary website domain, connected with HTTPS. Held thirty seconds a
+ * name, as the proxy's other answers are; a read that fails, or a database
+ * without the purpose and primary columns, is "none", so the Storelib
+ * address keeps serving the site.
+ */
+const websiteDomainHeld = new Map<string, { at: number; host: string | null }>()
+async function websiteDomainOf(name: string): Promise<string | null> {
+  const lower = name.toLowerCase()
+  const hit = websiteDomainHeld.get(lower)
+  if (hit && Date.now() - hit.at < 30_000) return hit.host
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supabaseUrl || !supabaseKey) return null
+  try {
+    const db = createClient(supabaseUrl, supabaseKey)
+    const { facts, failed } = await siteFactsFor(db, lower)
+    if (failed) return hit?.host ?? null
+    let host: string | null = null
+    if (facts.creatorId && facts.published) {
+      const { data, error } = await db
+        .from("custom_domains")
+        .select("domain, ssl_status")
+        .eq("creator_id", facts.creatorId)
+        .eq("purpose", "website")
+        .eq("is_primary", true)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle()
+      if (error) return hit?.host ?? null
+      const row = data as { domain?: string | null; ssl_status?: string | null } | null
+      if (row?.domain && row.ssl_status !== "failed") host = servedAt(row.domain)
+    }
+    if (websiteDomainHeld.size > 5000) websiteDomainHeld.clear()
+    websiteDomainHeld.set(lower, { at: Date.now(), host })
+    return host
+  } catch {
+    return hit?.host ?? null
+  }
 }
 
 /**
@@ -1192,6 +1235,11 @@ export async function proxy(request: NextRequest) {
       if (pathname === "/api" || pathname.startsWith("/api/")) return NextResponse.next()
       /* A Storelib Reviews request link: its own page, on the website's host (app/review/[token]). */
       if (pathname.startsWith("/review/")) return NextResponse.next()
+      /* A website with its own domain connected is at that domain: a page opened at the Storelib address is sent there (lib/custom-domains/subdomain-redirect.ts). */
+      if (sendsToDomain({ method: request.method, pathname, search, fetchDest: request.headers.get("sec-fetch-dest") })) {
+        const domain = await websiteDomainOf(subdomain)
+        if (domain) return NextResponse.redirect(domainAddress(domain, pathname, search), { status: 302 })
+      }
       /* Every question this page asks below, started together (startSiteQuestions). */
       const gateAsked = startSiteQuestions(request, subdomain, host, pathname, search, false)
       /* An imported Shopify theme answers its own addresses, its cart's /cart.js and /checkout included. */

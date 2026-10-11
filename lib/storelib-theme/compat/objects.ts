@@ -78,6 +78,20 @@ function variantOptions(name: string, optionCount: number): string[] {
   return Array.from({ length: Math.max(1, optionCount) }, (_, i) => parts[i] ?? parts[0] ?? "Default Title")
 }
 
+/** Storelib's pickup points for an option as Shopify's `variant.store_availabilities`. */
+function storeAvailabilities(points: unknown): O[] {
+  if (!Array.isArray(points)) return []
+  return points.filter((p): p is O => !!p && typeof p === "object" && typeof (p as O).name === "string").slice(0, 10).map((p) => {
+    const city = typeof p.city === "string" ? p.city : ""
+    return {
+      available: true,
+      pick_up_enabled: true,
+      pick_up_time: String(p.ready ?? ""),
+      location: { [OUTPUT]: String(p.name), name: String(p.name), address: { city, summary: city, address1: "", country: "", province: "", zip: "" } },
+    }
+  })
+}
+
 export function productObject(card: CardLike, extra: { descriptionHtml?: string; selectedVariantId?: string | null } = {}): O {
   const s = card.settings
   const title = String(s.title ?? "")
@@ -90,7 +104,7 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
   const rawVariants = Array.isArray(s.variants) ? (s.variants as O[]) : []
   const optionNames = optionsIn.length ? optionsIn.map((o) => o.name) : rawVariants.length ? ["Option"] : ["Title"]
 
-  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left }]).map((v, i) => {
+  const variants: O[] = (rawVariants.length ? rawVariants : [{ id: card.id, name: "Default Title", price: s.price, compare_price: s.compare_price, available: s.available !== false, checkout_url: s.checkout_url, left: s.left, max: s.max }]).map((v, i) => {
     const vName = String(v.name ?? "Default Title")
     const opts = variantOptions(vName, optionNames.length)
     const vPrice = v.price !== undefined && v.price !== "" ? priceCents(v.price) : price
@@ -122,11 +136,13 @@ export function productObject(card: CardLike, extra: { descriptionHtml?: string;
       image: media[0] ?? null,
       selected: false,
       matched: true,
-      quantity_rule: { min: 1, max: null, increment: 1 },
+      /* The most one order may take: what is left, held to Limit sales (lib/website-builder/compat-site.ts compatStock). A theme's quantity picker stops there. */
+      quantity_rule: { min: 1, max: typeof v.max === "number" && v.max >= 0 ? v.max : null, increment: 1 },
       quantity_price_breaks: [],
       unit_price_measurement: null,
       selling_plan_allocations: [],
-      store_availabilities: [],
+      /* The pickup points that hold this option (lib/physical/storefront-facts.ts), as Shopify's pickup availability block reads them. */
+      store_availabilities: storeAvailabilities(v.pickup),
       metafields: {},
       position: i + 1,
       /* Storelib's own checkout for this option. */
@@ -882,6 +898,8 @@ export function cartObject(lines: CartLineLike[], currency: string, note = ""): 
       has_components: false,
       quantity_rule: { min: 1, max: null, increment: 1 },
       error_message: null,
+      /* A theme's Remove link and its quantity link without a script (./site.ts answers GET /cart/change). */
+      url_to_remove: `/cart/change?id=${encodeURIComponent(l.key)}&quantity=0`,
     }]
   })
   const total = items.reduce((s, i) => s + Number(i.final_line_price), 0)

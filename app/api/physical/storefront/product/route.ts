@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { physicalApiGate } from "@/lib/physical/gate"
 import { isUuid } from "@/lib/physical/auth"
 import { liveVariant, physicalStock, type StockProduct, type StockVariant } from "@/lib/physical/storefront-stock"
+import { productDelivery } from "@/lib/physical/storefront-facts"
 import { loadLocations, loadProfiles } from "@/lib/physical/config-server"
 import { deliveryPromise, deliveryPromiseLines } from "@/lib/physical/delivery-promise"
 import { COUNTRY_CODES } from "@/lib/checkout/countries"
@@ -44,7 +45,11 @@ export async function GET(request: Request) {
   ])
   const live = ((variants ?? []) as Record<string, any>[]).filter((v) => liveVariant(v as StockVariant))
   /* Stock per variant, by the one rule the website's product section reads too (lib/physical/storefront-stock.ts). */
-  const stock = await physicalStock(db, p as StockProduct, live as StockVariant[])
+  const [stock, pickups] = await Promise.all([
+    physicalStock(db, p as StockProduct, live as StockVariant[]),
+    /* The pickup points that hold each option (lib/physical/storefront-facts.ts): a builder's canvas and an imported theme say where the chosen one can be collected. */
+    productDelivery(db, p.creator_id, p.id).then((d) => d?.pickup ?? {}).catch(() => ({}) as Record<string, never>),
+  ])
   /* Delivery, for one of the cheapest option: the buyer's country when their browser named one, else where the shop is. */
   const cheapest = [...live].sort((a, b) => Number(a.price_cents ?? 0) - Number(b.price_cents ?? 0))[0] as Record<string, any> | undefined
   const country = COUNTRY_CODES.has(asked) ? asked : (store?.defaultCountry ?? locations.find((l) => l.active)?.country ?? null)
@@ -74,6 +79,7 @@ export async function GET(request: Request) {
           soldOut,
           left,
           maxQuantity,
+          pickup: (pickups as Record<string, unknown[]>)[v.id] ?? [],
         }
       }),
     },
