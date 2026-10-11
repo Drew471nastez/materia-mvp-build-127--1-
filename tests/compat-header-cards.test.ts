@@ -7,6 +7,11 @@
  *                    /collections/all, collection_link, product_link...
  *                    It was always nil, and Horizon's featured collections
  *                    and products menus drew empty columns.
+ *   OTHER STORES'    a theme's link to a collection or product of the store
+ *   LINKS            it came from ("shopify://collections/frontpage", a
+ *                    collection setting "frontpage"; Posturex's mega menu
+ *                    cards) opened a missing page. It opens the shop's
+ *                    products; one this shop has is kept.
  *   SECTION INDEX    a section drawn alone for the Section Rendering API
  *                    has no `section.index`, as on Shopify. Horizon's header
  *                    asks for itself that way once the page has loaded and
@@ -65,6 +70,21 @@ async function main() {
     check("a collection link's object is the collection, with its products and picture", drawn.includes("(collection_link|Summer|2|"), drawn)
     check("a product link's object is the product, with its picture and price", /\(product_link\|Shirt 2\|\|[^|]*p2\.png[^|]*\|\$40\.00\)/.test(drawn), drawn)
     check("linklists reads the same objects", drawn.endsWith("|summer</div>"), drawn.slice(-80))
+  }
+
+  console.log("\nA link to a collection of the store the theme came from\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{{ content_for_layout }}</body></html>`),
+      "sections/promo.storelib": section("promo", `<a class="u" href="{{ section.settings.link }}"></a><a class="k" href="{{ section.settings.kept }}"></a><a class="p" href="{{ section.settings.product_link }}"></a><a class="c" href="{{ section.settings.collection.url }}">{{ section.settings.collection.products.size }}</a>`, [{ type: "url", id: "link" }, { type: "url", id: "kept" }, { type: "url", id: "product_link" }, { type: "collection", id: "collection" }]),
+    }
+    const theme = new CompatTheme(files, {}, { assetUrl: (n) => `/a/${n}` })
+    const ctx = theme.pageContext({ template: "index", path: "/", designMode: false, products: products as never, collections: collections as never, menus, shop: { name: "S" } })
+    const drawn = theme.renderSection(ctx, { id: "p", type: "promo", settings: { link: "shopify://collections/frontpage", kept: "shopify://collections/summer", product_link: "shopify://products/gut-relief", collection: "gut-digestion" }, hidden: false, blocks: [] }).html
+    check("a link to another store's collection opens the shop's products", drawn.includes('class="u" href="/collections/all"'), drawn)
+    check("  one this shop has is kept", drawn.includes('class="k" href="/collections/summer"'), drawn)
+    check("  another store's product: the shop's products", drawn.includes('class="p" href="/collections/all"'), drawn)
+    check("a collection setting naming another store's collection: the shop's products, linked to them", drawn.includes('class="c" href="/collections/all">3<'), drawn)
   }
 
   console.log("\nSection rendering has no section.index\n")

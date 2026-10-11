@@ -43,7 +43,8 @@ import JSZip from "jszip"
 import puppeteer, { type Frame, type Page } from "puppeteer-core"
 import sharp from "sharp"
 import { convertShopifyTheme, conversionSummary } from "../lib/storelib-theme/shopify/convert"
-import { themeOfInstall } from "../lib/storelib-theme/compat/page"
+import { drawSection, pageContextFor, sectionIndexIn, themeOfInstall, type StoredSection } from "../lib/storelib-theme/compat/page"
+import { splitCompatFile } from "../lib/storelib-theme/compat/theme"
 import { compileScss } from "../lib/storelib-theme/compat/scss"
 import { answer, canvasAccountPage, themeAsset, readCartCookie, writeCartCookie, CART_COOKIE, type SiteData } from "../lib/storelib-theme/compat/site"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "../lib/storelib-theme/compat/canvas-bridge"
@@ -149,6 +150,36 @@ async function serve(zipPath: string) {
       const doc = String(drawn.body).replace(/<head\b[^>]*>/i, (m) => `${m}<script>window.__slPath=${JSON.stringify(path)};window.__slSeed=${JSON.stringify(seed).replace(/</g, "\\u003c")};</script>${CANVAS_HEAD}`)
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" })
       res.end(`<!doctype html><style>html,body,iframe{margin:0;border:0;width:100%;height:100%;display:block}</style><iframe id="f" sandbox="allow-scripts allow-forms allow-popups"></iframe><script>window.__events=[];var f=document.getElementById("f");f.srcdoc=${JSON.stringify(doc).replace(/</g, "\\u003c")};addEventListener("message",function(e){var m=e.data;if(!m||m.storelib!==1)return;if(m.type==="live-only")__events.push(m.what);if(m.type==="navigate")(window.__nav=window.__nav||[]).push(m.href);if(m.type!=="request")return;fetch("/__canvas-answer",{method:"POST",body:JSON.stringify({m:m,path:${JSON.stringify(path)}})}).then(function(r){return r.json()}).then(function(a){a.storelib=1;a.type="response";a.id=m.id;e.source.postMessage(a,"*")})});</script>`)
+      return
+    }
+    /*
+      A section of the home page drawn again with one of its words changed,
+      as the builder draws it when a value changes in the sidebar
+      (compat-canvas.tsx syncSlot): the first text setting whose value the
+      section shows.
+    */
+    if (url.pathname === "/__redraw") {
+      const list = (pages.home ?? []) as StoredSection[]
+      const s = list.find((x) => x.id === url.searchParams.get("id"))
+      if (!s) { res.writeHead(404); res.end(); return }
+      const page = { template: "index", path: "/", designMode: true, products, collections, menus, shop: { name: "Linen & Co", currency: "USD", moneyFormat: "${{amount}}" } }
+      const ctx = pageContextFor(theme, page as never, list)
+      const group = s.group === "header" || s.group === "footer" ? s.group : undefined
+      const before = drawSection(theme, ctx, s, sectionIndexIn(list, s), group).html
+      const schema = splitCompatFile(theme.files[`sections/${theme.typeOf(s.type)}.storelib`] ?? "").schema as { settings?: { id?: string; type?: string; default?: unknown }[] } | null
+      let changed: string | null = null
+      let next = s
+      for (const f of schema?.settings ?? []) {
+        if (!f.id || !/^(text|inline_richtext|textarea)$/.test(f.type ?? "")) continue
+        const value = String((s.settings ?? {})[f.id] ?? f.default ?? "").replace(/<[^>]+>/g, "").trim()
+        if (value.length < 3 || !before.includes(value)) continue
+        changed = f.id
+        next = { ...s, settings: { ...(s.settings ?? {}), [f.id]: "W5 changed this" } }
+        break
+      }
+      const html = changed ? drawSection(theme, pageContextFor(theme, page as never, list.map((x) => (x === s ? next : x))), next, sectionIndexIn(list, s), group).html : before
+      res.writeHead(200, { "Content-Type": "application/json" })
+      res.end(JSON.stringify({ html, changed }))
       return
     }
     if (url.pathname === "/__canvas-answer") {
@@ -554,6 +585,27 @@ async function overlayChecks(page: Page, base: string, label: string, overlay: {
       check(`${where}, ${label}, ${path}: the Overlay group's ${overlay.filter((o) => !o.hidden).length} sections each drawn once, in order, none switched off drawn, no section twice`, !r.twice.length && !r.missing.length && !r.shownOff.length && r.inOrder && !r.unpickable, JSON.stringify(r))
     }
   }
+  /* A word changed in the sidebar shows in the canvas at once, in that section alone, and the page keeps working. */
+  const errors: string[] = []
+  const onError = (e: Error) => errors.push(String(e).slice(0, 160))
+  page.on("pageerror", onError)
+  const changedOk: string[] = []
+  const changedBad: string[] = []
+  for (const o of overlay.filter((x) => !x.hidden)) {
+    const r = await (await fetch(`${base}/__redraw?id=${encodeURIComponent(o.id)}`)).json() as { html: string; changed: string | null }
+    if (!r.changed) continue
+    await go(page, `${base}/__canvas?path=%2F`)
+    const frame = page.frames().find((f) => f !== page.mainFrame())!
+    errors.length = 0
+    await page.evaluate((id: string, html: string) => { const f = document.querySelector("iframe") as HTMLIFrameElement; f.contentWindow!.postMessage({ storelib: 1, type: "section", id, html }, "*") }, o.id, r.html)
+    await new Promise((res) => setTimeout(res, 1200))
+    const after = await frame.evaluate((id: string) => ({ copies: document.querySelectorAll(`[id="shopify-section-${CSS.escape(id)}"]`).length, shows: (document.getElementById(`shopify-section-${id}`)?.innerHTML ?? "").includes("W5 changed this") }), o.id)
+    if (after.copies === 1 && after.shows && errors.length === 0) changedOk.push(o.id)
+    else changedBad.push(`${o.id} (${r.changed}): ${after.copies} copies, shows ${after.shows}${errors[0] ? `, ${errors[0]}` : ""}`)
+  }
+  page.off("pageerror", onError)
+  if (changedOk.length + changedBad.length) check(`the canvas, ${label}: a word changed in an Overlay section shows at once, in that section alone, with no script error`, changedBad.length === 0, `${changedOk.length} changed${changedBad.length ? `; ${changedBad.slice(0, 3).join(" | ")}` : ""}`)
+  else console.log(`  --    the canvas, ${label}: no Overlay section shows a word of its settings`)
 }
 
 /*
@@ -577,7 +629,7 @@ async function loadingChecks(page: Page, base: string, label: string) {
     await new Promise((r) => setTimeout(r, 1500))
     const r = await page.evaluate(() => {
       const W = window as unknown as { __w5cls?: number; __w5lcp?: string }
-      const first = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 100 && b.height > 60 && b.top < innerHeight && b.bottom > 0 && i.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !i.closest("[class*='popup' i], [class*='modal' i], dialog") })
+      const first = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 100 && b.height > 60 && b.top < innerHeight && b.bottom > 0 && i.checkVisibility({ visibilityProperty: true, opacityProperty: true }) && !i.closest("[class*='popup' i], [class*='modal' i], dialog") && document.elementsFromPoint(Math.min(innerWidth - 1, Math.max(0, b.left + b.width / 2)), Math.min(innerHeight - 1, Math.max(0, b.top + Math.min(b.height / 2, (innerHeight - b.top) / 2)))).includes(i) })
       const lazyFirst = first.filter((i) => i.loading === "lazy" && !(i.complete && i.naturalWidth)).map((i) => (i.currentSrc || i.src).split("/").pop()?.slice(0, 40))
       const unsized = [...document.images].filter((i) => { const b = i.getBoundingClientRect(); return b.width > 40 && !i.getAttribute("width") && !i.getAttribute("height") && getComputedStyle(i).aspectRatio === "auto" && getComputedStyle(i).position !== "absolute" && !/(%|vw|vh)/.test(i.style.height) }).length
       return { cls: W.__w5cls ?? -1, lcp: W.__w5lcp ?? "", lazyFirst, unsized }

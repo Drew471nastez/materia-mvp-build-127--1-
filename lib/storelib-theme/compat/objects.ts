@@ -530,7 +530,8 @@ export function collectionByHandle(r: Resources, handle: string): O | null {
   const products = (col: CollectionLike) => (col.products ?? []).map((p) => productById(r, p.id) ?? productObject(p))
   if (c) return collectionObject(c, products)
   if (!handle || r.products.length === 0) return null
-  const all: CollectionLike = { id: handle === "all" ? "all" : `all-${handle}`, title: handle === "all" ? "Products" : handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase()), handle, url: handle === "all" ? "/collections/all" : `/collections/${handle}`, products: r.products, products_count: r.products.length }
+  /* A collection of the store the theme came from: the shop's products stand in, and its link opens them (/collections/<its handle> is a page this site does not have). */
+  const all: CollectionLike = { id: handle === "all" ? "all" : `all-${handle}`, title: handle === "all" ? "Products" : handle.replace(/[-_]+/g, " ").replace(/^./, (x) => x.toUpperCase()), handle, url: "/collections/all", products: r.products, products_count: r.products.length }
   return collectionObject(all, products)
 }
 
@@ -624,8 +625,22 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
     case "article":
     case "metaobject":
       return null
-    case "url":
-      return typeof value === "string" ? shopifyAddress(value) : value ?? ""
+    case "url": {
+      if (typeof value !== "string") return value ?? ""
+      const address = shopifyAddress(value)
+      /*
+        A collection or a product of the store the theme came from
+        ("shopify://collections/frontpage"): this shop has none of that
+        name, and the link opened a missing page. The shop's products.
+      */
+      if (value.startsWith("shopify://")) {
+        const collection = address.match(/^\/collections\/([^/?#]+)$/)?.[1]
+        if (collection && collection !== "all" && r.products.length && !r.collections.some((c) => c.handle === collection || c.id === collection)) return "/collections/all"
+        const product = address.match(/^\/products\/([^/?#]+)$/)?.[1]
+        if (product && r.products.length && !productById(r, product)) return "/collections/all"
+      }
+      return address
+    }
     default:
       return value ?? (["text", "textarea", "richtext", "inline_richtext", "html", "url", "liquid", "select", "radio", "text_alignment"].includes(type) ? "" : null)
   }
