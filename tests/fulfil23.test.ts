@@ -46,6 +46,7 @@ import { lowStockKey, mergeLowItems, queueLowStockAlerts } from "@/lib/physical/
 import { moveReturn, noteRefund, openReturn, returnForRefund, updateShipment } from "@/lib/physical/orders-server"
 import { emailIdForJob } from "@/lib/emails/customer-custom"
 import { returnFactsHtml } from "@/lib/website-builder/site-commerce"
+import { lowStockLine } from "@/lib/physical/storefront-stock"
 import type { Location, ShippingProfile, ShippingRate } from "@/lib/physical/types"
 
 let passed = 0
@@ -302,6 +303,14 @@ async function main() {
     const pod = deliveryPromise({ profiles, profileId: null, country: "RO", priceCents: 2500, weightGrams: 400, locations: [studio], shipsItself: false })
     check("a printed on demand product offers no pickup or local delivery", pod.pickups.length === 0 && !pod.localDelivery)
     check("the product route sends it and the buy box draws it", /delivery: promise \? \{ \.\.\.promise, lines: deliveryPromiseLines\(promise\) \}/.test(read("app/api/physical/storefront/product/route.ts")) && /data-delivery-promise/.test(read("components/physical/buy-box.tsx")))
+  }
+
+  section("Stock per location and the low stock line")
+  {
+    check("the line is the product's own, else the shop's (Settings > Locations, Low stock)", lowStockLine(3, 8) === 3 && lowStockLine(null, 8) === 8)
+    check("Inventory's Low filter reads the same line per product", /lowStockThreshold: p\.low_stock_threshold \?\? lowStockDefault/.test(read("lib/physical/inventory-server.ts")) && /view === "low"\) return r\.trackInventory && l\.available > 0 && l\.available <= r\.lowStockThreshold/.test(read("app/app/inventory/inventory-client.tsx")))
+    check("Only N left on the product page comes from the same line", /lowStockLine\(product\.low_stock_threshold, shopLine\)/.test(read("lib/physical/storefront-stock.ts")) && /Only \{variant\.left\} left/.test(read("components/physical/buy-box.tsx")))
+    check("the checkout only sells a location's own stock, and holds it there", /levelOf\.get\(`\$\{v\.id\}:\$\{locationId\}`\)/.test(read("lib/physical/checkout-pricing-server.ts")) && /physical_reserve/.test(read("lib/physical/checkout-server.ts")))
   }
 
   section("Low stock: one email a day at most, listing what sold down")
