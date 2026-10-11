@@ -22,7 +22,7 @@
  *   removed, hidden) or to the theme's settings draws the page again, where
  *   it was scrolled to.
  */
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { CANVAS_BRIDGE, CANVAS_HEAD } from "@/lib/storelib-theme/compat/canvas-bridge"
 import { answerInCanvas, canvasPages, type CanvasCart } from "@/lib/storelib-theme/compat/canvas-cart"
 import { CANVAS_SHOWN, canvasInsets } from "@/lib/storelib-theme/compat/canvas-network"
@@ -73,6 +73,19 @@ export interface CompatCanvasProps {
   onLiveOnly?: (what: "checkout" | "account") => void
   /** The theme's first page has painted: the editor's loader over the canvas can go (editor page.tsx, compatFirstPaint). */
   onPainted?: () => void
+  /**
+   * False while the install's .storelib files (its layout and its sections)
+   * are still being read. The page is drawn from them, so it is not drawn
+   * before: drawn from the theme's other files alone it was a white page,
+   * shown, and then the real page loaded again over it.
+   */
+  sourcesReady?: boolean
+  /**
+   * False while the shop's product cards are still on their way: the first
+   * page waits for them (DATA_WAIT_MS at most) rather than being drawn with
+   * stand-ins and its product sections drawn again a moment after it lands.
+   */
+  dataReady?: boolean
 }
 
 /*
@@ -84,8 +97,27 @@ export interface CompatCanvasProps {
 const canvasCarts = new Map<string, CanvasCart>()
 const canvasStorage = new Map<string, Record<string, Record<string, string>>>()
 
-/** From the page saying it is ready to the placeholder going, unless its pictures are all in first. */
-const FIRST_PAINT_MS = 250
+/*
+  ═══════════════════════════════════════════════════════════════════════
+   THE FIRST PAGE IS SHOWN WITH ITS FIRST SCREEN IN
+  ═══════════════════════════════════════════════════════════════════════
+  The loader came off 250ms after the page said it was ready, before its
+  pictures had arrived: the page landed and its pictures popped in one by
+  one over it ("the images flash"). A picture in the canvas is never in the
+  browser's cache (the frame has no origin of its own, so nothing it loads
+  is kept for the next frame), so that was every time. Now the loader comes
+  off when the page says its first screen is in ("loaded", canvas-network.ts:
+  fonts, and the pictures on the first screen arrived and decoded), and
+  never later than FIRST_PAINT_MS after it said it was ready.
+*/
+const FIRST_PAINT_MS = 1200
+/** The longest the first page waits for the shop's product cards (dataReady) once everything else is in. */
+const DATA_WAIT_MS = 1200
+/**
+  The page being left fades off the one arriving, this long. Short: the new
+  page is already whole under it, so this is a hand over, not a wait.
+*/
+const HANDOVER_MS = 180
 
 /*
   ═══════════════════════════════════════════════════════════════════════
@@ -161,7 +193,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
     return () => ro.disconnect()
   }, [])
 
-  const rows = useMemo(() => (compatFiles ? { ...sources, ...compatFiles } : null), [sources, compatFiles])
+  /* Not before the install's own .storelib files are in (sourcesReady): the page is drawn from them. */
+  const sourcesReady = props.sourcesReady !== false
+  const rows = useMemo(() => (compatFiles && sourcesReady ? { ...sources, ...compatFiles } : null), [sources, compatFiles, sourcesReady])
   const compatTheme = useMemo(() => {
     if (!rows) return null
     const media = assetAddresses(rows)
@@ -285,6 +319,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
+  const paintedRef = useRef(painted)
+  paintedRef.current = painted
   const onPainted = useRef(props.onPainted)
   onPainted.current = props.onPainted
   const shown = painted && slots.length > 0
@@ -352,18 +388,37 @@ export function CompatCanvas(props: CompatCanvasProps) {
   }
   useEffect(() => () => cancelRedraw(), [])
 
+  /*
+    THE FIRST PAGE IS DRAWN ONCE, WITH THE SHOP IN IT. The product cards
+    come from their own request, and a page drawn before they arrived was
+    drawn again when they did: a second page loaded behind the first while
+    it was still appearing, or its product sections swapped out a moment
+    after it had landed. The first page waits for them (dataReady), never
+    longer than DATA_WAIT_MS once the theme itself can be drawn.
+  */
+  const [dataWaitOver, setDataWaitOver] = useState(false)
+  const holdForData = props.dataReady === false && !dataWaitOver && slots.length === 0
   useEffect(() => {
-    if (!compatTheme) return
+    if (!compatTheme || !holdForData) return
+    const t = window.setTimeout(() => setDataWaitOver(true), DATA_WAIT_MS)
+    return () => window.clearTimeout(t)
+  }, [compatTheme, holdForData])
+
+  useEffect(() => {
+    if (!compatTheme || holdForData) return
     const run = () => drawAndPatch()
     if (isLive()) { scheduleRedraw(run); return }
     cancelRedraw()
     runRedraw(run)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape, docKey, accountPath, attempt])
+  }, [compatTheme, page, shape, docKey, accountPath, attempt, holdForData])
 
+  /* A change arrived for the page in front while it was loading: drawn again and sent to it when it is ready. */
+  const stale = useRef(false)
   /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
   const drawAndPatch = () => {
     if (!compatTheme) return
+    stale.current = false
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
     /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
@@ -386,7 +441,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const next = docShape(html)
     const plan = now.key === docKey ? planPatch(now.shape, next) : null
     const win = frontWindow()
-    if (!plan || !win || !now.ready) {
+    /*
+      THE SAME PAGE, NOT READY YET: CHANGED WHEN IT IS. A change that came in
+      while the page on screen was still loading (the shop's cards, the
+      store's name) loaded a whole second copy of the page behind it, which
+      then replaced the first as it was appearing: every picture asked for
+      again, the entrance played again. It is sent to this page in place as
+      soon as it says it is ready ("ready" below), before it is shown.
+    */
+    if (plan && !now.ready) {
+      stale.current = true
+      return
+    }
+    if (!plan || !win) {
       loadBehind(html, docKey, list)
       return
     }
@@ -400,6 +467,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* A page that changed behind this one is out of date too: drawn again from now. */
     if (slotsRef.current[1]) loadBehind(html, docKey, list)
   }
+
+  const drawAndPatchRef = useRef(drawAndPatch)
+  drawAndPatchRef.current = drawAndPatch
 
   /*
     A section's settings or blocks changed: that section, drawn again and
@@ -535,44 +605,74 @@ export function CompatCanvas(props: CompatCanvasProps) {
   answerRequestRef.current = answerRequest
   /*
     ═══════════════════════════════════════════════════════════════════════
-     THE PAGE BEHIND TAKES THE FRONT'S PLACE IN ONE FRAME, FULLY DRAWN
+     THE PAGE BEHIND COMES FORWARD WHOLE, AND ARRIVES AS THE WEBSITE'S DOES
     ═══════════════════════════════════════════════════════════════════════
     Another page opened from a link in the canvas or from the page list was
     shown four ways at once (filmed in scripts/check-canvas20.ts, About to
-    Home on the Posturex fixture): the editor dimmed the page being left
-    the moment the new page's sections arrived; the new page's frame waited
+    Home on the Posturex fixture): the editor dimmed the page being left the
+    moment the new page's sections arrived; the new page's frame waited
     behind with `visibility: hidden`, where the browser does not draw it and
-    runs none of its animation frames, so it came forward unpainted; then it
-    faded in over the old one for 200ms, the two pages on top of each other,
-    with the theme's entrance (a hero rising into place) still to play.
+    runs none of its animation frames, so it came forward unpainted.
 
-    Now the page behind is drawn UNDER the one in front, visible to the
-    browser and covered by the front, so it lays itself out, its pictures
-    decode, its scripts start and its entrance runs, all out of sight. It
-    says when its first screen is finished (canvas-network.ts, CANVAS_SHOWN:
-    fonts, pictures in and decoded, entrance done), it is put where it should
-    be scrolled to and says it is there ("settled"), and then the page in
-    front is taken away: the next frame is the new page, whole. No fade, so
-    never two pages at once; the page being left is untouched until then.
+    So the page behind is drawn UNDER the one in front, visible to the
+    browser and covered by the front: it lays itself out, its fonts load,
+    the pictures on its first screen arrive and decode, its scripts start.
+    It says when its first screen is in (canvas-network.ts, CANVAS_SHOWN),
+    it is put where it should be scrolled to and says it is there
+    ("settled"), and then it comes forward.
+
+    It used to come forward as a cut, with its entrance already finished
+    for it out of sight: the page landed flat, "too direct", nothing of the
+    theme's own arrival (the hero fading up, the sections rising) that the
+    live site plays. Now the page being left fades off it (HANDOVER_MS, the
+    page under it already whole, so nothing white and nothing half drawn
+    shows through), and the page arriving is told it is shown ("shown"),
+    which plays its first screen's entrance from the beginning where it can
+    be seen, as the website does when the page opens.
   */
+  /* The page being left, over the one that came forward, while it fades off it. */
+  const [handover, setHandover] = useState<Slot | null>(null)
   const promote = (n: number) => {
     /*
       The page that comes forward is drawn: the outline goes with it. A first
       page replaced by a newer one before it had said it was ready left the
       outline up over a page that was there all along.
     */
-    if (slotsRef.current.some((x, i) => i > 0 && x.n === n)) setPainted(true)
+    const list = slotsRef.current
+    const at = list.findIndex((x) => x.n === n)
+    if (at <= 0) return
+    if (paintedRef.current && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
+    setPainted(true)
     setSlots((prev) => {
-      const at = prev.findIndex((x) => x.n === n)
-      return at <= 0 ? prev : prev.slice(at)
+      const i = prev.findIndex((x) => x.n === n)
+      return i <= 0 ? prev : prev.slice(i)
     })
   }
+  /* Fades the page being left off the one under it, then lets it go. */
+  useLayoutEffect(() => {
+    if (!handover) return
+    const el = frames.current.get(handover.n)
+    const done = () => setHandover((h) => (h === handover ? null : h))
+    if (!el || typeof el.animate !== "function") return done()
+    const a = el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: HANDOVER_MS, easing: "cubic-bezier(0.4, 0, 0.2, 1)", fill: "forwards" })
+    a.finished.then(done, done)
+    return () => a.cancel()
+  }, [handover])
   /* The page in front changed: the editor's sections panel swaps its list in the same frame. */
   const onPageShown = useRef(props.onPageShown)
   onPageShown.current = props.onPageShown
   const frontPage = slots[0]?.page ?? null
   const frontN = slots[0]?.n ?? 0
   useEffect(() => { if (frontPage) onPageShown.current?.(frontPage) }, [frontPage, frontN])
+  /*
+    THE PAGE IN FRONT IS TOLD WHEN IT CAN BE SEEN: the first page as the
+    loader comes off it, a page that came forward as it does. Its first
+    screen's entrance plays from the beginning there (canvas-network.ts).
+  */
+  useEffect(() => {
+    if (!shown || !frontN) return
+    frames.current.get(frontN)?.contentWindow?.postMessage({ storelib: 1, type: "shown" }, "*")
+  }, [shown, frontN])
   /*
     A LINK PRESSED TO ANOTHER PAGE LEAVES THE PAGE IN FRONT STILL. Until the
     next page is drawn, the page being left takes no pointer: on the video a
@@ -605,6 +705,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
           which was most of what the placeholder cost on a quick load.
         */
         if (isFront) setTimeout(() => setPainted(true), FIRST_PAINT_MS)
+        /* A change that came in while it loaded, sent now, before it is shown. */
+        if (isFront && stale.current) drawAndPatchRef.current()
         syncSlot(slot)
         win.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
         /* A page behind that never says it has loaded still comes forward. */
@@ -758,7 +860,12 @@ export function CompatCanvas(props: CompatCanvasProps) {
             front. Under the front frame (opaque, white) it is drawn exactly
             as it will be seen and is covered until the front is taken away.
           */}
-          {[...slots].sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
+          {/*
+            THE PAGE BEING LEFT, while it fades off the page that came forward
+            (handover): over it, taking no pointer, still the same frame in the
+            same place, so nothing about it loads again.
+          */}
+          {(handover && !slots.some((x) => x.n === handover.n) ? [...slots, handover] : [...slots]).sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
             <iframe
               key={slot.n}
               ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
@@ -766,11 +873,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
               srcDoc={slot.html}
               onLoad={() => onFrameLoad(slot.n)}
               sandbox="allow-scripts allow-forms allow-popups"
-              data-compat-frame={i === 0 ? "front" : "behind"}
+              data-compat-frame={i === 0 ? "front" : i < 0 ? "leaving" : "behind"}
               aria-hidden={i === 0 ? undefined : true}
               tabIndex={i === 0 ? undefined : -1}
               className="absolute inset-0 block h-full w-full border-0 bg-white"
-              style={i === 0 ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : { zIndex: 0, pointerEvents: "none" }}
+              style={i === 0 ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : i < 0 ? { zIndex: 2, pointerEvents: "none" } : { zIndex: 0, pointerEvents: "none" }}
             />
           ) })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
