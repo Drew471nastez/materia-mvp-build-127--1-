@@ -9,6 +9,7 @@
  */
 
 import type { DeliveryMethod, FulfillmentStatus, PaymentStatus, ReturnStatus, ShipmentStatus } from "./types"
+import { CARRIER_NAMES, carrierTrackingUrl } from "./carriers"
 
 export type Tone = "green" | "blue" | "amber" | "red" | "gray"
 
@@ -144,27 +145,13 @@ export const TONE_CLASS: Record<Tone, string> = {
   gray: "bg-[#f1f2f4] text-[#4b5563]",
 }
 
-/** A tracking link for the carriers buyers see most; anything else shows the number alone. */
+/** A tracking link for the carriers buyers see most (./carriers.ts); anything else shows the number alone. */
 export function trackingUrl(carrier: string | null | undefined, number: string | null | undefined): string | null {
-  const n = (number ?? "").trim()
-  if (!n || !/^[A-Za-z0-9-]{4,40}$/.test(n)) return null
-  const c = (carrier ?? "").toLowerCase().replace(/[^a-z]/g, "")
-  const q = encodeURIComponent(n)
-  if (c === "usps") return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${q}`
-  if (c === "ups") return `https://www.ups.com/track?tracknum=${q}`
-  if (c === "fedex") return `https://www.fedex.com/fedextrack/?trknbr=${q}`
-  if (c === "dhl" || c === "dhlexpress") return `https://www.dhl.com/global-en/home/tracking/tracking-express.html?tracking-id=${q}`
-  if (c === "royalmail") return `https://www.royalmail.com/track-your-item#/tracking-results/${q}`
-  if (c === "canadapost") return `https://www.canadapost-postescanada.ca/track-reperage/en#/search?searchFor=${q}`
-  if (c === "auspost" || c === "australiapost") return `https://auspost.com.au/mypost/track/#/details/${q}`
-  if (c === "fancourier") return `https://www.fancourier.ro/awb-tracking/?tracking=${q}`
-  if (c === "sameday") return `https://sameday.ro/#awb=${q}`
-  if (c === "dpd") return `https://tracking.dpd.de/status/en_US/parcel/${q}`
-  if (c === "gls") return `https://gls-group.com/track/${q}`
-  return null
+  return carrierTrackingUrl(carrier, number)
 }
 
-export const CARRIERS = ["USPS", "UPS", "FedEx", "DHL Express", "Royal Mail", "Canada Post", "Australia Post", "DPD", "GLS", "FAN Courier", "Sameday", "Other"]
+/** What the seller picks from when marking an order shipped, Other last. */
+export const CARRIERS = CARRIER_NAMES
 
 /** What buyers and the merchant call an order: short, stable, from its id. */
 export function orderNumber(checkoutId: string): string {

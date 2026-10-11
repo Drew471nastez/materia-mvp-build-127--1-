@@ -56,6 +56,25 @@ export interface StorelibOrder {
   item_count: number
   action_label: string
   action_url: string
+  /** Something that ships (lib/site-accounts/account-data): where it is, its parcels and its order page on this website. */
+  fulfillment_status?: string
+  tracking?: { company: string; number: string; url: string; status: string }[]
+  order_url?: string
+}
+
+/** Shopify's three fulfilment words, from the order page's own (lib/physical/status). */
+function shopifyFulfillment(o: StorelibOrder): string {
+  switch (o.fulfillment_status) {
+    case "fulfilled":
+    case "delivered":
+      return "fulfilled"
+    case "partially_fulfilled":
+      return "partial"
+    case undefined:
+      return /shipped|delivered|complete/i.test(o.status) ? "fulfilled" : "unfulfilled"
+    default:
+      return "unfulfilled"
+  }
 }
 
 /** One order with its files, as lib/site-accounts/order-files.ts reads it for /account/orders/<id>. */
@@ -101,19 +120,31 @@ export function themeCustomer(c: StorelibCustomer): O {
   const [first, ...rest] = name ? name.split(/\s+/) : [""]
   const orders = (c.orders ?? []).map((o) => {
     const [financial_status, financial_status_label] = /refund/i.test(o.status) && o.state === "open" ? ["partially_refunded", "Partially refunded"] : (FINANCIAL[o.state] ?? ["paid", "Paid"])
-    const shipped = /shipped|delivered|complete/i.test(o.status)
     const cents = Number.isFinite(o.total_cents) ? Number(o.total_cents) : 0
-    const line_items = o.items.map((it, i) => ({ id: `${o.id}-${i}`, title: it.title, product_title: it.title, variant_title: it.variant || null, quantity: 1, image: it.image || null, url: it.url, product: { title: it.title, url: it.url, featured_image: it.image || null } }))
+    /* line_item.fulfillment, as Shopify's order templates read it: the parcels' carrier, numbers and links. */
+    const parcels = o.tracking ?? []
+    const fulfillment = parcels.length
+      ? {
+          tracking_company: parcels[0].company || null,
+          tracking_number: parcels[0].number,
+          tracking_url: parcels[0].url || null,
+          tracking_numbers: parcels.map((t) => t.number),
+          tracking_urls: parcels.map((t) => t.url).filter(Boolean),
+          fulfillment_status: shopifyFulfillment(o),
+        }
+      : null
+    const line_items = o.items.map((it, i) => ({ id: `${o.id}-${i}`, title: it.title, product_title: it.title, variant_title: it.variant || null, quantity: 1, image: it.image || null, url: it.url, product: { title: it.title, url: it.url, featured_image: it.image || null }, fulfillment }))
+    const cancelled = o.fulfillment_status === "cancelled"
     return {
       id: o.id,
       name: `#${o.number}`,
       order_number: o.number,
       created_at: o.created_at || o.date,
-      /* An order's own page is its receipt, which is also where its files are (lib/receipts). */
-      customer_url: o.action_url || "/account",
+      /* An order's own page: for something that ships its order page here (status and tracking), else its receipt, which is also where its files are (lib/receipts). */
+      customer_url: o.order_url || o.action_url || "/account",
       financial_status,
       financial_status_label,
-      fulfillment_status: shipped ? "fulfilled" : "unfulfilled",
+      fulfillment_status: shopifyFulfillment(o),
       fulfillment_status_label: o.status,
       total_price: cents,
       total_net_amount: cents,
@@ -122,7 +153,7 @@ export function themeCustomer(c: StorelibCustomer): O {
       line_items,
       line_items_count: line_items.length,
       item_count: o.item_count,
-      cancelled: false,
+      cancelled,
       cancelled_at: null,
       storelib_total: o.total,
       storelib_action_label: o.action_label,
@@ -192,6 +223,8 @@ export const ACCOUNT_STYLE = `<style data-storelib-account>
 .sl-acc .sl-acc__thumb{flex:none;width:48px;height:48px;border-radius:4px;overflow:hidden;background:color-mix(in srgb,currentColor 8%,transparent)}
 .sl-acc .sl-acc__thumb img{display:block;width:100%;height:100%;object-fit:cover}
 .sl-acc .sl-acc__go{flex:none;width:auto}
+.sl-acc .sl-acc__track{list-style:none;margin:12px 0 0;padding:0;font-size:.9em;overflow-wrap:anywhere}
+.sl-acc .sl-acc__track .sl-acc__link{min-height:32px}
 .sl-acc .sl-acc__rows{display:flex;flex-direction:column}
 .sl-acc .sl-acc__prow{display:grid;grid-template-columns:88px minmax(0,1fr) auto;align-items:center;gap:12px;min-height:56px;border-bottom:1px solid color-mix(in srgb,currentColor 15%,transparent)}
 .sl-acc .sl-acc__prow .sl-acc__input{margin:0}
@@ -272,7 +305,13 @@ export function accountContent(c: StorelibCustomer, v: AccountView = {}): string
               return `<li>${it.url ? `<a class="sl-acc__item" href="${esc(it.url)}">${inner}</a>` : `<div class="sl-acc__item">${inner}</div>`}</li>`
             })
             .join("")
-          return `<li class="sl-acc__order"><div class="sl-acc__order-head"><div><p><strong>${esc(o.date)}</strong></p><p class="sl-acc__muted">Order #${esc(o.number)}</p></div><p>${esc(o.status)}</p></div><ul class="sl-acc__items">${items}</ul><div class="sl-acc__order-foot"><p><span class="sl-acc__muted">Total</span> <strong>${esc(o.total)}</strong></p>${o.action_url ? `<a class="sl-acc__link" href="${esc(o.action_url)}">${esc(o.action_label)}</a>` : ""}</div></li>`
+          const parcels = (o.tracking ?? [])
+            .map((t) => {
+              const label = `${t.company ? `${esc(t.company)} ` : ""}${esc(t.number)}`
+              return `<li><strong>${esc(t.status)}</strong> ${t.url ? `<a class="sl-acc__link" href="${esc(t.url)}" target="_blank" rel="noopener">${label}</a>` : label}</li>`
+            })
+            .join("")
+          return `<li class="sl-acc__order"><div class="sl-acc__order-head"><div><p><strong>${esc(o.date)}</strong></p><p class="sl-acc__muted">Order #${esc(o.number)}</p></div><p>${esc(o.status)}</p></div><ul class="sl-acc__items">${items}</ul>${parcels ? `<ul class="sl-acc__track">${parcels}</ul>` : ""}<div class="sl-acc__order-foot"><p><span class="sl-acc__muted">Total</span> <strong>${esc(o.total)}</strong></p>${o.action_url ? `<a class="sl-acc__link" href="${esc(o.action_url)}">${esc(o.action_label)}</a>` : ""}</div></li>`
         })
         .join("")}</ol>`
     : `<p class="sl-acc__empty">No orders yet. <a class="sl-acc__link" href="/collections/all">Browse the shop</a></p>`

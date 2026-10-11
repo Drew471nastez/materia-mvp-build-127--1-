@@ -21,6 +21,7 @@ import { applyInventory } from "./inventory-server"
 import { queueCancelledEmail, queueRefundEmail, queueReturnEmail, queueShipmentEmail } from "./jobs-server"
 import { canMoveShipment, fulfillmentStatusOf, refundReleasesStock, returnStatusOf, returnableQuantities, trackingUrl, unfulfilledQuantities, type LineProgress } from "./status"
 import { readMethod } from "./fulfillment"
+import { normaliseTrackingNumber } from "./carriers"
 import type { DeliveryMethod, FulfillmentMethod, FulfillmentStatus, PaymentStatus, PickupReady, ReturnStatus, ShipmentStatus } from "./types"
 import { acceptedReason, reasonLabel } from "@/lib/store/reasons"
 import { reasonsFor } from "@/lib/store/reasons-server"
@@ -238,7 +239,8 @@ export async function loadOrder(db: Db, where: { creatorId: string; checkoutId: 
       carrier: f.carrier,
       service: f.service,
       trackingNumber: f.tracking_number,
-      trackingUrl: f.tracking_url,
+      /* A shipment saved before its carrier had a link still gets one when the carrier is known now. */
+      trackingUrl: f.tracking_url ?? trackingUrl(f.carrier, f.tracking_number),
       shippedAt: f.shipped_at,
       deliveredAt: f.delivered_at,
       createdAt: f.created_at,
@@ -319,7 +321,7 @@ export async function fulfilItems(
   }
   const pickup = order.deliveryMethod === "pickup"
   const carrier = pickup ? null : cleanText(input.carrier, 40)
-  const tracking = pickup ? null : cleanText(input.trackingNumber, 60)
+  const tracking = pickup ? null : normaliseTrackingNumber(cleanText(input.trackingNumber, 80))
   if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
   let url = pickup ? null : cleanText(input.trackingUrl, 500)
   if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }
@@ -384,7 +386,7 @@ export async function updateShipment(
   const trackingChanged = "trackingNumber" in input || "carrier" in input || "trackingUrl" in input
   if (trackingChanged) {
     const carrier = "carrier" in input ? cleanText(input.carrier, 40) : f.carrier
-    const tracking = "trackingNumber" in input ? cleanText(input.trackingNumber, 60) : f.tracking_number
+    const tracking = "trackingNumber" in input ? normaliseTrackingNumber(cleanText(input.trackingNumber, 80)) : f.tracking_number
     if (tracking && !/^[A-Za-z0-9-]{4,60}$/.test(tracking)) return { ok: false, error: "Check the tracking number." }
     let url = "trackingUrl" in input ? cleanText(input.trackingUrl, 500) : null
     if (url && !/^https:\/\/[^\s"'<>]+$/.test(url)) return { ok: false, error: "The tracking link must start with https://." }

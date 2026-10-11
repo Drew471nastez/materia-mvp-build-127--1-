@@ -33,8 +33,9 @@ import { METHODS, readMethod } from "./fulfillment"
 import { PICKUP_READY_LABEL } from "./pickup"
 import type { PickupReady } from "./types"
 import { deliveryEstimate } from "./rates"
-import { orderNumber } from "./status"
+import { orderNumber, trackingUrl } from "./status"
 import { openSecret } from "./secrets"
+import { orderPageUrl } from "./order-link-server"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
@@ -249,6 +250,8 @@ interface CheckoutForEmail {
   buyer_note: string | null
   delivery_method?: string | null
   pickup?: { name: string; address: string[]; instructions: string | null; ready: string } | null
+  /** Where it was placed (lib/orders/order-source OrderOrigin): a website's host in `site`. */
+  origin?: Record<string, unknown> | null
 }
 
 function pickupOf(co: CheckoutForEmail) {
@@ -278,9 +281,6 @@ function paymentLabelOf(row: { payment_method?: string | null; card_brand?: stri
   return named[row.payment_method] ?? row.payment_method.replace(/_/g, " ")
 }
 
-function statusUrl(token: string): string {
-  return `https://${getMainDomain()}/checkout/physical/order/${encodeURIComponent(token)}`
-}
 
 function emailLines(lines: Record<string, any>[]): EmailLine[] {
   return lines.map((l) => ({
@@ -327,7 +327,8 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
   const shopName = store.name || identity.fromName || "Storelib"
   const firstName = co.buyer_name ? co.buyer_name.split(/\s+/)[0] : null
   const number = orderNumber(co.id)
-  const orderUrl = statusUrl(co.receipt_token)
+  /* On the store's own website when it has one (the one the order was placed on first), else storelib.com: ./order-link.ts. */
+  const orderUrl = await orderPageUrl(db, co)
   /* The store's logo and ways to reach it, on every email; "Get help" goes to the order page's help form. */
   const brand: EmailBrand = { logoUrl: store.logoUrl, email: store.email, phone: store.phone, websiteUrl: store.websiteUrl, helpUrl: `${orderUrl}#get-help` }
   let mail: { subject: string; html: string; text: string }
@@ -387,7 +388,7 @@ async function sendBuyerEmail(db: Db, p: Record<string, any>): Promise<void> {
         lines: shipped,
         carrier: f.carrier,
         trackingNumber: f.tracking_number,
-        trackingUrl: f.tracking_url,
+        trackingUrl: f.tracking_url ?? trackingUrl(f.carrier, f.tracking_number),
         address: addressOf(co.shipping_address),
         deliveryName: co.shipping_rate?.name ?? null,
         partial: p.kind === "shipped" && owed > 0 && sent < owed,

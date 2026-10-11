@@ -349,6 +349,12 @@ function accountPage(site: SiteData, req: SiteRequest, path: string): Route {
     return shell(site, req, path, "Account", accountContent(customer, { notice, edit }), "customers/account")
   }
   if (path === "/account/addresses") return shell(site, req, path, "Addresses", addressesContent(customer), "customers/addresses")
+  /* An order that ships: its order page on this website, with the status and the tracking (app/checkout/physical/order). */
+  const shipped = path.match(/^\/account\/orders\/([^/]+)\/?$/)
+  if (shipped) {
+    const own = (customer.orders ?? []).find((o) => o.id === shipped[1])
+    if (own?.order_url && own.action_label === "Track order") return { ...shell(site, req, path, "Account", ""), redirect: own.order_url }
+  }
   /* An order with files: its own page here, each file downloaded on this website (lib/site-accounts/order-files.ts). */
   if (/^\/account\/orders\/[^/]+\/?$/.test(path) && req.account?.order) {
     const o = req.account.order
