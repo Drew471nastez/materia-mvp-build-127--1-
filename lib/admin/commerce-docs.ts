@@ -285,7 +285,7 @@ export const COMMERCE_DOCS: DocSection[] = [
     intro:
       "Storelib charges the tax a store sets and nothing more: no automatic rates. A buyer whose address is in no tax region pays no tax. Both checkouts and the server that takes the payment work the tax out the same way.",
     where: SETTINGS("taxes", "Taxes"),
-    help: ["taxes", "tax-and-units"],
+    help: ["taxes", "units-and-packages"],
     code: ["components/app/settings/taxes-panel.tsx", "lib/tax/rules.ts", "lib/tax/server.ts", "app/api/checkout/site/route.ts", "app/api/checkout/stripe-session/route.ts"],
     topics: [
       {
