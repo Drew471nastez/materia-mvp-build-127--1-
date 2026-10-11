@@ -307,7 +307,7 @@ async function main() {
     zip.file("assets/font.woff2", new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0, 1, 2, 3, 255]))
     zip.file("assets/hero.jpg", new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 0x4a, 0x46]))
     const converted = await convertShopifyTheme(zip)
-    if (!converted.ok) throw new Error(converted.error)
+    if (converted.ok === false) throw new Error(converted.error)
     const t = converted.theme
     const files: Record<string, string> = { ...t.files, [ASSET_MAP_PATH]: JSON.stringify({ "hero.jpg": "https://storage.example/hero.jpg" }) }
     const tables = {
