@@ -445,7 +445,7 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
         for (const y0 of ys) for (const x0 of xs) {
           const x = Math.min(innerWidth - 1, Math.max(0, x0)), y = Math.min(innerHeight - 1, Math.max(0, y0))
           const hit = document.elementFromPoint(x, y)
-          if (hit && (el === hit || el.contains(hit) || hit.contains(el))) return { x, y }
+          if (hit && (el === hit || el.contains(hit))) return { x, y }
         }
         return null
       }
@@ -503,6 +503,7 @@ async function pressHeaderLink(page: Page, frame: Frame, href: string, phone: bo
     if (!box) return { pressed: false, trail }
     let x = box.x + Math.min(box.width / 2, 20), y = box.y + box.height / 2
     if (step.kind === "hover") { await page.mouse.move(x, y, { steps: 4 }); await new Promise((r) => setTimeout(r, 500)); continue }
+    if (process.env.W5_SHOTS) await page.screenshot({ path: `${OUT}/press-${Date.now()}-${step.kind}.png` })
     if (step.kind === "press") {
       /* The spot read in the page, moved by where the frame sits (the canvas's frame fills the page). */
       const at = (step as { at?: { x: number; y: number } | null }).at
@@ -549,7 +550,11 @@ async function headerChecks(page: Page, base: string, phone: boolean, label: str
       const frameOf = () => (where === "the canvas" ? page.frames().find((f) => f !== page.mainFrame())! : page.mainFrame())
       /* The shop's menus (shop() above) and whatever the header shows as the page opens must work; another link the header holds hidden (a product in a mega menu kept for a wider screen) is tried and said, not counted. */
       const MENU = ["/", "/collections/all", "/collections/summer", "/collections/winter", "/pages/contact"]
-      const links = (await headerLinksIn(frameOf())).sort((a, b) => Number(MENU.includes(b.href) || b.shown) - Number(MENU.includes(a.href) || a.shown)).slice(0, 14)
+      /* W5_LINKS=/a,/b: those links alone (to look at one closely); W5_FROM, W5_WHERE likewise. */
+      if (process.env.W5_FROM && process.env.W5_FROM !== from) continue
+      if (process.env.W5_WHERE && !where.includes(process.env.W5_WHERE)) continue
+      const only = (process.env.W5_LINKS ?? "").split(",").filter(Boolean)
+      const links = (await headerLinksIn(frameOf())).filter((l) => !only.length || only.includes(l.href)).sort((a, b) => Number(MENU.includes(b.href) || b.shown) - Number(MENU.includes(a.href) || a.shown)).slice(0, 14)
       const required = (l: HeaderLink) => MENU.includes(l.href) || l.shown
       const failed: string[] = []
       const optional: string[] = []
