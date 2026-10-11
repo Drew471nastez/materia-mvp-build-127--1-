@@ -32,8 +32,8 @@ import { drawPage, drawSection, pageContextFor, themeOfInstall, type StoredSecti
 import type { CompatPage } from "@/lib/storelib-theme/compat/theme"
 import type { CollectionLike, MenuLinkLike } from "@/lib/storelib-theme/compat/objects"
 import type { ProductCard } from "@/lib/website-builder/shop-products"
-import type { SectionInstance } from "@/lib/website-builder/types"
-import { useLiveSections } from "@/lib/website-builder/live-settings"
+import type { SectionInstance, ThemeSettingsValues } from "@/lib/website-builder/types"
+import { isLive, useLiveSections, useLiveTheme } from "@/lib/website-builder/live-settings"
 
 export interface CompatCanvasProps {
   installId: string
@@ -99,7 +99,17 @@ export function loadCompatFiles(installId: string): Promise<Record<string, strin
 const shapeOf = (sections: StoredSection[]) => sections.map((s) => `${s.id}:${s.type}:${s.group ?? ""}:${s.hidden ? 1 : 0}`).join("|")
 
 export function CompatCanvas(props: CompatCanvasProps) {
-  const { installId, sources, theme: settings, pageKey, products, collections, menus, shopName } = props
+  const { installId, sources, pageKey, products, collections, menus, shopName } = props
+  /*
+    A THEME SETTING UNDER A FINGER IS DRAWN TOO. A slider or a colour in
+    Theme settings writes its values to the live layer while the finger is
+    down (lib/website-builder/live-settings.ts), and only the Storelib canvas
+    read them: on an imported theme the page did not move until the finger
+    lifted, and then jumped. Measured on Dawn's page width
+    (docs/audits/website-builder-engine-2026-10.md, C2): 11 values, the frame
+    changed none of them, the first change 264ms after release.
+  */
+  const settings = useLiveTheme(props.theme as unknown as ThemeSettingsValues) as unknown as Record<string, unknown>
   const catalog = props.catalog
   /* A slider under a finger: its section is drawn again with each value, before the editor commits it (lib/website-builder/live-settings.ts). */
   const sections = useLiveSections(props.sections as unknown as SectionInstance[]) as unknown as StoredSection[]
@@ -259,7 +269,63 @@ export function CompatCanvas(props: CompatCanvasProps) {
     setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
   }
 
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     WHILE A FINGER IS DOWN, THE PAGE IS DRAWN AS OFTEN AS IT CAN BE, NOT MORE
+    ═══════════════════════════════════════════════════════════════════════
+    A theme setting draws the whole page again, and on a large theme that is
+    tens of milliseconds of the builder's main thread (Horizon's home page,
+    C1 in the audit). Asked once per value of a drag, the drawing queued
+    behind itself and the thumb stuttered behind the finger. So during a
+    gesture only the newest page is drawn, and the next draw waits for the
+    next frame and for as long as the last one took: the page follows the
+    finger at the rate the device can draw it, and a value overtaken before
+    it was drawn is never drawn at all. Outside a gesture nothing waits.
+  */
+  const redraw = useRef<{ run: (() => void) | null; timer: number; frame: number; nextAt: number }>({ run: null, timer: 0, frame: 0, nextAt: 0 })
+  const runRedraw = (run: () => void) => {
+    const r = redraw.current
+    const t0 = performance.now()
+    try { run() } finally {
+      const cost = performance.now() - t0
+      r.nextAt = performance.now() + cost
+    }
+  }
+  const cancelRedraw = () => {
+    const r = redraw.current
+    r.run = null
+    if (r.timer) { clearTimeout(r.timer); r.timer = 0 }
+    if (r.frame) { cancelAnimationFrame(r.frame); r.frame = 0 }
+  }
+  const scheduleRedraw = (run: () => void) => {
+    const r = redraw.current
+    r.run = run
+    if (r.timer || r.frame) return
+    const go = () => {
+      r.frame = requestAnimationFrame(() => {
+        r.frame = 0
+        const next = r.run
+        r.run = null
+        if (next) runRedraw(next)
+      })
+    }
+    const wait = r.nextAt - performance.now()
+    if (wait > 1) r.timer = window.setTimeout(() => { r.timer = 0; go() }, wait)
+    else go()
+  }
+  useEffect(() => () => cancelRedraw(), [])
+
   useEffect(() => {
+    if (!compatTheme) return
+    const run = () => drawAndPatch()
+    if (isLive()) { scheduleRedraw(run); return }
+    cancelRedraw()
+    runRedraw(run)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [compatTheme, page, shape, docKey, accountPath])
+
+  /* The page drawn now and compared with the one on screen; what differs is sent to it. Reads everything it needs when it runs. */
+  const drawAndPatch = () => {
     if (!compatTheme) return
     /* An account page wears only this page's header, footer and overlay: those are the sections it can take a change to. */
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
@@ -291,8 +357,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     for (const id of [...now.drawnFrom.keys()]) if (!list.some((s) => s.id === id)) now.drawnFrom.delete(id)
     /* A page that changed behind this one is out of date too: drawn again from now. */
     if (slotsRef.current[1]) loadBehind(html, docKey, list)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [compatTheme, page, shape, docKey, accountPath])
+  }
 
   /*
     A section's settings or blocks changed: that section, drawn again and

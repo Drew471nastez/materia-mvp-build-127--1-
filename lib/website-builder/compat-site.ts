@@ -107,8 +107,25 @@ interface Held {
 const held = new Map<string, Held>()
 const HELD_MAX = 12
 
+/*
+  BY WHAT THE SETTINGS SAY, NOT HOW LONG THEY ARE. The key was the length of
+  the settings' JSON, so a live setting saved without a publish that kept the
+  length (one colour for another, #111111 to #222222) found the theme held
+  for the old one, and the site kept drawing the old colour on this server
+  until the theme was pushed out. A hash of the whole text tells them apart.
+*/
+function settingsKey(settings: unknown): string {
+  const text = JSON.stringify(settings) ?? ""
+  let h = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i)
+    h = Math.imul(h, 0x01000193) >>> 0
+  }
+  return `${text.length}.${h.toString(36)}`
+}
+
 function holdTheme(installId: string, version: string, rows: Record<string, string>, settings: unknown): CompatTheme {
-  const key = `${installId}:${version}:${JSON.stringify(settings).length}`
+  const key = `${installId}:${version}:${settingsKey(settings)}`
   const hit = held.get(key)
   if (hit) return hit.theme
   const theme = compatThemeFor(installId, version, rows, settings)

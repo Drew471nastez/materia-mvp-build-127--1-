@@ -159,7 +159,7 @@ export const CANVAS_BRIDGE = `
   };
   var place = function (box, el, inset) {
     var v = visibleRect(el, inset);
-    if (!v) { box.style.display = "none"; return; }
+    if (!v) { box.style.display = "none"; return null; }
     box.style.display = "block";
     box.style.left = v.left + "px";
     box.style.width = v.width + "px";
@@ -168,9 +168,16 @@ export const CANVAS_BRIDGE = `
     /* Cut by the edge of the screen or by something over it: no line there. */
     box.style.borderTopWidth = v.cutTop ? "0" : "";
     box.style.borderBottomWidth = v.cutBottom ? "0" : "";
+    return v;
   };
   var drawFrame = 0;
-  var drawBoxes = function () {
+  /*
+    \`withReport\`: the toolbar's box is sent from the same reading. The two
+    were read apart, each with its own run of hit tests down the section, in
+    the same frame; a box report waiting for the next frame is sent from this
+    one instead.
+  */
+  var drawBoxes = function (withReport) {
     drawFrame = 0;
     styleCache = null;
     fadeCache = null;
@@ -179,8 +186,12 @@ export const CANVAS_BRIDGE = `
     var sec = document.querySelector("[data-sl-selected]");
     var blk = document.querySelector("[data-sl-selected-block]");
     place(boxes.hover, hov && hov !== sec ? hov : null, 0);
-    place(boxes.section, sec, 0);
+    var seen = place(boxes.section, sec, 0);
     place(boxes.block, blk, -2);
+    if (withReport === true || boxFrame) {
+      if (boxFrame) cancelAnimationFrame(boxFrame);
+      report({ el: sec, v: seen });
+    }
   };
   var redraw = function () { if (!drawFrame) drawFrame = requestAnimationFrame(drawBoxes); };
   addEventListener("scroll", redraw, { passive: true, capture: true });
@@ -284,8 +295,7 @@ export const CANVAS_BRIDGE = `
       /* Off to another page: nothing of this one stays outlined while it goes. Back after a moment if the builder kept this page. */
       if (/^(\\/|https?:)/i.test(href) && !/^\\/?#/.test(href)) {
         leaving = true;
-        drawBoxes();
-        report();
+        drawBoxes(true);
         setTimeout(function () { leaving = false; redraw(); reportSoon(); }, 1500);
       }
     };
@@ -318,10 +328,10 @@ export const CANVAS_BRIDGE = `
   var boxFrame = 0;
   /* The part of it that can be seen, as the outline has it: covered by a drawer, there is nothing for the toolbar to point at. Sent only when it changed. */
   var lastBox = "";
-  var report = function () {
+  var report = function (read) {
     boxFrame = 0;
     var el = inspect && selected.section ? document.getElementById("shopify-section-" + selected.section) : null;
-    var v = el ? visibleRect(el, 0) : null;
+    var v = el ? (read && read.el === el ? read.v : visibleRect(el, 0)) : null;
     var m = v ? { type: "box", id: selected.section, top: Math.round(v.top), left: Math.round(v.left), width: Math.round(v.width), height: Math.round(v.bottom - v.top) } : { type: "box", id: null };
     var key = JSON.stringify(m);
     if (key === lastBox) return;
@@ -346,21 +356,22 @@ export const CANVAS_BRIDGE = `
     if (bursting) return;
     bursting = true;
     var tick = function () {
-      drawBoxes();
-      report();
+      drawBoxes(true);
       if (Date.now() < burstEnd) setTimeout(function () { requestAnimationFrame(tick); }, 80); else bursting = false;
     };
     requestAnimationFrame(tick);
   };
+  var watcher = null;
   if (typeof MutationObserver !== "undefined") {
-    new MutationObserver(function (records) {
+    watcher = new MutationObserver(function (records) {
       for (var i = 0; i < records.length; i++) {
         var t = records[i].target;
         if (t && t.nodeType === 1 && t.hasAttribute("data-sl-box")) continue;
         burst();
         return;
       }
-    }).observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
+    });
+    watcher.observe(document.documentElement, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "style", "open", "hidden", "aria-hidden", "aria-expanded"] });
   }
   var settled = function () { if (selected.section || hovered) { redraw(); reportSoon(); } };
   addEventListener("transitionend", settled, true);
@@ -581,6 +592,16 @@ export const CANVAS_BRIDGE = `
     Array.prototype.forEach.call(b.querySelectorAll('link[rel="stylesheet"][href]'), function (l) { keep(l.getAttribute("href")); });
     var y = scrollY;
     ops.forEach(function (op) { op(); });
+    /*
+      WHAT THIS WROTE IS NOT THE PAGE MOVING. The watcher above reads every
+      change as something of the theme's that opened or moved, and redrew
+      the outlines every 80ms for 700ms after it: on a slider dragged in the
+      sidebar that was all the time, a run of hit tests down the section
+      every few frames in the builder's own process. The changes made here
+      are taken back off its list; the outline is read again once, below,
+      and a transition they start is caught when it ends.
+    */
+    if (watcher) watcher.takeRecords();
     if (scrollY !== y) scrollTo(0, y);
     drawn[id] = html;
     clearTimeout(settleTimers[id]);

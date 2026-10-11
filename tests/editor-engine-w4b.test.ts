@@ -13,6 +13,8 @@
  */
 import { readFileSync, readdirSync, statSync } from "node:fs"
 import { join } from "node:path"
+import { CompatTheme, splitCompatFile, wrapCompatTemplate } from "@/lib/storelib-theme/compat/theme"
+import { CANVAS_BRIDGE } from "@/lib/storelib-theme/compat/canvas-bridge"
 
 let passed = 0
 let failed = 0
@@ -74,6 +76,45 @@ console.log("\nE1  NO PRESS, HOVER OR FOCUS RESTYLES THE WHOLE DOCUMENT")
   const mark = read("lib/press-mark.ts")
   check("the press mark is set on the press and taken off on release, cancel and leave",
     /onPointerDownCapture/.test(mark) && /onPointerUp: .*mark\(e, false\)/.test(mark) && /onPointerCancel: .*mark\(e, false\)/.test(mark) && /onPointerLeave: .*mark\(e, false\)/.test(mark))
+}
+
+console.log("\nC1  AN IMPORTED THEME'S FILES ARE READ ONCE, WHATEVER ITS SETTINGS")
+{
+  const files: Record<string, string> = {
+    "layout/theme.liquid": "<html><head>{{ content_for_header }}</head><body>{{ content_for_layout }}</body></html>",
+    "sections/hero.storelib": `${wrapCompatTemplate("<div class=\"hero\" style=\"color: {{ settings.c }}\">{{ section.settings.title }}</div>\n{% stylesheet %}.hero{padding:4px}{% endstylesheet %}")}\n<schema>{"name":"Hero","settings":[{"type":"text","id":"title","default":"Hi"}]}</schema>`,
+    "snippets/broken.liquid": "{% if %}",
+  }
+  const opts = { assetUrl: (n: string) => `/a/${n}` }
+  const a = new CompatTheme(files, { c: "#111111" }, opts)
+  const b = new CompatTheme({ ...files }, { c: "#222222" }, opts)
+  const treeOf = (t: CompatTheme, path: string) => (t as unknown as { tree(p: string): unknown }).tree(path)
+  check("a second theme object (a setting moved) reads the same parsed file, not a new parse", treeOf(a, "sections/hero.storelib") !== null && treeOf(a, "sections/hero.storelib") === treeOf(b, "sections/hero.storelib"))
+  check("the stylesheet bundle is built once per theme object and is the same text for the next", a.stylesheetBundle() === a.stylesheetBundle() && a.stylesheetBundle() === b.stylesheetBundle() && /\.hero\{padding:4px\}|\.hero \{/.test(a.stylesheetBundle()))
+  treeOf(a, "snippets/broken.liquid"); treeOf(b, "snippets/broken.liquid")
+  check("a file that does not parse is still named in each theme's warnings, read from the cache or not", a.warnings.some((w) => w.startsWith("snippets/broken.liquid")) && b.warnings.some((w) => w.startsWith("snippets/broken.liquid")))
+  const s1 = splitCompatFile(files["sections/hero.storelib"])
+  const s2 = splitCompatFile(files["sections/hero.storelib"])
+  check("a file's schema is a new object on every read (nothing shared can be changed under another theme)", !!s1.schema && s1.schema !== s2.schema && JSON.stringify(s1.schema) === JSON.stringify(s2.schema) && s1.markup === s2.markup)
+  const site = read("lib/website-builder/compat-site.ts")
+  check("the live site holds a theme by a hash of its settings, not their length", /const key = `\$\{installId\}:\$\{version\}:\$\{settingsKey\(settings\)\}`/.test(site) && !/JSON\.stringify\(settings\)\.length\}`/.test(site))
+}
+
+console.log("\nC2  AN IMPORTED THEME'S CANVAS FOLLOWS A THEME SETTING UNDER A FINGER")
+{
+  const canvas = read("components/website-builder/compat/compat-canvas.tsx")
+  check("the canvas draws with the live theme", /const settings = useLiveTheme\(props\.theme/.test(canvas))
+  check("during a gesture the page is drawn newest first, at most once a frame and no sooner than the last draw took", /if \(isLive\(\)\) \{ scheduleRedraw\(run\); return \}/.test(canvas) && /r\.nextAt = performance\.now\(\) \+ cost/.test(canvas) && /const next = r\.run\s*r\.run = null/.test(canvas))
+  check("outside a gesture a change is drawn at once, and anything waiting is dropped", /cancelRedraw\(\)\s*runRedraw\(run\)/.test(canvas))
+}
+
+console.log("\nC3  THE PAGE'S OWN CHANGES DO NOT KEEP THE OUTLINES BUSY")
+{
+  check("a morph takes its own changes off the watcher's list", /ops\.forEach\(function \(op\) \{ op\(\); \}\);[\s\S]{0,900}if \(watcher\) watcher\.takeRecords\(\);/.test(CANVAS_BRIDGE))
+  check("the outlines and the toolbar's box are read once a frame, together", /var drawBoxes = function \(withReport\)/.test(CANVAS_BRIDGE) && /report\(\{ el: sec, v: seen \}\)/.test(CANVAS_BRIDGE) && /read && read\.el === el \? read\.v : visibleRect\(el, 0\)/.test(CANVAS_BRIDGE))
+  let parses = true
+  try { new Function(CANVAS_BRIDGE) } catch { parses = false }
+  check("the bridge still reads as a script", parses)
 }
 
 console.log(`\n${passed} passed, ${failed} failed`)
