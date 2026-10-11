@@ -22,6 +22,15 @@
  *   canvas-cart.ts): Add to cart fills the builder's cart with no request
  *   to the network, and Buy it now says checkout is on the live site
  *   nothing is requested from Shopify's servers
+ *   every icon draws: no empty <svg>, no <use> without its symbol, no
+ *   broken SVG asset (home, a collection, a product)
+ *   no button label wears a box of its own, at rest or on hover (the
+ *   product form, the drawer's buttons)
+ *   the product page holds still as it loads: layout shift under 0.1
+ *   the header's cart opens the drawer or the cart page, never both, on
+ *   the website and in the canvas
+ *   in the canvas, /account, /account/login and /account/register draw in
+ *   the theme, and sending a sign in form says it works on the live site
  *
  * Measurements, not opinions: each line prints what it measured. Exits 1 on
  * any failure. Screenshots go to $OUT (default /tmp/shopify-theme-check).
@@ -239,10 +248,64 @@ async function run(zipPath: string) {
         }))
       }
 
+      /*
+        ICONS: every <svg> has something to draw, every <use> points at a
+        symbol the page has, and every icon from the theme's own SVG assets
+        loads. An icon that came through as an empty box is how an unknown
+        filter, a sprite file the frame cannot fetch or a missing snippet
+        shows.
+      */
+      const icons = () => page.evaluate(() => {
+        const live = (el: Element) => !el.closest("template, noscript, [hidden]")
+        const svgs = [...document.querySelectorAll("svg")].filter(live)
+        const empty = svgs.filter((s) => !s.closest("symbol, defs") && !s.querySelector("path, circle, rect, line, polyline, polygon, ellipse, use, text, image, g, foreignObject")).map((s) => `${s.getAttribute("class") ?? "svg"} in ${(s.parentElement?.className?.toString?.() ?? "").slice(0, 40)}`)
+        const missing = [...document.querySelectorAll("use")].filter(live).map((u) => u.getAttribute("href") ?? u.getAttribute("xlink:href") ?? "").filter((h) => !h.startsWith("#") || !document.getElementById(h.slice(1)))
+        const broken = [...document.images].filter((i) => /\/api\/site-theme\/assets\/[^?#]+\.svg/i.test(i.currentSrc || i.src) && i.complete && i.naturalWidth === 0).map((i) => i.src.split("/").pop())
+        return { svgs: svgs.length, empty, missing: [...new Set(missing)], broken }
+      })
+      /*
+        A BUTTON'S LABEL NEVER WEARS A BOX OF ITS OWN: no text inside a button
+        paints a background other than the button's, at rest or with the
+        pointer on it (Posturex's drawer Check out did, on hover).
+      */
+      const labelBoxes = async (selector: string) => {
+        const read = () => page.evaluate((sel) => {
+          const out: string[] = []
+          for (const b of document.querySelectorAll<HTMLElement>(sel)) {
+            const r = b.getBoundingClientRect()
+            if (!r.width || !r.height) continue
+            const bg = getComputedStyle(b).backgroundColor
+            if (bg === "rgba(0, 0, 0, 0)") continue
+            for (const d of b.querySelectorAll<HTMLElement>("span, strong, em, b, small")) {
+              const c = getComputedStyle(d)
+              if (!/^inline/.test(c.display) || !(d.textContent ?? "").trim() || c.backgroundColor === "rgba(0, 0, 0, 0)" || c.backgroundColor === bg) continue
+              out.push(`"${(d.textContent ?? "").trim().slice(0, 16)}" ${c.backgroundColor} on ${bg}`)
+            }
+          }
+          return out
+        }, selector)
+        const atRest = await read()
+        const target = await page.$$(selector)
+        let hovered: string[] = []
+        for (const h of target.slice(0, 4)) {
+          const box = await h.boundingBox().catch(() => null)
+          if (!box || box.width === 0) continue
+          await h.hover().catch(() => {})
+          await new Promise((r) => setTimeout(r, 450))
+          hovered = hovered.concat(await read())
+        }
+        await page.mouse.move(1, 1)
+        return [...new Set([...atRest, ...hovered])]
+      }
+
       for (const path of ["/", "/collections/all", "/collections/summer?sort_by=price-descending", "/search?q=linen", "/pages/contact", "/no-such-page"]) {
         const m = await visit(path)
         check(`${path} draws`, m.sections > 0 && errors.length === 0, `${m.sections} sections, ${errors.length} script errors${errors[0] ? `: ${errors[0]}` : ""}`)
         check(`${path} no sideways scroll`, m.overflow <= 1, `${m.overflow}px`)
+        if (path === "/" || path === "/collections/all") {
+          const ic = await icons()
+          check(`${path} every icon draws`, ic.svgs > 0 && ic.empty.length === 0 && ic.missing.length === 0 && ic.broken.length === 0, `${ic.svgs} svgs; empty: ${ic.empty.slice(0, 3).join(" | ") || "none"}; missing: ${ic.missing.slice(0, 3).join(" ") || "none"}; broken: ${ic.broken.join(" ") || "none"}`)
+        }
       }
       await page.screenshot({ path: `${OUT}/${name}-${label}-home.png` })
 
@@ -275,9 +338,18 @@ async function run(zipPath: string) {
       await page.screenshot({ path: `${OUT}/${name}-${label}-filtered.png` })
 
       /* A product, its options and the cart. */
+      /* The product page holds still as it loads: layout shift (CLS) under 0.1, Google's line for "good". */
+      await page.evaluateOnNewDocument(() => { (window as unknown as { __cls: number }).__cls = 0; try { new PerformanceObserver((l) => { for (const e of l.getEntries() as unknown as { value: number; hadRecentInput: boolean }[]) if (!e.hadRecentInput) (window as unknown as { __cls: number }).__cls += e.value }).observe({ type: "layout-shift", buffered: true }) } catch {} })
       await visit("/products/linen-shirt-2")
+      await new Promise((r) => setTimeout(r, 1200))
+      const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls)
+      check("the product page holds still as it loads (layout shift under 0.1)", cls < 0.1, cls.toFixed(4))
       await page.screenshot({ path: `${OUT}/${name}-${label}-product.png` })
       check("product page has no script errors", errors.length === 0, errors[0] ?? "")
+      const productIcons = await icons()
+      check("product page: every icon draws", productIcons.empty.length === 0 && productIcons.missing.length === 0 && productIcons.broken.length === 0, `${productIcons.svgs} svgs; empty: ${productIcons.empty.slice(0, 3).join(" | ") || "none"}; missing: ${productIcons.missing.slice(0, 3).join(" ") || "none"}`)
+      const addBoxes = await labelBoxes("form[action='/cart/add'] button[type='submit'], form[action='/cart/add'] button[name='add'], .product-form__submit, [data-storelib-buy-now]")
+      check("product page: no button label wears a box of its own, at rest or on hover", addBoxes.length === 0, addBoxes.slice(0, 3).join(" | ") || "none")
       const pictures = await page.evaluate(() => {
         const imgs = [...document.querySelectorAll<HTMLImageElement>("[data-section-type=\"product-information\"] img, [data-section-type=\"main-product\"] img")].filter((i) => { const r = i.getBoundingClientRect(); return r.width > 40 && r.top < innerHeight && r.bottom > 0 && r.left < innerWidth && r.right > 0 && getComputedStyle(i).visibility !== "hidden" && !!i.offsetParent })
         return { shown: imgs.length, loaded: imgs.filter((i) => i.complete && i.naturalWidth > 0).length, missing: imgs.filter((i) => !(i.complete && i.naturalWidth > 0)).map((i) => `${i.className} ${i.currentSrc || i.src}`.slice(0, 120)) }
@@ -342,6 +414,13 @@ async function run(zipPath: string) {
       }
       check(`the theme's cart drawer or notification opens with the product in it (${how})`, opened.ok, opened.what)
       await page.screenshot({ path: `${OUT}/${name}-${label}-added.png` })
+      if (opened.ok) {
+        /* Its buttons with any terms box ticked, as a buyer sees them. */
+        await page.evaluate(() => { for (const box of document.querySelectorAll<HTMLInputElement>("input[type=checkbox]")) if ((box.required || /terms|agree/i.test(box.name + box.id)) && !box.checked && box.getBoundingClientRect().width > 0) box.click() })
+        await new Promise((r) => setTimeout(r, 300))
+        const drawerBoxes = await labelBoxes("cart-drawer [name='checkout'], cart-notification [name='checkout'], cart-drawer-component [name='checkout'], #CartDrawer [name='checkout'], .cart-drawer [name='checkout'], dialog[open] [name='checkout'], [form='minicart'][name='checkout'], cart-drawer .button, cart-notification .button, dialog[open] .button, .minicart__wrapper .btn-outline, .minicart__wrapper .btn-primary")
+        check("the drawer: no button label wears a box of its own, at rest or on hover", drawerBoxes.length === 0, drawerBoxes.slice(0, 3).join(" | ") || "none")
+      }
       /* Its own Check out, as a visitor presses it: any terms box in it ticked first (Posturex draws one). */
       if (opened.ok) {
         checkoutHits = 0

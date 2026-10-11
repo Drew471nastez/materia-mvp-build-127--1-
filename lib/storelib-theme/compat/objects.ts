@@ -518,6 +518,20 @@ export function typedValue(type: string, value: unknown, r: Resources, exact = f
       const menu = r.menus[handle] ?? (handle ? r.menus[/footer/i.test(handle) ? "footer" : "main-menu"] ?? r.menus["main-menu"] : undefined)
       return menu ? linklistObject(handle, menu.title ?? handle, menu.links, r.currentPath) : handle ? linklistObject(handle, handle, [], r.currentPath) : null
     }
+    /*
+      A PALETTE (Horizon's color_palette): each of its colours a colour, as
+      Shopify gives them, so `settings.color_palette.color3` is a colour and
+      `for c in settings.color_palette` walks colours with their brightness
+      and .rgb. Kept as words, Horizon's "lightest colour of the palette" was
+      never found and --palette-lightest-rgb was empty, which left every
+      contrast colour built on it unset.
+    */
+    case "color_palette": {
+      if (!value || typeof value !== "object" || Array.isArray(value)) return value ?? null
+      const out: O = {}
+      for (const [k, v] of Object.entries(value as O)) out[k] = colorObject(v) ?? v
+      return out
+    }
     case "color_scheme":
       return r.schemes[String(value ?? "")] ?? Object.values(r.schemes)[0] ?? null
     case "color_scheme_group":

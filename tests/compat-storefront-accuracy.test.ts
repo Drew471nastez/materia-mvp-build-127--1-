@@ -104,6 +104,33 @@ async function main() {
     check("url-safe base64", compatFilter("base64_url_safe_encode")!("??>", [], {}, undefined as never) === "Pz8-")
   }
 
+  console.log("\nA palette's colours are colours (Horizon)\n")
+  {
+    const files = {
+      "layout/theme.storelib": wrapCompatTemplate(`<html><head></head><body>{{ content_for_layout }}</body></html>`),
+      "config/settings_schema.json": JSON.stringify([{ name: "Colors", settings: [{ type: "color_palette", id: "color_palette", default: { background: "#ffffff", foreground: "#000000" } }, { type: "color", id: "accent", default: "{{ settings.color_palette.color1 }}" }] }]),
+      "sections/s.storelib": section("s", `{%- liquid
+  assign lightest = '#ffffff'
+  assign lightest_b = -1
+  for c in settings.color_palette
+    if c != blank and c.alpha == 1
+      assign b = c | color_brightness
+      if b > lightest_b
+        assign lightest = c
+        assign lightest_b = b
+      endif
+    endif
+  endfor
+-%}<i data-l="{{ lightest }}" data-rgb="{{ lightest.rgb }}" data-c3="{{ settings.color_palette.color3 }}" data-accent="{{ settings.accent.rgb }}"></i>`),
+    }
+    const theme = new CompatTheme(files, { color_palette: { background: "#ffffff", foreground: "#000000", color1: "#333333", color2: "#EEF1EA", color3: "#DFDFDF" }, accent: "{{ settings.color_palette.color1 }}" }, { assetUrl: (n) => `/a/${n}` })
+    const ctx = theme.pageContext({ template: "index", path: "/", designMode: false, products: [], collections: [], menus: {}, shop: { name: "" } })
+    const drawn = theme.renderSection(ctx, { id: "s1", type: "s", settings: {}, hidden: false, blocks: [] }).html
+    check("walking the palette finds its lightest colour, as a colour with .rgb (--palette-lightest-rgb was empty)", /data-l="#ffffff" data-rgb="255 255 255"/.test(drawn), drawn)
+    check("one of its colours by name prints as the colour", /data-c3="#dfdfdf"/i.test(drawn), drawn)
+    check("a colour setting that names a palette colour is that colour", /data-accent="51 51 51"/.test(drawn), drawn)
+  }
+
   console.log("\nThe header's cart in the canvas\n")
   {
     check("a link is followed only once every listener of the theme's has had the click, at the window, last", /var last = function \(ev\) \{ if \(ev === e\) decide\(\); \};\s*addEventListener\("click", last\);/.test(CANVAS_BRIDGE))
