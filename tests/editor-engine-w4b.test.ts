@@ -117,5 +117,31 @@ console.log("\nC3  THE PAGE'S OWN CHANGES DO NOT KEEP THE OUTLINES BUSY")
   check("the bridge still reads as a script", parses)
 }
 
+console.log("\nS1  A PUBLISHED WEBSITE'S JAVASCRIPT CARRIES NO ENGINE")
+{
+  /*
+    What a visitor's browser loads for a native site is the section
+    renderer and what it imports. It imported the theme's whole source map,
+    the schema parser, the validator, postcss and zod: 1.3MB (288KB gzipped)
+    in the production build's site chunk. Measured on the page's own client
+    tree with esbuild: 1,581KB to 785KB, 366KB to 229KB gzipped.
+  */
+  const importsOf = (f: string) => [...read(f).matchAll(/^import[^"\n]*"([^"]+)"/gm)].map((m) => m[1])
+  const SITE = [
+    "components/website-builder/sections/registry.ts",
+    "components/website-builder/sections/SectionRenderer.tsx",
+    "components/website-builder/sections/StorelibSection.tsx",
+    "components/website-builder/theme/ThemePage.tsx",
+    "lib/storelib-theme/section-groups.ts",
+    "lib/storelib-theme/schema/normalise.ts",
+    "lib/website-builder/live-settings.ts",
+  ]
+  const ENGINE = /storelib-schemas|sources\.generated|storelib\/compile|schema\/validate|controls\/registry|storelib-runtime|^zod$|^postcss/
+  const heavy = SITE.flatMap((f) => importsOf(f).filter((i) => ENGINE.test(i)).map((i) => `${f}: ${i}`))
+  check("no module on a published page's path imports the engine, the sources, zod or postcss", heavy.length === 0, heavy)
+  check("the control names live apart from their zod checks", !/from "zod"/.test(read("lib/storelib-theme/controls/types.ts")) && /export \{ CONTROL_TYPES, LEGACY_TYPE_ALIASES, SHOPIFY_TYPE_ALIASES, resolveControlType, type ControlType \}/.test(read("lib/storelib-theme/controls/registry.ts")))
+  check("the block tree's save schema is marked pure, so a bundle that never saves leaves zod out", /export const BlockInstanceSchema: z\.ZodType<BlockShape> = \/\* @__PURE__ \*\/ z\.lazy\(/.test(read("lib/website-builder/block-tree.ts")))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
