@@ -22,6 +22,7 @@ import { POST as subscribeRoute } from "@/app/api/website-builder/subscribe/rout
 import { POST as contactRoute } from "@/app/api/website-builder/contact/route"
 import { previewTokenFrom } from "@/lib/website-builder/preview-link"
 import { SITE_SEAL_HEADER, siteHostOf, siteSealed } from "@/lib/storelib-theme/compat/site-seal"
+import { formFields } from "@/lib/storelib-theme/compat/form-fields"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -43,28 +44,7 @@ async function bodyOf(req: Request): Promise<Record<string, unknown> | null> {
       return v && typeof v === "object" ? (v as Record<string, unknown>) : null
     }
     if (type.includes("form")) {
-      const form = await req.formData()
-      const out: Record<string, unknown> = {}
-      for (const [k, v] of form.entries()) {
-        if (typeof v !== "string") continue
-        const list = k.match(/^(\w+)\[\]$/)
-        if (list) {
-          const arr = (out[list[1]] as unknown[] | undefined) ?? []
-          arr.push(v)
-          out[list[1]] = arr
-          continue
-        }
-        const item = k.match(/^items\[(\d+)\]\[(\w+)\]$/)
-        if (item) {
-          const arr = ((out.items as Record<string, unknown>[] | undefined) ?? [])
-          const i = Number(item[1])
-          arr[i] = { ...(arr[i] ?? {}), [item[2]]: v }
-          out.items = arr
-          continue
-        }
-        out[k] = v
-      }
-      return out
+      return formFields((await req.formData()).entries())
     }
   } catch {
     return null

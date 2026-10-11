@@ -426,6 +426,7 @@ const SUITES = [
   "tests/round-v.test.ts",
   "tests/round-w.test.ts",
   "tests/round-x.test.ts",
+  "tests/round-y.test.ts",
   "tests/business-switch-flow.test.ts",
   "tests/push-recipients.test.ts",
   "tests/onboarding-polish.test.ts",
