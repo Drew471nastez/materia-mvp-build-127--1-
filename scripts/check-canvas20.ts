@@ -301,7 +301,7 @@ async function switchInEditor(browser: Browser, label: string, width: number, he
     const readHeader = async (f: Frame | Page) => {
       const out: string[] = []
       for (const y of ys) {
-        await within(f.evaluate((y) => scrollTo({ top: y, behavior: "instant" }), y))
+        await within(f.evaluate((y) => scrollTo({ top: y, behavior: "instant" as ScrollBehavior }), y))
         await sleep(300)
         out.push(await within(f.evaluate(() => { const h = document.querySelector(".site-header")!; const r = h.getBoundingClientRect(); return `${Math.round(scrollY)}:${Math.round(r.top)}:${getComputedStyle(h).position}:${h.closest(".shopify-section")?.className.replace(/\s+/g, ".")}` })))
       }
@@ -424,7 +424,7 @@ async function real(browser: Browser) {
     const read = async (f: Frame | Page) => {
       const out: string[] = []
       for (const y of ys) {
-        await f.evaluate((y) => scrollTo({ top: y, behavior: "instant" }), y)
+        await f.evaluate((y) => scrollTo({ top: y, behavior: "instant" as ScrollBehavior }), y)
         await sleep(700)
         out.push(await f.evaluate(() => {
           const s = document.querySelector<HTMLElement>(".section-header, #shopify-section-header, header")!
