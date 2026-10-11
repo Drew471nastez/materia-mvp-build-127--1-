@@ -306,7 +306,7 @@ export function OrderDetail({ order, timeZone, now, onBack, onStep, canStep, pos
       <div key={order.id} className={cn("orders-body mx-auto pt-4 pb-6", ORDER_WIDTH, GUTTER)}>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:grid-rows-[auto_auto_auto_1fr] lg:items-start">
           {/* Something shipped: what is to send, each shipment and its tracking, returns (components/physical/order-panel.tsx), while physical commerce is on. */}
-          {physicalOrder ? (
+          {physicalOrder && physicalCommerce ? (
             <div className="grid min-w-0 gap-4 lg:col-start-1 lg:row-start-1">
               <PhysicalFulfillment state={physical} number={order.number} onNotice={onNotice} />
               {digitalLines.length > 0 ? (

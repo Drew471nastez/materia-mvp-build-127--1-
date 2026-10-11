@@ -21,7 +21,6 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
-  "tests/orders20.test.ts",
   "tests/app-menu19.test.ts",
   "tests/builder-nav19.test.ts",
   "tests/files-picker19.test.ts",
@@ -531,6 +530,8 @@ const SUITES = [
   "tests/favicon-sync.test.ts",
   "tests/page-seo-r6.test.ts",
   "tests/billing-cancel19.test.ts",
+  /* Round 20 (last: first in the list, tsc checked a few unrelated files in an order that typed a string as never). */
+  "tests/orders20.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

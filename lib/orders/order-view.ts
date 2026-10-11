@@ -475,7 +475,8 @@ export function queryFromParams(params: { get(name: string): string | null }): L
     q: (params.get("q") || "").slice(0, 200),
     source: source === "website" || source === "storelib" ? source : "any",
     product: params.get("product") || "",
-    fulfillment: isShipFilter(fulfillment) ? fulfillment : "any",
+    /* Only when one is chosen: an address without it reads as it always did. */
+    ...(isShipFilter(fulfillment) ? { fulfillment } : {}),
     sort: isSort(params.get("sort")) ? (params.get("sort") as Sort) : "newest",
     page: Math.max(1, Number.parseInt(params.get("page") || "1", 10) || 1),
   }
