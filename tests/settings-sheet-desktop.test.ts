@@ -59,7 +59,8 @@ console.log("\nA section pressed while scrolled opens at its top, at once\n")
   /* Changed on purpose (round 20, the owner: "it should auto scroll up smoothly, clean"): placed just above its top in that frame, then the browser's smooth scroll (tests/settings20.test.ts). */
   check("the scroll is placed for the section in the layout effect, before it is painted", /useLayoutEffect\(\(\) => \{\n    if \(!scrollPending\.current\) return/.test(form) && /scroller\.scrollTop = start/.test(form))
   check("a section whose data is kept swaps on the press, in a transition so the pill's frame is not held", /if \(urls\.every\(\(u\) => peekGet\(u\) !== null\)\) show\(\)/.test(form) && /startTransition\(\(\) => setPanelTab\(activeTab\)\)/.test(form))
-  check("the browser's own smooth scroll, on the compositor, still carries Integrations' Back", /el\.scrollTo\(\{ top: to, behavior: "smooth" \}\)/.test(glide) && /glideScrollTop\(box, to, release\)/.test(read("components/app/settings/integrations-directory.tsx")))
+  /* Changed on purpose (round 23): Integrations' Back no longer glides, it lands where the list was left (tests/integrations23.test.ts). */
+  check("the browser's own smooth scroll, on the compositor", /el\.scrollTo\(\{ top: to, behavior: "smooth" \}\)/.test(glide))
 }
 
 console.log("\nOpen and close\n")

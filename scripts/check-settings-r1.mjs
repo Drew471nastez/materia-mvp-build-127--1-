@@ -17,13 +17,12 @@
  *   unsaved changes                   close asks (Keep editing keeps it up,
  *                                     Discard closes with one Back), another
  *                                     section asks, Save saves then switches
- *   Integrations                      a card pushes its page in (transform
- *                                     moves from the right, opacity from 0),
- *                                     the page has its header, status and
- *                                     action; Back pops the list in from the
- *                                     left and the scroll glides, only ever
- *                                     up, to the list's top; a category press
- *                                     keeps the pills where they are
+ *   Integrations                      a card opens its page in place (a short
+ *                                     fade from 0.55, round 23), the page has
+ *                                     its header, status and action; Back
+ *                                     brings the list back where it was left;
+ *                                     a category press keeps the pills where
+ *                                     they are
  *   Plan                              a centred "Plans and pricing"
  *
  * THE PAGE AT 390 (with a keyboard where it matters: the probe's own
@@ -314,8 +313,9 @@ async function framesAfter(page, press, read, ms = 700) {
   const pushed = f.filter((x) => x.view === "page")
   const xs = pushed.map((x) => x.x)
   console.log(`    push: ${pushed.length} frames, x ${xs.slice(0, 6).join(",")}..., opacity from ${pushed[0]?.o}, scroll ${pushed[0]?.scroll} then ${pushed.at(-1)?.scroll}`)
-  say(pushed.length > 0 && xs[0] > 2 && xs.at(-1) === 0 && xs.every((x, i) => i === 0 || x <= xs[i - 1] + 0.1), "the page pushes in from the right, only ever towards rest")
-  say(pushed[0]?.o < 0.6 && pushed.at(-1)?.o === 1, "and fades in")
+  /* Changed on purpose (round 23, the owner: "no slide delay, no flash"): no sideways push, a short fade from 0.55 (scripts/check-integrations23.mjs). */
+  say(pushed.length > 0 && xs.every((x) => x === 0), "the page opens in place, no sideways push")
+  say(pushed[0]?.o >= 0.55 && pushed.at(-1)?.o === 1, "and fades in from at least half, never from blank")
   say(pushed.every((x) => x.scroll === pushed[0].scroll), "the page is placed once and does not scroll after it appears")
   const head = await page.evaluate(() => ({ header: !!document.querySelector("[data-integration-header] [data-integration-mark], [data-integration-header] img, [data-integration-header] span"), standing: document.querySelector("[data-integration-standing]")?.textContent, action: document.querySelector("[data-integration-action]")?.textContent, setup: !!document.querySelector("[data-integration-install] input, [data-integration-install] button") }))
   console.log(`    header: standing "${head.standing}", action "${head.action}"`)
@@ -333,9 +333,9 @@ async function framesAfter(page, press, read, ms = 700) {
   const sc = popped.map((x) => x.scroll)
   const end = popped.at(-1)
   console.log(`    pop: x from ${popped[0]?.x}, scroll ${sc[0]} -> ${end?.scroll} over ${new Set(sc).size} positions, list top at ${end?.listTop}px in the scroll`)
-  say(popped.length > 0 && popped[0].x < -2 && end.x === 0, "the list pops in from the left")
-  say(sc.every((y, i) => i === 0 || y <= sc[i - 1]) && new Set(sc).size >= 6, "the scroll glides up over several frames, never down")
-  say(end && end.listTop >= 0 && end.listTop <= 24, "and ends at the top of the list")
+  /* Changed on purpose (round 23, the owner: "back returns to where you were"): the list comes back in place, at the scroll it was left at (700). */
+  say(popped.length > 0 && popped.every((x) => x.x === 0), "the list comes back in place, no sideways pop")
+  say(popped.length > 0 && popped.every((x) => x.scroll === 700), "exactly where it was left, from its first frame")
   /* A category press keeps the pills in place. */
   /* Scrolled so the pills are in view part way down the screen, as after reading the first rows. */
   await page.evaluate((s) => { const box = document.querySelector(s); const row = document.querySelector("[data-integration-pills]"); box.scrollTop += row.getBoundingClientRect().top - box.getBoundingClientRect().top - 140 }, SCROLL)

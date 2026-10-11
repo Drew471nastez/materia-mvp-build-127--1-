@@ -478,7 +478,7 @@ console.log("\nEntering and leaving an integration's page\n")
   const dir = read("components/app/settings/integrations-directory.tsx")
   check("no sideways slide: a 120ms fade only", /const SWAP_MS = 120/.test(dir) && !/translate3d\(\$\{dx\}px/.test(dir) && !/PAGE_SHIFT/.test(dir))
   check("opening is a history entry, so the phone's Back returns to the list", /writeIntegrationParam\(id, "push"\)/.test(dir) && /window\.history\.pushState\(null, "", url\.toString\(\)\)/.test(dir))
-  check("its own Back goes back through that entry, never piling them up", /if \(pushed\.current\) \{[\s\S]{0,200}window\.history\.back\(\)/.test(dir))
+  check("its own Back goes back through that entry, never piling them up", /if \(pushed\.current\) \{[\s\S]{0,300}backThen\(\(\) => writeIntegrationParam\(null, "replace"\)\)/.test(dir))
   check("the list comes back where it was: its scroll, and the card focused", /box\.scrollTop = at\.scroll/.test(dir) && /focus\(\{ preventScroll: true \}\)/.test(dir))
   check("a link to a page opens on it, without a frame of the list first", /useState<string \| null>\(wanted\)/.test(dir))
 }

@@ -22,6 +22,7 @@ import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { ChevronLeft, ExternalLink, Search, Check, ArrowRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { backThen } from "@/lib/navigation/go-back"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
 import { IntegrationCard, type IntegrationState } from "@/components/physical/integrations-marketplace"
@@ -199,7 +200,8 @@ export function IntegrationsDirectory() {
       /* Our own entry: Back through it, so the browser's history is as it was before the page was opened. */
       pushed.current = false
       show(null)
-      window.history.back()
+      /* Through the app's back watch (lib/navigation/go-back): a Back that does nothing still leaves the address on the list. */
+      backThen(() => writeIntegrationParam(null, "replace"))
       return
     }
     show(null)
