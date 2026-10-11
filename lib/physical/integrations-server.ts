@@ -11,6 +11,7 @@ import type { Db } from "./auth"
 import { PROVIDERS, providerInfo, type ProviderId } from "./providers"
 import { verifyProviderKey } from "./provider-verify"
 import { openSecret, sealSecret, secretHint } from "./secrets"
+import { afterConnect, beforeDisconnect, connectFields, connectorFor } from "@/lib/integrations/fulfilment/forward-server"
 
 export interface IntegrationView {
   provider: ProviderId
@@ -25,11 +26,21 @@ export interface IntegrationView {
   /** When the provider last accepted the key, and whether it was a test key. */
   verifiedAt: string | null
   mode: "test" | "live" | null
+  /** Printful and Printify: orders sent straight to production (true) or kept as drafts to approve there. */
+  autoConfirm: boolean
+  /** Whether the provider tells Storelib when a parcel ships ("on"), or tracking is read on a timer ("off"), and why. */
+  webhooks: "on" | "off" | null
+  webhookNote: string | null
+  /** The location whose products are sent there. */
+  location: { id: string; name: string } | null
 }
 
 export async function loadIntegrations(db: Db, creatorId: string): Promise<IntegrationView[]> {
-  const { data } = await db.from("commerce_integrations").select("provider, status, account_label, config, secret_ciphertext, webhook_secret_ciphertext, last_sync_at, last_error").eq("creator_id", creatorId)
+  const { data } = await db.from("commerce_integrations").select("id, provider, status, account_label, config, secret_ciphertext, webhook_secret_ciphertext, last_sync_at, last_error").eq("creator_id", creatorId)
   const rows = new Map(((data ?? []) as Record<string, any>[]).map((r) => [r.provider, r]))
+  const ids = ((data ?? []) as Record<string, any>[]).map((r) => r.id).filter(Boolean)
+  const { data: locs } = ids.length ? await db.from("inventory_locations").select("id, name, integration_id").eq("creator_id", creatorId).in("integration_id", ids) : { data: [] }
+  const locOf = new Map(((locs ?? []) as { id: string; name: string; integration_id: string }[]).map((l) => [l.integration_id, { id: l.id, name: l.name }]))
   return PROVIDERS.filter((p) => p.fields.length > 0).map((p) => {
     const r = rows.get(p.id)
     return {
@@ -43,6 +54,10 @@ export async function loadIntegrations(db: Db, creatorId: string): Promise<Integ
       account: r?.account_label ?? null,
       verifiedAt: typeof r?.config?.verified_at === "string" ? r.config.verified_at : null,
       mode: r?.config?.mode === "test" || r?.config?.mode === "live" ? r.config.mode : null,
+      autoConfirm: r?.config?.auto_confirm === true,
+      webhooks: r?.config?.webhooks === "on" || r?.config?.webhooks === "off" ? r.config.webhooks : null,
+      webhookNote: typeof r?.config?.webhook_note === "string" ? r.config.webhook_note : null,
+      location: r?.id ? (locOf.get(r.id) ?? null) : null,
     }
   })
 }
@@ -51,9 +66,14 @@ export async function saveIntegration(db: Db, creatorId: string, provider: strin
   const info = providerInfo(provider)
   if (!info || info.fields.length === 0 || info.id === "supplier_email") return { ok: false, error: "That integration has nothing to connect." }
   if (body.disconnect === true) {
+    /* Printful and Printify stop sending updates first; the location keeps its products and says it is not connected. */
+    await beforeDisconnect(db, creatorId, info.id).catch(() => undefined)
     await db.from("commerce_integrations").delete().eq("creator_id", creatorId).eq("provider", info.id)
     return { ok: true }
   }
+  /* Coming soon: nothing to connect to yet, so no key is taken (one saved before can still be removed above). */
+  if (info.availability === "needs_setup") return { ok: false, error: `${info.name} isn't connected to Storelib yet. Press Tell me when it's ready on its page.` }
+  if (info.availability === "connect" && connectorFor(info.id)) return saveConnector(db, creatorId, info.id, info.category, body)
   const row: Record<string, unknown> = { creator_id: creatorId, provider: info.id, category: info.category, updated_at: new Date().toISOString(), last_error: null }
   if (info.fields.includes("url")) {
     const url = typeof body.url === "string" ? body.url.trim() : ""
@@ -96,4 +116,28 @@ export async function saveIntegration(db: Db, creatorId: string, provider: strin
   }
   const { error } = await db.from("commerce_integrations").upsert(row, { onConflict: "creator_id,provider" })
   return error ? { ok: false, error: "The integration could not be saved." } : { ok: true }
+}
+
+/**
+ * Printful and Printify (lib/integrations/fulfilment): a new key is put to
+ * the provider, which says which shop or store it works on, and is refused
+ * when the provider refuses it. Without a new key, only the seller's
+ * choice of drafts or straight to production changes.
+ */
+async function saveConnector(db: Db, creatorId: string, provider: string, category: string, body: Record<string, unknown>): Promise<{ ok: true } | { ok: false; error: string }> {
+  const key = typeof body.apiKey === "string" ? body.apiKey.trim() : ""
+  const { data: had } = await db.from("commerce_integrations").select("id, config").eq("creator_id", creatorId).eq("provider", provider).maybeSingle()
+  if (!key) {
+    if (!had) return { ok: false, error: "Add your API key." }
+    if (typeof body.autoConfirm !== "boolean") return { ok: true }
+    const { error } = await db.from("commerce_integrations").update({ config: { ...(had.config ?? {}), auto_confirm: body.autoConfirm }, updated_at: new Date().toISOString() }).eq("id", had.id)
+    return error ? { ok: false, error: "The integration could not be saved." } : { ok: true }
+  }
+  if (key.length < 8 || key.length > 400) return { ok: false, error: "That key doesn't look right." }
+  const made = await connectFields(provider, key, (had?.config as Record<string, unknown> | null) ?? null, { autoConfirm: body.autoConfirm })
+  if (made.ok === false) return made
+  const { error } = await db.from("commerce_integrations").upsert({ creator_id: creatorId, provider, category, updated_at: new Date().toISOString(), ...made.fields }, { onConflict: "creator_id,provider" })
+  if (error) return { ok: false, error: "The integration could not be saved." }
+  await afterConnect(db, creatorId, provider)
+  return { ok: true }
 }

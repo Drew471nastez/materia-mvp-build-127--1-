@@ -37,6 +37,7 @@ import { orderNumber, trackingUrl } from "./status"
 import { openSecret } from "./secrets"
 import { orderPageUrl } from "./order-link-server"
 import { PARTNER_PAGE_PREFIX, signPartnerLink } from "./partner-link"
+import { connectorFor, forwardToProvider, syncProviderTracking } from "@/lib/integrations/fulfilment/forward-server"
 
 export type JobKind = "forward_fulfillment" | "supplier_email" | "webhook_delivery" | "tracking_sync" | "inventory_sync" | "send_email"
 
@@ -126,6 +127,9 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
       await enqueueJob(db, { creatorId, kind: "supplier_email", key: `supplier_email:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id } })
     } else if (loc.forwarding === "webhook") {
       await enqueueJob(db, { creatorId, kind: "webhook_delivery", key: `webhook:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id, event: "order.paid" } })
+    } else if (loc.forwarding === "provider" && loc.integration_id && (await providerTakesOrders(db, creatorId, loc.integration_id))) {
+      /* Printful or Printify, connected: the order goes there (lib/integrations/fulfilment/forward-server.ts). */
+      await enqueueJob(db, { creatorId, kind: "forward_fulfillment", key: `provider:${checkoutId}:${loc.id}`, payload: { checkoutId, locationId: loc.id, integrationId: loc.integration_id, creatorId } })
     } else if (loc.forwarding === "provider") {
       await addOrderEvent(db, {
         checkoutId,
@@ -136,6 +140,12 @@ export async function queueForwarding(db: Db, checkoutId: string, creatorId: str
       })
     }
   }
+}
+
+/** A location's integration that Storelib sends orders to: Printful or Printify, connected. */
+async function providerTakesOrders(db: Db, creatorId: string, integrationId: string): Promise<boolean> {
+  const { data } = await db.from("commerce_integrations").select("provider, status").eq("id", integrationId).eq("creator_id", creatorId).maybeSingle()
+  return !!data && data.status === "connected" && !!connectorFor(data.provider)
 }
 
 /**
@@ -205,7 +215,7 @@ export async function runJobs(db: Db, limit = 20): Promise<{ done: number; faile
           checkoutId: job.payload.checkoutId,
           creatorId: job.creator_id,
           kind: "job.failed",
-          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : "The order could not be sent to your webhook.",
+          message: job.kind === "send_email" ? "An email to the buyer could not be sent." : job.kind === "supplier_email" ? "The order could not be emailed to the supplier." : job.kind === "forward_fulfillment" ? "The order could not be sent to your print partner. Send it to them yourself." : job.kind === "tracking_sync" ? "Tracking could not be read from your print partner. Check the order there." : "The order could not be sent to your webhook.",
           detail: { error: message },
           key: `job_dead:${job.id}`,
         })
@@ -225,6 +235,10 @@ async function handle(db: Db, job: { kind: JobKind; payload: Record<string, any>
       return sendSupplierEmail(db, job.payload)
     case "webhook_delivery":
       return deliverWebhook(db, job.payload)
+    case "forward_fulfillment":
+      return forwardToProvider(db, job.payload)
+    case "tracking_sync":
+      return syncProviderTracking(db, job.payload)
     default:
       throw new Error("This kind of job is not available yet.")
   }

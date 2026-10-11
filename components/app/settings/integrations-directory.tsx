@@ -12,7 +12,8 @@
  * About, At a glance, Data ownership and Install, with Back to integrations.
  *
  * The page is kept in the address (?tab=integrations&integration=meta-pixel)
- * so a link to it opens it, and Back goes back to the list where it was.
+ * so a link to it opens it, and Back (its button, the browser's or a phone's
+ * swipe) goes back to the list exactly where it was.
  *
  * Installed means: a pixel with its ID saved, a provider with a key or an
  * address saved. Built in means it works with nothing to connect.
@@ -20,7 +21,6 @@
 import * as React from "react"
 import { useSearchParams } from "next/navigation"
 import { ChevronLeft, ExternalLink, Search, Check, ArrowRight } from "lucide-react"
-import { glideScrollTop } from "@/lib/ui/glide-scroll"
 import { cn } from "@/lib/utils"
 import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, TextInput, api, peekGet } from "@/components/physical/ui"
@@ -38,21 +38,32 @@ const CARD = "rounded-2xl border border-[#e5e7eb]/60 bg-white shadow-[0_1px_3px_
 /* A card with a little depth: the hairline, a contact shadow and a soft one under it, as the rail's open row sits over its column. */
 const DEPTH = "rounded-2xl border border-[#e5e7eb]/70 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-14px_rgba(16,24,40,0.14)]"
 
-/* The push and the pop: the page comes in from the side it is going to, a short way, on the app's sheet curve. */
-const PAGE_EASE = "cubic-bezier(0.32, 0.72, 0, 1)"
-const PAGE_MS = 280
-const PAGE_SHIFT = 18
+/*
+  ENTERING AND LEAVING AN INTEGRATION'S PAGE (round 23). "No slide delay, no flash, back returns to where you
+  were." The new view is there on the very next frame; the only motion is a short fade from 0.55, on the
+  compositor, so the swap reads as one surface changing and never as a blank frame. No sideways travel.
+*/
+const SWAP_MS = 120
+const SWAP_FROM = 0.55
 
 function reduced(): boolean {
   return typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
 }
 
-function writeIntegrationParam(id: string | null) {
+/**
+ * The address follows the page. Opening one is a new history entry (so the phone's Back, a swipe or the
+ * browser's Back comes back to the list, where you were); going back from it by its own button goes back
+ * through history when the entry is ours, so entries never pile up. Next's router hears both (pushState and
+ * replaceState are synced with useSearchParams).
+ */
+function writeIntegrationParam(id: string | null, how: "push" | "replace") {
   try {
     const url = new URL(window.location.href)
     if (id) url.searchParams.set("integration", id)
     else url.searchParams.delete("integration")
-    window.history.replaceState(window.history.state, "", url.toString())
+    if (url.href === window.location.href) return
+    if (how === "push") window.history.pushState(null, "", url.toString())
+    else window.history.replaceState(window.history.state, "", url.toString())
   } catch {
     /* An address that can't be written: the page still opens. */
   }
@@ -69,7 +80,11 @@ export function IntegrationsDirectory() {
   const [states, setStates] = React.useState<IntegrationState[] | null>(() => (physical ? (peekGet<{ integrations: IntegrationState[] }>("/api/physical/integrations")?.integrations ?? null) : []))
   const [query, setQuery] = React.useState("")
   const [filter, setFilter] = React.useState<Filter>("all")
-  const [openId, setOpenId] = React.useState<string | null>(null)
+  /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
+     another integration, Back and Forward (show() below, so Back by the browser lands where you were too).
+     Read before the first paint, so a link to a page never shows the list for a frame first. */
+  const wanted = useSearchParams()?.get("integration") ?? null
+  const [openId, setOpenId] = React.useState<string | null>(wanted)
   const [requesting, setRequesting] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [overrides, setOverrides] = React.useState<CatalogOverride[]>(() => peekGet<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog")?.overrides ?? [])
@@ -81,11 +96,6 @@ export function IntegrationsDirectory() {
     })
   }, [])
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
-  /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
-     another integration, Back and Forward. It was read once on mount, so a second row did nothing. */
-  const wanted = useSearchParams()?.get("integration") ?? null
-  React.useEffect(() => setOpenId(wanted), [wanted])
-
   React.useEffect(() => {
     void api<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog").then((r) => {
       if (r.ok) setOverrides(r.data.overrides ?? [])
@@ -108,7 +118,7 @@ export function IntegrationsDirectory() {
     (i: Integration): boolean => {
       if (i.kind === "app") return !!(i.appId && appsOn[i.appId])
       if (i.kind === "tracker") return !!(i.trackerId && tracking?.[i.trackerId])
-      if (i.kind !== "commerce") return false
+      if (i.kind !== "commerce" || i.comingSoon) return false
       const s = states?.find((x) => x.provider === i.providerId)
       return !!s && s.status !== "disconnected"
     },
@@ -119,7 +129,7 @@ export function IntegrationsDirectory() {
   const statusOf = React.useCallback(
     (i: Integration): IntegrationStatus => {
       if (i.builtIn) return "built_in"
-      if (i.kind === "commerce") {
+      if (i.kind === "commerce" && !i.comingSoon) {
         const s = states?.find((x) => x.provider === i.providerId)
         if (s?.status === "error") return "error"
         if (s && s.status !== "disconnected") return s.lastError ? "needs_attention" : "installed"
@@ -138,34 +148,55 @@ export function IntegrationsDirectory() {
     return Math.max(0, el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 16)
   }
   /*
-    PUSH AND POP, NEVER A JUMP (round R1). A card pushes its page in from the
-    right; Back pops the list in from the left (the layout effect below plays
-    it on the frame the new view is painted, transform and opacity only).
+    PUSH AND POP, IN PLACE (round 23).
 
-      opening   the page starts at its top: placed there in the same frame it
-                appears, so it is never seen part way down the list's scroll
-      Back      the list comes back and the scroll GLIDES to the list's top
-                ("not leave you mid scroll"), the browser's own smooth scroll
-                on the compositor (lib/ui/glide-scroll). The directory is held
-                at the height the page had until the glide is over, so a list
-                shorter than the page can't pull the scroll up in one step.
+      opening   the list's scroll and the card pressed are remembered, and the page starts at its top,
+                placed there in the same frame it appears
+      back      the list comes back exactly where it was: same category, same search, same scroll, the
+                card you opened under your thumb and focused. Set before the frame is painted, so it never
+                shows at the top first and then jumps.
+
+    The button and the browser's Back do the same: a history entry made by opening is gone back through;
+    a page opened from a link (no entry of ours) is replaced by the list.
   */
   const motion = React.useRef<null | "push" | "pop">(null)
-  const pendingGlide = React.useRef<number | null>(null)
+  const listAt = React.useRef<{ scroll: number; card: string | null } | null>(null)
+  const pushed = React.useRef(false)
+  const show = React.useCallback(
+    (id: string | null) => {
+      setOpenId((was) => {
+        if (was === id) return was
+        motion.current = id ? "push" : "pop"
+        if (id && !was) {
+          const box = scroller()
+          listAt.current = { scroll: box?.scrollTop ?? 0, card: id }
+        }
+        return id
+      })
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  )
+  React.useEffect(() => {
+    if (!wanted) pushed.current = false
+    show(wanted)
+  }, [wanted, show])
   const open = (id: string | null) => {
-    motion.current = id ? "push" : "pop"
-    const box = scroller()
-    const el = root.current
-    if (!id && el && box) {
-      const from = box.scrollTop
-      const to = topOf(box)
-      if (from > to + 1) {
-        el.style.minHeight = `${el.offsetHeight}px`
-        pendingGlide.current = to
-      }
+    if (id) {
+      show(id)
+      writeIntegrationParam(id, "push")
+      pushed.current = true
+      return
     }
-    setOpenId(id)
-    writeIntegrationParam(id)
+    if (pushed.current) {
+      /* Our own entry: Back through it, so the browser's history is as it was before the page was opened. */
+      pushed.current = false
+      show(null)
+      window.history.back()
+      return
+    }
+    show(null)
+    writeIntegrationParam(null, "replace")
   }
   const viewKey = openId && shownAll.some((i) => i.id === openId) ? openId : "list"
   React.useLayoutEffect(() => {
@@ -178,20 +209,14 @@ export function IntegrationsDirectory() {
       const to = topOf(box)
       if (box.scrollTop > to) box.scrollTop = to
     }
-    if (how === "pop" && box && pendingGlide.current !== null) {
-      const to = pendingGlide.current
-      pendingGlide.current = null
-      const release = () => {
-        el.style.minHeight = ""
-      }
-      if (reduced()) {
-        box.scrollTop = to
-        release()
-      } else glideScrollTop(box, to, release)
+    if (how === "pop") {
+      const at = listAt.current
+      listAt.current = null
+      if (box && at) box.scrollTop = at.scroll
+      if (at?.card) el.querySelector<HTMLElement>(`[data-integration-card="${CSS.escape(at.card)}"]`)?.focus({ preventScroll: true })
     }
     if (reduced() || typeof el.animate !== "function") return
-    const dx = how === "push" ? PAGE_SHIFT : -PAGE_SHIFT
-    el.animate([{ opacity: 0, transform: `translate3d(${dx}px, 0, 0)` }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: PAGE_MS, easing: PAGE_EASE })
+    el.animate([{ opacity: SWAP_FROM }, { opacity: 1 }], { duration: SWAP_MS, easing: "ease-out" })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewKey])
 
@@ -230,7 +255,7 @@ export function IntegrationsDirectory() {
     if (!grid || reduced()) return
     Array.from(grid.children).forEach((li, i) => {
       if (typeof (li as HTMLElement).animate !== "function") return
-      ;(li as HTMLElement).animate([{ opacity: 0.4, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: 220, delay: Math.min(i, 8) * 14, easing: PAGE_EASE, fill: "backwards" })
+      ;(li as HTMLElement).animate([{ opacity: 0.4, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: 220, delay: Math.min(i, 8) * 14, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "backwards" })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
@@ -438,7 +463,9 @@ function IntegrationPage({
 }) {
   const setupRef = React.useRef<HTMLElement>(null)
   const standing = STANDING[status]
-  const notifyOnly = item.kind === "listed" || (!!item.paused && !installed)
+  /* Nothing to connect yet: a listed service, a provider marked Coming soon, or one paused from /admin. */
+  const notifyOnly = item.kind === "listed" || (item.kind === "commerce" && !!item.comingSoon) || (!!item.paused && !installed)
+  const providerState = item.providerId ? (states?.find((s) => s.provider === item.providerId) ?? null) : null
   const action = item.builtIn && item.kind !== "commerce" ? null : notifyOnly ? "Tell me when it's ready" : installed ? "Manage" : "Set up"
   const toSetup = () => {
     const el = setupRef.current
@@ -494,14 +521,22 @@ function IntegrationPage({
             </div>
             <div className="px-4 py-4 sm:px-6 sm:py-5">
               {notifyOnly ? (
-                <NotifyMe item={item} />
+                <div className="space-y-4">
+                  <NotifyMe item={item} />
+                  {/* A key saved before this was marked Coming soon: shown, so it can be removed. */}
+                  {item.kind === "commerce" && item.providerId && providerInfo(item.providerId) && providerState && providerState.status !== "disconnected" ? (
+                    <ul className="border-t border-[#f1f2f4] pt-4 [&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
+                      <IntegrationCard provider={providerInfo(item.providerId)!} state={providerState} loading={false} onSaved={onStates} />
+                    </ul>
+                  ) : null}
+                </div>
               ) : item.kind === "app" && item.appId === "storelib_reviews" ? (
                 <ReviewsAppPanel onChanged={(st) => onApp("storelib_reviews", st.enabled)} />
               ) : item.kind === "tracker" && item.trackerId ? (
                 <TrackerInstall item={item} value={tracking?.[item.trackerId] ?? null} ready={trackingReady} onSaved={onTracking} />
               ) : item.providerId && providerInfo(item.providerId) ? (
                 <ul className="[&>li]:border-0 [&>li]:bg-transparent [&>li]:p-0 [&>li]:shadow-none">
-                  <IntegrationCard provider={providerInfo(item.providerId)!} state={states?.find((s) => s.provider === item.providerId) ?? null} loading={states === null} onSaved={onStates} startOpen={!item.builtIn} />
+                  <IntegrationCard provider={providerInfo(item.providerId)!} state={states?.find((s) => s.provider === item.providerId) ?? null} loading={states === null} onSaved={onStates} startOpen={!item.builtIn && !installed} />
                 </ul>
               ) : null}
             </div>
@@ -516,8 +551,6 @@ function IntegrationPage({
             </div>
             {item.paused ? (
               <Notice tone="gray" className="mt-3">{item.name} is paused on Storelib for now. Anything already set up keeps its settings.</Notice>
-            ) : item.comingSoon && item.kind === "commerce" ? (
-              <Notice tone="gray" className="mt-3">Storelib doesn&apos;t send orders to {item.name} yet. Your key is ready for when it does, and orders for it are marked to send by hand until then.</Notice>
             ) : null}
           </section>
 

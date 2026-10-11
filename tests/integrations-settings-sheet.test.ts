@@ -34,7 +34,8 @@ console.log("\nThe Integrations section\n")
   const market = read("components/physical/integrations-marketplace.tsx")
   check("grouped by what the service does, shipping first", /const ORDER: ProviderCategory\[\] = \["shipping", "print_on_demand", "dropshipping", "fulfillment", "supplier"\]/.test(market))
   check("a verified key says so, with Test for a test key", /state\.mode === "test" \? "Key verified · Test" : "Key verified"/.test(market))
-  check("and the card never claims orders are sent where they are not", /Storelib does not send orders to \{provider\.name\} yet/.test(market))
+  /* Changed on purpose (round 23): a service not built yet is Coming soon with no Connect button at all, rather than a key form with a note under it. */
+  check("and the card never claims orders are sent where they are not", /const connectable = !comingSoon &&/.test(market) && /label: "Coming soon" \}/.test(market))
   check("the provider's own logo when one is named, else its initial", /provider\.logo \?/.test(market) || /if \(provider\.logo\)/.test(market))
   const settings = read("components/app/settings-form-new.tsx")
   /* Changed on purpose (round T): Integrations is every store's now (analytics and pixels); the commerce providers inside it still follow the switch (lib/integrations/catalog visibleIntegrations). */
