@@ -56,7 +56,8 @@ console.log("\nA section pressed while scrolled opens at its top, at once\n")
   const form = read("components/app/settings-form-new.tsx")
   const glide = read("lib/ui/glide-scroll.ts")
   check("no glide and no wait for one in Settings' sections", !/glideScrollTop|startGlide|nearTop|GLIDE_SHOW_WITHIN/.test(form))
-  check("the scroll is put at the section's top in the layout effect, before it is painted", /useLayoutEffect\(\(\) => \{\n    if \(!scrollPending\.current\) return/.test(form) && /if \(scroller && scroller\.scrollTop > target\) scroller\.scrollTop = target/.test(form))
+  /* Changed on purpose (round 20, the owner: "it should auto scroll up smoothly, clean"): placed just above its top in that frame, then the browser's smooth scroll (tests/settings20.test.ts). */
+  check("the scroll is placed for the section in the layout effect, before it is painted", /useLayoutEffect\(\(\) => \{\n    if \(!scrollPending\.current\) return/.test(form) && /scroller\.scrollTop = start/.test(form))
   check("a section whose data is kept swaps on the press, in a transition so the pill's frame is not held", /if \(urls\.every\(\(u\) => peekGet\(u\) !== null\)\) show\(\)/.test(form) && /startTransition\(\(\) => setPanelTab\(activeTab\)\)/.test(form))
   check("the browser's own smooth scroll, on the compositor, still carries Integrations' Back", /el\.scrollTo\(\{ top: to, behavior: "smooth" \}\)/.test(glide) && /glideScrollTop\(box, to, release\)/.test(read("components/app/settings/integrations-directory.tsx")))
 }
