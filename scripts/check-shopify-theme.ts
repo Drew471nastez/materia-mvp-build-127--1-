@@ -702,7 +702,8 @@ async function run(zipPath: string) {
         /* Anything on its way to checkout: /checkout, the basket checkout, or the cart posted with \`checkout\`. */
         if (u.startsWith(base) && (/^\/(checkout|cart\/checkout|api\/checkout)/.test(u.slice(base.length)) || (r.method() === "POST" && /^\/cart/.test(u.slice(base.length)) && /(^|&|name="|\b)checkout/.test(r.postData() ?? "")))) checkoutHits++
         /* A theme's own demo pictures and videos on Shopify's CDN load as they do on Shopify; a script or stylesheet from there never may. */
-        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); return r.abort() }
+        /* A picture there is answered with one of the made up shop's, so the page loads as it does live (where Shopify's CDN answers it). */
+        if (/shopify(cdn|cloud)?\.com/.test(u)) { if (!["image", "media"].includes(r.resourceType())) shopifyHits.push(u); if (r.resourceType() !== "image") return r.abort(); return /\.svg(\?|$)/i.test(u) ? r.respond({ status: 200, contentType: "image/svg+xml", body: '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect width="400" height="200" fill="#ccc"/></svg>' }) : r.respond({ status: 200, contentType: "image/png", body: PNGS[0] }) }
         if (u.startsWith("https://img.test/")) return r.respond({ status: 200, contentType: "image/png", body: PNGS[(Number(u.match(/p(\d)/)?.[1] ?? 0)) % PNGS.length] })
         if (/fonts\.(googleapis|gstatic)\.com/.test(u)) return r.respond({ status: 200, contentType: "text/css", body: "" })
         if (process.env.DEBUG && u.startsWith(base) && !/assets/.test(u)) console.log("    >", r.method(), u.slice(base.length, base.length + 140), (r.postData() ?? "").slice(0, 200))
