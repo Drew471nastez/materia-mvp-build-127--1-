@@ -284,7 +284,7 @@ const Tile = React.memo(function Tile({
         className={cn(
           "absolute right-1.5 top-1.5 grid h-8 w-8 place-items-center rounded-full bg-white/90 text-[#374151] shadow-[0_1px_3px_rgba(17,24,39,0.16)] outline-none transition-opacity duration-150 hover:bg-white hover:text-[#1a1a2e] focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-[#1a1a2e]/30 [-webkit-tap-highlight-color:transparent] sm:h-7 sm:w-7",
           /* Always there on a touch screen; with a mouse once the pointer is on the tile, or while its menu is open. */
-          menuOpen ? "opacity-100" : "[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/tile:opacity-100",
+          menuOpen ? "opacity-100" : "[@media(hover:hover)_and_(pointer:fine)]:opacity-0 group-hover/tile:opacity-100 group-focus-within/tile:opacity-100",
         )}
       >
         <MoreHorizontal className="h-4 w-4" aria-hidden />
