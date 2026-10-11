@@ -262,7 +262,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return
     }
     if (plan.empty) { now.shape = next; return }
-    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html }, "*")
+    /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
+    for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
     if (Object.keys(plan.message).length) win.postMessage({ storelib: 1, type: "patch", ...plan.message }, "*")
     now.shape = next
     for (const s of list) now.drawnFrom.set(s.id, JSON.stringify(s))
@@ -301,14 +302,28 @@ export function CompatCanvas(props: CompatCanvasProps) {
         console.error("[compat-canvas] a section could not be drawn", e)
         continue
       }
-      win.postMessage({ storelib: 1, type: "section", id: s.id, html }, "*")
+      win.postMessage({ storelib: 1, type: "section", id: s.id, html, prev: slot.shape.sections.get(s.id) }, "*")
       slot.drawnFrom.set(s.id, JSON.stringify(s))
       slot.shape.sections.set(s.id, html)
     }
   }
   const sync = useRef<() => void>(() => {})
   sync.current = () => { for (const slot of slotsRef.current) syncSlot(slot) }
-  useEffect(() => sync.current(), [sections, compatTheme, page])
+  /*
+    AT MOST ONCE A FRAME. A slider under a finger renders this with every
+    value it passes, several between two frames, and each one drew the
+    section through the theme's Liquid again on the editor's main thread.
+    The values in between are never seen; the last one in the frame is.
+  */
+  const syncFrame = useRef(0)
+  useEffect(() => {
+    if (syncFrame.current) return
+    syncFrame.current = requestAnimationFrame(() => {
+      syncFrame.current = 0
+      sync.current()
+    })
+  }, [sections, compatTheme, page])
+  useEffect(() => () => { if (syncFrame.current) cancelAnimationFrame(syncFrame.current) }, [])
 
   /* The selection, outlined in the page and announced to the theme. */
   const selectedBlock = props.selectedBlockId ? props.selectedBlockId.split(/[/>]/).pop() ?? null : null
