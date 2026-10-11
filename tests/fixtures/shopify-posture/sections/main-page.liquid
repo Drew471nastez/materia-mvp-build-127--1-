@@ -1,0 +1,8 @@
+<div class="page-width main-page">
+  <h1>{%- case template.name -%}{%- when 'product' -%}{{ product.title }}{%- when 'collection' -%}{{ collection.title }}{%- when 'page' -%}{{ page.title }}{%- else -%}{{ page_title }}{%- endcase -%}</h1>
+  {%- if template.name == 'collection' -%}{%- for p in collection.products -%}<a class="card" href="{{ p.url }}">{{ p.title }}</a>{%- endfor -%}{%- endif -%}
+  {%- if template.name == 'list-collections' -%}{%- for c in collections -%}<a class="card" href="{{ c.url }}">{{ c.title }}</a>{%- endfor -%}{%- endif -%}
+</div>
+{% schema %}
+{ "name": "Main page", "settings": [] }
+{% endschema %}

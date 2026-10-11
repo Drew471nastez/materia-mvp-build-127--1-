@@ -1,0 +1,37 @@
+<header class="site-header" data-sticky>
+  <div class="site-header__inner">
+    <button type="button" class="site-header__burger" aria-label="Menu" data-drawer-open><span></span><span></span><span></span></button>
+    <a href="{{ routes.root_url }}" class="site-header__logo">
+      {%- if section.settings.logo != blank -%}
+        <img src="{{ section.settings.logo | image_url: width: 300 }}" alt="{{ shop.name }}" width="150" height="40">
+      {%- else -%}
+        <span class="site-header__word">{{ shop.name }}</span><span class="site-header__mark" aria-hidden="true">X</span>
+      {%- endif -%}
+    </a>
+    <nav class="site-header__nav" aria-label="Main">
+      <ul>
+        {%- for link in linklists[section.settings.menu].links -%}
+          <li><a href="{{ link.url }}"{% if link.active %} aria-current="page"{% endif %}>{{ link.title }}</a>
+            {%- if link.links.size > 0 -%}<ul class="site-header__sub">{%- for child in link.links -%}<li><a href="{{ child.url }}">{{ child.title }}</a></li>{%- endfor -%}</ul>{%- endif -%}
+          </li>
+        {%- endfor -%}
+      </ul>
+    </nav>
+    <a href="{{ routes.search_url }}" class="site-header__icon" aria-label="Search">S</a>
+    <a href="{{ routes.cart_url }}" class="site-header__icon" aria-label="Cart">C<span class="count">{{ cart.item_count }}</span></a>
+  </div>
+  <div class="drawer" data-drawer hidden>
+    <button type="button" class="drawer__close" data-drawer-close aria-label="Close">x</button>
+    <ul>
+      {%- for link in linklists[section.settings.menu].links -%}
+        <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+      {%- endfor -%}
+    </ul>
+  </div>
+</header>
+{% schema %}
+{ "name": "Header", "class": "section-header", "settings": [
+  { "type": "image_picker", "id": "logo", "label": "Logo" },
+  { "type": "link_list", "id": "menu", "label": "Menu", "default": "main-menu" }
+] }
+{% endschema %}

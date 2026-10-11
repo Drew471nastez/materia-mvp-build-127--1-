@@ -12,7 +12,7 @@
  */
 import { useEffect, useState, type ReactNode } from "react"
 import { ChevronRight } from "lucide-react"
-import { loadCompatFiles } from "./compat-canvas"
+import { loadCompatFiles } from "./compat-files"
 import { visibleFields } from "@/lib/storelib-theme/visible-if"
 import type { SchemaField } from "@/lib/website-builder/types"
 import { OVERRIDE_GROUP } from "@/lib/storelib-theme/compat/overrides"
