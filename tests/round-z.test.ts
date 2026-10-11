@@ -82,5 +82,19 @@ console.log("\nA live page's first picture")
   check("  only one the script marked is hidden, so nothing is hidden before it runs", /\[data-reveal="pending"\]\{opacity:0;\}/.test(read("lib/website-builder/theme-css.ts")))
 }
 
+console.log("\nPublishing, all of it or none of it")
+{
+  const sql = read("supabase/sql/run-now/130_theme_publish_in_one_step.sql")
+  check("one function writes the settings, pages, files and the live switch", /CREATE OR REPLACE FUNCTION public\.publish_theme_install\(p_install uuid, p_creator uuid, p_settings jsonb, p_settings_draft jsonb, p_pages jsonb\)/.test(sql) && /store_theme_settings SET settings/.test(sql) && /store_theme_pages SET sections/.test(sql) && /store_theme_custom_files SET content = draft_content/.test(sql) && /SET status = 'published'/.test(sql))
+  check("  only for the creator's own website, one publish per store at a time", /creator_id = p_creator\) THEN RAISE EXCEPTION/.test(sql) && /pg_advisory_xact_lock/.test(sql))
+  check("  a draft saved while it runs is kept", /draft_sections IS NOT DISTINCT FROM v_page->'draft' THEN NULL ELSE draft_sections/.test(sql) && /draft_settings IS NOT DISTINCT FROM p_settings_draft THEN NULL ELSE draft_settings/.test(sql))
+  check("  the server alone can call it", /REVOKE ALL ON FUNCTION public\.publish_theme_install\(uuid, uuid, jsonb, jsonb, jsonb\) FROM PUBLIC, anon, authenticated/.test(sql) && /TO service_role/.test(sql))
+  const route = read("app/api/website-builder/themes/[installId]/publish/route.ts")
+  check("Publish uses it, with what it has cleaned", /admin\.rpc\("publish_theme_install"/.test(route) && /sections: sanitizeSections\(page\.draft_sections as SectionInstance\[\], own\)/.test(route) && /p_settings: settingsRow\?\.draft_settings \? sanitizeThemeSettings/.test(route))
+  check("  and a failure says nothing changed, because nothing did", /if \(oneStep\.error && !publishStepMissing\(oneStep\.error\)\) \{\s*return failed\("Could not publish\. Nothing changed/.test(route))
+  check("  until part 130 runs, the step by step publish as before", /\} else \{\s*if \(settingsRow\?\.draft_settings\)/.test(route) && /await promoteFileDrafts\(admin, installId\)/.test(route))
+  check("  and a file that went live in one step is still in its history", /recordVersion\(admin, installId, file\.path, file\.content, "publish"\)/.test(route))
+}
+
 console.log(`\n${passed} passed, ${failed} failed`)
 if (failed) process.exit(1)
