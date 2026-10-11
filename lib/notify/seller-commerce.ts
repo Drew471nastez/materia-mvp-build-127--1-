@@ -314,3 +314,32 @@ export function sellerCommerceEmail(kind: SellerCommerceKind, m: SellerCommerceI
   }
   return { subject: input.subject, html: renderHtml(input), text: renderText(input) }
 }
+
+/**
+ * To the seller: these sold down to their low stock line. In Storelib's own
+ * email look, as every seller email is (lib/notify/seller-commerce.ts).
+ */
+export function lowStockEmail(m: { shopName: string; items: { title: string; variantName: string | null; available: number; threshold: number }[]; inventoryUrl: string }): {
+  subject: string
+  html: string
+  text: string
+} {
+  let base = "https://storelib.com"
+  try {
+    base = new URL(m.inventoryUrl).origin
+  } catch {
+    /* Storelib's own address stands in. */
+  }
+  const mail = sellerCommerceEmail("low_stock", { items: m.items }, { baseUrl: base })
+  const out = m.items.some((i) => i.available <= 0)
+  const text = [
+    out ? "Stock is running out" : "Stock is running low",
+    "",
+    ...m.items.map((i) => `${i.title}${i.variantName ? ` (${i.variantName})` : ""}: ${i.available <= 0 ? "sold out" : `${i.available} left`}`),
+    "",
+    `Open Inventory: ${m.inventoryUrl}`,
+    "",
+    "You get these because low stock emails are on in Settings › Locations. Turn them off there.",
+  ].join("\n")
+  return { subject: mail.subject, html: mail.html, text }
+}

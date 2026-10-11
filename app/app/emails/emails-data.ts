@@ -8,8 +8,10 @@
 import { createClient } from "@/lib/supabase/client"
 import type { RecipientCounts } from "@/lib/email-campaigns/state"
 import type { CampaignRow, EmailsTab, FlowRow, FlowTotals, MessageRow, OverviewStats, SubscriberRow } from "./emails-home"
+import { api } from "@/components/physical/ui"
+import { CUSTOMER_EMAILS_PATH, type CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
 
-export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "published", "scheduled", "drafts"]
+export const TABS: EmailsTab[] = ["subscribers", "messages", "flows", "customer", "published", "scheduled", "drafts"]
 
 export function isTab(v: unknown): v is EmailsTab {
   return typeof v === "string" && (TABS as string[]).includes(v)
@@ -190,7 +192,21 @@ export function loadTab(tab: EmailsTab, rangeQuery: string): Promise<unknown> {
       return loadCampaigns("scheduled")
     case "drafts":
       return loadCampaigns("draft")
+    case "customer":
+      return loadCustomerEmails()
   }
+}
+
+/**
+ * The emails a buyer gets from the store, the same read Settings › Customer
+ * emails makes (/api/store/emails), through the same kept read, so the
+ * editor opened here or there draws at once from it and a save in one is
+ * what the other shows.
+ */
+export async function loadCustomerEmails(): Promise<CustomerEmailsData> {
+  const r = await api<CustomerEmailsData>(CUSTOMER_EMAILS_PATH)
+  if (!r.ok) throw new Error(r.error || "Could not load your customer emails.")
+  return r.data
 }
 
 /* ─── One email ─────────────────────────────────────────────────────── */

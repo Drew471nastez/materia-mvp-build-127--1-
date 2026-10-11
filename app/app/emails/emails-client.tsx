@@ -56,6 +56,8 @@ import { markRow, moveOrder, stillOrder } from "../orders/order-motion"
 import { holdLanding, isTraversing } from "@/lib/ui/app-navigation"
 import { backThen } from "@/lib/navigation/go-back"
 import { EmailsHome, type CampaignRow, type EmailsTab, type FlowRow, type MessageRow, type SubscriberRow } from "./emails-home"
+import type { CustomerEmailsData } from "@/components/app/settings/customer-emails-panel"
+import { usePhysicalCommerceEnabled } from "@/components/platform/platform-settings-context"
 import { ContactPage } from "./contact-detail"
 import { MessagePage } from "./message-detail"
 import { EmailDetail, type EmailAction, type EmailSeed } from "./email-detail"
@@ -215,6 +217,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
   const subscribersData = (tab === "subscribers" ? current.data : peek(keyFor("subscribers"))) as SubscribersData | undefined
   const messagesData = (tab === "messages" ? current.data : peek(keyFor("messages"))) as MessagesData | undefined
   const flows = ((tab === "flows" ? current.data : peek(keyFor("flows"))) as FlowRow[] | undefined) ?? []
+  const customerEmails = (tab === "customer" ? current.data : peek(keyFor("customer"))) as CustomerEmailsData | undefined
+  const physical = usePhysicalCommerceEnabled()
   const sentData = (tab === "published" ? current.data : undefined) as SentData | undefined
   const campaigns: CampaignRow[] =
     tab === "published" ? sentData?.campaigns ?? [] : tab === "scheduled" || tab === "drafts" ? ((current.data as CampaignRow[] | undefined) ?? []) : []
@@ -594,6 +598,8 @@ export function EmailsClient({ initialTab }: { initialTab: EmailsTab }) {
           loading={current.loading}
           subscribers={subscribersData?.rows ?? []}
           checkoutBuyersCount={subscribersData?.buyers ?? 0}
+          customerEmails={customerEmails ?? null}
+          physical={physical}
           search={search}
           onSearch={setSearch}
           onExportSubscribers={() => void exportSubscribers()}
