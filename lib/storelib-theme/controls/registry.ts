@@ -395,7 +395,7 @@ export const CONTROLS: Record<ControlType, ControlDefinition> = {
   product_picker: def({
     type: "product_picker",
     label: "Product",
-    description: "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported Shopify theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.",
+    description: "One of the creator's products. Printed on its own it is the product's address, so `href=\"{{ settings.product | url }}\"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.",
     value: "string",
     schema: z.string().max(200),
     fallback: "",
@@ -587,13 +587,13 @@ export function controlsAsMarkdown(): string {
   lines.push("")
   for (const [from, to] of Object.entries(LEGACY_TYPE_ALIASES)) lines.push(`- \`${from}\` → \`${to}\``)
   lines.push("")
-  lines.push("### Shopify names")
+  lines.push("### Other names")
   lines.push("")
-  lines.push("A schema written for a Shopify theme may use Shopify's names for the controls Storelib has under another name. They validate and mean:")
+  lines.push("A schema written for an imported theme may use other names for the controls Storelib has. They validate and mean:")
   lines.push("")
   for (const [from, to] of Object.entries(SHOPIFY_TYPE_ALIASES)) lines.push(`- \`${from}\` → \`${to}\``)
   lines.push("")
-  lines.push("These Shopify types have nothing to point at on Storelib and are refused with the reason:")
+  lines.push("These types have nothing to point at on Storelib and are refused with the reason:")
   lines.push("")
   for (const [type, why] of Object.entries(UNSUPPORTED_TYPES)) lines.push(`- \`${type}\`: ${why}`)
   lines.push("")

@@ -80,7 +80,7 @@ export const TOOLS = [
   {
     name: "storelib_guide",
     description:
-      "The Storelib Builder Framework: the file format, template language, schema, styling and script rules. Read this BEFORE writing any section. The template language is not Vue, React, JSX or Liquid.",
+      "The Storelib Builder Framework: the file format, template language, schema, styling and script rules. Read this BEFORE writing any section. The template language is not Vue, React or JSX.",
     inputSchema: { type: "object", properties: {}, additionalProperties: false },
   },
   {

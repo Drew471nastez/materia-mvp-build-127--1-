@@ -53,9 +53,9 @@ The JSON schemas the builder shipped with used a few other names. They still val
 - `font` → `font_picker`
 - `spacing` → `range`
 
-### Shopify names
+### Other names
 
-A schema written for a Shopify theme may use Shopify's names for the controls Storelib has under another name. They validate and mean:
+A schema written for an imported theme may use other names for the controls Storelib has. They validate and mean:
 
 - `text_alignment` → `alignment`
 - `product` → `product_picker`
@@ -63,7 +63,7 @@ A schema written for a Shopify theme may use Shopify's names for the controls St
 - `collection` → `collection_picker`
 - `liquid` → `html`
 
-These Shopify types have nothing to point at on Storelib and are refused with the reason:
+These types have nothing to point at on Storelib and are refused with the reason:
 
 - `blog`: A Storelib website has no blog of its own yet, so there is no blog to pick.
 - `article`: A Storelib website has no blog of its own yet, so there are no posts to pick.
@@ -579,7 +579,7 @@ These Shopify types have nothing to point at on Storelib and are refused with th
 
 ## product_picker
 
-**Product.** One of the creator's products. Printed on its own it is the product's address, so `href="{{ settings.product | url }}"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported Shopify theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.
+**Product.** One of the creator's products. Printed on its own it is the product's address, so `href="{{ settings.product | url }}"` works as it always has; it also carries the product's live `title`, `price`, `compare_price`, `image`, `url` and `id`, read as `settings.product.title`, whenever the page knows that product. It holds the product's address, id or handle (an imported theme's `waxed-tote` works). Set to `@current` it is the product the page is about: on the product page, that product, with its checkout; on any other page, empty.
 
 - Value: string
 - Default when the schema gives none: `""`

@@ -9,6 +9,10 @@
  * twenty rows, by (install_id, id). Without `after` nothing is replayed:
  * opening the builder does not show what agents did yesterday.
  *
+ * Both answers carry `sync_at`, when the GitHub link last changed (a push
+ * taken, a file refused, a send that failed), so the builder asks for the
+ * sync report (../sync-status) only when there is something new in it.
+ *
  * The first answer also carries the brief the top bar draws its mark from:
  * the live agent connections' names and last use, the GitHub repository, and
  * who wrote last. Three small reads, side by side. Never a token, a prefix or
@@ -51,7 +55,7 @@ export async function GET(req: Request, { params }: Params) {
         .is("revoked_at", null)
         .order("created_at", { ascending: false })
         .limit(10),
-      supabase.from("theme_github_links").select("repo_full_name").eq("install_id", installId).maybeSingle(),
+      supabase.from("theme_github_links").select("repo_full_name, updated_at").eq("install_id", installId).maybeSingle(),
     ])
     const row = latest.data?.[0] as { id: number; agent_name: string; created_at: string } | undefined
     const connections: ConnectionsBrief = {
@@ -62,15 +66,20 @@ export async function GET(req: Request, { params }: Params) {
       latest: row ? { name: row.agent_name, at: row.created_at } : null,
     }
     /* Without the activity log there is nothing to follow; the mark can still be drawn. */
-    return NextResponse.json({ ready: !latest.error, cursor: row?.id ?? 0, events: [], connections }, { headers: NO_STORE })
+    const syncAt = link.error || !link.data ? null : ((link.data as { updated_at?: string | null }).updated_at ?? null)
+    return NextResponse.json({ ready: !latest.error, cursor: row?.id ?? 0, events: [], connections, sync_at: syncAt }, { headers: NO_STORE })
   }
 
   /* `detail` (an agent's page operations) arrived with RUN_AGENT_MCP.sql; without it, the rows as before. */
   const read = (cols: string) =>
     supabase.from("theme_agent_activity").select(cols).eq("install_id", installId).gt("id", after).order("id", { ascending: true }).limit(20)
+  /* One more indexed read by the link's key, beside the log's. */
+  const linkRead = supabase.from("theme_github_links").select("updated_at").eq("install_id", installId).maybeSingle()
   let { data, error } = await read("id, agent_name, path, action, created_at, detail")
   if (error) ({ data, error } = await read("id, agent_name, path, action, created_at"))
   if (error) return NextResponse.json({ ready: false, cursor: after, events: [] }, { headers: NO_STORE })
   const events = (data ?? []) as unknown as { id: number }[]
-  return NextResponse.json({ ready: true, cursor: events.length ? events[events.length - 1].id : after, events }, { headers: NO_STORE })
+  const linked = await linkRead
+  const syncAt = linked.error || !linked.data ? null : ((linked.data as { updated_at?: string | null }).updated_at ?? null)
+  return NextResponse.json({ ready: true, cursor: events.length ? events[events.length - 1].id : after, events, sync_at: syncAt }, { headers: NO_STORE })
 }

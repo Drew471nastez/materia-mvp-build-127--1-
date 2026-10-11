@@ -199,7 +199,7 @@ export async function POST(req: Request) {
    * could not carry, and why, comes back in the answer as `shopify`.
    */
   if (isShopifyTheme(zip)) {
-    const converted = await convertShopifyTheme(zip, { fallbackName: "Shopify theme" })
+    const converted = await convertShopifyTheme(zip, { fallbackName: "Imported theme" })
     if (converted.ok === false) return NextResponse.json({ error: converted.error }, { status: 400 })
     return importShopifyTheme(req, admin, { userId: user.id, creatorId: creator.id as string }, converted.theme, converted.report)
   }
