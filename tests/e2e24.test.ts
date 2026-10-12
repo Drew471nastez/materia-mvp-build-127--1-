@@ -179,6 +179,8 @@ async function main() {
   const ordersA = j.rows("orders").filter((o) => o.checkout_id === coA!.id)
   const coA2 = j.rows("commerce_checkouts").find((c) => c.id === coA!.id)!
   check("one order: two lines (mug x2, download), paid once, whatever came first", coA2.status === "paid" && ordersA.length === 2 && ordersA.every((o) => o.status === "completed"), { status: coA2.status, lines: ordersA.map((o) => [o.product_snapshot?.title, o.quantity, o.amount_cents]) })
+  const pdfRow = ordersA.find((o) => o.product_id === pdfId)
+  check("each line holds its own tax: the download (not taxed) is its price less the code, 10.80, with no VAT on its receipt line", pdfRow?.amount_cents === 1080 && (pdfRow?.product_snapshot?.tax_cents ?? 0) === 0, pdfRow && { amount: pdfRow.amount_cents, tax: pdfRow.product_snapshot?.tax_cents })
   check("the lines add up to what Stripe took", ordersA.reduce((n, o) => n + o.amount_cents, 0) === paidA.charge!.amount, { lines: ordersA.map((o) => o.amount_cents), charged: paidA.charge!.amount })
   check("the buyer comes back from Stripe to their order page", back.status === 307 && (back.location ?? "").includes(`/checkout/physical/order/${coA2.receipt_token}`), { status: back.status, location: back.location })
   check("stock: still 30 on hand, 2 committed (sold, waiting to ship); reservation marked sold", level("Blue").on_hand === 30 && level("Blue").committed === 2 && j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id).every((r) => r.status === "sold"), { level: level("Blue"), res: j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id) })
