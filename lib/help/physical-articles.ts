@@ -1766,7 +1766,7 @@ const ARTICLES: Article[] = [
         "If either is busy, Storelib tries again a little later. Nothing is sent twice.",
       ] },
       { type: "h", text: "Stock from CJ" },
-      { type: "p", text: "On a matched CJ product, turn on Keep stock in step with CJ. Its stock at the CJ Dropshipping location then follows CJ's warehouses in the country you ship from: read when you turn it on, when CJ says it changed, and every six hours. With stock tracking on, the product sells out when CJ runs out. Each change is in the product's stock history as Synced from provider." },
+      { type: "p", text: "On a matched CJ product, turn on Keep stock in step with CJ. Its stock at the CJ Dropshipping location then follows CJ's warehouses in the country you ship from: read when you turn it on, when CJ says it changed, and every six hours. With stock tracking on, the product sells out when CJ runs out. Each change is in the product's stock history as Synced from provider. Leave it off and the CJ Dropshipping location only has the stock you count there yourself, so turn off Track stock on a product you don't want to count." },
     ],
   },
 
