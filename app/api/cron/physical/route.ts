@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin"
 import { isPhysicalCommerceEnabled } from "@/lib/platform/physical-commerce"
 import { runJobs } from "@/lib/physical/jobs-server"
 import { cancelStaleSitePayments } from "@/lib/checkout/site-payment-sweep"
+import { runTrackingSweep } from "@/lib/physical/tracking/sync-server"
 
 /**
  * GET /api/cron/physical
@@ -18,7 +19,10 @@ import { cancelStaleSitePayments } from "@/lib/checkout/site-payment-sweep"
  * left open past their holds are cancelled (lib/checkout/site-payment-sweep),
  * also while physical commerce is switched off in /admin, when the rest
  * does nothing. Before supabase/sql/run-now/78_physical_commerce.sql it
- * answers { available: false }. Protected by CRON_SECRET.
+ * answers { available: false }. Then open parcels whose next look is due
+ * are read from the tracking aggregator and their shipments moved on
+ * (lib/physical/tracking/sync-server.ts); nothing is asked when tracking is
+ * not set up. Protected by CRON_SECRET.
  */
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -40,9 +44,18 @@ async function runJob(request: Request) {
     jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
     if (ran.done + ran.failed < 25) break
   }
+  /* Courier tracking: the parcels due a look, inside what is left of the run. The emails it queues go out on the next run, or now when time allows. */
+  const tracking = await runTrackingSweep(db, { limit: 40, budgetMs: Math.max(0, 48_000 - (Date.now() - started)) }).catch((e) => {
+    console.error("[cron/physical] tracking:", e instanceof Error ? e.message : e)
+    return null
+  })
+  if (tracking?.moved && Date.now() - started < 50_000) {
+    const ran = await runJobs(db, 25)
+    jobs = { done: jobs.done + ran.done, failed: jobs.failed + ran.failed }
+  }
   const ms = Date.now() - started
-  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, ${ms}ms`)
-  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, ms }, { headers: { "Cache-Control": "no-store" } })
+  console.log(`[cron/physical] ${Number(expired ?? 0)} holds expired, jobs ${jobs.done} done ${jobs.failed} failed, tracking ${tracking ? `${tracking.checked} read ${tracking.moved} moved` : "failed"}, ${ms}ms`)
+  return NextResponse.json({ expired: Number(expired ?? 0), swept, jobs, tracking, ms }, { headers: { "Cache-Control": "no-store" } })
 }
 
 export async function GET(request: Request) {

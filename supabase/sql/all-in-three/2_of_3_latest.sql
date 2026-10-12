@@ -3004,5 +3004,32 @@ ALTER TABLE public.inventory_locations DROP CONSTRAINT IF EXISTS inventory_locat
 ALTER TABLE public.inventory_locations ADD CONSTRAINT inventory_locations_local_delivery_check CHECK ((pickup_hours IS NULL OR char_length(pickup_hours) <= 300) AND cardinality(local_delivery_codes) <= 500 AND local_delivery_price_cents BETWEEN 0 AND 10000000 AND (local_delivery_min_cents IS NULL OR local_delivery_min_cents BETWEEN 0 AND 10000000) AND (local_delivery_free_over_cents IS NULL OR local_delivery_free_over_cents BETWEEN 0 AND 10000000) AND (local_delivery_note IS NULL OR char_length(local_delivery_note) <= 500)) NOT VALID;
 INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('154', '154_local_delivery_and_pickup_hours.sql', '3d3eceb865c91ddbab84277fe420c41a9ba8a2c87b2a1389dddd0ef6204f8fc2') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
 
+-- part 160_courier_tracking.sql
+/* Courier tracking: Storelib follows every shipment with a tracking number through a tracking aggregator (AfterShip or 17TRACK), with Storelib's own account for every store or a store's own. New columns on fulfillments, every one with a default or empty, so no row changes: which aggregator and account follow it, the aggregator's id and the number it was registered with, the carrier's code, its state (info received, in transit, out for delivery, ready to collect, delivery attempted, problem, delivered, returned to sender, expired), the finer state, the estimated delivery, when it was read last and is read next, failures and the last error, when following stopped, and the seller's switch to pause it on one shipment. An index on the next look for open shipments only, so the ten minute job reads nothing else. `commerce_tracking_accounts` keeps a store's own AfterShip or 17TRACK key, sealed by the app before it is stored, one row per store, written and read by the server only. The carrier's scans go on fulfillment_events, which already keeps an external id once per shipment. Needs part 78. Until it runs, shipments keep the statuses the seller sets and the carrier's own link, and the job says tracking is not available yet. Safe to run again. */
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_provider text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_account text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_ref text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_ref_number text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_carrier_code text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_status text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_substatus text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS estimated_delivery_at timestamptz;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_checked_at timestamptz;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_next_check_at timestamptz;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_last_event_at timestamptz;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_failures integer NOT NULL DEFAULT 0;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_error text;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_stopped_at timestamptz;
+ALTER TABLE public.fulfillments ADD COLUMN IF NOT EXISTS tracking_auto boolean NOT NULL DEFAULT true;
+ALTER TABLE public.fulfillments DROP CONSTRAINT IF EXISTS fulfillments_tracking_check;
+ALTER TABLE public.fulfillments ADD CONSTRAINT fulfillments_tracking_check CHECK ((tracking_provider IS NULL OR tracking_provider IN ('aftership', '17track')) AND (tracking_account IS NULL OR tracking_account IN ('platform', 'own')) AND (tracking_ref IS NULL OR char_length(tracking_ref) <= 200) AND (tracking_ref_number IS NULL OR char_length(tracking_ref_number) <= 120) AND (tracking_carrier_code IS NULL OR char_length(tracking_carrier_code) <= 60) AND (tracking_status IS NULL OR tracking_status IN ('pending', 'not_found', 'info_received', 'in_transit', 'out_for_delivery', 'available_for_pickup', 'attempt_failed', 'exception', 'delivered', 'returned', 'expired')) AND (tracking_substatus IS NULL OR char_length(tracking_substatus) <= 60) AND tracking_failures BETWEEN 0 AND 1000 AND (tracking_error IS NULL OR char_length(tracking_error) <= 300)) NOT VALID;
+CREATE INDEX IF NOT EXISTS fulfillments_tracking_due_idx ON public.fulfillments (tracking_next_check_at NULLS FIRST) WHERE tracking_number IS NOT NULL AND tracking_stopped_at IS NULL AND status IN ('shipped', 'in_transit', 'out_for_delivery', 'failed');
+CREATE INDEX IF NOT EXISTS fulfillments_tracking_number_idx ON public.fulfillments (tracking_number) WHERE tracking_number IS NOT NULL;
+CREATE TABLE IF NOT EXISTS public.commerce_tracking_accounts (creator_id uuid PRIMARY KEY REFERENCES public.creators(id) ON DELETE CASCADE, provider text NOT NULL CHECK (provider IN ('aftership', '17track')), status text NOT NULL DEFAULT 'connected' CHECK (status IN ('connected', 'error')), secret_ciphertext text NOT NULL CHECK (length(secret_ciphertext) <= 4096), webhook_secret_ciphertext text CHECK (webhook_secret_ciphertext IS NULL OR length(webhook_secret_ciphertext) <= 4096), last_error text CHECK (last_error IS NULL OR length(last_error) <= 300), verified_at timestamptz, last_webhook_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+ALTER TABLE public.commerce_tracking_accounts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.commerce_tracking_accounts FROM PUBLIC, anon, authenticated;
+GRANT ALL ON public.commerce_tracking_accounts TO service_role;
+INSERT INTO public.storelib_applied_parts (part, file, sha256) VALUES ('160', '160_courier_tracking.sql', 'f08bc042674e33a9447a2173ad8d7ab099863c209b16ff05f8d66721e07ad4e2') ON CONFLICT (part) DO UPDATE SET file = excluded.file, sha256 = excluded.sha256, applied_at = now(), applied_by = current_user;
+
 notify pgrst, 'reload schema';
 select 'Storelib file 2 of 3 ran. Next file.' as done;
