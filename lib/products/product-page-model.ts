@@ -30,6 +30,8 @@
  * at once, not so a payment is right.
  */
 
+import type { MarketPrice } from "@/lib/markets/pricing"
+import type { FxRates } from "@/lib/markets/money"
 import type { ProductDelivery } from "@/lib/physical/delivery-lines"
 import type { CartLine } from "@/lib/website-builder/cart"
 import { imagesOnly, isPosterName } from "@/lib/media/video"
@@ -62,6 +64,13 @@ export interface ProductOptionData {
 }
 
 export interface ProductSectionData {
+  /**
+   * The visitor's market shows prices in its own currency (lib/markets/
+   * pricing): the market, the store's currency and the day's two rates, so
+   * the block converts every price it draws the way the server did. Absent:
+   * the store's prices.
+   */
+  display?: { market: MarketPrice; base: string; fx: FxRates; locale: string }
   id: string
   title: string
   slug: string

@@ -63,7 +63,7 @@ export async function siteMetadata(
   previewToken: string | null = null,
 ): Promise<Metadata> {
   /* "andrew~fr": the website in French (lib/markets/site-name.ts). */
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
   /**
    * A PREVIEW IS NOT FOR SEARCH ENGINES. The link is shared with a person,
    * and the page behind it is by definition not the one the creator has
@@ -212,7 +212,7 @@ export async function renderSite(
   previewToken: string | null = null,
 ) {
   /* "andrew~fr": the website in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
   /**
    * `?preview=` is still read, so links already shared keep working, but the
    * preview has an address of its own now: `/preview/<token>`. The public
@@ -229,7 +229,7 @@ export async function renderSite(
   */
   if (pageKey === "contact") return await renderAccountPage(username, "contact")
 
-  const found = await publishedSiteByName(username, pageKey, locale)
+  const found = await publishedSiteByName(username, pageKey, locale, market)
   /* A renamed creator's site, at the new name for good (308), and at the same page of it rather than its front page. */
   if (found.kind === "renamed") permanentRedirect(pageUrl(`https://${found.to}.${getMainDomain()}`, pageKey))
   if (found.kind === "missing") notFound()
@@ -247,7 +247,7 @@ export async function renderSite(
   const { site } = found
   const template = templateForPage(pageKey)
   /* The website and whose it is, once, on the front page. */
-  const [structured, language] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale)])
+  const [structured, language] = await Promise.all([pageKey === "home" ? homeStructuredData(site, username) : null, languageChoice(site.creatorId, locale, market)])
   return (
     <StorelibSourcesProvider prerendered={site.prerendered} page={{ template }}>
       {structured && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: structured }} />}

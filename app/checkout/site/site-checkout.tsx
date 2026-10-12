@@ -85,6 +85,8 @@ export interface SiteCheckoutProps {
   needsSignIn: boolean
   /** The website's own account page, where a signed in customer's downloads are (never storelib.com). */
   accountUrl?: string
+  /** The visitor browsed in a market's currency (Markets and languages): what the card is charged in, said under the total. */
+  currencyNote?: string | null
 }
 
 const PAID_SCREEN_MS = 1100
@@ -161,6 +163,7 @@ export function SiteCheckout({
   lockedEmail,
   needsSignIn,
   accountUrl = "/account",
+  currencyNote = null,
 }: SiteCheckoutProps) {
   /* ── The cart ────────────────────────────────────────────────────── */
   const [items, setItems] = React.useState<LinkItem[] | null>(linkItems.length ? linkItems : null)
@@ -989,6 +992,7 @@ export function SiteCheckout({
         ) : null}
         <div className="mt-5">
           <Totals part="bottom" subtotal={t?.itemsSubtotalCents ?? 0} discountCents={discountCents} total={total} />
+          {currencyNote ? <p className="mt-2 text-[13px] leading-5 text-[#6b7280]" data-currency-note="">{currencyNote}</p> : null}
           {t && t.taxCents > 0 && t.taxIncluded ? <p className="mt-2 text-[13px] text-[#6b7280]">Includes {money(t.taxCents)} {(t.taxLabel || "tax").replace(/^Tax\b/, "tax")}</p> : null}
         </div>
       </div>

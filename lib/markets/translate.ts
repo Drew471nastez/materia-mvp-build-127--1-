@@ -208,7 +208,7 @@ export function localizeMenus<T extends Record<string, MenuLike>>(menus: T, map:
   const inLinks = (handle: string, links: MenuLike["links"] | undefined, at: string): MenuLike["links"] | undefined =>
     links?.map((l, i) => {
       const path = at ? `${at}.${i}` : String(i)
-      const row = map.get(menuKey(handle, path))
+      const row = typeof l.title === "string" ? map.get(menuKey(handle, path)) : undefined
       const fits = row && row.sourceHash === sourceHash(l.title)
       const title = fits ? (valueFor(map, menuKey(handle, path), opts) ?? l.title) : l.title
       const inner = inLinks(handle, l.links, path)

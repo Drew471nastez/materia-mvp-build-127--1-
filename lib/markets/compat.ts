@@ -1,0 +1,149 @@
+import "server-only"
+
+/**
+ * ===========================================================================
+ *  AN IMPORTED SHOPIFY THEME IN THE WEBSITE'S OTHER LANGUAGES
+ * ===========================================================================
+ * The same as lib/markets/live.ts does for a builder theme, for a website
+ * whose theme was imported from Shopify (lib/storelib-theme/compat): the
+ * proxy sends /fr/… to the theme with the language named, and here, per
+ * request and outside every cache, the site it draws gets
+ *
+ *   - every text the store approved a translation for laid over its
+ *     sections and blocks (read with the theme's own schemas), its menus,
+ *     and its products' titles and descriptions
+ *   - `i18n`: the page's language and every published one, which the
+ *     theme's language selector, request.locale, shop.published_locales and
+ *     routes read, and which picks the theme's own locale file for `| t`
+ *   - a small script that keeps every link of the page in its language
+ *
+ * Anything not translated stays as written; a language that is not
+ * published draws the website as it is.
+ */
+import type { SiteData } from "@/lib/storelib-theme/compat/site"
+import type { StoredSection } from "@/lib/storelib-theme/compat/page"
+import type { CompatTheme } from "@/lib/storelib-theme/compat/theme"
+import type { SchemaField, SectionInstance } from "@/lib/website-builder/types"
+import { cachedTranslations } from "./server"
+import { marketPricing, siteLanguages, type LiveMarket } from "./live"
+import { cachedRates } from "./fx-server"
+import { chargeNote, fxFresh } from "./money"
+import { convertedCents, moneyFormatFor } from "./pricing"
+import { priceCents } from "@/lib/storelib-theme/compat/objects"
+import { COUNTRY_CODES } from "@/lib/checkout/countries"
+import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
+import { localizeMenus, localizeRecord, localizeSections, translationMap, type TranslationMap } from "./translate"
+import { linkLanguageScript } from "./link-script"
+
+type O = Record<string, unknown>
+
+/** The theme's own schema settings, as the translation reader takes them ({ id, type }). */
+function settingsOf(schema: O | undefined): SchemaField[] | undefined {
+  const list = schema?.settings
+  return Array.isArray(list) ? (list as SchemaField[]).filter((f) => f && typeof f === "object" && typeof (f as { id?: unknown }).id === "string") : undefined
+}
+
+/** Which of a section's and a block's settings are text, for an imported theme: its section files' and theme blocks' schemas. */
+export function compatFields(theme: CompatTheme): { fieldsOf: (t: string) => SchemaField[] | undefined; blockFieldsOf: (st: string, bt: string) => SchemaField[] | undefined } {
+  /* Labels in the theme's own words ("Heading", not "t:sections.hero.settings.heading.label"), for the Translate sheet. */
+  const named = (list: SchemaField[] | undefined) => list?.map((f) => ({ ...f, label: theme.schemaLabel((f as { label?: unknown }).label) || f.id }))
+  return {
+    fieldsOf: (t) => named(settingsOf(theme.schemaOf("sections", t))),
+    blockFieldsOf: (st, bt) => {
+      const own = (Array.isArray(theme.schemaOf("sections", st).blocks) ? (theme.schemaOf("sections", st).blocks as O[]) : []).find((b) => b.type === bt)
+      return named(settingsOf(own) ?? settingsOf(theme.schemaOf("blocks", bt)))
+    },
+  }
+}
+
+/** Every country, named in English, with the currency its visitors see prices in: a market's own, else the store's. */
+function countryList(markets: LiveMarket[], base: string): { code: string; name: string; currency: string }[] {
+  let names: Intl.DisplayNames | null = null
+  try {
+    names = new Intl.DisplayNames(["en"], { type: "region" })
+  } catch {
+    names = null
+  }
+  return [...COUNTRY_CODES]
+    .map((code) => ({ code, name: names?.of(code) ?? code, currency: markets.find((m) => m.countries.includes(code))?.currency ?? base }))
+    .sort((a, b) => a.name.localeCompare(b.name))
+}
+
+/** The note an imported theme's cart shows beside its checkout button when prices are converted. */
+function chargeNoteScript(note: string): string {
+  const text = JSON.stringify(note)
+  return `<script data-storelib-currency-note>(function(d){var t=${text};function put(r){(r.querySelectorAll?r:d).querySelectorAll('[name="checkout"],a[href*="/checkout"],button.cart__checkout-button,.cart__ctas').forEach(function(b){var host=b.closest("form")||b.parentNode;if(!host||host.querySelector("[data-currency-note]"))return;var p=d.createElement("p");p.setAttribute("data-currency-note","");p.style.cssText="margin:8px 0 0;font-size:12px;line-height:1.4;opacity:.75;text-align:center";p.textContent=t;host.appendChild(p)})}function go(){put(d)}if(d.readyState==="loading")d.addEventListener("DOMContentLoaded",go);else go();new MutationObserver(function(m){m.forEach(function(x){x.addedNodes.forEach(function(n){if(n.nodeType===1)put(n)})})}).observe(d.documentElement,{childList:true,subtree:true})})(document)</script>`
+}
+
+/**
+ * The site for one request: in `locale` (null: the website's own
+ * language), and with prices in `market`'s currency when the visitor's
+ * country is in a market that shows its own (null: the store's prices).
+ * Untouched for a store with one language and no such market.
+ */
+export async function localizeCompatSite(site: SiteData, locale: string | null, market: string | null = null): Promise<SiteData> {
+  const langs = await siteLanguages(site.creatorId)
+  if (!langs.saved) return site
+  const base = site.shop.currency ?? "USD"
+  const pricing = market ? await marketPricing(site.creatorId, market, base) : null
+  const offersCurrencies = langs.markets.length > 0 && fxFresh(await cachedRates().catch(() => null))
+  if (langs.others.length === 0 && !pricing && !offersCurrencies) return site
+  const all = [langs.defaultLanguage, ...langs.others]
+  const code = (locale && langs.others.find((l) => l.toLowerCase() === locale.toLowerCase())) || null
+  const countries = offersCurrencies ? countryList(langs.markets, base) : undefined
+  const inMarket = pricing ? langs.markets.find((m) => m.id === pricing.market.id) : undefined
+  const marketCountry = inMarket ? countries?.find((c) => inMarket.countries.includes(c.code)) : undefined
+  const i18n = {
+    ...(site.i18n ?? {}),
+    locale: code ?? langs.defaultLanguage,
+    defaultLanguage: langs.defaultLanguage,
+    languages: all,
+    ...(countries ? { countries } : {}),
+    ...(marketCountry ? { country: marketCountry } : {}),
+  }
+
+  const rows = code ? await cachedTranslations(site.creatorId, code).catch(() => []) : []
+  const map: TranslationMap = translationMap(rows.filter((r) => r.status === "approved"))
+  const note = pricing ? chargeNote(pricing.currency, platformChargeCurrencyUpper()) : null
+  const extraBodyEnd = `${site.extraBodyEnd ?? ""}${code ? linkLanguageScript(code, langs.defaultLanguage, all) : ""}${note ? chargeNoteScript(note) : ""}`
+  if (map.size === 0 && !pricing) return { ...site, i18n, extraBodyEnd }
+
+  const opts = { approvedOnly: true }
+  const { fieldsOf, blockFieldsOf } = compatFields(site.theme)
+  const pages: Record<string, StoredSection[]> = {}
+  for (const [key, list] of Object.entries(site.pages)) pages[key] = map.size ? (localizeSections(list as unknown as SectionInstance[], map, fieldsOf, blockFieldsOf, opts) as unknown as StoredSection[]) : list
+  /* A price in the store's currency as the market's, in the major-unit decimal the theme's money filter reads (priceCents). */
+  const shown = (v: unknown): unknown => {
+    if (!pricing || v === undefined || v === null || v === "") return v
+    const out = convertedCents(priceCents(v), pricing)
+    return out === null ? v : (out / 100).toFixed(2)
+  }
+  const card = <T extends { id: string; settings: O; descriptionHtml?: string }>(c: T): T => {
+    let settings = map.size ? localizeRecord(c.settings, `product:${c.id}`, ["title", "description"], map, opts) : c.settings
+    if (pricing) {
+      settings = {
+        ...settings,
+        price: shown(settings.price),
+        compare_price: shown(settings.compare_price),
+        currency: pricing.currency,
+        variants: Array.isArray(settings.variants) ? (settings.variants as O[]).map((v) => ({ ...v, price: shown(v.price), compare_price: shown(v.compare_price) })) : settings.variants,
+      }
+    }
+    const html = map.size && c.descriptionHtml !== undefined ? (localizeRecord({ description: c.descriptionHtml }, `product:${c.id}`, ["description"], map, opts).description as string) : c.descriptionHtml
+    return settings === c.settings && html === c.descriptionHtml ? c : { ...c, settings, ...(html !== undefined ? { descriptionHtml: html } : {}) }
+  }
+  const product = site.product
+  return {
+    ...site,
+    i18n,
+    extraBodyEnd,
+    pages,
+    /* Shown in the market's currency, written its way; checkout charges the store's and says so (note). */
+    shop: pricing ? { ...site.shop, currency: pricing.currency, moneyFormat: moneyFormatFor(pricing.currency, code ?? langs.defaultLanguage) } : site.shop,
+    products: site.products.map((p) => card(p as never)) as SiteData["products"],
+    pickable: site.pickable?.map((p) => card(p as never)) as SiteData["pickable"],
+    collections: pricing ? site.collections.map((c) => (c.products ? { ...c, products: c.products.map((p) => card(p as never)) } : c)) : site.collections,
+    menus: map.size ? (localizeMenus(site.menus as never, map, opts) as SiteData["menus"]) : site.menus,
+    product: product ? async (handle) => { const p = await product(handle); return p ? card(p as never) : p } : undefined,
+  }
+}

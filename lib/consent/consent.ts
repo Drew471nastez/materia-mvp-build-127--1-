@@ -131,6 +131,7 @@ export const STORED: StoredItem[] = [
   { name: "storelib_consent", category: "necessary", kind: "cookie", purpose: "Remembers these choices", lasts: "1 year" },
   { name: "storelib.cart.*", category: "necessary", kind: "local storage", purpose: "Your cart", lasts: "Until you check out or clear it" },
   { name: "materia_guest_id", category: "necessary", kind: "cookie", purpose: "Your wishlist before you have an account", lasts: "1 year" },
+  { name: "sl_country", category: "necessary", kind: "cookie", purpose: "The country you chose on a creator's website, for its prices and currency", lasts: "1 year" },
   { name: "sl_wishlist", category: "necessary", kind: "cookie", purpose: "Your wishlist on a creator's website before you sign in", lasts: "1 year" },
   { name: "storelib_language, storelib_currency", category: "necessary", kind: "cookie", purpose: "The language and currency you chose", lasts: "1 year" },
   { name: "_sl_bell_v1", category: "necessary", kind: "local storage", purpose: "Shows your unread notification count as a page opens, for the account signed in on this device", lasts: "Until you sign out" },

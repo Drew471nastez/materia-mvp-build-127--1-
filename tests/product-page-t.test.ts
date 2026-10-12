@@ -274,7 +274,7 @@ async function main() {
     const route = code("app/api/website-builder/products/route.ts")
     check("the builder's preview reads the product the same way, after checking it is the creator's", /\.eq\("creator_id", creator\.id\)/.test(route) && /productSectionData\(createAdminClient\(\)/.test(route))
     const live = code("components/website-builder/theme/render-product.tsx")
-    check("and so does the live product page", /productSectionData\(admin,/.test(live) && /_product_data: productData/.test(live) && /withProductBlocks\(s\)/.test(live))
+    check("and so does the live product page", /productSectionData\(admin,/.test(live) && /* Changed on purpose (round AC): a market's prices ride with the product data. */ /_product_data: [^\n]*\bproductData\b/.test(live) && /withProductBlocks\(s\)/.test(live))
   }
 
   /* ─────────────────────────────────────────────────────────────────── */

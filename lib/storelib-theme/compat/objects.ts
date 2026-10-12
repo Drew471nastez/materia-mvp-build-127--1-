@@ -844,10 +844,44 @@ export function blockAttributes(id: string): string {
 
 // ── The visitor's page ───────────────────────────────────────────────────────
 
-export function requestObject(pageType: string, path: string, designMode: boolean, host = "", lang = "en"): O {
-  const iso = /^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang) ? lang : "en"
-  const name = iso === "en" ? "English" : (() => { try { return new Intl.DisplayNames(["en"], { type: "language" }).of(iso) ?? iso } catch { return iso } })()
-  const endonym = iso === "en" ? "English" : (() => { try { return new Intl.DisplayNames([iso], { type: "language" }).of(iso) ?? iso } catch { return iso } })()
+/*
+  THE WEBSITE'S LANGUAGES, for an imported theme (Settings › Markets and
+  languages, lib/markets): the language this page is in, the website's own,
+  and every published one. A theme's language selector, request.locale,
+  shop.published_locales and routes.root_url all read it. Absent: one
+  language, the theme's own, as before.
+*/
+export interface SiteI18n {
+  /** The language this page is drawn in. */
+  locale: string
+  /** The website's own language: its addresses carry no prefix. */
+  defaultLanguage: string
+  /** Every published language, the website's own first. */
+  languages: string[]
+  /** The visitor's country and the currency prices are shown in, and every country offered (lib/markets, AC4). */
+  country?: { code: string; name: string; currency: string }
+  countries?: { code: string; name: string; currency: string }[]
+}
+
+/** "/fr" for a language that is not the website's own, "" for it. */
+export function localeRoot(i18n: SiteI18n | undefined, code = i18n?.locale): string {
+  if (!i18n || !code || code.toLowerCase() === i18n.defaultLanguage.toLowerCase()) return ""
+  return `/${code.toLowerCase()}`
+}
+
+function languageObject(code: string, i18n: SiteI18n | undefined): O {
+  const iso = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8})?$/i.test(code) ? code : "en"
+  const name = (() => { try { return new Intl.DisplayNames(["en"], { type: "language" }).of(iso) ?? iso } catch { return iso } })()
+  const endonym = (() => { try { const n = new Intl.DisplayNames([iso], { type: "language" }).of(iso) ?? iso; return n.charAt(0).toLocaleUpperCase(iso) + n.slice(1) } catch { return iso } })()
+  const primary = !i18n || iso.toLowerCase() === i18n.defaultLanguage.toLowerCase()
+  return { [OUTPUT]: iso, iso_code: iso, name, endonym_name: endonym, primary, root_url: `${localeRoot(i18n, iso)}/` .replace(/^\/\/$/, "/") }
+}
+
+export function requestObject(pageType: string, path: string, designMode: boolean, host = "", lang = "en", i18n?: SiteI18n): O {
+  const iso = i18n?.locale ?? (/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(lang) ? lang : "en")
+  const lo = languageObject(iso, i18n)
+  const name = String(lo.name)
+  const endonym = String(lo.endonym_name)
   return {
     page_type: pageType,
     path,
@@ -855,8 +889,26 @@ export function requestObject(pageType: string, path: string, designMode: boolea
     origin: host ? `https://${host}` : "",
     design_mode: designMode,
     visual_preview_mode: false,
-    locale: { [OUTPUT]: iso, iso_code: iso, name, endonym_name: endonym, primary: true, root_url: "/", direction: /^(ar|he|fa|ur)\b/.test(iso) ? "rtl" : "ltr" },
+    locale: { [OUTPUT]: iso, iso_code: iso, name, endonym_name: endonym, primary: lo.primary, root_url: lo.root_url, direction: /^(ar|he|fa|ur)\b/.test(iso) ? "rtl" : "ltr" },
   }
+}
+
+/** The routes in this page's language: /fr/cart, /fr/search… (every address of the website answers under its language's prefix). */
+export function routesFor(i18n: SiteI18n | undefined): O {
+  const root = localeRoot(i18n)
+  if (!root) return SHOPIFY_ROUTES
+  const out: O = {}
+  for (const [k, v] of Object.entries(SHOPIFY_ROUTES)) out[k] = k === "root_url" ? `${root}/` : `${root}${String(v)}`
+  return out
+}
+
+/** The website's published languages, as shop.published_locales. */
+export function publishedLocales(i18n: SiteI18n | undefined, lang: string): O[] {
+  if (!i18n) return [{ iso_code: lang, name: String(languageObject(lang, undefined).name), primary: true, root_url: "/" }]
+  return i18n.languages.map((code) => {
+    const o = languageObject(code, i18n)
+    return { iso_code: o.iso_code, name: o.name, endonym_name: o.endonym_name, primary: o.primary, root_url: o.root_url }
+  })
 }
 
 export const SHOPIFY_ROUTES: O = {
@@ -901,11 +953,20 @@ export function currencySymbol(iso: string): string {
   }
 }
 
-export function localizationObject(currency: string): O {
-  const country = { [OUTPUT]: "US", iso_code: "US", name: "United States", currency: { iso_code: currency, symbol: currencySymbol(currency), name: currency }, unit_system: "imperial", available_languages: [] as O[] }
-  const language = { [OUTPUT]: "en", iso_code: "en", name: "English", endonym_name: "English", primary: true, root_url: "/" }
-  country.available_languages = [language]
-  return { country, language, available_countries: [country], available_languages: [language], market: { id: "storelib", handle: "default" } }
+export function localizationObject(currency: string, i18n?: SiteI18n, lang = "en"): O {
+  const languages = (i18n?.languages ?? [lang]).map((c) => languageObject(c, i18n))
+  const language = languages.find((l) => String(l.iso_code).toLowerCase() === (i18n?.locale ?? lang).toLowerCase()) ?? languages[0]
+  const countryOf = (c: { code: string; name: string; currency: string }) => ({
+    [OUTPUT]: c.code,
+    iso_code: c.code,
+    name: c.name,
+    currency: { iso_code: c.currency, symbol: currencySymbol(c.currency), name: c.currency },
+    unit_system: c.code === "US" || c.code === "LR" || c.code === "MM" ? "imperial" : "metric",
+    available_languages: languages,
+  })
+  const countries = (i18n?.countries ?? []).map(countryOf)
+  const country = i18n?.country ? countryOf(i18n.country) : countries[0] ?? countryOf({ code: "US", name: "United States", currency })
+  return { country, language, available_countries: countries.length ? countries : [country], available_languages: languages, market: { id: "storelib", handle: "default" } }
 }
 
 /** A cart line, as the cart object's `items`. */

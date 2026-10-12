@@ -376,7 +376,7 @@ async function buildSite(creatorId: string, displayName: string): Promise<BuiltL
  * the site has not published comes back as `missing`, so the route can 404
  * rather than quietly serving the home page under another address.
  */
-export async function publishedSiteByName(name: string, pageKey = "home", locale: string | null = null): Promise<SiteLookup> {
+export async function publishedSiteByName(name: string, pageKey = "home", locale: string | null = null, market: string | null = null): Promise<SiteLookup> {
   const found = await resolveSite(name)
   if (found.kind !== "site") return found
   const { site } = found
@@ -386,7 +386,7 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
     anything is drawn. A language that is not published, or has nothing
     approved yet, draws the page as it is.
   */
-  const localizer = locale ? await siteLocalizer(site.creatorId, locale) : null
+  const localizer = locale || market ? await siteLocalizer(site.creatorId, locale, market) : null
   const products = localizer ? localizer.cards(found.products) : found.products
   const productCount = found.productCount
 

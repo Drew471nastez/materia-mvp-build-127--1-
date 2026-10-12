@@ -26,6 +26,13 @@ export interface SiteLanguageChoice {
   defaultLanguage: string
   /** Every published language, the website's own first, each named in its own words. */
   languages: { code: string; name: string }[]
+  /**
+   * The currencies prices can be shown in (Settings › Markets and
+   * languages): the store's own and each market's. Choosing one keeps the
+   * visitor's country (the sl_country cookie, read by the proxy); `note`
+   * says what checkout charges when prices are converted.
+   */
+  currency?: { options: { id: string; label: string; country: string }[]; current: string; note: string | null }
 }
 
 /** Addresses never given a language prefix: what is the visitor's own or not a page. */
@@ -87,40 +94,81 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choice.code, choice.defaultLanguage, codes.join(",")])
 
-  if (choice.languages.length < 2) return null
+  const hasLanguages = choice.languages.length > 1
+  const currency = choice.currency
+  if (!hasLanguages && !currency) return null
   const go = (code: string) => {
     if (code === choice.code) return
     const { pathname, search, hash } = window.location
     window.location.assign(`${localizedPath(bare(pathname, codes), code, choice.defaultLanguage)}${search}${hash}`)
   }
+  /* A currency is the visitor's country (the proxy picks the market it is in): remembered for a year, then the page again. */
+  const pickCurrency = (id: string) => {
+    const option = currency?.options.find((o) => o.id === id)
+    if (!option || id === currency?.current) return
+    try {
+      document.cookie = `sl_country=${encodeURIComponent(option.country)}; Path=/; Max-Age=31536000; SameSite=Lax`
+    } catch {
+      return
+    }
+    window.location.reload()
+  }
+
+  const pill =
+    "h-9 max-w-[60vw] cursor-pointer appearance-none truncate rounded-full border border-current/20 bg-transparent pl-8 pr-8 text-[13px] text-current outline-none transition-colors hover:border-current/40 focus-visible:border-current/60"
+  const chevron = (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="m5.5 8 4.5 4.5L14.5 8" />
+    </svg>
+  )
 
   return (
-    <div data-language-switch="" className="flex justify-center px-4 py-4" style={{ background: "var(--theme-bg, transparent)", color: "var(--theme-text, inherit)" }}>
-      <label htmlFor={id} className="sr-only">
-        Language
-      </label>
-      <div className="relative inline-flex items-center">
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute left-2.5 h-4 w-4 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
-          <circle cx="10" cy="10" r="7.25" />
-          <path d="M2.75 10h14.5M10 2.75c2 2.2 2.9 4.6 2.9 7.25S12 15.05 10 17.25M10 2.75C8 4.95 7.1 7.35 7.1 10s.9 5.05 2.9 7.25" />
-        </svg>
-        <select
-          id={id}
-          value={choice.code}
-          onChange={(e) => go(e.target.value)}
-          className="h-9 cursor-pointer appearance-none rounded-full border border-current/20 bg-transparent pl-8 pr-8 text-[13px] text-current outline-none transition-colors hover:border-current/40 focus-visible:border-current/60"
-          style={{ color: "inherit" }}
-        >
-          {choice.languages.map((l) => (
-            <option key={l.code} value={l.code} lang={l.code}>
-              {l.name}
-            </option>
-          ))}
-        </select>
-        <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute right-2.5 h-3.5 w-3.5 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.75">
-          <path d="m5.5 8 4.5 4.5L14.5 8" />
-        </svg>
+    <div data-language-switch="" className="flex flex-col items-center gap-2 px-4 py-4" style={{ background: "var(--theme-bg, transparent)", color: "var(--theme-text, inherit)" }}>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {hasLanguages ? (
+          <div className="relative inline-flex items-center">
+            <label htmlFor={id} className="sr-only">
+              Language
+            </label>
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute left-2.5 h-4 w-4 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <circle cx="10" cy="10" r="7.25" />
+              <path d="M2.75 10h14.5M10 2.75c2 2.2 2.9 4.6 2.9 7.25S12 15.05 10 17.25M10 2.75C8 4.95 7.1 7.35 7.1 10s.9 5.05 2.9 7.25" />
+            </svg>
+            <select id={id} value={choice.code} onChange={(e) => go(e.target.value)} className={pill} style={{ color: "inherit" }}>
+              {choice.languages.map((l) => (
+                <option key={l.code} value={l.code} lang={l.code}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+            {chevron}
+          </div>
+        ) : null}
+        {currency ? (
+          <div className="relative inline-flex items-center" data-currency-switch="">
+            <label htmlFor={`${id}-currency`} className="sr-only">
+              Currency
+            </label>
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="pointer-events-none absolute left-2.5 h-4 w-4 opacity-70" fill="none" stroke="currentColor" strokeWidth="1.5">
+              <rect x="2.75" y="5" width="14.5" height="10" rx="2" />
+              <circle cx="10" cy="10" r="2.25" />
+            </svg>
+            <select id={`${id}-currency`} value={currency.current} onChange={(e) => pickCurrency(e.target.value)} className={pill} style={{ color: "inherit" }}>
+              {currency.options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+            {chevron}
+          </div>
+        ) : null}
       </div>
+      {currency?.note ? (
+        <p className="max-w-[46ch] text-center text-[12px] leading-[17px] opacity-70" data-currency-note="">
+          {currency.note}
+        </p>
+      ) : null}
     </div>
   )
 }

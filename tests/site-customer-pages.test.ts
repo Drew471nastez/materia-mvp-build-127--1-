@@ -463,7 +463,7 @@ async function main() {
     check("B does not ask, and is open", other.blocked === false && other.protected === false)
     const proxy = read("proxy.ts")
     /* Four: a subdomain, a connected domain, a site whose theme was imported from Shopify (compatRewrite), which answers on either, and the website's own checkout (siteCheckoutFor), on either too. The first two await the answer started with the page's other questions (startSiteQuestions). */
-    check("the proxy asks it on a subdomain and on a connected domain, before the page is rewritten, the website's checkout included", (proxy.match(/await (?:\(\w+ \?\? )?passwordPageFor\(request, /g) ?? []).length === 4 && /async function siteCheckoutFor[\s\S]{0,800}await passwordPageFor\(request, /.test(proxy) && /to\.pathname = `\/w\/\$\{name\}\/password`/.test(proxy) && /async function compatRewrite[\s\S]{0,400}await passwordPageFor\(request, /.test(proxy))
+    check("the proxy asks it on a subdomain and on a connected domain, before the page is rewritten, the website's checkout included", (proxy.match(/await (?:\(\w+ \?\? )?passwordPageFor\(request, /g) ?? []).length === 4 && /async function siteCheckoutFor[\s\S]{0,800}await passwordPageFor\(request, /.test(proxy) && /to\.pathname = `\/w\/\$\{name\}\/password`/.test(proxy) && /async function compatRewrite[\s\S]{0,1600}await passwordPageFor\(request, /.test(proxy) /* round AC: the language prefix is read off first */)
     check("and a protected page is never handed to a shared cache", (proxy.match(/"private, no-store"/g) ?? []).length >= 3)
 
     section("Getting in: the password, or the owner")

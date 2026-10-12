@@ -11,6 +11,9 @@
  * person holding the install's preview link.
  */
 import { NextRequest, NextResponse } from "next/server"
+import { localizeCompatSite } from "@/lib/markets/compat"
+import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER } from "@/lib/markets/site-name"
+import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
 import { CART_COOKIE, accountFormPost, answer, readCartCookie, writeCartCookie } from "@/lib/storelib-theme/compat/site"
@@ -111,6 +114,16 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     return new NextResponse(UNAVAILABLE, { status: 503, headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" } })
   }
   if (found.kind !== "site") return new NextResponse("Not found", { status: 404, headers: { "Cache-Control": "no-store" } })
+  /*
+    IN ANOTHER OF THE WEBSITE'S LANGUAGES: /fr/… on the website, sent here by
+    the proxy with the language named in a header only it sets (the seal
+    above proves the request came through it). The site is put in that
+    language for this request alone (lib/markets/compat.ts). Never a preview.
+  */
+  const locale = token ? null : (req.headers.get(SITE_LOCALE_HEADER) || null)
+  /* And in the visitor's market's currency, when their country is in one that shows its own (the proxy's visitorMarket). */
+  const market = token ? null : (req.headers.get(SITE_MARKET_HEADER) || null)
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market) }
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note } = readCartCookie(cookie)
@@ -172,6 +185,10 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
         },
   })
   const headers = new Headers(out.headers ?? {})
+  /* A redirect the theme's page makes (Add to cart, a sign in) stays in the page's language. */
+  const where = headers.get("Location")
+  const root = localeRoot(found.site.i18n)
+  if (where && root && where.startsWith("/") && !where.startsWith("//") && !where.startsWith(`${root}/`) && where !== root && !/^\/(?:api|checkout|receipt)(?:[/?#]|$)/.test(where)) headers.set("Location", `${root}${where === "/" ? "" : where}`)
   headers.set("Content-Type", out.type)
   headers.set("X-Robots-Tag", token ? "noindex" : "all")
   /* Every answer says how it may be kept (lib/storelib-theme/compat/site.ts): a page "no-cache", so Back and Forward show it at once; the rest no-store. The proxy no longer sets it over this. */
