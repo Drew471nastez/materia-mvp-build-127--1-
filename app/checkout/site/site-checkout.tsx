@@ -526,7 +526,7 @@ export function SiteCheckout({
       if (!address.line1.trim()) return missing("line1", "Enter the street address.")
       if (!address.city.trim()) return missing("city", "Enter the city.")
       if (postalCodeRequired(address.country) && !address.postalCode.trim()) return missing("postal", `Enter the ${addressFormat(address.country).postal.label.toLowerCase()}.`)
-      if (quote.delivery.needsRegion && !address.region.trim()) return missing("region", "Choose your state or province.")
+      if ((quote.delivery.needsRegion || addressFormat(address.country).region?.required) && !address.region.trim()) return missing("region", `Choose your ${(addressFormat(address.country).region?.label ?? "state or province").toLowerCase()}.`)
       if (!optionId) return quote.delivery.needsCountry ? "Choose your country to see delivery options." : "Shipping isn't available to this address."
     }
     if (ships && mode === "pickup" && !optionId) return "Choose a pickup point."
@@ -689,6 +689,12 @@ export function SiteCheckout({
       {ships ? null : nameFields}
       {/* A physical product handed over in person: no address, and still the phone Settings › Checkout asks for. */}
       {!ships && physical && plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
+      {/* Said, so a buyer never wonders where the address went: the seller set this product as not shipped. */}
+      {!ships && physical ? (
+        <p className="text-[13.5px] leading-snug text-[#6b7280]" data-handed-over="">
+          Not shipped. {brand.name} arranges the handover with you.
+        </p>
+      ) : null}
     </div>
   )
 

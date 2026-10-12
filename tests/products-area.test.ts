@@ -372,10 +372,11 @@ check("a pressed row holds its tint with a spinner where View was, and only that
   /opening=\{opening === product\.id\}/.test(list) && (list.match(/data-opening=\{opening \? "" : undefined\}/g) ?? []).length === 2
     && /function OpeningMark\(\{ size \}: \{ size: "phone" \| "table" \}\)/.test(list) && /openRow: open,/.test(list))
 check("View opens the product's own page, the address the menu's View opens, in a new tab with noopener noreferrer, labelled with the name",
-  /const url = getProductUrl\(username, product\.slug\)/.test(list) && /label: labels\.view, href: getProductUrl\(username, product\.slug\), target: "_blank"/.test(list) && /view: t\("common\.view"\)/.test(list)
+  /* Changed on purpose (the owner: View on a physical product opened storelib.com, not the store's website): both go through viewUrl, the live route for a thing that ships. */
+  /const url = viewUrl\(product, username\)/.test(list) && /label: labels\.view, href: viewUrl\(product, username\), target: "_blank"/.test(list) && /view: t\("common\.view"\)/.test(list)
     && /<a href=\{url\} target="_blank" rel="noopener noreferrer" data-preview="" aria-label=\{`View \$\{product\.title\}`\} onClick=\{\(e\) => api\.current\?\.openPreview\(url\)\(e\)\}/.test(list))
 check("it never opens the editor too, and in the app it goes through openExternal to the phone's browser",
-  /const openPreview = \(url: string\) => \(e: ReactMouseEvent<HTMLAnchorElement>\) => \{\s*e\.stopPropagation\(\)\s*if \(isNativeApp\(\)\) \{\s*e\.preventDefault\(\)\s*openExternal\(url\)/.test(list)
+  /const openPreview = \(url: string\) => \(e: ReactMouseEvent<HTMLAnchorElement>\) => \{\s*e\.stopPropagation\(\)\s*if \(isNativeApp\(\)\) \{\s*e\.preventDefault\(\)\s*openExternal\(url\.startsWith\("\/"\) \? `\$\{getCanonicalSiteUrl\(\)\}\$\{url\}` : url\)/.test(list)
     && /import \{ isNativeApp, openExternal \} from "@\/lib\/native-bridge"/.test(list) && /target\.closest\("a,button,input,label"\)\) return/.test(list))
 check("a product with no public page (a draft, an archived one) draws View off, Publish to view on a pointer",
   /const on = productStatus\(product\) === "live"/.test(list) && /aria-disabled="true" aria-label=\{`View \$\{product\.title\}`\} onClick=\{\(e\) => api\.current\?\.previewOff\(e\)\}/.test(list)

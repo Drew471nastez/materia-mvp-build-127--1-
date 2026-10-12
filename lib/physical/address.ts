@@ -7,6 +7,7 @@
 import { COUNTRY_CODES, countryName } from "@/lib/checkout/countries"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
 import type { Address } from "./types"
+import { addressFormat } from "@/lib/address/format"
 
 /** Countries whose post works without postal codes; everywhere else one is required. */
 const NO_POSTAL_CODE = new Set(
@@ -49,6 +50,8 @@ export function readAddress(input: unknown, rules: Pick<CheckoutConfig, "nameFie
   if (!address.line1) return { ok: false, error: "Enter the street address.", field: "line1" }
   if (rules.address2 === "required" && !address.line2) return { ok: false, error: "Enter the apartment, suite or unit.", field: "line2" }
   if (!address.city) return { ok: false, error: "Enter the city.", field: "city" }
+  /* The US, Canada, Australia and the rest whose post needs the state or province (lib/address/format): a label can't be bought without it. */
+  if (addressFormat(country).region?.required && !address.region) return { ok: false, error: `Choose the ${addressFormat(country).region!.label.toLowerCase()}.`, field: "region" }
   if (postalCodeRequired(country) && !address.postalCode) return { ok: false, error: "Enter the postal code.", field: "postalCode" }
   if (address.postalCode && !/^[A-Z0-9][A-Z0-9 -]{1,18}$/.test(address.postalCode)) return { ok: false, error: "Check the postal code.", field: "postalCode" }
   if (rules.phone === "required" && !address.phone) return { ok: false, error: "Enter a phone number for the delivery.", field: "phone" }

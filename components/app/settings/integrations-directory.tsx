@@ -38,7 +38,7 @@ import { MARKETING_PATH, MarketingSyncPanel, type MarketingState } from "@/compo
 import { hasBuiltInArt } from "@/components/app/settings/integration-mark"
 import { APP_STATE_LABEL, essentialIds, essentialsProgress, storelibApps, type AppState, type StorelibApp } from "@/lib/integrations/storelib-apps"
 
-/* Essentials first, then everything, what is installed, Storelib's own apps, and each category. */
+/* Storelib's own apps first (the page opens on them), then the Essentials, every service, what is installed, and each category. */
 type Filter = "essentials" | "all" | "installed" | "storelib" | IntegrationCategory
 
 /** A card in the directory: an integration with a page of its own, or one of Storelib's apps that opens where it is set up. */
@@ -108,7 +108,7 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     })
   }, [])
   const [query, setQuery] = React.useState("")
-  const [filter, setFilter] = React.useState<Filter>("essentials")
+  const [filter, setFilter] = React.useState<Filter>("storelib")
   /* The open page follows ?integration=, on arriving and whenever it changes after: a sidebar row for
      another integration, Back and Forward (show() below, so Back by the browser lands where you were too).
      Read before the first paint, so a link to a page never shows the list for a frame first. */
@@ -136,6 +136,27 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
   }, [])
   const shownAll = React.useMemo(() => applyCatalogOverrides(all, overrides, physical), [all, overrides, physical])
   const apps = React.useMemo(() => storelibApps(physical), [physical])
+  /*
+    EVERY LOGO, FETCHED ONCE. A category shows cards that were not on screen,
+    and each logo used to start loading only then, so the cards came in and
+    their logos a moment after. The files are small (about 160 KB together):
+    asked for once when the directory opens, they are in the cache before any
+    pill is pressed, and a card paints with its logo.
+  */
+  React.useEffect(() => {
+    if (typeof window === "undefined") return
+    const urls = [...new Set(shownAll.map((i) => i.logo).filter((l): l is string => !!l))]
+    const warm = () => {
+      for (const u of urls) {
+        const img = new Image()
+        img.decoding = "async"
+        img.src = u
+      }
+    }
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback
+    if (idle) idle(warm)
+    else setTimeout(warm, 200)
+  }, [shownAll])
   const appState = (id: string): AppState | null => appStates?.states[id] ?? null
   React.useEffect(() => {
     void api<{ overrides: CatalogOverride[] }>("/api/store/integrations/catalog").then((r) => {
@@ -270,39 +291,14 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     one frame and, with the list scrolled, a shorter category pulled the
     scroll up by however much it lost: the cards flashed and the page jumped.
     Now the pills stay where they are on screen (the scroll is set so the row
-    keeps its place if the list under it got shorter), and the cards settle
-    in: a short fade from half and a 6px rise, staggered by a frame or two.
+    keeps its place if the list under it got shorter). The pressed pill turns
+    dark in the same frame, and the cards are simply there: a dark thumb that
+    slid between pills crossed the rows diagonally where they wrap, and the
+    words went white before it arrived; the cards faded up from half on every
+    press. Both read as a glitch, so both are gone.
   */
   const pillsRef = React.useRef<HTMLDivElement>(null)
-  const thumbRef = React.useRef<HTMLSpanElement>(null)
-  /*
-    THE THUMB (round I4). The dark fill is one element that slides from the
-    pill that was on to the one pressed (transform and width, on the
-    compositor), and the row scrolls the pressed pill into view on a phone.
-    Placed without motion on the first paint and when the row reflows.
-  */
-  const placeThumb = React.useCallback((animate: boolean) => {
-    const row = pillsRef.current
-    const thumb = thumbRef.current
-    const pill = row?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
-    if (!row || !thumb || !pill) return
-    thumb.style.transition = animate && !reduced() ? "transform 260ms cubic-bezier(0.32, 0.72, 0, 1), width 260ms cubic-bezier(0.32, 0.72, 0, 1)" : "none"
-    thumb.style.width = `${pill.offsetWidth}px`
-    thumb.style.transform = `translate3d(${pill.offsetLeft}px, ${pill.offsetTop}px, 0)`
-    thumb.style.opacity = "1"
-  }, [])
   const filterChanged = React.useRef(false)
-  React.useLayoutEffect(() => {
-    /* A press is placed by the filter's own effect below, with motion. */
-    if (!filterChanged.current) placeThumb(false)
-  })
-  React.useEffect(() => {
-    const row = pillsRef.current
-    if (!row || typeof ResizeObserver === "undefined") return
-    const ro = new ResizeObserver(() => placeThumb(false))
-    ro.observe(row)
-    return () => ro.disconnect()
-  }, [placeThumb])
   const gridRef = React.useRef<HTMLUListElement>(null)
   const pillsAt = React.useRef<number | null>(null)
   const chooseFilter = (f: Filter) => {
@@ -324,7 +320,6 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       const now = row.getBoundingClientRect().top - box.getBoundingClientRect().top
       if (Math.abs(now - want) > 0.5) box.scrollTop += now - want
     }
-    placeThumb(true)
     /* On a phone the row scrolls: the pill pressed comes into view, never under the edge. */
     const pill = row?.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]')
     if (row && pill && row.scrollWidth > row.clientWidth) {
@@ -333,12 +328,6 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       const to = row.scrollLeft > left ? left : row.scrollLeft < right ? right : row.scrollLeft
       if (to !== row.scrollLeft) row.scrollTo({ left: to, behavior: reduced() ? "auto" : "smooth" })
     }
-    const grid = gridRef.current
-    if (!grid || reduced()) return
-    Array.from(grid.children).forEach((li, i) => {
-      if (typeof (li as HTMLElement).animate !== "function") return
-      ;(li as HTMLElement).animate([{ opacity: 0.4, transform: "translate3d(0, 6px, 0)" }, { opacity: 1, transform: "translate3d(0, 0, 0)" }], { duration: 220, delay: Math.min(i, 8) * 14, easing: "cubic-bezier(0.32, 0.72, 0, 1)", fill: "backwards" })
-    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filter])
 
@@ -389,21 +378,23 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
     ...apps.map((a): Entry => ({ kind: "app", id: a.id, app: a })),
     ...shownAll.filter((i) => !hasBuiltInArt(i.id)).map((i): Entry => ({ kind: "integration", id: i.id, item: i })),
   ]
+  /* Storelib's own: its apps and the parts of Storelib shown as integrations (payments, shipping, taxes). All is the services from elsewhere, never these again. */
+  const isStorelib = (e: Entry) => e.kind === "app" || hasBuiltInArt(e.id)
   const isInstalled = (e: Entry) => (e.kind === "integration" ? installed(e.item) || e.item.builtIn : appState(e.id) === "on")
   const essentials = essentialIds(physical)
   const progress = essentialsProgress(physical, appStates?.states ?? {})
   const counts = new Map<Filter, number>([
-    ["all", entries.length],
+    ["all", entries.filter((e) => !isStorelib(e)).length],
     ["installed", entries.filter(isInstalled).length],
-    ["storelib", entries.filter((e) => e.kind === "app" || hasBuiltInArt(e.id)).length],
+    ["storelib", entries.filter(isStorelib).length],
   ])
   for (const c of CATEGORY_ORDER) counts.set(c, shownAll.filter((i) => i.category === c).length)
-  const pills: Filter[] = ["essentials", "all", "installed", "storelib", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
+  const pills: Filter[] = ["storelib", "essentials", "all", "installed", ...CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0)]
   const q = query.trim()
   const matches = (e: Entry) => (e.kind === "integration" ? searchIntegrations([e.item], q).length > 0 : `${e.app.name} ${e.app.summary} storelib`.toLowerCase().includes(q.toLowerCase()))
   const shown = q
     ? entries.filter(matches)
-    : entries.filter((e) => (filter === "all" ? true : filter === "installed" ? isInstalled(e) : filter === "storelib" ? e.kind === "app" || hasBuiltInArt(e.id) : e.kind === "integration" && e.item.category === filter))
+    : entries.filter((e) => (filter === "all" ? !isStorelib(e) : filter === "installed" ? isInstalled(e) : filter === "storelib" ? isStorelib(e) : e.kind === "integration" && e.item.category === filter))
   const essentialEntries = essentials.map((id) => entries.find((e) => e.id === id)).filter((e): e is Entry => !!e)
   const hrefOf = (a: StorelibApp) => appStates?.hrefs[a.id] ?? a.href
 
@@ -458,8 +449,6 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
       </div>
 
       <div ref={pillsRef} hidden={!!q} className="relative -mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Categories" data-integration-pills="">
-        {/* One dark thumb that slides to the pill pressed, under the words, so a switch reads as one motion and never a blink. */}
-        <span ref={thumbRef} aria-hidden className="pointer-events-none absolute left-0 top-0 h-8 rounded-full bg-[#1a1a2e] opacity-0" data-integration-pill-thumb="" />
         {pills.map((f) => {
           const on = filter === f
           return (
@@ -471,12 +460,12 @@ export function IntegrationsDirectory({ page = false }: { page?: boolean } = {})
               onClick={() => chooseFilter(f)}
               data-integration-pill={f}
               className={cn(
-                "relative inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-[border-color,color] duration-200 ease-out motion-reduce:transition-none [-webkit-tap-highlight-color:transparent]",
-                on ? "border-transparent text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db]",
+                "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium [-webkit-tap-highlight-color:transparent]",
+                on ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#374151] hover:border-[#d1d5db] active:bg-[#f3f4f6]",
               )}
             >
               {f === "essentials" ? "Essentials" : f === "all" ? "All" : f === "installed" ? "Installed" : f === "storelib" ? "Storelib apps" : CATEGORY_NAMES[f]}
-              <span className={cn("tabular-nums transition-colors duration-200", on ? "text-white/70" : "text-[#9ca3af]")}>{f === "essentials" ? (appStates ? `${progress.done}/${progress.total}` : progress.total) : (counts.get(f) ?? 0)}</span>
+              <span className={cn("tabular-nums", on ? "text-white/70" : "text-[#9ca3af]")}>{f === "essentials" ? (appStates ? `${progress.done}/${progress.total}` : progress.total) : (counts.get(f) ?? 0)}</span>
             </button>
           )
         })}

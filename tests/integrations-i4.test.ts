@@ -68,12 +68,16 @@ console.log("\nEssentials\n")
 console.log("\nThe directory\n")
 {
   const ui = read("components/app/settings/integrations-directory.tsx")
-  check("Essentials is the first pill and where the page opens", /useState<Filter>\("essentials"\)/.test(ui) && /\["essentials", "all", "installed", "storelib"/.test(ui))
+  /* Changed on purpose (the owner: "make the Storelib integrations the main thing there, and don't mix them in All"): Storelib apps first and where the page opens, Essentials after it. */
+  check("Storelib apps is the first pill and where the page opens", /useState<Filter>\("storelib"\)/.test(ui) && /\["storelib", "essentials", "all", "installed"/.test(ui))
+  check("  All is the services from elsewhere, never Storelib's own again", /filter === "all" \? !isStorelib\(e\)/.test(ui) && /\["all", entries\.filter\(\(e\) => !isStorelib\(e\)\)\.length\]/.test(ui))
   check("  with N of M set up and a bar, waiting for the read before it counts", /`\$\{done\} of \$\{total\} set up`/.test(ui) && /progress=\{appStates \? progress : null\}/.test(ui) && /data-integration-essentials=""/.test(ui))
   check("a Storelib app card goes straight to where it is set up, with its state", /<Link href=\{hrefOf\(e\.app\)\} data-integration-card=\{e\.id\} data-storelib-app=\{e\.id\}/.test(ui) && /<AppBadge state=\{appState\(e\.id\)\} \/>/.test(ui))
   check("a search looks through everything whatever pill is on", /const shown = q\s*\? entries\.filter\(matches\)/.test(ui))
   check("on a phone one list of rows, from 640px a grid of cards", /divide-y divide-\[#f1f2f4\] overflow-hidden sm:grid sm:grid-cols-2/.test(ui) && /sm:h-full sm:flex-col/.test(ui))
-  check("the pills: one thumb that slides, the pressed pill scrolled into view", /data-integration-pill-thumb=""/.test(ui) && /transform 260ms cubic-bezier\(0\.32, 0\.72, 0, 1\)/.test(ui) && /row\.scrollTo\(\{ left: to/.test(ui) && /reduced\(\)/.test(ui))
+  /* Changed on purpose (the owner: the pills were "buggy and glitchy"): no sliding thumb (it crossed wrapped rows diagonally, the words went white before it came), no fade on the cards; the pressed pill is dark in the same frame and still scrolled into view on a phone. */
+  check("the pills: dark in the same frame, no thumb, no card fade, the pressed pill scrolled into view", !/data-integration-pill-thumb/.test(ui) && !/placeThumb/.test(ui) && /on \? "border-\[#1a1a2e\] bg-\[#1a1a2e\] text-white"/.test(ui) && !/translate3d\(0, 6px, 0\)/.test(ui) && /row\.scrollTo\(\{ left: to/.test(ui) && /reduced\(\)/.test(ui))
+  check("  every logo is fetched once when the directory opens, so a category's cards paint with theirs", /new Image\(\)/.test(ui) && !/loading="lazy"/.test(read("components/app/settings/integration-mark.tsx").split("export function MiniMark")[0]))
   check("a page: What it does on top, the rest closed under How it works and your data", />What it does</.test(ui) && /<details className="group border-t/.test(ui) && /How it works and your data/.test(ui) && /item\.lead \?\? item\.about\[0\]/.test(ui))
   const long = INTEGRATIONS.filter((i) => (i.lead ?? i.about[0]).length > 160).map((i) => i.id)
   check("  what shows before the details is short for every integration", long.length === 0, long)
