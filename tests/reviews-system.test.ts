@@ -285,7 +285,7 @@ async function engine() {
     await w.run()
     const m = w.asks()[0]
     check("no support address: the name is still the seller's, the reply falls back to Storelib's", m?.fromName === "Maria Studio via Storelib" && !m?.replyTo, [m?.fromName, m?.replyTo])
-    check("no picture: a letter tile, never a broken image", !/<img[^>]*alt="Notion Budget"/.test(m?.html ?? "") && /class="e-tile"/.test(m?.html ?? ""))
+    check("no picture: a letter tile, never a broken image", !/<img[^>]*alt="Notion Budget"/.test(m?.html ?? "") && /class="e-tile[ "]/.test(m?.html ?? ""))
   }
   {
     /* A seller Storelib has no name for: the email is plainly from Storelib, as every platform email is. */

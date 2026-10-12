@@ -193,7 +193,7 @@ function main() {
   check("one button, near black", (ask.html.match(/<td class="e-btn[" ]/g) ?? []).length === 1 && ask.html.includes('bgcolor="#1a1a2e"'))
   check("the footer link says it turns review emails off", ask.text.includes(`Turn off review emails: ${ctxUnsub.unsubscribeUrl}`) && !ask.text.includes("Unsubscribe:"))
   const noPicture = renderEmail("REVIEW_REQUEST", { ...FULL, productImage: "http://cdn.example.com/x.png" }, ctx)
-  check("a picture that is not https is left out, and the letter tile is drawn", !/<img[^>]*alt="Lightroom/.test(noPicture.html) && noPicture.html.includes('class="e-tile"'))
+  check("a picture that is not https is left out, and the letter tile is drawn", !/<img[^>]*alt="Lightroom/.test(noPicture.html) && /class="e-tile[ "]/.test(noPicture.html))
 
   /* No purple anywhere in a notification email: the owner's rule for the whole product. */
   for (const type of NOTIFICATION_TYPES) {
