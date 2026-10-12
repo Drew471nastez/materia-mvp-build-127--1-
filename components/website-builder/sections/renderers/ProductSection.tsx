@@ -43,6 +43,7 @@ import { pageOrigin } from "@/lib/orders/checkout-origin-browser"
 import { addLine, cartStorageKey, parseCart, serializeCart } from "@/lib/website-builder/cart"
 import { physicalCheckoutHref } from "@/lib/physical/cart-link"
 import { withProductBlocks } from "@/lib/website-builder/product-page"
+import { pricingFor } from "@/lib/markets/pricing"
 import {
   amountToCents,
   buyNowHref,
@@ -111,6 +112,8 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
   const real = useMemo(() => readProduct(s._product_data), [s._product_data])
   const product = real ?? SAMPLE
   const sample = !real
+  /* The visitor's market's prices (product.display), converted here as the server converted the cards (lib/markets/pricing). */
+  const displayPricing = useMemo(() => (product.display ? pricingFor(product.display.market, product.display.base, product.display.fx) : null), [product.display])
 
   /* ── Colours, from the section's scheme and its own Advanced colours ── */
   const palette = sectionColors(section, theme)
@@ -249,7 +252,16 @@ export function ProductSection({ section: raw, theme, isEditing, isSelected, onC
     radius,
     buttonRadius,
     /* Theme settings › Currency format › Show currency codes, as the product cards on the same page follow it. */
-    money: (cents: number) => money(cents, { code: theme.currency_code_enabled === true }),
+    /*
+      In the visitor's market's currency when it shows its own (Markets and
+      languages): the same conversion the server made for the cards. A pay
+      what you want product keeps the store's, since the buyer types an
+      amount in it.
+    */
+    money: (cents: number) => {
+      const shown = displayPricing && !product.pay_what_you_want ? displayPricing.format(cents, product.display?.locale) : null
+      return shown ?? money(cents, { code: theme.currency_code_enabled === true })
+    },
   }
 
   /* ── Layout ── */

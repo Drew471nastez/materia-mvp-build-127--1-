@@ -17,6 +17,8 @@ import { compatFields } from "@/lib/markets/compat"
 import { linkLanguageScript } from "@/lib/markets/link-script"
 import { localizeSections, sourceHash, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
 import type { SectionInstance } from "@/lib/website-builder/types"
+import { convertPriceText, convertedCents, moneyFormatFor, pricingFor } from "@/lib/markets/pricing"
+import { siteNameIn, siteRouteInLanguage, splitSiteName } from "@/lib/markets/site-name"
 
 let passed = 0
 let failed = 0
@@ -104,10 +106,36 @@ async function main() {
     const script = linkLanguageScript("fr", "en", ["en", "fr"])
     check("a page in French keeps its links in French (the theme's menus and cart drawer too)", /data-storelib-language/.test(script) && script.includes('"p":"fr"') && linkLanguageScript("en", "en", ["en", "fr"]) === "")
     const route = read("app/api/site-theme/site/[username]/[[...path]]/route.ts")
-    check("the theme's handler puts the site in the page's language for that request only, never on a preview", /const locale = token \? null : \(req\.headers\.get\(SITE_LOCALE_HEADER\) \|\| null\)/.test(route) && /localizeCompatSite\(found\.site, locale\)/.test(route))
+    check("the theme's handler puts the site in the page's language for that request only, never on a preview", /const locale = token \? null : \(req\.headers\.get\(SITE_LOCALE_HEADER\) \|\| null\)/.test(route) && /localizeCompatSite\(found\.site, locale, market\)/.test(route))
     const proxy = read("proxy.ts")
     check("  the language named in a header only the proxy sets", /headers\.delete\(SITE_LOCALE_HEADER\)/.test(proxy) && /if \(locale\) headers\.set\(SITE_LOCALE_HEADER, locale\)/.test(proxy))
     check("Translate reads an imported theme's texts too", /if \(compatOf\(themeValues\)\)/.test(read("lib/markets/server.ts")))
+  }
+
+  console.log("\nPrices in a market's own currency\n")
+  {
+    const now = Date.parse("2026-10-11T12:00:00Z")
+    const fx = { asOf: "2026-10-09", rates: { USD: 1.1, RON: 5, JPY: 160 } }
+    const eu = { id: "eu", name: "Europe", currency: "EUR", rounding: "none" as const, adjustBps: 0 }
+    const p = pricingFor(eu, "USD", fx, now)!
+    check("a market with its own currency converts from the store's at the day's rate", !!p && p.convert(1100) === 1000 && p.currency === "EUR" && p.base === "USD")
+    check("  and carries only the two rates it used, for the product block to convert the same way", JSON.stringify(Object.keys(p.fx.rates).sort()) === JSON.stringify(["USD"]) && pricingFor(eu, "USD", p.fx, now)!.convert(1100) === 1000)
+    check("no market, the same currency or stale rates: the store's own prices", pricingFor(null, "USD", fx, now) === null && pricingFor({ ...eu, currency: "USD" }, "USD", fx, now) === null && pricingFor(eu, "USD", fx, Date.parse("2026-10-20T00:00:00Z")) === null)
+    check("a card's price written in the market's currency, its own way, the /month kept", convertPriceText("$11.00", p, "de").replace(/\s/g, " ") === "10,00 €" && convertPriceText("$11.00/month", p, "en") === "€10.00/month" && convertPriceText("", p) === "")
+    check("  rounding to .99 as the market says", convertPriceText("$11.55", pricingFor({ ...eu, rounding: "nine_nine" }, "USD", fx, now)!, "en") === "€10.99" && convertPriceText("$11.00", pricingFor({ ...eu, rounding: "nine_nine" }, "USD", fx, now)!, "en") === "€9.99")
+    check("an imported theme's money filter counts hundredths, for every currency", convertedCents(1100, p) === 1000 && convertedCents(1100, pricingFor({ ...eu, currency: "JPY" }, "USD", fx, now)!) === 160000)
+    check("  and writes them the currency's way", moneyFormatFor("EUR") === "€{{amount}}" && moneyFormatFor("JPY") === "¥{{amount_no_decimals}}" && /\{\{amount\}\} lei|RON/.test(moneyFormatFor("RON", "ro")))
+    check("the market rides in the page's address, beside the language", siteNameIn("andrew", "fr", "eu") === "andrew~fr~m-eu" && JSON.stringify(splitSiteName("andrew~fr~m-eu")) === JSON.stringify({ name: "andrew", locale: "fr", market: "eu" }) && splitSiteName("andrew~m-eu").locale === null)
+    check("  a visitor in a market sees the same page in its currency, in any language", (siteRouteInLanguage("andrew", "/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~m-eu/about" && (siteRouteInLanguage("andrew", "/fr/about", ["fr"], "eu") as { path: string }).path === "/w/andrew~fr~m-eu/about" && siteRouteInLanguage("andrew", "/cart", ["fr"], "eu") === null)
+    const proxy = read("proxy.ts")
+    check("the proxy picks the market from the visitor's choice, then their country", /request\.cookies\.get\("sl_country"\)/.test(proxy) && /x-vercel-ip-country/.test(proxy) && /if \(chosen === "home"\) return null/.test(proxy))
+    check("  and a page in a market's currency is never kept by a shared cache", /private, no-cache/.test(proxy) && /!\(inLanguage\?\.kind === "page" && \/~m-\/\.test\(inLanguage\.path\)\)/.test(proxy))
+    const compat = read("lib/markets/compat.ts")
+    check("an imported theme's prices, shop currency and money format follow the market; the store's otherwise", /moneyFormat: moneyFormatFor\(pricing\.currency/.test(compat) && /price: shown\(settings\.price\)/.test(compat) && /: site\.shop,/.test(compat))
+    check("  its country selector lists every country with the currency it sees, and choosing one is remembered", /countryList\(langs\.markets, base\)/.test(compat) && /sl_country=\$\{country\}/.test(read("lib/storelib-theme/compat/site.ts")))
+    check("and every cart says what the card is charged in, before anyone pays", /chargeNoteScript\(note\)/.test(compat) && /currencyNote=\{currencyNote\}/.test(read("app/checkout/site/page.tsx")) && /data-currency-note/.test(read("app/checkout/site/site-checkout.tsx")) && /data-currency-note/.test(read("components/website-builder/theme/language-switch.tsx")))
+    check("a builder theme's product block converts the same way, never a pay what you want amount", /pricingFor\(product\.display\.market/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")) && /!product\.pay_what_you_want/.test(read("components/website-builder/sections/renderers/ProductSection.tsx")))
+    check("the chosen country is in the cookie policy", /name: "sl_country"/.test(read("lib/consent/consent.ts")))
   }
 
   console.log("\nOne place for a website's language\n")
@@ -115,7 +143,7 @@ async function main() {
     const general = read("components/website-builder/website-settings/general.tsx")
     check("Website settings no longer has its own language picker; it opens Markets and languages", !/id="wb-site-language"/.test(general) && /\/app\/settings\?tab=markets/.test(general))
     const live = read("lib/markets/live.ts")
-    check("a saved default language is the page's lang, with no switch for one language", /if \(!langs\.saved\) return undefined/.test(live) && /languages\.length < 2\) return null/.test(read("components/website-builder/theme/language-switch.tsx")))
+    check("a saved default language is the page's lang, with no switch for one language", /if \(!langs\.saved\) return undefined/.test(live) && /if \(!hasLanguages && !currency\) return null/.test(read("components/website-builder/theme/language-switch.tsx")))
   }
 
   console.log(`\n${passed} passed, ${failed} failed\n`)

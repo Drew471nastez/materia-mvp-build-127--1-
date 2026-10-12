@@ -239,6 +239,16 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const back = safeReturn(req.body?.return_to) ?? "/"
     const asked = typeof req.body?.language_code === "string" ? req.body.language_code : null
     const i18n = site.i18n
+    /*
+      A COUNTRY CHOSEN (country_code): remembered for a year (sl_country, read
+      by the proxy), and the page again, its prices in that country's
+      market's currency. A country the website does not list changes nothing.
+    */
+    const country = typeof req.body?.country_code === "string" ? req.body.country_code.toUpperCase() : null
+    const remember = country && /^[A-Z]{2}$/.test(country) && i18n?.countries?.some((c) => c.code === country)
+      ? { "Set-Cookie": `sl_country=${country}; Path=/; Max-Age=31536000; SameSite=Lax; Secure` }
+      : null
+    if (remember && (!asked || !i18n)) return { ...redirect(back), headers: { ...redirect(back).headers, ...remember } }
     if (!i18n || !asked) return redirect(back)
     const chosen = i18n.languages.find((l) => l.toLowerCase() === asked.toLowerCase())
     if (!chosen) return redirect(back)
@@ -246,7 +256,8 @@ export async function answer(site: SiteData, req: SiteRequest): Promise<SiteResp
     const m = back.match(/^\/([a-z]{2,3}(?:-[a-z0-9]{2,8})*)(\/.*)?$/i)
     const bare = m && prefixes.includes(m[1].toLowerCase()) ? (m[2] || "/") : back
     const root = localeRoot(i18n, chosen)
-    return redirect(root ? `${root}${bare === "/" ? "" : bare}` : bare)
+    const to = redirect(root ? `${root}${bare === "/" ? "" : bare}` : bare)
+    return remember ? { ...to, headers: { ...to.headers, ...remember } } : to
   }
 
   /* ── products as data ── */

@@ -12,7 +12,7 @@
  */
 import { NextRequest, NextResponse } from "next/server"
 import { localizeCompatSite } from "@/lib/markets/compat"
-import { SITE_LOCALE_HEADER } from "@/lib/markets/site-name"
+import { SITE_LOCALE_HEADER, SITE_MARKET_HEADER } from "@/lib/markets/site-name"
 import { localeRoot } from "@/lib/storelib-theme/compat/objects"
 import { compatSiteByName } from "@/lib/website-builder/compat-site"
 import { isSiteReadError } from "@/lib/website-builder/site-read"
@@ -121,7 +121,9 @@ async function handle(req: Request, { params }: Params): Promise<Response> {
     language for this request alone (lib/markets/compat.ts). Never a preview.
   */
   const locale = token ? null : (req.headers.get(SITE_LOCALE_HEADER) || null)
-  found = { ...found, site: await localizeCompatSite(found.site, locale) }
+  /* And in the visitor's market's currency, when their country is in one that shows its own (the proxy's visitorMarket). */
+  const market = token ? null : (req.headers.get(SITE_MARKET_HEADER) || null)
+  found = { ...found, site: await localizeCompatSite(found.site, locale, market) }
 
   const cookie = req.headers.get("cookie")?.match(new RegExp(`(?:^|;\\s*)${CART_COOKIE}=([^;]*)`))?.[1]
   const { cart, note } = readCartCookie(cookie)

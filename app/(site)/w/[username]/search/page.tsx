@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function SiteSearchPage({ params, searchParams }: PageProps) {
   const { username: segment } = await params
   /* "andrew~fr": this page in French, sent here by the proxy for /fr/… (lib/markets/site-name.ts). */
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
   const asked = await searchParams.catch(() => ({}) as Record<string, string | string[] | undefined>)
   const q = Array.isArray(asked.q) ? asked.q[0] : asked.q
   const query = (q ?? "").slice(0, 120)
@@ -61,7 +61,7 @@ export default async function SiteSearchPage({ params, searchParams }: PageProps
 
   const { site, productCount } = found
   /* In another of the website's languages: its approved translations over the page and the products (lib/markets/live.ts). */
-  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale), languageChoice(site.creatorId, locale)])
+  const [localizer, language] = await Promise.all([siteLocalizer(site.creatorId, locale, market), languageChoice(site.creatorId, locale, market)])
   const products = localizer && found.products ? localizer.cards(found.products) : found.products
   /* Filtered here rather than in the database: the shop's catalogue is
      already fetched and cached by publishedShopByName, and a search that
