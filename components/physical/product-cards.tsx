@@ -1200,7 +1200,7 @@ function VariantImagePicker({
               aria-checked={scope === i}
               onClick={() => setScope(i)}
               className={cn(
-                "h-8 rounded-full border px-3 text-[13px] font-medium transition-colors",
+                "h-8 rounded-full border px-3 text-[13px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#9ca3af]/50",
                 scope === i ? "border-[#1a1a2e] bg-[#1a1a2e] text-white" : "border-[#e5e7eb] bg-white text-[#4b5563] hover:border-[#9ca3af]",
               )}
             >

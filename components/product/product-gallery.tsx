@@ -283,9 +283,13 @@ export function ProductGallery({
       }
       const end = items.filter((m) => m.type !== "video").length
       setVariantExtra((x) => (x.some(same) ? x : [...x, url]))
-      setCurrentIndex(end)
+      /* The new slide is laid out by the carousel once it is drawn, then shown. */
+      requestAnimationFrame(() => {
+        swiperRef.current?.update()
+        setCurrentIndex(end)
+      })
     })
-  }, [followVariantsOf])
+  }, [followVariantsOf, swiperRef])
 
   const onSwiper = useCallback((swiper: SwiperClass) => {
     swiperRef.current = swiper
