@@ -150,17 +150,33 @@ async function revokeIfFull(db: Db, row: OrderRow, cents: number, before: number
  * money off twice; written first, the worst a failure can do is leave the
  * balance short of one refund, which the error log names.
  */
-async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string): Promise<"recorded" | "duplicate" | "no-seller"> {
+async function applyToLedger(db: Db, row: OrderRow, refund: Stripe.Refund, cents: number, currency: string, purchase: string[] = [row.id]): Promise<"recorded" | "duplicate" | "no-seller"> {
   const creatorId = await creatorOf(db, row.product_id)
   if (!creatorId) return "no-seller"
 
-  const { data: sale } = await db
+  /*
+    THE SALE THIS ROW WAS PAID IN. A basket or a physical order is one sale
+    on the ledger, on its first row, for the whole payment and its whole fee
+    (lib/checkout/fulfil-payment recordSale). The fee's share of a refund is
+    the refund's share of that payment, whichever row it is on: what Stripe
+    reverses from the seller's transfer (refund x transfer / charge). Divided
+    by the row's own amount instead, a refund of the first row gave back too
+    much fee and a refund of any other row none.
+  */
+  const { data: sales } = await db
     .from("ledger_events")
-    .select("fee_cents, released_at")
-    .eq("order_id", row.id)
+    .select("order_id, amount_cents, fee_cents, released_at")
+    .in("order_id", purchase.includes(row.id) ? purchase : [row.id, ...purchase])
     .eq("event_type", "sale")
-    .limit(1)
-  const fee = feeShare(Number(sale?.[0]?.fee_cents) || 0, row.amount_cents || 0, cents)
+    .limit(50)
+  type Sale = { order_id: string; amount_cents: number | null; fee_cents: number | null; released_at: string | null }
+  const found = (sales ?? []) as Sale[]
+  const own = found.find((x) => x.order_id === row.id)
+  const sale: Sale[] = own ? [own] : found.slice(0, 1)
+  const paid = Number(sale[0]?.amount_cents) || 0
+  const rowAmount = row.amount_cents || 0
+  /* The payment's whole amount when the sale covers more than this row; this row's own when the sale is its alone. */
+  const fee = feeShare(Number(sale[0]?.fee_cents) || 0, paid > rowAmount || !own ? paid || rowAmount : rowAmount, cents)
   const net = Math.max(0, cents - fee)
   /*
     Where the money is. While the sale is on hold its part of the balance is
@@ -303,7 +319,7 @@ export async function syncChargeRefund(db: Db, stripe: Stripe, charge: Stripe.Ch
       const already = before(row.id)
       let outcome: "recorded" | "duplicate" | "no-seller"
       try {
-        outcome = await applyToLedger(db, row, refund, share.cents, currency)
+        outcome = await applyToLedger(db, row, refund, share.cents, currency, rows.map((r) => r.id))
       } catch (e) {
         failures.push(`${refund.id}/${row.id}: ${e instanceof Error ? e.message : String(e)}`)
         continue

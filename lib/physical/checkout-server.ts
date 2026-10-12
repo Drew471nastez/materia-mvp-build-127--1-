@@ -274,6 +274,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
 
   const expiresAt = new Date(Date.now() + HOLD_MINUTES * 60_000)
   const receiptToken = randomBytes(24).toString("base64url")
+  /* How the tax was worked out, kept so each order line carries its own share of it (completeCheckout taxSharesOf). */
+  const taxFacts = { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel, tax_on_shipping: priced.tax.taxOnShipping === true, tax_digital: priced.tax.digital === true }
   const option = q.option
   const { data: checkout, error: insertError } = await db
     .from("commerce_checkouts")
@@ -298,8 +300,8 @@ export async function startCheckout(db: Db, input: StartInput): Promise<StartRes
       platform_fee_cents: fee?.platformFeeCents ?? 0,
       shipping_address: address,
       shipping_rate: option
-        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
-        : { tax_rate_bps: totals.taxRateBps, tax_included: totals.taxIncluded, tax_label: totals.taxLabel },
+        ? { id: option.id, name: option.name, kind: option.kind ?? "ship", price_cents: option.priceCents, min_days: option.minDays, max_days: option.maxDays, rate_ids: option.rateIds, ...taxFacts, ...(option.local ? { local_location_id: option.local.locationId, local_note: option.local.note } : {}) }
+        : taxFacts,
       lines: q.lines.map((l) => snapshotLine(l, propertiesFor(input.items, l))),
       coupon_id: priced.coupon?.id ?? null,
       coupon_code: priced.coupon?.code ?? null,
@@ -824,8 +826,9 @@ export async function completeCheckout(
   const taxIncluded = !!co.shipping_rate?.tax_included
   const addedTax = taxIncluded ? 0 : co.tax_cents
   const itemNet = lines.map((l) => Math.max(0, l.unit_cents * l.quantity - l.discount_cents))
-  const shipShares = apportionFee(shippingPaid, lines.map((l, i) => (l.requires_shipping ? Math.max(1, itemNet[i]) : 0)))
-  const taxShares = apportionFee(addedTax, lines.map((l, i) => (l.taxable ? Math.max(1, itemNet[i]) : 0)))
+  const shipWeights = lines.map((l, i) => (l.requires_shipping ? Math.max(1, itemNet[i]) : 0))
+  const shipShares = apportionFee(shippingPaid, shipWeights)
+  const taxShares = taxSharesOf(addedTax, co, lines, itemNet, shippingPaid, shipWeights)
   const amounts = lines.map((_, i) => itemNet[i] + (shipShares[i] ?? 0) + (taxShares[i] ?? 0))
   /*
     Tax inside the prices (Settings › Taxes, prices include tax) is not added to any amount, but it is still tax the
@@ -833,7 +836,7 @@ export async function completeCheckout(
     the receipt and the buyer's page do (lib/orders/load-rows.ts reads it). Before this it was not kept anywhere on the
     line and the order's tax row was missing for every store whose prices include tax.
   */
-  const includedShares = taxIncluded ? apportionFee(Math.max(0, co.tax_cents), lines.map((l, i) => (l.taxable ? Math.max(1, itemNet[i]) : 0))) : []
+  const includedShares = taxIncluded ? taxSharesOf(Math.max(0, co.tax_cents), co, lines, itemNet, shippingPaid, shipWeights) : []
   const taxLabel = typeof co.shipping_rate?.tax_label === "string" && co.shipping_rate.tax_label.trim() ? co.shipping_rate.tax_label.trim().slice(0, 80) : null
   const fees = apportionFee(fee, amounts)
   const origin = (co.origin ?? null) as OrderOrigin | null
@@ -957,6 +960,30 @@ export async function completeCheckout(
     }
   }
   return { ok: true, receiptToken: co.receipt_token, sessionFingerprint: fingerprint, checkoutId: c.checkoutId, complete: failed === 0 }
+}
+
+/**
+ * EACH LINE'S SHARE OF THE TAX, as the tax was charged (lib/physical/totals
+ * physicalTotals): the tax on the delivery belongs to the lines that ship,
+ * shared as the delivery is, and the tax on the items to the lines that
+ * were taxed. A download is taxed only when Settings › Taxes taxes them, so
+ * with that off its line carries none: before, every taxable line took a
+ * share by its price, and a download's order row (and its receipt, and a
+ * refund of it) held part of the mugs' VAT. A checkout from before these
+ * facts were kept (no tax_on_shipping) is shared as it always was.
+ */
+function taxSharesOf(taxCents: number, co: Record<string, any>, lines: LineSnapshot[], itemNet: number[], shippingPaid: number, shipWeights: number[]): number[] {
+  const rate = co.shipping_rate ?? {}
+  const taxedWeights = lines.map((l, i) => (l.taxable && (l.type === "physical" || rate.tax_digital === true || typeof rate.tax_on_shipping !== "boolean") ? Math.max(1, itemNet[i]) : 0))
+  if (taxCents <= 0) return lines.map(() => 0)
+  if (typeof rate.tax_on_shipping !== "boolean") return apportionFee(taxCents, taxedWeights)
+  const bps = Math.max(0, Number(rate.tax_rate_bps) || 0)
+  const included = rate.tax_included === true
+  const shipTax = rate.tax_on_shipping && shippingPaid > 0 && bps > 0 && shipWeights.some((w) => w > 0) ? Math.min(taxCents, included ? Math.round(shippingPaid - (shippingPaid * 10_000) / (10_000 + bps)) : Math.round((shippingPaid * bps) / 10_000)) : 0
+  const itemTax = taxCents - shipTax
+  const items = taxedWeights.some((w) => w > 0) ? apportionFee(itemTax, taxedWeights) : apportionFee(itemTax, shipWeights.some((w) => w > 0) ? shipWeights : lines.map(() => 1))
+  const ship = apportionFee(shipTax, shipWeights)
+  return lines.map((_, i) => (items[i] ?? 0) + (ship[i] ?? 0))
 }
 
 function money(cents: number, currency = "USD"): string {

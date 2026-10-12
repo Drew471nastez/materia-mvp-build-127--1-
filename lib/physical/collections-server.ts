@@ -41,10 +41,23 @@ function view(r: Record<string, any>, productIds: string[]): CollectionView {
   }
 }
 
+const SHOP_RULE_COLUMNS = "id, title, type, tags, vendor, price_cents, compare_at_price_cents:compare_at_cents, weight_grams, created_at, sales_count, status, category"
+
 async function shopProducts(db: Db, creatorId: string, publishedOnly: boolean): Promise<(RuleProduct & { sales: number })[]> {
-  let q = db.from("products").select("id, title, type, tags, vendor, price_cents, compare_at_price_cents, inventory_count, weight_grams, created_at, sales_count, status, category").eq("creator_id", creatorId).limit(2000)
-  if (publishedOnly) q = q.eq("status", "published")
-  const { data } = await q
+  /*
+    A product's compare at price is products.compare_at_cents (the variants'
+    is compare_at_price_cents): read under the name the rules use. Asked for
+    a column the database does not have, PostgREST refuses the whole read,
+    and a smart collection then held nothing at all; the stock count is read
+    when it is there and left out when it is not.
+  */
+  const read = (columns: string) => {
+    let q = db.from("products").select(columns).eq("creator_id", creatorId).limit(2000)
+    if (publishedOnly) q = q.eq("status", "published")
+    return q
+  }
+  const first = await read(`${SHOP_RULE_COLUMNS}, inventory_count`)
+  const { data } = first.error ? await read(SHOP_RULE_COLUMNS) : first
   return ((data ?? []) as Record<string, any>[]).map((p) => ({
     id: p.id,
     title: p.title ?? "",
@@ -162,7 +175,7 @@ export interface CollectionProduct {
 }
 
 const PICKER_COLUMNS = "id, title, thumbnail_url, type, status, price_cents"
-const RULE_COLUMNS = `${PICKER_COLUMNS}, tags, vendor, compare_at_price_cents, inventory_count, weight_grams, category`
+const RULE_COLUMNS = `${PICKER_COLUMNS}, tags, vendor, compare_at_price_cents:compare_at_cents, inventory_count, weight_grams, category`
 
 /**
  * The shop's collections and its products, for /app/products/collections
@@ -173,6 +186,8 @@ export async function collectionsArea(db: Db, creatorId: string): Promise<{ coll
   const products = (columns: string) =>
     db.from("products").select(columns).eq("creator_id", creatorId).order("created_at", { ascending: false }).limit(1000)
   const [collections, rich] = await Promise.all([listCollections(db, creatorId), products(RULE_COLUMNS)])
-  const rows = rich.error ? (await products(PICKER_COLUMNS)).data : rich.data
+  /* Without the stock count first (a database that never had it keeps the rule columns), then the picker's own. */
+  const lean = rich.error ? await products(RULE_COLUMNS.replace(", inventory_count", "")) : null
+  const rows = !rich.error ? rich.data : !lean?.error ? lean?.data : (await products(PICKER_COLUMNS)).data
   return { collections, products: (rows ?? []) as CollectionProduct[] }
 }

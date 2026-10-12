@@ -178,7 +178,7 @@ async function main() {
   const g = groupOrders([snapRow as OrderRow])[0]
   check("  so the order has an Includes row, and its subtotal is the price", g.taxCents === 1900 && g.taxIncluded === true && g.subtotalCents === 11900 && g.taxLabel === "VAT 19%")
   const ck = read("lib/physical/checkout-server.ts")
-  check("the checkout writes it on each line when prices include tax", /const includedShares = taxIncluded \? apportionFee\(Math\.max\(0, co\.tax_cents\)/.test(ck) && /tax_cents: taxIncluded \? \(includedShares\[i\] \?\? 0\) : \(taxShares\[i\] \?\? 0\)/.test(ck) && /tax_included: true/.test(ck))
+  check("the checkout writes it on each line when prices include tax", /const includedShares = taxIncluded \? (apportionFee|taxSharesOf)\(Math\.max\(0, co\.tax_cents\)/.test(ck) && /tax_cents: taxIncluded \? \(includedShares\[i\] \?\? 0\) : \(taxShares\[i\] \?\? 0\)/.test(ck) && /tax_included: true/.test(ck))
   /* An older order: its lines kept no tax, its checkout still says it was included. */
   const old = fakeDb({
     products: [{ id: "p", creator_id: CREATOR, title: "Mug", type: "physical" }],

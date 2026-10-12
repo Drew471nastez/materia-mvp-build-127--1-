@@ -761,7 +761,8 @@ export async function noteRefund(db: Db, creatorId: string, checkoutId: string, 
     actor: "creator",
     key: `refund_total:${checkoutId}:${updated.refundedCents}`,
   })
-  if (updated.refundedCents > before.refundedCents) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - before.refundedCents)
+  /* Against the stored total: the lines already carry this refund (the refund route wrote them first), so `before` does too and nothing was ever queued. */
+  if (updated.refundedCents > storedBefore) await queueRefundEmail(db, checkoutId, creatorId, updated.refundedCents, updated.refundedCents - storedBefore)
   await countRefundOnReturn(db, creatorId, before.returns, returnId, updated.refundedCents - Math.min(storedBefore, before.refundedCents))
   await releaseRefundedStock(db, creatorId, updated, "creator")
   const fresh = await loadOrder(db, { creatorId, checkoutId })

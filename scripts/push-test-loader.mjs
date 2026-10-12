@@ -25,7 +25,7 @@
  */
 import { existsSync, statSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 
 const OUT = process.env.PUSH_TEST_OUT
 
@@ -93,7 +93,9 @@ export const unstable_noStore = () => {}
   /**
    * next/server: enough for a module that builds responses or schedules work
    * after the answer to load. `after` drops its task: there is no response
-   * here to run it after, and a suite that needs the task runs it itself.
+   * here to run it after, and a suite that needs the task runs it itself
+   * (tests/_journey sets globalThis.__PUSH_TEST_AFTER__ to collect them and
+   * runs each once the route has answered, as Next does).
    */
   "next/server": `export class NextResponse extends Response {
   static json(body, init) {
@@ -108,7 +110,7 @@ export const unstable_noStore = () => {}
   static next() { return new NextResponse(null) }
 }
 export class NextRequest extends Request {}
-export const after = () => {}
+export const after = (task) => globalThis.__PUSH_TEST_AFTER__?.(task)
 `,
   /**
    * next/image, next/dynamic and next/script, so a suite can import a page
@@ -216,14 +218,15 @@ export async function resolve(specifier, context, nextResolve) {
   // future extension guess from turning `x.json` into `x.json.js`.
   if (bare.startsWith(".") && bare.endsWith(".json") && context.parentURL?.startsWith("file:")) {
     const candidate = new URL(bare, new URL(".", context.parentURL))
-    if (existsSync(candidate.pathname)) return { url: candidate.href, shortCircuit: true }
+    if (existsSync(fileURLToPath(candidate))) return { url: candidate.href, shortCircuit: true }
   }
 
   // Extensionless relative imports, which is how tsc emits them.
   if (bare.startsWith(".") && context.parentURL?.startsWith("file:")) {
     const parentDir = new URL(".", context.parentURL)
     const candidate = new URL(bare, parentDir)
-    const found = existingFile(candidate.pathname)
+    /* The file's own path, not the URL's: a route folder such as [token] is percent encoded in a URL's pathname. */
+    const found = existingFile(fileURLToPath(candidate))
     if (found) return { url: pathToFileURL(found).href + query, shortCircuit: true }
   }
 

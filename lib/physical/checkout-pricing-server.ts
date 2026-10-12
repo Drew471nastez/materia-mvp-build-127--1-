@@ -133,7 +133,7 @@ interface ProductRow {
 }
 
 const PRODUCT_COLUMNS =
-  "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at, category"
+  "id, title, slug, type, status, creator_id, price_cents, compare_at_price_cents:compare_at_cents, pay_what_you_want, pwyw_min_price_cents, thumbnail_url, requires_shipping, weight_grams, taxable, track_inventory, continue_selling, fulfillment_location_id, fulfillment_method, shipping_profile_id, tags, vendor, created_at, category"
 const OPTIONAL_PRODUCT_COLUMNS = PRODUCT_COLUMNS.split(",").map((c) => c.trim()).slice(7)
 const VARIANT_COLUMNS =
   "id, product_id, name, price_cents, sku, weight_grams, image_url, track_inventory, inventory_policy, requires_shipping, taxable, active, fulfillment_location_id, fulfillment_method, pay_what_you_want, pwyw_min_price_cents"

@@ -897,7 +897,15 @@ async function handleStripeEvent(request: Request) {
       declined. A retry that succeeds in the meantime sends nothing.
     */
     try {
-      const { data: co } = await supabaseAdmin.from("commerce_checkouts").select("id, creator_id, status, buyer_email").eq("stripe_payment_intent_id", pi.id).maybeSingle()
+      /*
+        Paid on Stripe's page (a Checkout Session), the checkout learns its
+        PaymentIntent only once paid, so a declined card is found by the id the
+        session put on the PaymentIntent (metadata physical_checkout_id). The
+        card form's checkout has the PaymentIntent's id from the start.
+      */
+      const byIntent = await supabaseAdmin.from("commerce_checkouts").select("id, creator_id, status, buyer_email").eq("stripe_payment_intent_id", pi.id).maybeSingle()
+      const named = typeof pi.metadata?.physical_checkout_id === "string" && /^[0-9a-f-]{36}$/i.test(pi.metadata.physical_checkout_id) ? pi.metadata.physical_checkout_id : null
+      const co = byIntent.data ?? (named ? (await supabaseAdmin.from("commerce_checkouts").select("id, creator_id, status, buyer_email").eq("id", named).eq("creator_id", String(pi.metadata?.creator_id ?? "")).maybeSingle()).data : null)
       const row = co as { id: string; creator_id: string; status: string; buyer_email: string | null } | null
       if (row && row.status === "pending" && row.buyer_email) {
         const { queuePaymentFailedEmail } = await import("@/lib/physical/jobs-server")

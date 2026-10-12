@@ -579,6 +579,19 @@ const SUITES = [
   "tests/partners24.test.ts",
 ]
 
+/**
+ * SUITES THAT RUN ROUTE HANDLERS, compiled on their own with the project's
+ * own `strict: true` (tsconfig.json). A route written against strict types
+ * narrows a result by `if (!saved.ok)`, which only narrows with
+ * strictNullChecks; under the list above's `strict: false` the same route is
+ * a type error and the whole run stops before any suite. Same output
+ * directory, run after the list above.
+ */
+const STRICT_SUITES = [
+  /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
+  "tests/e2e24.test.ts",
+]
+
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
 const tsconfigPath = "tsconfig.tests.generated.json"
 let anyFailed = false
@@ -624,6 +637,11 @@ try {
    * that passes against the wrong compiler. `pnpm exec` fails instead.
    */
   execFileSync("pnpm", ["exec", "tsc", "-p", tsconfigPath], { stdio: "inherit" })
+  if (STRICT_SUITES.length) {
+    const generated = JSON.parse(readFileSync(tsconfigPath, "utf8"))
+    writeFileSync(tsconfigPath, JSON.stringify({ ...generated, compilerOptions: { ...generated.compilerOptions, strict: true }, files: STRICT_SUITES }))
+    execFileSync("pnpm", ["exec", "tsc", "-p", tsconfigPath], { stdio: "inherit" })
+  }
 
   /**
    * NOTHING IS REWRITTEN. Resolution is a loader hook — see
@@ -661,7 +679,7 @@ try {
   }
 
   const compiled = walk(out)
-  for (const suite of SUITES) {
+  for (const suite of [...SUITES, ...STRICT_SUITES]) {
     const wanted = basename(suite).replace(/\.ts$/, ".js")
     /* By its whole name: page-seo.test.js is also the end of onepage-seo.test.js. */
     const entry = compiled.find((f) => basename(f) === wanted)
