@@ -221,7 +221,7 @@ const CONNECT_ABOUT: Partial<Record<ProviderId, string[]>> = {
   ],
   gelato: [
     "Connect Gelato with an API key. Storelib makes a location called Gelato. A product you sell as Print on demand at that location goes to Gelato when it is paid, printed in the Gelato country closest to your buyer.",
-    "Match each variant once, in Storelib: the Gelato product UID for its size and colour, and your print file's address. Storelib checks both with Gelato. A variant that isn't matched is never sent: the order says so, for you to send it yourself.",
+    "Match each variant once, in Storelib: the Gelato product UID for its size and colour, and your print file's https address. Storelib checks the product with Gelato before saving. A variant that isn't matched is never sent: the order says so, for you to send it yourself.",
     "Orders wait in Gelato as drafts until you approve them, so Gelato charges you only then. Turn on Send orders straight to production and they are made as soon as they are paid, by the shipment method you choose.",
     "Paste Storelib's address into Gelato's webhooks and each tracking code comes back as soon as Gelato has it; until then Storelib checks Gelato every few hours. Your buyer gets the shipping and delivery emails from your store.",
   ],

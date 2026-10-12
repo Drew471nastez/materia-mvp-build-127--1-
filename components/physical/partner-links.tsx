@@ -122,12 +122,13 @@ export function PartnerLinks({ provider, name, locationName }: { provider: Provi
           return (
             <li key={r.variantId} className="px-3 py-2.5" data-partner-link-row={r.variantId}>
               <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13.5px] font-medium text-[#1a1a2e]">
+                {/* At least 220px for the name: on a phone the status and button go under it rather than squeeze it. */}
+                <div className="min-w-0 flex-[1_1_220px]">
+                  <p className="[overflow-wrap:anywhere] text-[13.5px] font-medium text-[#1a1a2e]">
                     {r.productTitle}
                     {r.variantName ? <span className="font-normal text-[#4b5563]"> · {r.variantName}</span> : null}
                   </p>
-                  <p className="mt-0.5 truncate text-[12.5px] text-[#6b7280]">
+                  <p className="mt-0.5 [overflow-wrap:anywhere] text-[12.5px] text-[#6b7280]">
                     {r.link ? (
                       <>
                         {provider === "cj_dropshipping" ? "CJ" : "Gelato"}: {r.link.label ?? r.link.providerVariantId}
@@ -223,7 +224,7 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
           if (q.trim().length >= 2) void search()
         }}
       >
-        <TextInput value={q} onChange={(e) => setQ(e.target.value)} placeholder="CJ SKU or product words" aria-label="Search CJ" data-cj-search="" />
+        <TextInput className="min-w-0" value={q} onChange={(e) => setQ(e.target.value)} placeholder="CJ SKU or product words" aria-label="Search CJ" data-cj-search="" />
         <button type="submit" className={cn(BTN_PRIMARY, "shrink-0")} disabled={searching || q.trim().length < 2}>
           {searching ? "Searching" : "Search CJ"}
         </button>
@@ -249,8 +250,8 @@ function CjMatch({ row, busy, onSave, onRemove }: { row: LinkRow; busy: boolean;
                 <button type="button" className="flex w-full items-center gap-2.5 px-2.5 py-2 text-left" onClick={() => void (open?.pid === p.pid ? setOpen(null) : openProduct(p.pid))} aria-expanded={open?.pid === p.pid} data-cj-product={p.pid}>
                   {p.image ? <img src={p.image} alt="" className="h-9 w-9 shrink-0 rounded-md object-cover" loading="lazy" /> : <span className="h-9 w-9 shrink-0 rounded-md bg-[#eceef1]" />}
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-[#1a1a2e]">{p.name || p.sku}</span>
-                    <span className="block truncate text-[12px] text-[#6b7280]">
+                    <span className="block [overflow-wrap:anywhere] text-[13px] font-medium text-[#1a1a2e]">{p.name || p.sku}</span>
+                    <span className="block [overflow-wrap:anywhere] text-[12px] text-[#6b7280]">
                       {p.sku}
                       {p.price ? ` · from $${p.price}` : ""}
                     </span>
@@ -290,8 +291,8 @@ function VariantChoice({ v, busy, onChoose }: { v: CjVariant; busy: boolean; onC
     <li className="flex items-center gap-2.5 rounded-lg border border-[#eceef1] bg-white px-2.5 py-1.5" data-cj-variant={v.vid}>
       {v.image ? <img src={v.image} alt="" className="h-8 w-8 shrink-0 rounded-md object-cover" loading="lazy" /> : null}
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-[13px] text-[#1a1a2e]">{v.name || v.sku}</span>
-        <span className="block truncate text-[12px] text-[#6b7280]">
+        <span className="block [overflow-wrap:anywhere] text-[13px] text-[#1a1a2e]">{v.name || v.sku}</span>
+        <span className="block [overflow-wrap:anywhere] text-[12px] text-[#6b7280]">
           {v.sku}
           {v.price ? ` · $${v.price}` : ""}
         </span>
