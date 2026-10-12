@@ -65,18 +65,24 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
         const next = localizedHref(a.getAttribute("href") ?? "", choice.code, choice.defaultLanguage, codes, origin)
         if (next) a.setAttribute("href", next)
       })
+      /* A search box that goes to a page (GET), in the language too: /search becomes /fr/search. A form that posts somewhere is left alone. */
+      root.querySelectorAll?.("form[action]").forEach((f) => {
+        if ((f.getAttribute("method") || "get").toLowerCase() !== "get") return
+        const next = localizedHref(f.getAttribute("action") ?? "", choice.code, choice.defaultLanguage, codes, origin)
+        if (next) f.setAttribute("action", next)
+      })
     }
     fix(document)
     const seen = new MutationObserver((changes) => {
       for (const c of changes) {
-        if (c.type === "attributes" && c.target instanceof HTMLAnchorElement) fix(c.target.parentNode ?? document)
+        if (c.type === "attributes" && (c.target instanceof HTMLAnchorElement || c.target instanceof HTMLFormElement)) fix(c.target.parentNode ?? document)
         c.addedNodes.forEach((n) => {
-          if (n instanceof HTMLAnchorElement) fix(n.parentNode ?? document)
+          if (n instanceof HTMLAnchorElement || n instanceof HTMLFormElement) fix(n.parentNode ?? document)
           else if (n instanceof Element) fix(n)
         })
       }
     })
-    seen.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["href"] })
+    seen.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["href", "action"] })
     return () => seen.disconnect()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [choice.code, choice.defaultLanguage, codes.join(",")])
