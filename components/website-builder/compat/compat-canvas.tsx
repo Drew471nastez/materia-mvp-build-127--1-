@@ -38,6 +38,7 @@ import { reportLoadProblem } from "@/lib/website-builder/load-guard"
 import { siteCommerce } from "@/lib/website-builder/site-commerce"
 import { CanvasProblem, PageOutline } from "@/components/website-builder/canvas-problem"
 import { forgetCompatFiles, loadCompatFiles } from "./compat-files"
+import { shopImageName } from "@/lib/website-builder/picture-address"
 
 /** A product card with each option's stock and pickup points, the way the live site's loader hands them to the theme. */
 function withStock(card: ProductCard, variants: Record<string, { left: number | null; max: number | null; pickup: unknown[] }>, showLeft: boolean): ProductCard {
@@ -104,6 +105,13 @@ export interface CompatCanvasProps {
    * stand-ins and its product sections drawn again a moment after it lands.
    */
   dataReady?: boolean
+  /**
+   * A page the pointer is resting on a link to (a row of the page list, a
+   * link in the canvas), with the sections it would open with: drawn now,
+   * out of sight, so a press on it shows a page already loaded (KEPT PAGES,
+   * below).
+   */
+  warm?: { pageKey: string; sections: StoredSection[] } | null
 }
 
 /*
@@ -155,6 +163,26 @@ const FRAME_CAP_MS = 6_000
 const BEHIND_CAP_MS = 7_000
 /** Nothing to show by now: the outline says it is taking a while, and offers to try again. */
 const SLOW_MS = 15_000
+/** A kept page that has been shown already: out of sight and drawing nothing until it is wanted again (KEPT PAGES). Never a page behind, which draws itself whole under the front. */
+const KEPT_STYLE = { zIndex: 0, pointerEvents: "none", visibility: "hidden" } as const
+/** How many pages are kept loaded out of sight (KEPT PAGES): a computer's, and a phone's. */
+const KEEP_PAGES = 3
+const KEEP_PAGES_PHONE = 2
+
+/*
+  WHAT A FRAME WAS DRAWN WITH, BESIDES ITS SECTIONS: the theme (its files and
+  settings, one object per change), the shop's data, the product's stock and
+  the site's address. A kept page drawn with other values is not the page a
+  draw would give now, and is never shown again.
+*/
+const themeIds = new WeakMap<object, number>()
+let themeCount = 0
+const themeId = (t: object | null) => {
+  if (!t) return 0
+  let id = themeIds.get(t)
+  if (!id) themeIds.set(t, (id = ++themeCount))
+  return id
+}
 
 /* Kept apart (./compat-files) so the editor can ask for the files before this canvas's code has arrived. */
 export { loadCompatFiles }
@@ -229,7 +257,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
       return themeOfInstall(rows, settings, {
         assetUrl: (name) => media[name] ?? `/api/site-theme/assets/${installId}/edit/${encodeURIComponent(name)}`,
         assetText: (name) => rows[`shopify/assets/${name}`] ?? null,
-        imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : ""),
+        /* "shopify://shop_images/logo.png": the theme's own picture of that name where it brought one, as the live site draws it (lib/website-builder/compat-site.ts). */
+        imageUrl: (v) => (/^https?:\/\//.test(v) || v.startsWith("/") ? v : media[shopImageName(v) ?? ""] ?? ""),
       })
     } catch (e) {
       console.error("[compat-canvas] the theme could not be read", e)
@@ -292,7 +321,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageKey, productId, dataKey])
   const stockKey = stock ? `${JSON.stringify(stock)}:${showLeft}` : ""
-  const page = useMemo((): CompatPage => {
+  /* The page a key draws, as the canvas draws it: the one in front (`page`), or one drawn ahead out of sight (KEPT PAGES). */
+  const pageFor = (pageKey: string, productId: string | null): CompatPage => {
     const { products, catalog, collections, menus, shopName, pageKeys } = dataRef.current
     const { template, suffix } = templateOfPage(pageKey)
     const picked = productId ? products.find((p) => p.id === productId) ?? catalog?.find((p) => p.id === productId) : null
@@ -320,8 +350,9 @@ export function CompatCanvas(props: CompatCanvasProps) {
       search: template === "search" ? { terms: sample ? String(sample.settings.title).split(" ")[0] : "", results: products.slice(0, 8), performed: true } : null,
       pageObject: template === "page" ? { title: pageKey.replace(/-/g, " ").replace(/^./, (x) => x.toUpperCase()), content: "", handle: pageKey, url: `/pages/${pageKey}` } : null,
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pageKey, dataKey, productId, stockKey])
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const page = useMemo((): CompatPage => pageFor(pageKey, productId), [pageKey, dataKey, productId, stockKey])
   const pageRef = useRef(page)
   pageRef.current = page
 
@@ -360,13 +391,20 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const sectionsRef = useRef(sections)
   sectionsRef.current = sections
   /* Which page is drawn, in which files: a different one is always loaded again. */
-  const docKey = `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${accountPath ?? ""}`
+  const docKeyFor = (pageKey: string, productId: string | null, account: string | null) => `${installId}:${pageKey}:${pageKey === "product" ? productId ?? "" : ""}:${rows ? Object.keys(rows).length : 0}:${sources === undefined ? "" : Object.keys(sources).length}:${account ?? ""}`
+  const docKey = docKeyFor(pageKey, productId, accountPath)
+  /* What a page drawn now is drawn with besides its sections (themeId, above). */
+  const stamp = `${themeId(compatTheme)}|${dataKey}|${stockKey}|${props.siteUrl ?? ""}`
+  const stampRef = useRef(stamp)
+  stampRef.current = stamp
   const canvasSite = (): SiteData => {
     const { products, catalog, collections, menus } = dataRef.current
     return { creatorId: "", theme: compatTheme!, pages: canvasPages(compatTheme!, pageKey, sectionsRef.current), products, pickable: catalog, collections, menus, shop: pageRef.current.shop, host: "", designMode: true }
   }
-  const draw = (list: StoredSection[]) => {
-    const restore = `<script>(function(){var y=${Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
+  /* `ahead`: a page drawn out of sight (KEPT PAGES): its own page, at its top, never an account page. */
+  const draw = (list: StoredSection[], ahead?: CompatPage) => {
+    const drawnPage = ahead ?? page
+    const restore = `<script>(function(){var y=${ahead ? 0 : Math.round(scrollY.current)};if(y>0)addEventListener("load",function(){scrollTo(0,y)})})();</script>`
     let site = ""
     try {
       site = props.siteUrl ? new URL(props.siteUrl).origin : ""
@@ -374,16 +412,19 @@ export function CompatCanvas(props: CompatCanvasProps) {
       site = ""
     }
     const extra = { extraHead: "<style data-storelib-gutter>html{scrollbar-gutter:stable}</style>", extraBodyEnd: `<script>window.__slSite=${JSON.stringify(site).replace(/</g, "\\u003c")};window.__slInspect=${inspecting.current ? "true" : "false"};${CANVAS_BRIDGE}</script>${restore}` }
-    const account = accountPath ? canvasAccountPage(canvasSite(), accountPath, extra) : null
-    const drawn = account ?? drawPage(compatTheme!, page, list, { scripts: true, ...extra })
+    const account = !ahead && accountPath ? canvasAccountPage(canvasSite(), accountPath, extra) : null
+    const drawn = account ?? drawPage(compatTheme!, drawnPage, list, { scripts: true, ...extra })
     /* Before anything of the theme's: its scripts read storage on their first line, and may ask for the cart as they start. CANVAS_SHOWN says when the page has painted its first screen. */
-    const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? page.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
+    const seed = `<script>window.__slPath=${JSON.stringify(account?.path ?? drawnPage.path).replace(/</g, "\\u003c")};window.__slSeed=${JSON.stringify(canvasStorage.get(installId) ?? {}).replace(/</g, "\\u003c")};</script>`
     /* No safe-area inset in the canvas: it reaches no edge of the phone (canvas-network.ts, canvasInsets). */
     return canvasInsets(drawn.html).replace(/<head\b[^>]*>/i, (m) => `${m}${seed}${CANVAS_HEAD}${CANVAS_SHOWN}`)
   }
 
-  /* `page`: which page of the builder it draws (`${pageKey}|${productId}`), said to the editor when it comes to the front. */
-  type Slot = { n: number; key: string; page: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean }
+  /*
+    `page`: which page of the builder it draws (`${pageKey}|${productId}`), said to the editor when it comes to the front.
+    `stamp`: what it was drawn with besides its sections (above); `account`: an account page (never kept); `ahead`: drawn ahead, never yet shown.
+  */
+  type Slot = { n: number; key: string; page: string; html: string; shape: DocShape; drawnFrom: Map<string, string>; ready: boolean; loaded: boolean; stamp: string; account: boolean; ahead?: boolean }
   const [slots, setSlots] = useState<Slot[]>([])
   /* The theme's first page has painted (its pictures in, or a moment after it is ready): the placeholder over it fades. */
   const [painted, setPainted] = useState(false)
@@ -413,11 +454,79 @@ export function CompatCanvas(props: CompatCanvasProps) {
 
   /* A page loaded behind the one on screen. */
   const loadBehind = (html: string, key: string, list: StoredSection[]) => {
-    const slot: Slot = { n: ++counter.current, key, page: `${pageKey}|${productId ?? ""}`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false }
+    const slot: Slot = { n: ++counter.current, key, page: `${pageKey}|${productId ?? ""}`, html, shape: docShape(html), drawnFrom: new Map(list.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: !!accountPath }
     setSlots((prev) => (prev.length === 0 ? [slot] : [prev[0], slot]))
     /* One that never says it has loaded (a stalled script of the theme's, a message missed) still comes forward. */
     window.setTimeout(() => promote(slot.n), BEHIND_CAP_MS)
   }
+
+  /*
+    ═══════════════════════════════════════════════════════════════════════
+     KEPT PAGES: A PAGE ALREADY LOADED IS NOT LOADED AGAIN (round 25)
+    ═══════════════════════════════════════════════════════════════════════
+    "Navigating between pages in the editor takes too long." Every page
+    switch loaded a new frame, and a frame with no origin of its own keeps
+    nothing it loads: measured, every one of the theme's stylesheets and
+    scripts was asked for again on every switch (25 of them for a theme with
+    Dawn's count), from the server, before the page could be shown, and the
+    page left was thrown away when the next came forward.
+
+    So the page left is KEPT, loaded, out of sight (KEEP_PAGES of them, the
+    oldest let go first), and a page the pointer rests on a link to is drawn
+    AHEAD the same way (`warm`, from the editor). Going to a kept page takes
+    no request and no load: it comes forward the way a page behind does
+    (scrolled to its top, settled, then the page left fades off it).
+
+    Only a page that is exactly what a draw would give now: the same page,
+    the same sections, the same theme, shop and stock (`stamp`). Anything
+    else is drawn and loaded as before. Kept pages hear nothing but the
+    answers to their own requests, and are let go when the theme changes.
+  */
+  const [kept, setKept] = useState<Slot[]>([])
+  const keptRef = useRef<Slot[]>([])
+  keptRef.current = kept
+  const keepMax = () => (typeof window !== "undefined" && window.innerWidth < 768 ? KEEP_PAGES_PHONE : KEEP_PAGES)
+  const keep = (slot: Slot) => setKept((prev) => [...prev.filter((x) => x.n !== slot.n && x.key !== slot.key), slot].slice(-keepMax()))
+  /** Whether a frame holds exactly these sections, in this order. */
+  const holds = (slot: Slot, list: StoredSection[]) => {
+    if (slot.drawnFrom.size !== list.length) return false
+    const drawn = [...slot.drawnFrom]
+    return list.every((s, i) => drawn[i][0] === s.id && drawn[i][1] === JSON.stringify(s))
+  }
+  /** A kept page that is this page as a draw would give it now, brought behind the front to come forward. */
+  const bringKept = (key: string, list: StoredSection[]): boolean => {
+    const hit = keptRef.current.find((x) => x.key === key && x.stamp === stampRef.current && holds(x, list))
+    if (!hit) return false
+    hit.ahead = false
+    setKept((prev) => prev.filter((x) => x.n !== hit.n))
+    setSlots((prev) => (prev.length === 0 ? [hit] : [prev[0], hit]))
+    const win = frames.current.get(hit.n)?.contentWindow
+    win?.postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+    /* Loaded already: put at its top and settled, then forward ("settled" below). Not yet: its own "loaded" does that. */
+    if (hit.loaded) win?.postMessage({ storelib: 1, type: "scroll", top: 0, settle: true }, "*")
+    window.setTimeout(() => promote(hit.n), BEHIND_CAP_MS)
+    return true
+  }
+  /* The theme, the shop or the stock changed: no kept page is the page a draw would give any more. */
+  useEffect(() => {
+    setKept((prev) => (prev.some((x) => x.stamp !== stamp) ? prev.filter((x) => x.stamp === stamp) : prev))
+  }, [stamp])
+  /* A page the pointer rests on a link to, drawn ahead out of sight. Not before the first page is shown, never a product page or the page in front. */
+  const warm = props.warm ?? null
+  useEffect(() => {
+    if (!warm || !compatTheme || !paintedRef.current || warm.pageKey === pageKey || warm.pageKey === "product") return
+    const key = docKeyFor(warm.pageKey, null, null)
+    if (slotsRef.current.some((x) => x.key === key)) return
+    if (keptRef.current.some((x) => x.key === key && x.stamp === stampRef.current && holds(x, warm.sections))) return
+    let html: string
+    try {
+      html = draw(warm.sections, pageFor(warm.pageKey, null))
+    } catch {
+      return
+    }
+    keep({ n: ++counter.current, key, page: `${warm.pageKey}|`, html, shape: docShape(html), drawnFrom: new Map(warm.sections.map((s) => [s.id, JSON.stringify(s)])), ready: false, loaded: false, stamp: stampRef.current, account: false, ahead: true })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [warm, compatTheme])
 
   /*
     ═══════════════════════════════════════════════════════════════════════
@@ -500,6 +609,8 @@ export function CompatCanvas(props: CompatCanvasProps) {
     const list = accountPath ? sectionsRef.current.filter((s) => s.group === "header" || s.group === "footer" || s.group === "overlay") : sectionsRef.current
     /* Another page opens at its top, as a page of the website does: not where the page it replaces was scrolled to. */
     if (front() && front()!.key !== docKey) scrollY.current = 0
+    /* Another page, kept loaded as it would be drawn now: brought forward, nothing drawn or loaded (KEPT PAGES). */
+    if (front() && front()!.key !== docKey && !accountPath && slotsRef.current[1]?.key !== docKey && bringKept(docKey, list)) return
     /* A page that cannot be drawn this time leaves the one on screen as it is: never a blank canvas. */
     let html: string
     try {
@@ -534,6 +645,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
       loadBehind(html, docKey, list)
       return
     }
+    now.stamp = stampRef.current
     if (plan.empty) { now.shape = next; return }
     /* With the markup it was drawn from, so the page can change only what differs (canvas-bridge.ts, morph). */
     for (const sw of plan.swaps) win.postMessage({ storelib: 1, type: "section", id: sw.id, html: sw.html, prev: now.shape.sections.get(sw.id) }, "*")
@@ -556,6 +668,15 @@ export function CompatCanvas(props: CompatCanvasProps) {
   const syncSlot = (slot: Slot) => {
     const win = frames.current.get(slot.n)?.contentWindow
     if (!compatTheme || !win || !slot.ready) return
+    /*
+      ONLY A PAGE OF THE PAGE BEING EDITED. While another page opens, the
+      page being left is still in front, and the editor already holds the
+      next page's sections: a section of the same id on both (a Shopify
+      template's "main" is on every page) was drawn for the next page and
+      swapped into the one being left, which showed it for as long as the
+      next page took to load, and kept it (KEPT PAGES).
+    */
+    if (slot.key !== docKey) return
     const list = sectionsRef.current
     const changed = list.filter((s) => slot.drawnFrom.has(s.id) && slot.drawnFrom.get(s.id) !== JSON.stringify(s))
     if (!changed.length) return
@@ -721,6 +842,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
     /* Another page: the one being left fades off it. The same page drawn again (an edit) is a cut: it looks as the one it replaces does. */
     if (paintedRef.current && list[0].key !== list[at].key && !(typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) setHandover(list[0])
     setPainted(true)
+    /* Another page: the one being left is kept, loaded, for going back to it (KEPT PAGES), as it now stands. */
+    if (list[0].key !== list[at].key && !list[0].account && list[0].ready) {
+      list[0].stamp = stampRef.current
+      keep(list[0])
+    }
     setSlots((prev) => {
       const i = prev.findIndex((x) => x.n === n)
       return i <= 0 ? prev : prev.slice(i)
@@ -768,8 +894,18 @@ export function CompatCanvas(props: CompatCanvasProps) {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       const slot = slotsRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
-      if (!slot) return
       const m = e.data as { storelib?: number; type?: string; sectionId?: string; blockPath?: string[]; scrollY?: number }
+      if (!slot) {
+        /* A kept page (KEPT PAGES): what it says about itself is noted, its requests answered, and nothing else of it is heard. */
+        const away = keptRef.current.find((x) => frames.current.get(x.n)?.contentWindow === e.source)
+        if (!away || !m || m.storelib !== 1) return
+        if (m.type === "ready") {
+          away.ready = true
+          ;(e.source as Window).postMessage({ storelib: 1, type: "select", ...select.current, scroll: false }, "*")
+        } else if (m.type === "loaded") away.loaded = true
+        else if (m.type === "request") answerRequestRef.current(e.source as Window, m as never)
+        return
+      }
       if (!m || m.storelib !== 1) return
       const win = e.source as Window
       const isFront = slot === slotsRef.current[0]
@@ -868,7 +1004,11 @@ export function CompatCanvas(props: CompatCanvasProps) {
   */
   const onFrameLoad = (n: number) => {
     const at = slotsRef.current.findIndex((x) => x.n === n)
-    if (at < 0) return
+    if (at < 0) {
+      const away = keptRef.current.find((x) => x.n === n)
+      if (away && !away.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
+      return
+    }
     const slot = slotsRef.current[at]
     if (!slot.ready) frames.current.get(n)?.contentWindow?.postMessage({ storelib: 1, type: "hello" }, "*")
     /*
@@ -923,6 +1063,7 @@ export function CompatCanvas(props: CompatCanvasProps) {
     setFailure(null)
     setPainted(false)
     setSlots([])
+    setKept([])
     setAttempt((n) => n + 1)
   }
 
@@ -958,21 +1099,32 @@ export function CompatCanvas(props: CompatCanvasProps) {
             (handover): over it, taking no pointer, still the same frame in the
             same place, so nothing about it loads again.
           */}
-          {(handover && !slots.some((x) => x.n === handover.n) ? [...slots, handover] : [...slots]).sort((a, b) => a.n - b.n).map((slot) => { const i = slots.indexOf(slot); return (
-            <iframe
-              key={slot.n}
-              ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
-              title={`${compat?.theme ?? "Theme"} preview`}
-              srcDoc={slot.html}
-              onLoad={() => onFrameLoad(slot.n)}
-              sandbox="allow-scripts allow-forms allow-popups"
-              data-compat-frame={i === 0 ? "front" : i < 0 ? "leaving" : "behind"}
-              aria-hidden={i === 0 ? undefined : true}
-              tabIndex={i === 0 ? undefined : -1}
-              className="absolute inset-0 block h-full w-full border-0 bg-white"
-              style={i === 0 ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : i < 0 ? { zIndex: 2, pointerEvents: "none" } : { zIndex: 0, pointerEvents: "none" }}
-            />
-          ) })}
+          {/*
+            KEPT PAGES are frames like the others, in the same order, so a page
+            going from kept to behind to front is never moved either. One drawn
+            ahead lies under the front like a page behind, drawing itself whole;
+            one that has been shown already is out of sight until it is wanted
+            again, so its slideshows and animations cost nothing meanwhile.
+          */}
+          {[...(handover && !slots.some((x) => x.n === handover.n) ? [...slots, handover] : [...slots]), ...kept.filter((k) => !slots.some((x) => x.n === k.n) && k.n !== handover?.n)].sort((a, b) => a.n - b.n).map((slot) => {
+            const i = slots.indexOf(slot)
+            const role = i === 0 ? "front" : i > 0 ? "behind" : slot === handover ? "leaving" : slot.ahead ? "ahead" : "kept"
+            return (
+              <iframe
+                key={slot.n}
+                ref={(el) => { if (el) frames.current.set(slot.n, el); else frames.current.delete(slot.n) }}
+                title={`${compat?.theme ?? "Theme"} preview`}
+                srcDoc={slot.html}
+                onLoad={() => onFrameLoad(slot.n)}
+                sandbox="allow-scripts allow-forms allow-popups"
+                data-compat-frame={role}
+                aria-hidden={i === 0 ? undefined : true}
+                tabIndex={i === 0 ? undefined : -1}
+                className="absolute inset-0 block h-full w-full border-0 bg-white"
+                style={role === "front" ? { zIndex: 1, pointerEvents: leavingFrom === slot.n ? "none" : undefined } : role === "leaving" ? { zIndex: 2, pointerEvents: "none" } : role === "kept" ? KEPT_STYLE : { zIndex: 0, pointerEvents: "none" }}
+              />
+            )
+          })}
           {ghost && props.inspectorEnabled && props.selectedSectionId === ghost.id && (
             <div aria-hidden id={`wb-section-${ghost.id}`} className="pointer-events-none absolute" style={{ top: ghost.top, left: ghost.left, width: ghost.width, height: ghost.height }} />
           )}

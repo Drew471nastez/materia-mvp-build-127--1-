@@ -131,10 +131,11 @@ async function main() {
   console.log("\nThe canvas (compat-canvas.tsx)\n")
   {
     const canvas = read("components/website-builder/compat/compat-canvas.tsx")
-    check("the page behind is under the front, never visibility: hidden", !/visibility: "hidden"/.test(canvas) && /\{ zIndex: 0, pointerEvents: "none" \}/.test(canvas))
+    /* Round 25: a page already shown and kept for going back to it (KEPT PAGES) is out of sight; the page behind never is. */
+    check("the page behind is under the front, never visibility: hidden", /: role === "kept" \? KEPT_STYLE : \{ zIndex: 0, pointerEvents: "none" \}/.test(canvas) && (canvas.match(/visibility: "hidden"/g) ?? []).length === 1 && /const KEPT_STYLE = \{ zIndex: 0, pointerEvents: "none", visibility: "hidden" \}/.test(canvas))
     check("it comes forward whole: the front is taken out of the pages at once, so it can never come back", /return i <= 0 \? prev : prev\.slice\(i\)/.test(canvas))
     check("the same page drawn again (an edit) is settled before it comes forward, and replaces the front as a cut", /if \(same\) win\.postMessage\(\{ storelib: 1, type: "shown", instant: true \}, "\*"\)/.test(canvas) && /list\[0\]\.key !== list\[at\]\.key/.test(canvas))
-    check("  and fades off the page that came forward (HANDOVER_MS), over it and taking no pointer; nothing is ever faded up from white", /const HANDOVER_MS = 180/.test(canvas) && /setHandover\(list\[0\]\)/.test(canvas) && /el\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: HANDOVER_MS/.test(canvas) && /i < 0 \? \{ zIndex: 2, pointerEvents: "none" \}/.test(canvas) && !/\{ opacity: 0 \}, \{ opacity: 1 \}/.test(canvas))
+    check("  and fades off the page that came forward (HANDOVER_MS), over it and taking no pointer; nothing is ever faded up from white", /const HANDOVER_MS = 180/.test(canvas) && /setHandover\(list\[0\]\)/.test(canvas) && /el\.animate\(\[\{ opacity: 1 \}, \{ opacity: 0 \}\], \{ duration: HANDOVER_MS/.test(canvas) && /role === "leaving" \? \{ zIndex: 2, pointerEvents: "none" \}/.test(canvas) && !/\{ opacity: 0 \}, \{ opacity: 1 \}/.test(canvas))
     check("  not under reduced motion, and not over a first page nobody has seen yet", /if \(paintedRef\.current && list\[0\]\.key !== list\[at\]\.key && !\(typeof window\.matchMedia === "function" && window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches\)\) setHandover/.test(canvas))
     check("the page in front is told when it can be seen, so its entrance plays there", /if \(!shown \|\| !frontN\) return\s*\n\s*frames\.current\.get\(frontN\)\?\.contentWindow\?\.postMessage\(\{ storelib: 1, type: "shown" \}, "\*"\)/.test(canvas))
     check("only once it is where it should stand: loaded, then scrolled, then settled", /type: "scroll", top: [^}]*settle: true/.test(canvas) && /m\.type === "settled"[\s\S]{0,80}promote\(slot\.n\)/.test(canvas))
@@ -171,7 +172,8 @@ async function main() {
     check("the panel keeps its list while the next page is fetched and until the canvas shows it", /const panelHeld = sectionsLoading \|\| panelHeldForCanvas/.test(editor) && /sections=\{panelHeld \? panelSections\.current : sections\}/.test(editor) && /onPageShown=\{setCompatShownPage\}/.test(editor))
     check("  untouchable while held, and never longer than LIST_HOLD_MS", /style=\{panelHeld \? \{ pointerEvents: "none" \} : undefined\}/.test(editor) && /const LIST_HOLD_MS = 3000/.test(editor) && /setTimeout\(\(\) => setCompatShownPage\(panelPage\), LIST_HOLD_MS\)/.test(editor))
     check("the canvas is told whether a link opens a page", /const navigateCompatCanvas = useCallback\(\(href: string, chrome: boolean\): boolean =>/.test(editor))
-    check("a page's sections read ahead on a link's hover, only with nothing unsaved, dropped at the next edit", /onIntent=\{intentInCompatCanvas\}/.test(editor) && /if \(isDirtyRef\.current \|\| savingRef\.current/.test(editor) && /editCount\.current\+\+; sectionsAhead\.current\.clear\(\)/.test(editor) && /pageSectionsNow\(page\),/.test(editor))
+    /* Round 25: kept once read (pageCache), forgotten when anything but this page's own save writes a page; see tests/builder25.test.ts. */
+    check("a page's sections read ahead on a link's hover, and kept until something else writes the page", /onIntent=\{intentInCompatCanvas\}/.test(editor) && /prefetchPageSections\(to\.key as PageKey\)/.test(editor) && /if \(events\.length > 0\) forgetPage\(\)/.test(editor) && /pageSectionsNow\(page, page === leaving\),/.test(editor))
   }
 
   console.log("\nBetween two live pages (live-navigation.ts)\n")
