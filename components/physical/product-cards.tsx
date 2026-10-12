@@ -49,6 +49,8 @@ import { BTN_GHOST, BTN_PRIMARY, BTN_SECONDARY, Card, DecimalInput, FIELD, Field
 import { barcodeTyped, repeatedSkus, skuTyped } from "@/lib/physical/typed-values"
 import { OptionsEditor, optionId, type OptionDraft } from "./variant-options"
 import { VariantTable, variantThumbSrc } from "./variant-table"
+/* Redrawn only when the options or their callbacks change, not on every keystroke in a variant row. */
+const MemoOptionsEditor = React.memo(OptionsEditor)
 import { FilesLibraryChooser } from "@/components/files/files-library"
 import { fileThumb } from "@/lib/files/thumb"
 import { emptyRow, remapRows, renameValueInRows, rowsForCombinations, type VariantRow } from "./variant-rows"
@@ -402,30 +404,39 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
   }
 
   /* Options, with the rows kept in step when a value is renamed or an option moves or goes. */
-  const setOptionsDirty = (update: (prev: OptionDraft[]) => OptionDraft[]) => {
+  /*
+    The options editor's callbacks keep their identity across draws (they read
+    the latest options through `optionsNow`, and only run on a tap), so the
+    memoised editor is not redrawn by a keystroke in a variant's price: that
+    redraw (its drag and drop included) was over half of each key's cost.
+  */
+  const optionsNow = React.useRef({ options, normalised })
+  optionsNow.current = { options, normalised }
+  const setOptionsDirty = React.useCallback((update: (prev: OptionDraft[]) => OptionDraft[]) => {
     setOptions(update)
     onDirty()
-  }
-  const renameValue = (i: number, from: string, to: string) => {
+  }, [onDirty])
+  const renameValue = React.useCallback((i: number, from: string, to: string) => {
+    const { options, normalised } = optionsNow.current
     const position = normalised.findIndex((n) => clean(n.name) === clean(options[i]?.name ?? ""))
     setOptions((prev) => prev.map((o, j) => (j === i ? { ...o, values: o.values.map((v) => (v === from ? to : v)) } : o)))
     if (position >= 0) setRows((prev) => renameValueInRows(prev, position, from, to))
     onDirty()
-  }
-  const reshape = (next: OptionDraft[]) => {
-    const before = normalised.map((o) => o.name)
+  }, [onDirty])
+  const reshape = React.useCallback((next: OptionDraft[]) => {
+    const before = optionsNow.current.normalised.map((o) => o.name)
     const after = normaliseOptions(next.map((o) => ({ name: o.name, values: o.values }))).map((o) => o.name)
     setOptions(next)
     setRows((prev) => remapRows(prev, before, after))
     onDirty()
-  }
-  const moveOption = (from: number, to: number) => {
-    const next = [...options]
+  }, [onDirty])
+  const moveOption = React.useCallback((from: number, to: number) => {
+    const next = [...optionsNow.current.options]
     const [moved] = next.splice(from, 1)
     next.splice(to, 0, moved)
     reshape(next)
-  }
-  const removeOption = (i: number) => reshape(options.filter((_, j) => j !== i))
+  }, [reshape])
+  const removeOption = React.useCallback((i: number) => reshape(optionsNow.current.options.filter((_, j) => j !== i)), [reshape])
 
   /*
     A unit changed: what is typed is converted, so 1.5 kg becomes 1500 g and
@@ -653,7 +664,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
 
       {/* ── Variants ─────────────────────────────────────────────────── */}
       <Card id="physical-variants" title="Variants" description={multi ? "Every combination of your options is a variant with its own price, stock and photo." : "Sizes, colors or anything else it comes in. Each one gets its own price, stock and photo."}>
-        <OptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
+        <MemoOptionsEditor options={options} setOptions={setOptionsDirty} renameValue={renameValue} moveOption={moveOption} removeOption={removeOption} />
         {multi ? (
           <VariantTable
             rows={rows}
