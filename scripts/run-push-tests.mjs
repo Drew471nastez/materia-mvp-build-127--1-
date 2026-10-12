@@ -461,6 +461,7 @@ const SUITES = [
   "tests/round-w.test.ts",
   "tests/product-editor-physical.test.ts",
   "tests/product20.test.ts",
+  "tests/product-variants-faq-h.test.ts",
   "tests/round-x.test.ts",
   "tests/round-y.test.ts",
   "tests/round-z.test.ts",
