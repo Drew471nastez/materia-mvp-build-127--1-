@@ -178,12 +178,13 @@ async function main() {
   console.log("\n3. Nothing is written for a page that is going")
   {
     const src = readCode("lib/explore/use-explore-scroll.ts")
-    check("no write while a Back or Forward is on its way, while restoring, or once the address is another page's", /const mine = \(\) => !restoringRef\.current && traversalTo === null && window\.location\.pathname === path/.test(src))
+    check("no write while a Back or Forward is on its way, while restoring, or once the address is another page's", /const mine = \(\) => !restoringRef\.current && traversalTo !== exploreAddressKey\(\) && window\.location\.pathname === path/.test(src))
     check("the write and the leave both ask it", /const write = \(\) => \{\s*frame = 0\s*if \(!mine\(\)\) return/.test(src) && /const handleLeave = \(\) => \{[\s\S]{0,120}if \(!mine\(\)\) return/.test(src))
     check("a press that leaves (a card, a creator, a community, a search) keeps the place at that moment", /document\.addEventListener\("click", handleLeave, true\)/.test(src) && /document\.addEventListener\("submit", handleLeave, true\)/.test(src))
     check("a Back between two addresses of the same mounted page is put back before paint", /useLayoutEffect\(\(\) => \{\s*if \(drawnAddress\.current === address\) return/.test(src) && /if \(traversalTo === null \|\| traversalTo !== address\) return/.test(src))
     check("a push clears the pending Back", /history\.pushState = function \(\.\.\.args\) \{\s*clearTraversal\(\)\s*traversalTo = null/.test(src))
     check("the oldest places are let go", /MAX_PLACES = 60/.test(src))
+    check("a Back is known until Explore acts on it, however long its page takes (no clock on it)", !/traversalTimer/.test(src))
   }
 
   console.log("\n4. No fade unless the page was seen hidden")

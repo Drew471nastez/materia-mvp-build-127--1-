@@ -115,13 +115,14 @@ let backTraversal = false
  * has acted on it. The flag above is cleared by the router's own history
  * write in the commit; this is not (a replaceState keeps the entry), so a
  * Back between two addresses of the same mounted Explore (its results and
- * Explore itself) is still known in the layout effect that follows it. And
- * while it is set, no scroll is written: in the moment between the address
+ * Explore itself) is still known in the layout effect that follows it, and
+ * so is a Back whose Explore mounts a commit later (after its loading
+ * screen). While it names the address on screen, no scroll is written for
+ * it: in the moment between the address
  * changing and the page under it being drawn, the scroll belongs to the
  * page that is going.
  */
 let traversalTo: string | null = null
-let traversalTimer = 0
 /** The document's own arrival (a reload, or a back that loaded the page again) is honoured once, not on every later visit in the tab. */
 let documentArrivalUsed = false
 
@@ -136,12 +137,12 @@ if (typeof window !== "undefined") {
   window.addEventListener("popstate", () => {
     backTraversal = true
     documentArrivalUsed = true
+    /*
+      NO CLOCK ON IT. It had one (1.5s), and a Back whose page took longer to come (the router drawing Explore's loading
+      screen first, then Explore once its data was in) reached an Explore that no longer knew it was a return: it landed at
+      the top. It lasts until Explore acts on it, the next Back or Forward, or a push.
+    */
     traversalTo = exploreAddressKey()
-    /* A Back that never reaches an Explore that acts on it lets the writes go again by itself. */
-    window.clearTimeout(traversalTimer)
-    traversalTimer = window.setTimeout(() => {
-      traversalTo = null
-    }, 1500)
   })
   /*
     A PAGE BROUGHT BACK WHOLE FROM THE BROWSER'S CACHE IS ALREADY WHERE IT
@@ -411,7 +412,7 @@ function restoreScrollPosition(target: number, onDone?: () => void): () => void 
  */
 export function saveExploreScrollNow(): void {
   if (typeof window === "undefined" || !isExploreSurface(window.location.pathname)) return
-  if (traversalTo !== null) return
+  if (traversalTo === exploreAddressKey()) return
   writeScroll(window.scrollY)
   try {
     sessionStorage.setItem(RESTORE_PENDING_KEY, "1")
@@ -504,7 +505,7 @@ export function useExploreScrollRestore(): void {
       next entry's, the page under it not yet), and not once the address is
       another page's (the scroll then belongs to that page).
     */
-    const mine = () => !restoringRef.current && traversalTo === null && window.location.pathname === path
+    const mine = () => !restoringRef.current && traversalTo !== exploreAddressKey() && window.location.pathname === path
 
     let frame = 0
     const write = () => {

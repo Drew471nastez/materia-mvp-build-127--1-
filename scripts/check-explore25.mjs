@@ -57,7 +57,7 @@ const expect = (ok, what, got) => {
 }
 
 /* Every frame: the address, the scroll, the page's height, the classes Explore's return puts on <html>, the opacity of its ground, where the watched link is. */
-const FILM = (ms) => `(() => { window.__f = []; const t0 = performance.now(); const tick = () => { const g = document.querySelector(".explore-ground"); const a = window.__watch ? document.querySelector('a[href="' + window.__watch + '"]') : null; window.__f.push({ t: Math.round(performance.now() - t0), path: location.pathname + location.search, y: Math.round(scrollY), h: document.documentElement.scrollHeight, ground: g ? Number(getComputedStyle(g).opacity) : null, cls: document.documentElement.className.split(" ").filter((c) => c.startsWith("explore-scroll")).join(" "), card: a ? Math.round(a.getBoundingClientRect().top) : null, n: window.__count ? document.querySelectorAll(window.__count).length : null }); if (performance.now() - t0 < ${ms}) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })()`
+const FILM = (ms) => `(() => { window.__f = []; const t0 = performance.now(); const tick = () => { const g = document.querySelector(".explore-ground"); const a = window.__watch ? document.querySelectorAll('a[href="' + window.__watch + '"]')[window.__nth || 0] : null; window.__f.push({ t: Math.round(performance.now() - t0), path: location.pathname + location.search, y: Math.round(scrollY), h: document.documentElement.scrollHeight, ground: g ? Number(getComputedStyle(g).opacity) : null, cls: document.documentElement.className.split(" ").filter((c) => c.startsWith("explore-scroll")).join(" "), card: a ? Math.round(a.getBoundingClientRect().top) : null, n: window.__count ? document.querySelectorAll(window.__count).length : null }); if (performance.now() - t0 < ${ms}) requestAnimationFrame(tick) }; requestAnimationFrame(tick) })()`
 
 async function open(browser, view, path, { signedIn = false, waitFor } = {}) {
   const ctx = await browser.createBrowserContext()
@@ -83,7 +83,9 @@ const linkInView = (p, sel) =>
     })[0]
     if (!a) return null
     const r = a.getBoundingClientRect()
-    return { href: a.getAttribute("href"), x: r.left + r.width / 2, y: r.top + Math.min(40, r.height / 2), top: Math.round(r.top), sy: Math.round(scrollY) }
+    /* Which of the links to the same place it is: a product can be in the grid and in Most popular. */
+    const nth = [...document.querySelectorAll(`a[href="${a.getAttribute("href")}"]`)].indexOf(a)
+    return { href: a.getAttribute("href"), nth, x: r.left + r.width / 2, y: r.top + Math.min(40, r.height / 2), top: Math.round(r.top), sy: Math.round(scrollY) }
   }, sel)
 
 const press = (p, view, x, y) => (view.vp.hasTouch ? p.touchscreen.tap(x, y) : p.mouse.click(x, y))
@@ -101,7 +103,7 @@ async function sheet(frames, file, view) {
 }
 
 /* Films a Back: the screen (CDP screencast) and every frame's numbers. `act` makes the Back; `until` is the address it lands on. */
-async function filmBack(p, view, { watch, count, act, until, label }) {
+async function filmBack(p, view, { watch, nth, count, act, until, label }) {
   const cdp = await p.createCDPSession()
   if (view.cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: view.cpu })
   const frames = []
@@ -110,7 +112,7 @@ async function filmBack(p, view, { watch, count, act, until, label }) {
     frames.push({ t: Date.now() - t0, data: f.data })
     cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {})
   })
-  await p.evaluate((w, c) => { window.__watch = w; window.__count = c }, watch, count ?? null)
+  await p.evaluate((w, c, n) => { window.__watch = w; window.__count = c; window.__nth = n }, watch, count ?? null, nth ?? 0)
   await p.evaluate(FILM(7000))
   t0 = Date.now()
   await cdp.send("Page.startScreencast", { format: "jpeg", quality: 60, everyNthFrame: 1 })
@@ -152,7 +154,7 @@ async function product(browser, view) {
     await sleep(2500)
     const control = back === "in-app" ? await p.evaluate(() => { const el = [...document.querySelectorAll("[data-discover-breadcrumb]")].find((e) => e.getBoundingClientRect().width > 0); if (!el) return null; const r = el.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } }) : null
     const film = await filmBack(p, view, {
-      watch: card.href,
+      watch: card.href, nth: card.nth,
       until: "/explore",
       label: `product-${view.name}-${back}`,
       act: () => (control ? press(p, view, control.x, control.y) : p.evaluate(() => history.back())),
@@ -180,7 +182,7 @@ async function results(browser, view) {
   await press(p, view, card.x, card.y)
   await p.waitForFunction(() => location.pathname.startsWith("/p/"), { timeout: LONG })
   await sleep(2500)
-  const film = await filmBack(p, view, { watch: card.href, until: "/explore?q=product", label: `results-${view.name}`, act: () => p.evaluate(() => history.back()) })
+  const film = await filmBack(p, view, { watch: card.href, nth: card.nth, until: "/explore?q=product", label: `results-${view.name}`, act: () => p.evaluate(() => history.back()) })
   judgeReturn(film, card, view, "Back to the results")
   const film2 = await filmBack(p, view, { watch: null, until: "/explore", label: `results-explore-${view.name}`, act: () => p.evaluate(() => history.back()) })
   const firstY = film2[0] && film2[0].y
@@ -208,7 +210,7 @@ async function communities(browser, view) {
   await p.waitForFunction(() => location.pathname.startsWith("/community/"), { timeout: LONG })
   await p.waitForSelector("[data-community-shell], [data-community-landing]", { timeout: LONG }).catch(() => {})
   await sleep(2500)
-  const film = await filmBack(p, view, { watch: card.href, count: "[data-explore-community]", until: "/explore?type=communities", label: `communities-${view.name}`, act: () => p.evaluate(() => history.back()) })
+  const film = await filmBack(p, view, { watch: card.href, nth: card.nth, count: "[data-explore-community]", until: "/explore?type=communities", label: `communities-${view.name}`, act: () => p.evaluate(() => history.back()) })
   judgeReturn(film, card, view, `Back from a community (${count} cards read)`, { count })
   await p.__ctx.close()
 }
@@ -226,7 +228,7 @@ async function category(browser, view) {
   await press(p, view, card.x, card.y)
   await p.waitForFunction(() => location.pathname.startsWith("/p/"), { timeout: LONG })
   await sleep(2500)
-  const film = await filmBack(p, view, { watch: card.href, until: "/explore/design", label: `category-${view.name}`, act: () => p.evaluate(() => history.back()) })
+  const film = await filmBack(p, view, { watch: card.href, nth: card.nth, until: "/explore/design", label: `category-${view.name}`, act: () => p.evaluate(() => history.back()) })
   judgeReturn(film, card, view, "Back to page two of a category")
   await p.__ctx.close()
 }
