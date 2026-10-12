@@ -21,7 +21,7 @@ import { listBusinesses } from "@/lib/businesses/server"
 import { readSwitchArrival, SWITCH_ARRIVAL_SCRIPT, SWITCH_COOKIE } from "@/lib/businesses/switch-screen"
 import { BusinessSwitchArrival } from "@/components/app/business-switch-screen"
 import { communitiesEnabled } from "@/lib/communities/flag"
-import { teamStoreForRequest } from "@/lib/team/server"
+import { teamStoreForRequest, teamStoresForRequest } from "@/lib/team/server"
 import { TeamBar } from "@/components/app/team-bar"
 
 /**
@@ -129,7 +129,7 @@ export default async function AppLayout({
     so a page that reads them too with its own client is not a second trip.
     All of it on the caller's own client: row-level security as before.
   */
-  const [gateCheck, ownCreator, { data: onepage }, businesses, team] = await Promise.all([
+  const [gateCheck, ownCreator, { data: onepage }, businesses, team, memberOf] = await Promise.all([
     profileForRequest(user.id),
     creatorForRequest(user.id),
     supabase
@@ -142,6 +142,8 @@ export default async function AppLayout({
     listBusinesses(user.id).catch(() => []),
     /* Working in a store they were invited to (lib/team): read from the database again on every request. */
     teamStoreForRequest(user.id).catch(() => null),
+    /* The stores they are on as a team member, for the account menu's switcher. */
+    teamStoresForRequest(user.id),
   ])
   const profile = gateCheck
   /*
@@ -245,6 +247,8 @@ export default async function AppLayout({
           setupProgress={{ completed: completedSteps, total: totalSteps }}
           businesses={businesses}
           communitiesEnabled={communitiesOn}
+          teamRole={teamStore && acting ? acting.role : null}
+          teamStores={memberOf.map((m) => ({ creatorId: m.creatorId, name: m.name, avatarUrl: m.avatarUrl, role: m.role, current: !!teamStore && acting?.creatorId === m.creatorId }))}
         />
         {/* md:pt accounts for the desktop header height (58 px) plus the
             safe-area-inset-top padding the header adds in Capacitor.

@@ -95,6 +95,8 @@ export const APP_PATHS = [
   "/auth/callback/*",
   "/reset-password",
   "/reset-password/*",
+  /* A team invite opens in the app too, where the person may already be signed in (app/team/join). */
+  "/team/join",
 ] as const
 
 /**
@@ -108,7 +110,7 @@ export const WEB_ONLY_SEGMENTS = [
   "explore", "faq", "features", "feed", "help", "l", "legal", "library", "login", "logout", "marketplace", "media",
   "member", "native-start", "onboarding", "onepage-preview", "order-help", "p", "pay", "payouts-sheet", "pricing", "privacy", "products", "purchase",
   "receipt", "register", "request", "reset-password", "review", "sell", "signup", "site", "sitemap", "sites", "store",
-  "store-builder", "stripe-done", "terms", "u", "unsubscribe", "upgrade", "verify-email", "w", "website-builder", "welcome",
+  "store-builder", "stripe-done", "team", "terms", "u", "unsubscribe", "upgrade", "verify-email", "w", "website-builder", "welcome",
   "wishlist", ".well-known",
 ] as const
 
