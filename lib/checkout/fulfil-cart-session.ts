@@ -519,7 +519,7 @@ async function sideEffects(
     if (s.couponId) await step("coupon use", () => recordCouponUse(admin, s.couponId, s.couponHolder))
     /* The seller's balance, once for the one payment, against the first line. */
     await step("ledger", () =>
-      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId }),
+      recordSale(admin, { creatorId: ctx.creatorId, orderId: s.firstOrderId, total: s.paidTotal, fee: s.feeTotal, destinationPaymentId: s.destinationPaymentId, currency: ctx.currency }),
     )
     /* ONE receipt email for the basket: the sender reads every line of this
        session and lists them with one total. */

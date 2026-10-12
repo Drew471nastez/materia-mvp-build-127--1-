@@ -84,6 +84,9 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
   "/api/checkout/site": () => import("@/app/api/checkout/site/route"),
+  "/api/settings/payments": () => import("@/app/api/settings/payments/route"),
+  "/api/store/markets": () => import("@/app/api/store/markets/route"),
+  "/api/store/translations": () => import("@/app/api/store/translations/route"),
 }
 
 /* Columns production has that no SQL file created were added by run-now part 165; none are taken on trust any more. */

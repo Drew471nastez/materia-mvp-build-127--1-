@@ -600,6 +600,8 @@ const SUITES = [
 const STRICT_SUITES = [
   /* Round 24: the whole commerce flow, through the real routes (tests/_journey) */
   "tests/e2e24.test.ts",
+  /* A store priced in euros, bought, refunded and translated through the real routes (tests/_journey) */
+  "tests/e2e-store-currency.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))

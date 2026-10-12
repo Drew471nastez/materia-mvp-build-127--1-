@@ -596,10 +596,19 @@ async function grant(
  */
 export async function recordSale(
   admin: Db,
-  s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null },
+  s: { creatorId: string; orderId: string; total: number; fee: number; destinationPaymentId: string | null; currency?: string | null },
 ) {
   if (s.total <= 0) return
   const net = s.total - s.fee
+  /* What the sale was charged in: a store's own checkout charges in the store's currency (lib/payments/fees/currency-rules storeChargeCurrency). USD when not said, as every sale was before. */
+  const currency = (s.currency || "usd").toLowerCase()
+  const amount = (cents: number) => {
+    try {
+      return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase() }).format(cents / 100)
+    } catch {
+      return `${(cents / 100).toFixed(2)} ${currency.toUpperCase()}`
+    }
+  }
 
   /* Held until Stripe says the money is available on the seller's side. */
   let holdUntil: Date | null = null
@@ -632,10 +641,10 @@ export async function recordSale(
       amount_cents: s.total,
       net_seller_cents: net,
       fee_cents: s.fee,
-      currency: "usd",
+      currency,
       order_id: s.orderId,
       hold_until: holdUntil.toISOString(),
-      description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
+      description: `Sale: ${amount(s.total)} (net ${amount(net)})`,
       add_lifetime_earnings: s.total,
       add_lifetime_fees: s.fee,
     },
@@ -669,10 +678,10 @@ export async function recordSale(
     amount_cents: s.total,
     net_seller_cents: net,
     fee_cents: s.fee,
-    currency: "usd",
+    currency,
     pending_delta: pending,
     order_id: s.orderId,
     hold_until: holdUntil.toISOString(),
-    description: `Sale: $${(s.total / 100).toFixed(2)} (net $${(net / 100).toFixed(2)})`,
+    description: `Sale: ${amount(s.total)} (net ${amount(net)})`,
   })
 }
