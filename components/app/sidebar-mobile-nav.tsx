@@ -1073,7 +1073,7 @@ export function MobileNavPill({
                     two events: the solid arrives, and then it darkens for
                     another fifth of a second. One fill, one duration.
                   */
-                  transition: tt("color {fillMs}ms {fillCurve}", { fillMs: FILL_MS, fillCurve: FILL_CURVE }),
+                  transition: `color ${FILL_MS}ms ${FILL_CURVE}`,
                 }}
               >
                 <NavIcon icon={item.icon} active={on} color="currentColor" box={GLYPH_BOX} layer />

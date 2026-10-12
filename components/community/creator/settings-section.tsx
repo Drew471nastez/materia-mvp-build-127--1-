@@ -297,11 +297,11 @@ function PageSettings({ head, data }: { head: CommunityHead; data: SettingsData 
                 {tt("Address")}
               </label>
               <div className="flex h-11 items-center overflow-hidden rounded-lg border border-[#e1e3e7] bg-white focus-within:border-[#1a1a2e]/50 sm:h-10">
-                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">{tt("/community/")}</span>
+                <span className="shrink-0 pl-3 text-[13px] text-[#9ca3af]">{"/community/"}</span>
                 <input id="g-slug" value={s.slug} onChange={(e) => set("slug", e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "").slice(0, 48))} className="h-full min-w-0 flex-1 bg-transparent pr-3 text-[16px] text-[#1a1a2e] outline-none sm:text-[14px]" />
               </div>
               {/* The old address is kept (run-now part 94): a shared link opens the community at its new address. */}
-              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">{tt("Links to /community/{slug} will open the new address.", { slug: start.slug })}</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">{tt("storelib.com/community/")}{s.slug || "..."}</p>}
+              {s.slug !== start.slug && head.status === "published" ? <p className="mt-1 text-[12px] text-[#6b7280]" data-slug-note="">{tt("Links to /community/{slug} will open the new address.", { slug: start.slug })}</p> : <p className="mt-1 truncate text-[12px] text-[#9ca3af]">{"storelib.com/community/"}{s.slug || "..."}</p>}
             </div>
           </EditorCard>
 

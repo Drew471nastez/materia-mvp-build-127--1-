@@ -671,7 +671,7 @@ const PreviewBox = memo(function PreviewBox({
         height: height || undefined,
         aspectRatio: height ? undefined : `1 / ${ratio}`,
         contentVisibility: eager ? "visible" : "auto",
-        containIntrinsicSize: tt("{value}px {value2}px", { value: width || 200, value2: height || 200 }),
+        containIntrinsicSize: `${width || 200}px ${height || 200}px`,
       }}
     >
       {live && empty ? <EmptyPreview title={title} /> : null}

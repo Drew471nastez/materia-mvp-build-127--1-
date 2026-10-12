@@ -122,12 +122,12 @@ export const NEVER_TRANSLATED = new Set([
   "UTC", "GMT", "EUR", "USD", "RON", "GBP", "lei", "Inter", "Markdown", "Liquid", "CJ", "CJdropshipping", "Gemini", "Mistral", "Grok",
 ])
 
-const ENTITY = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", middot: "·", times: "×", copy: "©", rarr: "→", larr: "←", bull: "•", trade: "™", reg: "®", euro: "€", deg: "°" }
+const ENTITY = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", mdash: "—", ndash: "–", hellip: "…", rsquo: "’", lsquo: "‘", ldquo: "“", rdquo: "”", middot: "·", times: "×", copy: "©", rarr: "→", larr: "←", bull: "•", trade: "™", reg: "®", euro: "€", deg: "°" , minus: "\u2212", check: "\u2713", thinsp: "\u2009", laquo: "\u00ab", raquo: "\u00bb", uarr: "\u2191", darr: "\u2193", plusmn: "\u00b1", pound: "\u00a3", sect: "\u00a7" }
 
 export function decodeEntities(s) {
   return s.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, e) => {
     if (e[0] === "#") return String.fromCodePoint(e[1] === "x" || e[1] === "X" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10))
-    return ENTITY[e.toLowerCase()] ?? m
+    return ENTITY[e] ?? ENTITY[e.toLowerCase()] ?? m
   })
 }
 
@@ -170,6 +170,9 @@ export function looksLikeWords(raw) {
   if (/^[\w.+-]+@[\w-]+\.[\w.]+$/.test(s)) return false
   if (/^#[0-9a-f]{3,8}$/i.test(s)) return false
   if (/^(rgba?|hsla?|var|calc|url|linear-gradient|radial-gradient|cubic-bezier|translate\w*|scale\w*|rotate\w*|matrix\w*|perspective|skew\w*|env|min|max|clamp|inset|polygon|circle|ellipse|blur|drop-shadow|steps|attr)\(/i.test(s)) return false
+  /* CSS with its numbers interpolated: "0 xpx", "color xms x", "brightness(x%) blur(xpx)". */
+  if (!/[A-Z]/.test(s) && /(\d|\bx)(px|ms|deg|vh|vw|dvh|svh|rem|em|%)(?![a-z])/.test(s) && !/[.!?]$/.test(s)) return false
+  if (/^[a-z]+:[a-z]+(, [a-z]+:[a-z]+)+$/.test(s)) return false
   /* CSS values and transitions: no capital, with a unit or a timing word. */
   if (!/[A-Z]/.test(s) && /(\d(px|ms|s|%|dvh|svh|vh|vw|rem|em|deg|fr)\b|\b(ease|ease-in|ease-out|linear|cubic-bezier|transform|opacity|visibility|inherit|transparent|currentColor|auto|none|solid|dashed|bold|italic|underline|uppercase|nowrap|pointer|block|flex|grid|absolute|relative|fixed|sticky|hidden|visible|scroll|contain|cover|center)\b)/.test(s) && !/[.!?]$/.test(s)) return false
   if (/^\d/.test(s) && !/\s\p{L}{3,}/u.test(s)) return false

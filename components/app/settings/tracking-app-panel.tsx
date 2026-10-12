@@ -126,7 +126,7 @@ export function TrackingAppPanel({ preferred = "aftership", onChanged }: { prefe
             <Field label={tt("Service")} htmlFor="trk-provider">
               <SelectInput id="trk-provider" value={provider} onChange={(v) => setProvider(v === "17track" ? "17track" : "aftership")}>
                 <option value="aftership">{tt("AfterShip")}</option>
-                <option value="17track">{tt("17TRACK")}</option>
+                <option value="17track">{"17TRACK"}</option>
               </SelectInput>
             </Field>
             <Field label={tt("API key")} htmlFor="trk-key" hint={provider === "aftership" ? tt("AfterShip: Settings > API keys.") : tt("17TRACK: Settings > Security > Access key.")}>

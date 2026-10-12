@@ -27,7 +27,6 @@ import {
   watchRouterCommits,
   type AppNavigation,
 } from "@/lib/ui/app-navigation"
-import { tt } from "@/lib/i18n/text"
 
 /**
  * ===========================================================================
@@ -171,7 +170,7 @@ export function playEntrance(outer: HTMLElement, { fade = true }: { fade?: boole
     if (typeof el.animate !== "function" || !showing(el)) continue
     const rise = !holdsVisibleFixed(el)
     if (!rise && !fade) continue
-    const from: Keyframe = { ...(fade ? { opacity: 0 } : {}), ...(rise ? { translate: tt("0 {navEnterRisePx}px", { navEnterRisePx: NAV_ENTER_RISE_PX }) } : {}) }
+    const from: Keyframe = { ...(fade ? { opacity: 0 } : {}), ...(rise ? { translate: `0 ${NAV_ENTER_RISE_PX}px` } : {}) }
     const to: Keyframe = { ...(fade ? { opacity: 1 } : {}), ...(rise ? { translate: "0 0" } : {}) }
     const a = el.animate([from, to], { duration: NAV_ENTER_MS, easing: NAV_ENTER_EASE })
     if (rise) moving.push(a)

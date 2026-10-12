@@ -258,7 +258,7 @@ export function CreateCommunity({ limitReached = false }: { limitReached?: boole
           <div className="min-w-0 space-y-3 sm:space-y-4 lg:sticky lg:top-6">
             <EditorCard title={tt("Address")} hint={tt("Made from the name. Change it in Settings any time.")} id="address">
               <p className="truncate rounded-lg bg-[#f6f7f8] px-3 py-2.5 text-[13.5px] text-[#4b5563]" data-create-address="">
-                {tt("storelib.com/community/")}<span className="font-medium text-[#1a1a2e]">{address}</span>
+                {"storelib.com/community/"}<span className="font-medium text-[#1a1a2e]">{address}</span>
               </p>
             </EditorCard>
             <EditorCard title={tt("Status")} id="status">

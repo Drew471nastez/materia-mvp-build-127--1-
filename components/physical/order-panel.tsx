@@ -991,7 +991,7 @@ function Stepper({ value, max, onChange, label }: { value: number; max: number; 
   return (
     <div className="flex shrink-0 items-center gap-0.5 rounded-xl border border-[#e3e4e8] bg-white p-0.5" role="group" aria-label={label}>
       <button type="button" className={step} aria-label={tt("One fewer")} disabled={value <= 0} onClick={() => onChange(Math.max(0, value - 1))}>
-        {tt("&minus;")}
+        &minus;
       </button>
       <span className="min-w-[52px] text-center text-[13px] tabular-nums text-[#1a1a2e]" aria-live="polite">
         {value} <span className="text-[#9ca3af]">{tt("of {max}", { max })}</span>

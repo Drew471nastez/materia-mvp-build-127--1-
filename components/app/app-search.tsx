@@ -215,8 +215,8 @@ export const AppSearch = memo(
       const pages = matchPages(q, 5, { communities })
       const nav = pages.filter((p) => p.group === "Pages")
       const settings = pages.filter((p) => p.group === "Settings")
-      if (nav.length) out.push({ id: "pages", label: "Pages", items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
-      if (settings.length) out.push({ id: "settings", label: "Settings", items: settings.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
+      if (nav.length) out.push({ id: "pages", label: tt("Pages"), items: nav.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
+      if (settings.length) out.push({ id: "settings", label: tt("Settings"), items: settings.map((p) => ({ key: `page:${p.href}:${p.label}`, title: p.label, href: p.href })) })
       const result = remote.status === "done" ? remote.result : remote.status === "loading" ? remote.last : null
       if (searchable && result) {
         for (const id of SEARCH_GROUPS) {

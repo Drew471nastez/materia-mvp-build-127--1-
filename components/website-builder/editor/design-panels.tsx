@@ -1084,7 +1084,7 @@ export function TypographyPanel({
                 <span className="flex-1 min-w-0">
                   <span className="block text-sm font-medium text-foreground">{TYPE_STYLE_LABELS[key]}</span>
                   <span className="block text-[11px] text-muted-foreground truncate">
-                    {tt("{family} {weight} · {desktop}/{mobile}px · {line_height}", { family, weight: st.weight, desktop: st.size.desktop, mobile: st.size.mobile, line_height: st.line_height })}
+                    {`${family} ${st.weight} · ${st.size.desktop}/${st.size.mobile}px · ${st.line_height}`}
                   </span>
                 </span>
                 {changed && <span className="h-1.5 w-1.5 rounded-full bg-[#8b5cf6] shrink-0" />}

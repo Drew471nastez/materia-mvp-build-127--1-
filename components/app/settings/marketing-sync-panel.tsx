@@ -272,7 +272,7 @@ export function MarketingSyncPanel({ provider, onChanged }: { provider: Marketin
           />
         </Field>
         <p className="text-[12.5px] leading-[18px] text-[#6b7280]" data-marketing-scopes="">
-          {tt("Permissions:")} {state?.scopes.join(", ") ?? (provider === "klaviyo" ? tt("accounts:read, lists:read, lists:write, profiles:read, profiles:write, subscriptions:write, events:write") : tt("brands.read, contacts.read, contacts.write, events.write"))}
+          {tt("Permissions:")} {state?.scopes.join(", ") ?? (provider === "klaviyo" ? "accounts:read, lists:read, lists:write, profiles:read, profiles:write, subscriptions:write, events:write" : tt("brands.read, contacts.read, contacts.write, events.write"))}
         </p>
         {checked ? (
           <div className="space-y-3 rounded-xl bg-[#f8f9fa] p-3 sm:p-4" data-marketing-checked="">

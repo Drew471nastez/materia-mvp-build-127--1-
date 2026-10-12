@@ -134,11 +134,11 @@ function Lines({ lineKey, text }: { lineKey: string; text: string }) {
     const from = Number(getComputedStyle(outEl).opacity)
     for (const a of outEl.getAnimations()) a.cancel()
     outEl.animate(
-      [{ opacity: from, translate: "0 0" }, { opacity: 0, translate: tt("0 {value}px", { value: -rise }) }],
+      [{ opacity: from, translate: "0 0" }, { opacity: 0, translate: `0 ${-rise}px` }],
       { duration: LINE_FADE_MS * 0.7, easing: "ease-in", fill: "forwards" },
     )
     const inAnim = inEl.animate(
-      [{ opacity: 0, translate: tt("0 {rise}px", { rise }) }, { opacity: 1, translate: "0 0" }],
+      [{ opacity: 0, translate: `0 ${rise}px` }, { opacity: 1, translate: "0 0" }],
       { duration: LINE_FADE_MS, delay: LINE_FADE_MS * 0.4, easing: NAV_ENTER_EASE, fill: "backwards" },
     )
     inAnim.onfinish = drop

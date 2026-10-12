@@ -212,7 +212,7 @@ function Art({ art }: { art: ExplainerArt }) {
           <path d="M216 69 L224 75 L216 81" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
           <Card x={232} y={26} w={140} h={98}>
             <rect x="0" y="0" width="140" height="22" rx="10" fill={SOFT} />
-            <text x="12" y="15" fontSize="9" fontFamily={tt("system-ui, sans-serif")} fill="#6b7280">{tt("/fr")}</text>
+            <text x="12" y="15" fontSize="9" fontFamily={tt("system-ui, sans-serif")} fill="#6b7280">{"/fr"}</text>
             <Bar x={12} y={38} w={100} dark />
             <Bar x={12} y={52} w={80} />
             <rect x="12" y="70" width="44" height="16" rx="8" fill={INK} />

@@ -168,7 +168,7 @@ function Reveal({
 }
 
 /* ── Where a domain stands ──────────────────────────────────────────────── */
-type Standing = { label: "Connected" | "Pending" | "Needs attention"; pill: string; icon: ReactNode }
+type Standing = { label: string; pill: string; icon: ReactNode }
 
 function standingOf(d: DomainItem, result: CheckResult | undefined): Standing {
   if (d.status === "active") return { label: tt("Connected"), pill: "bg-emerald-50 text-emerald-700", icon: <CheckCircle className="h-3 w-3" /> }

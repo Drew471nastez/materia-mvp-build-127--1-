@@ -3598,7 +3598,7 @@ function WallpaperSection() {
           <PanelSection>
             {theme.background_image_url ? (
               <div className="relative aspect-video overflow-hidden rounded-2xl">
-                <img src={theme.background_image_url} alt={tt("Wallpaper")} className="h-full w-full object-cover" style={{ filter: tt("brightness({value}%) blur({value2}px)", { value: (theme as any).image_brightness || 100, value2: (theme as any).image_blur || 0 }) }} />
+                <img src={theme.background_image_url} alt={tt("Wallpaper")} className="h-full w-full object-cover" style={{ filter: `brightness(${(theme as any).image_brightness || 100}%) blur(${(theme as any).image_blur || 0}px)` }} />
                 <div className="absolute bottom-3 right-3 flex gap-2">
                   <button type="button" onClick={() => fileInputRef.current?.click()} className={cn(secondaryDepth, "h-10 rounded-full px-4 text-[13.5px]")} disabled={uploading}>
                     {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}

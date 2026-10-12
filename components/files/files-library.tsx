@@ -864,7 +864,7 @@ function SourcePills({ sources, value, onChange, onWarm }: { sources: readonly S
           aria-hidden
           data-files-pill-mark=""
           className={cn("absolute left-0 top-1 h-8 rounded-lg bg-white shadow-[0_1px_2px_rgba(16,24,40,0.1),0_0_0_0.5px_rgba(16,24,40,0.04)] transition-[translate,width] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none", !mark && "opacity-0")}
-          style={mark ? { width: mark.w, translate: tt("{x}px 0", { x: mark.x }) } : undefined}
+          style={mark ? { width: mark.w, translate: `${mark.x}px 0` } : undefined}
         />
         {sources.map((s) => (
           <button

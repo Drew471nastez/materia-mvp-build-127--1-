@@ -1601,14 +1601,14 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
     const dx = direction === "right" ? shift : -shift
     stepEnterRef.current?.animate(
       joinSlide
-        ? [{ opacity: 0, translate: tt("{dx}px 0", { dx }), scale: "0.985" }, { opacity: 1, translate: "0 0", scale: "1" }]
-        : [{ opacity: 0, translate: tt("{dx}px 0", { dx }) }, { opacity: 1, translate: "0 0" }],
+        ? [{ opacity: 0, translate: `${dx}px 0`, scale: "0.985" }, { opacity: 1, translate: "0 0", scale: "1" }]
+        : [{ opacity: 0, translate: `${dx}px 0` }, { opacity: 1, translate: "0 0" }],
       { duration: inMs, easing: MOTION_EASE },
     )
     stepLeaveRef.current?.animate(
       joinSlide
-        ? [{ opacity: 1, translate: "0 0", scale: "1" }, { opacity: 0, translate: tt("{value}px 0", { value: -dx }), scale: "0.985" }]
-        : [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: tt("{value}px 0", { value: -dx }) }],
+        ? [{ opacity: 1, translate: "0 0", scale: "1" }, { opacity: 0, translate: `${-dx}px 0`, scale: "0.985" }]
+        : [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: `${-dx}px 0` }],
       { duration: STEP_OUT_MS, easing: MOTION_EASE, fill: "forwards" },
     )
     if (stepTimerRef.current) clearTimeout(stepTimerRef.current)
@@ -2350,7 +2350,7 @@ export function CreatorOnboardingModal({ open, onClose, resumeFromStripe, switch
                 </svg>
                 <span className="text-base">
                   <span className="text-black font-medium">{getSlug() || "username"}</span>
-                  <span className="text-gray-400">{tt(".storelib.com")}</span>
+                  <span className="text-gray-400">{".storelib.com"}</span>
                 </span>
               </div>
 

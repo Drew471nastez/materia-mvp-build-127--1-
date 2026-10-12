@@ -152,7 +152,7 @@ export function OwnDatabaseSettings({ ctx }: { ctx: SettingsContext }) {
                 >
                   <span className="min-w-0">
                     <span className="block truncate text-[14.5px] font-medium text-white">{p.name || p.ref}</span>
-                    <span className="block truncate text-[12.5px] text-white/45">{tt("{ref}.supabase.co", { ref: p.ref })}{p.region ? ` · ${p.region}` : ""}</span>
+                    <span className="block truncate text-[12.5px] text-white/45">{`${p.ref}.supabase.co`}{p.region ? ` · ${p.region}` : ""}</span>
                   </span>
                   {picking === p.ref ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-white/60" /> : <span className="shrink-0 text-[13px] text-white/60">{tt("Use")}</span>}
                 </button>

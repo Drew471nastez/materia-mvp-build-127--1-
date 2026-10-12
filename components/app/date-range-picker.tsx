@@ -65,6 +65,7 @@ import {
   type Ymd,
 } from "@/lib/date-range/range"
 import { tt } from "@/lib/i18n/text"
+import { formatDate, weekdayNames } from "@/lib/i18n/format"
 
 /* ── the look ───────────────────────────────────────────────────────────── */
 
@@ -329,8 +330,9 @@ function PresetList({
 
 /* ── the calendar ───────────────────────────────────────────────────────── */
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-const MONTHS_LONG = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+/* The day and month names in the dashboard's language (lib/i18n/format), read when drawn. */
+/** "October 2026" / "octubre de 2026" / "Oktober 2026". */
+const monthYear = (y: number, m: number) => formatDate(Date.UTC(y, m, 15), { month: "long", year: "numeric", timeZone: "UTC" })
 
 /** Always six weeks, so every month is the same height and nothing below it moves. */
 function monthCells(y: number, m: number): (Ymd | null)[] {
@@ -375,11 +377,11 @@ function Month({
   return (
     <div className={cn("min-w-0", compact ? "w-full" : "w-[280px]")}>
       <div className={cn("grid grid-cols-7 pb-1.5 text-center font-medium text-[#8b8f98]", compact ? "text-[12px]" : "text-[11.5px]")} aria-hidden>
-        {WEEKDAYS.map((w) => (
-          <div key={w}>{compact ? w.slice(0, 1) : w.slice(0, 2)}</div>
+        {weekdayNames(compact ? "narrow" : "short").map((w, i) => (
+          <div key={i}>{compact ? w : w.replace(/\.$/, "").slice(0, 2)}</div>
         ))}
       </div>
-      <div role="grid" aria-label={`${MONTHS_LONG[m]} ${y}`} className="grid grid-cols-7" style={{ gridTemplateRows: tt("repeat(6, {cell}px)", { cell }) }} onMouseLeave={() => onHover(null)}>
+      <div role="grid" aria-label={monthYear(y, m)} className="grid grid-cols-7" style={{ gridTemplateRows: `repeat(6, ${cell}px)` }} onMouseLeave={() => onHover(null)}>
         {cells.map((cellDay, i) => {
           /*
             Keyed by place, not by day, and every square has its band, its
@@ -452,7 +454,7 @@ function Month({
 /** "Dec 31, 2025": what a narrow date box shows, where the long form is cut off. */
 function shortDate(v: Ymd): string {
   const { y, m, d } = parts(v)
-  return `${MONTHS_LONG[m].slice(0, 3)} ${d}, ${y}`
+  return formatDate(Date.UTC(y, m, d), { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })
 }
 
 function DateBox({ label, value, onCommit, compact }: { label: string; value: Ymd | null; onCommit: (v: Ymd) => void; compact: boolean }) {
@@ -673,7 +675,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
                 aria-live="polite"
                 className={cn("font-semibold tabular-nums text-[#1a1a2e]", compact ? "text-[15px]" : "text-[14px]")}
               >
-                {MONTHS_LONG[mo.m]} {mo.y}
+                {monthYear(mo.y, mo.m)}
               </span>
             ))}
           </div>

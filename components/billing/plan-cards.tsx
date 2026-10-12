@@ -257,7 +257,7 @@ function PlanCard({
           aria-hidden="true"
           data-plan-grain=""
           className="pointer-events-none absolute inset-0 -z-10"
-          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: tt("{grainTile}px {grainTile2}px", { grainTile: GRAIN_TILE, grainTile2: GRAIN_TILE }), opacity: look.grain }}
+          style={{ backgroundImage: PLAN_GRAIN, backgroundSize: `${GRAIN_TILE}px ${GRAIN_TILE}px`, opacity: look.grain }}
         />
         <span className="self-start rounded-full bg-white/15 px-2.5 py-0.5 text-[11.5px] font-semibold leading-[18px] text-white ring-1 ring-inset ring-white/25">
           {label ?? plan.pill}
@@ -460,7 +460,7 @@ function IntervalSwitch({ value, onChange, size = "regular" }: { value: BillingI
             aria-checked={on}
             data-interval-option={option}
             onClick={() => onChange(option)}
-            style={{ transition: tt("color {switchMs}ms {switchEase}", { switchMs: SWITCH_MS, switchEase: SWITCH_EASE }) }}
+            style={{ transition: `color ${SWITCH_MS}ms ${SWITCH_EASE}` }}
             className={`relative z-[1] inline-flex cursor-pointer motion-reduce:!transition-none select-none items-center justify-center whitespace-nowrap rounded-full text-[13px] font-semibold outline-none focus-visible:ring-2 focus-visible:ring-[#111113]/25 [-webkit-tap-highlight-color:transparent] ${
               small
                 ? "h-[26px] gap-1.5 px-3 after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
