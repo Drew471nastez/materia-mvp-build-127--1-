@@ -212,6 +212,19 @@ export function MarketsPanel() {
           <p className="text-[12.5px] leading-[18px] text-[#6b7280]">
             A new language starts unpublished: translate it, check it, then publish. Anything not translated yet shows in {languageName(draft.defaultLanguage, "en")}.
           </p>
+          <div className="border-t border-[#f1f2f4] pt-4" data-visitor-language="">
+            <Toggle
+              id="visitor-language"
+              label="Show visitors their own language"
+              description={
+                draft.languages.some((l) => l.published)
+                  ? "On a first visit, your website and your storelib.com page open in the language the visitor's browser asks for, once. A close match, or only their country to go by, gets a small offer at the top of the page instead. Search engines and the language selector are unchanged."
+                  : "Works once a language is published. A first visit then opens in the language the visitor's browser asks for, or offers the closest one."
+              }
+              checked={draft.visitorLanguage === true}
+              onChange={(v) => setDraft({ ...draft, visitorLanguage: v })}
+            />
+          </div>
         </div>
       </Card>
 

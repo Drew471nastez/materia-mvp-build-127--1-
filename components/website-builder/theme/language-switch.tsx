@@ -7,10 +7,11 @@
  * Drawn under the footer of every page of a website with more than one
  * published language (Settings › Markets and languages): each language named
  * in its own words ("Français", "Deutsch"), and choosing one opens the same
- * page in it (/fr/products/mug). The choice is the visitor's: nothing is
- * redirected by the browser's language, and the address keeps it. The one
- * thing remembered (sl_lang) is that they chose, so a market's own language
- * (proxy.ts marketLanguageStart) greets a visitor only before they do.
+ * page in it (/fr/products/mug). The choice is the visitor's, and the
+ * address keeps it. The one thing remembered (sl_lang) is that they chose,
+ * so a market's own language (proxy.ts marketLanguageStart) and Show
+ * visitors their own language (visitorLanguageStart, the card it offers
+ * with) act only before they do.
  *
  * On a page in another language than the website's own, every link to
  * another page of the website keeps the language: /about becomes /fr/about.
@@ -19,6 +20,7 @@
  */
 import { useEffect, useId } from "react"
 import { localeFromPath, localizedPath } from "@/lib/markets/locales"
+import { LanguageSuggest } from "./language-suggest"
 
 export interface SiteLanguageChoice {
   /** The language this page is drawn in. */
@@ -131,6 +133,8 @@ export function LanguageSwitch({ choice }: { choice: SiteLanguageChoice }) {
 
   return (
     <div data-language-switch="" className="flex flex-col items-center gap-2 px-4 py-4" style={{ background: "var(--theme-bg, transparent)", color: "var(--theme-text, inherit)" }}>
+      {/* Show visitors their own language: the offer the proxy named for this visit, at the top of the page (lib/markets/suggest-script.ts). */}
+      {hasLanguages ? <LanguageSuggest conf={{ current: choice.code, defaultLanguage: choice.defaultLanguage, languages: codes, address: "path" }} /> : null}
       <div className="flex flex-wrap items-center justify-center gap-2">
         {hasLanguages ? (
           <div className="relative inline-flex items-center">

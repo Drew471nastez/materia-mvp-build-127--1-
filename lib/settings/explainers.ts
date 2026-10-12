@@ -156,7 +156,7 @@ export const EXPLAINERS = {
     lines: [
       "Your website stays at its own address in your default language. Every other language gets the same pages under its code: yourstore.com/fr, yourstore.com/fr/products/mug.",
       "Visitors switch with the language selector. On a Storelib theme it sits under the footer by itself. On a theme you imported from Shopify it is the theme's own selector, turned on in the editor (Show language, usually in the header or footer).",
-      "Nobody is moved by their browser's language. A market can start its countries in its own language on their first visit, and after that the visitor's choice wins.",
+      "With Show visitors their own language on, a first visit opens in the published language the browser asks for, once. A close match, or only the country to go by, gets a small offer at the top of the page instead. A market can also start its countries in its own language. After that the visitor's choice wins, and search engines still see every language at its own address.",
       "Only approved translations show, and only once a language is published. Anything not translated yet shows in your default language, never blank.",
     ],
   },
