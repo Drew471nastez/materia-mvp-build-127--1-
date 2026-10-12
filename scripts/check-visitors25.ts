@@ -555,14 +555,11 @@ async function settings(browser: Browser, base: string) {
     await sleep(200)
     await m.page.screenshot({ path: `${OUT}/markets-switch-${vp.label}.png` })
     check(`${vp.label}: Markets and languages: Show visitors their own language, off until turned on`, !!sw && /Show visitors their own language/.test(sw.text ?? "") && sw.on === "false", sw)
+    /* Markets and languages saves as it is changed: the switch is the save. */
     await press(m.page, vp, "[data-visitor-language] [role=switch]")
-    await sleep(200)
-    const saveBtn = await m.page.$$eval("[data-markets-save] button", (bs) => bs.findIndex((b) => b.textContent === "Save"))
-    const btns = await m.page.$$("[data-markets-save] button")
-    await (vp.touch ? btns[saveBtn].tap() : btns[saveBtn].click())
-    await sleep(500)
+    await sleep(800)
     const put = await m.page.evaluate(() => (window as unknown as { __calls: string[] }).__calls.find((c) => c.startsWith("PUT /api/store/markets")))
-    check(`${vp.label}:   turned on and saved with the rest`, !!put && /"visitorLanguage":true/.test(put), put)
+    check(`${vp.label}:   turned on, saved at once like the rest of the page`, !!put && /"visitorLanguage":true/.test(put), put)
     check(`${vp.label}: nothing scrolls sideways`, (await sideways(m.page)) <= 0)
     await m.close()
   }
