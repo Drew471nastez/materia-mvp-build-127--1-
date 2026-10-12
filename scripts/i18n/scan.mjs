@@ -676,7 +676,7 @@ export function scanSource(sourceText, fileName = "file.tsx") {
     }
     if (ts.isCallExpression(node) && TRANSLATED_CALL.test(calleeName(node.expression)) && node.arguments[0] && (ts.isStringLiteral(node.arguments[0]) || ts.isNoSubstitutionTemplateLiteral(node.arguments[0]))) {
       const name = calleeName(node.expression)
-      push({ kind: name === "tt" || name === "msg" ? "tt" : "key", key: node.arguments[0].text, text: node.arguments[0].text, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
+      push({ kind: name === "tt" || name === "msg" ? "tt" : "key", call: name, key: node.arguments[0].text, text: node.arguments[0].text, node, start: node.getStart(sf), end: node.getEnd(), translated: true })
     }
     ts.forEachChild(node, visit)
   }

@@ -17,118 +17,118 @@ const changelogData: ChangelogEntry[] = [
   {
     get date() { return tt("March 4") },
     type: "fix",
-    get category() { return tt("Navigation") },
+    category: msg("Navigation"),
     get title() { return tt("Sign In Button Fix on Seller Pages") },
     get description() { return tt("Fixed Sign In and Log In buttons on seller store pages (subdomains) to correctly redirect to storelib.com instead of staying on the seller subdomain.") },
   },
   {
     get date() { return tt("March 4") },
     type: "improvement",
-    get category() { return tt("Payouts") },
+    category: msg("Payouts"),
     get title() { return tt("Revenue Chart Default & Net Indicator") },
     get description() { return tt("Revenue chart now defaults to All Time view so lifetime revenue is always visible. Added Net earnings indicator to the chart legend alongside Revenue and Refunds.") },
   },
   {
     get date() { return tt("March 4") },
     type: "improvement",
-    get category() { return tt("Analytics") },
+    category: msg("Analytics"),
     get title() { return tt("Refunds Visible in Revenue Chart") },
     get description() { return tt("Refund data now appears on the analytics chart when viewing the Revenue metric, matching the payouts chart behavior.") },
   },
   {
     get date() { return tt("March 4") },
     type: "fix",
-    get category() { return tt("Payouts") },
+    category: msg("Payouts"),
     get title() { return tt("First Payout Banner Logic") },
     get description() { return tt("The first payout setup banner no longer shows after a successful payout has been completed.") },
   },
   {
     get date() { return tt("March 4") },
     type: "improvement",
-    get category() { return tt("Settings") },
+    category: msg("Settings"),
     get title() { return tt("Upgrade Page Improvements") },
     get description() { return tt("Renamed Professional plan to Pro, added smooth loading skeleton, and ensured equal height pricing tier cards on the upgrade page.") },
   },
   {
     get date() { return tt("March 4") },
     type: "improvement",
-    get category() { return tt("Navigation") },
+    category: msg("Navigation"),
     get title() { return tt("Updated Loading Skeletons") },
     get description() { return tt("Improved loading skeleton structures for Explore, Analytics, and Upgrade pages to better match actual page layouts.") },
   },
   {
     get date() { return tt("February 4") },
     type: "feature",
-    get category() { return tt("Settings") },
+    category: msg("Settings"),
     get title() { return tt("Privacy Controls & Account Security") },
     get description() { return tt("New Privacy tab in settings allowing you to manage AI features, personalization, delete your account, and sign out from all devices at once.") },
   },
   {
     get date() { return tt("February 3") },
     type: "improvement",
-    get category() { return tt("Settings") },
+    category: msg("Settings"),
     get title() { return tt("Enhanced Settings Page Experience") },
     get description() { return tt("Improved settings page with smoother sticky save bar animations, toast notifications, and faster tab navigation with skeleton loading.") },
   },
   {
     get date() { return tt("February 2") },
     type: "feature",
-    get category() { return tt("Analytics") },
+    category: msg("Analytics"),
     get title() { return tt("KPI Blur Animations") },
     get description() { return tt("Added smooth blur transition animations to all KPI cards across Dashboard, Analytics, and Sales pages for a more polished loading experience.") },
   },
   {
     get date() { return tt("February 1") },
     type: "improvement",
-    get category() { return tt("Store Builder") },
+    category: msg("Store Builder"),
     get title() { return tt("Store Builder UI Improvements") },
     get description() { return tt("Enhanced button clickability and z-index handling in the Store Builder editor for better editing experience.") },
   },
   {
     get date() { return tt("January 30") },
     type: "fix",
-    get category() { return tt("Profile") },
+    category: msg("Profile"),
     get title() { return tt("Avatar Fallback Logic") },
     get description() { return tt("Fixed avatar display to properly fall back through settings, store builder, OnePage, and Google authentication.") },
   },
   {
     get date() { return tt("January 28") },
     type: "feature",
-    get category() { return tt("Dashboard") },
+    category: msg("Dashboard"),
     get title() { return tt("Live Visitors Indicator") },
     get description() { return tt("Added real-time live visitors indicator on the dashboard with automatic polling updates showing current active users.") },
   },
   {
     get date() { return tt("January 25") },
     type: "feature",
-    get category() { return tt("Navigation") },
+    category: msg("Navigation"),
     get title() { return tt("Navigation Loading Bar") },
     get description() { return tt("Added smooth glowing loading bar that appears during page navigation across the entire application.") },
   },
   {
     get date() { return tt("January 22") },
     type: "improvement",
-    get category() { return tt("Emails") },
+    category: msg("Emails"),
     get title() { return tt("Email Subscriber Badges") },
     get description() { return tt("Added 'resubscribed' badge for subscribers who unsubscribed and then subscribed again to your list.") },
   },
   {
     get date() { return tt("January 20") },
     type: "fix",
-    get category() { return tt("Settings") },
+    category: msg("Settings"),
     get title() { return tt("Sidebar Avatar Sync") },
     get description() { return tt("Fixed sidebar avatar to properly sync with settings profile photo across the entire application.") },
   },
   {
     get date() { return tt("January 18") },
     type: "feature",
-    get category() { return tt("Products") },
+    category: msg("Products"),
     get title() { return tt("Dynamic Favicon") },
     get description() { return tt("Product pages now display the seller's profile avatar as the browser favicon for brand consistency.") },
   },
 ]
 
-const categories = ["All", msg("Settings"), msg("Analytics"), msg("Dashboard"), msg("Payouts"), msg("Store Builder"), msg("Profile"), msg("Navigation"), msg("Emails"), msg("Products")]
+const categories = [msg("All"), msg("Settings"), msg("Analytics"), msg("Dashboard"), msg("Payouts"), msg("Store Builder"), msg("Profile"), msg("Navigation"), msg("Emails"), msg("Products")]
 
 const getTypeLabel = (type: string) => {
   switch (type) {
@@ -206,7 +206,7 @@ export default function ChangelogPage() {
                         {getTypeLabel(entry.type)}
                       </span>
                       <span className="text-[12px] text-[#9ca3af]">
-                        {entry.category}
+                        {tt(entry.category)}
                       </span>
                     </div>
                   </div>

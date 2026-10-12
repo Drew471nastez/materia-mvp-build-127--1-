@@ -1,4 +1,10 @@
-{
+/**
+ * The dashboard's words in pl: each English sentence, as tt() is given it
+ * in the code, and the words for it. Generated and checked by
+ * scripts/check-i18n.mjs; edit freely, but keep the body valid JSON (quoted
+ * keys, no trailing comma). A sentence missing here shows in English.
+ */
+const words: Record<string, string> = {
  "Added 'resubscribed' badge for subscribers who unsubscribed and then subscribed again to your list.": "Nowe oznaczenie „ponownie zapisany” dla osób, które wypisały się i znów zapisały na Twoją listę.",
  "Added real-time live visitors indicator on the dashboard with automatic polling updates showing current active users.": "Nowy wskaźnik odwiedzających na żywo w panelu, który sam się odświeża i pokazuje aktywnych użytkowników.",
  "Added smooth blur transition animations to all KPI cards across Dashboard, Analytics, and Sales pages for a more polished loading experience.": "Płynne przejścia rozmycia na wszystkich kartach wskaźników w Panelu, Statystykach i Sprzedaży.",
@@ -150,3 +156,5 @@
  "{couponState} · used {used, plural, one {# time} other {# times}}": "{couponState} · użyty {used, plural, one {# raz} other {# razy}}",
  "{value}{value2}% compared with {against}": "{value}{value2}% w porównaniu z {against}"
 }
+
+export default words

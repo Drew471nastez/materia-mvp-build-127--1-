@@ -14,7 +14,7 @@
  *                  t("dot.key")): scripts/i18n/scan.mjs decides what reads as
  *                  words. Mark a deliberate exception with // i18n-ignore.
  *   missing        a tt() sentence a language's catalog has no words for
- *                  (lib/i18n/catalog/<code>.json). It shows in English there,
+ *                  (lib/i18n/catalog/<code>.ts). It shows in English there,
  *                  never as a key, but it is a gap.
  *   placeholders   a translation that drops or renames a {value}: the number
  *                  or the name would vanish from the sentence.
@@ -51,11 +51,9 @@ const files = execSync("git ls-files", { cwd: root })
   .filter((f) => inScope(f) || (LIB_SCOPE ?? []).some((r) => r.test(f)))
 
 /* ---- the catalogs ------------------------------------------------------ */
+const { readCatalog } = await import(join(here, "i18n/catalog-file.mjs"))
 const catalogs = {}
-for (const lang of LANGUAGES) {
-  const p = join(root, "lib/i18n/catalog", `${lang}.json`)
-  catalogs[lang] = existsSync(p) ? JSON.parse(readFileSync(p, "utf8")) : {}
-}
+for (const lang of LANGUAGES) catalogs[lang] = readCatalog(join(root, "lib/i18n/catalog", `${lang}.ts`))
 
 /* The dot-key dictionary (lib/i18n/translations.ts), read as data. */
 function readDotKeys() {
@@ -109,7 +107,7 @@ for (const rel of files) {
     if (f.ignored) continue
     if (f.kind === "tt") {
       if (!ttMessages.has(f.text)) ttMessages.set(f.text, `${rel}:${f.line}`)
-      if (atModuleLevel(f.node) && !(server && /\/(page|layout)\.tsx$/.test(rel))) atImport.push(`${rel}:${f.line}\t${f.text}`)
+      if (f.call !== "msg" && atModuleLevel(f.node) && !(server && /\/(page|layout)\.tsx$/.test(rel))) atImport.push(`${rel}:${f.line}\t${f.text}`)
       continue
     }
     if (f.kind === "key") {
