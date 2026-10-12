@@ -31,8 +31,8 @@ import "server-only"
 import { DEFAULT_COVER_CROP, cropFromSettings, type CoverCrop } from "@/lib/images/cover-crop"
 import { parseProfileCover, profileCoverValue, publicCoverUrl } from "@/lib/profile/cover"
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Db = any
+/** The service role client the caller hands in (the communities' own loose type for it). */
+type Db = import("@/lib/communities/server/db").Db
 
 async function one<T>(run: () => PromiseLike<{ data: unknown; error: unknown }>): Promise<T | null> {
   try {

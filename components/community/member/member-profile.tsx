@@ -132,10 +132,10 @@ function useNow(serverNow: number): number {
  * THE PLACE'S COLUMN (round J1, the owner: "no longer tabs in the right side, and larger cards now"). From 1280px the
  * profile takes the middle and the right columns (shell-frame.tsx, wideCenter), so its cards run the frame's whole
  * middle, up to 992px, lined up with the left column's cards; it was 680px beside the right column's cards. Below
- * 1280px it is the middle column, and the whole width on a phone. PROFILE_COLUMN_PX (lib/communities/member-cover.ts)
- * is the widest it gets, for the cover's `sizes`.
+ * 1280px it is the middle column, and the whole width on a phone. Capped at the same 992px (PROFILE_COLUMN_PX,
+ * lib/communities/member-cover.ts, the widest the cover's `sizes` names) wherever it is drawn outside the frame.
  */
-const COLUMN_CLASS = "max-w-none"
+const COLUMN_CLASS = "max-w-[992px]"
 
 /** The router's "full" prefetch (the whole page, not only up to its loading screen), as shell-frame.tsx asks. */
 const FULL = "full" as never

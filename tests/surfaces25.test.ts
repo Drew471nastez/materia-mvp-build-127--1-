@@ -146,7 +146,8 @@ async function main() {
   console.log("\nThe profile's head")
   {
     const view = code("components/community/member/member-profile.tsx")
-    check("a taller band: 184 and 236 with a picture, 112 and 128 without", /h-\[184px\] bg-\[#eceef1\] sm:h-\[236px\]/.test(view) && /h-\[112px\] bg-\[#f3f4f6\] sm:h-\[128px\]/.test(view))
+    /* Round J1 replaced the fixed heights (184 and 236 with a picture, 112 and 128 without) with one shape for everybody, taller still on a computer (tests/community-profile-j1.test.ts). */
+    check("a taller band: one fixed shape, 2:1 on a phone and 16:5 wider up, with or without a picture (round J1)", /<MemberCover url=\{person\.coverUrl\}/.test(view) && /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(code("components/community/member/member-cover.tsx")))
     check("their level on their photo, from the board's standing", /<LevelBadge level=\{badge\} size="lg"/.test(view) && /data\.board\.standing\?\.level/.test(view))
     const badge = renderToStaticMarkup(createElement(LevelBadge, { level: 4, size: "lg" }))
     check("  the large mark: 26px on a phone, 28px wider up, at the photo's bottom right", /h-\[26px\]/.test(badge) && /sm:h-\[28px\]/.test(badge) && /bottom-\[3px\] right-\[3px\]/.test(badge) && />4</.test(badge))

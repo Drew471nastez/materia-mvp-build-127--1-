@@ -223,7 +223,8 @@ async function main() {
   {
     const view = code("components/community/member/member-profile.tsx")
     /* Round 25 made it taller again (tests/surfaces25.test.ts): 184 and 236 with a picture, 112 and 128 without. */
-    check("the band is taller: 184 and 236 with a picture, 112 and 128 without (round 25)", /h-\[184px\] bg-\[#eceef1\] sm:h-\[236px\]/.test(view) && /h-\[112px\] bg-\[#f3f4f6\] sm:h-\[128px\]/.test(view))
+    /* Round J1: one shape for everybody (2:1, 16:5 wider up), taller than round 25's 184 and 236 (tests/community-profile-j1.test.ts). */
+    check("the band is taller: one fixed shape with or without a picture (round J1)", /<MemberCover url=\{person\.coverUrl\}/.test(view) && /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(code("components/community/member/member-cover.tsx")))
     check("the photo is bigger and straddles the band (half of it plus its ring)", /h-\[96px\] w-\[96px\] sm:h-\[112px\] sm:w-\[112px\]/.test(view) && /-mt-\[51px\]/.test(view) && /sm:-mt-\[59px\]/.test(view))
     check("a press on it opens the creator page's own viewer", /import \{ AvatarLightbox \} from "@\/components\/storefront\/avatar-lightbox"/.test(view) && /<AvatarLightbox src=\{person\.avatarUrl\} name=\{person\.name\}>\s*<span[^>]*data-member-profile-avatar=""/.test(view))
     /* Round 25: a member's board between the head and the posts, a creator's under their posts (tests/surfaces25.test.ts). */

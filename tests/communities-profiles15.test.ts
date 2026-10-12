@@ -329,7 +329,7 @@ async function main() {
   {
     const cover = code("components/profile/decoded-cover.tsx")
     const view = code("components/community/member/member-profile.tsx")
-    check("the band's height is fixed before anything loads (taller since rounds 18 and 25)", /h-\[184px\] bg-\[#eceef1\] sm:h-\[236px\]/.test(view))
+    check("the band's shape is fixed before anything loads (taller since rounds 18 and 25, one shape since J1)", /<MemberCover url=\{person\.coverUrl\}/.test(view) && /aspect-\[2\/1\][^"]*sm:aspect-\[16\/5\]/.test(code("components/community/member/member-cover.tsx")))
     check("the picture goes in only once decoded, and a picture decoded before is there on the first frame with no fade", /img\.decode\(\)\.then\(ok, ok\)/.test(cover) && /DECODED\.has\(src\) \? "now" : null/.test(cover) && /if \(!shown\) return null/.test(cover) && /shown !== "fade"/.test(cover))
   }
 

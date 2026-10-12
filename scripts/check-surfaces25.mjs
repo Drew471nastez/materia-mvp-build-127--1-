@@ -3,7 +3,7 @@
  *  ROUND 25 (C25B): A MEMBER'S PROFILE INSIDE A COMMUNITY, MEASURED
  * ===========================================================================
  * The real place (scripts/render-surfaces25.tsx) at 390x844 and 1440x900:
- *   the band's height (184px with a picture on a phone, 236px wider up; 112 and 128 without), the level badge on the
+ *   the band's shape (2:1 on a phone, 16:5 wider up, with or without a picture, since round J1), the level badge on the
  *   photo (inside its bottom right), the bio, the activity card as one standing line and three facts (no sentence to the
  *   next level, no progress bar, no sentence under the grid), the squares in the accent's steps, and the order: a
  *   member's board under the head, a creator's under their posts with Show more instead of a list that keeps growing.
@@ -229,8 +229,9 @@ try {
       console.log(`  ${tag}: ${JSON.stringify({ band: m.band?.h, badge: m.badge, level: m.level, points: m.points, facts: m.facts, cardH: m.cardH, words: m.words, order: m.order, shade4: m.shade4 })}`)
       if (want) {
         expect(m.overflow <= 0, `${tag}: nothing sideways`, m.overflow)
-        const bandWant = cover === "1" ? (label === "phone" ? 184 : 236) : label === "phone" ? 112 : 128
-        expect(m.band?.h === bandWant, `${tag}: the band is ${bandWant}px tall`, m.band?.h)
+        /* Round J1: one shape with or without a picture, 2:1 on a phone and 16:5 wider up (it was 184 / 236 and 112 / 128). */
+        const bandWant = Math.round((m.band?.w ?? 0) / (label === "phone" ? 2 : 3.2))
+        expect(m.band && Math.abs(m.band.h - bandWant) <= 1, `${tag}: the band is ${label === "phone" ? "2:1" : "16:5"} (${bandWant}px tall)`, m.band)
         expect(m.badge && m.avatar && m.badge.r <= m.avatar.r && m.badge.b <= m.avatar.b && m.badge.l > m.avatar.l + m.avatar.w / 2 && m.badge.t > m.avatar.t + m.avatar.h / 2 && m.badgeText === "3", `${tag}: their level on the photo, at its bottom right`, { badge: m.badge, avatar: m.avatar, text: m.badgeText })
         expect(/Potter in Lisbon/.test(m.bio || ""), `${tag}: the bio is shown`, m.bio)
         expect(/Contributor/.test(m.level || "") && /Level 3/.test(m.level || "") && /104 points/.test(m.points || ""), `${tag}: the level's name, its number and the points, on one line`, { level: m.level, points: m.points })
