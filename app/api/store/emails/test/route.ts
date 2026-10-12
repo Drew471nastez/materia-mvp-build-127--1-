@@ -45,11 +45,12 @@ export async function POST(request: Request) {
   const to = who?.user?.email
   if (!to) return physicalJson({ error: "Your account has no email address to send the test to." }, 400)
 
+  const db = c.db
   const [identity, store, { data: creator }, saved] = await Promise.all([
-    resolveCreatorIdentity(c.db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
-    storeIdentity(c.db, c.creatorId).catch(() => null),
-    c.db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
-    loadCustomerEmailCopy(c.db, c.creatorId),
+    resolveCreatorIdentity(db, c.creatorId).catch(() => ({ fromName: "", replyTo: "", sellerEmail: "" })),
+    storeIdentity(db, c.creatorId).catch(() => null),
+    db.from("creators").select("payout_currency").eq("id", c.creatorId).maybeSingle(),
+    loadCustomerEmailCopy(db, c.creatorId),
   ])
   /* The words being typed, when the editor sent them and they are valid; else what is saved. */
   const typed = body?.copy && typeof body.copy === "object" ? readCopy(id, body.copy) : null

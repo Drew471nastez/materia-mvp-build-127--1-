@@ -102,7 +102,7 @@ async function main() {
     check("/admin › Integrations behind the admin cookie, answers requests, edits the catalog, never reads a key", /requireAdmin\(\)/.test(admin) && /action === "request"/.test(admin) && /action === "catalog"/.test(admin) && !/secret_ciphertext|api_key/.test(admin))
     check("  listed in the console", /href: "\/admin\/integrations"/.test(read("app/admin/_console/shell.tsx")))
     const side = read("components/app/sidebar.tsx")
-    check("the sidebar gets an Integrations group only when something is installed", /if \(installedIntegrations\.length > 0\)/.test(side) && /\/api\/store\/integrations\/installed/.test(side))
+    check("the sidebar gets an Integrations group, its installed ones under it", /* Changed on purpose (round AD): always there, to its own page. */ /installedIntegrations\.length > 0/.test(side) && /\/api\/store\/integrations\/installed/.test(side))
     const sql = read("supabase/sql/run-now/115_integrations_admin_and_marketplace_search.sql")
     check("part 115: request notes, a server only catalog, search without physical products", /ADD COLUMN IF NOT EXISTS admin_note/.test(sql) && /CREATE TABLE IF NOT EXISTS public\.integration_catalog/.test(sql) && /REVOKE ALL ON public\.integration_catalog FROM anon, authenticated/.test(sql) && /coalesce\(p\.type, ''\) <> 'physical'/.test(sql) && /notify pgrst, 'reload schema';\n$/.test(sql))
     check("  with its README row and its check after", /115_integrations_admin_and_marketplace_search\.sql/.test(read("supabase/sql/run-now/README.md")) && /p115_integrations_admin_search/.test(read("supabase/sql/run-now/99_check_after.sql")))
