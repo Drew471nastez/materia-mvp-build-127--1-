@@ -114,6 +114,8 @@ export interface CardLike {
 
 /** How the options of a variant read: "Small / Red" is Size Small, Colour Red. */
 function variantOptions(name: string, optionCount: number): string[] {
+  /* One option: the whole name is its value ("PDF / EPUB bundle" is one licence, not "PDF"). */
+  if (optionCount <= 1) return [name.trim() || "Default Title"]
   const parts = name.split(/\s*\/\s*/).map((p) => p.trim())
   return Array.from({ length: Math.max(1, optionCount) }, (_, i) => parts[i] ?? parts[0] ?? "Default Title")
 }
@@ -134,7 +136,7 @@ function storeAvailabilities(points: unknown): O[] {
 
 /**
  * What a theme is told about one variant's stock, from what Storelib's
- * loader put on it (lib/website-builder/compat-site.ts productPageCard):
+ * loader put on it (./product-facts.ts withPageFacts):
  * whether it sells, how many are left when that is at or under the store's
  * low stock line (Settings), the most one order may take, and whether it
  * keeps selling when none are left. As Shopify answers it:
