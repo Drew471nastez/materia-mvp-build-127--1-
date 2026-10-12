@@ -65,12 +65,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
  */
 export default async function SiteProductPage({ params }: PageProps) {
   const { username: segment, slug } = await params
-  const { name: username, locale } = splitSiteName(segment)
+  const { name: username, locale, market } = splitSiteName(segment)
   const creator = await creatorByName(username)
   if (!creator) notFound()
   const origin = await siteOrigin(creator.creatorId, username)
   const [page, structured] = await Promise.all([
-    renderProduct(slug, { creatorId: creator.creatorId, locale }),
+    renderProduct(slug, { creatorId: creator.creatorId, locale, market }),
     productStructuredData(slug, { url: productUrl(origin, slug), seller: creator.displayName, creatorId: creator.creatorId }),
   ])
   return (

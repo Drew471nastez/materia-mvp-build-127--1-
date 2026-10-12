@@ -21,11 +21,10 @@
  * market's prices in another currency are an estimate until checkout.
  * Saved whole, checked on the server (lib/markets/model validateLocalization).
  *
- * MARKETS ARE BEHIND A FLAG (NEXT_PUBLIC_STORELIB_MARKETS=1) until the live
- * website shows a market's own currency: the model, the day's rates and the
- * conversion are in place (lib/markets/money.ts, fx-server.ts), the prices
- * on the page are not converted yet, and a setting that changes nothing on
- * the website is not shown. Languages are live.
+ * A market's currency is live on the website: a visitor from one of its
+ * countries (or who picks it) sees prices converted at the day's rate on
+ * builder and imported themes alike (lib/markets/pricing.ts, live.ts,
+ * compat.ts), and checkout says what the card is charged in.
  */
 import * as React from "react"
 import { Globe2, Languages, Plus, Trash2 } from "lucide-react"
@@ -36,9 +35,6 @@ import type { Localization, Market } from "@/lib/markets/model"
 import type { PriceRounding } from "@/lib/markets/money"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { TranslateSheet } from "./translate-sheet"
-
-/** The Markets card: shown once prices in a market's own currency are on the live website. */
-const MARKETS_ON = process.env.NEXT_PUBLIC_STORELIB_MARKETS === "1"
 
 const PATH = "/api/store/markets"
 
@@ -102,7 +98,7 @@ export function MarketsPanel() {
   if (!data || !draft) {
     return (
       <div className="space-y-4 sm:space-y-6" data-markets-panel="" aria-busy={!error}>
-        <Card title="Markets and languages" description="Your website in more than one language.">
+        <Card title="Markets and languages" description="Sell to other countries in their language and currency.">
           {error ? <Notice>{error}</Notice> : <div className="h-24" />}
         </Card>
       </div>
@@ -219,83 +215,81 @@ export function MarketsPanel() {
         </div>
       </Card>
 
-      {MARKETS_ON ? (
-        <Card title="Markets" description="Groups of countries you sell to the same way. Each can show prices in its own currency and start visitors in its own language.">
-          <div className="space-y-4">
-            <p className="text-[13px] leading-5 text-[#4b5563]" data-charge-currency="">
-              Your prices are in {data.baseCurrency}. Cards are charged in {data.chargeCurrency}. A market in another currency shows an estimate converted at the European Central Bank&apos;s rate, and
-              says so before payment.
-            </p>
-            {data.fx ? (
-              data.fx.fresh ? (
-                <p className="text-[12.5px] text-[#6b7280]" data-fx="fresh">
-                  Exchange rates from {data.fx.asOf}.
-                </p>
-              ) : (
-                <Notice tone="amber">The newest exchange rates are from {data.fx.asOf}, which is too old to use. Markets show your own prices until new rates arrive.</Notice>
-              )
-            ) : (
-              <p className="text-[12.5px] text-[#6b7280]" data-fx="none">
-                Exchange rates arrive with the next daily update. Until then, every market shows your own prices.
+      <Card title="Markets" description="Groups of countries you sell to the same way. Each can show prices in its own currency and start visitors in its own language.">
+        <div className="space-y-4">
+          <p className="text-[13px] leading-5 text-[#4b5563]" data-charge-currency="">
+            Your prices are in {data.baseCurrency}. Cards are charged in {data.chargeCurrency}. A market in another currency shows an estimate converted at the European Central Bank&apos;s rate, and
+            says so before payment.
+          </p>
+          {data.fx ? (
+            data.fx.fresh ? (
+              <p className="text-[12.5px] text-[#6b7280]" data-fx="fresh">
+                Exchange rates from {data.fx.asOf}.
               </p>
-            )}
+            ) : (
+              <Notice tone="amber">The newest exchange rates are from {data.fx.asOf}, which is too old to use. Markets show your own prices until new rates arrive.</Notice>
+            )
+          ) : (
+            <p className="text-[12.5px] text-[#6b7280]" data-fx="none">
+              Exchange rates arrive with the next daily update. Until then, every market shows your own prices.
+            </p>
+          )}
 
-            <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
-              {draft.markets.map((m) => (
-                <li key={m.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3" data-market={m.id}>
-                  <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[#4b5563]">
-                    <Globe2 className="h-4 w-4" />
+          <ul className="divide-y divide-[#f1f2f4] overflow-hidden rounded-xl border border-[#eceef1]" data-markets="">
+            {draft.markets.map((m) => (
+              <li key={m.id} className="flex flex-wrap items-center gap-3 px-3.5 py-3" data-market={m.id}>
+                <span aria-hidden className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-[#f3f4f6] text-[#4b5563]">
+                  <Globe2 className="h-4 w-4" />
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
+                    {m.name}
+                    {m.primary ? <span className="text-[12px] font-normal text-[#6b7280]">· Home</span> : null}
+                    {!m.active ? <span className="text-[12px] font-normal text-[#6b7280]">· Off</span> : null}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-2 text-[14px] font-medium text-[#1a1a2e]">
-                      {m.name}
-                      {m.primary ? <span className="text-[12px] font-normal text-[#6b7280]">· Home</span> : null}
-                      {!m.active ? <span className="text-[12px] font-normal text-[#6b7280]">· Off</span> : null}
-                    </span>
-                    <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">
-                      {m.countries.length === 0
-                        ? m.primary
-                          ? "Every country not in another market"
-                          : "No countries yet"
-                        : m.countries.length <= 3
-                          ? m.countries.map(countryName).join(", ")
-                          : `${m.countries.length} countries`}
-                      {" · "}
-                      {m.currency ?? data.baseCurrency}
-                      {m.language ? ` · ${languageName(m.language, "en")}` : ""}
-                    </span>
+                  <span className="block text-[12.5px] leading-[18px] text-[#6b7280]">
+                    {m.countries.length === 0
+                      ? m.primary
+                        ? "Every country not in another market"
+                        : "No countries yet"
+                      : m.countries.length <= 3
+                        ? m.countries.map(countryName).join(", ")
+                        : `${m.countries.length} countries`}
+                    {" · "}
+                    {m.currency ?? data.baseCurrency}
+                    {m.language ? ` · ${languageName(m.language, "en")}` : ""}
                   </span>
-                  <span className="flex items-center gap-1">
-                    <button type="button" className={BTN_GHOST} onClick={() => setEditing(m)}>
-                      Edit
+                </span>
+                <span className="flex items-center gap-1">
+                  <button type="button" className={BTN_GHOST} onClick={() => setEditing(m)}>
+                    Edit
+                  </button>
+                  {!m.primary ? (
+                    <button
+                      type="button"
+                      aria-label={`Remove ${m.name}`}
+                      className={cn(BTN_GHOST, "w-9 px-0")}
+                      onClick={() =>
+                        setDraft({
+                          ...draft,
+                          markets: draft.markets.filter((x) => x.id !== m.id),
+                        })
+                      }
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
-                    {!m.primary ? (
-                      <button
-                        type="button"
-                        aria-label={`Remove ${m.name}`}
-                        className={cn(BTN_GHOST, "w-9 px-0")}
-                        onClick={() =>
-                          setDraft({
-                            ...draft,
-                            markets: draft.markets.filter((x) => x.id !== m.id),
-                          })
-                        }
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    ) : null}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")} data-add-market="">
-              <Plus className="h-4 w-4" />
-              Add a market
-            </button>
-            {home ? null : <Notice tone="amber">Choose one market as your home.</Notice>}
-          </div>
-        </Card>
-      ) : null}
+                  ) : null}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <button type="button" className={BTN_SECONDARY} onClick={() => setEditing("new")} data-add-market="">
+            <Plus className="h-4 w-4" />
+            Add a market
+          </button>
+          {home ? null : <Notice tone="amber">Choose one market as your home.</Notice>}
+        </div>
+      </Card>
 
       <div className="sticky bottom-3 z-10 flex items-center justify-end gap-3" data-markets-save="">
         {error ? <Notice className="mr-auto">{error}</Notice> : null}

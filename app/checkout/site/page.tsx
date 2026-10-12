@@ -1,4 +1,7 @@
 import type { Metadata } from "next"
+import { marketOfCountry, siteLanguages } from "@/lib/markets/live"
+import { chargeNote } from "@/lib/markets/money"
+import { platformChargeCurrencyUpper } from "@/lib/payments/fees/currency-rules"
 import { cookies, headers } from "next/headers"
 import { notFound, redirect } from "next/navigation"
 import { after } from "next/server"
@@ -98,13 +101,29 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
   /* The price waits only for who is signed in (what they own is not charged), not for the header, the settings or the payments check. */
   const buyerRead = siteBuyerFrom(admin, { host: site.host, cookieValue: jar.get(sessionCookieName(site.host))?.value, creatorId: site.creatorId })
   const quoteRead = buyerRead.then((b) => (items.length ? siteQuote(admin, site.creatorId, { items, couponCode: params.couponCode }, null, b ? { email: b.email } : null) : null))
-  const [brand, config, buyer, ready, answer] = await Promise.all([
+  /*
+    PRICES SEEN IN ANOTHER CURRENCY (Markets and languages): a visitor whose
+    country is in a market that shows its own currency saw estimates; the
+    card is charged in the platform's currency, and checkout says so under
+    the total.
+  */
+  const visitorCountry = (() => {
+    const chosen = jar.get("sl_country")?.value
+    if (chosen === "home") return null
+    return (chosen && /^[A-Za-z]{2}$/.test(chosen) ? chosen : h.get("x-vercel-ip-country")) ?? null
+  })()
+  const noteRead = siteLanguages(site.creatorId)
+    .then((langs) => marketOfCountry(langs, visitorCountry))
+    .then((m) => (m ? chargeNote(m.currency, platformChargeCurrencyUpper()) : null))
+    .catch(() => null)
+  const [brand, config, buyer, ready, answer, currencyNote] = await Promise.all([
     /* Once per request: the layout read it for the tab's title and icon (app/checkout/site/layout.tsx). */
     checkoutBrandOf(site.creatorId),
     loadCheckoutConfig(admin, site.creatorId),
     buyerRead,
     checkoutReadyForCreator(site.creatorId).catch(() => false),
     quoteRead,
+    noteRead,
   ])
   const shopUrl = `${site.origin}/`
   /* A Buy button names its page as a full address (lib/orders/checkout-origin): kept when it is this same site. */
@@ -136,6 +155,7 @@ export default async function SiteCheckoutPage({ searchParams }: { searchParams:
       accountUrl={`${site.origin}/account`}
       lockedEmail={gate.kind === "open" ? gate.lockedEmail : null}
       needsSignIn={gate.kind === "sign-in"}
+      currencyNote={currencyNote}
     />
   )
 }

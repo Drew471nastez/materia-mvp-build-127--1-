@@ -3777,7 +3777,7 @@ check(
     const seconds = /export const revalidate = (\d+)/.exec(route)?.[1]
     return (
       seconds !== undefined &&
-      /if \(pathname === "\/"\)/.test(body) &&
+      /* Changed on purpose (round AC): a market's homepage is per visitor, so it is left out. */ /if \(pathname === "\/"(?:\)| && !\(inLanguage)/.test(body) &&
       body.includes(`rewritten.headers.set("Cache-Control", "public, s-maxage=${seconds}, stale-while-revalidate=`)
     )
   })(),

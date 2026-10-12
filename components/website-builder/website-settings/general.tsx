@@ -97,20 +97,26 @@ export function GeneralSettings({ ctx }: { ctx: SettingsContext }) {
             />
           </div>
         </Row>
-        <Row label="Language" hint="The language your pages are written in. Screen readers and translation use it." htmlFor="wb-site-language">
-          <select
-            id="wb-site-language"
-            value={language}
-            onChange={(e) => ctx.onSettingChange("site_language", e.target.value)}
-            className={inputClass}
-          >
-            <option value="">Not set</option>
-            {SITE_LANGUAGES.map((l) => (
-              <option key={l.code} value={l.code}>
-                {l.label}
-              </option>
-            ))}
-          </select>
+      </Card>
+
+      {/*
+        ONE PLACE FOR LANGUAGES. The website's language used to be chosen
+        here as well as in Settings › Markets and languages, two settings for
+        one thing. It is set there now, with the website's other languages
+        and their translations; an old choice made here is still read as the
+        default until that page is saved.
+      */}
+      <Card>
+        <Row
+          label="Languages"
+          hint={
+            <a href="/app/settings?tab=markets" className={textLinkClass}>
+              Manage in Markets and languages
+            </a>
+          }
+          inline
+        >
+          <span className="text-[13px] text-white/70">{language ? (SITE_LANGUAGES.find((l) => l.code === language)?.label ?? language) : "Set for your store"}</span>
         </Row>
       </Card>
       {error && <ErrorNote>{error}</ErrorNote>}
