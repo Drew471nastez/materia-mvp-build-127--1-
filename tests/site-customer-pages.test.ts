@@ -208,7 +208,7 @@ async function main() {
     check("the page key is the site's own: reserved, generated, built in, at /password, filed under Other",
       RESERVED_PAGE_KEYS.has("password") && GENERATED_PAGE_KEYS.has("password") && BUILT_IN_PAGE_KEYS.has("password") && pagePath("password") === "/password" && pageKeyFromSegment("password") === null && pageGroupOf("password") === "other")
     const editor = read("app/website-builder/editor/[installId]/page.tsx")
-    check("and the builder opens it without the header and footer too", (editor.match(/CHROMELESS_PAGES\.has\(/g) ?? []).length === 2)
+    check("and the builder opens it without the header and footer too", /const loaded = CHROMELESS_PAGES\.has\(currentPage\) \? withoutChrome\(loadedRaw\)/.test(editor) && /const merged = CHROMELESS_PAGES\.has\(page\) \? withoutChrome\(loaded\)/.test(editor))
   }
 
   // ═══════════════════════════════════════════════════════════════════════
