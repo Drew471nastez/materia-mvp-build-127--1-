@@ -9,7 +9,7 @@ import { siteLocale } from "@/lib/website-builder/site-language"
 import { siteIcons } from "@/lib/website-builder/site-icon"
 import { StoreTracking } from "@/components/website-builder/store-tracking"
 import { splitSiteName } from "@/lib/markets/site-name"
-import { languageAlternates, siteLanguages } from "@/lib/markets/live"
+import { languageAlternates, siteLanguages, siteLocalizer } from "@/lib/markets/live"
 import { localizedPath } from "@/lib/markets/locales"
 
 /**
@@ -39,7 +39,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const settings = found.kind === "site" ? (found.site.themeSettings as Record<string, unknown>) : {}
   const brand = typeof settings.brand_name === "string" && settings.brand_name.trim() ? settings.brand_name.trim() : creator.displayName
   /* The site's own rule: its switch, and not under a handle the spam rules hold back. */
-  const meta = await productMetadata(slug, { url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
+  const localizer = pageLocale ? await siteLocalizer(creator.creatorId, pageLocale) : null
+  const meta = await productMetadata(slug, { inLanguage: localizer ? (p) => localizer.product(p) : undefined, url: pageLocale ? `${origin}${localizedPath(path, pageLocale, langs.defaultLanguage)}` : productUrl(origin, slug), brand, indexable: builtSiteIndexable(settings, username), creatorId: creator.creatorId, locale: siteLocale(settings) })
   /* The site's own icon in the tab, as on its other pages: the favicon, or its logo (site-icon.ts). */
   const icons = found.kind === "site" ? siteIcons(settings, found.site.pages.home ?? found.site.sections) : undefined
   /* The product in every language of the website, for search engines (hreflang). */
