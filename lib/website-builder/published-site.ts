@@ -393,6 +393,8 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
   const original = site.pages[pageKey] ?? (pageKey === "home" ? site.sections : undefined)
   if (!original) return { kind: "missing" }
   const stored = localizer ? localizer.sections(original, site.sources) : original
+  /* Its menus and search engine text too (lib/markets/translate localizeTheme). */
+  const themeSettings = localizer ? localizer.theme(site.themeSettings as Record<string, unknown>) as typeof site.themeSettings : site.themeSettings
 
   /**
    * ═══════════════════════════════════════════════════════════════════════
@@ -422,15 +424,15 @@ export async function publishedSiteByName(name: string, pageKey = "home", locale
   // "index" for the front page, `page.<key>` for the rest: the name a
   // section reads as `page.template` and writes `allowed_templates` against.
   const template = templateForPage(pageKey)
-  const { sections, data } = await dressPage(site, linked, products, productCount, template, pageTitleFromKey(pageKey))
+  const { sections, data } = await dressPage({ ...site, themeSettings }, linked, products, productCount, template, pageTitleFromKey(pageKey))
   /* `shop.name` falls back to Store details' store name, then the creator's
      public name, when the theme has none set: lib/storelib-theme/globals.ts.
      Nothing per visitor here. */
   /* The page's title rides on `page` too, for the Breadcrumbs section's trail. */
-  const prerendered = renderWithSources(site.sources, sections, site.themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, data, {
+  const prerendered = renderWithSources(site.sources, sections, themeSettings, template, products, { title: pageTitleFromKey(pageKey) }, data, {
     shop: { name: site.profile?.storeName || site.displayName },
   })
-  return { kind: "site", site: { ...site, sections, prerendered } }
+  return { kind: "site", site: { ...site, themeSettings, sections, prerendered } }
 }
 
 /**
