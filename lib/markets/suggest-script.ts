@@ -59,7 +59,7 @@ export const LANGUAGE_SUGGEST_JS =
   "var reduce=w.matchMedia&&w.matchMedia('(prefers-reduced-motion: reduce)').matches;" +
   /* A phone: at the top, clear of the cookie banner, a sticky add to cart and a theme's bottom bar. A computer: the bottom right corner, clear of the header's links and the cookie card (bottom left). */
   "var wide=(w.innerWidth||0)>=768,from=reduce?'0':(wide?'6px':'-6px');" +
-  "box.style.cssText='position:fixed;z-index:2147482000;'+(wide?'right:24px;bottom:24px;width:400px;':'top:calc(12px + env(safe-area-inset-top,0px));left:16px;right:16px;')+'box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;background:#fff;color:#1a1a2e;border:1px solid rgba(229,231,235,.95);border-radius:14px;box-shadow:0 12px 32px -12px rgba(17,24,39,.22),0 1px 3px rgba(0,0,0,.05);font:500 14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;letter-spacing:0;text-align:start;transform:translateY('+from+');opacity:'+(reduce?'1':'0')+';transition:opacity .18s ease,transform .18s ease';" +
+  "box.style.cssText='position:fixed;z-index:2147482000;'+(wide?'right:24px;bottom:24px;width:400px;':'top:calc(12px + env(safe-area-inset-top,0px));left:16px;right:16px;')+'box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:8px 8px 8px 14px;background:#fff;color:#1a1a2e;border:1px solid rgba(229,231,235,.95);border-radius:14px;box-shadow:0 12px 32px -12px rgba(17,24,39,.22),0 1px 3px rgba(0,0,0,.05);font:500 14px/1.35 Inter,ui-sans-serif,system-ui,-apple-system,\"Segoe UI\",Roboto,sans-serif;letter-spacing:0;text-align:start;translate:0 '+from+';opacity:'+(reduce?'1':'0')+';transition:opacity .18s ease,translate .18s ease';" +
   "var g=d.createElementNS('http://www.w3.org/2000/svg','svg');g.setAttribute('viewBox','0 0 20 20');g.setAttribute('width','18');g.setAttribute('height','18');g.setAttribute('aria-hidden','true');g.setAttribute('fill','none');g.setAttribute('stroke','#6b7280');g.setAttribute('stroke-width','1.5');g.style.flex='none';" +
   "g.innerHTML='<circle cx=\"10\" cy=\"10\" r=\"7.25\"/><path d=\"M2.75 10h14.5M10 2.75c2 2.2 2.9 4.6 2.9 7.25S12 15.05 10 17.25M10 2.75C8 4.95 7.1 7.35 7.1 10s.9 5.05 2.9 7.25\"/>';" +
   "var t=d.createElement('span');t.textContent=words.ask.replace('{name}',inSentence);t.style.cssText='flex:1;min-width:0;color:#1a1a2e';" +
@@ -70,7 +70,7 @@ export const LANGUAGE_SUGGEST_JS =
   "function close(){keep(C.current);d.removeEventListener('keydown',esc);box.style.opacity='0';setTimeout(function(){box.remove()},reduce?0:180)}function esc(e){if(e.key==='Escape')close()}" +
   "x.addEventListener('click',close);d.addEventListener('keydown',esc);" +
   "box.appendChild(g);box.appendChild(t);box.appendChild(go);box.appendChild(x);w.__slLangShown=true;(d.body||d.documentElement).appendChild(box);" +
-  "requestAnimationFrame(function(){requestAnimationFrame(function(){box.style.opacity='1';box.style.transform='translateY(0)'})})" +
+  "requestAnimationFrame(function(){requestAnimationFrame(function(){box.style.opacity='1';box.style.translate='0 0'})})" +
   "}catch(e){}};"
 
 /** The script and its call, for a page that is not React (an imported theme). */
