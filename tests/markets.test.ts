@@ -12,9 +12,10 @@ import { join } from "node:path"
 import { baseLanguage, dirOf, languageName, localeFromPath, localizedPath, normalizeLocale, preferredLocale } from "@/lib/markets/locales"
 import { convertMinor, formatMinor, chargeNote, fxFresh, minorUnits, type FxRates } from "@/lib/markets/money"
 import { defaultLocalization, isLocalized, marketForCountry, publishedLanguages, validateLocalization } from "@/lib/markets/model"
-import { isTranslationKey, localizeRecord, localizeSections, sectionKey, blockKey, sourceHash, statusOf, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
+import { isTranslationKey, localizeMenus, localizeTheme, menuTranslatables, seoTranslatables, localizeRecord, localizeSections, sectionKey, blockKey, sourceHash, statusOf, translatablesOf, translationMap, type TranslationRow } from "@/lib/markets/translate"
 import { siteNameIn, siteRouteInLanguage, splitSiteName } from "@/lib/markets/site-name"
 import { parseEcbDaily } from "@/lib/markets/fx-server"
+import { sitemapXml } from "@/lib/website-builder/site-seo"
 import { localizedHref } from "@/components/website-builder/theme/language-switch"
 import type { SectionInstance } from "@/lib/website-builder/types"
 
@@ -108,6 +109,27 @@ console.log("\nTranslations: keyed, hashed, laid over, approved only on the live
   check("a product's title in the language", p.title === "Tasse" && p.price === 10)
 }
 
+console.log("\nMenus and search engine text\n")
+{
+  const menus = { "main-menu": { title: "Main menu", links: [{ title: "Shop", url: "/products", links: [{ title: "Mugs", url: "/collections/mugs" }] }, { title: "About", url: "/about" }] } }
+  const items = menuTranslatables(menus)
+  check("every link of every menu, nested ones too, keyed by position", items.map((i) => i.key).join() === "menu:main-menu:0,menu:main-menu:0.0,menu:main-menu:1" && items.every((i) => isTranslationKey(i.key)), items.map((i) => i.key))
+  const row = (key: string, value: string, source: string, status: TranslationRow["status"] = "approved"): TranslationRow => ({ key, value, sourceHash: sourceHash(source), status, source: "manual" })
+  const map = translationMap([row("menu:main-menu:0", "Boutique", "Shop"), row("menu:main-menu:0.0", "Tasses", "Mugs"), row("menu:main-menu:1", "À propos", "Contact")])
+  const out = localizeMenus(menus, map, { approvedOnly: true })
+  check("a link in the language", out["main-menu"].links[0].title === "Boutique" && out["main-menu"].links[0].links![0].title === "Tasses" && out["main-menu"].links[0].url === "/products")
+  check("  a translation written for another title (a reordered menu) is not laid over", out["main-menu"].links[1].title === "About")
+  const theme = { seo_title: "Mugs from Bucharest", seo_description: "Handmade", page_seo: { about: { title: "About us", description: "Who we are" } }, menus }
+  const seo = seoTranslatables(theme)
+  check("the website's and each page's search engine text", seo.map((i) => i.key).join() === "page:home:seo_title,page:home:seo_description,page:about:seo_title,page:about:seo_description" && seo.every((i) => isTranslationKey(i.key)))
+  const lt = localizeTheme(theme, translationMap([row("page:home:seo_title", "Tasses de Bucarest", "Mugs from Bucharest"), row("page:about:seo_title", "À propos de nous", "About us"), row("menu:main-menu:0", "Boutique", "Shop")]), { approvedOnly: true })
+  check("the theme in the language: its title, a page's title, its menus; the rest as it was", lt.seo_title === "Tasses de Bucarest" && (lt.page_seo.about as { title: string }).title === "À propos de nous" && (lt.page_seo.about as { description: string }).description === "Who we are" && lt.menus["main-menu"].links[0].title === "Boutique" && lt.seo_description === "Handmade")
+  check("  and the original untouched", theme.seo_title === "Mugs from Bucharest" && theme.menus["main-menu"].links[0].title === "Shop")
+  const xml = sitemapXml([{ loc: "https://a.shop/fr/about", alternates: [{ hreflang: "en", href: "https://a.shop/about" }, { hreflang: "fr", href: "https://a.shop/fr/about" }, { hreflang: "x-default", href: "https://a.shop/about" }] }])
+  check("the sitemap names every language of a page", /xmlns:xhtml="http:\/\/www\.w3\.org\/1999\/xhtml"/.test(xml) && /<xhtml:link rel="alternate" hreflang="fr" href="https:\/\/a\.shop\/fr\/about"\/>/.test(xml) && /hreflang="x-default"/.test(xml))
+  check("  and one in one language is as it was", !/xhtml/.test(sitemapXml([{ loc: "https://a.shop/" }])))
+}
+
 console.log("\nThe live address: /fr/… to the same page in French\n")
 {
   check("the name carries the language and comes back out", siteNameIn("andrew", "pt-BR") === "andrew~pt-br" && JSON.stringify(splitSiteName("andrew~fr")) === JSON.stringify({ name: "andrew", locale: "fr" }) && splitSiteName("andrew").locale === null)
@@ -121,6 +143,8 @@ console.log("\nThe live address: /fr/… to the same page in French\n")
   check("a page's links keep its language", localizedHref("/about", "fr", "en", ["en", "fr"], o) === "/fr/about" && localizedHref(`${o}/products/mug?x=1#top`, "fr", "en", ["en", "fr"], o) === "/fr/products/mug?x=1#top")
   check("  but not the cart, checkout, a file, another site or an anchor", localizedHref("/cart", "fr", "en", ["en", "fr"], o) === null && localizedHref("/checkout?items=1", "fr", "en", ["en", "fr"], o) === null && localizedHref("/a.pdf", "fr", "en", ["en", "fr"], o) === null && localizedHref("https://other.com/x", "fr", "en", ["en", "fr"], o) === null && localizedHref("#top", "fr", "en", ["en", "fr"], o) === null)
   check("  and a link already in the language stays", localizedHref("/fr/about", "fr", "en", ["en", "fr"], o) === null)
+  const sw = read("components/website-builder/theme/language-switch.tsx")
+  check("a search box (a GET form) keeps the language; a form that posts is left alone", /form\[action\]/.test(sw) && /!== "get"\) return/.test(sw) && /attributeFilter: \["href", "action"\]/.test(sw))
 }
 
 console.log("\nWired into the website\n")
@@ -131,6 +155,8 @@ console.log("\nWired into the website\n")
   const site = read("lib/website-builder/published-site.ts")
   check("the published page laid over before it is drawn", /publishedSiteByName\(name: string, pageKey = "home", locale: string \| null = null\)/.test(site) && /localizer\.sections\(original, site\.sources\)/.test(site))
   const live = read("lib/markets/live.ts")
+  check("the menus and search engine text laid over on the live page and in its title", /localizer\.theme\(site\.themeSettings/.test(site) && /localizer\.theme\(/.test(read("app/(site)/w/[username]/render-site.tsx")) && /localizer\.theme\(ownSettings/.test(read("components/website-builder/theme/render-product.tsx")) && /inLanguage: localizer \?/.test(read("app/(site)/w/[username]/products/[slug]/page.tsx")))
+  check("the Translate sheet lists the menus and the search engine text", /menuTranslatables\(/.test(read("lib/markets/server.ts")) && /seoTranslatables\(theme\)/.test(read("lib/markets/server.ts")))
   check("only approved translations, only a published language", /r\.status === "approved"/.test(live) && /langs\.others\.find/.test(live))
   for (const route of ["page.tsx", "[page]/page.tsx", "products/page.tsx", "products/[slug]/page.tsx", "collections/page.tsx", "collections/[handle]/page.tsx", "search/page.tsx"]) {
     const src = read(`app/(site)/w/[username]/${route}`)
