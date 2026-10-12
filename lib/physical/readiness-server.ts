@@ -108,7 +108,8 @@ export function productsFrom(rows: ProductRow[], variants: VariantRow[], stock: 
         const counted = tracks && !sellsPastZero
         if (counted) tracked = true
         if (!counted || (v.id && (stock.get(v.id) ?? 0) > 0)) inStock = true
-        if ((v.requires_shipping ?? p.requires_shipping ?? true) !== false) requiresShipping = true
+        /* Every physical product ships or is picked up (lib/physical/checkout-pricing-server). */
+        requiresShipping = true
         const w = Number(v.weight_grams ?? p.weight_grams ?? 0)
         weight = weight === null ? w : Math.min(weight, w)
         const c = Math.max(0, Math.round(Number(v.price_cents ?? p.price_cents ?? 0)))

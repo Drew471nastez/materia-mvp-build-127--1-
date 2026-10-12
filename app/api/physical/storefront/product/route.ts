@@ -53,7 +53,7 @@ export async function GET(request: Request) {
   /* Delivery, for one of the cheapest option: the buyer's country when their browser named one, else where the shop is. */
   const cheapest = [...live].sort((a, b) => Number(a.price_cents ?? 0) - Number(b.price_cents ?? 0))[0] as Record<string, any> | undefined
   const country = COUNTRY_CODES.has(asked) ? asked : (store?.defaultCountry ?? locations.find((l) => l.active)?.country ?? null)
-  const promise = p.requires_shipping === false ? null : deliveryPromise({
+  const promise = deliveryPromise({
     profiles,
     profileId: p.shipping_profile_id ?? null,
     country,

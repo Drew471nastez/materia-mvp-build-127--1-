@@ -689,12 +689,6 @@ export function SiteCheckout({
       {ships ? null : nameFields}
       {/* A physical product handed over in person: no address, and still the phone Settings › Checkout asks for. */}
       {!ships && physical && plan.phone !== "off" ? addressField("phone", plan.phone === "required" ? "Phone" : "Phone (optional)", { id: "checkout-phone", autoComplete: "tel", inputMode: "tel", type: "tel" }) : null}
-      {/* Said, so a buyer never wonders where the address went: the seller set this product as not shipped. */}
-      {!ships && physical ? (
-        <p className="text-[13.5px] leading-snug text-[#6b7280]" data-handed-over="">
-          Not shipped. {brand.name} arranges the handover with you.
-        </p>
-      ) : null}
     </div>
   )
 

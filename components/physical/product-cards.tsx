@@ -685,9 +685,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       </Card>
 
       {/* ── Shipping ─────────────────────────────────────────────────── */}
-      <Card id="physical-shipping" title="Shipping" description={requiresShipping ? "Used to work out delivery at checkout." : "Not shipped: handed over in person, or nothing to send."}>
+      {/* No "not shipped" switch: a physical product is always shipped or picked up, so checkout always asks where it goes (lib/physical/checkout-pricing-server). Handing it over in person is local pickup. */}
+      <Card id="physical-shipping" title="Shipping" description="Used to work out delivery at checkout. To hand it over in person, turn on local pickup in Settings › Shipping.">
         <div className="space-y-4">
-          <Toggle label="This product is shipped" description="Off for things you hand over yourself." checked={requiresShipping} onChange={changed(setRequiresShipping)} />
           {requiresShipping ? (
             <div className={cn("grid gap-3", nonDefaultProfiles.length ? "sm:grid-cols-[minmax(0,1fr)_110px_minmax(0,1.3fr)]" : "grid-cols-[minmax(0,1fr)_110px] sm:max-w-[420px]")}>
               <Field label="Weight" hint="With its packaging">
