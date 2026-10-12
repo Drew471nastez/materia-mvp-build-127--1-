@@ -190,6 +190,39 @@ const SHOTS = [
   /* Printful connected, its own page: the location it made, Send orders straight to production, how tracking comes back. */
   { name: "integration-printful", view: "integrations", q: "integration=printful&printful=1", width: 1060, height: 1200, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-page]")?.firstElementChild, window.__card("Settings"), window.__card("At a glance")], 16)) },
   { name: "integration-page", view: "integrations", q: "integration=meta-pixel", width: 1060, height: 1000, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-page]")], 16)) },
+  /* Round 24: the business on receipts, labels, courier tracking, Contact the shop, partners and shipping apps (the playbook). */
+  { name: "business-details", view: "store", q: "business=1", width: 820, phone: true, clip: cards("Business details") },
+  {
+    name: "label-buy", view: "order", q: "label=1", width: 1100, phone: true,
+    act: [press("Fulfill items"), async (p) => { await p.evaluate(() => document.querySelector('[data-ship-mode-option="label"]')?.click()); await wait(400); await p.evaluate(() => document.querySelector("[data-label-submit]")?.click()); await wait(900) }],
+    clip: (p) => p.evaluate(() => window.__dialog()),
+  },
+  { name: "tracking-buyer", view: "status", q: "tracked=1", width: 900, height: 1100, phone: true, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-shipment-status]")], 16)) },
+  { name: "tracking-seller", view: "order", q: "order=tracked", width: 820, phone: true, clip: (p) => p.evaluate(() => window.__rect([...document.querySelectorAll("#shot section")].slice(0, 2))) },
+  {
+    name: "contact-shop", view: "status", q: "help=1", width: 900, height: 1400, phone: true,
+    act: [async (p) => {
+      await p.evaluate(() => document.querySelector("[data-order-help]")?.scrollIntoView({ block: "center" }))
+      await p.evaluate(() => document.querySelector("[data-order-help-open]")?.click()); await wait(300)
+      await p.evaluate(() => document.querySelector('[data-topic="damaged"]')?.click()); await wait(200)
+      await p.type("[data-order-help] textarea", "The serving bowl arrived with a crack down the side. Photo attached.")
+      await p.evaluate(() => document.activeElement?.blur()); await wait(300)
+    }],
+    clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-order-help]")], 16)),
+  },
+  { name: "order-messages", view: "messages", width: 820, phone: true, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-order-messages]")])) },
+  { name: "case-conversation", view: "case", width: 900, height: 1200, phone: true, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("main header"), document.querySelector("main > div")], 0)) },
+  { name: "integration-tracking", view: "integrations", q: "integration=courier-tracking", width: 1060, height: 1100, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
+  { name: "integration-klaviyo", view: "integrations", q: "integration=klaviyo&klaviyo=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-sync]")], 16)) },
+  { name: "integration-gelato", view: "integrations", q: "integration=gelato&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
+  { name: "integration-cj", view: "integrations", q: "integration=cj-dropshipping&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
+  {
+    name: "match-products", view: "integrations", q: "integration=cj-dropshipping&partners=1", width: 1060, height: 1600, phone: true, settle: 1800,
+    act: [async (p) => { await p.evaluate(() => document.querySelector("[data-match-products-open]")?.click()); await wait(900); await p.evaluate(() => document.querySelector("[data-match-products]")?.scrollIntoView({ block: "center" })); await wait(300) }],
+    clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-match-products]")], 6)),
+  },
+  { name: "integration-shipstation", view: "integrations", q: "integration=shipstation&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
+  { name: "integration-shippo", view: "integrations", q: "integration=shippo&partners=1", width: 1060, height: 1400, settle: 1800, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("[data-integration-header]"), document.querySelector("[data-integration-install]")], 16)) },
   /* The real emails, as their templates write them. */
   { name: "low-stock-email", view: "email-low-stock", width: 640, height: 900, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot iframe")], 0)) },
   { name: "shipping-email", view: "email-shipped", width: 640, height: 1400, settle: 1200, clip: (p) => p.evaluate(() => window.__rect([document.querySelector("#shot iframe")], 0)) },

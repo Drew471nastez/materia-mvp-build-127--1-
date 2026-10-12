@@ -52,7 +52,8 @@ export default async function HelpCategoryPage({ params }: PageProps) {
   const sections = helpSectionsIn(category.slug)
   const articles = helpArticlesIn(category.slug)
   const grouped = sections.length > 1
-  const first = articles[0]
+  /* The article a newcomer should read first: the topic's own choice (the physical products playbook), else its first. */
+  const first = (category.start ? articles.find((a) => a.slug === category.start) : undefined) ?? articles[0]
 
   return (
     <div className="bg-white">
@@ -82,7 +83,7 @@ export default async function HelpCategoryPage({ params }: PageProps) {
               data-help-start=""
             >
               <span className="min-w-0">
-                <span className="block text-[13px] font-medium text-[#6b7280]">New here? Start with</span>
+                <span className="block text-[13px] font-medium text-[#6b7280]">{category.start ? "Start here" : "New here? Start with"}</span>
                 <span className="mt-0.5 block text-[17px] font-semibold leading-snug tracking-tight text-[#1a1a2e]">{first.title}</span>
                 <span className="mt-1 block text-[14px] leading-relaxed text-[#6b7280]">{first.summary}</span>
               </span>

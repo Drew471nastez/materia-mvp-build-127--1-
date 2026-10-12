@@ -23,6 +23,10 @@ import { PHYSICAL_ARTICLES, PHYSICAL_CATEGORY } from "./physical-articles"
 export type HelpBlock =
   | { type: "p"; text: string }
   | { type: "h"; text: string }
+  /** A smaller heading inside a section, for a long article (the playbook): linkable, but not in the contents list. */
+  | { type: "sub"; text: string }
+  /** Short labelled lines, like "What you connect" and its answer, read top to bottom. */
+  | { type: "facts"; items: [label: string, text: string][] }
   | { type: "steps"; items: string[] }
   | { type: "list"; items: string[] }
   | { type: "table"; head: string[]; rows: string[][] }
@@ -50,6 +54,8 @@ export interface HelpCategory {
   description: string
   /** Shown only while physical commerce is on in /admin. */
   physical?: boolean
+  /** The article its page puts first under Start here, when it isn't the first in the list. */
+  start?: string
 }
 
 export interface HelpArticle {
@@ -68,6 +74,8 @@ export interface HelpArticle {
   related?: string[]
   /** Its headings are questions and the paragraph under each is the answer: marked up as an FAQ for search engines. */
   faq?: boolean
+  /** The heading whose numbered steps are its HowTo for search engines, when it isn't the first run of steps. */
+  howTo?: string
   body: HelpBlock[]
 }
 
@@ -824,7 +832,8 @@ const sentence = (t: string) => (/[.!?:]$/.test(t.trim()) ? t : `${t}.`)
 export function articleText(a: HelpArticle): string {
   const parts: string[] = []
   for (const b of a.body) {
-    if (b.type === "p" || b.type === "h" || b.type === "note") parts.push(b.text)
+    if (b.type === "p" || b.type === "h" || b.type === "sub" || b.type === "note") parts.push(b.text)
+    else if (b.type === "facts") parts.push(...b.items.map(([label, text]) => sentence(`${label}: ${text}`)))
     /* Each item and each row ends as a sentence, so a search snippet cut
        from the text reads as one rather than running two items together. */
     else if (b.type === "steps" || b.type === "list") parts.push(...b.items.map(sentence))

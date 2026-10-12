@@ -27,6 +27,8 @@ import { SiteCheckout } from "@/app/checkout/site/site-checkout"
 import { checkoutConfig } from "@/lib/store/checkout-config"
 import { StoreDetailsPanel } from "@/components/app/settings/store-details-panel"
 import { IntegrationsDirectory } from "@/components/app/settings/integrations-directory"
+import { OrderMessagesCard } from "@/components/support/order-messages-card"
+import { CaseView } from "@/app/order-help/[id]/case-view"
 import { shipmentEmail } from "@/lib/physical/email-templates"
 import { lowStockEmail } from "@/lib/notify/seller-commerce"
 
@@ -176,7 +178,7 @@ const channels = {
   ],
 }
 
-const store = { settings: { storeName: "Fern & Clay", phone: "5035550142", phoneCountry: "US", defaultCountry: "US", logoUrl: null, checkout: { nameFields: "first_and_last", phone: "optional", company: "off", address2: "optional", marketingOptIn: true, abandonedRecovery: true, requireAccount: false, requireConfirmedEmail: false }, defaultSalesChannelId: null, ready: true }, detectedCountry: "US", supportEmail: "hello@fernandclay.example", currency: "USD", suggested: { storeName: "Fern & Clay", contactEmail: "hello@fernandclay.example" }, logoDefault: null }
+const store = { settings: { storeName: "Fern & Clay", phone: "5035550142", phoneCountry: "US", defaultCountry: "US", logoUrl: null, checkout: { nameFields: "first_and_last", phone: "optional", company: "off", address2: "optional", marketingOptIn: true, abandonedRecovery: true, requireAccount: false, requireConfirmedEmail: false }, defaultSalesChannelId: null, ready: true, ...(params.has("business") ? { legal: { company: "Fern & Clay LLC", country: "US", line1: "120 Alder Street", line2: "", city: "Portland", postalCode: "97204", region: "OR", taxId: "12-3456789" } } : {}) }, detectedCountry: "US", supportEmail: "hello@fernandclay.example", currency: "USD", suggested: { storeName: "Fern & Clay", contactEmail: "hello@fernandclay.example" }, logoDefault: null }
 
 import { DEFAULT_RETURN_REASONS, DEFAULT_REFUND_REASONS } from "@/lib/store/reasons"
 const reasons = { ready: true, return: DEFAULT_RETURN_REASONS.map((r, i) => ({ ...r, id: `rr${i}` })), refund: DEFAULT_REFUND_REASONS.map((r, i) => ({ ...r, id: `rf${i}` })) }
@@ -205,9 +207,95 @@ function siteQuote(body: { country?: string; deliveryOptionId?: string; delivery
   return { ...q, kind: "ships", delivery: body.country ? q.delivery : { ok: true, options: [], selectedId: null, needsCountry: true } }
 }
 
+/* ── Round 24 screens: labels, courier tracking, Contact the shop, partners ── */
+
+const H = 3_600_000
+/* A fixed "now" for the pictures, so the dates in them never drift: Monday 12 October 2026, 3pm. */
+const NOW = Date.parse("2026-10-12T15:00:00Z")
+const hoursAgo = (h: number) => new Date(NOW - h * H).toISOString()
+
+/* Shippo connected with a test key: the label flow in Fulfill items (the shapes app/api/physical/orders/[id]/label answers). */
+const labelState: { shipments: unknown[]; labels: unknown[] } = { shipments: [], labels: [] }
+const labelOptions = () => ({
+  ready: true,
+  apps: params.has("label") ? [{ id: "shippo", name: "Shippo", test: true }] : [],
+  packages: [
+    { id: "pk1", name: "Mug box", kind: "box", lengthMm: 150, widthMm: 150, heightMm: 150, weightGrams: 180, isDefault: true },
+    { id: "pk2", name: "Padded mailer", kind: "envelope", lengthMm: 305, widthMm: 229, heightMm: 0, weightGrams: 40, isDefault: false },
+  ],
+  defaultPackageId: "pk1",
+  unitSystem: "metric",
+  itemsGrams: 1340,
+  from: { locationId: LOC, name: "Studio", line: "120 Alder Street, Portland, OR, 97204, United States", address: {} },
+  to: { line: "Sam Rivera, 48 Maple Avenue, Denver, CO, 80203, United States", complete: true },
+  labels: labelState.labels,
+})
+const LABEL_RATES = [
+  { id: "rate_ga", shipmentId: "shp_1", carrier: "USPS", service: "Ground Advantage", serviceCode: "usps_ground_advantage", cents: 812, currency: "USD", days: 5, price: "$8.12" },
+  { id: "rate_pri", shipmentId: "shp_1", carrier: "USPS", service: "Priority Mail", serviceCode: "usps_priority", cents: 1145, currency: "USD", days: 2, price: "$11.45" },
+  { id: "rate_ups", shipmentId: "shp_1", carrier: "UPS", service: "Ground", serviceCode: "ups_ground", cents: 1320, currency: "USD", days: 4, price: "$13.20" },
+]
+
+/* The carrier's scans for one parcel, newest first (lib/physical/tracking), as both order pages draw them. */
+const CHECKPOINTS = [
+  { at: hoursAgo(5), status: "out_for_delivery", message: "Out for delivery", location: "Denver, CO, USA" },
+  { at: hoursAgo(14), status: "in_transit", message: "Arrived at USPS Regional Destination Facility", location: "Denver, CO, USA" },
+  { at: hoursAgo(30), status: "in_transit", message: "In transit to next facility", location: "Salt Lake City, UT, USA" },
+  { at: hoursAgo(44), status: "in_transit", message: "Departed USPS Regional Facility", location: "Portland, OR, USA" },
+  { at: hoursAgo(50), status: "in_transit", message: "Accepted at USPS Origin Facility", location: "Portland, OR, USA" },
+  { at: hoursAgo(52), status: "info_received", message: "Shipping label created, USPS awaiting item", location: "Portland, OR, USA" },
+]
+const ETA = "2026-10-13T00:00:00.000Z"
+const trackedShipment = {
+  id: "f1", status: "out_for_delivery", carrier: "USPS", trackingNumber: "9400100000000000000000", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction?tLabels=9400100000000000000000",
+  shippedAt: hoursAgo(52), deliveredAt: null, createdAt: hoursAgo(52), locationId: LOC, provider: "manual",
+  items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }, { orderId: "22222222-2222-4222-8222-222222222222", quantity: 1 }],
+  events: [{ status: "out_for_delivery", message: "From USPS", occurredAt: hoursAgo(5) }, { status: "in_transit", message: "From USPS", occurredAt: hoursAgo(44) }, { status: "shipped", message: "USPS 9400100000000000000000", occurredAt: hoursAgo(52) }],
+  checkpoints: CHECKPOINTS,
+  tracking: { mode: "auto", status: "out_for_delivery", estimatedDelivery: ETA, checkedAt: hoursAgo(0.4), providerName: "AfterShip", error: null },
+}
+
+/* A buyer wrote with Contact the shop (lib/support/cases.ts): the thread on the order, and the buyer's own page. */
+const CASE_ID = "ca5e0000-0000-4000-8000-000000000001"
+const caseSummary = { id: CASE_ID, reason: "damaged", status: "store", escalated: false, escalatedBy: null, orderRef: "0F3A9C2E", kind: "physical", buyerEmail: "sam@example.com", buyerName: "Sam Rivera", createdAt: hoursAgo(98), lastMessageAt: hoursAgo(26), unread: true }
+const caseThread = [
+  { id: 1, author: "buyer", internal: false, body: "The serving bowl arrived with a crack down the side. Photo attached.", createdAt: hoursAgo(98), photos: [{ url: BOWL, name: "bowl.jpg" }] },
+  { id: 2, author: "buyer", internal: false, body: "Any news? A replacement or a refund would both be fine.", createdAt: hoursAgo(26) },
+]
+
+/* Partners and shipping apps, connected to the demo store (?partners): the cards as their pages show them. */
+const connected = (provider: string, extra: Record<string, unknown>) => ({ provider, status: "connected", url: null, keyHint: "4f2a", secretHint: null, lastSyncAt: hoursAgo(1), lastError: null, account: null, verifiedAt: hoursAgo(48), mode: null, autoConfirm: false, webhooks: null, webhookNote: null, location: null, ...extra })
+const partnerStates = () => [
+  connected("gelato", { webhooks: "off", webhookNote: "Gelato's webhooks are added in Gelato, under Developer › Webhooks: paste the address below and tick order status and tracking code updates. Until the first one arrives, Storelib checks Gelato for tracking every few hours.", location: { id: "loc-g", name: "Gelato" }, shipmentMethod: "normal", webhookAddress: "https://storelib.com/api/integrations/webhooks/gelato/demo.Q2hlY2tlZEJ5U3RvcmVsaWI" }),
+  connected("cj_dropshipping", { account: "CJ account 1234567", webhooks: "on", webhookNote: "CJ sends order, tracking and stock updates to Storelib.", location: { id: "loc-c", name: "CJ Dropshipping" }, logistic: "cheapest", fromCountry: "US" }),
+  connected("shipstation", { keyHint: "3210", account: "Fern & Clay in ShipStation", webhooks: "on", ordersSent: 37, labelsBought: 0 }),
+  connected("shippo", { keyHint: "8f7a", mode: "test", labelsBought: 14, ordersSent: 0 }),
+]
+const partnerRows = (provider: string) => [
+  { variantId: "v-tee-m", productId: "p-tee", productTitle: "Glaze club tee", variantName: "Sand / M", sku: "TEE-SAND-M", atPartner: true, link: provider === "gelato" ? { providerVariantId: "apparel_product_gca_t-shirt_gsc_crewneck_gcu_unisex_gqa_classic_gsi_m_gco_sand", label: "Classic unisex crewneck, M, Sand", providerSku: null, fileUrl: "https://fernandclay.example/print/tee.png", stockSync: false, stockLevel: null, stockSyncedAt: null, stockError: null } : { providerVariantId: "1424608152007086080", label: "Cotton tee Sand M", providerSku: "CJNS0000001-Sand-M", fileUrl: null, stockSync: true, stockLevel: 120, stockSyncedAt: hoursAgo(3), stockError: null } },
+  { variantId: "v-tee-l", productId: "p-tee", productTitle: "Glaze club tee", variantName: "Sand / L", sku: "TEE-SAND-L", atPartner: true, link: null },
+  { variantId: "v-poster", productId: "p-poster", productTitle: "Kiln poster", variantName: "50 x 70 cm", sku: null, atPartner: true, link: null },
+]
+const marketing = () => [
+  { provider: "klaviyo", connected: params.has("klaviyo"), keyHint: "a91c", account: "Fern & Clay", listId: "Xy12Ab", listName: "Newsletter", backfill: true, backfillState: "done", lastSyncAt: hoursAgo(0.3), lastError: null, counts: { subscribed: 412, unsubscribed: 9, customers: 268, events: 1544, pulled: 6 }, scopes: [], ready: true },
+  { provider: "omnisend", connected: false, keyHint: null, account: null, listId: null, listName: null, backfill: true, backfillState: null, lastSyncAt: null, lastError: null, counts: { subscribed: 0, unsubscribed: 0, customers: 0, events: 0, pulled: 0 }, scopes: [], ready: true },
+]
+
 /* ── The API ───────────────────────────────────────────────────────────── */
 
 function route(method: string, path: string, body: Record<string, unknown>): unknown {
+  /* Buy a label: Shippo's rates, then the label (only with ?label; otherwise no label app is connected). */
+  if (path.startsWith("/api/physical/orders/") && path.endsWith("/label")) {
+    if (method === "GET") return labelOptions()
+    if (body.action === "rates") return { provider: "shippo", shipmentId: "shp_1", rates: LABEL_RATES, addressOk: true, warnings: [], parcel: { lengthCm: 15, widthCm: 15, heightCm: 15, grams: 1520 } }
+    return {}
+  }
+  if (path === "/api/store/tracking-app") return { tracking: { platform: { on: true, providerName: "AfterShip", webhooks: true }, ready: true, own: null, following: 7, lastCheckedAt: hoursAgo(0.2) } }
+  if (path === "/api/store/integrations/marketing") return { marketing: marketing() }
+  if (path === "/api/store/cases") return { cases: [caseSummary] }
+  if (path.startsWith("/api/store/cases/")) return { case: { ...caseSummary, unread: false }, messages: caseThread }
+  if (path === "/api/physical/integrations/gelato/shipment-methods") return { methods: [{ uid: "normal", name: "Standard", hasTracking: true }, { uid: "ups_ground", name: "UPS Ground", hasTracking: true }] }
+  if (/^\/api\/physical\/integrations\/(gelato|cj_dropshipping)\/links/.test(path)) return { rows: partnerRows(path.includes("gelato") ? "gelato" : "cj_dropshipping"), locationId: "loc-c", synced: 1 }
   if (path === "/api/checkout/site") return body.action === "quote" ? siteQuote(body as never) : {}
   if (path.startsWith("/api/physical/checkout/quote")) return quote(body as never)
   if (path === "/api/physical/checkout") return { url: "#", free: false }
@@ -219,10 +307,16 @@ function route(method: string, path: string, body: Record<string, unknown>): unk
   if (path.startsWith("/api/physical/inventory/movements")) return { movements: [] }
   if (path.startsWith("/api/physical/inventory")) return inventory
   if (path.startsWith("/api/physical/transfers")) return { transfers: [] }
-  if (path.startsWith("/api/physical/orders/")) return { order: order(params.get("order") === "shipped" ? "shipped" : params.get("order") === "pickup" ? "pickup" : "new"), locations: [{ id: LOC, name: "Studio" }] }
+  if (path.startsWith("/api/physical/orders/")) {
+    const o = order(params.get("order") === "shipped" || params.get("order") === "tracked" ? "shipped" : params.get("order") === "pickup" ? "pickup" : "new")
+    /* ?order=tracked: the parcel followed by courier tracking, with the carrier's scans. */
+    if (params.get("order") === "tracked") Object.assign(o, { shipments: [trackedShipment], events: [{ id: 3, kind: "fulfillment.out_for_delivery", message: "Shipment out for delivery", actor: "webhook", createdAt: hoursAgo(5) }, ...o.events] })
+    return { order: o, locations: [{ id: LOC, name: "Studio" }] }
+  }
   if (path === "/api/store/integrations/catalog") return { overrides: [] }
   if (path.startsWith("/api/store/integrations")) return { tracking: { ga4: "G-1A2B3C4D5E" }, ready: true }
   /* Printful connected to the demo store (?printful): the location it made, drafts to approve, tracking by webhook. */
+  if (path.startsWith("/api/physical/integrations") && params.has("partners")) return { integrations: partnerStates() }
   if (path.startsWith("/api/physical/integrations")) return { integrations: params.has("printful") ? [{ provider: "printful", status: "connected", url: null, keyHint: "7Qx2", secretHint: null, lastSyncAt: "2026-10-10T09:12:00Z", lastError: null, account: "Fern & Clay", verifiedAt: "2026-10-10T09:12:00Z", mode: null, autoConfirm: false, webhooks: "on", webhookNote: null, location: { id: "loc-printful", name: "Printful" } }] : [] }
   if (path.startsWith("/api/store/reviews-app")) return { settings: { enabled: false } }
   if (path.startsWith("/api/store/taxes")) return taxes
@@ -412,7 +506,8 @@ function App() {
           <OrderStatusView
             token="tok_demo_demo_demo_demo_demo"
             justPaid={false}
-            shop={{ name: "Fern & Clay", avatar: null, email: "hello@fernandclay.example" }}
+            shop={{ name: "Fern & Clay", avatar: null, email: "hello@fernandclay.example", ...(params.has("help") ? { phone: "+1 503 555 0142", websiteUrl: "https://fernandclay.example" } : {}) }}
+            {...(params.has("help") ? { help: { openCase: null } } : {})}
             canReturn={!params.get("cancel")}
             cancel={(params.get("cancel") as never) ?? undefined}
             order={{
@@ -424,9 +519,27 @@ function App() {
                 { orderId: "11111111-1111-4111-8111-111111111111", title: "Speckled mug", variantName: "12 oz / Sand", imageUrl: MUG_SAND, quantity: 2, cents: 6400, type: "physical", receiptToken: null, returnable: 2 },
                 { orderId: "22222222-2222-4222-8222-222222222222", title: "Serving bowl", variantName: null, imageUrl: BOWL, quantity: 1, cents: 4400, type: "physical", receiptToken: null, returnable: 1 },
               ],
-              shipments: params.get("cancel") ? [] : [{ id: "s1", status: params.has("problem") ? "failed" : "in_transit", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }] }],
+              shipments: params.get("cancel")
+                ? []
+                : params.has("tracked")
+                  ? /* Followed by courier tracking: the carrier's scans and the estimated delivery. */
+                    [{ id: "s1", status: "out_for_delivery", carrier: "USPS", trackingNumber: trackedShipment.trackingNumber, trackingUrl: trackedShipment.trackingUrl, shippedAt: trackedShipment.shippedAt, deliveredAt: null, items: trackedShipment.items, updates: [...trackedShipment.events].reverse().map((e) => ({ status: e.status, at: e.occurredAt })), checkpoints: CHECKPOINTS, tracking: { status: "out_for_delivery", estimatedDelivery: ETA, auto: true } }]
+                  : [{ id: "s1", status: params.has("problem") ? "failed" : "in_transit", carrier: "USPS", trackingNumber: "9400 1000 0000 0000 0000 00", trackingUrl: "https://tools.usps.com/go/TrackConfirmAction", shippedAt: "2026-10-08T15:00:00Z", deliveredAt: null, items: [{ orderId: "11111111-1111-4111-8111-111111111111", quantity: 2 }] }],
               returns: [],
             } as never}
+          />
+        </div>
+      )
+    case "messages":
+      return <Page width={760}><OrderMessagesCard checkoutId={PRODUCT} /></Page>
+    case "case":
+      return (
+        <div id="shot">
+          <CaseView
+            id={CASE_ID}
+            k="demo"
+            initial={{ case: caseSummary as never, messages: caseThread as never, escalation: { can: true, from: hoursAgo(26) } }}
+            store={{ name: "Fern & Clay", logoUrl: null, email: "hello@fernandclay.example", phone: "+1 503 555 0142", websiteUrl: "https://fernandclay.example" }}
           />
         </div>
       )

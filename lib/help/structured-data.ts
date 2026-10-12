@@ -43,22 +43,34 @@ export function helpFaq(a: HelpArticle): { q: string; a: string }[] {
     current = null
   }
   for (const b of a.body) {
-    if (b.type === "h") {
+    if (b.type === "h" || b.type === "sub") {
       flush()
       if (/\?$/.test(b.text.trim())) current = { q: plainText(b.text), parts: [] }
     } else if (current && (b.type === "p" || b.type === "note")) current.parts.push(plainText(b.text))
     else if (current && (b.type === "steps" || b.type === "list")) current.parts.push(b.items.map(plainText).join(" "))
+    else if (current && b.type === "facts") current.parts.push(b.items.map(([label, text]) => `${label}: ${plainText(text)}`).join(" "))
   }
   flush()
   return out
 }
 
-/** The first run of numbered steps worth a HowTo: at least three, named by the heading above them. */
+/**
+ * The first run of numbered steps worth a HowTo: at least three, named by the
+ * heading above them. An article that names its HowTo heading (`howTo`) uses
+ * the first steps after that heading instead.
+ */
 export function helpHowTo(a: HelpArticle): { name: string; steps: string[] } | null {
   let heading: string | null = null
+  let reached = !a.howTo
   for (const b of a.body) {
-    if (b.type === "h") heading = plainText(b.text)
-    if (b.type === "steps" && b.items.length >= 3) return { name: heading && !/^\d/.test(heading) ? `${a.title}: ${heading}` : a.title, steps: b.items.map(plainText) }
+    if (b.type === "h" || (a.howTo && b.type === "sub")) {
+      if (b.type === "h") heading = plainText(b.text)
+      if (a.howTo && plainText(b.text) === a.howTo) {
+        heading = plainText(b.text)
+        reached = true
+      }
+    }
+    if (reached && b.type === "steps" && b.items.length >= 3) return { name: heading && !/^\d/.test(heading) ? `${a.title}: ${heading}` : a.title, steps: b.items.map(plainText) }
   }
   return null
 }

@@ -88,6 +88,14 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
     seen.set(base, n)
     return n === 1 ? base : `${base}-${n}`
   }
+  /* A smaller heading has an id to link to, counted apart so the contents list's ids stay as helpToc makes them. */
+  const subSeen = new Map<string, number>()
+  const subIdOf = (text: string) => {
+    const base = headingId(text)
+    const n = (subSeen.get(base) ?? 0) + 1
+    subSeen.set(base, n)
+    return n === 1 ? base : `${base}-${n}`
+  }
   return (
     <div className="text-[16px] leading-[1.7] text-[#374151] sm:text-[16.5px]" data-help-body="">
       {blocks.map((b, i) => {
@@ -104,6 +112,26 @@ export function ArticleBody({ blocks }: { blocks: HelpBlock[] }) {
               <h2 key={i} id={idOf(b.text)} className="mt-12 scroll-mt-24 text-[21px] font-semibold leading-snug tracking-[-0.01em] text-[#1a1a2e] first:mt-0 sm:text-[22px]">
                 {b.text}
               </h2>
+            )
+          case "sub":
+            return (
+              <h3 key={i} id={subIdOf(b.text)} className="mt-10 scroll-mt-24 text-[18px] font-semibold leading-snug tracking-[-0.005em] text-[#1a1a2e]">
+                {b.text}
+              </h3>
+            )
+          case "facts":
+            /* Labelled lines, one under the other: the label on the left at a desk, above its words on a phone. */
+            return (
+              <dl key={i} className={`${gap} divide-y divide-[#f0f0f2] rounded-xl border border-[#e5e7eb]`} data-help-facts="">
+                {b.items.map(([label, text], j) => (
+                  <div key={j} className="px-4 py-3 sm:grid sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-5">
+                    <dt className="text-[14px] font-semibold leading-[1.6] text-[#1a1a2e]">{label}</dt>
+                    <dd className="mt-0.5 text-[15px] leading-[1.6] text-[#374151] sm:mt-0">
+                      <RichText text={text} />
+                    </dd>
+                  </div>
+                ))}
+              </dl>
             )
           case "steps":
             return (
