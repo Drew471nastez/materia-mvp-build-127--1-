@@ -23,7 +23,6 @@ import { SPACE_KIND_LABEL, checkSpace } from "./logic"
 import { AccessEditor, describeRule } from "./access-editor"
 import { Confirm, Dialog, Empty, ListCard, ListNote, Notice, RowMenu, Toggle, buttonPrimary, buttonSecondary, errorText, field, label, selectField, send, useToast } from "./parts"
 import { tt } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
 
 const KIND_ICON: Record<SpaceKind, string> = { feed: "💬", chat: "⚡", announcements: "📣", resources: "📚" }
 const POST_ROLE_LABEL: Record<PostRole, string> = { get member() { return tt("Members post") }, get moderator() { return tt("Moderators post") }, get admin() { return tt("Admins post") } }
@@ -120,7 +119,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
       <ListCard
         head={
           <ListNote>
-            {spaces.length} {spaces.length === 1 ? "space" : "spaces"}
+            {tt("{n, plural, one {# space} other {# spaces}}", { n: spaces.length })}
             <span className="max-sm:hidden">{tt(", in the order members see them")}</span>
           </ListNote>
         }
@@ -146,7 +145,7 @@ export function SpacesSection({ head, initial, options }: { head: CommunityHead;
                     {s.archived ? <StatusBadge tone="neutral">{tt("Archived")}</StatusBadge> : null}
                   </p>
                   <p className="truncate text-[12.5px] text-[#6b7280]">
-                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), `${s.posts.toLocaleString(appLocale())} ${s.kind === "chat" ? "messages" : s.posts === 1 ? "post" : "posts"}`].filter(Boolean).join(" · ")}
+                    {[SPACE_KIND_LABEL[s.kind], s.kind === "chat" ? null : POST_ROLE_LABEL[s.postRole], describeRule(s.viewAccess, options), (s.kind === "chat" ? tt("{n, plural, one {# message} other {# messages}}", { n: s.posts }) : tt("{n, plural, one {# post} other {# posts}}", { n: s.posts }))].filter(Boolean).join(" · ")}
                   </p>
                 </div>
                 <div className="hidden items-center gap-0.5 sm:flex">

@@ -65,7 +65,7 @@ export function Overview({ head, data, created }: { head: CommunityHead; data: O
     { label: tt("Members"), value: f.members.toLocaleString(appLocale()) },
     { label: tt("Active, 30 days"), value: f.active30d.toLocaleString(appLocale()) },
     { label: tt("New, 30 days"), value: f.new30d.toLocaleString(appLocale()) },
-    { label: tt("Posts this week"), value: f.posts7d.toLocaleString(appLocale()), hint: `${f.comments7d.toLocaleString(appLocale())} ${f.comments7d === 1 ? "comment" : "comments"}` },
+    { label: tt("Posts this week"), value: f.posts7d.toLocaleString(appLocale()), hint: tt("{n, plural, one {# comment} other {# comments}}", { n: f.comments7d }) },
   ]
   if (data.sells && head.can.manage_pricing) {
     figures.push(

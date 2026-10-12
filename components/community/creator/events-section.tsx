@@ -207,11 +207,11 @@ export function EventsSection({ head, initial, options, openNew }: { head: Commu
     if (!tickets.ready) return null
     const m = e.money
     if (!m || (m.sold === 0 && m.invited === 0)) return (e.priceCents ?? 0) > 0 ? `${eventPriceLabel(e.priceCents as number, e.currency)} a ticket · none sold yet` : null
-    const parts = [`${m.sold} ${m.sold === 1 ? "ticket" : "tickets"}`, eventPriceLabel(m.grossCents, m.currency)]
-    if (m.invited > 0) parts.push(`${m.invited} free`)
-    if (m.refundedCents > 0) parts.push(`${eventPriceLabel(m.refundedCents, m.currency)} refunded`)
+    const parts = [tt("{sold, plural, one {# ticket} other {# tickets}}", { sold: m.sold }), eventPriceLabel(m.grossCents, m.currency)]
+    if (m.invited > 0) parts.push(tt("{invited} free", { invited: m.invited }))
+    if (m.refundedCents > 0) parts.push(tt("{amount} refunded", { amount: eventPriceLabel(m.refundedCents, m.currency) }))
     /* A cancelled event that kept the money says so, because that is the thing left to do. */
-    else if (e.status === "cancelled" && m.grossCents > 0) parts.push("nobody refunded yet")
+    else if (e.status === "cancelled" && m.grossCents > 0) parts.push(tt("nobody refunded yet"))
     return parts.join(" · ")
   }
 

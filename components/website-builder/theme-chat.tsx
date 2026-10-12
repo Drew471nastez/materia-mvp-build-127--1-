@@ -1268,7 +1268,7 @@ function ThemeChatPanel({
         }
         const kind = kindOf(file)
         if (room <= 0) {
-          problems.push(`${MAX_IMAGES} pictures is the most one message can carry.`)
+          problems.push(tt("{maxImages} pictures is the most one message can carry.", { maxImages: MAX_IMAGES }))
           break
         }
         if (kind === "video") {

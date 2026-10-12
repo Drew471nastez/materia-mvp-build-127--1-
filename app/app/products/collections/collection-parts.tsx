@@ -16,7 +16,6 @@ import { PORTRAIT_QUALITY, optimizedImageUrl, optimizedSrcSet } from "@/lib/imag
 import { readRules, type CollectionRule, type RuleField, type RuleOp, type RuleProduct } from "@/lib/physical/collections"
 import type { CollectionProduct, CollectionView } from "@/lib/physical/collections-server"
 import { tt, msg } from "@/lib/i18n/text"
-import { appLocale } from "@/lib/i18n/format"
 
 export type Collection = CollectionView
 export type { CollectionProduct }
@@ -97,7 +96,7 @@ export function howWords(c: Pick<Collection, "kind" | "rules" | "match">): strin
   return rest.length ? tt("{lead} {value} {length} more", { lead, value: c.match === "any" ? "or" : "and", length: rest.length }) : lead
 }
 
-export const countWords = (n: number) => `${n.toLocaleString(appLocale())} ${n === 1 ? "product" : "products"}`
+export const countWords = (n: number) => tt("{n, plural, one {# product} other {# products}}", { n })
 
 /** A product as a rule reads it (lib/physical/collections), from what the server sent. */
 export function ruleProduct(p: CollectionProduct): RuleProduct {

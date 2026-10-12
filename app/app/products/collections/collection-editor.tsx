@@ -52,6 +52,7 @@ import {
   type CollectionProduct,
 } from "./collection-parts"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /** On a phone the sheet is the form's height whatever is in it, so switching between picking and rules never moves its top edge. */
 const SHEET_HEIGHT = "calc(var(--vv-h, 100dvh) * 0.9)"
@@ -491,7 +492,7 @@ function Caught({ finished, caught }: { finished: number; caught: CollectionProd
       ) : (
         <>
           <p className="text-[13px] leading-5 text-[#4b5563]">
-            <span className="font-semibold tabular-nums text-[#1a1a2e]">{countWords(caught.length)}</span> {caught.length === 1 ? "matches" : "match"}
+            <Rich text={tt("{n, plural, one {{products} matches} other {{products} match}}", { n: caught.length })} parts={{ products: <span className="font-semibold tabular-nums text-[#1a1a2e]">{countWords(caught.length)}</span> }} />
           </p>
           <ul className="mt-2 space-y-2">
             {first.map((p) => (

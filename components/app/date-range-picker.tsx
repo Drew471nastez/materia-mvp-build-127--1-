@@ -727,7 +727,7 @@ export function RangePanel({ initial, today, months, onBack, onApply, inline = f
       {!inline && (
         <div className={cn("flex items-center justify-between gap-3 border-t border-[#eef0f2]", compact ? "px-4 pb-1 pt-3" : "px-5 py-3")}>
           <p className={cn("min-w-0 truncate tabular-nums text-[#6b7280]", compact ? "text-[13px]" : "text-[12px]")} aria-live="polite">
-            {complete ? `${days} ${days === 1 ? "day" : "days"}` : draft.start ? tt("Pick the last day") : tt("Pick the first day")}
+            {complete ? tt("{days, plural, one {# day} other {# days}}", { days }) : draft.start ? tt("Pick the last day") : tt("Pick the first day")}
           </p>
           <div className="flex shrink-0 gap-2">
             {onBack ? (

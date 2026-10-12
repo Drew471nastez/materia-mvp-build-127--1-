@@ -361,7 +361,7 @@ function LessonRow(props: {
           <span className="mt-0.5 flex items-center gap-2 text-[12px] text-[#9ca3af]">
             <span>{what}</span>
             {l.durationSeconds ? <span className="tabular-nums">{clock(l.durationSeconds)}</span> : null}
-            {l.attachments.length ? <span>{l.attachments.length} {l.attachments.length === 1 ? "file" : "files"}</span> : null}
+            {l.attachments.length ? <span>{tt("{n, plural, one {# file} other {# files}}", { n: l.attachments.length })}</span> : null}
             {l.isPreview ? <span className="font-medium text-[#8b5cf6]">{tt("Free preview")}</span> : null}
           </span>
         </span>

@@ -960,7 +960,7 @@ export function takenAwayLine(m: { status: string; mutedUntil?: string | null; a
   const what = a?.kind === "banned" ? tt("Banned") : a?.kind === "removed" ? tt("Removed") : a?.kind === "suspended" ? tt("Suspended") : a?.kind === "muted" ? tt("Muted") : m.status === "banned" ? tt("Banned") : m.status === "removed" ? tt("Removed") : m.status === "paused" ? tt("Suspended") : tt("Muted")
   const parts = [a?.byName ? tt("{what} by {byName}", { what, byName: a.byName }) : what]
   if (a?.at) parts.push(relativeTime(a.at, now))
-  if (a?.kind === "muted" && (a.until || m.mutedUntil)) parts.push(`ends ${dayAndMonth(a.until ?? m.mutedUntil ?? "")}`)
+  if (a?.kind === "muted" && (a.until || m.mutedUntil)) parts.push(tt("ends {date}", { date: dayAndMonth(a.until ?? m.mutedUntil ?? "") }))
   if (a?.reason) parts.push(a.reason)
   return parts.filter(Boolean).join(" · ")
 }

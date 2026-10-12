@@ -626,7 +626,7 @@ function SubscribersTable(props: EmailsHomeProps) {
     /* Websites first, by size; then Storelib's own pages; Not recorded last. */
     return [...count.entries()]
       .sort(([ak, a], [bk, b]) => Number(ak === "none") - Number(bk === "none") || Number(!ak.startsWith("site:")) - Number(!bk.startsWith("site:")) || b.n - a.n)
-      .map(([key, c]) => ({ value: key, label: c.label, hint: `${c.n.toLocaleString(appLocale())} ${c.n === 1 ? "contact" : "contacts"}` }))
+      .map(([key, c]) => ({ value: key, label: c.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n: c.n }) }))
   }, [views])
 
   const rows = React.useMemo(
@@ -647,7 +647,7 @@ function SubscribersTable(props: EmailsHomeProps) {
     () =>
       STATUS_GROUPS.map((g) => {
         const n = props.subscribers.filter((s) => g.match(s.status)).length
-        return { value: g.value, label: g.label, hint: `${n.toLocaleString(appLocale())} ${n === 1 ? "contact" : "contacts"}` }
+        return { value: g.value, label: g.label, hint: tt("{n, plural, one {# contact} other {# contacts}}", { n }) }
       }),
     [props.subscribers],
   )

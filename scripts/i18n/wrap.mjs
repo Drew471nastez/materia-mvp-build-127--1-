@@ -84,7 +84,9 @@ for (const rel of files) {
     continue
   }
   const { sf, findings } = scanSource(text, rel)
-  let todo = findings.filter((f) => !f.translated && !f.ignored)
+  /* An English plural (n === 1 ? "item" : "items") needs a person: the sentence around it becomes one plural message. */
+  for (const f of findings) if (f.kind === "plural" && !f.translated && !f.ignored) manual.push(`${rel}:${f.line}\tplural\t${f.text}`)
+  let todo = findings.filter((f) => !f.translated && !f.ignored && f.kind !== "plural")
   if (!todo.length) continue
   if (isServerFile(rel, text) && !process.argv.includes("--server")) {
     for (const f of todo) manual.push(`${rel}:${f.line}\tserver\t${f.text}`)

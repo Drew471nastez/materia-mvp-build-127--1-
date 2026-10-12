@@ -219,7 +219,7 @@ export function AnalyticsSection({ head, initial }: { head: CommunityHead; initi
                   {p.title}
                 </a>
                 <span className="shrink-0 text-[12.5px] tabular-nums text-[#6b7280]">
-                  {p.reactions} {p.reactions === 1 ? "like" : "likes"} · {p.comments} {p.comments === 1 ? "comment" : "comments"}
+                  {tt("{n, plural, one {# like} other {# likes}}", { n: p.reactions })} · {tt("{n, plural, one {# comment} other {# comments}}", { n: p.comments })}
                 </span>
               </li>
             ))}

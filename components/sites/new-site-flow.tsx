@@ -256,7 +256,9 @@ export function NewSiteFlow() {
  */
 function composeBrief(brief: string, type: string | null, goal: string | null): string {
   const parts = [brief.trim()]
+  /* For the model, in English whatever the dashboard reads in. i18n-ignore-start */
   if (type) parts.push(`Website type: ${type}.`)
   if (goal) parts.push(`Main goal: ${goal}.`)
+  /* i18n-ignore-end */
   return parts.filter(Boolean).join(" ")
 }

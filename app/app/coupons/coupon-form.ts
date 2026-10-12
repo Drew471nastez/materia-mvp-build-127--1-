@@ -199,18 +199,18 @@ export function summaryLines(form: CouponForm, products: Pick<CouponProduct, "id
         ? products.find((p) => p.id === form.product_ids[0])?.title ?? tt("1 product")
         : tt("{length} products", { length: form.product_ids.length })
   if (form.discount_value && value > 0) {
-    lines.push(`${form.discount_type === "percentage" ? `${value}%` : money(value)} off ${on}`)
+    lines.push(tt("{value} off {on}", { value: form.discount_type === "percentage" ? `${value}%` : money(value), on }))
   } else {
-    lines.push(`Applies to ${on}`)
+    lines.push(tt("Applies to {on}", { on }))
   }
-  if (form.has_min_purchase && Number(form.min_purchase_amount) > 0) lines.push(`Orders of ${money(Number(form.min_purchase_amount))} or more`)
+  if (form.has_min_purchase && Number(form.min_purchase_amount) > 0) lines.push(tt("Orders of {amount} or more", { amount: money(Number(form.min_purchase_amount)) }))
   if (form.has_usage_limit && Number(form.usage_limit) >= 1) {
     const n = Number(form.usage_limit)
-    lines.push(n === 1 ? "Can be used once" : `Can be used ${n.toLocaleString(appLocale())} times`)
+    lines.push(tt("{n, plural, one {Can be used once} other {Can be used # times}}", { n }))
   }
-  if (form.has_start && validLocal(form.starts_at)) lines.push(`Starts ${when(form.starts_at)}`)
-  if (form.has_end && validLocal(form.expires_at)) lines.push(`Ends ${when(form.expires_at)}`)
-  if (!form.has_end) lines.push("No end date")
+  if (form.has_start && validLocal(form.starts_at)) lines.push(tt("Starts {date}", { date: when(form.starts_at) }))
+  if (form.has_end && validLocal(form.expires_at)) lines.push(tt("Ends {date}", { date: when(form.expires_at) }))
+  if (!form.has_end) lines.push(tt("No end date"))
   return lines
 }
 

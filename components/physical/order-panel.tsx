@@ -209,7 +209,7 @@ export function historyOf(order: PhysicalOrder): PhysicalHistory {
 /* ─── Main column: to fulfil, shipments, returns ─────────────────────── */
 
 const lineName = (l: PhysicalLine) => `${l.title}${l.variantName ? `, ${l.variantName}` : ""}`
-const countLabel = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
+const countLabel = (n: number) => tt("{n, plural, one {# item} other {# items}}", { n })
 
 type Dialog = { fulfil: { lines: string[]; locationId: string | null } } | { tracking: PhysicalShipment } | "return" | "cancel" | null
 

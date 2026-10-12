@@ -73,7 +73,7 @@ export const SCOPE_EXCLUDE = [
  */
 export const LIB_SCOPE = [
   /^lib\/orders\/(order-view|timeline|metrics|order-source)\.ts$/,
-  /^lib\/home\/(progress|physical-setup)\.ts$/,
+  /^lib\/home\/(progress|physical-setup|announcements)\.ts$/,
   /^lib\/analytics\/(reports|summary)\.ts$/,
   /^lib\/payments\/stripe\/status\.ts$/,
   /^lib\/search\/(app-pages|app-search)\.ts$/,
@@ -251,7 +251,7 @@ const USER_CALL = /^(toast|toast\.(success|error|info|warning|message|loading|pr
 
 /** Calls whose string arguments are never words a creator reads. */
 const TECH_CALL = /^(cn|clsx|cx|twMerge|classNames|cva|console\.\w+|require|import|fetch|postJson|getJson|putJson|patchJson|del|querySelector|querySelectorAll|closest|matches|getAttribute|setAttribute|removeAttribute|hasAttribute|addEventListener|removeEventListener|dispatchEvent|CustomEvent|Event|getItem|setItem|removeItem|localStorage\.\w+|sessionStorage\.\w+|parseInt|parseFloat|Number|String|Boolean|Symbol|BigInt|Date|RegExp|URL|URLSearchParams|Headers|Request|Response|Blob|File|FormData|Intl\.\w+|encodeURIComponent|decodeURIComponent|encodeURI|decodeURI|escape|unescape|btoa|atob|setTimeout|setInterval|requestAnimationFrame|useState|useRef|useMemo|useCallback|useReducer|useContext|createContext|forwardRef|memo|lazy|dynamic|redirect|notFound|permanentRedirect|revalidatePath|revalidateTag|cookies|headers|useSearchParams|usePathname|useRouter|useParams|createClient|from|storage|tt|t|getT|getServerT|getTranslation|dict|translate|keyOf|track|trackEvent|sendEvent|logEvent|captureException|captureMessage|reportError|playSound|haptic|vibrate|announceAvatar|startNavigationLoading|prefetchAppPage|openExternal|open|assertNever|invariant|expect|describe|it|test|check|eq|ok|equal|deepEqual|strictEqual|throws|rejects|match|includes|has|is)$/
-const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|endsWith|indexOf|split|replace|replaceAll|match|test|search|padStart|padEnd|join|toLowerCase|toUpperCase|localeCompare|lastIndexOf|from|select|eq|neq|in|is|order|or|not|filter|match|ilike|like|gte|lte|gt|lt|contains|rpc|upload|download|remove|createSignedUrl|getPublicUrl|channel|on|subscribe|push|replace|prefetch|refresh|redirect|pushState|replaceState|postMessage|matchMedia|toLocaleString|toLocaleDateString|toLocaleTimeString|format|formatToParts|of|animate|scrollTo|scrollIntoView|focus|createElement|createTextNode|insertAdjacentHTML|setProperty|getPropertyValue|removeProperty|add|toggle|contains|item|key|call|apply|bind|emit|send|track|capture|identify|log|warn|debug|trace|mark|measure|getEntriesByName|observe|unobserve|disconnect|then|catch|finally|resolve|reject|stringify|parse|assign|keys|values|entries|freeze|defineProperty)$/
+const TECH_METHOD = /^(get|set|has|delete|append|getAll|includes|startsWith|endsWith|indexOf|split|replace|replaceAll|match|test|search|padStart|padEnd|join|toLowerCase|toUpperCase|localeCompare|lastIndexOf|from|select|eq|neq|in|is|order|or|not|filter|match|ilike|like|gte|lte|gt|lt|contains|rpc|upload|download|remove|createSignedUrl|getPublicUrl|channel|on|subscribe|replace|prefetch|refresh|redirect|pushState|replaceState|postMessage|matchMedia|toLocaleString|toLocaleDateString|toLocaleTimeString|format|formatToParts|of|animate|scrollTo|scrollIntoView|focus|createElement|createTextNode|insertAdjacentHTML|setProperty|getPropertyValue|removeProperty|add|toggle|contains|item|key|call|apply|bind|emit|send|track|capture|identify|log|warn|debug|trace|mark|measure|getEntriesByName|observe|unobserve|disconnect|then|catch|finally|resolve|reject|stringify|parse|assign|keys|values|entries|freeze|defineProperty)$/
 
 /** Bindings that are themselves translations, so nothing inside is reported. */
 const TRANSLATED_CALL = /^(tt|ttx|msg|t|getT|getServerT|getTranslation|translate|tn|tp)$/
@@ -588,6 +588,12 @@ export function isInlineValue(expr) {
  * finding: { kind, text, start, end, line, translated, node }
  *   text runs merge "You have {count} orders" across JSX children.
  */
+/** "item"/"items" is a plural; "single"/"multi" or "1fr"/"2fr" is a value. */
+function looksLikeCodePair(a, b) {
+  const w = (x) => x.trim()
+  return !(w(b).startsWith(w(a)) || w(a).startsWith(w(b)) || /\s/.test(a + b)) || /[-_/:[\]]|\d/.test(a + b)
+}
+
 export function scanSource(sourceText, fileName = "file.tsx") {
   const sf = ts.createSourceFile(fileName, sourceText, ts.ScriptTarget.Latest, true, fileName.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS)
   const findings = []
@@ -704,6 +710,10 @@ export function scanSource(sourceText, fileName = "file.tsx") {
           if (pos !== "error") push({ kind: pos === "attr?" ? "attr" : pos, text: message, values, node, start: node.getStart(sf), end: node.getEnd(), translated: false, template: true })
         }
       }
+    }
+    /* n === 1 ? "item" : "items": English's own plural, which other languages count differently. */
+    if (ts.isConditionalExpression(node) && !insideTranslation(node) && ts.isBinaryExpression(node.condition) && /^(===|!==|==|!=)$/.test(node.condition.operatorToken.getText(sf)) && /^1$/.test(node.condition.right.getText(sf)) && ts.isStringLiteral(node.whenTrue) && ts.isStringLiteral(node.whenFalse) && /\p{L}{2,}/u.test(node.whenTrue.text + node.whenFalse.text) && !looksLikeCodePair(node.whenTrue.text, node.whenFalse.text)) {
+      push({ kind: "plural", text: `${node.whenTrue.text} / ${node.whenFalse.text}`, node, start: node.getStart(sf), end: node.getEnd(), translated: false })
     }
     /* ttx("person", "Left"): the catalogs' key is "person::Left". */
     const isText = (a) => a && (ts.isStringLiteral(a) || ts.isNoSubstitutionTemplateLiteral(a))

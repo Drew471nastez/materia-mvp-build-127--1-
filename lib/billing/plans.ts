@@ -91,14 +91,14 @@ export function planHighlights(id: PlanId): string[] {
   const storage = PLAN_LIMITS[id]
   const lines = [feeLine(id)]
 
-  if (sites.customDomain) lines.push("Your own domain")
-  if (sites.removeBranding) lines.push("No Storelib branding")
-  if (id !== "free") lines.push("Verified badge")
-  if (id === "free") lines.push("Unlimited digital products")
+  if (sites.customDomain) lines.push(tt("Your own domain"))
+  if (sites.removeBranding) lines.push(tt("No Storelib branding"))
+  if (id !== "free") lines.push(tt("Verified badge"))
+  if (id === "free") lines.push(tt("Unlimited digital products"))
 
-  lines.push(`${sites.maxSites} websites, ${sites.maxPages} pages each`)
-  lines.push(`${formatBytes(storage.storageQuotaBytes)} of file storage`)
-  lines.push(`${sites.aiEditsPerMonth} AI edits a month`)
+  lines.push(tt("{maxSites} websites, {maxPages} pages each", { maxSites: sites.maxSites, maxPages: sites.maxPages }))
+  lines.push(tt("{size} of file storage", { size: formatBytes(storage.storageQuotaBytes) }))
+  lines.push(tt("{aiEditsPerMonth} AI edits a month", { aiEditsPerMonth: sites.aiEditsPerMonth }))
   return lines
 }
 
@@ -131,7 +131,7 @@ function freeFeatures(): string[] {
 function freeExcluded(): string[] {
   const free = siteLimits("free")
   const lines: string[] = []
-  if (!free.customDomain && siteLimits(PRO_CHECKOUT_PLAN_ID).customDomain) lines.push("Your own domain")
+  if (!free.customDomain && siteLimits(PRO_CHECKOUT_PLAN_ID).customDomain) lines.push(tt("Your own domain"))
   return lines
 }
 
@@ -139,10 +139,10 @@ function freeExcluded(): string[] {
 function proFeatures(): string[] {
   const pro = siteLimits(PRO_CHECKOUT_PLAN_ID)
   const lines = [tt("Everything in Free"), feeLine(PRO_CHECKOUT_PLAN_ID)]
-  if (pro.customDomain) lines.push("Your own domain")
-  if (pro.removeBranding) lines.push("No Storelib branding")
+  if (pro.customDomain) lines.push(tt("Your own domain"))
+  if (pro.removeBranding) lines.push(tt("No Storelib branding"))
   lines.push(websitesLine(PRO_CHECKOUT_PLAN_ID), storageLine(PRO_CHECKOUT_PLAN_ID), aiEditsLine(PRO_CHECKOUT_PLAN_ID))
-  lines.push("Verified badge")
+  lines.push(tt("Verified badge"))
   return lines
 }
 

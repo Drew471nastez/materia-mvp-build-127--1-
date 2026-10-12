@@ -248,7 +248,7 @@ function glyphOfKind(kind: string): { glyph: TimelineGlyph; tone: TimelineTone }
   return { glyph: "event", tone: "neutral" }
 }
 
-const count = (n: number) => `${n} ${n === 1 ? "item" : "items"}`
+const count = (n: number) => tt("{n, plural, one {# item} other {# items}}", { n })
 
 /**
  * A physical order's entries: each shipment sent (with its carrier, number

@@ -602,7 +602,7 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
     requiresShipping && (origin || hsCode) ? "customs" : "",
     !taxable ? tt("no tax") : "",
     vendor.trim() ? vendor.trim() : "",
-    tags.length ? `${tags.length} ${tags.length === 1 ? "tag" : "tags"}` : "",
+    tags.length ? tt("{n, plural, one {# tag} other {# tags}}", { n: tags.length }) : "",
     ownFulfilment ? tt("its own fulfilment") : "",
   ].filter(Boolean)
   const openFulfilment = () => {

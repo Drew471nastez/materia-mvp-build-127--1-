@@ -178,13 +178,13 @@ function rateCondition(r: ShippingRate, system: UnitSystem): string {
         })
         .join(", "),
     )
-    if (r.maxValue !== null) parts.push(`not above ${fmtValue(r.maxValue)}`)
+    if (r.maxValue !== null) parts.push(tt("not above {maxValue}", { maxValue: fmtValue(r.maxValue) }))
   } else if (r.kind === "weight") parts.push(range((n) => weightText(n, system)))
   else if (r.kind === "price") parts.push(range((n) => money(n)))
-  else if (r.kind === "quantity") parts.push(range((n) => `${n} ${n === 1 ? "item" : "items"}`))
-  if (r.kind === "free" && r.minValue) parts.push(`on orders over ${money(r.minValue)}`)
+  else if (r.kind === "quantity") parts.push(range((n) => tt("{n, plural, one {# item} other {# items}}", { n })))
+  if (r.kind === "free" && r.minValue) parts.push(tt("on orders over {amount}", { amount: money(r.minValue) }))
   if (r.kind === "carrier") parts.push([r.carrier === "easypost" ? "EasyPost" : r.carrier === "shippo" ? tt("Shippo") : null, r.serviceCode || tt("cheapest service")].filter(Boolean).join(", "))
-  if (r.freeOverCents) parts.push(`free over ${money(r.freeOverCents)}`)
+  if (r.freeOverCents) parts.push(tt("free over {amount}", { amount: money(r.freeOverCents) }))
   const est = deliveryEstimate(r)
   if (est) parts.push(est)
   return parts.filter(Boolean).join(" · ")
@@ -593,7 +593,7 @@ function ProfileProducts({
       <div className="flex items-center justify-between gap-3 px-3 py-2.5">
         <div className="min-w-0">
           <p className="text-[13.5px] font-medium text-[#1a1a2e]">
-            {mine.length} {mine.length === 1 ? "product" : "products"}
+            {tt("{n, plural, one {# product} other {# products}}", { n: mine.length })}
           </p>
           <p className="truncate text-[12.5px] text-[#6b7280]">{mine.length ? summary : tt("Add the products that ship at these rates.")}</p>
         </div>

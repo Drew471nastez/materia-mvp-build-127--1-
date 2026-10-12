@@ -415,7 +415,7 @@ export async function searchCreator(db: Db, creatorId: string, rawQuery: string)
     const people: SearchHit[] = buyers.map((b) => ({
       id: `buyer:${b.key}`,
       title: b.name || b.email || tt("Customer"),
-      detail: [b.name ? b.email : null, `${b.orders} ${b.orders === 1 ? "order" : "orders"}`].filter(Boolean).join(" · "),
+      detail: [b.name ? b.email : null, tt("{n, plural, one {# order} other {# orders}}", { n: b.orders })].filter(Boolean).join(" · "),
       href: customerHref(b.email || b.name || ""),
     }))
     for (const c of contacts) {

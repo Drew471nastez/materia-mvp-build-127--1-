@@ -16,8 +16,8 @@ export function describeRule(rule: AccessRuleJson, options: RuleOptions): string
   const tiers = (rule.tierIds ?? []).map((id) => options.tiers.find((t) => t.id === id)?.name).filter(Boolean) as string[]
   const level = rule.minLevel ? options.levels.find((l) => l.level === rule.minLevel) : null
   const parts: string[] = []
-  parts.push(tiers.length ? tiers.join(", ") : "Every member")
-  if (rule.minLevel) parts.push(`level ${rule.minLevel}${level ? ` (${level.name})` : ""} and up`)
+  parts.push(tiers.length ? tiers.join(", ") : tt("Every member"))
+  if (rule.minLevel) parts.push(level ? tt("level {minLevel} ({name}) and up", { minLevel: rule.minLevel, name: level.name }) : tt("level {minLevel} and up", { minLevel: rule.minLevel }))
   return parts.join(", ")
 }
 

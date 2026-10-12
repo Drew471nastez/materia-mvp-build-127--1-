@@ -212,7 +212,7 @@ export function fixesFor(
   const all = checks ?? []
   const proxied = all.some((c) => c.seen.some(isCloudflareIp))
   if (proxied && !issues.some((i) => /cloudflare/i.test(i))) {
-    out.push("Cloudflare's proxy is on. Set each record to DNS only (grey cloud), then check again.")
+    out.push(tt("Cloudflare's proxy is on. Set each record to DNS only (grey cloud), then check again."))
   }
   out.push(...issues)
 
@@ -220,23 +220,23 @@ export function fixesFor(
   const where = (c: RecordCheck) => (c.name === "@" ? "@" : c.name)
   const nothing = all.length > 0 && all.every((c) => c.state === "missing")
   if (nothing) {
-    out.push("Nothing has shown up yet. New records usually appear within an hour, sometimes up to 48 hours.")
+    out.push(tt("Nothing has shown up yet. New records usually appear within an hour, sometimes up to 48 hours."))
   } else {
     for (const c of all) {
       const value = valueOf(c)
       if (c.state === "missing") {
-        out.push(c.type === "TXT" ? `No TXT record on ${where(c)} yet. Add it with the value above.` : `No ${c.type} record on ${where(c)} yet. Add it with the value ${value}.`)
+        out.push(c.type === "TXT" ? tt("No TXT record on {c} yet. Add it with the value above.", { c: where(c) }) : tt("No {type} record on {c} yet. Add it with the value {value}.", { type: c.type, c: where(c), value }))
         continue
       }
       if (c.state !== "conflict" || proxied) continue
       if (c.type === "A") {
-        out.push(`Delete the A ${c.seen.length === 1 ? "record" : "records"} ${list(c.seen)} on @. Only ${value} should be there.`)
+        out.push(tt("Delete the A {length, plural, one {record} other {records}} {seen} on @. Only {value} should be there.", { length: c.seen.length, seen: list(c.seen), value }))
       } else if (c.seen.some((s) => s.includes("parkingpage.namecheap.com"))) {
-        out.push(`${where(c)} still points at Namecheap's parking page. Delete that record, then add the CNAME above.`)
+        out.push(tt("{c} still points at Namecheap's parking page. Delete that record, then add the CNAME above.", { c: where(c) }))
       } else if (c.seen.every(isIp)) {
-        out.push(`${where(c)} has an A record (${list(c.seen)}). Delete it and add the CNAME above instead.`)
+        out.push(tt("{c} has an A record ({seen}). Delete it and add the CNAME above instead.", { c: where(c), seen: list(c.seen) }))
       } else {
-        out.push(`${where(c)} points at ${list(c.seen)}. Change it to ${value}.`)
+        out.push(tt("{c} points at {seen}. Change it to {value}.", { c: where(c), seen: list(c.seen), value }))
       }
     }
   }

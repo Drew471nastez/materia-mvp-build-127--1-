@@ -38,7 +38,7 @@ export const LIBRARY_FULL_TITLE = msg("Your library is full")
 
 /** The one sentence under the title, from the limit rather than written out. */
 export function libraryFullSentence(action: LibraryAction | null): string {
-  const drafts = `${DRAFT_LIMIT} ${DRAFT_LIMIT === 1 ? "draft" : "drafts"}`
+  const drafts = tt("{n, plural, one {# draft} other {# drafts}}", { n: DRAFT_LIMIT })
   return tt("You can keep one live website and {drafts}, so remove a draft to {value}.", { drafts, value: action ? VERB[action] : tt("add another") })
 }
 

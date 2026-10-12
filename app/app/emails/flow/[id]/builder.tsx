@@ -718,9 +718,9 @@ function StateLine(props: {
   const { on, problems, counts } = props
   const toNews = audienceOf(props.trigger, props.config) === "subscribers"
   const notes: string[] = []
-  if (!props.tracking && props.hasCheck) notes.push("Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it.")
-  if (!props.tracking && (props.trigger === "first_purchase" || props.trigger === "abandoned_checkout")) notes.push("This kind of automation is not running on your account yet, so it sends nothing for now.")
-  if (props.trigger === "abandoned_checkout" && !props.startsRecorded) notes.push("Started checkouts are not recorded on your account yet, so this sends nothing for now.")
+  if (!props.tracking && props.hasCheck) notes.push(tt("Checks are not running yet on your account, so a flow with a check sends nothing for now. Remove the check to send without it."))
+  if (!props.tracking && (props.trigger === "first_purchase" || props.trigger === "abandoned_checkout")) notes.push(tt("This kind of automation is not running on your account yet, so it sends nothing for now."))
+  if (props.trigger === "abandoned_checkout" && !props.startsRecorded) notes.push(tt("Started checkouts are not recorded on your account yet, so this sends nothing for now."))
   const line = on
     ? props.tracking && counts.active > 0
       ? tt("{active, plural, one {# person is} other {# people are}} partway through. Edits reach them from their next step.", { active: counts.active })
@@ -803,7 +803,7 @@ function Canvas(props: {
             <span className="block truncate text-[14px] font-semibold text-[#1a1a2e]">{TRIGGERS[draft.trigger].sentence}</span>
             <span className="block truncate text-[12px] text-[#6b7280]">
               {entryText(draft.trigger, rule)}
-              {isPurchaseTrigger(draft.trigger) ? ` · ${products > 0 ? `${products} ${products === 1 ? "product" : "products"}` : tt("Any product")}` : ""}
+              {isPurchaseTrigger(draft.trigger) ? ` · ${products > 0 ? tt("{products, plural, one {# product} other {# products}}", { products }) : tt("Any product")}` : ""}
             </span>
           </span>
         </button>

@@ -38,7 +38,7 @@ function Thumb({ collection }: { collection?: PickerCollection }) {
 }
 
 function countLabel(c: PickerCollection): string {
-  const n = `${c.products_count} ${c.products_count === 1 ? "product" : "products"}`
+  const n = tt("{n, plural, one {# product} other {# products}}", { n: c.products_count })
   return c.published ? n : tt("Hidden · {n}", { n })
 }
 

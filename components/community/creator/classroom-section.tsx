@@ -103,7 +103,7 @@ export function ClassroomSection({ head, initial, options }: { head: CommunityHe
       <ListCard
         head={
           <ListNote>
-            {data.attached.length} {data.attached.length === 1 ? "course" : "courses"}
+            {tt("{n, plural, one {# course} other {# courses}}", { n: data.attached.length })}
             <span className="max-sm:hidden"> {tt("members take inside the community")}</span>
           </ListNote>
         }

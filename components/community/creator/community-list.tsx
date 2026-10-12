@@ -39,6 +39,7 @@ import { ROLE_LABEL } from "./logic"
 import { Confirm, ToastHost, card, errorText, send, useToast } from "./parts"
 import { UpgradeSheet } from "./upgrade-sheet"
 import { tt } from "@/lib/i18n/text"
+import { Rich } from "@/lib/i18n/rich"
 
 /** New community: the Products page's violet New product, at the bar's 32px (35 from 1024px) with a 44px press on a phone. */
 const NEW_LOOK = cn(accentDepth, "relative h-8 gap-1.5 rounded-lg px-3 text-[13px] max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-[''] lg:h-[35px] lg:px-[13px] lg:text-[14.5px]")
@@ -270,7 +271,7 @@ const CommunityCard = React.memo(function CommunityCard({
         <div className="mt-3 flex min-h-8 items-center gap-3 border-t border-[#f1f2f4] pt-2.5">
           <p className="flex min-w-0 flex-1 items-baseline gap-3 text-[13px] text-[#6b7280]">
             <span className="shrink-0" data-card-members="">
-              <span className="font-semibold tabular-nums text-[#1a1a2e]">{compactCount(r.memberCount)}</span> {r.memberCount === 1 ? "member" : "members"}
+              <Rich text={tt("{n, plural, one {{count} member} other {{count} members}}", { n: r.memberCount })} parts={{ count: <span className="font-semibold tabular-nums text-[#1a1a2e]">{compactCount(r.memberCount)}</span> }} />
             </span>
             {r.mrrCents !== null ? (
               <span className="min-w-0 truncate" data-card-mrr="">

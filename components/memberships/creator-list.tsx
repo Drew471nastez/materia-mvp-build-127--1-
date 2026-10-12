@@ -60,7 +60,7 @@ export function CreatorMembershipsList({ rows }: { rows: CreatorMembershipRow[] 
                   </div>
                   <div className="hidden text-right sm:block">
                     <p className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{r.stats.members}</p>
-                    <p className="text-[12px] text-[#6b7280]">{r.stats.members === 1 ? "member" : "members"}</p>
+                    <p className="text-[12px] text-[#6b7280]">{tt("{n, plural, one {member} other {members}}", { n: r.stats.members })}</p>
                   </div>
                   <div className="hidden w-[120px] text-right sm:block">
                     <p className="text-[15px] font-semibold tabular-nums text-[#1a1a2e]">{money(r.stats.monthlyCents)}</p>

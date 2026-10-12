@@ -156,9 +156,11 @@ export function sourceView(detail: unknown, legacy?: unknown): SourceView {
   const key = surface === "website" && site ? `site:${site}` : surface
   const parts: string[] = []
   if (d?.form) parts.push(d.page && d.page !== "home" ? `${FORM_NAME[d.form]} on /${d.page}` : FORM_NAME[d.form])
-  if (d?.from) parts.push(d.from === "direct" ? "Direct" : `from ${fromLabel(d.from)}`)
+  if (d?.from) parts.push(d.from === "direct" ? tt("Direct") : tt("from {name}", { name: fromLabel(d.from) }))
+  /* The tag names as they are in the link. i18n-ignore-start */
   if (d?.utm_campaign) parts.push(`utm_campaign ${d.utm_campaign}`)
   else if (d?.utm_source) parts.push(`utm_source ${d.utm_source}`)
+  /* i18n-ignore-end */
   return { key, label, detail: parts.join(" · "), recorded: true }
 }
 

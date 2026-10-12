@@ -54,7 +54,7 @@ import { REFUND_POLICY_MAX } from "@/lib/communities/membership-policy"
 import { CoverField, GalleryEditor } from "./gallery-editor"
 import { VideoProviders, type ProviderLine } from "@/components/video/video-providers"
 import { ChoiceCards, Confirm, Dialog, EditorCard, EditorFoot, Notice, PicturePick, PriceInput, Section, Segmented, Toggle, buttonPrimary, buttonSecondary, card, errorText, field, label, selectField, send, useToast } from "./parts"
-import { tt } from "@/lib/i18n/text"
+import { tt, ttx } from "@/lib/i18n/text"
 import { Rich } from "@/lib/i18n/rich"
 import { appLocale } from "@/lib/i18n/format"
 
@@ -596,7 +596,7 @@ function Access({ head, data }: { head: CommunityHead; data: SettingsData }) {
               {archived.map((t) => (
                 <li key={t.id} className="flex min-h-10 items-center justify-between gap-3">
                   <span className="truncate text-[13.5px] text-[#4b5563]">
-                    {t.name} · {t.priceLine || "Free"} · {t.members} {t.members === 1 ? "member" : "members"}
+                    {t.name} · {t.priceLine || ttx("price", "Free")} · {tt("{n, plural, one {# member} other {# members}}", { n: t.members })}
                   </span>
                   {owner ? <TierRestore head={head} tier={t} /> : null}
                 </li>
@@ -694,7 +694,7 @@ function TierCard({ head, tier, products, owner, canDefault }: { head: Community
           {tier.kind === "paid" && tier.productStatus !== "published" ? <StatusBadge tone="attention">{tt("Off sale")}</StatusBadge> : null}
         </p>
         <span className="text-[13px] tabular-nums text-[#6b7280]">
-          {tier.priceLine || tt("No price")} · {tier.members.toLocaleString(appLocale())} {tier.members === 1 ? "member" : "members"}
+          {tier.priceLine || tt("No price")} · {tt("{n, plural, one {# member} other {# members}}", { n: tier.members })}
         </span>
       </div>
       {owner ? (

@@ -44,8 +44,8 @@ export function NavigationSettings({ ctx }: { ctx: SettingsContext }) {
   /** Where a menu shows, said under its name: "Header", "Footer". */
   const placedIn = (handle: string) => {
     const at: string[] = []
-    if (header && headerMenuHandle(ctx.settings.menus, header) === handle) at.push("Header")
-    if (footer && (str(footer.settings.menu) === handle || str(footer.settings.menu_2) === handle)) at.push("Footer")
+    if (header && headerMenuHandle(ctx.settings.menus, header) === handle) at.push(tt("Header"))
+    if (footer && (str(footer.settings.menu) === handle || str(footer.settings.menu_2) === handle)) at.push(tt("Footer"))
     return at.join(", ")
   }
 

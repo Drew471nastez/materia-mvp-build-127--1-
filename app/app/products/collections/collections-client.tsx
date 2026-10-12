@@ -234,7 +234,7 @@ export function CollectionsClient({ initialCollections, products }: { initialCol
                 </tbody>
               </table>
               <div data-footer="" className="hidden h-10 items-center border-t border-[#eef0f2] px-4 md:flex lg:h-[44px] lg:px-[18px] xl:h-[48px] xl:px-[22px]">
-                <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">{`${list.length} ${list.length === 1 ? "collection" : "collections"}`}</span>
+                <span className="text-[12px] tabular-nums text-[#6b7280] lg:text-[13.5px]">{tt("{n, plural, one {# collection} other {# collections}}", { n: list.length })}</span>
               </div>
             </>
           )}

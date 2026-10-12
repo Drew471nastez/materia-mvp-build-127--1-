@@ -53,9 +53,9 @@ export function hasSomethingToLose(reason: LeaveReason): boolean {
 /** What is actually at stake, said plainly, in the order it matters. */
 export function leaveLines(reason: LeaveReason): string[] {
   const lines: string[] = []
-  if (reason.busy) lines.push("A save is still going. Leaving now could lose it.")
-  if (reason.code) lines.push("A code file has changes you have not saved. Save it in the code editor to keep them.")
-  if (reason.draft) lines.push("Your latest edits have not been saved yet.")
+  if (reason.busy) lines.push(tt("A save is still going. Leaving now could lose it."))
+  if (reason.code) lines.push(tt("A code file has changes you have not saved. Save it in the code editor to keep them."))
+  if (reason.draft) lines.push(tt("Your latest edits have not been saved yet."))
   return lines
 }
 

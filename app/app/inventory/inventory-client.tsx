@@ -535,7 +535,7 @@ function TransfersModal({ rows, locations, onClose, onChanged }: { rows: Row[]; 
                   <Pill tone={st.tone}>{st.label}</Pill>
                 </div>
                 <p className="mt-0.5 text-[12.5px] text-[#6b7280]">
-                  {units} {units === 1 ? "unit" : "units"} · {dateTime(t.created_at)}
+                  {tt("{units, plural, one {# unit} other {# units}}", { units })} · {dateTime(t.created_at)}
                   {t.reference ? ` · ${t.reference}` : ""}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">

@@ -135,7 +135,7 @@ export function VariantTable(props: VariantTableProps) {
     <div className="mt-4" data-variant-table="">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-[#6b7280]" aria-live="polite">
-          {rows.length} {rows.length === 1 ? "variant" : "variants"}
+          {tt("{n, plural, one {# variant} other {# variants}}", { n: rows.length })}
           {sold < rows.length ? tt(", {value} not sold", { value: rows.length - sold }) : ""}
         </p>
         <div className="flex flex-wrap items-center gap-2">
@@ -273,7 +273,7 @@ const GroupLine = React.memo(function GroupLine({ value, rows, folded, toggle, b
       <button type="button" onClick={() => toggle(value)} aria-expanded={!folded} className="flex min-w-0 flex-col items-start text-left outline-none focus-visible:underline">
         <span className="max-w-full truncate text-[14px] font-medium leading-5 text-[#1a1a2e]">{value}</span>
         <span className="max-w-full truncate text-[12px] leading-4 text-[#6b7280]">
-          {rows.length} {rows.length === 1 ? "variant" : "variants"}
+          {tt("{n, plural, one {# variant} other {# variants}}", { n: rows.length })}
           {prices.size > 1 && range ? `, ${range}` : ""}
         </span>
       </button>

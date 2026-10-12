@@ -40,7 +40,7 @@ export function LearnLibrary({ programs, timeZone, manageHref = null }: { progra
         </h1>
         {programs.length ? (
           <p className="text-[12.5px] tabular-nums text-[#6b7280]">
-            {programs.length} {programs.length === 1 ? "program" : "programs"}
+            {tt("{n, plural, one {# program} other {# programs}}", { n: programs.length })}
           </p>
         ) : null}
       </header>

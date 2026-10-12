@@ -573,7 +573,7 @@ export const SOURCE_LABEL: Record<OrderSource, string> = {
 }
 
 export function itemsLabel(count: number): string {
-  return `${count} ${count === 1 ? "item" : "items"}`
+  return tt("{count, plural, one {# item} other {# items}}", { count })
 }
 
 /* ─── Dates ───────────────────────────────────────────────────────────── */

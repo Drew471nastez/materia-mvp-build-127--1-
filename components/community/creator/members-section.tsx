@@ -345,13 +345,13 @@ export function MembersSection(p: Props) {
 
 function inviteLine(i: InviteView): string {
   const parts: string[] = []
-  if (i.revokedAt) parts.push("Revoked")
-  else if (i.expiresAt && Date.parse(i.expiresAt) < Date.now()) parts.push("Expired")
-  else if (i.maxUses && i.uses >= i.maxUses) parts.push("Used")
-  if (!i.email) parts.push(`${i.uses}${i.maxUses ? ` of ${i.maxUses}` : ""} used`)
-  if (i.expiresAt && !i.revokedAt) parts.push(`ends ${shortDate(i.expiresAt)}`)
+  if (i.revokedAt) parts.push(tt("Revoked"))
+  else if (i.expiresAt && Date.parse(i.expiresAt) < Date.now()) parts.push(tt("Expired"))
+  else if (i.maxUses && i.uses >= i.maxUses) parts.push(tt("Used"))
+  if (!i.email) parts.push(i.maxUses ? tt("{uses} of {maxUses} used", { uses: i.uses, maxUses: i.maxUses }) : tt("{uses} used", { uses: i.uses }))
+  if (i.expiresAt && !i.revokedAt) parts.push(tt("ends {date}", { date: shortDate(i.expiresAt) }))
   if (i.tierName) parts.push(i.tierName)
-  parts.push(`made ${shortDate(i.createdAt)}`)
+  parts.push(tt("made {date}", { date: shortDate(i.createdAt) }))
   return parts.join(" · ")
 }
 

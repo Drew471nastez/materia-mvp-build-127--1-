@@ -271,7 +271,7 @@ export function ReviewsClient({
                   <option value={0}>{tt("Any rating")}</option>
                   {[5, 4, 3, 2, 1].map((n) => (
                     <option key={n} value={n}>
-                      {n} {n === 1 ? "star" : "stars"} ({inProduct.filter((r) => r.rating === n).length})
+                      {tt("{n, plural, one {# star} other {# stars}}", { n })} ({inProduct.filter((r) => r.rating === n).length})
                     </option>
                   ))}
                 </select>

@@ -98,7 +98,7 @@ export interface LearnBuilderData {
 /** "12 lessons", "1 lesson", "No lessons yet". */
 export function lessonsLabel(n: number): string {
   if (n <= 0) return tt("No lessons yet")
-  return `${n} ${n === 1 ? "lesson" : "lessons"}`
+  return tt("{n, plural, one {# lesson} other {# lessons}}", { n })
 }
 
 /** "Opens on Mar 4" in the viewer's zone, from the stored instant. */
