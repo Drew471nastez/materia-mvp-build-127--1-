@@ -44,6 +44,7 @@ import { copyText } from "@/lib/platform/copy-text"
 import { ResponsiveActionMenu, type ActionMenuItem } from "@/components/ui/responsive-action-menu"
 import { StatusBadge, buttonPrimary, buttonSecondary, card, iconButton } from "@/app/app/orders/order-parts"
 import { BTN_DANGER, BTN_PRIMARY, BTN_SECONDARY, Field, Modal, Notice, SelectInput, TextInput, Toggle, actionKey, api, dateTime, money, peekGet, prefetchGet } from "./ui"
+import { LabelFields, ShipModeSwitch, useLabelFlow, useOrderLabels, voidLabelRequest } from "./buy-label"
 
 export interface PhysicalLine {
   orderId: string
@@ -174,7 +175,12 @@ export function usePhysicalOrder(orderRowId: string | null, revision = 0) {
     [orderId],
   )
 
-  return { order, locations: order && data ? data.locations : [], error, setError, busy, act }
+  /* An order that came back from elsewhere (Buy a label, ./buy-label.tsx), drawn as the server holds it. */
+  const replace = React.useCallback((next: PhysicalOrder | null | undefined) => {
+    if (next) setData((d) => (d && d.order.id === next.id ? { ...d, order: next } : d))
+  }, [])
+
+  return { order, locations: order && data ? data.locations : [], error, setError, busy, act, replace }
 }
 export type PhysicalOrderState = ReturnType<typeof usePhysicalOrder>
 
@@ -213,8 +219,10 @@ export function PhysicalFulfillment({
   /** Refunds every paid line in full, through the Orders page's own refund: a buyer's cancel request said yes to. Absent for a team member. */
   onRefundAll?: (() => Promise<string>) | null
 }) {
-  const { order, locations, error, setError, busy, act } = state
+  const { order, locations, error, setError, busy, act, replace } = state
   const [dialog, setDialog] = React.useState<Dialog>(null)
+  /* Labels bought with Shippo or EasyPost, read again whenever a shipment comes or goes: printed and voided from the shipment's card. */
+  const [labels, setLabels] = useOrderLabels(order?.id ?? null, order ? order.shipments.map((x) => `${x.id}:${x.status}`).join(",") : "")
 
   if (!order) {
     if (error) return <Notice className={className}>{error}</Notice>
@@ -345,9 +353,26 @@ export function PhysicalFulfillment({
           <StatusBadge tone="success">{pickup ? "Ready for pickup" : "Fulfilled"}</StatusBadge>
         )
         const transit = s.status === "in_transit" ? "In transit" : s.status === "out_for_delivery" ? "Out for delivery" : s.status === "failed" ? "Delivery problem" : null
+        const label = labels.find((l) => l.fulfillmentId === s.id && l.status !== "voided") ?? null
+        const labelUnused = !!label && (label.status === "purchased" || label.status === "void_rejected") && (s.status === "shipped" || s.status === "pending" || s.status === "submitted")
         const menu: ActionMenuItem[] = cancelled
           ? []
           : [
+              ...(label?.labelUrl && label.status === "purchased" ? [{ label: "Print label", icon: <Printer className="h-4 w-4" />, onClick: () => window.open(label.labelUrl!, "_blank", "noopener") }] : []),
+              ...(labelUnused
+                ? [{
+                    label: "Void label",
+                    icon: <X className="h-4 w-4" />,
+                    onClick: async () => {
+                      if (!window.confirm(`Void this ${label!.providerName} label? ${label!.cost} is refunded once the carrier agrees it wasn't used, and the items go back to unfulfilled.`)) return
+                      const r = await voidLabelRequest(order.id, label!.id)
+                      if (r.ok === false) return setError(r.error)
+                      replace(r.order)
+                      setLabels(labels.map((l) => (l.id === r.label.id ? r.label : l)))
+                      onNotice?.(r.label.status === "voided" ? "Label voided and refunded" : "Label void requested")
+                    },
+                  }]
+                : []),
               ...(!pickup && !delivered ? [{ label: s.trackingNumber ? "Edit tracking" : "Add tracking", icon: <Truck className="h-4 w-4" />, onClick: () => setDialog({ tracking: s }) }] : []),
               /* Where the parcel is, set by hand when no carrier reports it: each step a buyer reads on their order page, the last two emailed. */
               ...(!pickup && (s.status === "shipped" || s.status === "submitted" || s.status === "pending" || s.status === "failed") ? [{ label: "Mark as in transit", icon: <Truck className="h-4 w-4" />, onClick: () => void run({ action: "shipment", fulfillmentId: s.id, status: "in_transit" }, "Marked as in transit") }] : []),
@@ -372,6 +397,20 @@ export function PhysicalFulfillment({
           <section key={s.id} className={cn(card, "min-w-0", cancelled && "opacity-60")} data-shipment={s.status}>
             <CardTop badge={badge} count={items} sub={[number(s), s.shippedAt ? dateTime(s.shippedAt) : null, locName(s.locationId)].filter(Boolean).join(" · ")} menu={menu.length ? <CardMenu title={number(s)} items={menu} /> : null} />
             {!pickup && !cancelled ? <TrackingRow shipment={s} transit={problem ? null : transit} onAdd={() => setDialog({ tracking: s })} onNotice={onNotice} /> : null}
+            {label && !cancelled ? (
+              <p className="mx-4 mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] leading-[18px] text-[#6b7280]" data-shipment-label={label.status}>
+                <span>
+                  {label.providerName} label · {label.cost} your cost{label.testMode ? " · test" : ""}
+                  {label.status === "void_pending" ? " · void requested" : label.status === "void_rejected" ? " · void refused" : ""}
+                </span>
+                {label.labelUrl && label.status === "purchased" ? (
+                  <a href={label.labelUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-[#1a1a2e] underline-offset-2 hover:underline" data-shipment-label-print="">
+                    <Printer className="h-3.5 w-3.5" aria-hidden />
+                    Print label
+                  </a>
+                ) : null}
+              </p>
+            ) : null}
             {/* What the buyer reads on their order page and in the Delivery problem email, said here in the shop's words, with the next step. */}
             {problem ? (
               <p className="mx-4 mt-2 rounded-lg bg-[#fef3f2] px-3 py-2 text-[12.5px] leading-[18px] text-[#b42318]" data-delivery-problem="">
@@ -418,6 +457,12 @@ export function PhysicalFulfillment({
           order={order}
           only={dialog.fulfil.lines}
           from={pickup ? (order.pickup?.name ?? null) : locName(dialog.fulfil.locationId)}
+          locationId={dialog.fulfil.locationId}
+          onLabel={(next, label) => {
+            replace(next)
+            setLabels([...labels.filter((l) => l.id !== label.id), label])
+            onNotice?.("Label bought. The items are marked shipped.")
+          }}
           onClose={() => setDialog(null)}
           onSubmit={async (body) => {
             const e = await act({ action: "fulfil", locationId: dialog.fulfil.locationId, ...body })
@@ -939,7 +984,7 @@ function TrackingFields({
   )
 }
 
-function FulfilDialog({ order, only, from, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
+function FulfilDialog({ order, only, from, locationId = null, onLabel, onClose, onSubmit }: { order: PhysicalOrder; only: string[]; from: string | null; locationId?: string | null; onLabel?: (order: PhysicalOrder, label: import("./buy-label").LabelView) => void; onClose: () => void; onSubmit: (b: Record<string, unknown>) => Promise<string | null> }) {
   const pickup = order.deliveryMethod === "pickup"
   const open = order.lines.filter((l) => l.requiresShipping && l.quantity - l.fulfilled > 0 && only.includes(l.orderId))
   const [qty, setQty] = React.useState<Record<string, number>>(() => Object.fromEntries(open.map((l) => [l.orderId, l.quantity - l.fulfilled])))
@@ -953,13 +998,31 @@ function FulfilDialog({ order, only, from, onClose, onSubmit }: { order: Physica
   const key = React.useRef(actionKey())
   const chosen = Object.values(qty).reduce((n, q) => n + q, 0)
   const verb = pickup ? "Mark ready" : "Fulfill"
+  /* Buy a label (Shippo, EasyPost), beside Add tracking, while one is connected: ./buy-label.tsx. */
+  const flow = useLabelFlow({ orderId: order.id, locationId, items: Object.entries(qty).map(([orderId, quantity]) => ({ orderId, quantity })), notify, enabled: !pickup, onBought: (o, l) => onLabel?.(o, l) })
+  const labelMode = !pickup && flow.available && (flow.mode === "label" || !!flow.bought)
   return (
     <Modal
       open
       onClose={onClose}
-      title={pickup ? "Ready for pickup" : "Fulfill items"}
+      title={pickup ? "Ready for pickup" : flow.bought ? "Label bought" : "Fulfill items"}
       footer={
-        <>
+        labelMode ? (
+          flow.bought ? (
+            <button type="button" className={BTN_SECONDARY} onClick={onClose} data-label-done="">
+              Done
+            </button>
+          ) : (
+            <>
+              <button type="button" className={BTN_SECONDARY} onClick={onClose}>
+                Cancel
+              </button>
+              <button type="button" className={BTN_PRIMARY} disabled={!flow.footer || flow.footer.disabled} onClick={flow.footer?.onClick} data-label-submit="">
+                {flow.footer?.label}
+              </button>
+            </>
+          )
+        ) : <>
           <button type="button" className={BTN_SECONDARY} onClick={onClose}>
             Cancel
           </button>
@@ -988,8 +1051,8 @@ function FulfilDialog({ order, only, from, onClose, onSubmit }: { order: Physica
       }
     >
       <div className="space-y-4">
-        {from ? <p className="text-[13px] text-[#6b7280]">{pickup ? `Pickup at ${from}` : `Ships from ${from}`}</p> : null}
-        <ul className="divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]">
+        {from && !flow.bought ? <p className="text-[13px] text-[#6b7280]">{pickup ? `Pickup at ${from}` : `Ships from ${from}`}</p> : null}
+        <ul className={cn("divide-y divide-[#f1f2f4] rounded-xl border border-[#eceef1]", flow.bought && "hidden")}>
           {open.map((l) => (
             <li key={l.orderId} className="flex items-center justify-between gap-3 px-3 py-2.5">
               <div className="flex min-w-0 items-center gap-2.5">
@@ -1012,14 +1075,17 @@ function FulfilDialog({ order, only, from, onClose, onSubmit }: { order: Physica
             </li>
           ))}
         </ul>
-        {pickup ? null : <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />}
-        <Toggle
-          label={pickup ? "Tell the buyer it's ready" : "Send shipment details to the buyer"}
-          description={pickup ? "With your pickup address and instructions." : tracking.trim() ? "An email with the tracking link." : "An email saying it's on the way."}
-          checked={notify}
-          onChange={setNotify}
-        />
-        {error ? <Notice>{error}</Notice> : null}
+        {pickup ? null : <ShipModeSwitch flow={flow} />}
+        {pickup ? null : labelMode ? <LabelFields flow={flow} /> : <TrackingFields tracking={tracking} setTracking={setTracking} carrier={carrier} setCarrier={setCarrier} other={other} setOther={setOther} url={url} setUrl={setUrl} />}
+        {flow.bought ? null : (
+          <Toggle
+            label={pickup ? "Tell the buyer it's ready" : "Send shipment details to the buyer"}
+            description={pickup ? "With your pickup address and instructions." : tracking.trim() || labelMode ? "An email with the tracking link." : "An email saying it's on the way."}
+            checked={notify}
+            onChange={setNotify}
+          />
+        )}
+        {error && !labelMode ? <Notice>{error}</Notice> : null}
       </div>
     </Modal>
   )

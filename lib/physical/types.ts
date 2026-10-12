@@ -141,7 +141,7 @@ export interface LocalDelivery {
  * weight       by order weight: tiers of the order's total weight
  * item_weight  by item weight: each item priced by its own weight, added up
  * quantity     by number of items (kept for rates made before tiers)
- * carrier      priced live by a connected carrier (none is connected yet)
+ * carrier      priced live by Shippo or EasyPost (lib/integrations/shipping/checkout-rates-server.ts)
  */
 export type RateKind = "flat" | "free" | "weight" | "price" | "item_weight" | "quantity" | "carrier"
 
@@ -167,6 +167,9 @@ export interface ShippingRate {
   maxDays: number | null
   active: boolean
   position: number
+  /** A carrier calculated rate: the label app that prices it ("shippo", "easypost") and its service, empty for the cheapest. */
+  carrier?: string | null
+  serviceCode?: string | null
 }
 
 export interface ShippingZone {

@@ -605,6 +605,8 @@ async function main() {
     const lines = sql.trim().split("\n")
     check("SQL 161: one statement per line, the DO blocks on one line each, notify last", lines.length === 10 && lines.slice(1).every((l) => l.trim().endsWith(";")) && lines[lines.length - 1] === "notify pgrst, 'reload schema';" && lines.filter((l) => l.startsWith("DO $do$")).length === 3)
     check("  rebuilds the three checks from what they already allow, so other parts keep their values", lines.filter((l) => l.includes("pg_get_constraintdef")).length === 3 && sql.includes("'marketing_sync'") && sql.includes("'klaviyo', 'omnisend'") && sql.includes("'marketing'"))
+    check("  a check that is already a pattern (part 163's jobs check) is left as it is, never turned back into a list", lines.filter((l) => l.includes("LIKE '%~%') THEN RAISE NOTICE")).length === 3)
+    check("  the check after counts the pattern as done", read("supabase/sql/run-now/99_check_after.sql").includes("like '%marketing_sync%' or pg_get_constraintdef(oid) like '%~%'"))
     check("  marketing_sync_items: unique per store, provider and item, server only", /UNIQUE \(creator_id, provider, item_key\)/.test(sql) && /REVOKE ALL ON public\.marketing_sync_items FROM anon, authenticated/.test(sql) && /ENABLE ROW LEVEL SECURITY/.test(sql))
     check("  the migration copy, the README row and the check after", existsSync(join(process.cwd(), "supabase/migrations/20270112_marketing_sync.sql")) && read("supabase/sql/run-now/README.md").includes("`161_marketing_sync.sql`") && read("supabase/sql/run-now/99_check_after.sql").includes("as p161_marketing_sync"))
     const kl = INTEGRATIONS.find((i) => i.id === "klaviyo")!

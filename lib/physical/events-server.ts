@@ -64,6 +64,15 @@ export async function addOrderEvent(
       console.error("[physical] marketing event not queued:", e.kind, err instanceof Error ? err.message : err)
     }
   }
+  /* ShipStation has this order (lib/integrations/shipping/shipstation-server.ts): a cancellation or a new address is sent there too. */
+  if (!error && e.creatorId && (e.kind === "order.cancelled" || e.kind === "order.address_changed")) {
+    try {
+      const [{ queueShipStation }, { enqueueJob }] = await Promise.all([import("@/lib/integrations/shipping/shipstation-server"), import("./jobs-server")])
+      await queueShipStation(db, e.checkoutId, e.creatorId, e.kind === "order.cancelled" ? "cancelled" : "address", { enqueue: (d, j) => enqueueJob(d, j) }, e.kind === "order.address_changed" ? String(Date.now()) : "")
+    } catch (err) {
+      console.error("[physical] ShipStation update not queued:", err instanceof Error ? err.message : err)
+    }
+  }
   if (!error && e.creatorId && sellerEmailFor(e.kind, e.actor)) {
     try {
       const { queueSellerEmail } = await import("./jobs-server")

@@ -21,6 +21,7 @@ import { tmpdir } from "node:os"
 import { join, basename } from "node:path"
 
 const SUITES = [
+  "tests/shippingapps24.test.ts",
   "tests/admindocs23.test.ts",
   "tests/storelib-reviews.test.ts",
   "tests/app-menu19.test.ts",
@@ -572,6 +573,7 @@ const SUITES = [
   "tests/emails23.test.ts",
   "tests/integrations23.test.ts",
   "tests/marketing24.test.ts",
+  "tests/partners24.test.ts",
 ]
 
 const out = mkdtempSync(join(tmpdir(), "storelib-push-"))
