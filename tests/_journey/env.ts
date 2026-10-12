@@ -11,6 +11,8 @@ process.env.STRIPE_SECRET_KEY = "sk_test_journey_only"
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_journey_platform"
 process.env.STRIPE_CONNECT_WEBHOOK_SECRET = "whsec_journey_connect"
 process.env.NEXT_PUBLIC_MAIN_DOMAIN = "storelib.com"
+/* What the live build charges in (app/checkout/parts/ui.tsx CHECKOUT_CURRENCY: "production charges USD"). */
+process.env.NEXT_PUBLIC_PLATFORM_CURRENCY = "usd"
 process.env.NEXT_PUBLIC_SITE_URL = "https://storelib.com"
 process.env.MAILGUN_API_KEY = "key-journey-only"
 process.env.MAILGUN_DOMAIN = "storelib.com"

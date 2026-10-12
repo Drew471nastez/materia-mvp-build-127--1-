@@ -86,6 +86,18 @@ export class StripeWorld {
     return { session: s, intent: pi, charge }
   }
 
+  /** The buyer paid in Storelib's own card form: the PaymentIntent succeeds (or is declined) with its charge. */
+  payIntent(piId: string, card: { brand?: string; last4?: string; fail?: boolean } = {}): { intent: Obj; charge: Obj | null } {
+    const pi = this.intents.get(piId)
+    if (!pi) throw new Error(`no payment intent ${piId}`)
+    if (card.fail) {
+      Object.assign(pi, { status: "requires_payment_method", last_payment_error: { code: "card_declined", decline_code: "insufficient_funds", message: "Your card has insufficient funds." } })
+      return { intent: pi, charge: null }
+    }
+    Object.assign(pi, { status: "succeeded", amount_received: pi.amount, last_payment_error: null })
+    return { intent: pi, charge: this.chargeFor(pi, card) }
+  }
+
   private chargeFor(pi: Obj, card: { brand?: string; last4?: string }): Obj {
     const transfer: Obj | null = pi.transfer_data?.destination
       ? { id: id("tr"), object: "transfer", amount: pi.amount - (pi.application_fee_amount ?? 0), destination: pi.transfer_data.destination, destination_payment: id("py"), reversals: { data: [] }, amount_reversed: 0 }

@@ -65,6 +65,8 @@ const ROUTES: Record<string, () => Promise<RouteModule>> = {
   "/api/physical/order-status/[token]/return": () => import("@/app/api/physical/order-status/[token]/return/route"),
   "/api/physical/analytics": () => import("@/app/api/physical/analytics/route"),
   "/api/cron/physical": () => import("@/app/api/cron/physical/route"),
+  "/api/cron/process-scheduled-emails": () => import("@/app/api/cron/process-scheduled-emails/route"),
+  "/api/cron/notify": () => import("@/app/api/cron/notify/route"),
   "/api/coupons": () => import("@/app/api/coupons/route"),
   "/api/physical/coupons/[id]": () => import("@/app/api/physical/coupons/[id]/route"),
   "/api/payments/[action]": () => import("@/app/api/payments/[action]/route"),
@@ -222,7 +224,11 @@ export class Journey {
 
   /** The ten minute cron: held stock expired, queued jobs (emails) sent. */
   async cron(): Promise<Answer> {
-    return this.call("GET /api/cron/physical", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+    const auth = { authorization: `Bearer ${process.env.CRON_SECRET}` }
+    const physical = await this.call("GET /api/cron/physical", { headers: auth })
+    /* The notification engine's own cron (seller emails, disputes), as production runs it beside the physical one. */
+    await this.call("GET /api/cron/notify", { headers: auth })
+    return physical
   }
 
   rows(table: string) {

@@ -147,7 +147,7 @@ export class MemoryDb {
   select(table: string, select: string, filters: Filter[], opts: { order?: string | null; limit?: number | null; offset?: number }): Row[] {
     this.checkTable(table, "select")
     const items = parseSelect(select)
-    for (const f of filters) if (!f.path.includes(".") && f.op !== "or" && f.op !== "and") this.checkColumn(table, f.path, "filter", "42703")
+    for (const f of filters) if (!f.path.includes(".") && f.op !== "or" && f.op !== "and") this.checkColumn(table, f.path.split("->")[0], "filter", "42703")
     for (const it of items) if (it.kind === "column" && it.column !== "*") this.checkColumn(table, it.column, "select", "42703")
     let rows = this.rows(table).map((r) => this.withGenerated(table, r))
     const embedFilters = filters.filter((f) => f.path.includes(".") && f.op !== "or" && f.op !== "and")
@@ -260,7 +260,7 @@ export class MemoryDb {
   update(table: string, patch: Row, filters: Filter[]): Row[] {
     this.checkTable(table, "update")
     for (const k of Object.keys(patch)) this.checkColumn(table, k, "update", "PGRST204")
-    for (const f of filters) if (f.op !== "or" && f.op !== "and") this.checkColumn(table, f.path, "filter", "42703")
+    for (const f of filters) if (f.op !== "or" && f.op !== "and") this.checkColumn(table, f.path.split("->")[0], "filter", "42703")
     const hit = this.rows(table).filter((r) => filters.every((f) => matches(f, this.withGenerated(table, r))))
     if (hit.length && this.appendOnly.has(table)) throw new PgError("P0001", `${table} is append only`, 400)
     for (const r of hit) {

@@ -14,6 +14,10 @@
  */
 import "./_journey/env"
 import { Journey, type Person } from "./_journey/harness"
+import type { StripeWorld } from "./_journey/stripe-fake"
+import { readdirSync, readFileSync, statSync } from "node:fs"
+import { join, relative } from "node:path"
+import JSZip from "jszip"
 
 let passed = 0
 let failed = 0
@@ -105,7 +109,7 @@ async function main() {
     body: {
       options: [{ name: "Colour", values: ["Blue", "Green", "Sand"] }],
       variants: [
-        { options: ["Blue"], priceCents: 4500, sku: "MUG-BLU", weightGrams: 400, stock: { [studioId]: 6 } },
+        { options: ["Blue"], priceCents: 4500, sku: "MUG-BLU", weightGrams: 400, stock: { [studioId]: 30 } },
         { options: ["Green"], priceCents: 4500, sku: "MUG-GRN", weightGrams: 400, stock: { [studioId]: 2 } },
         { options: ["Sand"], priceCents: 4800, sku: "MUG-SND", weightGrams: 400, stock: { [studioId]: 0 } },
       ],
@@ -120,7 +124,7 @@ async function main() {
   const variants = j.rows("product_variants").filter((v) => v.product_id === mugId)
   const vId = (name: string) => variants.find((v) => v.name === name)?.id as string
   const level = (name: string) => j.rows("inventory_levels").find((l) => l.variant_id === vId(name) && l.location_id === studioId) ?? { on_hand: 0, committed: 0 }
-  check("the mug saves 3 variants with stock 6 / 2 / 0 and a limit of 3 per order", mugSave.status === 200 && variants.length === 3 && level("Blue").on_hand === 6 && level("Green").on_hand === 2 && level("Sand").on_hand === 0 && j.rows("products").find((p) => p.id === mugId)?.max_per_order === 3, { status: mugSave.status, body: mugSave.json, variants: variants.map((v) => v.name) })
+  check("the mug saves 3 variants with stock 30 / 2 / 0 and a limit of 3 per order", mugSave.status === 200 && variants.length === 3 && level("Blue").on_hand === 30 && level("Green").on_hand === 2 && level("Sand").on_hand === 0 && j.rows("products").find((p) => p.id === mugId)?.max_per_order === 3, { status: mugSave.status, body: mugSave.json, variants: variants.map((v) => v.name) })
   const pdfId = await newProduct(j, creator.id, { type: "digital", title: "Glaze Recipes (PDF)", priceCents: 1200 })
 
   section("6. Sales channels")
@@ -159,7 +163,7 @@ async function main() {
   check("Pay opens Stripe's page for exactly the quoted total", startA.status === 200 && /^https:\/\/checkout\.stripe\.com\//.test(startA.json?.url ?? "") && coA?.total_cents === 12504, { status: startA.status, body: startA.json, total: coA?.total_cents })
   const sessionA = j.world.sessions.get(coA?.stripe_session_id)
   check("Stripe's page: two mugs at 40.50, the download, VAT as its own line, Standard delivery at 15.00, the fee and the shop's account", !!sessionA && sessionA.amount_total === 12504 && sessionA.__params.payment_intent_data?.transfer_data?.destination === acct && sessionA.__params.line_items.some((l: any) => l.price_data.product_data.name === "VAT 19%" && l.price_data.unit_amount === 1824), sessionA?.__params?.line_items)
-  check("the stock is held for the checkout: Blue 6 on hand, 2 committed", level("Blue").on_hand === 6 && level("Blue").committed === 2, level("Blue"))
+  check("the stock is held for the checkout: Blue 30 on hand, 2 committed", level("Blue").on_hand === 30 && level("Blue").committed === 2, level("Blue"))
   const sameAgain = await j.call("POST /api/physical/checkout", { body: { shopId: creator.id, items: cart, couponCode: "WELCOME10", email: buyer.email, name: buyer.name, address, deliveryOptionId: std?.id, buyerNote: "Please wrap them as a gift.", clientKey: "client-key-A-123456" } })
   check("a double click opens the same Stripe page and holds nothing twice", sameAgain.status === 200 && sameAgain.json?.url === startA.json?.url && level("Blue").committed === 2, { again: sameAgain.json, level: level("Blue") })
 
@@ -177,7 +181,7 @@ async function main() {
   check("one order: two lines (mug x2, download), paid once, whatever came first", coA2.status === "paid" && ordersA.length === 2 && ordersA.every((o) => o.status === "completed"), { status: coA2.status, lines: ordersA.map((o) => [o.product_snapshot?.title, o.quantity, o.amount_cents]) })
   check("the lines add up to what Stripe took", ordersA.reduce((n, o) => n + o.amount_cents, 0) === paidA.charge!.amount, { lines: ordersA.map((o) => o.amount_cents), charged: paidA.charge!.amount })
   check("the buyer comes back from Stripe to their order page", back.status === 307 && (back.location ?? "").includes(`/checkout/physical/order/${coA2.receipt_token}`), { status: back.status, location: back.location })
-  check("stock: still 6 on hand, 2 committed (sold, waiting to ship); reservation marked sold", level("Blue").on_hand === 6 && level("Blue").committed === 2 && j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id).every((r) => r.status === "sold"), { level: level("Blue"), res: j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id) })
+  check("stock: still 30 on hand, 2 committed (sold, waiting to ship); reservation marked sold", level("Blue").on_hand === 30 && level("Blue").committed === 2 && j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id).every((r) => r.status === "sold"), { level: level("Blue"), res: j.rows("inventory_reservations").filter((r) => r.checkout_id === coA!.id) })
   check("the code counted once", j.rows("coupons").find((c) => c.code === "WELCOME10")?.usage_count === 1, j.rows("coupons").find((c) => c.code === "WELCOME10"))
   check("the download is the buyer's entitlement only if signed in; sales counted per product once", j.rows("products").find((p) => p.id === mugId)?.sales_count === 1 && j.rows("products").find((p) => p.id === pdfId)?.sales_count === 1, j.rows("products").map((p) => [p.title, p.sales_count]))
 
@@ -209,9 +213,9 @@ async function main() {
   const f1again = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: mugLine?.orderId, quantity: 1 }], carrier: "DHL", trackingNumber: "JD014600006281234567", key: "f1" } })
   const shipped1 = j.rows("fulfillments").filter((f) => f.checkout_id === coA!.id)
   check("a partial shipment with DHL tracking: partially fulfilled, a tracking link, one shipment even when pressed twice", f1.status === 200 && f1again.status === 200 && shipped1.length === 1 && f1.json?.order?.fulfillmentStatus === "partially_fulfilled" && /dhl/i.test(shipped1[0]?.tracking_url ?? ""), { f1: f1.json?.order?.fulfillmentStatus ?? f1.json, n: shipped1.length, url: shipped1[0]?.tracking_url })
-  check("stock: the shipped mug leaves the shelf (5 on hand, 1 still committed)", level("Blue").on_hand === 5 && level("Blue").committed === 1, level("Blue"))
+  check("stock: the shipped mug leaves the shelf (29 on hand, 1 still committed)", level("Blue").on_hand === 29 && level("Blue").committed === 1, level("Blue"))
   const f2 = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: mugLine?.orderId, quantity: 1 }], carrier: "Fan Courier", trackingNumber: "2345678901", key: "f2" } })
-  check("the second package: fulfilled, stock 4 on hand and nothing committed", f2.status === 200 && f2.json?.order?.fulfillmentStatus === "fulfilled" && level("Blue").on_hand === 4 && level("Blue").committed === 0, { f2: f2.json?.order?.fulfillmentStatus ?? f2.json, level: level("Blue") })
+  check("the second package: fulfilled, stock 28 on hand and nothing committed", f2.status === 200 && f2.json?.order?.fulfillmentStatus === "fulfilled" && level("Blue").on_hand === 28 && level("Blue").committed === 0, { f2: f2.json?.order?.fulfillmentStatus ?? f2.json, level: level("Blue") })
   const [ship1, ship2] = j.rows("fulfillments").filter((f) => f.checkout_id === coA!.id)
   for (const st of ["in_transit", "out_for_delivery", "delivered"]) await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "shipment", fulfillmentId: ship1.id, status: st } })
   const back1 = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "shipment", fulfillmentId: ship1.id, status: "in_transit" } })
@@ -234,7 +238,7 @@ async function main() {
   check("the return request is saved as requested, with the reason and the buyer's note", ret.status === 200 && retRow?.status === "requested" && retRow?.reason === "damaged" && retRow?.customer_note === "One arrived chipped.", { ret: ret.json, retRow })
   const appr = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "return_move", returnId: retRow?.id, status: "approved" } })
   const recv = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "return_move", returnId: retRow?.id, status: "received" } })
-  check("approved, then received: the mug is back on the shelf (5 on hand)", appr.status === 200 && recv.status === 200 && level("Blue").on_hand === 5, { appr: appr.json?.error, recv: recv.json?.error, level: level("Blue") })
+  check("approved, then received: the mug is back on the shelf (29 on hand)", appr.status === 200 && recv.status === 200 && level("Blue").on_hand === 29, { appr: appr.json?.error, recv: recv.json?.error, level: level("Blue") })
   const mugOrderRow = j.rows("orders").find((o) => o.id === mugLine?.orderId)!
   /* One mug and its share of VAT: 40.50 + 7.70. */
   const refund = await j.call("POST /api/stripe/refund", { as: seller, body: { orderId: mugLine?.orderId, amount: 48.2, reason: "damaged" } })
@@ -248,7 +252,7 @@ async function main() {
   check("the refund is counted on the return", j.rows("commerce_returns").find((r) => r.id === retRow?.id)?.refunded_cents === 4820, j.rows("commerce_returns").find((r) => r.id === retRow?.id))
   const done = await j.call(`POST /api/physical/orders/${coA!.id}`, { as: seller, body: { action: "return_move", returnId: retRow?.id, status: "completed" } })
   check("the return closes", done.status === 200 && j.rows("commerce_returns").find((r) => r.id === retRow?.id)?.status === "completed", done.json)
-  check("stock after the restock and the refund: 5 on hand (the refund did not put it back twice)", level("Blue").on_hand === 5 && level("Blue").committed === 0, level("Blue"))
+  check("stock after the restock and the refund: 29 on hand (the refund did not put it back twice)", level("Blue").on_hand === 29 && level("Blue").committed === 0, level("Blue"))
   await j.cron()
   const after11 = j.net.to(buyer.email).map((m) => m.subject)
   console.log("  buyer emails:", JSON.stringify(after11))
@@ -256,7 +260,7 @@ async function main() {
   check("the buyer gets exactly one refund email", refundMails.length === 1, after11)
   const refundMail = j.net.to(buyer.email).find((m) => /refund/i.test(m.subject))
   const orderNo = (conf?.subject.match(/#([A-Z0-9]+)/) ?? [])[1] ?? "?"
-  check("the refund email: the order's own currency (RON) and the order number the buyer knows", !!refundMail && /RON|lei/i.test(`${refundMail.subject} ${refundMail.html}`) && !/\$48/.test(refundMail.subject) && refundMail.html.includes(orderNo), { subject: refundMail?.subject, orderNo, text: refundMail?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 600) })
+  check("the refund email: the order's own currency and the order number the buyer knows", !!refundMail && /\$48\.20/.test(refundMail.html) && refundMail.html.includes(orderNo), { subject: refundMail?.subject, orderNo, text: refundMail?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 600) })
   check("return emails: requested, approved, received, completed, each once", ["request", "approved", "received", "complete|closed"].every((w) => after11.filter((x) => /return/i.test(x) && new RegExp(w, "i").test(x)).length === 1), after11.filter((x) => /return/i.test(x)))
   console.log("  mug order row:", JSON.stringify({ status: mugOrderRow.status, refund: mugOrderRow.refund_amount_cents, amount: mugOrderRow.amount_cents }))
 
@@ -277,7 +281,333 @@ async function main() {
   console.log("  analytics:", JSON.stringify(an.json?.analytics))
   check("analytics: 1 order, 2 units shipped, revenue 125.04, shipping 15.00, VAT 18.24, 1 return", an.status === 200 && an.json?.analytics?.orders === 1 && an.json?.analytics?.revenueCents === 12504 && an.json?.analytics?.shippingCents === 1500 && an.json?.analytics?.taxCents === 1824 && an.json?.analytics?.returns === 1, an.json?.analytics)
 
+  await moreJourneys(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
+
+  await website(j, { seller, creatorId: creator.id, mugId, pdfId, studioId, vId, level, address, std, acct: acct! })
+
+  section("23. Every email, counted")
+  const paid = j.rows("commerce_checkouts").filter((x) => ["paid", "partially_refunded", "refunded"].includes(x.status))
+  const confirmCounts = paid.map((x) => j.net.to(x.buyer_email).filter((m) => /confirmed/i.test(m.subject) && m.subject.includes(String(x.id).replace(/-/g, "").slice(0, 8).toUpperCase())).length)
+  check(`each of the ${paid.length} paid orders sent its buyer exactly one confirmation`, confirmCounts.every((n) => n === 1), paid.map((x, i) => [x.buyer_email, confirmCounts[i]]))
+  const sellerMail = j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)))
+  const saleMails = sellerMail.filter((m) => /sale|order/i.test(m.subject) && !/cancel|disput|refund|return/i.test(m.subject))
+  check(`the seller got one new order email per paid order (${paid.length})`, saleMails.length === paid.length, sellerMail.map((m) => m.subject))
+  const dupes = new Map<string, number>()
+  for (const m of j.net.mails) dupes.set(`${m.to.join()}|${m.subject}`, (dupes.get(`${m.to.join()}|${m.subject}`) ?? 0) + 1)
+  const twice = [...dupes].filter(([k, n]) => n > 1 && !/was delivered|is on the way/.test(k))
+  check("no email went twice to the same person with the same subject (a package's own delivered and shipped emails aside)", twice.length === 0, twice)
+  console.log("  all mail:", JSON.stringify(j.net.mails.map((m) => [m.to.join(","), m.subject])))
+
   report(j)
+}
+
+interface Ctx {
+  seller: Person
+  creatorId: string
+  mugId: string
+  pdfId: string
+  studioId: string
+  vId: (name: string) => string
+  level: (name: string) => Record<string, any>
+  address: Record<string, string>
+  std: { id: string } | undefined
+  acct: string
+}
+
+let keys = 0
+/** One guest checkout through Stripe's page, paid, its webhook delivered; the checkout row and the session. */
+async function buy(j: Journey, c: Ctx, o: { email: string; items: unknown[]; address?: Record<string, string> | null; option?: string; code?: string; note?: string; pay?: boolean; name?: string; optIn?: boolean }) {
+  const clientKey = `journey-key-${++keys}-abcdef`
+  /* Each buyer from their own address, as real buyers are: the payment limit counts per address. */
+  const headers = { "x-forwarded-for": `198.51.100.${keys}` }
+  let option = o.option
+  if (!option) {
+    const q = await j.call("POST /api/physical/checkout/quote", { headers, body: { items: o.items, shopId: c.creatorId, couponCode: o.code ?? "", country: o.address?.country ?? "RO", postalCode: o.address?.postalCode ?? "" } })
+    option = q.json?.delivery?.selectedId ?? undefined
+  }
+  const start = await j.call("POST /api/physical/checkout", { headers, body: { shopId: c.creatorId, items: o.items, couponCode: o.code, email: o.email, name: o.name ?? o.address?.name ?? "Guest Buyer", address: o.address === null ? undefined : o.address ?? c.address, deliveryOptionId: option, buyerNote: o.note, clientKey, emailOptIn: o.optIn === true } })
+  const co = j.rows("commerce_checkouts").find((x) => x.client_key === clientKey)
+  if (start.status !== 200 || !co || o.pay === false) return { start, co, paid: null as null | ReturnType<StripeWorld["pay"]> }
+  const paid = j.world.pay(co.stripe_session_id)
+  await j.webhook("checkout.session.completed", j.world.expand(paid.session)!)
+  return { start, co: j.rows("commerce_checkouts").find((x) => x.id === co.id)!, paid }
+}
+
+async function moreJourneys(j: Journey, c: Ctx) {
+  const { seller } = c
+  const subjects = (email: string) => j.net.to(email).map((m) => m.subject)
+
+  section("13. Cancellation before shipping: the buyer asks, the shop cancels and refunds")
+  const b1 = "cancel@example.com"
+  const before = { ...c.level("Green") }
+  const o1 = await buy(j, c, { email: b1, items: [{ productId: c.mugId, variantId: c.vId("Green"), quantity: 1 }] })
+  check("a Green mug bought: 1 of 2 committed", o1.co?.status === "paid" && c.level("Green").committed === before.committed + 1, { co: o1.co?.status, level: c.level("Green"), start: o1.start.json })
+  const ask = await j.call(`POST /api/physical/order-status/${o1.co!.receipt_token}/cancel`, { body: { reason: "Ordered the wrong colour" } })
+  await j.cron()
+  check("the buyer's cancel request reaches the seller, once", ask.status === 200 && j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)) && /cancel/i.test(m.subject)).length === 1, { ask: ask.json, seller: j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t))).map((m) => m.subject) })
+  const line1 = j.rows("orders").find((o) => o.checkout_id === o1.co!.id)!
+  /* As the order page's Cancel and refund does it (components/physical/order-panel.tsx, app/app/orders/order-detail.tsx refundAll): cancel, then refund each line, then the order catches up. */
+  const cx1 = await j.call(`POST /api/physical/orders/${o1.co!.id}`, { as: seller, body: { action: "cancel", reason: "Cancelled at the buyer's request" } })
+  const rf1 = await j.call("POST /api/stripe/refund", { as: seller, body: { orderId: line1.id, reason: "cancelled" } })
+  const nr1 = await j.call(`POST /api/physical/orders/${o1.co!.id}`, { as: seller, body: { action: "refunded" } })
+  await j.webhook("charge.refunded", j.world.charges.get(o1.paid!.charge!.id)!)
+  await j.cron()
+  const co1 = j.rows("commerce_checkouts").find((x) => x.id === o1.co!.id)!
+  check("refunded in full and cancelled: the Green mug's stock is free again", rf1.status === 200 && nr1.status === 200 && cx1.status === 200 && co1.status === "refunded" && !!co1.cancelled_at && c.level("Green").committed === before.committed && c.level("Green").on_hand === before.on_hand, { rf1: rf1.json, nr1: nr1.json?.error, cx1: cx1.json?.error, status: co1.status, cancelled: co1.cancelled_at, level: c.level("Green") })
+  const s1 = subjects(b1)
+  check("the buyer gets: the confirmation, one refund email and one cancellation email", s1.filter((x) => /confirmed/i.test(x)).length === 1 && s1.filter((x) => /refund/i.test(x)).length === 1 && s1.filter((x) => /cancel/i.test(x)).length === 1 && s1.length === 3, s1)
+
+  section("14. A refund without a return (a goodwill partial refund)")
+  const b2 = "goodwill@example.com"
+  const o2 = await buy(j, c, { email: b2, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const line2 = j.rows("orders").find((o) => o.checkout_id === o2.co!.id)!
+  const rf2 = await j.call("POST /api/stripe/refund", { as: seller, body: { orderId: line2.id, amount: 10 } })
+  await j.call(`POST /api/physical/orders/${o2.co!.id}`, { as: seller, body: { action: "refunded" } })
+  await j.webhook("charge.refunded", j.world.charges.get(o2.paid!.charge!.id)!)
+  await j.cron()
+  const co2 = j.rows("commerce_checkouts").find((x) => x.id === o2.co!.id)!
+  check("10.00 back, the order partly refunded, still to ship (stock stays committed)", rf2.status === 200 && co2.status === "partially_refunded" && co2.refunded_cents === 1000 && !co2.cancelled_at, { rf2: rf2.json, co2: [co2.status, co2.refunded_cents, co2.cancelled_at] })
+  check("one refund email, saying 10.00", subjects(b2).filter((x) => /refund/i.test(x)).length === 1 && j.net.to(b2).some((m) => /refund/i.test(m.subject) && /10\.00/.test(m.html)), subjects(b2))
+
+  section("15. Local pickup")
+  const b3 = "pickup@example.com"
+  const qp = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], shopId: c.creatorId } })
+  const pickupId = qp.json?.pickups?.[0]?.id
+  const o3 = await buy(j, c, { email: b3, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], address: null, option: pickupId, name: "Pia Pickup" })
+  check("a pickup order: no address, no delivery charge, tax from the Studio's country", o3.co?.delivery_method === "pickup" && o3.co?.shipping_cents === 0 && o3.co?.tax_cents === Math.round(4500 * 0.19) && !o3.co?.shipping_address, { start: o3.start.json, co: o3.co && [o3.co.delivery_method, o3.co.shipping_cents, o3.co.tax_cents] })
+  await j.cron()
+  const pickConf = j.net.to(b3).find((m) => /confirmed/i.test(m.subject))
+  check("the confirmation says where and when to pick up (Studio, hours, instructions)", !!pickConf && /Studio/.test(pickConf.html) && /Mon to Fri, 10:00 to 18:00/.test(pickConf.html) && /blue door/.test(pickConf.html), pickConf?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 900))
+  const line3 = j.rows("orders").find((o) => o.checkout_id === o3.co!.id)!
+  const ready = await j.call(`POST /api/physical/orders/${o3.co!.id}`, { as: seller, body: { action: "fulfil", items: [{ orderId: line3.id, quantity: 1 }] } })
+  const f3 = j.rows("fulfillments").find((f) => f.checkout_id === o3.co!.id)!
+  const picked = await j.call(`POST /api/physical/orders/${o3.co!.id}`, { as: seller, body: { action: "shipment", fulfillmentId: f3?.id, status: "delivered" } })
+  await j.cron()
+  const s3 = subjects(b3)
+  check("ready for pickup, then picked up: one email each, no carrier", ready.status === 200 && picked.status === 200 && s3.filter((x) => /ready/i.test(x)).length === 1 && s3.filter((x) => /picked up|collected/i.test(x)).length === 1 && !j.net.to(b3).some((m) => /tracking number/i.test(m.html)), s3)
+
+  section("16. Local delivery by postal code")
+  const b4 = "local@example.com"
+  const near = { ...c.address, postalCode: "400002", line1: "Str. Aproape 2" }
+  const ql = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], shopId: c.creatorId, country: "RO", postalCode: "400002" } })
+  const local = (ql.json?.delivery?.options ?? []).find((o: any) => /local|deliver/i.test(o.name) && o.priceCents === 1000)
+  check("a postal code the Studio delivers to is offered local delivery at 10.00 beside the couriers", !!local && (ql.json?.delivery?.options ?? []).length === 3, ql.json?.delivery)
+  const o4 = await buy(j, c, { email: b4, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], address: near, option: local?.id })
+  await j.cron()
+  const localConf = j.net.to(b4).find((m) => /confirmed/i.test(m.subject))
+  check("a local delivery order: 10.00 delivery, the shop's note on the confirmation", o4.co?.shipping_cents === 1000 && o4.co?.shipping_rate?.kind === "local" && !!localConf && /by bike/.test(localConf.html), { co: o4.co && [o4.co.shipping_cents, o4.co.shipping_rate], start: o4.start.json })
+  const qfar = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], shopId: c.creatorId, country: "RO", postalCode: "500001" } })
+  check("a postal code outside the list gets no local delivery", !(qfar.json?.delivery?.options ?? []).some((o: any) => o.priceCents === 1000), qfar.json?.delivery)
+
+  section("17. Sold out, the last ones, the most per order")
+  const sand = await j.call("POST /api/physical/checkout", { body: { shopId: c.creatorId, items: [{ productId: c.mugId, variantId: c.vId("Sand"), quantity: 1 }], email: "sand@example.com", name: "S B", address: c.address, deliveryOptionId: c.std?.id, clientKey: "journey-sand-1234" } })
+  check("the sold out colour can't be bought: refused before Stripe, nothing held", sand.status === 409 && /Sand/.test(sand.json?.error ?? "") && !j.rows("commerce_checkouts").some((x) => x.client_key === "journey-sand-1234" && x.status === "pending"), sand.json)
+  const four = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 4 }], shopId: c.creatorId, country: "RO" } })
+  check("four mugs in one order is refused (at most 3)", four.status === 400 && /3/.test(four.json?.error ?? ""), four.json)
+  const greenLeft = c.level("Green").on_hand - c.level("Green").committed
+  const g1 = await j.call("POST /api/physical/checkout", { body: { shopId: c.creatorId, items: [{ productId: c.mugId, variantId: c.vId("Green"), quantity: greenLeft }], email: "first@example.com", name: "F B", address: c.address, deliveryOptionId: c.std?.id, clientKey: "journey-green-first" } })
+  const g2 = await j.call("POST /api/physical/checkout", { body: { shopId: c.creatorId, items: [{ productId: c.mugId, variantId: c.vId("Green"), quantity: 1 }], email: "second@example.com", name: "S B", address: c.address, deliveryOptionId: c.std?.id, clientKey: "journey-green-second" } })
+  check("the last Green mugs: the first checkout holds them, the second is told none are left", g1.status === 200 && g2.status === 409 && /Green/.test(g2.json?.error ?? ""), { g1: g1.status, g2: g2.json, level: c.level("Green") })
+  const gco = j.rows("commerce_checkouts").find((x) => x.client_key === "journey-green-first")!
+  const expired = await j.webhook("checkout.session.expired", { ...j.world.expand(j.world.sessions.get(gco.stripe_session_id)!)!, status: "expired" })
+  check("Stripe's page expires unpaid: the held mugs go back", expired.status === 200 && j.rows("commerce_checkouts").find((x) => x.id === gco.id)?.status === "expired" && c.level("Green").on_hand - c.level("Green").committed === greenLeft, { status: j.rows("commerce_checkouts").find((x) => x.id === gco.id)?.status, level: c.level("Green") })
+  const sp = await j.call(`GET /api/physical/storefront/product?productId=${c.mugId}&country=RO`)
+  check("the product page agrees: Sand sold out, Green available again", (sp.json?.variants ?? []).find((v: any) => v.name === "Sand")?.soldOut === true && (sp.json?.variants ?? []).find((v: any) => v.name === "Green")?.soldOut === false, sp.json?.variants)
+
+  section("18. Limit sales on a download (1 copy)")
+  const zine = await newProduct(j, c.creatorId, { type: "digital", title: "Studio Zine", priceCents: 900, salesLimit: 1 })
+  const z1 = await buy(j, c, { email: "zine1@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }, { productId: zine, variantId: null, quantity: 1 }] })
+  const z2 = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }, { productId: zine, variantId: null, quantity: 1 }], shopId: c.creatorId, country: "RO" } })
+  check("the one copy sells; the next cart has it left out as sold out", z1.co?.status === "paid" && (z2.json?.dropped ?? []).some((t: string) => /Zine/.test(t)) && !(z2.json?.lines ?? []).some((l: any) => l.productId === zine), { z1: z1.co?.status, z2: z2.json?.dropped })
+
+  section("19. A free shipping code")
+  const fs = await j.call("POST /api/coupons", { as: seller, body: { code: "FREESHIP", discount_type: "fixed", discount_value: 0, free_shipping: true } })
+  const fsId = fs.json?.coupon?.id
+  const fsOpts = await j.call(`PUT /api/physical/coupons/${fsId}`, { as: seller, body: { freeShipping: true } })
+  const qf = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], shopId: c.creatorId, couponCode: "FREESHIP", country: "RO", postalCode: "400100" } })
+  check("FREESHIP: delivery free, no VAT on the delivery, items untouched (45.00 + 8.55 VAT)", fs.status === 201 && fsOpts.status === 200 && qf.json?.coupon?.freeShipping === true && qf.json?.totals?.shippingDiscountCents === qf.json?.totals?.shippingCents && qf.json?.totals?.totalCents === 4500 + 855, { fs: fs.json, opts: fsOpts.json, totals: qf.json?.totals, err: qf.json?.couponError })
+  const o5 = await buy(j, c, { email: "freeship@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], code: "FREESHIP" })
+  const session5 = o5.co ? j.world.sessions.get(o5.co.stripe_session_id) : null
+  check("Stripe's page shows the delivery at 0 named as free with the code", !!session5 && session5.__params.shipping_options?.[0]?.shipping_rate_data?.fixed_amount?.amount === 0 && /FREESHIP/.test(session5.__params.shipping_options?.[0]?.shipping_rate_data?.display_name ?? ""), session5?.__params.shipping_options ?? o5.start.json)
+
+  section("20. Prices include VAT")
+  await j.call("PUT /api/store/taxes", { as: seller, body: { included: true } })
+  const qi = await j.call("POST /api/physical/checkout/quote", { body: { items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], shopId: c.creatorId, country: "RO", postalCode: "400100" } })
+  /* 45.00 + 15.00 delivery, VAT inside each: 7.18 + 2.39 = 9.57. */
+  check("tax included: the total is the prices (60.00), VAT 9.57 shown as included", qi.json?.totals?.totalCents === 6000 && qi.json?.totals?.taxIncluded === true && qi.json?.totals?.taxCents === 957, qi.json?.totals)
+  const o6 = await buy(j, c, { email: "included@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  await j.cron()
+  const incl = j.net.to("included@example.com").find((m) => /confirmed/i.test(m.subject))
+  const inclRow = j.rows("orders").find((o) => o.checkout_id === o6.co?.id)
+  check("charged 60.00 with no VAT line added; the confirmation and the order line say VAT 19% is included", o6.paid?.charge?.amount === 6000 && !j.world.sessions.get(o6.co!.stripe_session_id)!.__params.line_items.some((l: any) => /VAT/.test(l.price_data.product_data.name)) && !!incl && /includ/i.test(incl.html) && inclRow?.product_snapshot?.tax_included === true && inclRow?.product_snapshot?.tax_cents === 957, { charged: o6.paid?.charge?.amount, snap: inclRow?.product_snapshot, html: incl?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 500) })
+  await j.call("PUT /api/store/taxes", { as: seller, body: { included: false } })
+
+  section("21. A declined card, then the abandoned checkout reminder")
+  const b7 = "declined@example.com"
+  const o7 = await buy(j, c, { email: b7, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], pay: false })
+  const declined = j.world.pay(o7.co!.stripe_session_id, { fail: true })
+  const pf = await j.webhook("payment_intent.payment_failed", declined.intent)
+  check("payment_intent.payment_failed answers 200 and queues one email for later", pf.status === 200 && j.rows("commerce_jobs").filter((x) => x.idempotency_key === `email:payment_failed:${o7.co!.id}`).length === 1, { pf: pf.json, jobs: j.rows("commerce_jobs").filter((x) => String(x.idempotency_key).includes("payment_failed")) })
+  await j.cron()
+  check("nothing is sent before half an hour", subjects(b7).length === 0, subjects(b7))
+  for (const job of j.rows("commerce_jobs").filter((x) => String(x.idempotency_key).includes("payment_failed"))) job.run_after = new Date(Date.now() - 1000).toISOString()
+  await j.cron()
+  await j.cron()
+  const s7 = subjects(b7)
+  check("half an hour later, still unpaid: one 'payment didn't go through' email", s7.length === 1 && /payment|card|complete/i.test(s7[0] ?? ""), s7)
+  const starts = j.rows("checkout_starts").filter((x) => x.email === b7)
+  for (const st of starts) st.created_at = new Date(Date.now() - 2 * 3600_000).toISOString()
+  const sweep = await j.call("GET /api/cron/process-scheduled-emails", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+  await j.call("GET /api/cron/process-scheduled-emails", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+  console.log("  sweep:", JSON.stringify(sweep.json).slice(0, 600))
+  const s7b = subjects(b7)
+  check("the abandoned checkout: the start was recorded, and the buyer already told about the card is not reminded again", starts.length === 1 && s7b.length === 1, { starts: starts.length, subjects: s7b })
+  const b8 = "abandoned@example.com"
+  /* Ticked "Email me with news and offers": the reminder is only for buyers who said yes (lib/automations/abandoned). */
+  const o8 = await buy(j, c, { email: b8, items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }], pay: false, optIn: true })
+  const starts8 = j.rows("checkout_starts").filter((x) => x.email === b8)
+  for (const st of starts8) st.created_at = new Date(Date.now() - 2 * 3600_000).toISOString()
+  await j.call("GET /api/cron/process-scheduled-emails", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+  await j.call("GET /api/cron/process-scheduled-emails", { headers: { authorization: `Bearer ${process.env.CRON_SECRET}` } })
+  const s8 = j.net.to(b8)
+  check("a cart left at Stripe's page an hour ago: exactly one reminder, linking back to this checkout", o8.co?.status === "pending" && starts8.length === 1 && s8.length === 1 && s8[0].html.includes("checkout"), { starts: starts8.length, mails: s8.map((m) => m.subject), link: s8[0]?.html.match(/href="([^"]*checkout[^"]*)"/)?.[1] })
+
+  section("22. A dispute")
+  const o9 = await buy(j, c, { email: "dispute@example.com", items: [{ productId: c.mugId, variantId: c.vId("Blue"), quantity: 1 }] })
+  const dp = j.world.dispute(o9.paid!.charge!.id)
+  const dpEvt = await j.webhook("charge.dispute.created", dp)
+  const dpAgain = await j.webhook("charge.dispute.created", dp)
+  const ledgerD = j.rows("ledger_events").filter((e) => e.stripe_dispute_id === dp.id)
+  console.log("  dispute ledger:", JSON.stringify(ledgerD.map((e) => [e.event_type, e.amount_cents, e.net_seller_cents, e.pending_delta, e.available_delta])))
+  const disputedRow = j.rows("orders").find((o) => o.checkout_id === o9.co!.id)
+  check("charge.dispute.created: answered 200, written once on the ledger, the order marked disputed", dpEvt.status === 200 && dpAgain.status === 200 && ledgerD.filter((e) => e.event_type === "dispute_created").length === 1 && /disput/i.test(JSON.stringify(disputedRow)), { dp: dpEvt.json, again: dpAgain.json, row: disputedRow && { status: disputedRow.status, disputed: disputedRow.disputed_at ?? disputedRow.dispute_status } })
+  const sellerD = j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t)) && /disput|chargeback/i.test(m.subject))
+  check("the seller is told about the dispute once", sellerD.length === 1, j.net.mails.filter((m) => m.to.some((t) => /anaceramics|maker@/.test(t))).map((m) => m.subject).slice(-6))
+}
+
+/* An imported Shopify theme's product and cart sections, written as Dawn writes them (tests/storefront23.test.ts has the same two). */
+const PRODUCT_SECTION = `<div class="main-product product-info">
+  <h1 class="product__title">{{ product.title }}</h1>
+  {%- assign v = product.selected_or_first_available_variant -%}
+  <div class="price"><span class="price__current">{{ v.price | money }}</span></div>
+  <select class="variant-select" name="id">{%- for variant in product.variants -%}<option value="{{ variant.id }}"{% if variant.id == v.id %} selected{% endif %}{% unless variant.available %} disabled{% endunless %}>{{ variant.title }}{% unless variant.available %} - Sold out{% endunless %}</option>{%- endfor -%}</select>
+  {%- for variant in product.variants -%}{%- if variant.inventory_management == 'shopify' and variant.inventory_quantity <= 10 and variant.inventory_quantity > 0 -%}<p class="product__inventory" data-v="{{ variant.title }}">Low stock: {{ variant.inventory_quantity }} left</p>{%- endif -%}{%- endfor -%}
+  <form action="/cart/add" method="post" class="product-form"><input type="hidden" name="id" value="{{ v.id }}"><input class="quantity__input" type="number" name="quantity" value="1"{% if v.quantity_rule.max != null %} max="{{ v.quantity_rule.max }}"{% endif %}><button type="submit" name="add">Add to cart</button></form>
+  {%- assign pick = v.store_availabilities | where: 'available', true -%}{%- if pick.size > 0 -%}<div class="pickup-availability"><p>Pickup available at <span class="pickup__place">{{ pick[0].location.name }}</span></p></div>{%- endif -%}
+</div>
+{% schema %}
+{ "name": "Product information", "settings": [] }
+{% endschema %}`
+const CART_SECTION = `<div class="page-width main-cart">
+  {%- if cart.item_count == 0 -%}<p class="cart__empty">Your cart is empty</p>{%- else -%}
+  <form action="/cart" method="post" id="cart">
+  {%- for item in cart.items -%}<div class="cart-item"><span class="cart-item__name">{{ item.product.title }}</span><span class="cart-item__price">{{ item.final_line_price | money }}</span><input type="number" name="updates[]" value="{{ item.quantity }}"></div>{%- endfor -%}
+  <textarea name="note" class="cart__note">{{ cart.note }}</textarea>
+  <button type="submit" name="checkout" class="cart__checkout">Check out</button>
+  </form>{%- endif -%}
+</div>
+{% schema %}
+{ "name": "Main cart", "settings": [] }
+{% endschema %}`
+
+async function importedTheme(): Promise<{ files: Record<string, string>; settings: Record<string, unknown>; pages: { page_key: string; sections: unknown }[] }> {
+  const { convertShopifyTheme } = await import("@/lib/storelib-theme/shopify/convert")
+  const dir = join(process.cwd(), "tests", "fixtures", "shopify-posture")
+  const zip = new JSZip()
+  const walk = (d: string) => {
+    for (const n of readdirSync(d)) {
+      const p = join(d, n)
+      if (statSync(p).isDirectory()) walk(p)
+      else zip.file(relative(dir, p), readFileSync(p))
+    }
+  }
+  walk(dir)
+  zip.file("sections/main-product-info.liquid", PRODUCT_SECTION)
+  zip.file("sections/main-cart.liquid", CART_SECTION)
+  const r = await convertShopifyTheme(zip)
+  if (!r.ok) throw new Error("the fixture theme did not convert")
+  return r.theme as never
+}
+
+/**
+ * THE BUYER ON THE STORE'S OWN WEBSITE. An imported theme published as the
+ * live site (its files, settings and pages in the database, read by the live
+ * site's own loader, lib/website-builder/compat-site.ts), its product page,
+ * its cart with a note, Check out to the website's checkout on this host,
+ * then Storelib's card form (app/api/checkout/site, a PaymentIntent),
+ * paid, with the webhook and the page's own confirm both arriving.
+ */
+async function website(j: Journey, c: Ctx) {
+  section("24. The store's website: an imported theme, its cart, the website's own checkout")
+  const host = "ana-ceramics.storelib.com"
+  const t = await importedTheme()
+  const [install] = j.db.insert("store_theme_installs", { creator_id: c.creatorId, status: "published", published_at: new Date().toISOString(), sort_order: 0, name: "Posture" }, {})
+  j.db.insert("store_theme_settings", { install_id: install.id, settings: t.settings }, {})
+  j.db.insert("store_theme_custom_files", Object.entries(t.files).map(([path, content]) => ({ install_id: install.id, path, content })), {})
+  j.db.insert("store_theme_pages", t.pages.map((p) => ({ install_id: install.id, page_key: p.page_key, sections: p.sections })), {})
+  const { compatSiteByName } = await import("@/lib/website-builder/compat-site")
+  const { answer } = await import("@/lib/storelib-theme/compat/site")
+  const found = await compatSiteByName("ana-ceramics", host)
+  check("the live site loads the published imported theme from the database", found.kind === "site", found)
+  if (found.kind !== "site") return
+  const site = found.site
+  const state: { cart: any[]; note: string } = { cart: [], note: "" }
+  const ask = async (method: string, path: string, body: Record<string, unknown> | null = null, ajax = false) => {
+    const [p, q] = path.split("?")
+    const r = await answer(site, { method, path: p, query: new URLSearchParams(q ?? ""), body, cart: state.cart as never, note: state.note, ajax })
+    if (r.cart) state.cart = r.cart as never
+    if (typeof r.note === "string") state.note = r.note
+    return r
+  }
+  const page = await ask("GET", "/products/stoneware-mug")
+  const html = String(page.body)
+  check("the theme's product page: the mug, Sand sold out, Green low stock (2 left), pickup at the Studio", page.status === 200 && /Stoneware Mug/.test(html) && /Sand - Sold out/.test(html) && /data-v="Green">Low stock: 2 left/.test(html) && /pickup__place">Studio/.test(html), html.replace(/\s+/g, " ").slice(html.indexOf("main-product"), html.indexOf("main-product") + 1500))
+  check("the theme's price reads as the checkout charges it ($45.00, the live build's USD)", /price__current">\$45\.00/.test(html), html.match(/price__current">[^<]*/)?.[0])
+  const listed = (found.site.products as { id: string }[]).map((p) => p.id)
+  const offWeb = await j.call("PUT /api/store/channels/product", { as: c.seller, body: { productId: c.pdfId, off: ["storefront"] } })
+  const again = await compatSiteByName("ana-ceramics", host)
+  const listedAfter = again.kind === "site" ? (again.site.products as { id: string }[]).map((p) => p.id) : []
+  check("Sales channels: the download taken off the Online store leaves the website's lists, the mug stays", listed.includes(c.pdfId) && offWeb.status === 200 && !listedAfter.includes(c.pdfId) && listedAfter.includes(c.mugId), { before: listed.length, after: listedAfter.length, put: offWeb.json })
+  const add = await ask("POST", "/cart/add.js", { id: c.vId("Blue"), quantity: 2 }, true)
+  const tooMany = await ask("POST", "/cart/add.js", { id: c.vId("Blue"), quantity: 2 }, true)
+  const sold = await ask("POST", "/cart/add.js", { id: c.vId("Sand"), quantity: 1 }, true)
+  check("cart/add: two Blue mugs in; two more refused (3 per order); Sand refused", add.status === 200 && tooMany.status === 422 && sold.status === 422 && state.cart.reduce((n: number, l: any) => n + l.q, 0) === 2, { add: add.status, tooMany: [tooMany.status, String(tooMany.body).slice(0, 200)], sold: sold.status, cart: state.cart })
+  const go = await ask("POST", "/cart", { "updates[]": "2", note: "Leave it with the neighbour, please", checkout: "" })
+  const to = new URL(go.headers?.Location ?? "/", `https://${host}`)
+  const { readSiteCheckoutParams } = await import("@/lib/checkout/site-checkout")
+  const params = readSiteCheckoutParams(to.searchParams)
+  check("Check out goes to the website's own checkout on this host, with the two mugs and the note", go.status === 303 && to.host === host && to.pathname === "/checkout" && params.note === "Leave it with the neighbour, please" && params.items.length === 1 && params.items[0].quantity === 2, { status: go.status, to: to.toString(), params })
+
+  const buyerHeaders = { "x-forwarded-for": "192.0.2.77", origin: `https://${host}` }
+  const items = params.items.map((i: any) => ({ productId: i.productId, variantId: i.variantId ?? null, quantity: i.quantity }))
+  const quote = await j.call("POST /api/checkout/site", { host, headers: buyerHeaders, body: { action: "quote", items, country: "RO", postalCode: "400100" } })
+  console.log("  site quote:", JSON.stringify(quote.json).slice(0, 900))
+  const option = quote.json?.delivery?.selectedId ?? quote.json?.delivery?.options?.[0]?.id
+  check("the website's checkout quotes the cart: 90.00, delivery options, VAT", quote.status === 200 && JSON.stringify(quote.json).includes("9000") && !!option, quote.json)
+  const intent = await j.call("POST /api/checkout/site", {
+    host,
+    headers: buyerHeaders,
+    body: { action: "intent", items, email: "web@example.com", firstName: "Wanda", lastName: "Web", address: { line1: "Str. Web 5", city: "Cluj-Napoca", postalCode: "400100", country: "RO", phone: "+40 744 999 000" }, phone: "+40 744 999 000", agreedToTerms: true, deliveryOptionId: option, buyerNote: params.note, clientKey: "site-key-web-123456", paymentMethods: ["card"] },
+  })
+  const pi = intent.json?.paymentIntentId as string | undefined
+  const siteCo = j.rows("commerce_checkouts").find((x) => x.client_key === "site-key-web-123456")
+  check("Pay in the card form: a held checkout and a PaymentIntent for its total, with the note", intent.status === 200 && !!pi && !!siteCo && siteCo.buyer_note === "Leave it with the neighbour, please" && j.world.intents.get(pi!)?.amount === siteCo.total_cents, { status: intent.status, body: intent.json, co: siteCo && [siteCo.total_cents, siteCo.buyer_note] })
+  if (!pi || !siteCo) return
+  const paid = j.world.payIntent(pi)
+  /* The page's confirm and the webhook race; Stripe repeats the webhook. */
+  const confirm = await j.call("POST /api/checkout/site", { host, headers: buyerHeaders, body: { action: "confirm", paymentIntentId: pi, clientSecret: j.world.intents.get(pi)!.client_secret, wholeCart: true } })
+  const wh1 = await j.webhook("payment_intent.succeeded", paid.intent)
+  const wh2 = await j.webhook("payment_intent.succeeded", paid.intent)
+  const webOrders = j.rows("orders").filter((o) => o.checkout_id === siteCo.id)
+  check("paid: one order with the two mugs, whichever of the page and the webhook came first", confirm.status === 200 && wh1.status === 200 && wh2.status === 200 && webOrders.length === 1 && webOrders[0].quantity === 2 && j.rows("commerce_checkouts").find((x) => x.id === siteCo.id)?.status === "paid", { confirm: confirm.json, wh: [wh1.json, wh2.json], orders: webOrders.length })
+  check("the thanks page and the order link stay on the website's own host", typeof confirm.json?.thanks === "string" && !/storelib\.com\/checkout\/physical/.test(confirm.json.thanks), confirm.json)
+  check("the theme's cart is emptied once it is an order", String(confirm.headers.get("set-cookie") ?? "").includes("sl_theme_cart=;"), confirm.headers.get("set-cookie"))
+  check("the order says where it was placed (this website)", JSON.stringify(j.rows("commerce_checkouts").find((x) => x.id === siteCo.id)?.origin ?? {}).includes(host), j.rows("commerce_checkouts").find((x) => x.id === siteCo.id)?.origin)
+  await j.cron()
+  const mail = j.net.to("web@example.com")
+  check("the buyer gets one confirmation, whose order link opens on the website", mail.filter((m) => /confirmed/i.test(m.subject)).length === 1 && mail.some((m) => m.html.includes(`https://${host}/`)), { subjects: mail.map((m) => m.subject), links: mail[0]?.html.match(/href="https:\/\/[^"]+"/g)?.slice(0, 6) })
+  const so = await j.call(`GET /api/physical/orders/${siteCo.id}`, { as: c.seller })
+  check("the seller's order page shows the cart note from the website", so.json?.order?.buyerNote === "Leave it with the neighbour, please", so.json?.order?.buyerNote)
 }
 
 /** The buyer's order page (app/checkout/physical/order/[token]), rendered as the server renders it. */

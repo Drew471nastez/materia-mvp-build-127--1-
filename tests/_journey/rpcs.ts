@@ -355,7 +355,26 @@ export function installRpcs(db: MemoryDb) {
   db.rpcs.perf_ingest = () => undefined
   db.rpcs.generate_onepage_slug = (_d, a) => String(a.base ?? a.p_base ?? "page").toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Math.random().toString(36).slice(2, 6)
 
-  /* The notification engine's queue claims: the journey reads the outbox rows themselves. */
-  db.rpcs.claim_notification_events = () => []
-  db.rpcs.claim_notification_jobs = () => []
+  /* The notification engine's queues (run-now 40_notification_engine.sql), so its cron sends what it sends in production. */
+  db.rpcs.claim_notification_events = (d, a) => {
+    const lease = new Date(Date.now() + Math.max(15, Math.min(a.p_lease_seconds ?? 60, 900)) * 1000).toISOString()
+    const due = d
+      .rows("notification_events")
+      .filter((e) => !e.processed_at && (!e.claimed_until || e.claimed_until < now()) && (e.attempts ?? 0) < 10)
+      .sort((x, y) => String(x.created_at).localeCompare(String(y.created_at)))
+      .slice(0, Math.max(1, Math.min(a.p_limit ?? 20, 100)))
+    for (const e of due) Object.assign(e, { claimed_until: lease, attempts: (e.attempts ?? 0) + 1 })
+    return due.map((e) => ({ ...e }))
+  }
+  db.rpcs.claim_notification_jobs = (d, a) => {
+    for (const x of d.rows("notification_jobs")) if (x.state === "pending" && x.expires_at && x.expires_at <= now()) Object.assign(x, { state: "skipped", skip_reason: "EXPIRED", claimed_by: null, claimed_until: null, finished_at: now(), updated_at: now() })
+    const due = d
+      .rows("notification_jobs")
+      .filter((q) => ((q.state === "pending" && q.run_at <= now()) || (q.state === "processing" && q.claimed_until < now())) && (!q.expires_at || q.expires_at > now()))
+      .sort((x, y) => String(x.run_at).localeCompare(String(y.run_at)))
+      .slice(0, Math.max(1, Math.min(a.p_limit ?? 20, 100)))
+    const lease = new Date(Date.now() + Math.max(30, Math.min(a.p_lease_seconds ?? 120, 900)) * 1000).toISOString()
+    for (const j of due) Object.assign(j, { state: "processing", claimed_by: a.p_worker, claimed_until: lease, attempts: (j.attempts ?? 0) + 1, updated_at: now() })
+    return due.map((j) => ({ ...j }))
+  }
 }
