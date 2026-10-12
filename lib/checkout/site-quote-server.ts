@@ -35,6 +35,8 @@ import { lineTotalCents } from "./cart-items"
 import { countryCode } from "./countries"
 import { loadTaxForCheckout } from "@/lib/tax/server"
 import { basketTax, type BasketTax } from "@/lib/tax/rules"
+import { variantChoices } from "./variant-choices-server"
+import type { ChoicesByProduct } from "./variant-choices"
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Db = any
@@ -95,6 +97,8 @@ export interface SiteQuote {
   shipsTo?: string[] | null
   /** The stock-short lines, with what was asked and what is left. */
   short?: SiteShortLine[]
+  /** Each product in the order with more than one option on sale: what its line could be changed to (./variant-choices-server). */
+  choices?: ChoicesByProduct
   /** Lines the server lowered to the product's per order limit: the page takes these quantities. */
   adjusted?: { productId: string; variantId: string | null; quantity: number; title: string; limit: number }[]
 }
@@ -170,7 +174,12 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
   if (decision.kind === "refuse" || priced.ok === false) {
     return { ok: false, status: decision.kind === "refuse" ? decision.status : 400, error: decision.kind === "refuse" ? decision.error : "This cart can't be paid for right now." }
   }
-  const [names, tax] = await Promise.all([variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v)), digitalCartTax(db, creatorId, priced, body, requestCountry)])
+  const [names, tax, choices] = await Promise.all([
+    variantNames(db, priced.lines.map((l) => l.item.variantId).filter((v): v is string => !!v)),
+    digitalCartTax(db, creatorId, priced, body, requestCountry),
+    /* A line named its own price (pay what you want) keeps it: nothing to change it to. */
+    variantChoices(db, priced.lines.filter((l) => l.item.variantId && !namedOwnPrice(body).has(l.item.productId)).map((l) => l.item.productId)),
+  ])
   return {
     ok: true,
     quote: {
@@ -198,8 +207,17 @@ export async function siteQuote(db: Db, creatorId: string, body: Body, requestCo
       delivery: { ok: true, options: [], selectedId: null, needsCountry: false },
       pickups: [],
       totals: { itemsSubtotalCents: priced.subtotalCents, discountCents: priced.discountCents, shippingCents: 0, shippingDiscountCents: 0, taxCents: tax.taxCents, taxIncluded: tax.included, totalCents: priced.totalCents + (tax.included ? 0 : tax.taxCents), taxLabel: tax.label },
+      choices,
     },
   }
+}
+
+/** Products whose line in the request names its own price (pay what you want): those keep their option. */
+function namedOwnPrice(body: Body): Set<string> {
+  const out = new Set<string>()
+  if (!Array.isArray(body.items)) return out
+  for (const i of body.items as Record<string, unknown>[]) if (i && typeof i === "object" && typeof i.productId === "string" && typeof i.customPriceCents === "number") out.add(i.productId)
+  return out
 }
 
 /** A quote with nothing in it to pay for. */
@@ -280,9 +298,11 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
-  const [q, profiles] = await Promise.all([
+  const [q, profiles, choices] = await Promise.all([
     quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId),
     priced.requiresShipping ? loadProfiles(db, creatorId).catch(() => []) : Promise.resolve([]),
+    /* Short lines too: a size that sold out is changed to one in stock right there. A line at its own price keeps it. */
+    variantChoices(db, items.filter((i) => typeof (i as { customPriceCents?: unknown }).customPriceCents !== "number").map((i) => i.productId)),
   ])
   /* How far each line may go: the most any location that fulfils holds of it (unless it sells past zero or isn't counted), held to the per order limit shared by its options. */
   const fulfilling = pc.locations.filter((l) => l.active && l.fulfillsOrders).map((l) => l.id)
@@ -361,6 +381,7 @@ export async function shippedQuote(db: Db, creatorId: string, body: Body, owner:
         available: s.available,
       })),
       adjusted: clamped.adjusted.map((a) => ({ ...a, title: titleOf(a.productId) })),
+      choices,
     },
   }
 }

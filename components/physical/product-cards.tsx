@@ -497,7 +497,9 @@ function CardsInner({ productId, basePrice, handle, onDirty, images = [], upload
       for (const r of rows) {
         if (!r.active) continue
         const p = centsOf(r.price) ?? base
-        if (p === null || p < 50) return multi ? `Set a price for ${variantName(r.options)}` : `Set a price of at least ${formatStoreMoney(50, currency)}`
+        /* $0 is a price: a free sample or a gift sells at nothing (checkout places a free order with no card). Between nothing and the smallest card payment is not. */
+        if (p === null) return multi ? `Set a price for ${variantName(r.options)}` : "Set a price"
+        if (p > 0 && p < 50) return `${multi ? `${variantName(r.options)}: ` : ""}$0 or at least ${formatStoreMoney(50, currency)}`
       }
       if (rows.every((r) => !r.active)) return "Sell at least one variant"
       if (repeatedSkus(rows.map((r) => r.sku)).size) return "Two variants have the same SKU"

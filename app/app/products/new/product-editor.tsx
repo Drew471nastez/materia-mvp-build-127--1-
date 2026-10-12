@@ -441,7 +441,18 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [productType, setProductType] = useState<"digital" | "course" | "physical">(initial.productType)
   /* A physical product's stock, shipping and variants card (components/physical/product-cards.tsx): checked and saved with the product. */
   const physicalRef = useRef<PhysicalEditorHandle | null>(null)
-  const markPhysicalDirty = useCallback(() => setHasUnsavedChanges(true), [])
+  /*
+    A CHANGE OUTSIDE THE SNAPSHOT TURNS SAVE ON. The cards that keep their own
+    state (stock and shipping, custom fields, the per order limit, sales
+    channels) said "unsaved" and left `justSaved` set, and Save is off while
+    it is, so on a saved product a variant's new price, stock or photo could
+    not be saved. Both, always.
+  */
+  const markDirty = useCallback(() => {
+    setHasUnsavedChanges(true)
+    setJustSaved(false)
+  }, [])
+  const markPhysicalDirty = markDirty
   /* A course's lessons, counted by its card (./course-editor.tsx), for the publish check. */
   const [lessonCount, setLessonCount] = useState(0)
   const [showSalesBadge, setShowSalesBadge] = useState(initial.showSalesBadge)
@@ -561,8 +572,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [customFields, setCustomFieldsRaw] = useState<CustomField[]>(initial.customFields)
   const setCustomFields = useCallback((next: CustomField[]) => {
     setCustomFieldsRaw(next)
-    setHasUnsavedChanges(true)
-  }, [])
+    markDirty()
+  }, [markDirty])
   /* The FAQ card is folded to one line until it is opened or a question is added. */
   const [faqOpen, setFaqOpen] = useState(false)
 
@@ -604,8 +615,8 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
   const [orderLimit, setOrderLimitState] = useState<OrderLimitDraft>({ on: false, count: "" })
   const setOrderLimit = useCallback((next: OrderLimitDraft) => {
     setOrderLimitState(next)
-    setHasUnsavedChanges(true)
-  }, [])
+    markDirty()
+  }, [markDirty])
 
   // Stable handler for toggling variant assigned files - defined at component level to avoid closure issues
   const handleToggleVariantFile = useCallback((variantId: string, fileId: string) => {
@@ -3249,7 +3260,7 @@ export function ProductEditor({ creator: loadedCreator, loaded, startAs = "digit
                 ) : null}
               </div>
 
-              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} physical={productType === "physical"} cardClass={CARD} titleClass={CARD_TITLE} onChange={() => setHasUnsavedChanges(true)} />
+              <SalesChannelsCard ref={channelsRef} productId={productId ?? null} physical={productType === "physical"} cardClass={CARD} titleClass={CARD_TITLE} onChange={markDirty} />
 
               {/* Settings Section */}
               <div

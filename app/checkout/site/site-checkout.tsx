@@ -39,7 +39,7 @@ import * as React from "react"
 import { ChevronDown, MapPin, Minus, Package, Plus, ShoppingBag, Truck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { DEFAULT_CHECKOUT, type CheckoutConfig } from "@/lib/store/checkout-config"
-import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
+import { applyAdjusted, fieldPlan, missingField, sameLine, setLineQuantity, setLineVariant, siteSignInHref, visibleAttributes } from "@/lib/checkout/site-checkout"
 import { COUNTRIES, countryName } from "@/lib/checkout/countries"
 import { postalCodeRequired } from "@/lib/physical/address"
 import { postalKey } from "@/lib/physical/local-delivery"
@@ -56,6 +56,7 @@ import { DiscountForm, Totals } from "../parts/order-summary"
 import { BusinessFields } from "../parts/business-fields"
 import { PaidOverlay } from "../parts/success"
 import { StripePay, type IntentResult } from "../parts/stripe-pay"
+import { VariantEdit } from "../parts/variant-edit"
 import { ShopBar, type ShopBrand } from "../parts/shop-bar"
 import { HtmlClass } from "@/components/platform/html-class"
 import { OwnedNote, SiteOwned } from "./owned"
@@ -192,7 +193,8 @@ export function SiteCheckout({
     site shows the same cart. A Buy it now is not the cart and leaves it be.
   */
   const [limitNote, setLimitNote] = React.useState<string | null>(null)
-  const commitItems = (next: LinkItem[]) => {
+  /* `swap`: a line changed to another option here, so this browser's cart line follows it rather than being dropped. */
+  const commitItems = (next: LinkItem[], swap?: { productId: string; from: string | null; to: { variantId: string; variantName: string | null; priceCents: number } }) => {
     setItems(next)
     try {
       const url = new URL(window.location.href)
@@ -210,7 +212,8 @@ export function SiteCheckout({
       const raw = window.localStorage.getItem(key)
       if (raw) {
         const kept: CartLine[] = []
-        for (const l of parseCart(raw)) {
+        for (const was of parseCart(raw)) {
+          const l = swap && was.productId === swap.productId && (was.variantId ?? null) === swap.from ? { ...was, variantId: swap.to.variantId, variantName: swap.to.variantName, priceCents: swap.to.priceCents } : was
           const match = next.find((i) => sameLine(i, l) || sameLine({ productId: l.productId, variantId: l.variantId }, i))
           if (match && !kept.some((k) => k.productId === l.productId && (k.variantId ?? null) === (l.variantId ?? null))) kept.push({ ...l, quantity: match.quantity })
         }
@@ -903,6 +906,15 @@ export function SiteCheckout({
     setError(null)
     commitItems(setLineQuantity(items, line, quantity))
   }
+  /* Another option of the same product (a size, an edition): the line changes, the quote prices it all again. */
+  const changeVariant = (line: { productId: string; variantId: string | null }, variantId: string) => {
+    if (!items || !editable) return
+    const to = quote?.choices?.[line.productId]?.variants.find((v) => v.id === variantId)
+    if (!to) return
+    setLimitNote(null)
+    setError(null)
+    commitItems(setLineVariant(items, line, variantId), { productId: line.productId, from: line.variantId ?? null, to: { variantId, variantName: to.name || null, priceCents: to.priceCents } })
+  }
   const discountCents = t?.discountCents ?? 0
   const shippingPaid = t ? t.shippingCents - t.shippingDiscountCents : 0
   const details = quote ? (
@@ -913,7 +925,15 @@ export function SiteCheckout({
             <LineImage url={l.imageUrl} />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
-              {l.variantName ? <p className="mt-0.5 truncate text-[13px] text-[#6b7280]">{l.variantName}</p> : null}
+              <VariantEdit
+                choices={quote.choices?.[l.productId]}
+                currentId={l.variantId}
+                currentName={l.variantName}
+                title={l.title}
+                busy={quoting}
+                editable={editable}
+                onChange={(v) => changeVariant(l, v)}
+              />
               {editable ? (
                 <LineControls
                   title={l.variantName ? `${l.title}, ${l.variantName}` : l.title}
@@ -940,6 +960,10 @@ export function SiteCheckout({
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-[14px] font-medium leading-snug text-[#1a1a2e]">{l.title}</p>
               <p className="mt-0.5 text-[13px] text-[#b91c1c]">{l.available > 0 ? `Only ${l.available} left` : "Sold out"}</p>
+              {/* A size that sold out is changed to one in stock right here. */}
+              {editable && l.variantId && quote.choices?.[l.productId] ? (
+                <VariantEdit choices={quote.choices[l.productId]} currentId={l.variantId} currentName={null} title={l.title} busy={quoting} onChange={(v) => changeVariant(l, v)} />
+              ) : null}
               {editable ? (
                 <LineControls
                   title={l.title}

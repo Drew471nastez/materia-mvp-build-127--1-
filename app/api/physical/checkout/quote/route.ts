@@ -9,6 +9,7 @@ import { deliveryEstimate } from "@/lib/physical/rates"
 import { PICKUP_READY_LABEL } from "@/lib/physical/pickup"
 import { discountLabel, offerUnitPrice } from "@/lib/offers/offers"
 import { offerProducts } from "@/lib/offers/offers-server"
+import { variantChoices } from "@/lib/checkout/variant-choices-server"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -51,7 +52,11 @@ export async function POST(request: Request) {
   const region = typeof body.region === "string" ? body.region.slice(0, 120) : null
   /* The postal code only decides local delivery (lib/physical/local-delivery.ts). */
   const postalCode = typeof body.postalCode === "string" ? body.postalCode.slice(0, 20) : null
-  const q = await quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId)
+  /* What each line could be changed to (a size, an edition), read beside the delivery quote. A line at its own price keeps it. */
+  const [q, choices] = await Promise.all([
+    quoteCheckout(db, priced, country ? { country, region, postalCode } : null, body.deliveryOptionId),
+    variantChoices(db, items.filter((i) => typeof i.customPriceCents !== "number").map((i) => i.productId)),
+  ])
   return physicalJson({
     creatorId: priced.creatorId,
     lines: priced.lines.map((l) => ({
@@ -67,6 +72,7 @@ export async function POST(request: Request) {
       requiresShipping: l.requiresShipping,
     })),
     dropped: priced.dropped,
+    choices,
     stockIssues: priced.stockIssues,
     requiresShipping: priced.requiresShipping,
     coupon: priced.coupon ? { code: priced.coupon.code, label: priced.couponLabel, freeShipping: priced.freeShipping } : null,
